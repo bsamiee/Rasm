@@ -903,12 +903,17 @@ public static class ReceiptReplay {
 
 ## [05]-[BENCHMARK_CLAIMS]
 
-- Owner: `BenchmarkInput`, `BenchmarkClaim`, `ProfileArtifact` — the admitted tensor-shape/stride/density class, measured claim row bound to the Persistence `BenchmarkFamily` and admitted `CacheToken`, and the typed profile-evidence family; a claim is data, never prose. Gating them is `Rasm.AppHost/Runtime/determinism#DETERMINISM_KERNEL` `HostFingerprint`, the effective-host identity COMPOSED here as the claim's `host` column through this package's legal reference and extended with the two members only this domain decides — never re-declared.
+- Owner: `BenchmarkInput` owns the admitted tensor shape, stride, batch, density, and payload band.
+- Owner: `BenchmarkPolarity` owns the closed optimization direction.
+- Owner: `BenchmarkClaim` binds measured evidence to `BenchmarkFamily`, `CacheToken`, and `HostFingerprint`.
+- Owner: `ProfileArtifact` owns typed benchmark profile evidence.
 - Entry: `public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows)` — delegates fingerprint and recency admission to the Persistence `ModelResultIndex.Claim` owner (its horizon and clock are closed inside the index; no call shape can omit or replace them); `None` is the fall-through to the static cost rank on the substrate row. `public Option<Duration> Forecast(ModelResultIndex index, Seq<BenchmarkClaim> claims, Substrate substrate, long payloadBytes)` is the ONE duration-forecast query — it narrows the claims to the substrate row and the `BandOf` payload band, hands the survivors' minted rows to that same `Claim` gate, and answers the winner's `Median`; `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Forecast` binds it and re-derives no half of it.
 - Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the family, admitted case token, full input class, route, provider, and tolerance class, so claim admission refuses a zero-init case token — the struct value object's admission-bypassing ghost — beside the family check before identity forms. `Persist` delegates the durable mint to `BenchmarkFamily.Claim`, carrying operations, corpus, artifact key, timing, allocation, fingerprint, and timestamp without a parallel constructor; `Stale` compares the effective fingerprint through the spine record's generated structural equality, including the container-limited processor count `HostFingerprint.Effective` substitutes for the spine mint's ambient host count. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed `ProfileArtifact` cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop; the `ChromeTrace` case carries the `InferenceSession.ProfilingStartTimeNs` epoch beside it so a trace viewer aligns receipt-relative timestamps without re-opening the session.
 - Packages: BenchmarkDotNet, NodaTime, Generator.Equals (`[Equatable]`+`[OrderedEquality]`/`[IgnoreEquality]` — the BenchmarkInput diff rail; `HostFingerprint.EqualityComparer` read off the spine declaration), LanguageExt.Core, Rasm.AppHost (project — the declared `HostFingerprint` this claim composes), Rasm.Persistence (project), BCL inbox
-- Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; a new host dimension is one column at the AppHost declaration, never a Compute-side mirror; zero new surface.
+- Growth: A new performance surface is one claim row, and a new claim dimension is one `BenchmarkClaim` column.
+- Growth: Duration admits `BenchmarkPolarity.Minimize`; throughput and scores admit `BenchmarkPolarity.Maximize`.
+- Growth: A new host dimension lands on the AppHost declaration, never a Compute mirror.
 - Boundary: SIMD routes, compression, partitioning, DATAS values, and numeric-provider ranks bind only behind a winning claim whose full fingerprint and input class match. `Provider` carries the numeric-lane key while `Substrate` remains the execution discriminant. `Stamps` includes the provider determinism tag, admitted package versions, device identity, and runtime posture; every mint on this page goes through `HostFingerprint.Effective` so `Processors` carries `CpuBudget.Total`, never the ambient host count the spine's own `Current` reads under a container limit. Shape, strides, batch, density, route, and tolerance participate in identity, preventing a contiguous micro-vector claim from winning for a strided batched tensor. Samples, warmups, mean, deviation, median, and P95 remain claim evidence while Persistence owns recency. `ProfileArtifact` is the ONE profile-evidence vocabulary — `ChromeTrace` from the inference `EndProfiling` run, `BenchmarkExport` from a BenchmarkDotNet exporter, `EpContext` from the session fleet compile — replacing the loose path-string columns on `ModelRun` and `Artifacts` alike; identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence, and continuous profiles join by span identity through the `[03]-[TELEMETRY_PROJECTION]` trace correlation law, never as a fourth artifact case.
 
 ```csharp signature
@@ -1018,6 +1023,14 @@ public sealed partial record BenchmarkInput {
             .Match(Succ: static valid => valid, Fail: static _ => false);
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BenchmarkPolarity {
+    public static readonly BenchmarkPolarity Minimize = new("minimize");
+    public static readonly BenchmarkPolarity Maximize = new("maximize");
+}
+
 public sealed record BenchmarkClaim {
     private BenchmarkClaim(
         BenchmarkInput input,
@@ -1026,6 +1039,7 @@ public sealed record BenchmarkClaim {
         CacheToken @case,
         string route,
         string provider,
+        BenchmarkPolarity polarity,
         Duration mean,
         Duration median,
         Duration p95,
@@ -1047,6 +1061,7 @@ public sealed record BenchmarkClaim {
         Case = @case;
         Route = route;
         Provider = provider;
+        Polarity = polarity;
         Mean = mean;
         Median = median;
         P95 = p95;
@@ -1070,6 +1085,7 @@ public sealed record BenchmarkClaim {
     public CacheToken Case { get; }
     public string Route { get; }
     public string Provider { get; }
+    public BenchmarkPolarity Polarity { get; }
     public Duration Mean { get; }
     public Duration Median { get; }
     public Duration P95 { get; }
@@ -1105,6 +1121,7 @@ public sealed record BenchmarkClaim {
         CacheToken @case,
         string route,
         string provider,
+        BenchmarkPolarity polarity,
         Duration mean,
         Duration median,
         Duration p95,
@@ -1128,6 +1145,7 @@ public sealed record BenchmarkClaim {
             + (string.IsNullOrWhiteSpace((string)@case) ? Seq("case") : Seq<string>())
             + (string.IsNullOrWhiteSpace(route) ? Seq("route") : Seq<string>())
             + (string.IsNullOrWhiteSpace(provider) ? Seq("provider") : Seq<string>())
+            + (polarity is null ? Seq("polarity") : Seq<string>())
             + (mean < Duration.Zero || median < Duration.Zero || p95 < median || stdDev < Duration.Zero ? Seq("distribution") : Seq<string>())
             + (samples < 2 || warmups < 0 ? Seq("protocol") : Seq<string>())
             + (allocatedBytes < 0L ? Seq("allocation") : Seq<string>())
@@ -1142,13 +1160,13 @@ public sealed record BenchmarkClaim {
                 epContext: static context => string.IsNullOrWhiteSpace(context.Ep))) ? Seq("artifact") : Seq<string>());
         return violations.IsEmpty
             ? Fin.Succ(new BenchmarkClaim(
-                input, substrate, family, @case, route, provider, mean, median, p95, stdDev, samples, warmups,
+                input, substrate, family, @case, route, provider, polarity, mean, median, p95, stdDev, samples, warmups,
                 allocatedBytes, operations, corpus, artifactKey, equivalenceMaxDeviation, toleranceClass, fingerprint, artifacts, at))
             : Fin.Fail<BenchmarkClaim>(new ComputeFault.EquivalenceMiss($"<benchmark-claim-rejected:{string.Join(',', violations)}>"));
     }
 
     public string Key() => string.Create(CultureInfo.InvariantCulture,
-        $"{Family.Key}|{(string)Case}|{Input.Key()}|{Substrate.Key}|{Route}|{Provider}|{ToleranceClass}");
+        $"{Family.Key}|{(string)Case}|{Input.Key()}|{Substrate.Key}|{Route}|{Provider}|{Polarity.Key}|{ToleranceClass}");
 
     // This family owns the durable mint and its refusals, so the rail is the family's own — a claim admitted here
     // can still fail the row invariants persistence holds, and swallowing that leaves a forecast reading a row
@@ -1215,7 +1233,15 @@ public sealed record ComputeHookRail(
 - Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `ProfileArtifactWire`, `BenchmarkClaimWire`, `ComputePanelWire`, `AlertSpecWire`, `CostVectorWire`, `ChargebackDatasetWire` — the receipt payload union, profile-evidence union, claim document with its subject union and band, descriptor rows, and chargeback rows as the dashboard and the composing app root consume them. `BenchmarkClaimWire.host` binds the AppHost-minted `HostFingerprintWire` (`tests/contracts/MANIFEST.md` `[02.15]-[HOST_FINGERPRINT]`) by import, never a mirrored declaration.
 - Packages: BCL inbox
 - Growth: a new receipt case lands as one payload row on `ComputeReceiptWire`; a new panel or alert axis lands as one field on its descriptor wire, and a new kernel `Sli`, `InstrumentKind`, `PanelKind`, `BurnRow`, or `AlertSeverity` row lands as one arm or key on the wire union mirroring it; zero new surface.
-- Boundary: `ComputeReceiptKind` is a generated projection of `ReceiptSurface.Kinds` — emitted during the descriptor build and gated by the suite schema hash, never a hand-maintained mirror; payloads bind as `TPayload` through `ReceiptEnvelopeWire` with the envelope `kind` mirroring the payload discriminator; smart-enum spine fields cross as their key scalars, so `SliWire` spells one arm per kernel `[JsonDerivedType]` case and the `Saturation` polarity column crosses beside its bound — a union short an arm refuses a whole sink's alerts at the typed boundary, and a dropped polarity compiles every floor indicator as a ceiling breach; `long` values cross as invariant decimal strings through `Int64StringJsonConverter`, while `Instant` and `Duration` cross as ISO-8601 and roundtrip-pattern strings; `ProfileArtifactWire` mirrors the `ProfileArtifact` `[JsonDerivedType]` roster with `ContentAddress` crossing as its invariant hex string and `ulong StartNs` as a decimal string; absent evidence crosses as explicit null, never as an omitted member; the `[10]-[DASHBOARD_DESCRIPTOR]` descriptor rows and `[09]-[COST_LEDGER]` chargeback rows generate during the same descriptor build under the same schema hash, a panel row crossing its break keys beside its widget so the compile leg splits series without re-reading a meter it cannot reach, `UInt128` content keys cross as invariant hex strings through `UInt128HexJsonConverter`, the chargeback `tenant` mirrors the AppHost `TenantContextWire`, and a process-scoped chargeback row crosses its `route` as explicit null; `BenchmarkClaimWire` crosses as the one host-admitted document `tests/contracts/` `BENCHMARK_CLAIM` binds, so the fingerprint and the mint instant ride the document that one sweep produces, the subject union keeps the kernel coordinate off a bare probe row instead of widening every column to optional, each band rung crosses populated only where this sweep computes it and a peer grading an uncomputed rung refuses by axis rather than reading a fabricated value, and the distribution crosses as nanosecond numbers — the one carve on the `Duration` roundtrip-string law above, because a percentile ladder is arithmetic at every consumer.
+- Boundary: `ComputeReceiptKind` derives from `ReceiptSurface.Kinds` under the suite schema hash.
+- Boundary: `ReceiptEnvelopeWire.kind` mirrors the payload discriminator.
+- Boundary: Smart-enum fields cross as keys, and `SliWire` mirrors every kernel SLI arm and saturation polarity.
+- Boundary: Long values cross as decimal strings; instants and durations use their invariant textual forms.
+- Boundary: `ProfileArtifactWire` mirrors profile cases, content addresses, and decimal `StartNs`.
+- Boundary: Optional evidence crosses as explicit null.
+- Boundary: Descriptor and chargeback rows share one schema-hashed build.
+- Boundary: `BenchmarkMetricWire.polarity` projects `BenchmarkClaim.Polarity.Key` without hardcoding a direction.
+- Boundary: Benchmark distributions cross as nanoseconds because every consumer performs arithmetic on the rungs.
 
 ```ts signature
 type ReceiptScopeWire =
@@ -1331,7 +1357,7 @@ type BenchmarkRungWire = "min" | "max" | "avg" | "p25" | "p50" | "p75" | "p95" |
 
 interface BenchmarkBandWire { sampleCount: number; rungs: Partial<Record<BenchmarkRungWire, number>>; ticks: number | null; samples: number[] | null; gc: BenchmarkAggregateWire | null; heap: BenchmarkAggregateWire | null; counters: Record<string, number> | null; }
 
-interface BenchmarkMetricWire { label: string; unit: string; modality: "fn" | "iter" | "yield"; subject: BenchmarkSubjectWire; band: BenchmarkBandWire; warmups: number | null; allocatedBytes: string | null; operations: string | null; }
+interface BenchmarkMetricWire { label: string; unit: string; modality: "fn" | "iter" | "yield"; polarity: "minimize" | "maximize"; subject: BenchmarkSubjectWire; band: BenchmarkBandWire; warmups: number | null; allocatedBytes: string | null; operations: string | null; }
 
 interface BenchmarkClaimWire { suite: string; host: HostFingerprintWire; minted: string; metrics: BenchmarkMetricWire[]; }
 

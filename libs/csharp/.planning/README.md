@@ -59,7 +59,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
 - `Speckle.Sdk` — the `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
 - `Speckle.Objects` — the geometry roster and `DataObject` host-object family over `Base`.
-- `Unofficial.laszip.netstandard` — one managed LAS/LAZ codec for two consumers: Bim scan-to-BIM decode, Persistence chunked residence and `.lax` windowed reads.
+- `Unofficial.laszip.netstandard` — one managed LAS/LAZ codec behind scan-to-BIM decode, chunked residence, and `.lax` windowed reads.
 
 [MESH_PROCESSING]:
 - `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
@@ -141,6 +141,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
 - `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion rail over any instrument.
+- `Polly.Testing` — `ResiliencePipelineDescriptor` composition inspection over a built resilience pipeline.
 - `Microsoft.Testing.Platform`
 - `BenchmarkDotNet`
 - `Verify.XunitV3` + `Verify.DiffPlex` — architecture and generator snapshot laws.

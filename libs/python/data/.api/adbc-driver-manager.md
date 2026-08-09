@@ -78,7 +78,7 @@
 [ENTRYPOINT_SCOPE]: cursor execution and fetch
 - `adbc_ingest` carry: `adbc_ingest(table_name, data, mode='create', *, catalog_name=None, db_schema_name=None, temporary=False)`
 
-[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.ADBC` at `DriverKind.MANAGER`; one `_dbapi` leg opens `cursor(adbc_stmt_kwargs=)` once and every `RemoteOp` rides it, `adbc_execute_partitions`/`adbc_read_partition` pairing rebind-and-fetch per descriptor, `adbc_ingest` projecting its row count as the op's evidence table, and `adbc_get_table_schema` composing the `catalog_filter`/`db_schema_filter` pair.
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.ADBC` at `DriverKind.MANAGER`; `_opened` brackets one `connect` and one `cursor(adbc_stmt_kwargs=)` for every DBAPI leg, `_partition_plan` collects the `adbc_execute_partitions` descriptors and closes so a descriptor travels alone, `_partition_leg` reopens its own bracket per descriptor and drains the result-clearing `adbc_read_partition` off `fetch_arrow_table`, `adbc_ingest` projects its row count as the op's evidence table, and `adbc_get_table_schema` composes the `catalog_filter`/`db_schema_filter` pair.
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------- | :------- | :------------------------------------------ |
@@ -102,18 +102,22 @@
 |  [18]   | `Cursor.description`                                     | property | DBAPI column description                    |
 
 [ENTRYPOINT_SCOPE]: connection metadata
-- Every member is an instance method on `Connection`.
+- Every member binds on `Connection`, the two `adbc_current_*` rows as settable properties issuing the `ConnectionOptions` key and the rest as instance methods.
 - `adbc_get_objects` carry: `adbc_get_objects(*, depth='all', catalog_filter=None, db_schema_filter=None, table_name_filter=None, table_types_filter=None, column_name_filter=None)`
 - `adbc_get_statistics` carry: `adbc_get_statistics(*, catalog_filter=None, db_schema_filter=None, table_name_filter=None, approximate=True)`
 - `adbc_get_table_schema` carry: `adbc_get_table_schema(table_name, *, catalog_filter=None, db_schema_filter=None)`
 
-| [INDEX] | [SURFACE]                           | [CAPABILITY]                          |
-| :-----: | :---------------------------------- | :------------------------------------ |
-|  [01]   | `Connection.adbc_get_info()`        | driver/vendor info code mapping       |
-|  [02]   | `Connection.adbc_get_objects`       | catalog/schema/table/column hierarchy |
-|  [03]   | `Connection.adbc_get_table_schema`  | `pyarrow.Schema` for one table        |
-|  [04]   | `Connection.adbc_get_table_types()` | supported table type list             |
-|  [05]   | `Connection.adbc_get_statistics`    | table statistics reader               |
+| [INDEX] | [SURFACE]                               | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------- | :------------------------------------------- |
+|  [01]   | `Connection.adbc_get_info()`            | driver/vendor info code mapping              |
+|  [02]   | `Connection.adbc_get_objects`           | catalog/schema/table/column hierarchy        |
+|  [03]   | `Connection.adbc_get_table_schema`      | `pyarrow.Schema` for one table               |
+|  [04]   | `Connection.adbc_get_table_types()`     | supported table type list                    |
+|  [05]   | `Connection.adbc_get_statistics`        | table statistics reader                      |
+|  [06]   | `Connection.adbc_get_statistic_names()` | statistic-name vocabulary the driver reports |
+|  [07]   | `Connection.adbc_current_catalog`       | read/write the active catalog                |
+|  [08]   | `Connection.adbc_current_db_schema`     | read/write the active schema                 |
+|  [09]   | `Connection.adbc_cancel()`              | cancel every in-flight operation             |
 
 [ENTRYPOINT_SCOPE]: low-level handle operations
 - `AdbcConnection` setup: `.set_autocommit(enabled)` `.set_options(**kwargs)` `.get_option(key)`

@@ -1,6 +1,6 @@
 # [DATA_FILE]
 
-Filesystem and derivative planes share one content identity. Platform `FileSystem` streams intake through digest and conditional put, scopes temp staging, and watches drop directories. ONE derivative spine opens a verified source once, admits rows against its facts, emits per row, mints each product's `ContentKey`, conditionally re-puts, and refers — the engine is a `Derive.Plane` row, and `_RASTER` is a CATEGORY row on it exactly as the container and `ktx` engines at `object/asset.md` are, so `Asset.pipe` is the one fan-out entry and this page publishes the spine and the raster plane, never a second entry over them.
+Filesystem and derivative planes share `Digest.Key<"content">`. One spine opens, admits, emits, mints, conditionally stores, and refers.
 
 A rendition row carries its codec's own option record: `format` and `options` correlate through one generated union off the codec table, so a `quality`, `effort`, or `lossless` the roster states is spellable and a row naming a codec the build cannot emit refuses at construction. The `raw` row is the deep-store producer the `ktx` headerless leg consumes, the channel-assembly row gathers component bands into the frozen packing orders, and the source's own pixel analysis lifts once per fan-out to seed placeholder colour, retire a redundant alpha channel, and pick each row's grade off a declared entropy ladder.
 
@@ -16,31 +16,34 @@ Gates bound hostile input before any native decode. Renditions are roster rows, 
 ## [02]-[FILE_PLANE]
 
 - Owner: `Disk` — the file-side verbs over the platform capability Tags: `intake` (host file → app admission veto → identity fold → conditional put → reference row, owner parameterized), `seal` (the veto-free two-pass fold every internally minted file lands through), `stage` (scoped temp file whose teardown rides the `Scope`), `watch` (a settle-guarded drop directory as a `Stream` of intake admissions), `egress` (content object → file sink, streamed).
-- Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs); `journal/append.md` (`Hook` — the `objectAdmit` admission taps).
+- Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs); `journal/append.md` (`Hook` — the `objectAdmit` admission taps; `HookVeto` — the `denied`-class refusal intake keeps typed).
 - Entry: an artifact producer lands its output through `Disk.intake(path, retention)`; a peer-runtime handoff directory rides `Disk.watch(dir)` feeding the same intake; a served export streams out through `Disk.egress(key, path)` — every verb yields the platform Tags on `R` and the runtime binding stays a root row.
 - Receipt: intake answers the object receipt with file `stat` evidence — `{ key, bytes, written, path }` — tying filesystem coordinate to durable key.
 - Growth: a new intake posture (move-after-intake, verify-only) is an options field; a new source (an archive member walk) is one more lift into the same fold.
+- Boundary: this plane DECIDES NO TENANCY — the key is the content, so two tenants landing identical bytes land one object, and the reference row's owner is custody attribution rather than isolation; the tenancy axis stays `lane/tenant`'s session pinning, and a caller needing tenant-private bytes seals them before intake sees them.
+- Law: intake FORFEITS the non-seekable source — identity and storage are two bounded passes over one path, so a FIFO, a socket, and a single-shot pipe carry no second read and cannot intake; a producer holding such a source stages it through `Disk.stage` first, whose lifetime ends with the `Scope` rather than with a retention class.
 - Law: intake never buffers the file — identity is content-addressed, so the key cannot exist before the last byte is hashed, and intake is therefore TWO bounded streaming passes over the seekable file: `fs.stream(path)` feeds the `Rail` identity fold, then a fresh `fs.stream(path)` feeds the streaming conditional put — constant memory at any size; a `readFile` single-pass intake is the memory defect the rail already bans.
 - Law: `Disk.seal` is that two-pass fold ALONE and `Disk.intake` is the fold under the host-file postures — the `stat` read, the app admission veto, the reference row, the observe fan; an internally minted file (a staged tile pyramid, a spawned encoder's product) lands through `seal` and takes its reference row from the derivative spine's own tail, so a veto written to refuse untrusted uploads can never refuse this branch's own product and no `(key, owner)` pair is referred twice.
 - Law: every file-side verb carries its own span — `data.seal` on the two-pass identity fold every landing shares, `data.intake` on the host-file admission wrapping it, `data.watch` on the watcher acquire, `data.egress` on the streamed export — so a stalled drop directory, a refused candidate, and an internally minted product all read as evidence beside `data.fanout`; the span rides the FOLD rather than the veto-bearing wrapper, because the derivative spine lands through `seal` alone and a span placed on `intake` alone leaves every internally minted product untraced.
 - Law: temp staging is scoped — `makeTempFileScoped` ties the temp file's deletion to the `Scope`, so an interrupted derivative pass or a failed intake leaks nothing; a hand-managed temp path is the rejected spelling.
-- Law: the watch stream is admission, not truth — a watched drop directory emits candidate paths, each admitted through the same gated intake, and every candidate settles as an `Either` element on the success channel: `Either.right` the intake receipt (412 dedup included), `Either.left` the candidate's own `ObjectFault` — so one malformed file never ends the long-lived source, and only watcher transport failure fails the stream itself.
+- Law: the watch stream is admission, not truth — a watched drop directory emits candidate paths, each admitted through the same gated intake, and every candidate settles as an `Either` element on the success channel: `Either.right` the intake receipt (412 dedup included), `Either.left` the candidate's own refusal, `ObjectFault` from the filesystem and store legs or `HookVeto` from an app policy — so one malformed file never ends the long-lived source, and only watcher transport failure fails the stream itself.
 - Law: intake watching rides chokidar with the settle guard MANDATORY — `awaitWriteFinish` holds `add`/`change` until size stabilizes so a half-written file is never digested into a wrong content key, `atomic` absorbs editor rename-swap artifacts, selection is `ignored` predicate rows (never glob strings), the `all` listener lifts through `Stream.asyncPush`, and release AWAITS `close()`; `poll` and `depth` ride the options row for network mounts and bounded trees, and platform `FileSystem.watch` survives only for non-intake observation where a raw event suffices.
 - Law: direct `node:fs` imports are banned on this plane — capability rides the Tag, the tracing and error rail come with it; chokidar and the platform binding are the only places a filesystem module name exists.
 - Law: the gated intake carries the `rasm.data.object.admit` hook point — the veto runs on the path candidate with its `stat` size before a byte is hashed, so app policy refuses at the admission seam, and the observe fan runs on the landed receipt after the reference row commits; both compose the optional registry, so a composition without hooks pays nothing.
+- Law: `HookVeto` rides the intake channel WHOLE and never folds into `ObjectFault` — the veto's `denied` class is caller-blamed and non-retryable, the only `ObjectFault` reason a policy refusal fits is `io`, and `io` classes `unavailable`, the arm the recovery rail re-drives; re-spelling hands an armed app policy to that retry loop, so intake states `ObjectFault | HookVeto` and each fault keeps its own family's class.
 
 ```typescript signature
 import { Effect, Either, Option, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
-import { ContentKey } from "@rasm/ts/core"
+import { Digest } from "@rasm/ts/core"
 import { Hook } from "../journal/append.ts"
 import { ObjectFault, ObjectStore } from "./store.ts"
 import { Rail } from "./stream.ts"
 import type { Retain } from "../journal/retain.ts"
 
 declare namespace Disk {
-  type Intake = { readonly key: ContentKey; readonly bytes: number; readonly written: boolean; readonly path: string }
+  type Intake = { readonly key: Digest.Key<"content">; readonly bytes: number; readonly written: boolean; readonly path: string }
   type Matcher = RegExp | ((path: string) => boolean)
   type WatchOptions = {
     readonly ignored?: ReadonlyArray<Matcher>
@@ -78,10 +81,11 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
     const store = yield* ObjectStore
     const held = yield* Effect.mapError(fs.stat(path), (fault) => new ObjectFault({ reason: "io", key: path, detail: fault.message }))
     const custodian = owner ?? `disk:${path}`
-    yield* Effect.mapError(
-      Hook.gated("objectAdmit", { key: path, owner: custodian, bytes: Option.some(Number(held.size)) }),
-      (veto) => new ObjectFault({ reason: "io", key: path, detail: veto.detail }),
-    ) // app policy refuses at the HOST-file admission seam, before a byte is hashed; the derivative spine lands through _sealed and never reaches here
+    // HookVeto crosses UNMAPPED: app policy refuses at the HOST-file admission seam before a byte is hashed, and the
+    // veto's own `denied` class is what keeps the refusal off the re-driven arm; folding it into an `io` ObjectFault
+    // would re-class a caller-blamed refusal as unavailable boundary work. Derivatives land through _sealed and
+    // never reach this gate.
+    yield* Hook.gated("objectAdmit", { key: path, owner: custodian, bytes: Option.some(Number(held.size)) })
     const receipt = yield* _sealed(path)
     yield* store.refer(receipt.key, custodian, retention) // Derived retention tag lands with the reference row.
     yield* Hook.tapped("objectAdmit", { key: receipt.key, owner: custodian, bytes: Option.some(receipt.bytes) }) // observe fan on the landed receipt
@@ -116,7 +120,7 @@ const _watch = (dir: string, retention: Retain.Class, options?: Disk.WatchOption
 
 const _stage = Effect.flatMap(FileSystem.FileSystem, (fs) => fs.makeTempFileScoped())
 
-const _egress = (key: ContentKey, path: string) =>
+const _egress = (key: Digest.Key<"content">, path: string) =>
   Effect.flatMap(FileSystem.FileSystem, (fs) => Stream.run(Rail.range(key), fs.sink(path))).pipe(
     Effect.withSpan("data.egress", { attributes: { key, path } }),
   )
@@ -124,12 +128,13 @@ const _egress = (key: ContentKey, path: string) =>
 
 ## [03]-[CODEC_GATE]
 
-- Owner: the untrusted-input posture — the `_GATE` ingress options, the blocked-loader roster applied once at module admission, the per-pipeline deadline — and the module governance rows (`cache`, `concurrency`, `simd`, the `sharp.format` capability read) that bound the native runtime and refuse an unbuildable rendition roster at boot.
+- Owner: the untrusted-input posture — the `_GATE` ingress options, the blocked-loader roster applied once at module admission, the per-pipeline deadline — and the module governance rows (`cache`, `concurrency`, `simd`, the `sharp.format` capability read, the `_PYRAMID` tile-codec roster) that bound the native runtime and refuse an unbuildable rendition roster at boot.
 - Packages: `sharp` (`SharpOptions` — `failOn`, `limitInputPixels`, `unlimited`, `autoOrient`; `sharp.block`, `sharp.cache`, `sharp.concurrency`, `sharp.simd`, `sharp.format`, `sharp.versions`, `timeout`; `RawOptions.depth` over `keyof DepthEnum`).
-- Entry: every decode on this plane opens through `_GATE`; `_governed(options, roster)` runs once at service construction — the loader block lands, the runtime tunes, and every roster row proves its codec against `sharp.format` so no ungated call site and no per-request format refusal can exist afterward.
+- Entry: every decode on this plane opens through `_GATE`; `_governed(options, roster)` runs once at service construction — the loader block lands, the runtime tunes, every roster row proves its codec against `sharp.format`, and every tile row proves it again against `_PYRAMID`, so no ungated call site and no per-request format refusal can exist afterward.
 - Growth: an admitted loader is a roster edit (an empty roster blocks nothing); a workload class with its own pixel ceiling is a second gate row selected by the fan-out's caller, never an inline override.
 - Law: the gate precedes the decode — `failOn: "warning"` aborts on suspect input, `limitInputPixels` bounds decompression exposure, `unlimited` stays false, `autoOrient` normalizes EXIF rotation, and a `timeout` rides every pipeline; user bytes never reach an ungated loader.
-- Law: governance is process policy — the libvips operation cache, the threadpool width, and the SIMD toggle are service-construction facts from configuration, because the derivative plane shares its process with the serving plane and unbounded native concurrency starves it; a roster row whose format the build cannot emit (buffer terminal, or file terminal for tile rows) fails construction as a `gate` fault, never a request.
+- Law: governance is process policy — the libvips operation cache, the threadpool width, and the SIMD toggle are service-construction facts from configuration, because the derivative plane shares its process with the serving plane and unbounded native concurrency starves it; a roster row whose format the build cannot emit (buffer terminal, or file terminal under pyramid membership for tile rows) fails construction as a `gate` fault, never a request.
+- Law: pyramid legality is `_PYRAMID`, never the codec's own file-output column — `dzsave` reads the pending format and admits `jpeg`, `png`, and `webp` ALONE, so `gif` and `tiff` pass an `output.file` read and refuse at the encode, which is exactly the per-request refusal class this gate exists to delete; the roster is the type-level closure on `[4]`'s tile arm AND this gate's second column, so a declared roster and a decoded one meet one refusal.
 - Law: the `raw` row is the DEEP-STORE PRODUCER — `raw({ depth })` over `keyof DepthEnum` emits headerless pixels at `ushort`, `float`, or any other libvips band width, which is exactly the headerless posture `object/asset.md`'s `--raw --width --height` leg already classifies and had no producer for; seven of ten `_STORES` rows are deep, sharp encodes no EXR, and without this row the only deep route is an externally authored file that skips the derivative spine outright. `DepthEnum` is an INTERFACE keyed by band-width name (`char`..`ushort` beside `complex`/`dpcomplex`), so `keyof DepthEnum` is the sound spelling and a widened `string` admits a depth libvips refuses. The boot roster proof reads `sharp.format.raw` like every other row and settles the FORMAT alone — `sharp.format` carries output capability per codec and no per-depth column exists — so the declared `keyof DepthEnum` column is the only depth gate that fires before a request and a band width this libvips build lacks refuses at the terminal as an `encode` fault.
 - Law: sharp is server-plane native — no browser or wasm path imports it; the browser consumes grants, never the codec.
 
@@ -145,6 +150,10 @@ const _GATE = {
 
 const _DEADLINE = { seconds: 20 } as const
 
+// `dzsave` reads the PENDING format and admits these three alone, so pyramid legality is this roster and never the
+// codec's own file-output column: gif and tiff both answer `output.file` true and refuse the moment `tile` fires
+const _PYRAMID = ["jpeg", "png", "webp"] as const
+
 const _governed = (
   options: { readonly blockedLoaders: ReadonlyArray<string>; readonly cacheMb: number; readonly threads: number; readonly simd: boolean },
   roster: ReadonlyArray<Derive.Spec>,
@@ -158,7 +167,9 @@ const _governed = (
     }),
     Effect.forEach(roster, (spec) => {
       const capability = sharp.format[spec.format]
-      const emits = spec.terminal === undefined ? capability?.output.buffer : capability?.output.file
+      const emits = spec.terminal === undefined
+        ? capability?.output.buffer
+        : capability?.output.file === true && Array.contains(_PYRAMID, spec.format)
       return emits === true
         ? Effect.void
         : Effect.fail(new DeriveFault({ stage: "gate", key: spec.name, detail: spec.format }))
@@ -169,17 +180,21 @@ const _governed = (
 ## [04]-[DERIVATIVE_ROWS]
 
 - Owner: the plane contract and the raster row family — `Derive.Plane` is the engine row `{ name, open, admit, emit }` the spine folds (raster here, container and `ktx` at `object/asset.md`), `Derive.Row` the envelope every engine's rows share (`name`, `retention`, `grant`), `Derive.Spec` the raster row over it, discriminated `kind: "raster"` so it enters the one category-general entry beside its siblings — rendition policy is one row, `toFormat` is the codec dispatch, tile is the alternate terminal, channel assembly is the alternate chain head, and `OutputInfo` with the source's own measures is evidence.
-- Packages: `sharp` (`clone`, `resize`, `composite`, `extractChannel`, `joinChannel`, `removeAlpha`, `toColourspace`, `toFormat`, `raw`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `Channels`, `DepthEnum`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputInfo`, and the per-codec `JpegOptions`/`PngOptions`/`WebpOptions`/`HeifOptions`/`JxlOptions`/`GifOptions`/`Jp2Options`/`RawOptions`/`TiffOptions` records); `@rasm/ts/core` (`Texture` — the frozen `Pack` vocabulary the assembly row's tag closes against).
+- Packages: `sharp` (`clone`, `resize`, `composite`, `extractChannel`, `joinChannel`, `removeAlpha`, `toColourspace`, `toFormat`, `raw`, `tile`, `toUint8Array`, `toBuffer`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `Channels`, `DepthEnum`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputInfo`, and the per-codec `JpegOptions`/`PngOptions`/`WebpOptions`/`HeifOptions`/`JxlOptions`/`GifOptions`/`Jp2Options`/`RawOptions`/`TiffOptions` records); `@rasm/ts/core` (`Wire.Texture` — the frozen `Pack` vocabulary the assembly row's tag closes against).
 - Entry: an app declares its rendition roster once (`thumbnail`/`preview`/`master`/`deepzoom`/`orm` rows) and hands it to `Asset.pipe` beside its container and `ktx` rows; format capability gates through `_governed`'s `sharp.format` read at construction so an unbuildable row refuses at boot, never per request.
 - Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant, measure }` — the row name, the derivative's own content key, the presigned `ObjectStore.Grant` its row's policy asked for, the codec provenance, the optional placeholder color seeded from `stats().dominant`, and the source measures the encode consumed.
 - Growth: a rendition is one roster row; admission, overlay, channel assembly, pyramid layout, alpha posture, grade ladder, retention, and grant posture are fields on that row, never format paths.
 - Law: `format` and `options` correlate at the DECLARATION — one generated arm per output codec off the interior codec table, so a `webp` row cannot carry a jpeg knob and the roster's stated `quality`/`effort`/`lossless` policy is spellable; `OutputOptions` declares `force?: boolean` and nothing else, so typing the column to it rejected every option the page's own law promised while the call site still compiled through the union `toFormat` accepts. The table closes against `FormatEnum` in one direction at the type level and in the other at the boot gate, because output capability is a build fact `sharp.format[key].output` answers and no type can carry; AVIF has no `FormatEnum` key at all and rides the `heif` row under `compression: "av1"`, so the capability read stays total.
+- Law: `heif` is the ONE arm whose options are MANDATORY — the codec selects `av1` or `hevc` through `compression` and carries no default, so an omitted record refuses inside libvips with a bare option-shape message carrying no row name; the arm states `options` required while every sibling keeps it optional, and the encode's grade substitution therefore never widens a required record to `undefined`.
 - Law: `toFormat` is the one codec dispatch — the per-format methods are aliases it generalizes, and a `jpeg()`/`png()`/`webp()` ladder is the named defect; the tile row's `terminal` selects the pyramid arm (`layout: dz | iiif | iiif3 | zoomify | google`) whose container lands through `Disk.seal` under the spine's own reference tail.
+- Law: the `terminal` column exists on the PYRAMID arms alone — `Derive.Pyramid` is `_PYRAMID`'s own type, the generated union grants the column to those three keys and types it `never` on every other, so a `gif` or `tiff` row carrying a pyramid refuses where it is written rather than at `_governed`; the gate's own second column then catches the same row when the roster arrives decoded.
+- Law: the pyramid terminal PINS `container: "zip"` and the row cannot spell it — `TileOptions.container` defaults to `fs`, which writes a tile DIRECTORY, and every landing on this plane is a single-file two-pass stream, so a row left holding that knob stages a directory the seal cannot open and fails at the filesystem with no row name on the refusal; the column is `Omit<TileOptions, "container">` and one pyramid is one content-addressed archive by construction.
 - Law: metadata preservation is a roster column — `keep: "icc"` re-attaches the color profile through `keepIccProfile` (the master row), `keep: "all"` carries the full block through `keepMetadata`, and the default strips everything, the public-derivative privacy posture — never a call-site toggle.
 - Law: `metadata()` and `stats()` are the decision reads and each lifts ONCE per fan-out — `metadata()` feeds every row's `admit` vote (an SVG source never reaches a raster row unless its row admits it), `stats()` runs once when any admitted row declares a `placeholder`, an `alpha` posture, or a `grade` ladder, and its whole record then serves every asking row — a per-row pixel analysis is the named waste, and a lift gated on the placeholder column alone paid for one field and discarded three.
-- Law: the analysis record drives three decisions and rides the receipt as evidence — `dominant` seeds the placeholder color, `isOpaque` retires a redundant alpha channel under `alpha: "opaque"` (a fully opaque source encodes three channels instead of four, which is a narrower `_STORES` row on the `ktx` side and a straight byte saving on every lossy row), and `entropy` selects the row's quality off a declared descending ladder so a flat plane and a photographic plane stop sharing one hardcoded number; `sharpness` is the third measure and rides the receipt beside them, so a consumer reads WHY a row took its grade without re-running the analysis. The ladder read is an `Option` fold — no rung met leaves the row's declared options untouched, so a partial ladder forges no quality number.
+- Law: the analysis record drives three decisions and rides the receipt as evidence — `dominant` seeds the placeholder color, `isOpaque` retires a redundant alpha channel under `alpha: "opaque"`, and `entropy` selects the row's quality off a declared descending ladder so a flat plane and a photographic plane stop sharing one hardcoded number; `sharpness` is the third measure and rides the receipt beside them, so a consumer reads WHY a row took its grade without re-running the analysis. The ladder read is an `Option` fold — no rung met leaves the row's declared options untouched, so a partial ladder forges no quality number.
+- Law: alpha retirement is a RASTER-TERMINAL posture and the texture route takes the same quarter at EGRESS — a retired plane carries three channels, the frozen roster declares no three-channel plane store, and the ktx channel floor refuses a container declaring more than its bytes prove, so a row feeding a texture leaves `alpha` unset and the container holds four; `object/asset.md`'s `transcode` target spells `rgb8` where three channels ARE legal, so the saving lands at delivery rather than in the declaration, and only the declared plane store is refused.
 - Law: `composite` is a row-driven step and `assemble` is a row-driven chain HEAD — watermarks and badges are `OverlayOptions` rows chained before the terminal, while the assembly row replaces the decoded source as the pipeline's input by gathering one band per pack position; both are roster data, never a second pipeline.
-- Law: the assembly row names its pack and its bands POSITIONALLY — `Texture.Pack` is the frozen order vocabulary the tag closes against and the position IS the slot, so the row spells no role and holds no copy of the order's role triple. The core anchor exports the pack tuple ALONE; a pack's role columns are the interchange owner's own legality, read where a set document is proved, so a role table minted on this plane is exactly the second vocabulary that carve forecloses.
+- Law: the assembly row names its pack and its bands POSITIONALLY — `Wire.Texture.Pack` is the frozen order vocabulary the tag closes against and the position IS the slot, so the row spells no role and holds no copy of the order's role triple. The core anchor exports the pack tuple ALONE; a pack's role columns are the interchange owner's own legality, read where a set document is proved, so a role table minted on this plane is exactly the second vocabulary that carve forecloses.
 - Law: a band states its own origin — `source` reads the fan-out's own decoded plane, `plane` fetches a sibling by content key, `level` writes a declared constant — so the arm set is total and a component the source lacks writes the constant its ROW declares rather than a neutral read out of a foreign column. The frozen orders are GPU read orders over the eight-bit block stores, so every band materializes as a lossless one-channel image before the join: `joinChannel` admits buffers and file paths and never a live pipeline, and a raw round trip would narrow a deep source to eight bits because `CreateRaw` declares no depth.
 - Law: the band extent is the AUTO-ORIENTED extent — the ingress pins `autoOrient`, so a rotated source decodes transposed and `Metadata.width`/`height` still report the pre-orientation pair while `Metadata.autoOrient` reports what the pipeline actually holds; a constant band sized from the raw pair packs a transposed plane against its siblings and `joinChannel` refuses on the extent mismatch.
 - Law: the grant is minted only where the row's policy asks — `Derive.Receipt.grant` is `Option<ObjectStore.Grant>` folded on the row's own `grant` column, because a presign every derivative pays for is a signature nothing reads until a serving seam consumes one; the row that declares a policy gets its URL, every other row carries `Option.none()` and its key.
@@ -190,20 +205,20 @@ import type {
   OutputInfo, OverlayOptions, PngOptions, RawOptions, ResizeOptions, TiffOptions, TileOptions, WebpOptions,
 } from "sharp"
 import { Option } from "effect"
-import { Texture } from "@rasm/ts/core"
+import { Wire } from "@rasm/ts/core"
 
 declare namespace Derive {
   type Row = { readonly name: string; readonly retention: Retain.Class; readonly grant?: ObjectStore.GrantPolicy }
-  type Product<R extends Row, I> = { readonly row: R; readonly key: ContentKey; readonly evidence: I }
+  type Product<R extends Row, I> = { readonly row: R; readonly key: Digest.Key<"content">; readonly evidence: I }
   type Plane<R extends Row, Facts, Handle, Evidence, E, Env> = {
     readonly name: string
-    readonly open: (bytes: Uint8Array, source: ContentKey) => Effect.Effect<{ readonly facts: Facts; readonly handle: Handle }, E, Env>
+    readonly open: (bytes: Uint8Array, source: Digest.Key<"content">) => Effect.Effect<{ readonly facts: Facts; readonly handle: Handle }, E, Env>
     readonly admit: (row: R, facts: Facts) => boolean
     readonly emit: (
       handle: Handle,
       rows: ReadonlyArray<R>,
       facts: Facts,
-      source: ContentKey,
+      source: Digest.Key<"content">,
     ) => Effect.Effect<ReadonlyArray<Product<R, Evidence>>, E, Env> // emit persists its own products: the engine owns codec work AND the put, the spine owns fetch, admission, reference, grant
   }
   type Rgb = { readonly r: number; readonly g: number; readonly b: number }
@@ -228,11 +243,11 @@ declare namespace Derive {
   // three total arms, so a component the source lacks writes the row's own level and never a foreign column's read
   type Band =
     | { readonly from: "source"; readonly channel: 0 | 1 | 2 | 3 }
-    | { readonly from: "plane"; readonly key: ContentKey; readonly channel: 0 | 1 | 2 | 3 }
+    | { readonly from: "plane"; readonly key: Digest.Key<"content">; readonly channel: 0 | 1 | 2 | 3 }
     | { readonly from: "level"; readonly value: number }
   // position IS the slot: the tag closes against the frozen order vocabulary and the triple's arity is that
   // order's own, so the row carries no role spelling and no copy of the order the interchange owner froze
-  type Assembly = { readonly pack: Texture.Pack; readonly bands: readonly [Band, Band, Band] }
+  type Assembly = { readonly pack: Wire.Texture.Pack; readonly bands: readonly [Band, Band, Band] }
   // the delivered-plane census the asset gate's raster arm votes on — the decoded facts projected off sharp's own
   // total Metadata, so the category plane above proves an extent and a codec without naming a libvips type
   type Probe = {
@@ -249,15 +264,26 @@ declare namespace Derive {
     readonly admit?: (source: Metadata) => boolean
     readonly assemble?: Assembly
     readonly composite?: ReadonlyArray<OverlayOptions>
-    readonly terminal?: { readonly tile: TileOptions }
     readonly keep?: "icc" | "all"
     readonly alpha?: "opaque" // retires the channel when the analysis proves the source carries no transparency
     readonly grade?: Grade
     readonly placeholder?: boolean
   }
-  // the generated union: format and options correlate at the declaration, so the OutputOptions column that
-  // rejected every quality knob cannot come back and a new codec is one Codec row
-  type Spec = { readonly [K in keyof Codec]: Rendition & { readonly format: K; readonly options?: Codec[K] } }[keyof Codec]
+  type Pyramid = (typeof _PYRAMID)[number]
+  // `container` is unspellable: the default `fs` writes a tile DIRECTORY, and every landing here is a single-file
+  // stream, so the terminal pins `zip` and one pyramid is one content-addressed archive
+  type Terminal = { readonly tile: Omit<TileOptions, "container"> }
+  // heif alone carries no option default — `compression` selects av1 or hevc — so its arm demands the record every
+  // sibling leaves optional, and the pyramid column exists only where `dzsave` can honour it
+  type _Arm<K extends keyof Codec> =
+    & Rendition
+    & { readonly format: K }
+    & (K extends "heif" ? { readonly options: Codec[K] } : { readonly options?: Codec[K] })
+    & (K extends Pyramid ? { readonly terminal?: Terminal } : { readonly terminal?: never })
+  // the generated union: format, options, and pyramid legality correlate at the declaration, so the OutputOptions
+  // column that rejected every quality knob cannot come back and a new codec is one Codec row
+  type Spec = { readonly [K in keyof Codec]: _Arm<K> }[keyof Codec]
+  type Tiled = Extract<Spec, { readonly format: Pyramid }> & { readonly terminal: Terminal }
   type Receipt<
     I = {
       readonly info: OutputInfo
@@ -266,7 +292,7 @@ declare namespace Derive {
     },
   > = {
     readonly name: string
-    readonly key: ContentKey
+    readonly key: Digest.Key<"content">
     readonly grant: Option.Option<ObjectStore.Grant> // minted only where the row's own policy asks
   } & I
 }
@@ -275,7 +301,7 @@ declare namespace Derive {
 ## [05]-[FANOUT]
 
 - Owner: `Derive.fanout(plane, sourceKey, rows)` — the ONE spine: verified fetch, plane-owned open and facts, row admission, plane-owned emit, then per-product source-owned reference and policy-gated grant; `Derive.raster` is this page's category plane, packaging gated decode, row-cloned encode, channel assembly, derivative mint, and conditional re-put behind the plane contract with stage-discriminated `DeriveFault`, and `Derive.probe` is the same decode read as the census the category plane's raster admission arm votes on.
-- Packages: `sharp` (`counters`, `create` over a declared background, `extractChannel`/`joinChannel`/`removeAlpha`/`toColourspace` as the assembly fold); `object/store.md` (`ObjectStore.get`/`putKeyed`/`grant`, the reference verbs); `effect` (`Match.discriminatorsExhaustive` over the band origin, `Metric.set` on the gauges); `@rasm/ts/core` (`ContentKey` — every derivative is itself content-addressed; `FaultClass`; `Convention` — the `derivativeQueued`/`derivativeActive` gauge rows).
+- Packages: `sharp`, `effect`, `ObjectStore`, and core `Digest`, `Fault`, and `Convention` supply the derivative plane.
 - Entry: `Asset.pipe(sourceKey, rows)` after an image lands (an intake receipt, an upload finalize) — the raster rows travel the same array as the container and `ktx` rows, so a caller mixing a thumbnail rendition with a KTX2 encode states one row array and reads one receipt array; re-running is a proven noop end to end because every re-put lands 412 and every grant re-mints against the same keys.
 - Receipt: one `Derive.Receipt` per row; the batch's span carries source key, row count, and total encode span.
 - Growth: watermarking is a `composite` step on the row's chain read from the spec; a tile-pyramid rendition is a row whose terminal is `tile`; a packed plane is a row whose `assemble` names a frozen order — all three land inside the fold as row-driven steps.
@@ -285,19 +311,19 @@ declare namespace Derive {
 - Law: the delivered-plane census is this page's read, never the category plane's — `Derive.probe` opens the gated decode and projects `Metadata` into `Derive.Probe`, so `object/asset.md`'s raster admission arm proves a declared codec and extent through the ONE libvips composer and imports no image library; probe and fan-out share the same decode and metadata legs, so a category gate and a derivative run can never drift on ingress options or deadline.
 - Law: derivative identity is the core mint over the ENCODED bytes — each derivative is a first-class object with its own key, its own reference row owned by the source key (so source release cascades), and the grant its row's policy asked for; the tile arm stages its pyramid container to a scoped temp path and lands it through `Disk.seal`, taking its reference row from this tail alone; sharp owns codec work only, never addressing or idempotency.
 - Law: the row correlates its codec at the DECLARATION and the encode seam takes sharp's own union — one annotated projection folds the grade substitution into `Parameters<Sharp["toFormat"]>[1]`, so a row's stated options stay type-correlated where a caller writes them and the seam needs no cast where it consumes them.
-- Law: the fold is total over `DeriveFault` — its stage vocabulary `gate | fetch | decode | encode | persist | grant` is the family the core `FaultClass.family` seam closes, each stage carrying the failing coordinate and its core kind, and every `ObjectFault` crosses through `DeriveFault.at` at its owning stage; a foreign engine's own family rides the spine's `E` channel beside it, a single row's failure aborts this entrypoint, and an accumulating caller composes `Effect.validate` or `Effect.partition` explicitly.
-- Law: recovery policy reads the core lattice off `class` — `gate` classifies `invalid` (the row spec names a format the gate refuses) and `decode` `malformed` (both quarantined, never retried), while `fetch`, `encode`, `persist`, and `grant` classify `unavailable` (system-blamed, retryable: a store round trip, a native codec, and a presign each heal on re-drive) — so retryability, blame, and quarantine derive from the core `FaultClass` row table and no rank or retry column rides beside `class`.
+- Law: `DeriveFault` closes gate, fetch, decode, encode, persist, and grant through `Fault.Class.family` with structured coordinates.
+- Law: recovery derives from `Fault.Class`; invalid or malformed work quarantines, while unavailable boundary work re-drives.
 - Law: `Derive.pressure` SETS the plane's saturation gauges — one `sharp.counters()` read writes `derivativeQueued` from `queue` and `derivativeActive` from `process` through the mounted convention rows, so the maintenance and doctor surfaces sample one owner instead of re-projecting a raw record into series names of their own; the derivative fan-out is the process's native-saturation hotspot, and a producer-side spelling that returns the record leaves both declared rows minted nowhere while a board query already reads them.
 
 ```typescript signature
 import { Array, Match, Metric, Record, Schema } from "effect"
-import { Convention, FaultClass } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/ts/core"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp, Stats } from "sharp"
 
-// One row per stage: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// One row per stage: retryability, blame, and quarantine remain owned by the selected Fault.Class row.
 // table's — a rank or retry column here would fork that taxonomy into this folder.
-const _family = FaultClass.family(["gate", "fetch", "decode", "encode", "persist", "grant"] as const, {
+const _family = Fault.Class.family(["gate", "fetch", "decode", "encode", "persist", "grant"] as const, {
   gate: { class: "invalid" },
   fetch: { class: "unavailable" },
   decode: { class: "malformed" },
@@ -314,7 +340,7 @@ class DeriveFault extends Schema.TaggedError<DeriveFault>()("DeriveFault", {
   static at(stage: DeriveFault["stage"], key: string): (fault: unknown) => DeriveFault {
     return (fault) => new DeriveFault({ stage, key, detail: String(fault) })
   }
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.stage)
   }
   override get message(): string {
@@ -329,15 +355,15 @@ const _active = Convention.mount(Convention.metric.derivativeActive)
 
 // the gate and the deadline ride ONE decode leg, so the category plane's probe and this plane's fan-out cannot
 // drift on ingress posture; every terminal below folds through `DeriveFault.at`, the family's own stage stamp
-const _decoded = (bytes: Uint8Array, source: ContentKey) =>
+const _decoded = (bytes: Uint8Array, source: Digest.Key<"content">) =>
   Effect.try({ try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE), catch: DeriveFault.at("decode", source) })
 
-const _facts = (handle: Sharp, source: ContentKey) =>
+const _facts = (handle: Sharp, source: Digest.Key<"content">) =>
   Effect.tryPromise({ try: () => handle.metadata(), catch: DeriveFault.at("decode", source) })
 
 // the delivered-plane census: every projected field is total on `Metadata`, and the extent is the AUTO-ORIENTED
 // pair because the ingress pins autoOrient — the raw pair the same record carries describes the file, not the pipeline
-const _probed = (bytes: Uint8Array, source: ContentKey) =>
+const _probed = (bytes: Uint8Array, source: Digest.Key<"content">) =>
   Effect.flatMap(_decoded(bytes, source), (handle) =>
     Effect.map(_facts(handle, source), (facts) => ({
       format: facts.format,
@@ -355,7 +381,7 @@ const _band = (lane: Sharp, key: string) =>
     catch: DeriveFault.at("encode", key),
   })
 
-const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["autoOrient"]; readonly source: ContentKey }) =>
+const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["autoOrient"]; readonly source: Digest.Key<"content"> }) =>
   Match.type<Derive.Band>().pipe(
     // the contract composes before the first arm, so a band origin is checked where it is written rather than
     // at the terminal, and a fourth origin fails at the record instead of widening the fold's own channel
@@ -377,7 +403,7 @@ const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["aut
     }),
   )
 
-const _assembled = (decoded: Sharp, row: Derive.Assembly, facts: Metadata, source: ContentKey) => {
+const _assembled = (decoded: Sharp, row: Derive.Assembly, facts: Metadata, source: Digest.Key<"content">) => {
   const band = _banded({ decoded, extent: facts.autoOrient, source })
   return Effect.zipWith(
     band(row.bands[0]), // the tuple index is proven by arity: the pack's own three positions ARE its slots
@@ -411,29 +437,37 @@ const _chain = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Me
   return spec.keep === undefined ? flattened : _KEEP[spec.keep](flattened)
 }
 
-const _encodeBuffer = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Measure>, sourceKey: ContentKey) =>
+const _encodeBuffer = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Measure>, sourceKey: Digest.Key<"content">) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
+    // `toUint8Array` answers the `{ data, info }` pair directly, so the store takes the encoder's own allocation:
+    // routing through `toBuffer` instead spends a whole second copy of every derivative to re-view a Buffer
     const encoded = yield* Effect.tryPromise({
-      try: () => _chain(head, spec, measure).toFormat(spec.format, _graded(spec, measure)).toBuffer({ resolveWithObject: true }),
+      try: () => _chain(head, spec, measure).toFormat(spec.format, _graded(spec, measure)).toUint8Array(),
       catch: DeriveFault.at("encode", sourceKey),
     })
-    const landed = yield* Effect.mapError(store.put(new Uint8Array(encoded.data)), DeriveFault.at("persist", sourceKey))
+    const landed = yield* Effect.mapError(store.put(encoded.data), DeriveFault.at("persist", sourceKey))
     return { key: landed.key, info: encoded.info }
   })
 
 const _encodeTile = (
   head: Sharp,
-  spec: Derive.Spec & { readonly terminal: { readonly tile: TileOptions } },
+  spec: Derive.Tiled, // the pyramid arms alone: `dzsave` refuses every other codec, so the terminal cannot be written elsewhere
   measure: Option.Option<Derive.Measure>,
-  sourceKey: ContentKey,
+  sourceKey: Digest.Key<"content">,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const staged = path.join(yield* fs.makeTempDirectoryScoped(), "pyramid.zip")
+    const staged = path.join(yield* fs.makeTempDirectoryScoped(), `${spec.name}.zip`)
     const info = yield* Effect.tryPromise({
-      try: () => _chain(head, spec, measure).toFormat(spec.format, _graded(spec, measure)).tile(spec.terminal.tile).toFile(staged),
+      // `container: "zip"` lands HERE rather than on the row: the libvips default writes a tile directory, and the
+      // seal below streams one seekable file, so pinning it at the terminal makes the directory pyramid unrepresentable
+      try: () =>
+        _chain(head, spec, measure)
+          .toFormat(spec.format, _graded(spec, measure))
+          .tile({ ...spec.terminal.tile, container: "zip" })
+          .toFile(staged),
       catch: DeriveFault.at("encode", sourceKey),
     })
     // the veto-free fold: an internally minted pyramid never re-enters the host-file admission gate, and the
@@ -486,7 +520,7 @@ const _RASTER: Derive.Plane<
 
 const _fanout = <R extends Derive.Row, F, H, I, E, Env>(
   plane: Derive.Plane<R, F, H, I, E, Env>,
-  sourceKey: ContentKey,
+  sourceKey: Digest.Key<"content">,
   rows: ReadonlyArray<R>,
 ): Effect.Effect<ReadonlyArray<Derive.Receipt<I>>, DeriveFault | E, Env | ObjectStore> =>
   Effect.gen(function* () {

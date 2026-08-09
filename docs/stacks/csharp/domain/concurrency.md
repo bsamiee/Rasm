@@ -106,7 +106,7 @@ public static class Ranked {
 
 [LANE_EVIDENCE]:
 - Law: under the three drop modes `TryWrite` returns `true` on a live channel and `WaitToWriteAsync` is immediately `true` — drop modes structurally delete writer-side backpressure, so write success is not delivery evidence and the receipt is the only loss evidence; a drop lane without `itemDropped` is unreceipted loss.
-- Law: `DropNewest` evicts the most recently buffered item, never the incoming one; the `itemDropped` callback runs synchronously on the writing thread outside the channel lock — fold it into a fact stream and never log, allocate heavily, or block inside it.
+- Law: `DropNewest` evicts the newest buffered item, never the incoming one; the `itemDropped` callback runs synchronously on the writing thread outside the channel lock — fold it into a fact stream and never log, allocate heavily, or block inside it.
 - Law: loss reasons are disjoint classes — evicted-oldest measures conflation lag, refused-write measures shed load — and one merged counter destroys the only signal separating consumer-slow from producer-hot; receipts key on the row's vocabulary symbol, never the channel instance, so they survive lane re-creation and aggregate across shards.
 - Law: `Wait` rows put pressure evidence on the writer instead — stamped `WriteAsync` await durations and park counts; drop-mode `TryWrite` never allocates while a parked `Wait` write allocates per park, so shed lanes are allocation-free under overload by construction.
 - Law: depth evidence is a sampled gauge where `CanCount` holds — the base reader defaults `CanCount`/`CanPeek` to `false` and `Completion` to a never-completing task, so generic lane instrumentation probes capability, never assumes it; write-path evidence is the receipt stream, read-path evidence the sampled gauge, and the two cadences never share an instrument.
@@ -120,6 +120,7 @@ public static class Ranked {
 - Law: a faulted block discards its buffered input — loss without receipts — so residue extracts via `TryReceiveAll` before `Fault`, and the leaf's `Completion` fault folds into the receipt rail as attributed loss.
 - Law: one offer verb per row — `Post` is the `TryWrite` analog, `SendAsync` parks one postponed message — and mixing them mixes two backpressure regimes on one hop; non-greedy reservation is the family's only multi-source atomic take, so hand-rolled cross-lane atomic consumption marks a missing join row.
 - Law: `DataflowBlock.NullTarget<T>()` is the declared absorb row — receiptless discard admitted only behind a predicate-guarded `LinkTo`, so discard is a routing decision, never a default; `Encapsulate(target, source)` folds a multi-block segment into one propagator presentable as one row with one ingress and one egress.
+- Law: a broadcast sink is an `ITargetBlock` by contract, so no lane seats there and the sink block's own `BoundedCapacity` is that hop's one waiting room.
 - Reject: `BufferBlock` — a lane row is denser; `WriteOnceBlock` — a single-assignment cell owns publish-once; standalone `ActionBlock` — lane plus reader loop separates buffering policy from execution policy and keeps drain receipted.
 
 ## [03]-[PARALLELISM_BUDGET]
@@ -289,7 +290,7 @@ public static class DeliveryEdge {
 - Law: behind the stream-to-rail seam, schedule policy is the one retry owner — a stream `Retry` under a rail retry is the double-loop defect, and in-stream `Catch` rows (typed handler, fallback stream, `params` cascade) survive only before that seam.
 - Reject: the double bridge — stream to lane to stream inside one hop launders backpressure evidence through a buffer; the relay subject — a hand-subscribed `Subject` re-spelling `Publish` without disposal symmetry.
 
-The worlds cross at four canonical seams — `OnNext` has no park position, so the lane crossing never waits — each with one spelling and one evidence carrier; a fifth crossing is a missing row, never a bespoke bridge.
+Four canonical seams cross the worlds — `OnNext` has no park position, so the lane crossing never waits — each with one spelling and one evidence carrier; a fifth crossing is a missing row, never a bespoke bridge.
 
 | [INDEX] | [CROSSING]     | [SPELLING]                                      | [EVIDENCE]                 |
 | :-----: | :------------- | :---------------------------------------------- | :------------------------- |

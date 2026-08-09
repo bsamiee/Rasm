@@ -70,7 +70,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Composition facts: reused axes with their owning pages, seam obligations and frozen wire names, admission and receipt rails, policy rows.
 - `[RESEARCH]` is the terminal section: each row is `- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>`.
 - Research rows record epistemic debt in place of a guessed spelling; `(none)` marks the empty section, and a resolved row is deleted whole.
-- A settled fact never rides a research section — it folds into its owning line at write, and a bullet restating settled law is removed on sight.
+- Settled facts never ride a research section — each folds into its owning line at write, and a bullet restating settled law is removed on sight.
 - SPIKE markers name a design element whose convergence only live-host evidence finalizes; the page ships its deterministic floor beside it.
 - Each cluster carries a card, then transcription-complete signature fences, then at most one Mermaid diagram.
 - Card fields are a closed ordered vocabulary: `Owner` `Cases` `Law` `Exemption` `Entry` `Auto` `Output` `Receipt` `Packages` `Growth` `Boundary`.

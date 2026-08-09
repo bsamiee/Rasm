@@ -6,12 +6,12 @@
 
 [SOLVERS]:
 - [01]-[RECEIPT](.planning/solvers/receipt.md): `SolverReceipt` every solve route folds its method-discriminated evidence onto.
-- [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves beside the C#-paired sparse exchange containers.
+- [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves beside the C#-paired exchange containers.
 - [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` route over root, minimise, fixed-point, and least-squares solves.
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
 - [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` owner threading reverse-mode and implicit-adjoint sensitivity.
-- [07]-[MESH](.planning/solvers/mesh.md): `MeshField` topology-and-field owner beside `MeshExchange` generating, assembling, reading, and writing the mesh.
+- [07]-[MESH](.planning/solvers/mesh.md): `MeshField` topology-and-field owner beside the `MeshExchange` generate, assemble, read, and write legs.
 - [08]-[FIELD](.planning/solvers/field.md): `FieldQuery` readout interpolating, projecting, and resampling over a discrete field.
 
 [OPTIMIZATION]:
@@ -23,7 +23,7 @@
 - [12]-[STUDY](.planning/experiments/study.md): `Study` folding DOE sampling, SALib sensitivity, surrogate fitting, and the benchmark discriminant.
 - [13]-[HISTORY](.planning/experiments/history.md): `RunHistory` owner of content-keyed run persistence, partial resume, and comparison.
 - [14]-[INFERENCE](.planning/experiments/inference.md): `Inference` owner of gradient-MCMC posteriors with convergence diagnostics.
-- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of classical-estimator validation, smoke inference, ONNX export, and the drift-envelope companion.
+- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of estimator validation, smoke inference, ONNX export, and the drift envelope.
 
 [NUMERICS]:
 - [16]-[ARRAY](.planning/numerics/array.md): `ArrayPayload` admitting any backend array through namespace dispatch.
@@ -124,4 +124,4 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `meshio`
 
 [TRANSITIVE]:
-- `narwhals` — the study DOE frame admits through the published `data/tabular` contract surfaces, so consumption is transitive by design and this folder composes no member and owns no catalog; the owning tier is `libs/python/data/.api/narwhals.md`.
+- `narwhals` — the study DOE frame admits through published `data/tabular` contract surfaces, so this folder composes no member.

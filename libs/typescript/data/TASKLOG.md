@@ -20,20 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[LAYER_TOPOLOGY_READ_ROWS]-[QUEUED]: Layer-topology relations land on the read side — the decoded query-store half of `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-- Capability: `Model.Class` relations for layer identity, layer-path nesting, membership, and per-viewport overrides; `SqlSchema` typed reads and `SqlResolver` batched loaders bound through `Query.table`; a `Lane.Spec` projection binding keeps the relations fold-maintained from journal facts.
-- Shape: relation models and resolver rows on `libs/typescript/data/.planning/read/query.md`; the projection lane binding on `libs/typescript/data/.planning/read/fold.md`.
-- Unlocks: IDEAS.md [LAYER_TOPOLOGY_GRAPH_FACTS] — host-organized read-side queries and cross-runtime layer transport, the decoded relations keyed by content identity feeding visualization.
-- Anchors: `read/query.md` `MODEL_FAMILY`/`RESOLVER_ROWS`/`TABLE_BINDING`; `read/fold.md` `Lane.Spec` and `Lane.ddl`.
-- Tension: rows are detached facts keyed by `ContentKey` — no host layer handle enters any relation.
-
-[OPLOG_REPLAY_ROWS]-[QUEUED]: Op-log decode and replay rows land on the journal — the consumer half of `[HOST_OPLOG_CRDT_CONSUMER]`.
-- Capability: a boundary decoder admits `OperationId`-keyed causal entries; replay folds entries into `Journal.publish` intents under `Occ` arbitration with the commutation policy applied per mutation kind before append; checkpoint snapshots bound replay windows through the windowed `read`.
-- Shape: decoder and replay-fold rows on `libs/typescript/data/.planning/journal/append.md`; the entry-payload upcast road on `libs/typescript/data/.planning/journal/evolve.md`.
-- Unlocks: IDEAS.md [HOST_OPLOG_CRDT_CONSUMER] — multi-runtime document sync into the durable plane and deterministic replay for audit, the consumer half arming the producer's wire.
-- Anchors: `journal/append.md` `Journal.publish`/`Occ`/`StreamKey` and the windowed `READ_SURFACE`; `journal/evolve.md` `Upcast.plan`; `object/store.md` `ContentKey` payload custody.
-- Tension: the neutral op-log contract owns identity; TypeScript owns local encoding, decoding, and merge.
-
 [FOREIGN_RELATIONAL_READS]-[QUEUED]: Existing query ownership admits MySQL and MSSQL clients.
 - Capability: Composition-root clients feed provider-neutral typed reads.
 - Shape: `read/query.md` gains client admission and query rows; no new page or lane owner.
@@ -73,6 +59,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
+[OPLOG_REPLAY_ROWS]-[COMPLETE]: `Journal.causal(spec)` folds one producer entry into one `Journal.Intent` through the standing publish transaction, so a synced entry inherits OCC, idempotency, outbox, and slot projection. Claims ride the operation DOT rather than a payload digest, publishing under `Occ.Any` since the entry already carries its causal position.
+[LAYER_TOPOLOGY_READ_ROWS]-[COMPLETE]: landed as `read/query#ORGANIZATION_ROWS` — relation, edge relations, resolver rows, and the pg/sqlite DDL pair — beside `read/fold#LANE_SPEC` carrying `Lane.Organization` structural admission and per-source transactional replacement. Edge relations take no repository.
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
@@ -97,5 +85,5 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [OBJECT_INSTRUMENT_ROWS]-[COMPLETE]: `object/store.md` `[05]-[INSTRUMENT_ROWS]` `_measured`/`_reclaimed` and `object/stream.md` `_streamed` landed over receipt owners; core `convention.md` `[03]-[RASM_ROWS]` owns the exact vocabulary.
 [PG_PROFILE_HARVEST]-[COMPLETE]: `lane/postgres.md` `[06]-[PROFILE_HARVEST]` — the `pg_stat_statements` core row in `_rows`, `_statements`/`_delta` window-delta receipts keyed by `queryid`, and the `_explain` json harvest over a spliced `Fragment`.
 [SQLITE_PROFILE_HARVEST]-[COMPLETE]: `lane/sqlite.md` `[05]-[PROFILE_HARVEST]` — `_harvest` availability rows, timed `_profiled` with plan, page, and probed `dbstat` counters; `stmtStatus` recorded `none` on every profile (no admitted driver reaches the `sqlite3_stmt_status` C counters), superseding the card's counter claim.
-[JOURNAL_RELAY_ENVELOPE]-[COMPLETE]: `journal/append.md` `[07]-[RELAY_ROWS]` `_envelope`/`Journal.envelope` — strict-validated `CloudEvent` with encoded source components, `rasmtenant`, and W3C trace extensions, verified against `libs/typescript/.api/cloudevents.md`; `runtime/ARCHITECTURE.md` `Data e20` mirrors the shape.
+[JOURNAL_RELAY_ENVELOPE]-[COMPLETE]: `Journal.envelope` promotes the carrier into a complete `CloudEventV1`; `Journal.carrier` authenticates and restores `Identity.Tenant`.
 [JOURNAL_HOOK_POINTS]-[COMPLETE]: `journal/append.md` `[08]-[HOOK_POINTS]` — the closed four-point vocabulary with veto-legality derivation and app-scoped registry; `Hook.gated`/`tapped` seams landed across append publish, `object/stream.md` tus create/finalize, `object/file.md` gated intake, and `journal/retain.md` erase tombstone.

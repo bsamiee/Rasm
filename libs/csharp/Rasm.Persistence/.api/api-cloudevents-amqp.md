@@ -8,7 +8,7 @@
 - package: `CloudNative.CloudEvents.Amqp` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.Amqp`; namespace `CloudNative.CloudEvents.Amqp`
 - asset: pure-managed, no native asset or RID burden
-- depends: `CloudNative.CloudEvents` (`libs/csharp/.api/api-cloudevents.md`) and `AMQPNetLite.Core` (`Amqp.Message` transport — assembly `Amqp.Net.dll`, namespaces `Amqp`/`Amqp.Framing`/`Amqp.Types`)
+- depends: `CloudNative.CloudEvents` (`libs/csharp/.api/api-cloudevents.md`) and `AMQPNetLite.Core` (`.api/api-amqpnetlite.md` — the `Amqp.Message` carrier and the whole `AMQP 1.0` transport beneath it)
 - rail: sync-egress
 
 ## [02]-[PUBLIC_TYPES]
@@ -37,17 +37,17 @@
 [TOPOLOGY]:
 - namespace `CloudNative.CloudEvents.Amqp` carries the single `AmqpExtensions` static class; the `Amqp.Message` carrier, its `ApplicationProperties`/`Properties`/`Data` sections, and the `Symbol`/`Map` value types are `AMQPNetLite.Core` (`Amqp`/`Amqp.Framing`/`Amqp.Types`), disjoint from the `AMQP 0-9-1` `IChannel`/`BasicProperties` surface `api-rabbitmq` owns.
 - `ToAmqp*` selects placement by `ContentMode`: `Binary` writes each populated attribute as a `cloudEvents_<name>` entry in `ApplicationProperties`, the `Data` bytes in the body, and the inferred data content type in `Properties.ContentType`; `Structured` packs the whole event through `EncodeStructuredModeMessage` under `application/cloudevents+json`. `specversion` is always written and `datacontenttype` is excluded from the property map; a `Uri` serialises through `ToString()` and a `DateTimeOffset` through its `UtcDateTime`; any other `ContentMode` throws `ArgumentOutOfRangeException`.
-- `ToCloudEvent` reads the content type from `Properties.ContentType`, decodes the body through the formatter, and re-hydrates each `cloudEvents_`- or `cloudEvents:`-prefixed application property onto the event with the pre-declared extension-attribute set, so the consumer reads typed attributes rather than re-parsing property strings. A header-filtering broker routes on the `cloudEvents_type`/`cloudEvents_source` properties without parsing the body.
+- `ToCloudEvent` reads the content type from `Properties.ContentType`, decodes the body through the formatter, and re-hydrates each `cloudEvents_`- or `cloudEvents:`-prefixed application property onto the event with the pre-declared extension-attribute set, so the consumer reads typed attributes rather than re-parsing property strings. Header-filtering brokers route on the `cloudEvents_type`/`cloudEvents_source` properties without parsing the body.
 
 [STACKING]:
-- `Version/egress` projects the `Version/ledger` `OpLogEntry` → `CloudEvent` via the `Egress.Envelope` projector → `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, formatter)` → an `AMQPNetLite.Core` `SenderLink.Send` over the broker connection, the same one-rail projection as the Kafka sink.
+- `Version/egress` projects the `Version/ledger` `OpLogEntry` → `CloudEvent` via the `Egress.Envelope` projector → `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, formatter)` → an awaited `AMQPNetLite.Core` `SenderLink.SendAsync(Message, TimeSpan)` inside that leg's own bounded in-flight window, the same one-rail projection as the Kafka sink; the callback send forms stay refused there because their outgoing queue carries no ceiling (`.api/api-amqpnetlite.md`).
 - `ContentMode.Binary` is the load-bearing choice: the CloudEvents attributes stay in AMQP application properties so a broker routes on `cloudEvents_type`/`cloudEvents_source` without deserialising the op payload, and the redaction flag and `traceparent` ride as extension attributes — the one envelope crosses masked and traced.
 - `RabbitMQ.Client` (`api-rabbitmq`) is the peer `AMQP 0-9-1` sink over its own `BasicProperties.Headers` carrier; both are separate `EgressSink` rows over the one `CloudEvent`, this binding riding the distinct `AMQPNetLite.Core` `AMQP 1.0` transport.
 - this binding projects the identical `CloudEvent` as the other CloudEvents egress sinks, so an `AMQP 1.0` consumer joins the CDC fan under the same envelope the changefeed emits.
 
 [LOCAL_ADMISSION]:
 - egress composes `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, formatter)`; the extension attributes (`traceparent`, `redacted`, `sequence`) are declared once via `CloudEventAttribute.CreateExtension` and read back on ingress through the `ToCloudEvent` overload with the identical attribute enumerable.
-- a single shared `JsonEventFormatter`/`JsonEventFormatter<T>` instance encodes and decodes every message; the serializer options are fixed at formatter construction, never per message.
+- one shared `JsonEventFormatter`/`JsonEventFormatter<T>` instance encodes and decodes every message; the serializer options are fixed at formatter construction, never per message.
 - `ToAmqpMessageWithUnderscorePrefix` is the admitted egress; `ToAmqpMessage` and `ToAmqpMessageWithColonPrefix` write the JMS-incompatible `cloudEvents:` form.
 
 [RAIL_LAW]:

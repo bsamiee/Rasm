@@ -40,6 +40,7 @@ using NodaTime;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using Rasm.Bim.Model;                        // BimFault + the Detail roster every admission gate raises through
+using Rasm.Element.Projection;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
@@ -138,7 +139,14 @@ public abstract partial record BimEvent {
         public override string Subject => Topic;
     }
 
-    public sealed record VerdictIssued(string Specification, int Spec, bool Conforms, int Findings, GlobalIdSet GlobalIds) : BimEvent {
+    public sealed record VerdictIssued(
+        string Specification,
+        int Spec,
+        ContentAddress Model,
+        IdsOutcome Outcome,
+        RuleSeverity Severity,
+        int Findings,
+        GlobalIdSet GlobalIds) : BimEvent {
         public override string EventType => VerdictType;
         public override string Subject => $"{Specification}#{Spec}";
     }
@@ -164,7 +172,14 @@ public abstract partial record BimEvent {
 // UInt128 keys as 32-hex strings; the source-generated context keeps the formatter reflection-free.
 public sealed record CommitLandedWire(string CommitKey, ImmutableArray<string> Parents, string Branch, int Elements);
 public sealed record IssueMutatedWire(string Topic, string Mutation, string? Comment, ImmutableArray<string> GlobalIds);
-public sealed record VerdictIssuedWire(string Specification, int Spec, bool Conforms, int Findings, ImmutableArray<string> GlobalIds);
+public sealed record VerdictIssuedWire(
+    string Specification,
+    int Spec,
+    string Model,
+    string Outcome,
+    string Severity,
+    int Findings,
+    ImmutableArray<string> GlobalIds);
 public sealed record ArtifactMintedWire(string ContentKey, string Format, long Bytes);
 public sealed record EnergyMintedWire(string ArtifactKey, string Leg, string Format, int Warnings);
 
@@ -202,7 +217,10 @@ public static partial class BimEventWire {
 // Seq to the wire array. User mappings win over Mapperly's built-ins, so `UInt128` never falls to `ToString`.
 public static class WireCodec {
     public static string Hex(UInt128 contentKey) => contentKey.ToString("x32", CultureInfo.InvariantCulture);
+    public static string Hex(ContentAddress content) => content.ToValue();
     public static string Key(BimIssueMutation mutation) => mutation.Key;
+    public static string Key(IdsOutcome outcome) => outcome.Key;
+    public static string Key(RuleSeverity severity) => severity.Key;
     public static string Key(InterchangeFormat format) => format.Key;
     public static string Key(ArtifactKey artifact) => artifact.Value;
     public static string? Text(Option<string> value) => value.Match(static v => v, static () => (string?)null);
@@ -333,9 +351,13 @@ public static class BimEnvelope {
         BimEvent.VerdictType => Wire(data, BimEventContext.Default.VerdictIssuedWire, key).Bind(w =>
             from specification in Required(w.Specification, "specification", key)
             from spec in NonNegative(w.Spec, "spec", key)
+            from model in Address(w.Model, key)
+            from outcome in VerdictOutcome(w.Outcome, key)
+            from severity in Severity(w.Severity, key)
             from findings in NonNegative(w.Findings, "findings", key)
             from globalIds in GlobalIdSet.Admit(w.GlobalIds, key)
-            select (BimEvent)new BimEvent.VerdictIssued(specification, spec, w.Conforms, findings, globalIds)),
+            select (BimEvent)new BimEvent.VerdictIssued(
+                specification, spec, model, outcome, severity, findings, globalIds)),
         BimEvent.ArtifactType => Wire(data, BimEventContext.Default.ArtifactMintedWire, key).Bind(w =>
             from content in HexKey(w.ContentKey, key)
             from format in InterchangeFormat.Detect(w.Format ?? "", key)
@@ -361,6 +383,16 @@ public static class BimEnvelope {
         value is not null && BimIssueMutation.TryGet(value, out var mutation)
             ? Fin.Succ(mutation)
             : Fin.Fail<BimIssueMutation>(Detail.EventMutationMiss.At(key, value ?? ""));
+
+    static Fin<IdsOutcome> VerdictOutcome(string? value, Op key) =>
+        value is not null && IdsOutcome.TryGet(value, out var outcome)
+            ? Fin.Succ(outcome)
+            : Fin.Fail<IdsOutcome>(Detail.EventSlotMalformed.At(key, "outcome"));
+
+    static Fin<RuleSeverity> Severity(string? value, Op key) =>
+        value is not null && RuleSeverity.TryGet(value, out var severity)
+            ? Fin.Succ(severity)
+            : Fin.Fail<RuleSeverity>(Detail.EventSlotMalformed.At(key, "severity"));
 
     // Slot-parameterized admissions carry their wire-slot name as a SUBJECT on their own roster row, giving the
     // family one fixed grep prefix. Producer text NORMALIZES once at the envelope boundary: surrounding
@@ -401,6 +433,11 @@ public static class BimEnvelope {
         && StringComparer.Ordinal.Equals(hex, WireCodec.Hex(value))
             ? Fin.Succ(value)
             : Fin.Fail<UInt128>(Detail.EventKeyMalformed.At(key, hex ?? ""));
+
+    static Fin<ContentAddress> Address(string? hex, Op key) =>
+        ContentAddress.Validate(hex, CultureInfo.InvariantCulture, out ContentAddress? address) is null
+            ? Fin.Succ(address!)
+            : Fin.Fail<ContentAddress>(Detail.EventKeyMalformed.At(key, hex ?? ""));
 }
 ```
 

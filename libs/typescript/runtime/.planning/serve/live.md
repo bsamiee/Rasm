@@ -9,32 +9,29 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 - [04]-[SOCKET_ROW]: the WS upgrade fold: typed duplex framing over the socket channel; `Realtime`.
 - [05]-[FEED_ROWS]: source adapters: reactive query reads, fanout topics, the presence roster stream; `Realtime`.
 - [06]-[ADMISSION]: channel rules, subscription grant, stamp guard, roster read, fan registry; `Admission`.
-- [07]-[MOUNT_PORT]: the foreign-protocol mount port; `Mount`.
+- [07]-[MOUNT_PORT]: the foreign-protocol mount port and its one node-handler lift; `Mount`.
 
 ## [02]-[LIVE_FAULT]
 
 [LIVE_FAULT]:
-- Owner: `LiveFault` — the realtime reason family, its rows closed through the core `FaultClass.family` seam: `denied` (subscription refused by admission), `shed` (fan capacity refused), `lost` (resume coordinate no longer replayable — the client re-syncs from a snapshot), `closed` (channel retired or transport failed) — each row the core class alone, so the `problem` net renders an escaped instance at the governed status and no local rank, retry, or status column rides beside it; and `Realtime.Source` — the resumable-feed contract every endpoint takes: `from(resume)` opens the stream, `token(item)` mints the reattach coordinate as `Option` so a snapshot-shaped feed (each emission a fresh decoded read) is honestly tokenless and a journal-shaped feed is replay-exact.
-- Law: `from(resume)` owns replay truth — `Option.none` starts live with the source's own warm-up, `Option.some(resume)` resumes after the attested coordinate, and a coordinate the source can no longer honor fails `lost` so the client re-syncs instead of silently missing a gap; the token travels as the SSE event `id`, so the browser's `Last-Event-ID` reconnect machinery carries the resume attestation with zero client code.
-- Law: tokens are opaque and bounded — the `Resume` brand admits the wire form at the header seam; minting is the source's, and this plane never parses a token's interior.
-- Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
-import { Sse } from "@effect/experimental"
+import { Reactivity, Sse } from "@effect/experimental"
 import { ChannelSchema, type HttpApp, HttpServerRequest, HttpServerResponse, Ndjson, Socket } from "@effect/platform"
-import { SqlClient, type SqlError } from "@effect/sql"
 import {
-  Channel, Chunk, Context, DateTime, Deferred, Duration, Effect, Either, HashMap, Layer, Option, type ParseResult, Ref,
+  Channel, Chunk, Context, DateTime, Deferred, Duration, Effect, Either, HashMap, Layer, Option, Ref,
   Schedule, Schema, type Scope, Stream, Trie,
 } from "effect"
-import { FaultClass, type Fold, Hlc, Presence } from "@rasm/ts/core"
+import type { IncomingMessage, ServerResponse } from "node:http"
+import { Clock, Fault, Fold, Identity, Presence } from "@rasm/ts/core"
 import { Live } from "@rasm/ts/data"
 import { Envelope, Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"
 
 // One row per reason: the core kind alone. Retryability, blame, and the response code stay the core row
 // table's and problem#STATUS_RECORD's, so no local policy column rides beside `class`.
-const _live = FaultClass.family(["denied", "shed", "lost", "closed"] as const, {
+const _live = Fault.Class.family(["denied", "shed", "lost", "closed"] as const, {
   denied: { class: "denied" },
   shed: { class: "unavailable" },
   lost: { class: "conflicted" },
@@ -49,7 +46,7 @@ class LiveFault extends Schema.TaggedError<LiveFault>()("LiveFault", {
   reason: _live.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _live.classOf(this.reason)
   }
   override get message(): string {
@@ -65,25 +62,57 @@ declare namespace Realtime {
     readonly from: (resume: Option.Option<Resume>) => Stream.Stream<A, E, R>
     readonly token: (item: A) => Option.Option<Resume>
   }
+  // Consumption-descriptor columns lead, realtime extensions follow; an `Option.none` is the lane declaring it
+  // decides that coordinate NOTHING, never a zero a caller then reads as a real bound. `tenancy` carries no
+  // column because neither lane resolves one — the cluster lead states the mechanism both ride.
+  type Lane = {
+    readonly fits: string
+    readonly admit: string
+    readonly lifetime: string
+    readonly degrade: string
+    readonly duplex: boolean
+    readonly beat: Option.Option<Duration.Duration>
+    readonly lag: Option.Option<number>
+    readonly reconnect: Option.Option<Duration.Duration>
+  }
 }
 ```
 
 ## [03]-[SSE_ROW]
 
 [SSE_ROW]:
-- Owner: `Realtime.sse` — one endpoint fold for every SSE feed in the branch: decode `Last-Event-ID` through the `Resume` brand (absence is a fresh attach, never a fault), open `source.from(resume)`, encode each item through its schema into an `Sse.Event` whose `id` is the item's own token, and merge the heartbeat cadence so proxies never reap an idle feed. This emitted family is exactly the `Sse.Event` family `net/channel#FEED_SEAM` decodes, so neither endpoint invents a second frame arm.
-- Law: `_SSE` is the policy row — `beat` (heartbeat cadence) and `lag` (the buffer bound between the fold and a slow consumer, `"suspend"` so pressure stops the producer before any frame is lost) — one value tuned per app, threaded nowhere. Dropping and sliding buffers are forbidden on a resumable stream because it creates an in-connection gap the browser's reconnect token cannot attest.
-- Law: the encode seam is the codec's own — frames lower to response bytes through `Sse.encoder`, the heartbeat is a named `ping` event clients ignore by name, and a tokenless item writes no `id` so the browser attests only coordinates the source honors.
-- Law: a source's own `LiveFault` passes the seam intact; any foreign source fault normalizes to `closed` at the one `Stream.mapError` seam — the same one-seam fold the socket row runs.
-- Law: the fold TAKES `[06]`'s reservation fence and never reaches the admission plane itself — `Stream.interruptWhenDeferred` over the whole frame stream is what makes the per-principal cap a fact about live responses, so a supersede or a response-scope close ends this feed and frees the slot in one motion.
+- Owner: `_lanes` — the two realtime lanes as rows over one consumption-descriptor column set beside the realtime extensions, so a caller reads selection, entry, ending owner, forfeit, and pacing off the same value the endpoint folds; `Realtime.lanes` publishes them.
+- Law: neither lane resolves a tenant, so `tenancy` rides this lead rather than a column — `Seam.admission`'s one credential lift binds `TenantScope` around the dispatch and `[06]`'s roster read filters on that bound scope, whatever consumption row the root supplied.
+- Law: `reconnect` emits as the FIRST frame — `Sse.Retry` is the `retry:` directive, the one lever a server holds over reconnect pacing, so a drain or a supersede storm returns at a paced interval instead of every engine's own default; the frame carries the resume token the request presented, so a reconnect after an idle gap re-declares where the client stood.
+- Law: the `degrade` cell derives from the mechanism, not a judgement — the response flushes its status and headers before the first frame, so a mid-stream refusal drops the connection rather than rendering a `Problem`.
 - Boundary: which feeds exist and who attaches is `[06]`'s admission; the inbound SSE parser is `net/channel#FEED_SEAM`'s — this endpoint only emits.
-- Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`, `Deferred`).
+- Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Duration`, `Schedule`, `Option`).
 
 ```typescript signature
-const _SSE = {
-  beat: Duration.seconds(25),
-  lag: 64,
-} as const
+const _lanes = {
+  sse: {
+    fits: "<server-pushed-feed:browser-consumes:no-client-frame>",
+    admit: "<route-match+last-event-id-decode>",
+    lifetime: "<the-response:server-ends-alone-through-drain-or-supersede-fence>",
+    degrade: "<no-client-frame:server-ends-alone:post-flush-refusal-drops-connection>",
+    duplex: false,
+    beat: Option.some(Duration.seconds(25)),
+    lag: Option.some(64),
+    reconnect: Option.some(Duration.seconds(5)),
+  },
+  // Socket peers pace their own backoff and frame their own pings, so this lane DECIDES neither; `Ndjson.duplexString`
+  // backpressures the duplex natively, which is why no lag capacity rides here either.
+  socket: {
+    fits: "<feature-framing-both-directions>",
+    admit: "<route-match+HttpServerRequest.upgrade>",
+    lifetime: "<the-connection:either-peer-ends-or-the-supersede-fence-settles>",
+    degrade: "<either-peer-ends:no-resume-replay:no-server-paced-reconnect>",
+    duplex: true,
+    beat: Option.none<Duration.Duration>(),
+    lag: Option.none<number>(),
+    reconnect: Option.none<Duration.Duration>(),
+  },
+} as const satisfies Record<string, Realtime.Lane>
 
 const _ResumeHeader = Schema.Struct({
   "last-event-id": Schema.optionalWith(_Resume, { as: "Option" }),
@@ -91,8 +120,17 @@ const _ResumeHeader = Schema.Struct({
 
 const _BEAT: Sse.Event = { _tag: "Event", event: "ping", id: undefined, data: "{}" }
 
-const _encoded = <E, R>(frames: Stream.Stream<Sse.Event, E, R>): Stream.Stream<Uint8Array, E, R> =>
+// `Sse.AnyEvent` is the encoder's own union, so the retry directive and the data frames ride ONE stream and one
+// writer; a hand-assembled `retry:` line beside the encoder forks the dialect this page exists to own.
+const _encoded = <E, R>(frames: Stream.Stream<Sse.AnyEvent, E, R>): Stream.Stream<Uint8Array, E, R> =>
   Stream.encodeText(Stream.map(frames, (event) => Sse.encoder.write(event)))
+
+const _retry = (resume: Option.Option<Realtime.Resume>): Stream.Stream<Sse.AnyEvent> =>
+  Option.match(_lanes.sse.reconnect, {
+    onNone: () => Stream.empty,
+    onSome: (duration) =>
+      Stream.make(new Sse.Retry({ duration, lastEventId: Option.getOrUndefined(resume) })),
+  })
 
 const _sse = <A, I, E, R, R2>(
   name: string,
@@ -122,14 +160,19 @@ const _sse = <A, I, E, R, R2>(
           Effect.orDie,
         )),
       Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
-      Stream.buffer({ capacity: _SSE.lag, strategy: "suspend" }),
+      Stream.buffer({ capacity: Option.getOrElse(_lanes.sse.lag, () => 1), strategy: "suspend" }),
     )
     // the admission fence bounds the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
     // this response ends, so the plane-level slot the successor took is never held by two live feeds at once
-    const framed = Stream.merge(events, Stream.repeatEffectWithSchedule(Effect.succeed(_BEAT), Schedule.spaced(_SSE.beat)), {
-      haltStrategy: "left",
-    }).pipe(Stream.interruptWhenDeferred(fence))
-    return HttpServerResponse.stream(Stream.provideContext(_encoded(framed), context)).pipe(
+    const beat = Option.match(_lanes.sse.beat, {
+      onNone: () => Stream.empty as Stream.Stream<Sse.AnyEvent>,
+      onSome: (every) => Stream.repeatEffectWithSchedule(Effect.succeed(_BEAT), Schedule.spaced(every)),
+    })
+    const framed = Stream.merge(events, beat, { haltStrategy: "left" }).pipe(Stream.interruptWhenDeferred(fence))
+    // Directives lead the response: a client reconnecting off a dropped feed reads its pacing before any datum,
+    // so the interval holds even when the feed refuses on its first pull
+    const opened = Stream.concat(_retry(attested["last-event-id"]), framed)
+    return HttpServerResponse.stream(Stream.provideContext(_encoded(opened), context)).pipe(
       HttpServerResponse.setHeaders({ "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" }),
     )
   })
@@ -138,10 +181,8 @@ const _sse = <A, I, E, R, R2>(
 ## [04]-[SOCKET_ROW]
 
 [SOCKET_ROW]:
-- Owner: `Realtime.socket` — the WS upgrade fold: `HttpServerRequest.upgrade` yields the peer socket, `Socket.toChannelWith` lifts it to a byte channel, `Ndjson.duplexString` frames text lines, and `ChannelSchema.duplexUnknown({ inputSchema, outputSchema })` types both directions in one composition — a live session is one typed duplex channel whose inbound decodes INTO the caller's vocabulary (`Presence.Op`, subscribe intents) and whose outbound is the encoded frame family, backpressure inherited from the channel stack; the binary peer swaps `Ndjson` for the `net/channel#FRAME_ROWS` msgpack row with an unchanged schema seam.
-- Law: frame vocabularies are parameters — this row owns transport and typing, never the frame family; `[06]` supplies the inbound admission fold and the outbound feeds, so a new realtime feature is a frame case at its owner, not a socket edit.
-- Law: a decode failure on any inbound frame ends the session typed — a malformed client frame is a `LiveFault`, never a silent drop; the channel's error fold normalizes every transport, frame, and parse fault into the family at the one `Channel.mapError` seam.
-- Law: this row honors `[06]`'s fence on the identical member family the SSE row does — `Channel.interruptWhenDeferred` — so one admission plane governs both transports and a duplex cannot outlive the reservation that admitted it.
+- Law: `[06]`'s stamp guard pins every decoded op to the principal the `[03]` lead's credential lift bound, so an inbound frame carries no authority its connection did not already hold.
+- Law: the `degrade` cell derives from three column facts — `reconnect` is `Option.none` because a peer paces its own backoff, no resume replay exists on this lane at all, and the frame vocabularies are parameters, so a dropped connection resumes only what its own frame owner rebuilds.
 - Packages: `@effect/platform` (`Socket`, `Ndjson`, `ChannelSchema`, `HttpServerRequest`); `effect` (`Channel`, `Chunk`, `Deferred`).
 
 ```typescript signature
@@ -159,7 +200,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
     const socket = yield* request.upgrade.pipe(Effect.mapError(() => new LiveFault({ reason: "closed", detail: "upgrade refused" })))
-    return Socket.toChannelWith<LiveFault>()(socket).pipe(
+    return Socket.toChannel(socket).pipe(
       Ndjson.duplexString(),
       ChannelSchema.duplexUnknown({ inputSchema: frames.inbound, outputSchema: frames.outbound }),
       Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
@@ -172,16 +213,17 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 ## [05]-[FEED_ROWS]
 
 [FEED_ROWS]:
-- Owner: the source adapters — the three branch feed families lifted into the one `Source` contract so every endpoint fold serves them unchanged. `Realtime.query(bound)` serves a data `Live.Bound`: `changes` is the push stream re-running on every overlapping mutation, each emission a fresh decoded read, so a reconnect re-reads current state and misses nothing by construction; the bound's own `coordinate` projection answers the token — a lane carrying a durable emission identity (its `AsOf` sequence) serves it as the event `id`, a DEDUPE coordinate the client proves its rendered state against and never a replay cursor, while a coordinate-free bound is honestly tokenless — and the pull twin stays the consumer-side `mailbox`, never an SSE concern; `Realtime.topic(topic)` serves a fanout subject: a fresh attach warms from the topic row's replay window, and a caller holding its own sequence ledger opens `Fanout.replay(topic, anchor)` instead — the anchor is the caller's evidence, so the adapter mints no token it cannot honor; `Realtime.roster(feed, lease)` serves presence: the folded table stream projects through `Presence.roster` against a horizon minted per emission, so liveness is a read-time verdict and no timer fiber sweeps anything.
-- Law: a feed value arrives bound, never rebuilt — the adapter composes `bound.changes`, `fanout.subscribe`, or the app-wired fold handle; re-running a query, caching a copy, or subscribing twice restates delivery the owning page already guarantees.
-- Law: fault normalization is the endpoint's one seam — `SqlError`/`ParseError` on a query feed and `FanoutFault` on a topic feed pass as the stream's own error into the endpoint fold, which normalizes foreign faults to `closed`; a `horizon` fanout fault maps to `lost` first because the client must re-sync, the one evidence-preserving arm.
+- Law: an adapter carries its source's own error channel and its own requirement — the reactive read fails with whatever its bound query raises and demands `Reactivity.Reactivity`, never a SQL client, because the owner re-runs every bound through the reactive bus and a relational binding touches no relation on an object-plane or in-memory bound.
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
-- Packages: `@rasm/ts/data` (`Live`); `@rasm/ts/core` (`Presence`, `Hlc`); `../net/pubsub.ts` (`Fanout`); `effect` (`Stream`, `Option`, `DateTime`, `Schema`).
 
 ```typescript signature
-const _query = <A, R>(
-  bound: Live.Bound<A, R>,
-): Realtime.Source<A, SqlError.SqlError | ParseResult.ParseError, R | SqlClient.SqlClient> => ({
+// The bound's own error channel crosses verbatim: a feed carries whatever its query fails with, so hardcoding one
+// relational pair here narrowed every non-relational bound to a shape it never raises. Its requirement is the
+// reactive bus, not a SQL client — the owner re-runs through `Reactivity.stream`, so a serving Layer satisfying this
+// feed with a client alone provides a Tag the stream never asks for and omits the one it does.
+const _query = <A, E, R>(
+  bound: Live.Bound<A, E, R>,
+): Realtime.Source<A, E, Exclude<R, Scope.Scope> | Reactivity.Reactivity> => ({
   from: () => bound.changes,
   // the bound's own emission-identity projection: a durable coordinate (a lane's AsOf sequence) rides as the event
   // id and a coordinate-free bound answers none — a DEDUPE token the client proves its rendered state against,
@@ -209,13 +251,20 @@ const _topic = (topic: string): Realtime.Source<Envelope, LiveFault, Fanout> => 
 })
 
 const _roster = <E, R>(
-  feed: Stream.Stream<Fold.Table<Presence.Actor, Presence.State>, E, R>,
+  feed: Stream.Stream<Fold.Table<Presence.Key, Presence.State>, E, R>,
+  tenant: Identity.Tenant.Scope,
   lease: Presence.Lease,
 ): Realtime.Source<HashMap.HashMap<Presence.Actor, Presence.Status>, E, R> => ({
   from: () =>
     Stream.mapEffect(feed, (table) =>
-      Effect.map(DateTime.now, (now) =>
-        Presence.roster(table, Hlc.tick(Hlc.genesis, Hlc.physicalOf(now)), lease))),
+      Effect.map(DateTime.now, (now) => {
+        const horizon = Clock.Hlc.tick(Clock.Hlc.genesis, Clock.Hlc.physicalOf(now))
+        return HashMap.reduce(
+          Presence.roster(HashMap.filter(table, (_state, [scope]) => scope === tenant), horizon, lease),
+          HashMap.empty<Presence.Actor, Presence.Status>(),
+          (roster, status, [, actor]) => HashMap.set(roster, actor, status),
+        )
+      })),
   token: () => Option.none(),
 })
 ```
@@ -223,14 +272,7 @@ const _roster = <E, R>(
 ## [06]-[ADMISSION]
 
 [ADMISSION]:
-- Owner: `Admission.make(rules)` — one constructor over the app's channel-rule rows, built ONCE per served app and held by the serving Layer, never per session: each row keys a branded channel prefix and carries an `Admission.Rule` `Schema.Class` with `scope` (the `Principal` scope a subscriber must hold, `Option` for public channels), `presence` (whether the channel serves a roster), positive `fan` (the per-principal live-subscription cap), and `lease` (the presence liveness windows) — held in a `Trie` so `Trie.longestPrefixOf` resolves any concrete channel to its most specific family row in one read, and a channel family is one row, never one row per channel.
-- Law: admission is a two-gate fold — the channel must resolve to a rule (an unmatched channel is `denied`, never a default-open), and the rule's scope, when present, must pass `Principal.allows` — producing a `Grant` that carries the resolved rule, so every later decision (roster serving, fan cap, lease) reads the grant's own row and nothing downstream re-looks anything up.
-- Law: the stamp guard pins identity — a decoded `Presence.Op` reaches the fold only when its `actor` equals the authenticated principal's subject AND the grant's channel serves presence; a mismatched actor is `denied` with the op discarded, so presence forgery is refused at this plane and the core fold never carries an authorization concern; forwarding is a supplied sink, so where the fold runs is composition, never law here.
-- Law: the fan bound has one authoritative scope — the PRINCIPAL — and the registry is plane-level: one cell keyed `subject:channel` holds every live subscription across every session, so a second session of one principal draws from the same cap and cannot mint a fresh allowance; presence in the cell IS the held slot and the value is that holder's own FENCE, so the census read, the supersede swap, and the release are one atomic `Ref.modify` apiece and no epoch counter exists to drift. A subscription past the grant's `fan` refuses as `shed` before any stream opens.
-- Law: the reservation is what the served response HOLDS, never a fiber beside it — `subscribe` is a scoped acquisition answering the fence, the endpoint folds it through `Stream.interruptWhenDeferred` / `Channel.interruptWhenDeferred`, and the finalizer releases the slot only while that fence still owns the key; so a supersede settles the predecessor's fence and its RESPONSE closes, a client disconnect closes the response scope and the slot frees, and the cap counts live responses rather than bookkeeping fibers a served stream never rides. A registry forking its own fiber holds a count nothing can interrupt and leaves the cap tracking a ghost.
-- Law: the rule table is app data under a lib shape — which channels exist is composition material, so two apps with different channel maps share every line of this module.
 - Growth: a new admission axis (a payload ceiling, a rate row) is one `Rule` field read at its gate; a new channel family is one app-side row.
-- Packages: `effect` (`Trie`, `Option`, `Either`, `Deferred`, `HashMap`, `Ref`, `Scope`); `@rasm/ts/core` (`Presence`, `Hlc`); `./api.ts` (`Principal`).
 
 ```typescript signature
 const _Channel = Schema.NonEmptyString.pipe(Schema.maxLength(128), Schema.pattern(/^[a-z0-9][a-z0-9:_-]*$/), Schema.brand("Channel"))
@@ -245,7 +287,7 @@ class _Rule extends Schema.Class<_Rule>("Admission/Rule")({
   scope: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   presence: Schema.Boolean,
   fan: Schema.Int.pipe(Schema.positive()),
-  lease: Schema.Struct({ idle: Schema.DurationFromSelf, gone: Schema.DurationFromSelf }),
+  lease: Presence.Lease,
 }) {}
 
 const _admit = (rules: Trie.Trie<Admission.Rule>) =>
@@ -270,15 +312,15 @@ const _guard = (
   (op: Presence.Op): Effect.Effect<void, LiveFault> =>
     !grant.rule.presence
       ? Effect.fail(new LiveFault({ reason: "denied", detail: grant.channel }))
-      : op.actor !== principal.subject
+      : op.actor !== principal.subject || !Option.exists(principal.tenant, (tenant) => tenant === op.tenant.tenant)
         ? Effect.fail(new LiveFault({ reason: "denied", detail: op.actor }))
         : forward(op)
 
 // one atomic verdict over the whole cell: `left` is the refused cap, `right` carries the superseded incumbent's
 // fence when a held key re-reserved and `none` when the slot was fresh — three outcomes one boolean cannot spell
 const _reserved = (
-  cell: Ref.Ref<HashMap.HashMap<string, Deferred.Deferred<void>>>,
-  key: string,
+  cell: Ref.Ref<HashMap.HashMap<Fold.Cell, readonly [subject: string, fence: Deferred.Deferred<void>]>>,
+  key: Fold.Cell,
   subject: string,
   fan: number,
   fence: Deferred.Deferred<void>,
@@ -286,24 +328,26 @@ const _reserved = (
   Ref.modify(cell, (slots) =>
     Option.match(HashMap.get(slots, key), {
       // a held key re-reserves from ANY session of this principal and never charges the cap twice
-      onSome: (incumbent) => [Either.right(Option.some(incumbent)), HashMap.set(slots, key, fence)] as const,
+      onSome: ([, incumbent]) => [Either.right(Option.some(incumbent)), HashMap.set(slots, key, [subject, fence])] as const,
       onNone: () =>
-        HashMap.size(HashMap.filter(slots, (_, held) => held.startsWith(`${subject}:`))) >= fan
+        HashMap.size(HashMap.filter(slots, ([owner]) => owner === subject)) >= fan
           ? ([Either.left<void>(undefined), slots] as const)
-          : ([Either.right(Option.none<Deferred.Deferred<void>>()), HashMap.set(slots, key, fence)] as const),
+          : ([Either.right(Option.none<Deferred.Deferred<void>>()), HashMap.set(slots, key, [subject, fence])] as const),
     }))
 
 const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Admission.Rule]>) =>
   Effect.gen(function* () {
     const rules = Trie.fromIterable(rows)
-    const cell = yield* Ref.make(HashMap.empty<string, Deferred.Deferred<void>>())
+    const cell = yield* Ref.make(
+      HashMap.empty<Fold.Cell, readonly [subject: string, fence: Deferred.Deferred<void>]>()
+    )
     const admit = _admit(rules)
     const subscribe = (
       grant: Admission.Grant,
       principal: Principal.Shape,
     ): Effect.Effect<Deferred.Deferred<void>, LiveFault, Scope.Scope> =>
       Effect.gen(function* () {
-        const key = `${principal.subject}:${grant.channel}`
+        const key = Fold.cell([principal.subject, grant.channel])
         const fence = yield* Deferred.make<void>()
         const verdict = yield* _reserved(cell, key, principal.subject, grant.rule.fan, fence)
         return yield* Either.match(verdict, {
@@ -320,7 +364,7 @@ const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Ad
                   Ref.update(cell, (slots) =>
                     Option.match(HashMap.get(slots, key), {
                       onNone: () => slots,
-                      onSome: (current) => (current === fence ? HashMap.remove(slots, key) : slots),
+                      onSome: ([, current]) => (current === fence ? HashMap.remove(slots, key) : slots),
                     }))),
               ),
               fence,
@@ -336,23 +380,41 @@ const Admission = { Channel: _Channel, Rule: _Rule, make: _make } as const
 ## [07]-[MOUNT_PORT]
 
 [MOUNT_PORT]:
-- Owner: `Mount` — the foreign-protocol port: one `Context.Tag` carrying an immutable row collection where each row is `{ prefix, app }` and `app` is a complete `HttpApp.Default` implementing a foreign realtime protocol; `route#LAYER_ROUTES` folds the collection and mounts every app at its prefix — presence-as-data, an unwired port serves nothing, and the standing satisfier is the data wave's EventLog sync server provided at the app root.
-- Law: the port is the ledger's answer — this plane never imports the satisfier; `Mount.of(...rows)` supplies any number of protocols through one Layer, each app assembly owns a unique-prefix row set, and a second foreign protocol is a row against the same Tag, never a second port.
-- Boundary: upgrade mechanics inside the mounted app are the satisfier's; this page owns the Tag and its contract.
-- Packages: `@effect/platform` (`HttpApp`); `effect` (`Context`, `Layer`); each satisfier's own packages stay at the app root.
+- Owner: `Mount` — the foreign-protocol rows a served app folds, and `Mount.node` the branch's ONE lift from a raw node handler into the `HttpApp.Default` a row carries. Fetch-shaped foreign apps need no lift at all, since `HttpApp.fromWebHandler` already answers one, and a second member beside it forks the contract this port exists to hold.
+- Law: the lift is a two-part shape because the node pair is runtime capability — `Mount.node(handler)` is the published member every consumer names, and `Mount.Lift` is the port a runtime row satisfies with `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`; that pair casts `request.source` unchecked, so a fetch-shaped runtime binding it hands the handler an object it cannot drive, and an unbound port reads as refused capability rather than a crash.
+- Law: the mounted handler OWNS the raw response, so the lift awaits its close and answers `HttpServerResponse.empty()` — the platform's own writer short-circuits on `writableEnded`, which is what keeps one response from being written twice; a lift returning a body instead writes headers a handler already sent.
+- Law: `serve/route#LAYER_ROUTES` composes this same member for the tus rail's node dispatchers, so the adapter has one spelling and `Router.RailMount` keeps the Layer assembly — prefix routing and groom scheduling — that no lift decides.
+- Law: a Connect row carries its own RPC-level cover beside the HTTP-level one — `ConnectNodeAdapterOptions` reaches `interceptors`, `readMaxBytes`, `writeMaxBytes`, and `compressMinBytes` through `@connectrpc/connect/protocol`'s exported `UniversalHandlerOptions`, so per-procedure policy rides the adapter while `Seam.guard` covers every mounted row alike from above the catch-all.
+- Boundary: upgrade mechanics inside the mounted app are the satisfier's; this page owns the Tag, the lift, and their contract.
+- Packages: `@effect/platform` (`HttpApp`, `HttpServerResponse`); `effect` (`Context`, `Layer`); `node:http` types alone; each satisfier's own packages stay at the app root.
 
 ```typescript signature
 declare namespace Mount {
-  type Row = { readonly prefix: `/${string}`; readonly app: HttpApp.Default }
+  // Structural shape every foreign node adapter already answers — `connectNodeAdapter` returns exactly it — so this
+  // page names no adapter package and each satisfier keeps its own at the root.
+  type NodeHandler = (request: IncomingMessage, response: ServerResponse) => void
+  type Row = { readonly prefix: `/${string}`; readonly app: HttpApp.Default<LiveFault, Mount.Lift> }
+  type Lift = _Lift
 }
 
+class _Lift extends Context.Tag("runtime/serve/Mount/Lift")<_Lift, {
+  readonly node: (handler: Mount.NodeHandler) => Effect.Effect<void, LiveFault, HttpServerRequest.HttpServerRequest>
+}>() {}
+
+// Rows raising nothing and demanding nothing still inhabit the widened row type, so admitting the lift costs an
+// existing mount no edit while a lifted row stops needing a parallel row family of its own.
+const _mounted = (handler: Mount.NodeHandler): HttpApp.Default<LiveFault, Mount.Lift> =>
+  Effect.as(Effect.flatMap(_Lift, (lift) => lift.node(handler)), HttpServerResponse.empty())
+
 class Mount extends Context.Tag("runtime/serve/Mount")<Mount, ReadonlyArray<Mount.Row>>() {
+  static readonly Lift = _Lift
+  static readonly node = _mounted
   static readonly of = (...rows: ReadonlyArray<Mount.Row>): Layer.Layer<Mount> => Layer.succeed(Mount, rows)
 }
 
 const Realtime = {
   Resume: _Resume,
-  policy: _SSE,
+  lanes: _lanes,
   query: _query,
   roster: _roster,
   socket: _socket,
@@ -367,4 +429,4 @@ export { Admission, LiveFault, Mount, Realtime }
 
 ## [08]-[RESEARCH]
 
-- [CONNECT_MOUNT_LIFT]-[BLOCKED]: which owner publishes the node-handler lift a `Mount.Row` needs — `connectNodeAdapter(options)` answers a `NodeHandlerFn` and `HttpApp` exposes `fromWebHandler` over a FETCH handler alone, so nothing lifts a `NodeHandlerFn` into the `HttpApp.Default` the row carries, while `serve/route#LAYER_ROUTES` already drives a raw node handler through `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` without publishing that pair as a member, and `ConnectNodeAdapterOptions` declares no own `interceptors` field — the option reaches a caller only by inheritance from the package-internal `UniversalHandlerOptions`, so no stable adapter spelling carries it and `Seam.guard` covers every mounted row regardless, the router attaching it once above the catch-all; route through `libs/typescript/runtime/.planning/serve/route.md` `Router.RailMount`, `libs/typescript/.api/effect-platform-node.md`, and `libs/typescript/runtime/.api/connectrpc-connect-node.md`; arm when one published lift serves both the rail row and this port, since two spellings of one adapter fork the Mount contract.
+(none)

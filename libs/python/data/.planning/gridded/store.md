@@ -15,8 +15,8 @@ Its backend is recovered from the store URL scheme through the `runtime/transpor
 - Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `BoundaryFault(import_=)` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `BoundaryFault(resource=)` naming the missing driver by scheme instead of raising mid-leg from a spec builder. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
 - Law: `write_region` crosses the owner's `ResourceGuard` before any region lands — one guard per opened store, composition-bound — so two same-process apps racing one array refuse typed at the guard as `concurrent-write` instead of interleaving regions mid-snapshot; the guard spans the whole staged write, nothing queues behind it, and cross-process coordination stays the chunk grid's own per-chunk atomicity, which the guard never substitutes for.
 - Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carrying the coordinate that leg moved, plus a `STORAGE` `MeterFact` where bytes landed, so arming records without metering and a region write records both. Both legs are already awaitable, which is what makes them the seat under the runtime producer-seam law; the facts mint off the settled outcome so none names a write the store refused, and the record rail binds into each verdict. The receipt fan keeps the series and the journal keeps the fact — neither re-mints the other's number.
-- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor one `_COMPRESSOR` row under the existing `compress` case; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; zero new surface.
-- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
+- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; zero new surface.
+- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
 ```python signature
 import functools
@@ -76,72 +76,112 @@ class TensorChunking(Struct, frozen=True):
 
 
 type Compressor = Literal["blosc", "zstd", "gzip", "lz4", "lzma", "bz2", "zlib"]
+# checksum digests occupy the SAME bytes-to-bytes slot a compressor takes, so a store guards its blocks and
+# compresses them in ONE tail: zarr spells crc32c natively and numcodecs carries the remaining four.
+type Checksum = Literal["crc32c", "crc32", "adler32", "fletcher32", "jenkins"]
+# byte reordering is the third family sharing that slot: `shuffle` groups the like-significance bytes of an
+# `elementsize`-wide value together, which is what a general compressor needs to find runs in a float grid and
+# what only `blosc` otherwise carries internally — so a zstd or gzip tail reaches it as a row of its own.
+type Reorder = Literal["shuffle"]
+type BytesTag = Compressor | Checksum | Reorder
+# where a digest writes itself relative to the block it guards; the reader reads the same slot back.
+type Digest = Literal["start", "end"]
 
-_COMPRESSOR: "Final[Map[Compressor, tuple[Callable[..., BytesBytesCodec], str, tuple[str, ...]]]]" = Map.of_seq([
-    ("blosc", (lambda cname, clevel: zc.BloscCodec(cname=cname, clevel=clevel), "blosc", ("cname", "clevel"))),
-    ("zstd", (lambda level: zc.ZstdCodec(level=level), "zstd", ("level",))),
+def _blosc(cname: str, clevel: int, shuffle: "str | None", typesize: "int | None", blocksize: int) -> "BytesBytesCodec":
+    # seated with the table that reads it rather than under the operations below, because a row's builder is the
+    # row. blosc's meta-compressor knobs ARE the ratio decision on a chunked float grid: `shuffle` reorders bytes by
+    # `typesize` before the inner codec runs, which is what makes a float array compress at all, and `blocksize`
+    # fixes the internal split the codec threads over. Four of the five were unreachable while the row carried the
+    # `(cname, clevel)` pair alone, so every store took the provider's own defaults with no page stating them.
+    return zc.BloscCodec(cname=cname, clevel=clevel, shuffle=shuffle, typesize=typesize, blocksize=blocksize)
+
+
+_BYTES: "Final[Map[BytesTag, tuple[Callable[..., BytesBytesCodec], str, tuple[str, ...]]]]" = Map.of_seq([
+    ("blosc", (_blosc, "blosc", ("cname", "clevel", "shuffle", "typesize", "blocksize"))),
+    # zstd's own frame checksum is a codec knob, distinct from a tail digest row: it guards the compressed frame
+    # where a `crc32c` row guards whatever block reaches it, so both are spellable and neither implies the other.
+    ("zstd", (lambda level, checksum: zc.ZstdCodec(level=level, checksum=checksum), "zstd", ("level", "checksum"))),
     ("gzip", (lambda level: zc.GzipCodec(level=level), "gzip", ("level",))),
-    ("lz4", (lambda level: nc.LZ4(level=level), "numcodecs.lz4", ("level",))),
-    ("lzma", (lambda preset: nc.LZMA(preset=preset), "numcodecs.lzma", ("preset",))),
+    # `nc.LZ4` keys its speed/ratio dial `acceleration` and carries no `level` at all. The zarr adapter takes
+    # `**codec_config`, so a `level=` row builds clean and arms the store, then raises `TypeError` from inside the
+    # codec at the FIRST chunk write — having already written that same unreadable key into the metadata document.
+    ("lz4", (lambda acceleration: nc.LZ4(acceleration=acceleration), "numcodecs.lz4", ("acceleration",))),
+    ("lzma", (lambda format_, check, preset: nc.LZMA(format=format_, check=check, preset=preset), "numcodecs.lzma", ("format", "check", "preset"))),
     ("bz2", (lambda level: nc.BZ2(level=level), "numcodecs.bz2", ("level",))),
     ("zlib", (lambda level: nc.Zlib(level=level), "numcodecs.zlib", ("level",))),
+    ("crc32c", (lambda: zc.Crc32cCodec(), "crc32c", ())),
+    ("crc32", (lambda location: nc.CRC32(location=location), "numcodecs.crc32", ("location",))),
+    ("adler32", (lambda location: nc.Adler32(location=location), "numcodecs.adler32", ("location",))),
+    ("fletcher32", (lambda: nc.Fletcher32(), "numcodecs.fletcher32", ())),
+    ("jenkins", (lambda initval: nc.JenkinsLookup3(initval=initval), "numcodecs.jenkins_lookup3", ("initval",))),
+    ("shuffle", (lambda elementsize: nc.Shuffle(elementsize=elementsize), "numcodecs.shuffle", ("elementsize",))),
 ])
 
 
-# serializer slot is the compressor-presence axis ONLY. Sharding is NOT a serializer case: `TensorChunking.shards` is
-# its sole owner, and the native `create_array(shards=)` wrap keeps the whole inner pipeline, so a sharded store never drops
-# its compressor/filter choice to a hardcoded `ShardingCodec`.
 @tagged_union(frozen=True)
-class Serializer:
-    tag: Literal["compress", "raw"] = tag()
-    compress: "tuple[Compressor, tuple[Any, ...]]" = case()
-    raw: None = case()
+class BytesStage:
+    # ONE bytes-to-bytes row, compressor and checksum in one family because both seat in the slot `Pipeline` already
+    # types as a TUPLE. Splitting them across a two-case `compress|raw` union left the one pairing a chunked
+    # residence wants most — compress AND digest — unspellable, and pinned every compressor to the two or three
+    # knobs that union's positional pair happened to carry. Position in `TensorCodec.tail` IS the applied order: a
+    # digest seated after a compressor guards the COMPRESSED block, and a zarr3 reader unwinds the chain as written.
+    tag: BytesTag = tag()
+    blosc: "tuple[str, int, str | None, int | None, int]" = case()
+    zstd: tuple[int, bool] = case()
+    gzip: int = case()
+    lz4: int = case()
+    lzma: "tuple[int, int, int | None]" = case()
+    bz2: int = case()
+    zlib: int = case()
+    crc32c: None = case()
+    crc32: Digest = case()
+    adler32: Digest = case()
+    fletcher32: None = case()
+    jenkins: int = case()
+    shuffle: int = case()
 
-    def slot(self, pre: "tuple[ArrayArrayCodec, ...]") -> Pipeline:
+    def _args(self) -> tuple[Any, ...]:
         match self:
-            case Serializer(tag="compress"):
-                name, args = self.compress
-                build, _, _ = _COMPRESSOR[name]
-                return (pre, zc.BytesCodec(), (build(*args),))
-            case Serializer(tag="raw"):
-                return (pre, zc.BytesCodec(), ())
-            case unreachable:
-                assert_never(unreachable)
+            case BytesStage(tag="blosc") | BytesStage(tag="zstd") | BytesStage(tag="lzma"):
+                return getattr(self, self.tag)
+            case BytesStage(tag="crc32c") | BytesStage(tag="fletcher32"):
+                return ()
+            case BytesStage():
+                return (getattr(self, self.tag),)
 
-    def slot_json(self, pre: list[JsonSpec]) -> list[JsonSpec]:
-        match self:
-            case Serializer(tag="compress"):
-                name, args = self.compress
-                _, codec_name, keys = _COMPRESSOR[name]
-                return [*pre, {"name": "bytes"}, {"name": codec_name, "configuration": dict(zip(keys, args, strict=True))}]
-            case Serializer(tag="raw"):
-                return [*pre, {"name": "bytes"}]
-            case unreachable:
-                assert_never(unreachable)
+    def codec(self) -> "BytesBytesCodec":
+        build, _, _ = _BYTES[self.tag]
+        return build(*self._args())
 
-    @property
-    def name(self) -> str:
-        return self.compress[0] if self.tag == "compress" else self.tag
+    def json(self) -> JsonSpec:
+        _, name, keys = _BYTES[self.tag]
+        return {"name": name, "configuration": dict(zip(keys, self._args(), strict=True))} if keys else {"name": name}
 
 
 class TensorCodec(Struct, frozen=True):
-    serializer: Serializer = Serializer(raw=None)
+    # whole pipeline as ORDERED rows: array-to-array filters, the byte serializer the format fixes, then the
+    # bytes-to-bytes tail. An EMPTY tail IS the uncompressed store, so absence is a row count rather than a union
+    # case. Sharding is NOT a tail row: `TensorChunking.shards` is its sole owner and the native
+    # `create_array(shards=)` wrap keeps the whole inner pipeline, so a sharded store never drops its codec choice.
+    tail: "tuple[BytesStage, ...]" = ()
     filters: "tuple[TensorFilter, ...]" = ()
 
     def pipeline(self) -> Pipeline:
-        return self.serializer.slot(tuple(f.codec() for f in self.filters))
+        return (tuple(f.codec() for f in self.filters), zc.BytesCodec(), tuple(stage.codec() for stage in self.tail))
 
     def metadata(self, chunking: "TensorChunking") -> list[JsonSpec]:
         # tensorstore carries no native `shards=`, so the `sharding_indexed` wrap is explicit here.
-        inner = self.serializer.slot_json([f.json() for f in self.filters])
+        inner = [*(f.json() for f in self.filters), {"name": "bytes"}, *(stage.json() for stage in self.tail)]
         return [{"name": "sharding_indexed", "configuration": {"chunk_shape": list(chunking.chunks), "codecs": inner}}] if chunking.shards else inner
 
     @property
     def name(self) -> str:
-        return self.serializer.name
+        # receipt coordinate over the WHOLE tail, so a compress-then-digest store reports both rather than whichever
+        # one a single-slot name happened to hold; an empty tail names itself.
+        return "+".join(stage.tag for stage in self.tail) or "raw"
 
 
-type Filter = Literal["transpose", "scale_offset", "delta", "fixed_scale_offset", "quantize", "bitround", "packbits"]
+type Filter = Literal["transpose", "scale_offset", "delta", "fixed_scale_offset", "quantize", "bitround", "packbits", "astype"]
 
 # `zc.ScaleOffset` is keyword-only `(*, offset=0, scale=1)` — the `dtype`/`astype` slots belong to `nc.FixedScaleOffset` alone.
 _FILTER: "Final[Map[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str, ...]]]]" = Map.of_seq([
@@ -155,6 +195,10 @@ _FILTER: "Final[Map[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str
     ("quantize", (lambda digits, dtype: nc.Quantize(digits=digits, dtype=dtype), "numcodecs.quantize", ("digits", "dtype"))),
     ("bitround", (lambda keepbits: nc.BitRound(keepbits=keepbits), "numcodecs.bitround", ("keepbits",))),
     ("packbits", (lambda: nc.PackBits(), "numcodecs.packbits", ())),
+    # storage dtype narrowing as its own row: a grid held as `float64` in memory and written as `float32` halves
+    # every chunk before a compressor sees it, and the decode side restores the analysis dtype, which no
+    # compressor row expresses and no downstream reader can undo once the narrowing is baked into the values.
+    ("astype", (lambda encode_dtype, decode_dtype: nc.AsType(encode_dtype=encode_dtype, decode_dtype=decode_dtype), "numcodecs.astype", ("encode_dtype", "decode_dtype"))),
 ])
 
 
@@ -168,6 +212,7 @@ class TensorFilter:
     quantize: tuple[int, DType] = case()
     bitround: int = case()
     packbits: None = case()
+    astype: tuple[DType, DType] = case()
 
     def _args(self) -> tuple[Any, ...]:
         match self:
@@ -185,6 +230,8 @@ class TensorFilter:
                 return (self.bitround,)
             case TensorFilter(tag="packbits"):
                 return ()
+            case TensorFilter(tag="astype"):
+                return self.astype
             case unreachable:
                 assert_never(unreachable)
 

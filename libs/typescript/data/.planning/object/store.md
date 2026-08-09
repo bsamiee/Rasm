@@ -1,35 +1,40 @@
 # [DATA_STORE]
 
-Content-addressed object identity is core `ContentKey`; this page delegates minting and uses its `:x32` spelling as S3 `Key`. Conditional writes make repeated bytes a proven noop. One `ObjectStore` owns scoped client, abort-bridged sends, typed faults, shape-dispatched puts, verified reads, grants, and lifecycle. A SQL reference ledger drives `If-Match` GC. Provider `Config` must satisfy the conformance table; engines lacking `If-None-Match: *` cannot host the plane.
+`Digest.Key<"content">` is object identity. `ObjectStore` owns conditional writes, verified reads, grants, lifecycle, and reference-ledger GC.
 
 ## [01]-[INDEX]
 
-- [02]-[CLIENT_SEAM]: the scoped client, the one typed send, the fault fold, config, the engine table.
-- [03]-[CONDITIONAL]: the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads.
-- [04]-[REFERENCE_GC]: the reference ledger, the derived retention tag, If-Match CAS sweep, the archive ladder and lifecycle, multipart reap, the restore deferral.
-- [05]-[INSTRUMENT_ROWS]: the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
-- [06]-[GRANT_MINT]: the one presign entry, TTL narrowing, header policy, the typed grant.
+- [02]-[CLIENT_SEAM]: scoped client, one typed send, fault fold, config, engine table.
+- [03]-[CONDITIONAL]: put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads.
+- [04]-[REFERENCE_GC]: reference ledger, derived retention tag, If-Match CAS sweep, archive ladder and lifecycle, multipart reap, restore deferral.
+- [05]-[INSTRUMENT_ROWS]: Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
+- [06]-[GRANT_MINT]: one presign entry, TTL narrowing, header policy, typed grant.
 
 ## [02]-[CLIENT_SEAM]
 
 - Owner: the `ObjectStore` service construction — `Effect.acquireRelease` around the client with `destroy` on release, the abort-bridged send idiom every operation repeats verbatim, the `_folded` fault fold with its read-shaped `_foldedRead` projection, one `_Setting` config owner, the `_shielded` resilience bracket every operation rides — and the `_engines` conformance table that rules which providers host the plane.
-- Packages: `@aws-sdk/client-s3` (`S3Client`, `S3ServiceException`, `InvalidObjectState`); `effect` (`Config`, `Redacted`, `Match`, `Data`, `Duration`, `Schema`, `Struct`); `@rasm/ts/core` (`ContentKey`, `FaultClass`, `Budget`).
+- Packages: `@aws-sdk/client-s3`, `effect`, and core `Digest` with `Fault` supply the client, rails, identity, and resilience owners.
 - Entry: every S3 operation in the unit is one abort-bridged `client.send(command)` — commands are values discriminating the operation; a per-verb method family and the flat client are the rejected forms; `read/batch.md`'s `presence` lane settles its HEAD windows through the `head` member.
 - Growth: a new operation is a command value; a new provider is a `Config` change validated against the conformance table; a new engine is one table row with its conditional verdict filled.
 - Law: the abort bridge is mandatory — `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: _folded(key) })` — fiber interruption aborts the in-flight request; an un-abortable send leaks past interruption.
-- Law: the fault family is `ObjectFault`, its rows closed through the core `FaultClass.family` seam — `missing` (404) classifies `absent`, `archived` (the SDK's own `InvalidObjectState`) classifies `denied` because a cold object's bytes exist and only the caller's restore verb makes them readable, `integrity` (identity or checksum disagreement) classifies `breached` because a content address disagreeing with its bytes is a torn store invariant, `io` (everything else) classifies `unavailable`; 412 is NOT a fault — the fold returns the `_Replay` receipt before the family engages, and there is no `PreconditionFailed` class to catch (the status rides `$metadata.httpStatusCode` on the base exception).
-- Law: the fold reads the SDK's TAGGED classes before it reads transport status, because a status is the coarsest evidence a reply carries and the archive verdict is the case that proves it — `InvalidObjectState` is neither 404 nor 412, so a status-only ladder drops it on the `io` arm and re-drives the whole `lease` curve against a condition no attempt can change, on the very plane whose own `_lifecycle` writes the rules that archived the object.
-- Law: resilience is the core budget floor, never a page-local envelope — `_shielded` brackets every bounded operation with the bulkhead semaphore and the `lease` row whole: `Budget.schedule("lease")` carries the curve with `FaultClass.retryable` as its own owner default (so `io` re-drives while `missing`/`integrity`/`archived` fail fast and the `_Replay` receipt, carrying no class, folds to non-retryable), `Budget.lease.attempt` bounds each try beneath it, and `Budget.lease.total` bounds the whole call above it; a page-spelled curve or a per-site budget knob re-derives an envelope the floor already prices, and a local retry column beside `class` would fork the core taxonomy into this folder. The AWS client's `maxAttempts` covers transport-level retry beneath it, and the circuit-breaker tier rides the core fault owner's degradation budget when that upstream row lands.
+- Law: `ObjectFault` closes missing, archived, integrity, and I/O reasons through `Fault.Class.family`; HTTP 412 returns replay success.
+- Law: the fold reads the SDK's TAGGED classes before it reads transport status, because a status is the coarsest evidence a reply carries and the archive verdict is the case that proves it — `InvalidObjectState` is neither 404 nor 412, so a status-only ladder drops it on the `io` arm and re-drives the whole `lease` curve against a condition no attempt can change, on the plane whose own `_lifecycle` writes the rules that archived the object.
+- Law: the command's own conditional selects the leg's fold — `_folded` mints `_Replay` and serves exactly the legs that send a conditional header (the three put legs, the copy, the `If-Match` sweep delete, each folding the replay into a receipt or a retained mark), while every unconditional command takes `_foldedRead`: the presign mint, the lifecycle push, the multipart open, the part uploads, and the reads. `_folded` on an unconditional leg widens that leg's error channel with a private tag no caller folds even though the 412 can never arrive, and `_shielded` then hands its retry gate a value carrying no `class`, which `Fault.Class.of` reads as `defect` — the classification a store fault must never reach by construction.
+- Law: `_shielded` composes the `Fault.Budget` lease schedule, attempt ceiling, total ceiling, and `Fault.Class.retryable` gate.
+- Law: `Fault.Budget` owns the WHOLE curve and the SDK-native retry pins to a single attempt — `maxAttempts: 1` on the client is the pin, and no `Config` row exposes it, because a provider schedule nested inside each attempt of the lease curve makes effective attempts the PRODUCT of two schedules and every budget on this page then measures a span it never fixed.
 - Boundary: streaming, waiting, walking, and reference members stand outside the bracket by construction — `putKeyed` cannot replay a one-shot body, `settled` owns its waiter budget, `sweep` and `reap` settle faults inside their folds, and `refer`/`release` ride the relational rail; every other member rides `_shielded`.
-- Law: checksums are transport integrity, `ContentKey` is identity — `requestChecksumCalculation`/`responseChecksumValidation` pin `"WHEN_SUPPORTED"` against AWS-grade engines and `"WHEN_REQUIRED"` against S3-compatibles that predate default checksums, a `Config` fact per provider; identity verification is the core mint re-run at read, and the two never substitute.
-- Law: the conformance table is the admission gate a boot READS — `_Setting.engine` names the row and construction refuses any engine whose `conditional` column is not `"yes"`, so the gate is a startup verdict rather than a comment: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation) host the plane, the CRDT-metadata engine, the B2 row, and the GCS row cannot and stay as data so the argument is never re-had, and the pending row waits on its concurrency fix.
-- Law: the GCS row is refused on a SPELLING, not a capability — create-if-absent on that engine is `x-goog-if-generation-match: 0`, a header the SDK's `IfNoneMatch: "*"` never emits, so its S3 surface accepts the conditional put and applies no precondition at all, racing concurrent writers of one `ContentKey` into silent overwrite exactly as an unconditional engine does; the row reopens only on a named interop probe proving the generation precondition crosses the S3 surface, never on a vendor compatibility claim.
-- Law: archive depth is a conformance CELL, never a fork — `archive` names the deepest `Retain.depths` rung an engine honours (`frozen` the whole restore-bearing ladder, `cool` the reduced-access class alone, `none` a single-tier store), `_lifecycle` filters each retention row's transition rungs against it by depth POSITION, and an engine at `none` finds no index and receives expiry rules alone; a rung an engine cannot honour is a rule its API accepts and silently never applies, which reads on the bill as archived pricing that never arrived. Tigris and R2 conform on the conditional header and store single-tier or reduced-access alone, so their cells state that rather than inheriting the managed default.
+- Law: transport checksums never replace `Digest.Key<"content">`; verified reads remint identity from bytes.
+- Law: the conformance table is the admission gate a boot READS — `_Setting.engine` names the row and construction refuses any engine whose `conditional` column is not `"yes"`, so the gate is a startup verdict rather than a comment: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation, SeaweedFS) host the plane, while the CRDT-metadata engine, the B2 row, and the GCS row cannot and stay as data so the argument is never re-had.
+- Law: no refusal on this table waits on a release, which is why the column carries two values and not three — the CRDT-metadata engine forecloses conditional writes in its own design, having declined the consensus algorithm they need; GCS answers create-if-absent through a generation precondition its S3 interoperability surface never spells, so the one guarantee this plane admits on cannot cross at all; and the B2 row rests on an observed refusal of the header rather than a published stance, so that row alone re-probes at admission. SeaweedFS moved into the hosting set on its own compare-and-create landing for the unversioned buckets this plane exclusively writes.
+- Law: archive depth reads off the ladder POSITION, so a cell admits every rung beneath it and a rung an engine's own guidance warns off caps the cell BENEATH that rung rather than carving it out — Ceph RGW reaches deep archive through its cloud-transition tier type yet reads `cool`, because the `cold` rung's own literal is the GLACIER-prefixed name that engine tells clients to avoid, and a cell of `cold` admits it.
+- Law: self-host rows name their transition classes by administrator declaration while the SDK's `TransitionStorageClass` union is closed over six AWS literals, so a class spelled anything else cannot cross this command at all and a class the cluster never minted takes a 200 that transitions nothing — each self-host cell therefore states the deepest rung whose `_STORAGE` literal an operator can both mint and the engine advises, and provisioning that engine mints those classes under exactly those names. MinIO's continuation caps at `cold` because its tiering refuses by design any remote demanding rehydration, and Tigris caps there because its accepted class set stops one literal short of deep archive.
+- Law: the engine row answers the whole descriptor a deployment selects on, and two of those coordinates this plane decides NOWHERE — `posture` with `archive` names what a row FITS, `conditional` is its ADMISSION gate (boot refuses any cell short of `yes`), and DEGRADE reads off both: an `archive: "none"` row gives up every retention transition and prices one tier for an object's whole life, a `"cool"` row gives up the restore-bearing rungs beneath it, and a refused row gives up atomic create-if-absent, which is the guarantee rather than the gap; TENANCY no engine row decides, because the key IS the content and one byte-identical object serves every tenant referencing it, so isolation lives on `object_ref` rows under the tenancy GUC and an engine-level answer states a guess; LIFETIME no engine row decides either, since the last reference release makes an object reclaimable and the CAS sweep with the native expiry rules ends it, so neither a caller nor a provider ends an object's life.
+- Law: archive depth is a conformance CELL, never a fork — `archive` names the deepest `Retain.depths` rung an engine honours (`frozen` the whole restore-bearing ladder, `cool` the reduced-access class alone, `none` a single-tier store), `_lifecycle` filters each retention row's transition rungs against it by depth POSITION, and an engine at `none` finds no index and receives expiry rules alone; a rung an engine cannot honour is a rule its API accepts and silently never applies, which reads on the bill as archived pricing that never arrived. R2 conforms on the conditional header and stores reduced-access alone, so its cell states that rather than inheriting the managed default, and GCS reads `none` because the same interoperability layer that refuses the conditional also takes Google's own lifecycle document in place of the S3 `Transition` element — a product-level archive tier the S3 path reaches through no rule this page can write.
 
 ```typescript signature
 import { Config, Data, Duration, Effect, Match, Redacted, Schema, Struct } from "effect"
 import { InvalidObjectState, S3Client, S3ServiceException } from "@aws-sdk/client-s3"
-import { Budget, ContentKey, FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
 // Three columns, each a verdict a boot reads: `conditional` is the admission gate, `posture` names who operates the
 // engine, and `archive` names the deepest storage tier it honours so the lifecycle generator filters its transition
@@ -38,11 +43,11 @@ import { Budget, ContentKey, FaultClass } from "@rasm/ts/core"
 const _engines = {
   s3: { conditional: "yes", posture: "managed", archive: "frozen" },
   r2: { conditional: "yes", posture: "managed", archive: "cool" },
-  tigris: { conditional: "yes", posture: "managed", archive: "none" },
-  cephRgw: { conditional: "yes", posture: "selfHost", archive: "none" },
-  minioContinuation: { conditional: "yes", posture: "selfHost", archive: "none" },
-  seaweedfs: { conditional: "pending", posture: "selfHost", archive: "none" },
-  gcs: { conditional: "no", posture: "refused", archive: "frozen" },
+  tigris: { conditional: "yes", posture: "managed", archive: "cold" },
+  cephRgw: { conditional: "yes", posture: "selfHost", archive: "cool" },
+  minioContinuation: { conditional: "yes", posture: "selfHost", archive: "cold" },
+  seaweedfs: { conditional: "yes", posture: "selfHost", archive: "none" },
+  gcs: { conditional: "no", posture: "refused", archive: "none" },
   garage: { conditional: "no", posture: "refused", archive: "none" },
   b2: { conditional: "no", posture: "refused", archive: "none" },
 } as const
@@ -53,18 +58,18 @@ declare namespace ObjectStore {
   type Reason = (typeof _family.reasons)[number]
   type _Engines<
     T extends Record<Engine, {
-      readonly conditional: "yes" | "no" | "pending"
+      readonly conditional: "yes" | "no"
       readonly posture: string
       readonly archive: Retain.Depth | "none"
     }> = typeof _engines,
   > = T
 }
 
-// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// One row per reason: retryability, blame, and quarantine remain owned by the selected Fault.Class row.
 // table's, so the shielded retry gate reads that lattice and no local retry column exists to disagree with it.
 // `archived` classifies `denied` on the axes rather than the word: no re-drive changes an object's storage class,
 // and the recovery is a verb the CALLER issues, which is exactly non-retryable and caller-blamed.
-const _family = FaultClass.family(["missing", "archived", "integrity", "io"] as const, {
+const _family = Fault.Class.family(["missing", "archived", "integrity", "io"] as const, {
   missing: { class: "absent" },
   archived: { class: "denied" },
   integrity: { class: "breached" },
@@ -76,7 +81,7 @@ class ObjectFault extends Schema.TaggedError<ObjectFault>()("ObjectFault", {
   key: Schema.String,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -97,7 +102,6 @@ const _Setting = Config.unwrap({
   checksums: Config.literal("WHEN_SUPPORTED", "WHEN_REQUIRED")("OBJECT_CHECKSUMS").pipe(Config.withDefault("WHEN_REQUIRED")),
   accessKeyId: Config.redacted("OBJECT_ACCESS_KEY_ID"),
   secretAccessKey: Config.redacted("OBJECT_SECRET_ACCESS_KEY"),
-  maxAttempts: Config.integer("OBJECT_MAX_ATTEMPTS").pipe(Config.withDefault(3)),
   multipartThreshold: Config.integer("OBJECT_MULTIPART_BYTES").pipe(Config.withDefault(64 * 1024 * 1024)),
   partBytes: Config.integer("OBJECT_PART_BYTES").pipe(Config.withDefault(8 * 1024 * 1024)),
   partFlight: Config.integer("OBJECT_PART_FLIGHT").pipe(Config.withDefault(4)),
@@ -107,9 +111,10 @@ const _Setting = Config.unwrap({
 })
 
 // Infrastructure ops ride the `lease` row whole, so this page spells no curve: the compiled schedule carries jitter,
-// the reset, the attempt bound, and the elapsed ceiling, and its gate defaults to `FaultClass.retryable` — the exact
-// predicate a hand-passed argument would restate, which is why no gate argument appears.
-const _RETRY = Budget.schedule("lease")
+// the reset, the attempt bound, and the elapsed ceiling, and its gate defaults to `Fault.Class.retryable` — the exact
+// predicate a hand-passed argument would restate, which is why no gate argument appears. Owning the curve whole is
+// also why the client below pins `maxAttempts: 1`: a provider schedule inside each attempt here multiplies.
+const _RETRY = Fault.Budget.schedule("lease")
 
 // Both budgets the row names, in the geometry the rails layering law fixes: `attempt` below the retry bounds one try,
 // `total` above it bounds the whole call, so a stalled engine releases the fiber on the call budget rather than on the
@@ -120,12 +125,12 @@ const _shielded = (gate: Effect.Semaphore) =>
       gate.withPermits(1)(
         op.pipe(
           Effect.timeoutFail({
-            duration: Budget.lease.attempt,
+            duration: Fault.Budget.at("lease").attempt,
             onTimeout: () => new ObjectFault({ reason: "io", key, detail: "<attempt-budget>" }),
           }),
           Effect.retry(_RETRY),
           Effect.timeoutFail({
-            duration: Budget.lease.total,
+            duration: Fault.Budget.at("lease").total,
             onTimeout: () => new ObjectFault({ reason: "io", key, detail: "<call-budget>" }),
           }),
         ),
@@ -157,16 +162,17 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault =>
 ## [03]-[CONDITIONAL]
 
 - Owner: the conditional-put algebra and the read family — `conditional` (the ONE conditional command mint the server put, the presign grant, and the stream rail's finalize all share), `put` discriminating plain versus multipart versus streaming on the body shape and size, `get` with identity verification, `head` settling presence and descriptor evidence, and the consistency waiters; the ranged streaming read is `object/stream.md`'s `Rail.range` — one owner per read geometry, never both pages.
-- Packages: `@aws-sdk/client-s3` (`PutObjectCommand`, `GetObjectCommand`, `HeadObjectCommand`, `GetObjectAttributesCommand`, `CopyObjectCommand`, `CreateMultipartUploadCommand`, `UploadPartCommand`, `CompleteMultipartUploadCommand`, `AbortMultipartUploadCommand`, `waitUntilObjectExists`); `@aws-sdk/lib-storage` (`Upload` — the streaming leg); `effect` (`Array`, `Stream`, `Exit`, `Option`); `@rasm/ts/core` (`ContentKey`, `Digest` — the delegating mint).
+- Packages: AWS S3 clients, `effect`, and core `Digest` supply conditional transport, streaming rails, and content identity.
 - Entry: `store.put(bytes)` mints the key from the bytes through the core digest and writes conditionally — the caller never supplies a key because identity is derived, not asserted; a streaming body whose key is already proven (the stream rail's finalize) enters through `store.putKeyed(key, body)` on the same conditional legs.
 - Receipt: `ObjectStore.Receipt` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law; the multipart and streaming legs land the same receipt because the conditional evaluates atomically at completion.
 - Growth: a write posture (SSE, object lock) is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get; a new producer is one entry on the producer law and its own reference row, never a leg here.
 - Law: every leg writes at the engine's DEFAULT class and the retention ladder owns depth alone — a put-time archive class is refused because this plane verifies identity by re-minting the bytes it reads back, and a class that cannot be read without a restore makes that verification impossible for the object's whole cold life; the dedup leg proves the same point from the other side, since a 412 against a live object leaves whatever class that object already carries, so a put-time class holds on first write and silently vanishes on every replay. Depth is therefore an AGE decision the lifecycle rules apply, never a write-time assertion a replay can lose.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` reason's retryable class.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
+- Law: the SHA-256 transport checksum rides ALL THREE write legs, never the plain and streaming pair alone — the multipart leg declares the algorithm at `CreateMultipartUpload`, asserts it on every `UploadPart`, and carries each part reply's `ChecksumSHA256` into its `CompletedPart` so the engine re-verifies the assembled object at completion; the middle size band is otherwise the one class whose wire corruption reaches the verified read as an `integrity` fault with no transport evidence naming the part that carried it.
 - Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Descriptor` request family through one `HeadObjectCommand` send as `ObjectStore.Stat` — the schema-owned evidence row whose `etag`, `contentType`, and `modified` fields are `Option`-carried with encodable twins, so the batch engine's durable band persists the same row `head` mints, a reply without `ContentLength` is the `io` fault, never a sentinel-zero forgery, and the HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
 - Law: every receipt is honest — `putKeyed` takes the proven span from the caller's identity fold, while `rekey(source, target)` probes the source once and carries its `Stat.bytes` into either copy outcome; the server-side copy derives `CopySourceIfMatch` from the same typed probe, so neither caller-provided ETags nor zero-byte receipt guesses are spellable.
-- Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through `upload.abort()`.
+- Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through the injected `Options.abortController`, whose `abort()` returns void so the teardown call and its rejection stay on the `done()` promise the fold already owns.
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key)` runs `waitUntilObjectExists({ client, maxWaitTime: setting.settleSeconds, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it; the budget is construction policy shared with delete settlement, never a call-site knob.
 - Law: producers reach ONE of the two put legs and mint no byte plane of their own — `object/file.md`'s derivative persist and `runtime/net/pubsub.md`'s oversize-payload stash hand bounded bytes to `put`, while `object/stream.md`'s tus finalize, `object/remote.md`'s remote ingest, and `lane/olap.md`'s `Olap.lake.write`/`.sink` Parquet egress carry a proven span into `putKeyed`; each records its reference row in the same unit of work, so the cold-tail residence and every other landed object share one identity, one conditional, and one GC ledger rather than a second addressing scheme per producer.
 
@@ -182,7 +188,7 @@ import { Digest } from "@rasm/ts/core"
 
 class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
   // encodable option fields: the batch engine's durable band persists this row through its own schema, so OptionFromSelf has no spelling here
-  key: ContentKey,
+  key: Digest.Key.content,
   bytes: Schema.NonNegativeInt,
   etag: Schema.OptionFromNullOr(Schema.String),
   contentType: Schema.OptionFromNullOr(Schema.String),
@@ -201,14 +207,14 @@ class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
 }
 
 declare namespace ObjectStore {
-  type Receipt = { readonly key: ContentKey; readonly bytes: number; readonly written: boolean }
+  type Receipt = { readonly key: Digest.Key<"content">; readonly bytes: number; readonly written: boolean }
   type Stat = _Stat
   // Retrieval urgency is the caller's, because a DSAR deadline and a batch rehydration price the same bytes
   // differently; the shipped tier vocabulary is capitalized-word, never the screaming case the class roster uses.
   type RestorePolicy = { readonly days: number; readonly tier: "Bulk" | "Expedited" | "Standard" }
 }
 
-const _putPlain = (client: S3Client, bucket: string, key: ContentKey, bytes: Uint8Array) =>
+const _putPlain = (client: S3Client, bucket: string, key: Digest.Key<"content">, bytes: Uint8Array) =>
   Effect.matchEffect(
     Effect.tryPromise({
       try: (signal) =>
@@ -226,12 +232,15 @@ const _putPlain = (client: S3Client, bucket: string, key: ContentKey, bytes: Uin
     },
   )
 
-const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes: Uint8Array, partBytes: number, partFlight: number) =>
+const _putMultipart = (client: S3Client, bucket: string, key: Digest.Key<"content">, bytes: Uint8Array, partBytes: number, partFlight: number) =>
   Effect.scoped(
     Effect.gen(function* () {
       const opened = yield* Effect.acquireRelease(
         Effect.tryPromise({
-          try: (signal) => client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }),
+          try: (signal) =>
+            client.send(new CreateMultipartUploadCommand({
+              Bucket: bucket, Key: key, ChecksumAlgorithm: "SHA256",
+            }), { abortSignal: signal }),
           catch: _foldedRead(key),
         }),
         (held, exit) =>
@@ -255,10 +264,13 @@ const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes:
                 Bucket: bucket, Key: key, UploadId: opened.UploadId,
                 PartNumber: index + 1,
                 Body: window,
+                ChecksumAlgorithm: "SHA256",
               }), { abortSignal: signal }),
             catch: _foldedRead(key),
           }),
-          (reply) => ({ ETag: reply.ETag, PartNumber: index + 1 }),
+          // Each part's digest crosses into the completion so the engine re-verifies the assembled object; the
+          // `CompletedPart` slot exists for exactly this, and omitting it settles a multipart with parts nobody checked.
+          (reply) => ({ ETag: reply.ETag, PartNumber: index + 1, ChecksumSHA256: reply.ChecksumSHA256 }),
         ), { concurrency: partFlight })
       yield* Effect.tryPromise({
         try: (signal) =>
@@ -276,17 +288,23 @@ const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes:
       Effect.succeed<ObjectStore.Receipt>({ key, bytes: bytes.byteLength, written: false })),
   )
 
-const _putStreaming = (client: S3Client, bucket: string, key: ContentKey, body: ReadableStream<Uint8Array>, partBytes: number, partFlight: number, span: number, step?: (loaded: number) => void) =>
+const _putStreaming = (client: S3Client, bucket: string, key: Digest.Key<"content">, body: ReadableStream<Uint8Array>, partBytes: number, partFlight: number, span: number, step?: (loaded: number) => void) =>
   Effect.matchEffect(
     Effect.tryPromise({
       try: (signal) => {
+        // `Upload` mints its own controller when none arrives, and `abort()` only trips that controller — its
+        // `AbortMultipartUpload` and every rejection it raises ride `done()`, which the fold below already owns.
+        // Injecting one controller keeps this listener void-returning, so no promise crosses out of the fiber onto
+        // Node's unhandled channel, where `Effect.promise` would grade it a class-less defect the retry gate pins.
+        const abortController = new AbortController()
+        signal.addEventListener("abort", () => abortController.abort(), { once: true })
         const upload = new Upload({
           client,
+          abortController,
           params: { Bucket: bucket, Key: key, Body: body, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" },
           partSize: partBytes,
           queueSize: partFlight,
         })
-        signal.addEventListener("abort", () => { void upload.abort() }, { once: true })
         upload.on("httpUploadProgress", (progress) => {
           if (progress.loaded !== undefined) step?.(progress.loaded)
         })
@@ -303,7 +321,7 @@ const _putStreaming = (client: S3Client, bucket: string, key: ContentKey, body: 
     },
   )
 
-const _attributes = (client: S3Client, bucket: string, key: ContentKey) =>
+const _attributes = (client: S3Client, bucket: string, key: Digest.Key<"content">) =>
   Effect.tryPromise({
     try: (signal) =>
       client.send(new GetObjectAttributesCommand({
@@ -313,7 +331,7 @@ const _attributes = (client: S3Client, bucket: string, key: ContentKey) =>
     catch: _foldedRead(key),
   })
 
-const _rekey = (client: S3Client, bucket: string, source: ContentKey, target: ContentKey) =>
+const _rekey = (client: S3Client, bucket: string, source: Digest.Key<"content">, target: Digest.Key<"content">) =>
   Effect.gen(function* () {
     const stat = yield* _headed(client, bucket, source)
     const sourceEtag = yield* Option.match(stat.etag, {
@@ -340,7 +358,7 @@ const _rekey = (client: S3Client, bucket: string, source: ContentKey, target: Co
     )
   })
 
-const _got = (client: S3Client, bucket: string, key: ContentKey) =>
+const _got = (client: S3Client, bucket: string, key: Digest.Key<"content">) =>
   Effect.gen(function* () {
     const reply = yield* Effect.tryPromise({
       try: (signal) =>
@@ -357,7 +375,7 @@ const _got = (client: S3Client, bucket: string, key: ContentKey) =>
       : Effect.fail(new ObjectFault({ reason: "integrity", key, detail: minted })))
   })
 
-const _headed = (client: S3Client, bucket: string, key: ContentKey) =>
+const _headed = (client: S3Client, bucket: string, key: Digest.Key<"content">) =>
   Effect.flatMap(
     Effect.tryPromise({
       try: (signal) => client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }),
@@ -379,7 +397,7 @@ const _headed = (client: S3Client, bucket: string, key: ContentKey) =>
           })),
   )
 
-const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime: number) =>
+const _settled = (client: S3Client, bucket: string, key: Digest.Key<"content">, maxWaitTime: number) =>
   Effect.asVoid(Effect.tryPromise({
     try: (signal) => waitUntilObjectExists({ client, maxWaitTime, abortSignal: signal }, { Bucket: bucket, Key: key }),
     catch: _foldedRead(key),
@@ -474,7 +492,7 @@ const _honours = (engine: ObjectStore.Engine) => {
 }
 
 const _classify = (client: S3Client, bucket: string) =>
-  (key: ContentKey, retention: Retain.Class) =>
+  (key: Digest.Key<"content">, retention: Retain.Class) =>
     Effect.asVoid(Effect.tryPromise({
       try: (signal) =>
         client.send(new PutObjectTaggingCommand({
@@ -485,7 +503,7 @@ const _classify = (client: S3Client, bucket: string) =>
     }))
 
 const _retag = (client: S3Client, bucket: string) =>
-  (key: ContentKey) =>
+  (key: Digest.Key<"content">) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const rows = yield* SqlSchema.findAll({
@@ -540,15 +558,15 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
           ],
         },
       }), { abortSignal: signal }),
-    catch: _folded(bucket),
+    catch: _foldedRead(bucket),
   }))
 
-const _refer = (key: ContentKey, owner: string, retention: Retain.Class) =>
+const _refer = (key: Digest.Key<"content">, owner: string, retention: Retain.Class) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql`INSERT INTO object_ref ${sql.insert([{ key, owner, retention }])}
         ON CONFLICT (key, owner) DO UPDATE SET released_at = NULL, retention = excluded.retention`)
 
-const _release = (key: ContentKey, owner: string) =>
+const _release = (key: Digest.Key<"content">, owner: string) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql`UPDATE object_ref SET released_at = ${Journal.now(sql)} WHERE key = ${key} AND owner = ${owner}`)
 
@@ -642,7 +660,7 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
 // header and `ArchiveStatus` are that coordinate — `ongoing-request="true"` while the retrieval runs — and the tier
 // rides the caller's own urgency because a DSAR deadline and a batch rehydration price retrieval differently.
 const _restore = (client: S3Client, bucket: string) =>
-  (key: ContentKey, policy: ObjectStore.RestorePolicy) =>
+  (key: Digest.Key<"content">, policy: ObjectStore.RestorePolicy) =>
     Effect.asVoid(Effect.tryPromise({
       try: (signal) =>
         client.send(new RestoreObjectCommand({
@@ -697,7 +715,7 @@ import type { GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartC
 
 declare namespace ObjectStore {
   type Command = PutObjectCommand | GetObjectCommand | UploadPartCommand | HeadObjectCommand
-  type Grant = { readonly url: string; readonly expiresAt: DateTime.Utc; readonly key: ContentKey }
+  type Grant = { readonly url: string; readonly expiresAt: DateTime.Utc; readonly key: Digest.Key<"content"> }
   type GrantPolicy = {
     readonly ttl?: Duration.Duration
     readonly signableHeaders?: Set<string>
@@ -706,7 +724,7 @@ declare namespace ObjectStore {
 }
 
 const _grant = (client: S3Client, presignTtl: Duration.Duration) =>
-  (key: ContentKey, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
+  (key: Digest.Key<"content">, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
     Effect.gen(function* () {
       const bounded = policy?.ttl === undefined ? presignTtl : Duration.min(policy.ttl, presignTtl)
       const url = yield* Effect.tryPromise({
@@ -716,7 +734,7 @@ const _grant = (client: S3Client, presignTtl: Duration.Duration) =>
             ...(policy?.signableHeaders !== undefined && { signableHeaders: policy.signableHeaders }),
             ...(policy?.hoistableHeaders !== undefined && { hoistableHeaders: policy.hoistableHeaders }),
           }),
-        catch: _folded(key),
+        catch: _foldedRead(key),
       })
       const minted = yield* DateTime.now
       return { url, expiresAt: DateTime.addDuration(minted, bounded), key } satisfies ObjectStore.Grant
@@ -726,7 +744,7 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
   scoped: Effect.gen(function* () {
     const setting = yield* _Setting
     // Boot executes the admission gate the conformance law states: a non-conforming engine refuses BEFORE a client exists,
-    // so a plane that cannot keep concurrent writers of one ContentKey idempotent never reaches its first put.
+    // A plane unable to keep concurrent writers of one content key idempotent never reaches its first put.
     yield* Effect.filterOrFail(
       Effect.succeed(setting.engine),
       (engine) => _engines[engine].conditional === "yes",
@@ -739,7 +757,9 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
           endpoint: setting.endpoint,
           region: setting.region,
           forcePathStyle: setting.forcePathStyle,
-          maxAttempts: setting.maxAttempts,
+          // ONE attempt at the provider, always: `Fault.Budget` owns the curve above, so a nested SDK schedule would
+          // multiply into it and make the attempt bound this page states unmeasurable.
+          maxAttempts: 1,
           requestChecksumCalculation: setting.checksums,
           responseChecksumValidation: setting.checksums,
           credentials: {
@@ -767,7 +787,7 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         accessKeyId: setting.accessKeyId,
         secretAccessKey: setting.secretAccessKey,
       },
-      conditional: (key: ContentKey) =>
+      conditional: (key: Digest.Key<"content">) =>
         new PutObjectCommand({ Bucket: setting.bucket, Key: key, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" }),
       put: (bytes: Uint8Array) =>
         Effect.flatMap(Digest.mint("content", bytes), (key) =>
@@ -776,26 +796,26 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
               ? _putPlain(client, setting.bucket, key, bytes)
               : _putMultipart(client, setting.bucket, key, bytes, setting.partBytes, setting.partFlight),
           )).pipe(Effect.tap(_measured)),
-      putKeyed: (key: ContentKey, body: ReadableStream<Uint8Array>, span: number, step?: (loaded: number) => void) =>
+      putKeyed: (key: Digest.Key<"content">, body: ReadableStream<Uint8Array>, span: number, step?: (loaded: number) => void) =>
         _putStreaming(client, setting.bucket, key, body, setting.partBytes, setting.partFlight, span, step).pipe(Effect.tap(_measured)),
-      get: (key: ContentKey) => shield(key)(_got(client, setting.bucket, key)),
-      head: (key: ContentKey) => shield(key)(_headed(client, setting.bucket, key)),
-      attributes: (key: ContentKey) => shield(key)(_attributes(client, setting.bucket, key)),
-      rekey: (source: ContentKey, target: ContentKey) =>
+      get: (key: Digest.Key<"content">) => shield(key)(_got(client, setting.bucket, key)),
+      head: (key: Digest.Key<"content">) => shield(key)(_headed(client, setting.bucket, key)),
+      attributes: (key: Digest.Key<"content">) => shield(key)(_attributes(client, setting.bucket, key)),
+      rekey: (source: Digest.Key<"content">, target: Digest.Key<"content">) =>
         shield(target)(_rekey(client, setting.bucket, source, target)).pipe(Effect.tap(_measured)),
-      settled: (key: ContentKey) => _settled(client, setting.bucket, key, setting.settleSeconds),
+      settled: (key: Digest.Key<"content">) => _settled(client, setting.bucket, key, setting.settleSeconds),
       sweep: _sweep(client, setting.bucket, setting.settleSeconds).pipe(
         Effect.tap((mark) => Metric.incrementBy(_reclaimed, mark.reclaimed)), // the BYTE census: the row's own `By` code reads a byte total
       ),
       reap: _reap(client, setting.bucket),
-      restore: (key: ContentKey, policy: ObjectStore.RestorePolicy) => shield(key)(_restore(client, setting.bucket)(key, policy)),
-      grant: (key: ContentKey, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
+      restore: (key: Digest.Key<"content">, policy: ObjectStore.RestorePolicy) => shield(key)(_restore(client, setting.bucket)(key, policy)),
+      grant: (key: Digest.Key<"content">, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
         shield(key)(_grant(client, setting.presignTtl)(key, command, policy)),
       lifecycle: _lifecycle(client, setting.bucket, setting.engine, Retain.Policy),
       // Ledger truth drives the tag: both reference verbs re-derive retention from surviving references.
-      refer: (key: ContentKey, owner: string, retention: Retain.Class) =>
+      refer: (key: Digest.Key<"content">, owner: string, retention: Retain.Class) =>
         Effect.zipRight(_refer(key, owner, retention), retag(key)),
-      release: (key: ContentKey, owner: string) =>
+      release: (key: Digest.Key<"content">, owner: string) =>
         Effect.zipRight(_release(key, owner), retag(key)),
     }
   }),
@@ -809,10 +829,5 @@ export { ObjectFault, ObjectStore }
 ```
 
 ## [07]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

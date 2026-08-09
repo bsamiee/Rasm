@@ -28,19 +28,19 @@
 - [17]-[STORE](.planning/gridded/store.md): Dense chunked N-D tensor store over a `TensorBackend` axis with codec and region axes.
 - [18]-[VIRTUAL](.planning/gridded/virtual.md): Sole manifest-cube owner over `icechunk` virtual-chunk addressing and the per-variable manifest wire.
 - [19]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store over `awkward` with the zero-copy Arrow bridge to the interop carrier.
-- [20]-[FIELD](.planning/gridded/field.md): CF field-dataset owner over `xarray` engines with flox reductions, the raw field-container read leg, and the ensemble corpus.
-- [21]-[ENSEMBLE](.planning/gridded/ensemble.md): Scenario-tree owner over `DataTree` hierarchies carrying multi-scenario families with group-wise folds.
+- [20]-[FIELD](.planning/gridded/field.md): CF field-dataset owner over `xarray` engines — flox reductions, the raw read leg, the ensemble corpus.
+- [21]-[ENSEMBLE](.planning/gridded/ensemble.md): Scenario-tree owner over `DataTree` hierarchies carrying multi-scenario families with group folds.
 
 [GRAPH]:
-- [22]-[GRAPH](.planning/graph/graph.md): Graph-payload owner over the `rustworkx` run kernel with the GPL-confined community-detection split and the layer-topology decoder.
+- [22]-[GRAPH](.planning/graph/graph.md): Graph-payload owner over `rustworkx`, the GPL-confined community split, and the layer-topology decoder.
 - [23]-[NETWORK](.planning/graph/network.md): Capacity-network flow owner over the `networkx` flow family the rustworkx kernel does not spell.
 
 [IMPACT]:
 - [24]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing EPD and LCA results onto one EN 15804 carrier.
-- [25]-[DECLARATION](.planning/impact/declaration.md): Declaration-registry ingest owner minting the corpus `declaration-record` contract per verified product declaration.
+- [25]-[DECLARATION](.planning/impact/declaration.md): Registry-ingest owner minting the `declaration-record` contract per verified declaration.
 - [26]-[INVENTORY](.planning/impact/inventory.md): Brightway project and LCI-ingestion custodian with the matrix-datapackage substrate.
 - [27]-[SOLVE](.planning/impact/solve.md): `MultiLCA` shared-factorization batch and the contribution driver-mining axis.
-- [28]-[SCENARIO](.planning/impact/scenario.md): Prospective-background build owner driving the floor-gated `premise` transform and its write-back registry proof.
+- [28]-[SCENARIO](.planning/impact/scenario.md): Prospective-background owner driving the floor-gated `premise` transform and its write-back proof.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -115,7 +115,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `zarr`
 - `numcodecs` — zarr v3 chunk filter/compressor codec registry.
 - `cubed`
-- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses every caller-NAMED `TensorBackend.TENSORSTORE` selection while the marker holds, and an unnamed object-store residence derives the sync engine over `zarr.storage.ObjectStore` instead, so the marker gates one engine rather than the whole remote dense-tensor plane.
+- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses a NAMED `TensorBackend.TENSORSTORE`; unnamed residences ride `zarr.storage.ObjectStore`.
 - `awkward`
 - `flox`
 - `icechunk`
@@ -142,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `bw2analyzer` — Brightway contribution and comparison analysis on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate over COO triples.
 - `olca-ipc` — live openLCA IPC/REST client, carrying `olca-schema` as its wire model.
-- `premise` — FLOOR-GATED; `impact/scenario#SCENARIO` refuses every build while the marker holds; prospective ecoinvent background-database transformer over IAM scenarios.
+- `premise` — FLOOR-GATED ecoinvent prospective-background transformer over IAM scenarios; `impact/scenario#SCENARIO` refuses every build while gated.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

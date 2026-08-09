@@ -6,7 +6,7 @@
 
 - [02]-[SOURCE]: `SettingsSource` — the duality union with its `Use` read and `Mutate` undo-bracketed borrow folds.
 - [03]-[STATE_RECORDS]: the `SubOwners` custody window, writable sub-owner states, derived evidence, and `RenderConfig`.
-- [04]-[SUN_ASTRONOMY]: `SunSolver` — the static position, calendar, and twilight solvers.
+- [04]-[SUN_ASTRONOMY]: `SunSolver` — the static position, calendar, and twilight solvers beside the `SceneSun` wire band.
 - [05]-[EDIT_RAIL]: `SettingsRequest`, `SettingsResult`, whole-state copy, and receipted edits.
 - [06]-[AMBIENT_WATCH]: `AmbientSlot` and the `Changed`-broadcast fold.
 - [07]-[SURFACE_LEDGER]: page owner table.
@@ -21,6 +21,7 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using NodaTime;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -247,7 +248,10 @@ public abstract partial record SunPosition {
         manualAngles: static position =>
             double.IsFinite(position.Azimuth)
             && double.IsFinite(position.Altitude) && position.Altitude is >= -90d and <= 90d,
-        manualVector: static position => position.Value.IsValid);
+        // `Vector3d.IsValid` gates finiteness ALONE and admits the zero vector, which the host then reads back as a
+        // due-south horizon sun — a plausible angle pair no consumer separates from a measured one. Refusing the
+        // zero ray here keeps that reading off the wire; a denormal ray still unitizes and stays admitted.
+        manualVector: static position => position.Value.IsValid && !position.Value.IsZero);
 }
 
 [SmartEnum<string>]
@@ -799,10 +803,15 @@ public sealed record RenderConfig(
 
 ## [04]-[SUN_ASTRONOMY]
 
-- Owner: `SunProblem` closes direction, altitude, Julian day, twilight, tint, and machine-location modalities; `SunCapability` is the grant a machine-facts read presents; `SunSolution` closes vector, scalar, color, and optional location egress; `SunSolver.Solve` is the sole entry.
-- Law: each problem dispatches directly to its verified host static, and provider failure or invalid admission stays on the `Fin<SunSolution>` rail.
+- Owner: `SunProblem` closes direction, altitude, Julian day, twilight, tint, ephemeris, and machine-location modalities; `SunCapability` is the grant a machine-facts read presents; `SunSolution` closes vector, scalar, color, angle, and optional location egress; `SunSolver.Solve` is the sole entry. `SolarFrame`, `SunDerivation`, and `SceneSun` are the daylighting descriptor's sun band, projected out of `SunState` and never read back in.
+- Law: each host problem dispatches directly to its verified host static, and provider failure or invalid admission stays on the `Fin<SunSolution>` rail; `Ephemeris` alone carries no `Catch`, since the kernel almanac is a total effect-free fold over an admitted `SolarSite`.
 - Law: every problem but `Here` is pure over its supplied arguments — `Here` reads the machine's own geolocation service, so it carries the `SunCapability.MachineLocation` grant and admission refuses the case without it; a machine-facts read reached implicitly through a coordinate solve is the deleted form.
-- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange rail's earth-sync owner; this page never writes the anchor, and `Here` only reads the machine.
+- Law: host astronomy and wire astronomy answer two questions and stay two-formed — `Sun.SunDirection`/`AltitudeFromValues` report what the HOST believes and drive host-facing reads, while `Ephemeris` composes `Rasm.Numerics.SolarPosition.At` and is the only derivation a peer reproduces; a descriptor angle taken off a host static publishes an almanac no peer holds.
+- Law: `SceneSun` narrows the georeference to what an annual engine run admits — time zone `[-12, 14]` hours and elevation `[-300, 8900)` metres — so a document outside those bounds refuses at the producer instead of writing a site an engine rejects, and `SolarSite`'s own wider gate stays the kernel's.
+- Law: `Sited` and `Authored` are the whole discriminant — a manually controlled sun has no site derivation, so it carries angles alone and an annual run refuses it by name rather than back-solving coordinates from two numbers.
+- Law: `Sun.Vector` points sun-toward-scene in the document world frame and `Sun.North` bears compass north counter-clockwise off `+X` — `90`, the host default, seating north on `+Y` — so `ManualVector` negates, unitizes, projects onto that bearing's east and north axes in the host `Vector3d` the almanac takes, and re-reads through the kernel `SunPosition.OfDirection`; `Authored` therefore carries the same east-of-North pair `Sited` does, the host frame stops at this projection, and a ray that cannot unitize refuses instead of crossing as the due-south horizon reading the host substitutes for it.
+- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange rail's earth-sync owner; this page never writes the anchor, `Here` only reads the machine, and `elevationMetres` arrives as the caller's `EarthAnchorPoint.EarthBasepointElevation` read.
+- Boundary: sky irradiance is the consuming weather owner's — `SunState.Intensity` is a dimensionless render multiplier, so this band carries no `W/m2` column and a manufactured one fabricates radiation the document never held.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -816,6 +825,7 @@ public abstract partial record SunProblem {
     public sealed record Julian(double TimeZoneHours, int DaylightMinutes, DateTime Moment, double Hours) : SunProblem;
     public sealed record Twilight : SunProblem;
     public sealed record Color(double AltitudeDegrees) : SunProblem;
+    public sealed record Ephemeris(SolarSite Site, Instant Moment) : SunProblem;
     public sealed record Here(SunCapability Grant) : SunProblem;
 
     internal bool IsValid => Switch(
@@ -826,6 +836,7 @@ public abstract partial record SunProblem {
         julian: static problem => Time(problem.TimeZoneHours, problem.DaylightMinutes, problem.Hours),
         twilight: static _ => true,
         color: static problem => double.IsFinite(problem.AltitudeDegrees),
+        ephemeris: static problem => problem.Site is not null,
         here: static problem => problem.Grant == SunCapability.MachineLocation);
 
     private static bool Coordinate(double latitude, double longitude) =>
@@ -854,13 +865,128 @@ public sealed partial class SolarSolveMode {
     internal bool FastPath => Key;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+// `Rasm.Numerics.SunPosition` spells in full on every mention: `Rasm.Numerics` is in the page prelude and this
+// namespace declares its own `SunPosition` union, so the bare name binds to the host-state carrier and the kernel
+// almanac's angle pair would silently resolve to a different concept.
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SunSolution : IDetachedDocumentResult {
     private SunSolution() { }
     public sealed record Vector(Vector3d Value) : SunSolution;
     public sealed record Scalar(double Value) : SunSolution;
     public sealed record Color(PerceptualColor Value) : SunSolution;
+    public sealed record Angles(Rasm.Numerics.SunPosition Value) : SunSolution;
     public sealed record Location(Option<(double Latitude, double Longitude)> Value) : SunSolution;
+
+    internal Fin<Rasm.Numerics.SunPosition> Angular(Op key) =>
+        Switch(
+            context: key,
+            vector: static (op, _) => Fin.Fail<Rasm.Numerics.SunPosition>(error: op.InvalidResult()),
+            scalar: static (op, _) => Fin.Fail<Rasm.Numerics.SunPosition>(error: op.InvalidResult()),
+            color: static (op, _) => Fin.Fail<Rasm.Numerics.SunPosition>(error: op.InvalidResult()),
+            angles: static (_, solution) => Fin.Succ(value: solution.Value),
+            location: static (op, _) => Fin.Fail<Rasm.Numerics.SunPosition>(error: op.InvalidResult()));
+}
+
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SunDerivation {
+    private SunDerivation() { }
+    public sealed record Sited(SolarFrame Frame, Rasm.Numerics.SunPosition Angles) : SunDerivation;
+    public sealed record Authored(Rasm.Numerics.SunPosition Angles) : SunDerivation;
+}
+
+// --- [MODELS] --------------------------------------------------------------------------------
+// Engine bounds sit BELOW the kernel site's own gate: `SolarSite` admits time zone `[-14, 14]` and elevation
+// `(-500, 10000]` because astronomy holds there, while an annual building run reads `[-12, 14]` hours and
+// `[-300, 8900)` metres. Admitting the wider pair and letting the consumer refuse moves the refusal past the only
+// point that still knows which document produced it.
+[ComplexValueObject]
+public sealed partial class SolarFrame {
+    public SolarSite Site { get; }
+    public double NorthAxisDegrees { get; }
+    public int DaylightSavingMinutes { get; }
+    public Instant Moment { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref SolarSite site,
+        ref double northAxisDegrees,
+        ref int daylightSavingMinutes,
+        ref Instant moment) {
+        validationError = site is not null
+            && site.TimezoneHours is >= -12d and <= 14d
+            && site.ElevationM is >= -300d and < 8900d
+            && double.IsFinite(northAxisDegrees)
+            && daylightSavingMinutes is >= 0 and <= 1440
+            ? validationError
+            : new ValidationError(message: "<solar-frame-outside-engine-bounds>");
+    }
+}
+
+public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double IntensityScale)
+    : IDetachedDocumentResult {
+    internal static Fin<SceneSun> Of(SunState state, double elevationMetres, Op key) =>
+        from active in key.Need(state)
+        from derivation in Derive(state: active, elevationMetres: elevationMetres, key: key)
+        select new SceneSun(Derivation: derivation, Enabled: active.Enabled, IntensityScale: active.Intensity);
+
+    private static Fin<SunDerivation> Derive(SunState state, double elevationMetres, Op key) =>
+        state.Position.Switch(
+            context: (State: state, Elevation: elevationMetres, Op: key),
+            automatic: static (context, position) =>
+                from site in context.Op.AcceptValidated(SolarSite.Validate(
+                    latitudeDeg: position.Latitude,
+                    longitudeDeg: position.Longitude,
+                    timezoneHours: position.TimeZone,
+                    elevationM: context.Elevation,
+                    out SolarSite? admitted), admitted)
+                from frame in context.Op.AcceptValidated(SolarFrame.Validate(
+                    site: site,
+                    northAxisDegrees: context.State.North,
+                    daylightSavingMinutes: Saving(position),
+                    moment: Utc(position),
+                    out SolarFrame? framed), framed)
+                from solution in SunSolver.Solve(
+                    problem: new SunProblem.Ephemeris(Site: site, Moment: frame.Moment), key: context.Op)
+                from angles in solution.Angular(key: context.Op)
+                select (SunDerivation)new SunDerivation.Sited(Frame: frame, Angles: angles),
+            manualAngles: static (context, position) => Fin.Succ<SunDerivation>(value: new SunDerivation.Authored(
+                Angles: new Rasm.Numerics.SunPosition(
+                    AzimuthDeg: position.Azimuth, AltitudeDeg: position.Altitude))),
+            manualVector: static (context, position) =>
+                Surveyed(hostVector: position.Value, northDegrees: context.State.North)
+                    .Bind(Rasm.Numerics.SunPosition.OfDirection)
+                    .Map(static angles => (SunDerivation)new SunDerivation.Authored(Angles: angles))
+                    .ToFin(Fail: context.Op.InvalidInput()));
+
+    // `Sun.Vector` points sun-TOWARD-scene — the direction light travels — so the scene-toward-sun ray the survey
+    // frame speaks is its negation. `Sun.North` carries the document's compass north as a counter-clockwise angle
+    // off `+X`, `90` (the host default) seating north on `+Y` and making the world frame the survey frame outright,
+    // so the turn that derotates a document is the bearing's OFFSET from that default. Taking the offset rather
+    // than the bearing keeps the default exact — a rotation built on `cos(90°)` instead carries its round-off into
+    // every reading and lands a due-north sun a few ulps BELOW `360`, in the last compass bucket rather than the
+    // first. Absence answers a ray that cannot unitize, which the host collapses to a due-south horizon reading.
+    // Projection closes in the host coordinate the almanac itself speaks, so the bearing keeps its whole tail into
+    // `OfDirection` rather than rounding through a single-precision hop no reader downstream can recover.
+    private static Option<Vector3d> Surveyed(Vector3d hostVector, double northDegrees) {
+        Vector3d ray = -hostVector;
+        double turn = (northDegrees - 90.0) * Math.PI / 180.0;
+        double cos = Math.Cos(turn), sin = Math.Sin(turn);
+        return ray.Unitize()
+            ? Some(new Vector3d((ray.X * cos) + (ray.Y * sin), (ray.Y * cos) - (ray.X * sin), ray.Z))
+            : None;
+    }
+
+    // `Sun.GetDateTime(DateTimeKind.Local)` hands back the host's WALL clock, so the instant the almanac reads
+    // subtracts the zone and whatever saving offset the document had armed; folding only the zone shifts every
+    // summer capture by its saving minutes and moves the solved altitude with it.
+    private static Instant Utc(SunPosition.Automatic position) =>
+        Instant.FromDateTimeUtc(DateTime.SpecifyKind(
+            position.Moment - TimeSpan.FromHours(position.TimeZone) - TimeSpan.FromMinutes(Saving(position)),
+            DateTimeKind.Utc));
+
+    private static int Saving(SunPosition.Automatic position) =>
+        position.DaylightSavingOn ? position.DaylightSavingMinutes : 0;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -896,6 +1022,10 @@ public static class SunSolver {
                 return PerceptualColor.OfRgb(tint.R, tint.G, tint.B, tint.A, state)
                     .Map(static value => (SunSolution)new SunSolution.Color(value));
             }),
+            // Kernel almanac, not a host static: `SolarPosition.At` is total and effect-free over an admitted site,
+            // so this arm carries no `Catch` and every peer reproducing the pair reads one derivation.
+            ephemeris: static (_, query) => Fin.Succ<SunSolution>(value: new SunSolution.Angles(
+                Rasm.Numerics.SolarPosition.At(site: query.Site, instant: query.Moment))),
             here: static (state, _) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Location(
                 global::Rhino.Render.Sun.Here(out double latitude, out double longitude)
                     ? Some((latitude, longitude))
@@ -1222,26 +1352,23 @@ public sealed class AmbientWatch : IDisposable {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]                              | [FORM]                             | [ENTRY]           |
-| :-----: | :---------------- | :----------------------------------- | :--------------------------------- | :---------------- |
-|  [01]   | live origin       | `SettingsSource.Live`                | document borrow                    | `Use` / `Mutate`  |
-|  [02]   | archive origin    | `SettingsSource.Archived`            | archive borrow                     | `Use` / `Mutate`  |
-|  [03]   | detached origin   | `SettingsSource.Detached`            | owned borrow                       | `Use` / `Mutate`  |
-|  [04]   | sub-owner window  | `SubOwners`                          | bracket-owned seven-wrapper borrow | `Within`          |
-|  [05]   | state             | state owners                         | total projection                   | `Of` / `Apply`    |
-|  [06]   | aggregate config  | `RenderConfig`                       | correlated configuration           | `Of` / `Apply`    |
-|  [07]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)` |
-|  [08]   | astronomy         | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve` |
-|  [09]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve` |
-|  [10]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`    |
-|  [11]   | mutation receipt  | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo             | `Settings.Run`    |
-|  [12]   | broadcasts        | `AmbientSlot` / `AmbientFailure`     | verified failure ledger            | `AmbientWatch.Of` |
+| [INDEX] | [CONCERN]         | [OWNER]                              | [FORM]                             | [ENTRY]               |
+| :-----: | :---------------- | :----------------------------------- | :--------------------------------- | :-------------------- |
+|  [01]   | live origin       | `SettingsSource.Live`                | document borrow                    | `Use` / `Mutate`      |
+|  [02]   | archive origin    | `SettingsSource.Archived`            | archive borrow                     | `Use` / `Mutate`      |
+|  [03]   | detached origin   | `SettingsSource.Detached`            | owned borrow                       | `Use` / `Mutate`      |
+|  [04]   | sub-owner window  | `SubOwners`                          | bracket-owned seven-wrapper borrow | `Within`              |
+|  [05]   | state             | state owners                         | total projection                   | `Of` / `Apply`        |
+|  [06]   | aggregate config  | `RenderConfig`                       | correlated configuration           | `Of` / `Apply`        |
+|  [07]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)`     |
+|  [08]   | astronomy         | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve`     |
+|  [09]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve`     |
+|  [10]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`        |
+|  [11]   | mutation receipt  | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo             | `Settings.Run`        |
+|  [12]   | broadcasts        | `AmbientSlot` / `AmbientFailure`     | verified failure ledger            | `AmbientWatch.Of`     |
+|  [13]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate` |
+|  [14]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`         |
 
 ## [08]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

@@ -1,6 +1,6 @@
 # [BIM_MODEL_DIFF]
 
-The GlobalId-stable federation diff over the seam graph: one `ModelDiff` change-set folds two `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` snapshots into the `ElementChange` added/removed/modified/moved arms, joining by the Bim-stored `Rasm.Element/Graph/element#NODE_MODEL` `Node.Object.ExternalId` (the IFC `GlobalId` [H6] — the ONE identity two federated submissions share, because the neutral kernel `NodeId` is minted afresh per ingest and never coincides across parties) and classifying each matched pair by the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` content and placement keys so an unchanged element dedups by content address and a re-check bakes only the changed elements. PLACEMENT-SPACE LAW: the placement key folds the element's OBJECT PLACEMENT TRANSFORM explicitly beside its content-hashed representations, and every geometry hash it reads is stated in the representation's OWN local space — an IFC representation is authored local and positioned by `IfcLocalPlacement`, so a rigid relocation leaves every representation hash byte-identical and a placement key over hashes ALONE reads a moved element as unchanged. The transform enters the key through the seam `CanonicalWriter` at model-space tolerance, so the `Moved` discriminant answers the question its name asks. The diff consumes two `ElementGraph` snapshots as settled vocabulary and mints no second element shape; the consumer element is the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Bake(objectNode)` fold, the retired `BimModel`/`BimElement` snapshot pair GONE.
+The GlobalId-stable federation diff over the seam graph: one `ModelDiff` change-set carries the baseline and revision `ContentAddress.OfGraph` identities and folds both `Rasm.Element/Graph/element#ELEMENT_GRAPH` snapshots into the `ElementChange` added/removed/modified/moved arms, joining by the Bim-stored `Rasm.Element/Graph/element#NODE_MODEL` `Node.Object.ExternalId` (the IFC `GlobalId` [H6] — the ONE identity two federated submissions share, because the neutral kernel `NodeId` is minted afresh per ingest and never coincides across parties) and classifying each matched pair by the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` content and placement keys so an unchanged element dedups by content address and a re-check bakes only the changed elements. PLACEMENT-SPACE LAW: the placement key folds the element's OBJECT PLACEMENT TRANSFORM explicitly beside its content-hashed representations, and every geometry hash it reads is stated in the representation's OWN local space — an IFC representation is authored local and positioned by `IfcLocalPlacement`, so a rigid relocation leaves every representation hash byte-identical and a placement key over hashes ALONE reads a moved element as unchanged. The transform enters the key through the seam `CanonicalWriter` at model-space tolerance, so the `Moved` discriminant answers the question its name asks. The diff consumes two `ElementGraph` snapshots as settled vocabulary and mints no second element shape; the consumer element is the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Bake(objectNode)` fold, the retired `BimModel`/`BimElement` snapshot pair GONE.
 
 The diff is the cross-party twin of two same-lineage owners and re-derives neither. The `Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` `StructuralMerge` is the NodeId-keyed (re-ingest `Reconcile`-aligned on `ExternalId`) version-lineage THREE-way merge over one model's history; the `Review/versioning#VERSION_GRAPH` commit-DAG is the branching revision graph. This page is the PAIRWISE two-way federation diff over two INDEPENDENT submissions whose neutral `NodeId`s never coincide, so the join is the IFC `GlobalId` directly (no `Reconcile`); all three compose the one `Generator.Equals` `Inequalities` member-diff substrate and the one seam `ContentAddress` codec, none re-deriving another. Every diff rejection lifts the `Model/faults#FAULT_BAND` `BimFault` band BARE (the `Expected`-derived case IS the `Error`, no `.ToError()` hop, the ctor `(Op key, string detail)`). The page is HOST-LOCAL; the `ModelDiff.Encode`/`Decode` cross-runtime wire payload is HOST-FREE.
 
@@ -11,7 +11,12 @@ The diff is the cross-party twin of two same-lineage owners and re-derives neith
 
 ## [02]-[MODEL_DIFF]
 
-- Owner: `ModelDiff` the change-set record carrying the added/modified/removed/moved arms between two `ElementGraph` snapshots; `ElementChange` the closed `[Union]` change family (Added, Removed, Modified, Moved, Split, Merged) each carrying its IFC `GlobalId` (the base accessor) plus its typed evidence — `Split`/`Merged` carrying the counterpart `GlobalId` set the re-identification derived from; `ChangeKind` the `[SmartEnum<string>]` token `ElementChange.Kind` projects (the `Relations/relation#EDGE_ALGEBRA` `Relationship.Kind` idiom) the audit and the wire read without a union switch; `ElementFingerprint` the per-element `(GlobalId, ContentKey, PlacementKey)` carrier the join dedups on; `PlacementPose` the nine-ordered-double rigid frame the `Moved` arm crosses whole, projected from the seam `Graph/element#NODE_MODEL` `PlacementTransform` in the layout the seam `Graph/wire#WIRE_CONTRACT` `ObjectWire` placement field flattens; `AspectDelta` the typed member-level delta the `Modified` arm carries — the dotted `Path`, the `DeltaShape` change-shape token projected from the terminal `MemberPathSegment` through the factory-keyed correspondence (a scalar `Replace` versus a collection `Index`/`Key`/`Added`/`Removed` delta, an unrostered foreign kind reading `Unknown` rather than masquerading as a replace), and the `Before`/`After` `DeltaValue` leaves keeping their measure, content address, or canonical label with `Absent` the typed empty side.
+- Owner: `ModelDiff` carries baseline and revision graph addresses with one change set and unchanged count.
+- Owner: `ElementChange` closes `Added`, `Removed`, `Modified`, `Moved`, `Split`, and `Merged` over IFC `GlobalId`.
+- Owner: `ChangeKind` projects each change arm into audit and wire vocabularies.
+- Owner: `ElementFingerprint` carries the `GlobalId`, content key, and placement key used by the join.
+- Owner: `PlacementPose` carries the rigid frame a `Moved` arm needs without re-fetching either snapshot.
+- Owner: `AspectDelta` carries member path, change shape, and typed before/after leaves for `Modified`.
 - Entry: `ModelDiff.Between(ElementGraph baseline, ElementGraph revision, Op key)` folds the two snapshots into one `ModelDiff` — a `GlobalId` present in the revision but not the baseline is `Added`, present in the baseline but not the revision is `Removed`, present in both with a differing content key is `Modified` (or `Moved` when only the placement key differs), and present in both with both keys identical dedups as unchanged; the added/removed partition then re-folds by CONTENT key — the content key excludes geometry, so one source and its fragments carry ONE content signature — lifting a one-removed-to-many-added group onto `Split` and a many-removed-to-one-added group onto `Merged`, each carrying its counterpart set and leaving the add/remove partition; `Fin<T>` because the `Modified` enrichment bakes the changed elements through `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Bake` (which rails `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` on a corrupt subgraph), so an unchanged element never bakes and a re-check costs only the changed elements. `ModelDiff.Encode(diff, key)`/`Decode(json, key)` is the host-free cross-runtime projection and `ModelDiff.Fingerprint(graph, node)` the per-element content fingerprint the `Review/versioning#VERSION_GRAPH` commit-DAG and this diff both key on.
 - Auto: `Between` `Federate`s each graph into a `GlobalId`-keyed map over the `ExternalId`-bearing `Object` nodes (the `Review/coordination#COORDINATION` `ExternalId` `Choose`-discard-`None` law — an authored Object with no IFC `GlobalId` sits off the federation surface, never a fault), `Fingerprint`s each through the seam `ContentAddress`, then partitions the common set: a differing `ContentKey` is `Modified`, an equal `ContentKey` with a differing `PlacementKey` is `Moved`, both equal is unchanged. The content key folds the `Object`'s semantic head (kind/classification/predefined/name/tag) with the order-independent content addresses of its bound non-`Object` nodes (`PropertySet`/`QuantitySet`/`Material`/`Assessment`/`Appearance`/`Coverage`) and its outgoing-edge structure; the placement key folds the `Object`'s geometry through the `RepresentationContentHash` map ALONE — EVERY geometry content-hashed there, the heavy display `Body` AND the lightweight analytical `Axis`/`FootPrint` the structural/energy disciplines resolve one-hop by content key — so a relocation moves the geometry bytes, the content hashes, and thus the placement key, while the semantic content key stays stable; an inline `BoundaryPolygon`/`Axis` coordinate read is the named seam violation (the seam carries no raw coordinate field — `Graph/element#NODE_MODEL` M2). The `Modified` arm carries BOTH currencies — the content-key pair AND the placement-key pair, so a content edit that also relocates the element keeps the axis the `Review/versioning#VERSION_GRAPH` merge weighs — plus `Generator.Equals` `Inequalities` over the two baked `Element`s as `AspectDelta` rows (the `Id`/`ExternalId`/`History`/`Parts` noise axes excluded at the `Rasm.Element` owner's own `[IgnoreEquality]` declarations, so the comparer composes bare and every consumer agrees by construction), each row's terminal `MemberPathSegment` projected onto the `DeltaShape` token so a downstream consumer reads the exact `Properties[Pset].FireRating` member that moved AND the shape of the move — a scalar `Replace` distinguished from an ordered-collection `Index`, a keyed-bag `Key`, or a set-membership `Added`/`Removed` — with each side's leaf kept typed, not an opaque content-key delta and not two rendered strings.
 - Receipt: the `ModelDiff` change-set is the incremental federation evidence; a `Review/issues#BCF_ARCHIVE` `BcfTopic` anchors a `BcfViewpoint.SelectedGlobalIds` on the `Modified`/`Moved` element `GlobalId`s this diff names, the `Review/coordination#COORDINATION` `Coordination.Between` folds two change-sets into the downstream-affected element/task/cost sets, and the `Review/versioning#VERSION_GRAPH` `BimCommit` keys its `Map<string, ElementFingerprint>` on the SAME `ElementFingerprint` so a commit, a diff, and the audit chain carry one content-key identity; the `ModelDiff.Encode` payload is the one cross-runtime contract the `ts:ui/bcf-anchor` live-binding decodes to highlight the changed `GlobalId`s.
@@ -199,7 +204,11 @@ public abstract partial record ElementChange {
     public sealed record Merged(string GlobalId, ContentAddress Content, ImmutableArray<string> From) : ElementChange;
 }
 
-public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
+public sealed record ModelDiff(
+    ContentAddress Baseline,
+    ContentAddress Revision,
+    Seq<ElementChange> Changes,
+    int UnchangedCount) {
     // The pairwise federation diff: join two ElementGraph snapshots by the Bim-stored Node.Object.ExternalId (the IFC
     // GlobalId [H6] — the one cross-party identity, the neutral NodeId being local per ingest), classify each matched
     // pair by the content/placement keys (unchanged when both match, Moved when only the placement key moved, Modified
@@ -216,6 +225,8 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
         ElementGraph baseline, ElementGraph revision,
         Map<string, (Node.Object Obj, ElementFingerprint Fp)> prior,
         Map<string, (Node.Object Obj, ElementFingerprint Fp)> next, Op key) {
+        ContentAddress baselineAddress = ContentAddress.OfGraph(baseline);
+        ContentAddress revisionAddress = ContentAddress.OfGraph(revision);
         // The add/remove partition re-folds by CONTENT key before it lands: the content key excludes geometry, so
         // a source element and the fragments it became carry ONE content signature while their placement keys
         // diverge — that correspondence is the only evidence of a split or a merge the federation surface holds,
@@ -242,7 +253,11 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
                     id, prior[id].Fp.ContentKey, next[id].Fp.ContentKey,
                     prior[id].Fp.PlacementKey, next[id].Fp.PlacementKey, Deltas(before, after)))
             .As()
-            .Map(modified => new ModelDiff(added + removed + reidentified + moved + modified, unchanged));
+            .Map(modified => new ModelDiff(
+                baselineAddress,
+                revisionAddress,
+                added + removed + reidentified + moved + modified,
+                unchanged));
     }
 
     // The seam Object's own placement column lowered at the wire boundary: Option to nullable, because the payload
@@ -282,13 +297,22 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
     // A malformed payload faults BimFault.ModelRejected (the Model/faults#FAULT_BAND wire-admission arm) BARE, the
     // Seq projecting through an array at the boundary so no LanguageExt Seq converter is required.
     public static Fin<byte[]> Encode(ModelDiff diff, Op key) =>
-        Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(new Payload([.. diff.Changes], diff.UnchangedCount), Wire)).Run()
+        Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(
+            new Payload(diff.Baseline, diff.Revision, [.. diff.Changes], diff.UnchangedCount), Wire)).Run()
             .MapFail(error => new BimFault.ModelRejected(key, $"diff-wire-encode:{error.Message}"));
 
     public static Fin<ModelDiff> Decode(ReadOnlyMemory<byte> json, Op key) =>
         Try.lift(() => JsonSerializer.Deserialize<Payload>(json.Span, Wire)).Run()
             .MapFail(error => new BimFault.ModelRejected(key, $"diff-wire-decode:{error.Message}"))
-            .Map(payload => new ModelDiff(toSeq(payload.Changes), payload.UnchangedCount));
+            .Bind(payload => payload.Baseline is null || payload.Revision is null
+                || payload.Changes is null || payload.Changes.Any(static change => change is null)
+                || payload.UnchangedCount < 0
+                    ? Fin.Fail<ModelDiff>(new BimFault.ModelRejected(key, "diff-wire-decode:shape"))
+                    : Fin.Succ(new ModelDiff(
+                        payload.Baseline,
+                        payload.Revision,
+                        toSeq(payload.Changes),
+                        payload.UnchangedCount)));
 
     // The per-element content fingerprint over the seam ContentAddress codec: the content key folds the Object's
     // non-geometry semantics with its bound nodes, the placement key folds its geometry — the split distinguishing a
@@ -389,7 +413,11 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
         Converters = { new ThinktectureJsonConverterFactory() },
     };
 
-    readonly record struct Payload(ElementChange[] Changes, int UnchangedCount);
+    readonly record struct Payload(
+        ContentAddress Baseline,
+        ContentAddress Revision,
+        ElementChange[] Changes,
+        int UnchangedCount);
 }
 ```
 

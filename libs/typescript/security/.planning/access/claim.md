@@ -1,6 +1,6 @@
 # [SECURITY_CLAIM]
 
-One authorization owner: the entitlement vocabulary a verified token resolves into and the RBAC-union-ReBAC fold that evaluates it into a decision. Claims are data — the subject's granted roles, scopes, and active tenant — resolved once per request from the `crypt/sign` `AccessClaims`, enriched by the `ClaimStore` port the app root satisfies with the data wave; the tenancy key pairs with the boot `AppIdentity` into the core `TenantContext` the `access/tenant` reference carries, so `store` binds RLS with no parameter threading. Role-inheritance closure is compile-time-constant data computed exactly once — `RoleGrant` derives each role's transitive permission set at module load through a cycle-guarded fold over the static `Role` table, so `_granted` is one `HashSet` membership read per held role and a cyclic `inherits` edit can never stack-overflow a request. `Policy.check` folds three sources into one `PolicyDecision`: RBAC grants derive from `RoleGrant`, ReBAC grants from a `RelationCheck` request the `RelationStore` port's one batching resolver settles, and a feature-flag gate delegates verdict evaluation to the runtime wave through the `FlagGate` consumer port — the `security → runtime` edge the ledger licenses. The two railed sources are independent, so they compose applicatively at an explicit degree and the fold pays their max rather than their sum, while the request family's structural identity collapses an N-object render's N ReBAC round trips into one batched store call with repeated triples deduplicated. One `check` folds all three: a permission is granted when RBAC or ReBAC grants it and the flag gate is open, so the next action, role, or relation is a table row, never a new branch. `PolicyDecision` is the tagged verdict carrying its denial reason, never a bare boolean, and every `Deny` increments the `Convention.instrument.securityPolicyDeny` counter tagged by the owned reason key — the access-denial dashboard is structural; `ClaimFault`/`PolicyFault` instantiate the folder fault shape over the core `FaultClass.family` seam and fire only when a store or verdict is unreachable — a denial is a decision and an empty role set is a valid unprivileged subject.
+One authorization owner: the entitlement vocabulary a verified token resolves into and the RBAC-union-ReBAC fold that evaluates it into a decision. Claims are data — the subject's granted roles, scopes, and active tenant — resolved once per request from the `crypt/sign` `AccessClaims`, enriched by the `ClaimStore` port the app root satisfies with the data wave; the tenancy key pairs with the boot `Identity.App` into the core `Identity.Tenant` the `access/tenant` reference carries, so `store` binds RLS with no parameter threading. Role-inheritance closure is compile-time-constant data computed exactly once — `RoleGrant` derives each role's transitive permission set at module load through a cycle-guarded fold over the static `Role` table, so `_granted` is one `HashSet` membership read per held role and a cyclic `inherits` edit can never stack-overflow a request. `Policy.check` folds three sources into one `PolicyDecision`: RBAC grants derive from `RoleGrant`, ReBAC grants from a `RelationCheck` request the `RelationStore` port's one batching resolver settles, and a feature-flag gate delegates verdict evaluation to the runtime wave through the `FlagGate` consumer port — the `security → runtime` edge the ledger licenses. The two railed sources are independent, so they compose applicatively at an explicit degree and the fold pays their max rather than their sum, while the request family's structural identity collapses an N-object render's N ReBAC round trips into one batched store call with repeated triples deduplicated. One `check` folds all three: a permission is granted when RBAC or ReBAC grants it and the flag gate is open, so the next action, role, or relation is a table row, never a new branch. `PolicyDecision` is the tagged verdict carrying its denial reason, never a bare boolean, and every `Deny` increments the `Convention.instrument.securityPolicyDeny` counter tagged by the owned reason key — the access-denial dashboard is structural; `ClaimFault`/`PolicyFault` instantiate the folder fault shape over the core `Fault.Class.family` seam and fire only when a store or verdict is unreachable — a denial is a decision and an empty role set is a valid unprivileged subject.
 
 ## [01]-[INDEX]
 
@@ -12,15 +12,12 @@ One authorization owner: the entitlement vocabulary a verified token resolves in
 ## [02]-[CLAIM_VOCABULARY]
 
 [CLAIM_VOCABULARY]:
-- Owner: `Role` is the bounded role table — each row carries `rank` and inherited roles for the closure fold, the discriminant derives through `keyof typeof`; `ClaimSet` is the resolved claim shape (subject, tenant key, roles, scopes); `ClaimStore` is the durable-role port; `ClaimFault` is the folder fault shape at the store boundary. Its tenant is the core `TenantContext.Key` brand — never a security-local re-declaration.
-- Law: roles decode into a `HashSet` so the policy fold reads membership structurally; an empty role set is a valid unprivileged subject, and only a store failure is a `ClaimFault` (class `unavailable`, the branch `Budget` retries it).
 - Law: the `_roles` tuple anchors the key set in both directions — `ClaimSet.roles`, `RolePermission`'s keys, and `RoleGrant`'s keys all derive from it, and the `_Keys`/`_Kinds` guard pair fails a tuple/table divergence at the declaration.
 - Growth: a new role is one `_roles` entry with its `Role` row and `RolePermission` cells; a new claim facet is one `ClaimSet` field the store persists.
 - Boundary: `crypt/sign` owns the `AccessClaims` the edge's verify hands in; `access/tenant` owns the `TenantScope` reference the tenancy binds; `ClaimStore` is a data-wave-satisfied port; the policy fold below consumes the `ClaimSet`.
-- Packages: `effect` (`Schema`, `Context`, `HashSet`); `@rasm/ts/core` (`TenantContext`, `FaultClass`); `crypt/sign` (`AccessClaims`); `access/tenant` (`TenantScope`, `Principal`).
 
 ```typescript
-import { AppIdentity, Convention, FaultClass, TenantContext } from "@rasm/ts/core"
+import { Identity, Convention, Fault } from "@rasm/ts/core"
 import { Array, Config, Context, Data, Effect, HashMap, HashSet, Metric, Option, Request, type RequestResolver, Schema } from "effect"
 import { AccessClaims } from "../crypt/sign.ts"
 import { SecurityFact, Witness } from "./audit.ts"
@@ -34,7 +31,7 @@ const Role = {
   viewer: { rank: 1, inherits: [] },
 } as const
 
-const _claimFamily = FaultClass.family(["store"] as const, { store: { class: "unavailable" } })
+const _claimFamily = Fault.Class.family(["store"] as const, { store: { class: "unavailable" } })
 
 declare namespace Role {
   type Kind = keyof typeof Role
@@ -49,7 +46,7 @@ declare namespace ClaimFault {
 
 class ClaimSet extends Schema.Class<ClaimSet>("ClaimSet")({
   subject: Schema.NonEmptyString,
-  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
+  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   roles: Schema.HashSet(Schema.Literal(..._roles)),
   scopes: Schema.HashSet(Schema.NonEmptyString),
 }) {}
@@ -58,7 +55,7 @@ class ClaimFault extends Schema.TaggedError<ClaimFault>()("ClaimFault", {
   reason: _claimFamily.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _claimFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -67,32 +64,28 @@ class ClaimFault extends Schema.TaggedError<ClaimFault>()("ClaimFault", {
 }
 
 class ClaimStore extends Context.Tag("security/access/ClaimStore")<ClaimStore, {
-  readonly rolesOf: (subject: string, tenant: Option.Option<TenantContext.Key>) => Effect.Effect<HashSet.HashSet<Role.Kind>, ClaimFault>
-  readonly grant: (subject: string, tenant: Option.Option<TenantContext.Key>, role: Role.Kind) => Effect.Effect<void, ClaimFault>
-  readonly revoke: (subject: string, tenant: Option.Option<TenantContext.Key>, role: Role.Kind) => Effect.Effect<void, ClaimFault>
+  readonly rolesOf: (subject: string, tenant: Option.Option<Identity.Tenant.Key>) => Effect.Effect<HashSet.HashSet<Role.Kind>, ClaimFault>
+  readonly grant: (subject: string, tenant: Option.Option<Identity.Tenant.Key>, role: Role.Kind) => Effect.Effect<void, ClaimFault>
+  readonly revoke: (subject: string, tenant: Option.Option<Identity.Tenant.Key>, role: Role.Kind) => Effect.Effect<void, ClaimFault>
 }>() {}
 ```
 
 ## [03]-[CLAIM_RESOLUTION]
 
 [CLAIM_RESOLUTION]:
-- Owner: `Claim.resolve` lifts a verified `AccessClaims` into a `ClaimSet` — subject and scopes from the token, tenant from the `tid` claim decoded against `TenantContext.Key`, roles from the `ClaimStore` keyed by `(subject, tenant)`; `Claim.principal` pairs the claim's tenant key with the boot `AppIdentity.app` into the core `TenantContext` and packs it into a `Principal`; `Claim.bind` provisions the `TenantScope` reference for a request scope so the data wave binds RLS.
 - Law: roles are read once per request into the `ClaimSet`, never re-derived at each policy check; the tenant flows through the `TenantScope` reference, not a parameter; a `tid` that fails to decode falls to the configured default tenant, and only a store failure is a `ClaimFault`.
-- Law: tenancy construction rides the core owner's method — `AppIdentity.scoped(tenantKey)` builds the `TenantContext`, so the one scope spelling can never disagree with its parts and no security-local tenancy value exists.
 - Receipt: `ClaimSet` — the immutable resolved claim the policy fold reads; `Principal` — the ambient tenancy the reference carries.
 - Growth: a new claim source (an API-key principal) resolves into the same `ClaimSet` and binds through the same `Principal`.
-- Boundary: the edge hands the verified `AccessClaims` and the boot `AppIdentity`; the data wave satisfies `ClaimStore`; `access/tenant` owns the reference; `Policy` consumes the `ClaimSet`.
-- Packages: `effect` (`Config`, `Effect`, `HashSet`, `Option`, `Schema`); `@rasm/ts/core` (`AppIdentity`, `TenantContext`); `crypt/sign` (`AccessClaims`); `access/tenant` (`TenantScope`, `Principal`).
 
 ```typescript
 class Claim extends Effect.Service<Claim>()("security/access/Claim", {
   effect: Effect.gen(function* () {
     const store = yield* ClaimStore
     const fallback = yield* Config.option(Config.string("DEFAULT_TENANT"))
-    const _tenantOf = (claims: AccessClaims): Effect.Effect<Option.Option<TenantContext.Key>> =>
+    const _tenantOf = (claims: AccessClaims): Effect.Effect<Option.Option<Identity.Tenant.Key>> =>
       Option.match(claims.tid, {
-        onSome: (raw) => Schema.decode(TenantContext.fields.tenant)(raw).pipe(Effect.option),
-        onNone: () => Option.match(fallback, { onSome: (raw) => Schema.decode(TenantContext.fields.tenant)(raw).pipe(Effect.option), onNone: () => Effect.succeed(Option.none()) }),
+        onSome: (raw) => Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(Effect.option),
+        onNone: () => Option.match(fallback, { onSome: (raw) => Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(Effect.option), onNone: () => Effect.succeed(Option.none()) }),
       })
     const resolve = (claims: AccessClaims): Effect.Effect<ClaimSet, ClaimFault> =>
       Effect.gen(function* () {
@@ -100,9 +93,9 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
         const roles = yield* store.rolesOf(claims.sub, tenant)
         return new ClaimSet({ subject: claims.sub, tenant, roles, scopes: HashSet.fromIterable(claims.scope) })
       }).pipe(Effect.withSpan("security.claim.resolve"))
-    const principal = (identity: AppIdentity, claims: ClaimSet): Principal =>
+    const principal = (identity: Identity.App, claims: ClaimSet): Principal =>
       ({ context: Option.map(claims.tenant, (tenant) => identity.scoped(tenant)), subject: Option.some(claims.subject) })
-    const bind = <A, E, R>(identity: AppIdentity, claims: ClaimSet, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    const bind = <A, E, R>(identity: Identity.App, claims: ClaimSet, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
       Effect.provideService(effect, TenantScope, principal(identity, claims))
     return { resolve, principal, bind } as const
   }),
@@ -119,7 +112,7 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
 - Law: `FlagGate` is a consumer port — the flag verdict is the runtime wave's to own; this page declares the minimal `enabled` seam and the app root satisfies it with the runtime flag service, the `security → runtime` edge the ledger licenses.
 - Growth: a new action or relation is a row; a new denial cause is one `PolicyDecision.Deny` reason; a new read shape is a field on `RelationCheck`, never a second resolver.
 - Boundary: `access/claim`'s `Role`/`ClaimSet` supply the RBAC input; `RelationStore` is a data-wave-satisfied port and the resolver behind it is that wave's `RequestResolver.makeBatched` over its own tuple store — this page owns the request family and its identity, never the batch body; the flag verdict is runtime-wave-owned; this cluster owns the evaluation vocabulary.
-- Packages: `effect` (`Schema`, `Context`, `Data`, `Request`, `RequestResolver`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Schema`, `Context`, `Data`, `Request`, `RequestResolver`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 const _permissions = ["read", "write", "delete", "admin", "invite"] as const
@@ -136,7 +129,7 @@ const RolePermission = {
   viewer: ["read"],
 } as const satisfies Record<Role.Kind, ReadonlyArray<Permission.Kind>>
 
-const _policyFamily = FaultClass.family(["store", "flag"] as const, {
+const _policyFamily = Fault.Class.family(["store", "flag"] as const, {
   store: { class: "unavailable" },
   flag: { class: "unavailable" },
 })
@@ -170,7 +163,7 @@ class PolicyFault extends Schema.TaggedError<PolicyFault>()("PolicyFault", {
   reason: _policyFamily.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _policyFamily.classOf(this.reason)
   }
   override get message(): string {

@@ -267,7 +267,7 @@ class SplatScan(Struct, frozen=True):
 
     @property
     def digest(self) -> "RuntimeRail[ContentKey]":
-        # content key over the five channel blocks in wire order — the identity the ArtifactSync frame addresses.
+        # content key over the five channel blocks in wire order — the identity the ArtifactSyncService frame addresses.
         # `parts` is the MODALITY, never a bare tuple of buffers: four semantic fields whose boundaries carry
         # meaning, so the identity owner's own length-and-count framing runs and a byte moving from the tail of one
         # channel to the head of the next changes the key. Concatenated undelimited, two different channel splits

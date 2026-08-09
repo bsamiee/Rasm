@@ -1,6 +1,6 @@
 # [UI_INTL]
 
-The localization plane with zero i18n package: one locale spine (react-aria's `I18nProvider` carrying the kernel `Refined.Locale` brand as the single ambient locale), one interior per-locale native-`Intl` instance cache shared by every formatter this page constructs itself, the `Format` value-formatting vocabulary (option-row tables for date/number/list, the relative-time granularity ladder, the single epoch crossing, collation `Order` and the picker filter), and the `Message` authority (Schema-decoded catalogs as app data, a closed three-case spec family, a total plural/select/interpolation fold, and the BCP-47 fallback chain with the key itself as visible missing-message evidence). No `Intl.*` constructor at a call site, no wall-clock `Date` in domain flow, no format options object authored inline, no ICU engine, no translation runtime. The module is `ui/src/system/intl.ts`.
+The localization plane with zero i18n package: one locale spine (react-aria's `I18nProvider` carrying the kernel `Shape.Refined.Locale` brand as the single ambient locale), one interior per-locale native-`Intl` instance cache shared by every formatter this page constructs itself, the `Format` value-formatting vocabulary (option-row tables for date/number/list, the relative-time granularity ladder, the single epoch crossing, collation `Order` and the picker filter), and the `Message` authority (Schema-decoded catalogs as app data, a closed three-case spec family, a total plural/select/interpolation fold, and the BCP-47 fallback chain with the key itself as visible missing-message evidence). No `Intl.*` constructor at a call site, no wall-clock `Date` in domain flow, no format options object authored inline, no ICU engine, no translation runtime. The module is `ui/src/system/intl.ts`.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ The localization plane with zero i18n package: one locale spine (react-aria's `I
 ## [02]-[LOCALE_SPINE]
 
 [LOCALE_SPINE]:
-- Law: the locale is one ambient value — the app root renders `I18nProvider` with the kernel `Refined.Locale` brand (a canonical BCP-47 string by construction, so it feeds the provider directly), the brand itself lives in a persisted atom (`system/atom#STORE_ROOT`'s persisted row — `Atom.kvs` with `Refined.Locale` as codec), and a locale change is one atom write that re-renders every formatter consumer; a second locale source, a `navigator.language` read in a row, or a prop-drilled locale string is the named defect.
+- Law: the locale is one ambient value — the app root renders `I18nProvider` with the kernel `Shape.Refined.Locale` brand (a canonical BCP-47 string by construction, so it feeds the provider directly), the brand itself lives in a persisted atom (`system/atom#STORE_ROOT`'s persisted row — `Atom.kvs` with `Shape.Refined.Locale` as codec), and a locale change is one atom write that re-renders every formatter consumer; a second locale source, a `navigator.language` read in a row, or a prop-drilled locale string is the named defect.
 - Law: direction derives — RAC and the react-aria hooks resolve RTL from the provided locale; layout rows consume logical properties (`start`/`end` utilities through `cn`) so direction never branches in JS.
 - Law: hydration-sensitive reads gate through `useIsSSR` — formatter output that diverges across server/client (timezone-dependent dates) renders the server-stable form first; SSR identity rides RAC's own infra.
 - Law: react-aria's memoized hooks are the first choice — `useDateFormatter`/`useNumberFormatter`/`useListFormatter`/`useCollator` already cache per locale+options; this page constructs a native instance only where no hook exists, and that construction rides `[3]`'s one cache.
@@ -28,10 +28,10 @@ The localization plane with zero i18n package: one locale spine (react-aria's `I
 - Growth: a new hook-less formatter family (`Intl.Segmenter`, `Intl.DisplayNames`) is one constructor row — never a second cache.
 
 ```typescript
-import { Refined } from "@rasm/ts/core"
+import { Shape } from "@rasm/ts/core"
 import { Array, DateTime, Duration, HashMap, Match, Number, Option, Order, Schema, pipe } from "effect"
 
-type Locale = Refined.Locale
+type Locale = Shape.Refined.Locale
 
 const _NATIVE = {
   plural: (locale: string) => new Intl.PluralRules(locale),
@@ -143,7 +143,7 @@ const Format: Format.Shape = {
 
 [MESSAGE_FAMILY]:
 - Owner: `Message` — the assembled owner whose `Catalog` static is the decode surface: a catalog is `Record<key, MessageSpec>` where `MessageSpec` is one `Schema.Union` of three tagged cases — `Text { value }`, `Plural { arg, forms }` (forms keyed by the closed `Intl.LDMLPluralRule` vocabulary with `other` mandatory), `Select { arg, cases, other }` — decoded ONCE at catalog admission (an app fetch, a bundled JSON module crossing `with { type: "json" }` ingress), never re-validated per format call.
-- Packages: `effect` (`Schema.Record`, `Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/ts/core` (`Refined.Locale` — the `Refined` vocabulary owner carries it; no bare `Locale` export exists) as the catalog key.
+- Packages: `effect` (`Schema.Record`, `Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/ts/core` (`Shape.Refined.Locale` — the `Shape.Refined` vocabulary owner carries it; no bare `Locale` export exists) as the catalog key.
 - Law: the case family is closed — a new message SHAPE (a range case, an ordinal plural) is one tagged case plus one fold arm here, breaking every consumer loudly; a new message INSTANCE is catalog data and touches no code.
 - Law: plural forms carry the CLDR category vocabulary (`zero`/`one`/`two`/`few`/`many`/`other`) with only `other` required — sparse forms are legal because the fold falls through to `other`, mirroring CLDR semantics instead of demanding six strings per language.
 - Law: interpolation slots are `{name}` spellings inside form strings — bounded, positional-free, and typed: the args record is `Record<string, string | number>`, and an unreferenced slot is inert rather than an error, so catalogs evolve ahead of call sites.
@@ -196,7 +196,7 @@ declare namespace Message {
 - Owner: `Message.format(book, locale, fallback, key, args?)` — the one total fold: resolve the catalog through the fallback chain, dispatch the spec's tag (`Match.valueTags` — the one-shot record dispatch over a held union value), select the plural category through `[3]`'s cached `Intl.PluralRules`, select the case string with `other` as the floor, and interpolate `{slot}` spellings from the args record; the return is always a string — a missing key yields the key itself, the deliberate visible-evidence policy, never a throw and never an empty string.
 - Law: plural argument coercion is exact — the `arg` slot must resolve to a number for category selection; a non-numeric plural argument selects `other`, keeping the fold total instead of minting a fault channel for author-time errors the catalog decode already polices.
 - Law: the fold is pure given its inputs — no ambient locale read; the locale arrives as a parameter (from `useLocale` at the consuming row), so the same catalog+key formats identically on server and client.
-- Law: the chain never crosses scripts silently — fallback strips subtags right-to-left (`de-CH` → `de`, re-minted through `Refined.Locale`'s own decode so an invalid truncation folds to none), the standard BCP-47 truncation; a cross-language fallback (`fr` for a missing `de`) is only the DEFAULT hop the app configured, never an inference.
+- Law: the chain never crosses scripts silently — fallback strips subtags right-to-left (`de-CH` → `de`, re-minted through `Shape.Refined.Locale`'s own decode so an invalid truncation folds to none), the standard BCP-47 truncation; a cross-language fallback (`fr` for a missing `de`) is only the DEFAULT hop the app configured, never an inference.
 - Law: catalog assembly is app composition — this module never fetches; the app decodes catalog payloads through `Message.Catalog` at its own ingress and hands the built `Book`; hot locale swap is one atom write of the locale brand, and every message re-renders through the same fold.
 
 ```typescript
@@ -226,7 +226,7 @@ const _base = (locale: Locale): Option.Option<Locale> =>
     (subtags) =>
       subtags.length < 2
         ? Option.none()
-        : Schema.decodeOption(Refined.Locale)(subtags.slice(0, -1).join("-")),
+        : Schema.decodeOption(Shape.Refined.Locale)(subtags.slice(0, -1).join("-")),
   )
 
 const _chain = (locale: Locale): ReadonlyArray<Locale> =>

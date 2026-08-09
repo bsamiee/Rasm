@@ -243,7 +243,8 @@
 [HttpKeepAlivePingPolicy]: `WithActiveRequests`=0 `Always`=1
 
 - `SocketsHttpHandler.KeepAlivePingPolicy`: `WithActiveRequests` pings only while streams are active, `Always` also pings an idle connection.
-- `SocketsHttpHandler.ConnectCallback`: setting it forfeits the channel's connectivity and balancing surface.
+- `SocketsHttpHandler.ConnectCallback`: setting it forfeits the channel's connectivity and balancing surface, demoting the channel to `HttpHandlerType.Custom`, whose passive transport reports Ready without connecting.
+- `CallOptions.WithWaitForReady`: one site consumes the flag, the pick-failure arm, so a `ConnectCallback` channel accepts it and does nothing — a dead peer fails fast `Unavailable` with it set exactly as without it, while the connectivity members throw loudly on that same channel; on a balanced channel the queueing spends the call deadline, which arms before the send.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

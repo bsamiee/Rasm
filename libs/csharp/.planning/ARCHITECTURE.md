@@ -35,6 +35,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S2 domain — `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Materials` reference `{Rasm, Rasm.Element}`.
 - S2 benchmark — `Rasm.Materials` adds `Rasm.AppHost` for its stamped benchmark receipt alone.
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
+- S2 recovery — `Rasm.Persistence` adds `Rasm.AppHost` for the settled `RecoveryObjective` alone.
 - S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
 - S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
@@ -84,6 +85,7 @@ flowchart TB
     AppHost -->|"[IMPORT]: ContentHash"| Rasm
     Persistence -->|"[IMPORT]: ElementGraph"| Element
     Persistence -->|"[IMPORT]: ContentHash"| Rasm
+    Persistence -->|"[IMPORT]: RecoveryObjective"| AppHost
     Materials -->|"[IMPORT]: IElementProjection"| Element
     Materials -->|"[IMPORT]: Op"| Rasm
     Materials -->|"[IMPORT]: BenchmarkGate"| AppHost
@@ -141,7 +143,7 @@ flowchart LR
     Bim -->|"[WIRE]: GeoWire"| PyData
     Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| PyRuntime
     PyArtifacts -->|"[WIRE]: AssetSetManifest"| Materials
-    Fabrication -->|"[WIRE]: IToleranceEncoder bytes"| PyArtifacts
+    Fabrication -->|"[WIRE]: GdtFrameWire"| PyArtifacts
     AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Compute <-->|"[WIRE]: ComputeService"| PyGeometry
     Compute <-->|"[WIRE]: ProtoVocabulary"| PyRuntime

@@ -8,31 +8,43 @@
 
 ## [02]-[SHAPE]
 
-- Every folder fault family carries the core `FaultClass` kind as its `class` field and nothing else of the taxonomy — rank, blame, and retryability derive from the core `FaultClass` row table; a local rank, retry, or status field beside `class` forks the taxonomy per folder and un-governs the serving edge.
-- Hook-point registries stay folder-owned — core `tap` mints the brand and modality vocabulary alone, each folder registering its points beside their publishers; a central registry cannot exist because point payloads name folder-owned types core never imports, so centralizing re-litigates the W0 acyclicity every wave composes.
-- CSRF echo crosses on one `CookieSpec`-owned header spelling — the serve gate's read and the browser dial's stamp compose the same field; a route literal on one end and a cookie-name reuse on the other fork the double-submit pair into a fail-closed mismatch no type breaks.
-- Environment spellings crossing the deploy-to-process seam derive from one typed key catalog — iac's `StackOutputs` key catalogs (`channels` for process settings, `custody` for the secret-lease pair) and the runtime `Setting` group rows compose one owner, so a rename breaks both ends at compile time; a hand-comment-maintained match forks silently, and the OTLP endpoint's two live spellings are the proof.
-- Each owner mints its OWN reason-discriminated `Schema.TaggedError` over one core `FaultClass.family(reasons, rows)` mint — `get class()` with `override get message()`, genuine domain-only axes as extra row columns — never an extracted base class, a `makeFault` factory, or a local `_Rows`/`_Closed` guard pair the family seam owns: a factory erases the per-owner `_tag` identity consumers `catchTag` on.
-- Served-plane asset addresses derive at one spelling both seam ends compute — iac `Source._addressed` publishes and ui `Glb.assetPath` consumes `assets/<digest>/<file>` from `{digest,file}` alone, the meshopt gate refusing `codec-absent` until iac serves the decoder row; no ui-iac import exists to break, so an independent re-derivation of either end forks the served path silently.
-- The immutable cache posture crosses on one spelling both serving ends compose — iac `Source._CACHE_POSTURE` owns the estate's served-header roster and the runtime serve fold transcribes its immutable value, selecting it by `assets/` address prefix before any fingerprint predicate, so the content-addressed tree answers immutable from BOTH the fronted edge and the unfronted origin; a second independent literal or a leaf-pattern-only selector forks one address into two cache answers.
-- Multi-file assets ride ONE digest directory — iac `Source._addressedAll` publishes every sibling leaf under one `assets/<digest>/` directory keyed by the set content key and ui `Glb.assetDir` reads that same join, so the pair moves as one wave exactly as the single-file spelling; a per-file digest directory splits one addressed asset into unjoinable halves and re-derives an address the set's own manifest already carries.
-- Effect-minted `rasm.*` instruments materialize at the core convention owner alone, because the `@effect/opentelemetry` bridge derives the exported descriptor unit from the `Convention.wire.unit` tag it stamps and from nothing else — a folder spelling its own constructor reaches the wire declared dimensionless and re-spells the row's bucket ladder doing it.
-- Registry reads carry the row's DECLARED wire form on every case, never the storage shape Effect happened to pick — a signed level stores as a counter state, so a fold discriminating on the observed state alone reports every `updown` row as a monotonic total, and each consumer then re-resolves the convention row to recover what the read dropped: the residence fill to pick its monotonicity flag, the support receipt to name its kind. One `declared` column on the signal family settles it at the read, and a consumer re-deriving that column beside the signal is the recovery this column deletes.
-- A wasm module is capability, never code — the artifact is folder-owned (a `wasm-pack` build held beside its owner when every published npm binding is stale), instantiation is a scoped acquisition behind a capability Tag, kernel calls run through one marked seam, and no linear-memory view escapes it; a bare top-level `WebAssembly.instantiate`, an ambient module import, or an escaped memory view is the named defect, and this row is the owner the `wasm boundary law` citations resolve to.
-- A raw scalar crossing a package seam carries its unit and frame as a typed fact at the owner, each seam projecting its own scalar — two packages sharing one structural shape may count differently (`jose` caches `uat` in milliseconds where `oauth4webapi` counts seconds; `watlas` strides count BYTES where `meshopt` strides count FLOAT32 elements), so a value copied between them silently rescales or reads every fourth vertex.
-- Instrumentation scope crosses as one whole coordinate the core convention owner mints — module name off the branch exports-map roster, the estate schema url, and the emitting artifact's build version — so every raw-OTel meter, tracer, and logger seam stamps one value and none assembles it from parts; a name-only mint forfeits the version-stamped single-coordinate row, and a scope carrying the composing app's `AppIdentity.build.version` credits every library-minted series to its importer.
+- Folder faults read rank, blame, and retryability off the core `Fault.Class` rows — a local policy column mints one fault taxonomy per folder.
+- Each owner mints its tagged fault through `Fault.Class.family` — a factory or shared base erases the `_tag` identity `catchTag` discriminates on.
+- Untyped failure grades `defect` at `Fault.Class` — non-retryable, system-blamed, and silently refused by every `Fault.Budget` gate.
+- `Effect.tryPromise`/`Effect.try` replace `Effect.promise`/`Effect.sync`, and `Effect.async` guards the synchronous throw beside its callback.
+- Foreign and `unknown` error channels fold onto the typed rail at the seam that widened them, never past the shielded gate downstream.
+- `Tap` owns names, modalities, and handlers; `Hook`, `Audit`, and data register beside their own publishers — no plane binds another's lifecycle.
+- Signal concepts two folders spell own where the surface sits — a second `Tap` registrar double-accounts the buffer and forks each panel's budget.
+- Tenancy baggage decodes ONLY through `Identity.Tenant.FromScope` under `Convention.rasm.tenant` — a second parse forks the dimension's alphabet.
+- `CookieSpec` owns the one CSRF echo header the serve gate reads and the browser dial stamps — a literal at either end forks the pair fail-closed.
+- Deploy-to-process keys derive from `StackOutputs` and `Setting` as ONE typed catalog — a hand-matched pair forks where a rename breaks the build.
+- `Source._addressed` publishes the `assets/<digest>/<file>` join `Glb.assetPath` consumes — no import binds them, so a re-derivation forks the path.
+- `Source._CACHE_POSTURE` owns the served headers the serve fold copies, selected on the `assets/` prefix — a leaf-pattern selector forks the answer.
+- `Source._addressedAll` and `Glb.assetDir` seat sibling leaves under one set-keyed `assets/<digest>/` — a per-file digest splits one asset in half.
+- `rasm.*` instruments mint at the core convention owner alone — `@effect/opentelemetry` derives the exported unit from `Convention.wire.unit` alone.
+- `Convention` reads answer the row's DECLARED wire form, never its storage state — a signed level stores as a counter and reads as a monotonic total.
+- Wasm modules are capability, never code — the folder-owned artifact acquires scoped behind a `Context.Tag`, and no linear-memory view escapes it.
+- Scalars cross a seam carrying typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
+- Isolation spells `tenancy` on every descriptor row — `residency`, `partition`, and `scope` name it nowhere, each staying live as its own concept.
+- Provider-native retry pins to ONE attempt and `value/fault#RETRY_BUDGET` owns every curve — a nested SDK schedule multiplies effective attempts.
+- Closed tenancy seats at `core/value/identity#IDENTITY_OWNER` — every stratum reads `Identity.tenancy` and no folder re-mints `none|single|multi`.
+- Descriptor `tenancy` cells carry the MECHANISM they separate by, never a closed-roster value — the axis selects the row, the cell explains it.
+- Backend-plane families key on `signals` alone; `admit` seats on the `_Plane` floor per family shape — re-declaring below forks one coordinate.
+- Durability derives from `topology` at BOTH planes through `Profile.recoveryOf` — a stored spec field forks the runner's target off the boot row's.
+- Recovery objectives cross STRUCTURALLY — an S2 grader reaches no S3 schema, and `Converge.Profile` naming a spec type refuses every foreign root.
 
 ## [03]-[COLLAPSE]
 
-- Schema-variant derivation stays bounded to structurally-parallel projections of one decoded truth, collapsed to one field-level owner; a family whose forms differ semantically stays separate declarations — a semantically-divergent form forced into a variant key is a second truth wearing one owner's name.
-- Store-backed rate limiting stays three postures, each admitting new sites — refuse (the serve pressure gate, 429 with `retryAfter`), delay (the replay-surviving sleeps of the durable work quota and the olap ingest quota), count (the auth throttle's reject stream); one branch limiter-policy owner with a single fault bridge erases the refuse-vs-delay posture each edge's law prices — the shared surface is the policy-row shape, never one owner.
-- Fault altitudes stay three — interchange reconstruction adopts a peer-minted detail verbatim, folder rails raise local typed faults, and the runtime serve plane alone prices outbound exposure; folding reconstruction into folder rails re-raises foreign truth as local truth, and folding folder rails into the serve mapping couples every folder to transport status — each altitude owns a truth source the others cannot.
+- `VariantSchema` binds structurally parallel projections of ONE decoded truth — a semantically divergent form keeps its own declaration.
+- Rate limiting stays three postures — `Gate.window` refuses, `Throttle` and `Olap.ingest` delay, `RateLimiter` counts; one owner erases each price.
+- Fault altitudes stay three — interchange adopts `FaultDetail`, folders raise `Fault.Class`, `Problem` prices egress; each owns a source no peer has.
 
 ## [04]-[STRUCTURE]
 
-- Folder-tier `.api` catalogues are earned only by a genuine domain slice — a folder's used-subset of a substrate package fails that test and merges up into the one substrate catalogue.
-- `dataflow-system.md` does NOT re-enter — every spine law lives at its single folder owner, and the branch architecture page carries the spine as diagrams; a central spine page re-forks the one-authority laws it was retired to protect, so a "missing spine" gap is filled from the folder owners, never by re-adding the page.
-- `work/` at top level does NOT re-enter — durable work re-homed into the runtime `work` sub-domain with delivery, report, queue, flow, schedule, and actor capability intact; a "missing delivery" gap fills from `runtime/.planning/work/`, never by re-minting the folder.
+Retired surfaces fill their gap from the durable owner named, never by re-minting the page.
+
+- `dataflow-system.md` does NOT re-enter — every spine law lives at its folder owner and the branch `ARCHITECTURE.md` carries the spine as diagrams.
+- `work/` at top level does NOT re-enter — delivery, report, queue, flow, schedule, and actor capability re-homed into `runtime/.planning/work/`.
 
 ## [05]-[PROCESS]
 

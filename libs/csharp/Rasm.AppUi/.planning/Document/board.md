@@ -514,7 +514,7 @@ public static class BoardPublish {
         from destination in ExportDelivery.Deliver(runtime, policy.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
         let receipt = new RenderReceipt(
-            Kind, arm.Format, runtime.ContentHash(payload), None, payload.LongLength, elapsed,
+            Kind, arm.Format, runtime.ContentHash(payload), None, None, payload.LongLength, elapsed,
             runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select Fin.Succ(new PublishedBoard(board.Key, arm, destination, receipt));

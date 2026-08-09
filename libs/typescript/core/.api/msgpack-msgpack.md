@@ -1,6 +1,6 @@
 # [TS_CORE_API_MSGPACK_MSGPACK]
 
-`@msgpack/msgpack` is the MessagePack codec `interchange/codec` decodes the contract `CrdtOpWire` union and streams the `OpLog` through. A configured-once `Decoder` carries the load-bearing surface: one `ExtensionCodec` row decodes the 16-byte `Hlc` extension cell into the kernel `Hlc`, and the `context` thread rides the `value/identity` interner through every ext decode so the mint stays decode-once.
+`@msgpack/msgpack` is the MessagePack codec `interchange/codec` decodes the contract `CrdtOpWire` union and streams the `OpLog` through. One configured-once `Decoder` carries the load-bearing surface: one `ExtensionCodec` row decodes the 16-byte `Hlc` extension cell into the kernel `Hlc`, and the `context` thread rides the `value/identity` interner through every ext decode so the mint stays decode-once.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -20,7 +20,7 @@
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------------------------------------------- |
 |  [01]   | `Decoder<C>`                              | decoder        | configured-once decode; sync + async stream methods                |
-|  [02]   | `Encoder<C>`                              | encoder        | rare `wire` egress; `encode`/`encodeSharedRef` zero-copy view      |
+|  [02]   | `Encoder<C>`                              | encoder        | rare `wire` egress; `encode` copies where `encodeSharedRef` views  |
 |  [03]   | `DecoderOptions<C>`                       | policy record  | `useBigInt64`/`extensionCodec`/`context`/`max*Length`/`keyDecoder` |
 |  [04]   | `EncoderOptions<C>`                       | policy record  | `sortKeys`/`useBigInt64`/`ignoreUndefined`/`forceIntegerToFloat`   |
 |  [05]   | `ExtensionCodec<C>`                       | ext registry   | `.register`/`.tryToEncode`/`.decode`/`defaultCodec`                |
@@ -45,32 +45,35 @@
 |  [05]   | `decodeAsync(streamLike, options?): Promise<unknown>`              | async one      | one large frame arriving in chunks               |
 |  [06]   | `new Decoder({ extensionCodec, context, useBigInt64, ...limits })` | configured     | reused decoder: `Hlc` ext + interner context     |
 |  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | contract 16-byte `Hlc` ext → kernel `Hlc`        |
-|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; zero-copy `Worker` transfer |
+|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; a view onto the live buffer  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the contract 16-byte `Hlc` extension cell into the kernel `Hlc`, the ext type-byte carrying the union discriminant; the `CrdtOpWire` op union decodes as a tagged array/map whose discriminant selects the op arm, so the ext registry and the tag dispatch stay two tables, never a branch ladder.
+- `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the contract 16-byte `Hlc` extension cell into the kernel `Hlc`; the `CrdtOpWire` op union decodes as a FLAT array whose slot-0 integer tag selects the op arm and whose remaining slots are the producer's keyed roster, so the ext registry and the tag dispatch stay two tables, never a branch ladder.
 - `context` threads the mint decode-once: `DecoderOptions.context` (`ContextOf<C>`) passes into every `ExtensionDecoderType` call, so the `value/identity` interner and the `Hlc` node-id table ride the decode as state, and the mint happens once inside the ext decoder at the seam.
 - `useBigInt64:true` decodes MessagePack int64/uint64 as `bigint` — the HLC physical-time counter, ordinals, and version-vector entries; a decoder without it truncates past 2^53, the named precision defect.
-- `decodeMultiStream` is an `AsyncGenerator` over a `ReadableStreamLike` so `OpLog` frames arrive backpressured and the codec stays a pure function; the Effect `Stream` owns concurrency and the poison-frame halt.
+- `decodeMultiStream` is backpressured but silently ends when EOF leaves an incomplete value; it is not a strict frame boundary.
+- `OpLog` ingress retains length-framed carry, rejects non-empty terminal residue, then supplies complete payloads to the decoder.
+- `Encoder.encode` copies out of the encoder's internal buffer while `encodeSharedRef` returns `bytes.subarray(0, pos)` — a view onto that REUSED buffer which the next `encodeSharedRef` on the same instance overwrites, and a re-entrant call clones the encoder rather than corrupting the outer frame. Transferring the view's `ArrayBuffer` detaches the encoder's own storage and poisons every later encode, so `encodeSharedRef` is a same-tick read and never a `Transferable` handoff; `interchange/codec` hands bytes across the codec seam that outlive the call and therefore takes `encode`.
 
 [STACKING]:
-- Stack with the codec siblings (`@bufbuild/protobuf`/`cbor-x`/`rfc6902`, `core/.api/`): the interchange plane is multi-codec and `interchange/codec` is the MessagePack arm — this owns the `CrdtOpWire`/`OpLog` union, the 16-byte `Hlc` cell riding a MessagePack ext type here, never a proto field. A `codec` page picks ONE codec by the C# mint format; each sibling's format ownership binds at its own `RAIL_LAW`.
-- Stack with `effect` `Stream` (`.api/effect.md`): `Stream.fromAsyncIterable(decodeMultiStream(bytes, opts), onError)` is the CRDT log source; `Stream.mapEffect` decodes each op with bounded concurrency and `Stream.haltWhen` ends on a quarantine signal — the journal decode is one backpressured pipeline into `data/journal/append`.
-- Stack with `effect` `Data`/`Match` (`.api/effect.md`): the decoded `CrdtOpWire` discriminant dispatches through `Data.taggedEnum().$match`/`Match.exhaustive` into `interchange/codec`'s `CrdtOp` family (a missing arm is a compile error); an unregistered ext surfaces as `ExtData` and is `Match`-dispatched, never dropped.
+- Stack with `interchange/codec`: one registry row selects MessagePack for the op-log family and carries the HLC extension through this codec.
+- Stack with `effect` `Stream` (`.api/effect.md`): the strict framing adapter feeds complete payloads into decode, then `Stream.mapEffect` lands each op with bounded concurrency and quarantine interruption.
+- Stack with `effect` `Data`/`Match` (`.api/effect.md`): the decoded `CrdtOpWire` discriminant dispatches through `Data.taggedEnum().$match`/`Match.exhaustive` into `interchange/codec`'s `CrdtOp` family (a missing arm is a compile error); the union is closed at the producer's arms, so an unrostered tag refuses at decode rather than dispatching.
 - Stack with `effect` `Schema` (`.api/effect.md`): `decode` output crosses `Schema.decodeUnknown(CrdtOpSchema)` once; `useBigInt64:true` feeds the `Schema.BigIntFromSelf`/branded HLC fields, so the interior sees a branded `Hlc`/`bigint`, never a raw MessagePack value.
 - Stack with `value/identity`: the `ExtensionCodec` `Hlc` row mints through the interner carried on `context`; `wire` composes the mint and never re-implements the 16-byte layout — a TS re-mint of the `Hlc` cell is the named cross-language drift defect.
-- Stack with `@effect/platform` `Worker` (`.api/effect-platform.md`): `Encoder.encodeSharedRef` returns a view over the encoder's internal `ArrayBuffer` for a zero-copy `Transferable` into the decode worker; `interchange/codec` bounds untrusted frames with the `max*Length` ceilings before decode.
 
 [LOCAL_ADMISSION]:
 - construct one `new Decoder({ extensionCodec, context, useBigInt64:true, ...max*Length })` per policy and register the `Hlc` and domain CRDT ext rows once; the top-level `decode` cannot see the 16-byte `Hlc` ext without the shared `ExtensionCodec`.
+- bound untrusted ingress on `DecoderOptions` alone — `maxStrLength`, `maxBinLength`, `maxArrayLength`, `maxMapLength`, `maxExtLength` refuse an oversized frame before allocation, while `maxDepth` is an `EncoderOptions` nesting ceiling and gates nothing on decode.
 - thread the `value/identity` interner through `context`; the ext decoder is where the `Hlc` is interned.
 - decode output crosses `Schema.decodeUnknown` before a consumer reads it; a raw MessagePack object or an `ExtData` reaching a `core/state` consumer undispatched is the leak defect.
+- raw `decodeMultiStream` never owns framed ingress because its successful EOF cannot distinguish a clean boundary from truncation.
 - `EXT_TIMESTAMP` (`-1`) stays registered for `Date` fields; domain ext type-bytes ride the contract-allocated positive range, each byte numbered once at the corpus.
 
 [RAIL_LAW]:
 - Package: `@msgpack/msgpack`
-- Owns: MessagePack decode of the `CrdtOpWire` union and the `OpLog` log (`decode`/`decodeMulti`, `decodeMultiStream`/`decodeArrayStream`/`decodeAsync`, `Decoder`/`Encoder`), the `ExtensionCodec`/`ExtData` registry carrying the 16-byte `Hlc` cell, the `context` interner thread, `useBigInt64` i64 fidelity, the `max*Length` DoS ceilings, and `sortKeys`/`encodeSharedRef` canonical/zero-copy egress
-- Accept: a configured-once `Decoder` with the `Hlc` `ExtensionCodec` row and the `value/identity` `context`, `useBigInt64:true`, `decodeMultiStream` folded into an `effect` `Stream`, decode output crossing `Schema.decodeUnknown` into a `Data.taggedEnum` op family, `max*Length` before untrusted decode
-- Reject: top-level `decode` without the shared `ExtensionCodec`, a TS re-mint of the `Hlc` cell or a module-singleton interner, `useBigInt64:false` on HLC frames, a raw MessagePack value or undispatched `ExtData` in domain code, an event-emitter frame loop where an Effect `Stream` owns the walk
+- Owns: MessagePack decode of the `CrdtOpWire` union and the `OpLog` log (`decode`/`decodeMulti`, `decodeMultiStream`/`decodeArrayStream`/`decodeAsync`, `Decoder`/`Encoder`), the `ExtensionCodec`/`ExtData` registry carrying the 16-byte `Hlc` cell, the `context` interner thread, `useBigInt64` i64 fidelity, the `DecoderOptions` `max*Length` DoS ceilings, and `sortKeys` canonical egress beside the `encodeSharedRef` reused-buffer view
+- Accept: a configured decoder with the HLC extension and interner context, bigint fidelity, strict external framing, schema landing, pre-decode length limits, and `encode` wherever the bytes outlive the call
+- Reject: top-level decode without the shared extension, a second HLC mint, module-global interning, lossy int64 decode, raw `decodeMultiStream` on framed ingress, raw decoded values in domain code, an `encodeSharedRef` view retained past the next encode or transferred as a `Transferable`, and emitter loops where Effect owns streaming

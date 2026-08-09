@@ -110,7 +110,7 @@ flowchart TB
     Interop f1@-->|"forbidden: upward import"| D2
 ```
 
-- S0 `tabular` — `interop` is the floor and `columnar` the scan base above it; `contract`, `profile`, `query`, `lakehouse`, and `egress` own independent branches.
+- S0 `tabular` — `interop` the floor, `columnar` the scan base above it; `contract`, `profile`, `query`, `lakehouse`, `egress` branch independently.
 - S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
 - S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
 - S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` receipt payload, never a CDF provider of its own.
@@ -121,7 +121,7 @@ flowchart TB
 - S1 `graph` — import-isolated, composing runtime alone; its `GraphResult.frame` node table crosses into columnar as wire data, never an import.
 - S1 `network` composes `graph` strictly downward inside the subfolder; the flow family adds no new stratum edge.
 - S1 `impact` siblings — `inventory`, `solve`, and `scenario` compose runtime alone and feed the carrier's cases, never a second matrix.
-- S2 `spatial` — apex consumer composing columnar, the object-egress receipt owner (`ObjectEgress`), and the gridded virtual plane (`VirtualReference`).
+- S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` receipt owner, and the gridded `VirtualReference` plane.
 - S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses on the gridded `FieldReceipt` family.
 
 ## [03]-[SEAMS]
@@ -241,7 +241,7 @@ flowchart LR
     Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Bim e7@-->|"[WIRE]: GeoFeatureWire"| Geospatial
-    Rhino e11@-->|"[WIRE]: LayerTopologyFact"| Graph
+    Rhino e11@-->|"[WIRE]: OrganizationWire"| Graph
     Persistence e8@-->|"[WIRE]: FlightTicket"| Query
     Impact e9@-->|"[WIRE]: DeclarationRecord"| Materials
 ```

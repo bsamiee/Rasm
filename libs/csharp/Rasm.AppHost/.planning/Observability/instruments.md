@@ -120,7 +120,7 @@ public static class HostInstruments {
         InstrumentSpec.Advised(ModelTokenUsage, "{token}", "model tokens consumed per operation by token type", MeasureForm.Whole, Buckets.TokenCounts, TokenTypeSlot),
         InstrumentSpec.Advised(ModelOperationDuration, "s", "governed model operation duration", MeasureForm.Real, Buckets.ModelSeconds))
         + CostUnit.Items.AsIterable().Map(static unit => InstrumentSpec.Count(
-            GrantSpend(unit.Key), unit.Ucum, $"cost debited against the {unit.Key} ceiling", MeasureForm.Whole)).ToSeq(),
+            GrantSpend(unit.Key), unit.Ucum, $"cost debited from the {unit.Key} balance", MeasureForm.Whole)).ToSeq(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Seq<InstrumentSpec> Rows => Roster.Value;

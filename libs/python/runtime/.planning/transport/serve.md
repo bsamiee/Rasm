@@ -89,6 +89,11 @@ class RouteArity(StrEnum):
 # round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
 _DETAIL_KEY: Final[str] = "grpc-status-details-bin"
 _FAULT_DETAIL: Final[str] = "fault_detail"
+# this module's two span-attribute keys, spelled once for both the SERVER enrichment and the CLIENT response hook —
+# a per-site literal drifts one end of a join a backend can no longer make. Tenancy is NOT one of them: it rides the
+# metric owner's `TENANT_BAGGAGE`, the one canonical spelling every plane reads.
+_DESCRIPTOR_ATTR: Final[str] = "rasm.descriptor"
+_FAULT_CASE_ATTR: Final[str] = "rasm.fault_case"
 # C# Instant.ToUnixTimeTicks is the 100 ns unit; the trailer echo truncates to Timestamp
 # microseconds — the carrier headers stay the authoritative full-fidelity stamp.
 _TICKS_PER_SECOND: Final[int] = 10_000_000
@@ -239,7 +244,7 @@ class ServerHost:
 
     @staticmethod
     def enrich(context: RuntimeContext, descriptor: str, fault_case: str) -> None:
-        trace.get_current_span().set_attributes(context.attribute() | {"rasm.descriptor": descriptor, "rasm.fault_case": fault_case})
+        trace.get_current_span().set_attributes(context.attribute() | {_DESCRIPTOR_ATTR: descriptor, _FAULT_CASE_ATTR: fault_case})
 
     @staticmethod
     async def settle[T](servicer_context: grpc.aio.ServicerContext, context: RuntimeContext, descriptor: str, wired: RuntimeRail[T]) -> T:
@@ -409,7 +414,7 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCo
 - Owner: `CapabilityInvoke` decodes the C# `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` spans every `PROTO_VOCABULARY` row and no injected per-shape codec pair narrows it; a shape outside that registry refuses by name on the rail rather than dialing untranscoded. Outbound legs retry under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
 - Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
 - Entry: the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/{WireService.CAPABILITY}/{descriptor_id}` — while the channel-stable hooks enrich tenant and fault case on the CLIENT span; an ambient per-call `set_attribute` lands on whatever span was current BEFORE the CLIENT span opened. That service name is the ONE `SERVICE_VOCABULARY` row carrying no descriptor proof: the broker mints a method per capability at discovery, so the boot gate declares the row unpooled rather than failing on a compiled service that was never emitted.
-- Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/receipts/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
+- Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/receipts/metrics/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
 - Growth: a new capability is one descriptor row the `Rasm.AppHost` capability broker folds — this branch reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key; a new composition is one `ScopeKey` value threaded through `connect` and `drained`, never a second registry.
 - Boundary: `connect` mints the channel, so this owner owes its teardown — every dial enrols on the live registry under its own composition scope, the `[04]-[ENTRY]` drain fold names that scope as its own stage, and `aclose` retires its row so an early caller close never double-closes and a sibling composition's channels are never reached. A channel whose only teardown is the caller's memory is the leak the transport owner's pooled clients already refuse, and the two teardowns read as one row pair rather than one rescued and one forgotten. The descriptor is the suite's only op-metadata owner and the capability broker its sole mint, named by the brokered-capability domain it holds; this branch re-authors no capability shape. Cross-language shape identity is the broker's `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the contract's additive-only rule. Channel liveness rides the `WIRE` row's `UNAVAILABLE` transient, so no client `HealthStub` pre-probe rides `connect`.
 
@@ -430,13 +435,15 @@ from opentelemetry.instrumentation.grpc import aio_client_interceptors, filters
 
 from rasm.runtime.clock import Tenant
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary
+from rasm.runtime.metrics import TENANT_BAGGAGE
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass, guard
 from rasm.runtime.shapes import PROTO_VOCABULARY, WireService
 from rasm.runtime.wire import WireProtoCodec, codec
 
-# `_DETAIL_KEY`/`_FAULT_DETAIL` are this module's [02]-[SERVE] constants — one trailer spelling for egress pack and
-# ingress lift — and `CredentialPolicy` its owner of the two-directional credential axis this dial projects through.
+# `_DETAIL_KEY`/`_FAULT_DETAIL`/`_FAULT_CASE_ATTR` are this module's [02]-[SERVE] constants — one trailer spelling for
+# egress pack and ingress lift beside one fault-case span key both planes stamp — and `CredentialPolicy` its owner of
+# this dial's two-directional credential axis.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -499,10 +506,10 @@ class CapabilityInvoke:
         # channel-stable enrichment only; the per-call descriptor rides the interceptor-set
         # `rpc.service`/`rpc.method` off the `/rasm.capability/{descriptor_id}` path natively.
         def request_hook(span: trace.Span, _request: object) -> None:
-            span.set_attribute("rasm.tenant", str(tenant))
+            span.set_attribute(TENANT_BAGGAGE, str(tenant))
 
         def response_hook(span: trace.Span, details: str) -> None:
-            span.set_attribute("rasm.fault_case", details or "ok")
+            span.set_attribute(_FAULT_CASE_ATTR, details or "ok")
 
         return aio_client_interceptors(filter_=filters.negate(filters.health_check()), request_hook=request_hook, response_hook=response_hook)
 

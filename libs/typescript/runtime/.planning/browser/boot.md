@@ -1,30 +1,30 @@
 # [RUNTIME_BOOT]
 
-The browser boot plane: one `BrowserRuntime.runMain` call boots the document — a second boot in the same document is the named defect, and the decode-worker entry is its own thread's boot under the same law — and `AppSpec` is the budget VALUE every app constructs before anything runs: the core `AppIdentity` it boots as, the feed rows it drives, and the numeric ceilings the folder's layer factories consume at composition. A host that calls in repeatedly — the view atom bridge, a web-component mount, a foreign SDK callback registry — holds the ONE `ManagedRuntime` handle `Boot.make` mints, and the document boot itself runs THROUGH that handle, so there is exactly one graph: the document run and every call-in observe the same scoped instances, and a per-call graph rebuild or a second boot graph is unspellable. The page also owns the ambient host-signal plane — connectivity, visibility, network profile, and permission state live in exactly one owned cell or feed advanced only by its owned event fold, so every consumer reads the cell and never the navigator — and the Web-API capability roster (`Clipboard`, `Geolocation`, `Permissions`) the root merges so `ui`-declared ports resolve to platform Layers at composition. The render posture is law here: client-rendered PWA plus build-time prerender rows own the SEO surface, `Boot.hydrated` hands the prerendered document to the app's mount, and a streaming-SSR server runtime is the named non-goal. The module is `runtime/src/browser/boot.ts`.
+`runtime/src/browser/boot.ts` owns the browser boot plane: one `BrowserRuntime.runMain` call boots the document, and `Boot.make` mints the ONE `ManagedRuntime` handle the document run and every host call-in share. This page also owns the ambient host-signal plane — connectivity, visibility, network profile, permission state — and the Web-API capability roster the root merges so `ui`-declared ports resolve to platform Layers at composition. Which Layer families an app selects into its root, and what each feed drives, stay at their owning pages.
+
+`AppSpec` is the budget VALUE an app constructs before anything runs: its `Identity.App`, its feed rows, and the ceilings this folder's layer factories consume. Host signals live in one owned cell advanced only by its owned fold, so every consumer reads the cell and never the navigator, and capability refusal splits absence from decision. Render posture is settled: client-rendered PWA beside build-time prerender rows owns the SEO surface, `Boot.hydrated` hands the prerendered document to the mount, and a streaming-SSR server runtime is the named non-goal.
 
 ## [01]-[INDEX]
 
 - [02]-[BUDGET_VALUE]: the `AppSpec` shape — identity, feed rows, ceilings; `AppSpec`.
 - [03]-[SINGLE_BOOT]: the one `runMain` seam, the spec Tag, the call-in handle, the hydration read; `Boot`.
-- [04]-[SIGNAL_CELLS]: the seeded cells, their owned folds, the derived edges, wake, permission feed; `Connect`.
+- [04]-[SIGNAL_CELLS]: the seeded cells, their owned folds, the derived edges, wake, permission feed; `Connect`, `ConnectFault`.
 - [05]-[CAPABILITY_ROWS]: the Web-API service roster the root merges; `Capability`.
 
 ## [02]-[BUDGET_VALUE]
 
 [BUDGET_VALUE]:
-- Owner: `AppSpec`, one `Schema.Class` — `identity` (the core `AppIdentity` composed as a field at full depth, so every identity dimension — app key, tenancy, namespace, build, instance, host fingerprint, environment, ring, region — arrives proven), `feeds` (the app's feed rows: a name plus the `net/client` lane it dials on — the budget is countable, named, and lane-typed), and `ceilings` (the numeric budget the composition root threads into factories: `workers` into `fetch#WIRE_PROTOCOL`'s pool layer, `settle` into `route#ADMISSION_FOLD`'s guard, `outbox` as the soft depth `shell#REPLAY_DRAIN` honors).
 - Law: the lane axis is `net/client`'s, governed both ways — the interior tuple `satisfies` `Client.Lane` and the `_Spans` guard demands full coverage, so a lane rename or addition on the client table breaks this anchor at compile time, never as a stale budget row.
 - Law: the spec is constructed once from validated material — `proc/config`'s provider chain resolves the identity at boot and the app assembles the value; nothing downstream re-reads an environment, and the spec's decode is the one admission of the budget.
 - Law: consumers read rows, never re-declare knobs — the composition root threads spec rows into layer factories, so retuning an app is editing its spec value with zero lib edits.
-- Law: `otel/emit`'s OTel `Resource` and this boot stamp derive from the SAME `AppIdentity` value — one identity spine, so hundreds of apps emit and boot through one vocabulary and a per-app identity fork is structurally impossible.
 - Growth: a new budget axis is one `ceilings` field; a new feed fact is one field on the feed row.
 - Boundary: what each feed DOES is the owning page's law; this owner counts and types them.
-- Packages: `@rasm/ts/core` (`AppIdentity`); `effect` (`Schema`); `../net/client.ts` (type `Client`).
+- Packages: `@rasm/ts/core` (`Identity.App`); `effect` (`Schema`); `../net/client.ts` (type `Client`).
 
 ```typescript
 import { BrowserRuntime, BrowserStream, Clipboard, Geolocation, Permissions } from "@effect/platform-browser"
-import { AppIdentity } from "@rasm/ts/core"
-import { Array, Context, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
+import { Fault, Identity } from "@rasm/ts/core"
+import { Array, Context, Data, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { Client } from "../net/client.ts"
 
 const _LANES = ["live", "batch", "feed"] as const satisfies ReadonlyArray<Client.Lane>
@@ -35,7 +35,7 @@ const _Feed = Schema.Struct({
 })
 
 class AppSpec extends Schema.Class<AppSpec>("AppSpec")({
-  identity: AppIdentity,
+  identity: Identity.App,
   feeds: Schema.Array(_Feed),
   ceilings: Schema.Struct({
     workers: Schema.Int.pipe(Schema.between(1, 16)),
@@ -63,7 +63,8 @@ declare namespace AppSpec {
 - Law: one graph, one owner per acquisition — the document run and the imperative call-in (`handle.runPromise` from the view atom bridge, a web-component mount, a foreign SDK callback) both resolve through the handle `make` minted, so a scoped service has exactly one construction and one teardown path; a second `ManagedRuntime` or a run-main graph built beside the handle is the per-call-rebuild defect this owner makes unspellable.
 - Law: the boot line is the only imperative seam — `runMain` installs error reporting and teardown wiring; `disableErrorReporting`/`disablePrettyLogger` stay default because crash visibility is `otel/crash`'s Layer concern, never a boot flag.
 - Law: hydration is boot's law — the build emits per-route static HTML stamped with the `data-rasm-prerender` marker; `Boot.hydrated` reads the marker (`Option`-carried) so the app's mount takes over a prerendered document instead of re-rendering it, and a document without the marker is a cold client render; the marker read is this cluster's one DOM touch.
-- Exemption: the `_memo` mint and the `dispose` chain are the platform-forced boot-seam run calls — this module is the edge where `Promise` is legal.
+- Law: teardown rides the typed effect the handle already publishes — `disposeEffect` is `Effect<void>`, and a promise round-trip grades a rejecting scope finalizer `defect` on the shutdown path, past every gate that acts on it.
+- Exemption: the `_memo` mint is the one platform-forced boot-seam run call, and this module is the edge where it is legal.
 - Receipt: `main` returns `void` — everything observable thereafter flows through the composed graph; the annotation on `main`'s signature is the whole boot contract.
 - Boundary: which Layer families merge into `root` is the app's selection across the branch; the `runMain` mechanics are `@effect/platform-browser`'s; view mounting is the ui wave's behind its atom bridge holding the same handle.
 - Packages: `@effect/platform-browser` (`BrowserRuntime`); `effect` (`Context`, `Effect`, `Layer`, `ManagedRuntime`, `Option`).
@@ -87,7 +88,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
     BrowserRuntime.runMain(
       Effect.flatMap(Boot, (spec) => Effect.annotateLogs(app, { app: spec.label })).pipe(
         Effect.provide(handle), // one graph: the document run resolves through the same handle every call-in holds
-        Effect.ensuring(Effect.promise(() => handle.dispose())),
+        Effect.ensuring(handle.disposeEffect), // the handle publishes teardown as an effect; a promise round-trip buys a defect
       ),
     )
 }
@@ -101,18 +102,43 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 - Law: the network profile is a closed vocabulary, never a raw string — `_GRADES` maps the host `effectiveType` rows onto the three-grade axis (`swift`/`steady`/`strained`) and `frugal` carries `saveData`, so byte-budget consumers (`fetch#FLOW_ROWS`, `fetch#DEPOT_SCHEDULER`) dispatch on grade rows and an unrecognized host string folds to `Option.none`, never a throw.
 - Law: edges derive from cells — `SubscriptionRef.changes` replays the current value to a late subscriber, so the edge fold pairs each element with its predecessor through `Stream.zipWithPrevious` and admits only the genuine transition; a consumer subscribing raw DOM events to re-derive an edge is the probe defect in stream clothing.
 - Law: `granted` folds capability absence to silence — a host without `navigator.permissions` yields the empty stream and the consumer seeds its own default posture; a present host emits the current `PermissionState` then every `change`, so a permission affordance renders transitions, never polls.
-- Law: `navigator.connection` and the registration's `sync` member are absent from the DOM lib — `_NetSource` and `_SyncHost` are the boundary refinements pinned at this owner, the only places the nonstandard surfaces are spelled; a consumer never touches either.
-- Receipt: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe.
-- Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell plus one owned fold on this service — never a sibling owner, never a consumer-side listener.
+- Law: host refusal splits three ways, never onto one value — an absent surface is data the cell already carries, a name the agent cannot parse is a caller fault it grades `absent`, and a registration or query the agent refuses is a decision a caller re-drives, so `ConnectFault` carries the two that reach the rail and `orElseSucceed` over a whole probe is the collapse this owner forecloses.
+- Law: `navigator.connection` and the registration's `sync` member are absent from the DOM lib, so `_NetSource` and `_SyncHost` are this owner's boundary refinements and every byte-budget consumer reads the cell instead of the navigator; `otel/vital` pins its own `connection.type` refinement for the RUM stamp, because dependency direction bars an otel module from reading a browser cell, so the transport word and the byte-budget axis hold one owner each.
+- Receipt: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe, while a refused registration rides the rail because an agent that just refused is re-drivable and an absent capability never is.
+- Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell and one owned fold on this service — never a sibling owner, never a consumer-side listener.
 - Boundary: `otel/vital` owns RUM measurement; this cluster owns only the runtime-state cells its flush edges read; what drains on a redial is `shell#REPLAY_DRAIN`'s law.
-- Packages: `effect` (`Effect`, `Option`, `Record`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`).
+- Packages: `effect` (`Data`, `Effect`, `Option`, `Record`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const
 
+// Only what the agent DECIDED reaches the rail: a surface it never ships stays a value the cell carries, a descriptor
+// it cannot parse blames the caller, and a registration or query it turns down is re-drivable once conditions move.
+const _connectFamily = Fault.Class.family(["unparsed", "refused"] as const, {
+  unparsed: { class: "absent" },
+  refused: { class: "denied" },
+})
+
 declare namespace Connect {
   type Grade = (typeof _GRADES)[keyof typeof _GRADES]
   type Profile = { readonly grade: Grade; readonly frugal: boolean }
+}
+
+declare namespace ConnectFault {
+  type Reason = (typeof _connectFamily.reasons)[number]
+}
+
+class ConnectFault extends Data.TaggedError("ConnectFault")<{
+  readonly reason: ConnectFault.Reason
+  readonly surface: string
+  readonly detail: string
+}> {
+  get class(): Fault.Class.Kind {
+    return _connectFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<connect:${this.reason}> ${this.surface} ${this.detail}`
+  }
 }
 
 type _NetSource = EventTarget & { readonly effectiveType?: string; readonly saveData?: boolean }
@@ -138,18 +164,34 @@ const _edged = (feed: Stream.Stream<boolean>, from: boolean): Stream.Stream<void
     ),
   )
 
-const _granted = (name: PermissionName): Stream.Stream<PermissionState> =>
-  Stream.unwrap(
-    Effect.tryPromise(() => globalThis.navigator.permissions.query({ name })).pipe(
-      Effect.map((status) =>
-        Stream.concat(
-          Stream.succeed(status.state),
-          Stream.map(Stream.fromEventListener(status, "change"), () => status.state),
+// DOM's own interface name is taken by the platform service import, so the host surface reads off `Navigator` itself
+const _permissions = (): Option.Option<Navigator["permissions"]> => Option.fromNullable(globalThis.navigator.permissions)
+
+// `query` rejects `TypeError` for a descriptor the agent cannot parse, so the seam grades that arm against the caller
+// and everything else against the agent; a host shipping no surface at all never reaches here, because absence is data
+const _granted = (name: PermissionName): Stream.Stream<PermissionState, ConnectFault> =>
+  Option.match(_permissions(), {
+    onNone: () => Stream.empty,
+    onSome: (permissions) =>
+      Stream.unwrap(
+        Effect.tryPromise({
+          try: () => permissions.query({ name }),
+          catch: (defect) =>
+            new ConnectFault({
+              reason: defect instanceof globalThis.TypeError ? "unparsed" : "refused",
+              surface: "permissions.query",
+              detail: String(defect),
+            }),
+        }).pipe(
+          Effect.map((status) =>
+            Stream.concat(
+              Stream.succeed(status.state),
+              Stream.map(Stream.fromEventListener(status, "change"), () => status.state),
+            ),
+          ),
         ),
       ),
-      Effect.orElseSucceed(() => Stream.empty),
-    ),
-  )
+  })
 
 class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
   scoped: Effect.gen(function* () {
@@ -175,13 +217,22 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
           Effect.forkScoped,
         ),
     })
-    const wake = (tag: string): Effect.Effect<boolean> =>
-      Effect.tryPromise(async () => {
-        const registration = await globalThis.navigator.serviceWorker.ready
-        if (!("sync" in registration)) return false
-        await (registration as _SyncHost).sync.register(tag) // BOUNDARY ADAPTER: SyncManager is absent from the DOM lib; the refinement is pinned above
-        return true
-      }).pipe(Effect.orElseSucceed(() => false))
+    // `false` carries capability absence alone — no worker container, or a registration without the member; a rejected
+    // registration is the agent's own decision, so it rides the rail instead of reading as an absent capability
+    const wake = (tag: string): Effect.Effect<boolean, ConnectFault> =>
+      Option.match(Option.fromNullable(globalThis.navigator.serviceWorker), {
+        onNone: () => Effect.succeed(false),
+        onSome: (container) =>
+          Effect.tryPromise({
+            try: async () => {
+              const registration = await container.ready
+              if (!("sync" in registration)) return false
+              await (registration as _SyncHost).sync.register(tag) // BOUNDARY ADAPTER: SyncManager is absent from the DOM lib; the refinement is pinned above
+              return true
+            },
+            catch: (defect) => new ConnectFault({ reason: "refused", surface: "sync.register", detail: String(defect) }),
+          }),
+      })
     const online: Subscribable.Subscribable<boolean> = _online
     const visible: Subscribable.Subscribable<boolean> = _visible
     const profile: Subscribable.Subscribable<Option.Option<Connect.Profile>> = _profile
@@ -216,7 +267,7 @@ const Capability: Layer.Layer<Clipboard.Clipboard | Geolocation.Geolocation | Pe
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { AppSpec, Boot, Capability, Connect }
+export { AppSpec, Boot, Capability, Connect, ConnectFault }
 ```
 
 ## [06]-[RESEARCH]

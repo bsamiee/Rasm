@@ -5,7 +5,7 @@
 ## [01]-[ROUTER]
 
 - [01]-[SYSTEM](.planning/system/): Component floor — token authority dual-sunk to CSS and viewer linear space; motion, atom, hook, and vital owners.
-- [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, chart, and export, each one owner where variation is rows.
+- [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, chart, export, each one owner where variation is rows.
 - [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency, the environment dome, and the `GlobalId` selection plane.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -86,7 +86,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@deck.gl/extensions`
 - `@deck.gl/mapbox`
 - `@loaders.gl/3d-tiles`
-- `@loaders.gl/core` — the polymorphic `parse`/`load` decode engine; loaders arrive per-layer through the `loaders` prop, never a host registry (`registerLoaders` ships `@deprecated`).
+- `@loaders.gl/core` — polymorphic `parse`/`load` decode engine; loaders ride the per-layer `loaders` prop, `registerLoaders` shipping `@deprecated`.
 - `@loaders.gl/las`
 - `@geoarrow/deck.gl-geoarrow`
 - `@turf/turf`

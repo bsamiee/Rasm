@@ -1,6 +1,6 @@
 # [SECURITY_VERIFY]
 
-External-signature ingress and the folder's admission ledger: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. That plane lives here: `Reject` is the folder-wide authenticity ledger over ONE closed `kind` discriminant and bounded dialect/surface/reason facets — `mark` counts a refusal, `admit` counts the same kind's success, and `measured` is the ceremony aspect that times the wall span and admits on the success arm — so refusals, their denominator, and their latency are three `Convention`-named series joined on one key, every ratio the plane exists to answer is queryable, and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape over one core `FaultClass.family` mint, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
+External-signature ingress and the folder's admission ledger: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. That plane lives here: `Reject` is the folder-wide authenticity ledger over ONE closed `kind` discriminant and bounded dialect/surface/reason facets — `mark` counts a refusal, `admit` counts the same kind's success, and `measured` is the ceremony aspect that times the wall span and admits on the success arm — so refusals, their denominator, and their latency are three `Convention`-named series joined on one key, every ratio the plane exists to answer is queryable, and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape over one core `Fault.Class.family` mint, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,10 @@ External-signature ingress and the folder's admission ledger: one closed dialect
 ## [02]-[VERIFY_FAULT]
 
 [VERIFY_FAULT]:
-- Owner: `VerifyFault` — the folder fault shape for inbound authenticity: `missing` (required signature header absent), `malformed` (header grammar or signature encoding refused, or a `crypt/sign` primitive fault re-spelled here), `mismatch` (every candidate failed the constant-time compare), `stale` (timestamp outside tolerance), `unknownKey` (no registered key for the presented `kid`/issuer), `throttled` (the per-key verify budget exhausted, class `exhausted` so the edge renders `Retry-After`). The rows close through the core `FaultClass.family` seam, which owns membership by construction, so no local guard pair rides beside the class column.
 - Law: a crypto-primitive fault is re-spelled at this seam — a `SignFault` from a malformed presented signature folds to `malformed` (caller-caused), never escapes as a `defect`; a genuine key or algorithm defect on Rasm's side stays a fold-internal `defect`.
 - Law: verification is result-typed — a valid signature lands the `Verified` receipt, a failed one a typed fault; there is no boolean-plus-throw and a `false` compare is `mismatch`, never a thrown value.
 - Growth: a new failure mode is one family row carrying its core kind.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`FaultClass`); `crypt/sign` (`SignFault`).
+- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
 
 ```typescript
 import * as RateLimiter from "@effect/experimental/RateLimiter"
@@ -28,11 +27,11 @@ import {
 import { decodePKCS1RSAPublicKey, decodePKIXRSAPublicKey, sha256ObjectIdentifier, verifyRSASSAPKCS1v15Signature, verifyRSASSAPSSSignature } from "@oslojs/crypto/rsa"
 import { SHA256, sha256 } from "@oslojs/crypto/sha2"
 import { decodeBase64, decodeHex, encodeHexLowerCase } from "@oslojs/encoding"
-import { Convention, FaultClass } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/ts/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Either, Metric, Number, Option, Predicate, Record, Redacted, Schema, pipe } from "effect"
 import { Crypto, Probe, SignFault } from "./sign.ts"
 
-const _family = FaultClass.family(["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const, {
+const _family = Fault.Class.family(["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const, {
   missing: { class: "malformed" },
   malformed: { class: "malformed" },
   mismatch: { class: "denied" },
@@ -49,7 +48,7 @@ class VerifyFault extends Schema.TaggedError<VerifyFault>()("VerifyFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {

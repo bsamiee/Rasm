@@ -1,0 +1,366 @@
+// rasm/compute/v1/compute.proto — the corpus-homed SUITE SERVICE descriptor source the DESCRIPTOR_DRIFT contract gates.
+// One package per source, and the directory spells the package: this file mints `rasm.compute.v1` and the sibling
+// rasm/channels/v1/channels.proto mints the appearance family under `rasm.channels.v1`, so the two carry two
+// FileDescriptorSet snapshots under one gate law and neither claims the other's fully-qualified names. Every service
+// spelling a peer dials projects from the package declared here —
+// python:runtime/transport/shapes#REGISTRY_AND_DRIFT resolves `rasm.compute.v1.ComputeService` in the default
+// descriptor pool, and connect-es resolves the same names off the app-root-emitted descriptor set.
+// Message names transcribe csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY verbatim: a wire message spells
+// <Verb>Request inbound and <Verb>Response/<Verb>Reply/<Verb>Receipt outbound, while the domain shape it transcribes
+// keeps its own name. Numbers only append past the last; removals reserve name and number.
+syntax = "proto3";
+
+package rasm.compute.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Rasm.Compute";
+
+// --- [FAULT] ----------------------------------------------------------------------------
+
+// The one typed fault payload every grpc-status-details-bin trailer and every in-band conflict slot carries.
+// `tenant` is the rasm.tenant dimension rendered through TenantId.Wire; the untagged whole crosses as the empty
+// string, never a sentinel, so a peer reads absence and a tagged fault attributes without a correlation join.
+message FaultDetail {
+  string package = 1;
+  int32 code = 2;
+  string case = 3;
+  string message = 4;
+  map<string, string> evidence = 5;
+  string correlation = 6;
+  google.protobuf.Timestamp hlc_physical = 7;
+  uint64 hlc_logical = 8;
+  string tenant = 9;
+}
+
+// --- [GEOMETRY] -------------------------------------------------------------------------
+
+message SymbolicDim {
+  string name = 1;
+  int64 bound = 2;
+}
+
+message PointCloudTensor {
+  int64 count = 1;
+  int32 channels = 2;
+  string dtype = 3;
+  bytes data = 4;
+}
+
+message MeshTensor {
+  int64 vertex_count = 1;
+  bytes vertices = 2;
+  int64 face_count = 3;
+  bytes faces = 4;
+}
+
+message VoxelTensor {
+  repeated int64 dims = 1;
+  string dtype = 2;
+  bytes data = 3;
+}
+
+// At-most-one-arm-set is a property of a VALUE, so the producer's own oneof read holds it; a descriptor census
+// proves declaration alone. A dense solver operand is NOT a member here — SolveRequest carries bare bytes.
+message GeometryPayload {
+  oneof kind {
+    PointCloudTensor point_cloud = 1;
+    MeshTensor mesh = 2;
+    VoxelTensor voxel = 3;
+  }
+  repeated SymbolicDim symbolic_dims = 4;
+}
+
+// Reality-capture splat frame; each channel crosses as ONE packed float32 block, never a repeated float, because a
+// per-splat list costs one object per component on a payload counting millions. `harmonics` leads with its DC
+// triple and `alphas` is the sigmoid-activated opacity appended past the frozen columns, additive-only.
+message GaussianSplatScan {
+  string format_key = 1;
+  bytes positions = 2;
+  bytes scales = 3;
+  bytes rotations = 4;
+  bytes harmonics = 5;
+  int32 harmonic_degree = 6;
+  int64 splat_count = 7;
+  bytes alphas = 8;
+}
+
+// --- [DOCUMENT] -------------------------------------------------------------------------
+
+// The flagship parity request: the in-process DocumentTransaction verb set field-for-field, ops arriving already
+// packed as polymorphic Any envelopes from the one staging site.
+message TransactionRequest {
+  bytes idempotency_key = 1;
+  repeated google.protobuf.Any ops = 2;
+  uint64 expected_epoch = 3;
+  google.protobuf.Timestamp hlc_physical = 4;
+  uint64 hlc_logical = 5;
+  string correlation = 6;
+}
+
+// The `conflict` slot carries the FaultDetail the retry owner decodes IN BAND through the message body, never a
+// trailer, so a non-exceptional conflict and an exceptional fault terminate on the one typed rail.
+message TransactionReceipt {
+  bytes idempotency_key = 1;
+  bool committed = 2;
+  uint64 new_epoch = 3;
+  repeated string applied = 4;
+  FaultDetail conflict = 5;
+  google.protobuf.Timestamp hlc_physical = 6;
+  uint64 hlc_logical = 7;
+}
+
+message QueryRequest {
+  string scope = 1;
+  google.protobuf.Struct predicate = 2;
+  string cursor = 3;
+  google.protobuf.FieldMask mask = 4;
+}
+
+message QueryResponse {
+  repeated google.protobuf.Struct rows = 1;
+  string cursor = 2;
+  int64 total = 3;
+}
+
+// --- [COMPUTE] --------------------------------------------------------------------------
+
+message InferRequest {
+  GeometryPayload payload = 1;
+  string model_checksum = 2;
+  string correlation = 3;
+}
+
+message InferResponse {
+  GeometryPayload payload = 1;
+  string provider = 2;
+}
+
+// Numeric-lane decomposition: matrix and rhs are column-major float64 bytes and the server reshapes from byte
+// length beside shard_tile, so no geometry envelope wraps a dense operand.
+message SolveRequest {
+  bytes matrix = 1;
+  bytes rhs = 2;
+  string factorization_kind = 3;
+  string sparse_format = 4;
+  int32 shard_tile = 5;
+}
+
+message SolveResponse {
+  bytes solution = 1;
+  string provider = 2;
+  string decomposition = 3;
+  int64 rows = 4;
+  int64 cols = 5;
+  int64 nnz = 6;
+}
+
+message GenerateRequest {
+  string model_checksum = 1;
+  string prompt = 2;
+  double max_length = 3;
+  string guidance_kind = 4;
+  string guidance_data = 5;
+  string tools = 6;
+}
+
+message TokenChunk {
+  string piece = 1;
+  int64 token_index = 2;
+  bool done = 3;
+}
+
+// Content-key delta over two Closure hashes; the set-difference algebra lives at the Persistence changefeed and
+// this pair carries the wire shape alone.
+message GraphDiffRequest {
+  string base_hash = 1;
+  string target_hash = 2;
+}
+
+message GraphDiffResponse {
+  repeated string added = 1;
+  repeated string removed = 2;
+}
+
+message SubtreeFetchRequest {
+  repeated string content_keys = 1;
+}
+
+message GraphChunk {
+  string content_key = 1;
+  bytes payload = 2;
+  int64 ordinal = 3;
+}
+
+// The companion tessellation job on the wire; `source_modality` selects the ifc or cad arm and `policy` renders
+// the deflection/tolerance columns as text.
+message TessellationRequest {
+  string source_modality = 1;
+  bytes source = 2;
+  map<string, string> policy = 3;
+}
+
+// The companion's evidence floor: coordinates, counts, and keys alone, because the GLB body rides the
+// ArtifactSyncService frame seam rather than this message.
+message TessellationReceipt {
+  string content_key = 1;
+  int64 element_count = 2;
+  int64 triangle_count = 3;
+  google.protobuf.Struct semantic_header = 4;
+  string artifact_hash = 5;
+  string replay_phase = 6;
+}
+
+// --- [CONTROL] --------------------------------------------------------------------------
+
+message DispatchToolRequest {
+  string tool = 1;
+  google.protobuf.Struct arguments = 2;
+}
+
+// Projects DispatchReceipt: the executor key that ran the body, the selection identity it chose, and the duration
+// it measured. The executing stratum's own receipt never reaches this envelope.
+message DispatchReceipt {
+  string executor = 1;
+  string selection = 2;
+  google.protobuf.Duration elapsed = 3;
+}
+
+// Projects CommandReceipt field-for-field, the CommandTxn union expanded onto its own columns: `txn` carries the
+// case key, `reason` the rolled-back or compensated cause, `refusal` the Refused arm's fault, and `compensation`
+// the roll-forward evidence, while `dispatch` stays the receipt's own optional slot. A committed transaction and a
+// compensated one therefore read apart without a second reply shape. Tenancy crosses as the TenantId.Wire text
+// beside its slug, the same value column FaultDetail.tenant carries.
+message CommandReply {
+  string descriptor = 1;
+  string txn = 2;
+  string reason = 3;
+  FaultDetail refusal = 4;
+  DispatchReceipt compensation = 5;
+  map<string, int64> charged = 6;
+  google.protobuf.Duration elapsed = 7;
+  string correlation = 8;
+  string tenant = 9;
+  string tenant_slug = 10;
+  google.protobuf.Timestamp at = 11;
+  DispatchReceipt dispatch = 12;
+}
+
+message DispatchPatchRequest {
+  string section = 1;
+  google.protobuf.Struct patch = 2;
+}
+
+// Projects ReloadReceipt field-for-field and answers BOTH the reload-options and dispatch-patch verbs, since one
+// ReloadOutcome transition carries one reply shape and the trigger string separates the routes.
+message ReloadReply {
+  string section = 1;
+  string reload_class = 2;
+  string trigger = 3;
+  string outcome = 4;
+  google.protobuf.Timestamp at = 5;
+  string correlation = 6;
+}
+
+// The level key text the DegradationLevel admission validates beside the reason it is forced, so the operator
+// override lands as the ForceLevel arm the config owner already declares rather than a second override vocabulary.
+message SetDegradationRequest {
+  string level = 1;
+  string reason = 2;
+}
+
+// The resolved level key alone — the one column the caller reads back to re-admit through DegradationLevel. Richer
+// degradation evidence (derived, forced, cascade, streak, floor) rides its own JSON wire at the health owner, so a
+// column lands here when a caller reads it, never because a sibling projection carries it.
+message DegradationReply {
+  string level = 1;
+}
+
+// The caller's REMAINING cooperative allotment, never the budget it started with; the handler takes the minimum of
+// this and its own drain class, since allotments inherit through nested seams as the minimum.
+message DrainRuntimeRequest {
+  google.protobuf.Duration cooperative = 1;
+  string reason = 2;
+}
+
+// Projects DrainStep; band carries the SmartEnum<int> value and outcome its flushed/escalated/straggled token, so a
+// step that ran out of allotment reports which half it spent rather than vanishing into the reply's elapsed.
+message DrainStepRow {
+  string name = 1;
+  int32 band = 2;
+  google.protobuf.Duration allotted = 3;
+  google.protobuf.Duration consumed = 4;
+  string outcome = 5;
+}
+
+// Projects DrainReceipt field-for-field; a straggling step is evidence the caller reads, never a timeout it infers.
+message DrainReply {
+  repeated DrainStepRow steps = 1;
+  string final_phase = 2;
+  google.protobuf.Timestamp at = 3;
+  google.protobuf.Duration elapsed = 4;
+  string correlation_id = 5;
+}
+
+// --- [DIAGNOSTIC] -----------------------------------------------------------------------
+
+// An empty roster selects every admitted collector; a named roster bounds the capture to its rows.
+message SupportBundleRequest {
+  repeated string collectors = 1;
+}
+
+message SupportBundleReply {
+  string content_key = 1;
+  bytes archive = 2;
+  repeated string collected = 3;
+  repeated string skipped = 4;
+}
+
+// --- [ARTIFACT] -------------------------------------------------------------------------
+
+// The generic byte seam every standalone artefact rides, tessellated GLB and splat scan alike; framing decides how
+// a document MOVES and never which vocabulary proves it.
+message ArtifactFrame {
+  bytes artifact_id = 1;
+  uint64 artifact_bytes = 2;
+  uint64 offset = 3;
+  uint64 frame_crc = 4;
+  bytes payload = 5;
+}
+
+// --- [SERVICES] -------------------------------------------------------------------------
+
+service ComputeService {
+  rpc Infer(InferRequest) returns (InferResponse);
+  rpc Solve(SolveRequest) returns (SolveResponse);
+  rpc Generate(GenerateRequest) returns (stream TokenChunk);
+  rpc GraphDiff(GraphDiffRequest) returns (GraphDiffResponse);
+  rpc SubtreeFetch(SubtreeFetchRequest) returns (stream GraphChunk);
+  rpc Tessellate(TessellationRequest) returns (TessellationReceipt);
+}
+
+service DocumentService {
+  rpc ExecuteTransaction(TransactionRequest) returns (TransactionReceipt);
+  rpc Query(QueryRequest) returns (QueryResponse);
+}
+
+service ControlService {
+  rpc ReloadOptions(google.protobuf.Empty) returns (ReloadReply);
+  rpc DispatchTool(DispatchToolRequest) returns (CommandReply);
+  rpc DispatchPatch(DispatchPatchRequest) returns (ReloadReply);
+  rpc SetDegradation(SetDegradationRequest) returns (DegradationReply);
+  rpc DrainRuntime(DrainRuntimeRequest) returns (DrainReply);
+}
+
+service DiagnosticService {
+  rpc CaptureBundle(SupportBundleRequest) returns (SupportBundleReply);
+}
+
+service ArtifactSyncService {
+  rpc Sync(stream ArtifactFrame) returns (stream ArtifactFrame);
+}

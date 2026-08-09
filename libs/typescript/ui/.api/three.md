@@ -38,14 +38,14 @@
 
 [PUBLIC_TYPE_SCOPE]: WebGPU backend, node materials, and compute (`three/webgpu`)
 
-| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]    | [CONSUMER]                                     |
-| :-----: | :---------------------------------------------------------- | :--------------- | :--------------------------------------------- |
-|  [01]   | `Renderer` / `WebGPUBackend` / `WebGLBackend`               | unified renderer | `viewer/scene/glb` — WebGPU/WebGL2 backend     |
-|  [02]   | `MeshPhysicalNodeMaterial` / `MeshStandardNodeMaterial`     | node material    | `viewer/scene/appearance` — WebGPU OpenPBR TSL |
-|  [03]   | `PointsNodeMaterial` / `MeshBasicNodeMaterial`              | node material    | `viewer/scene/glb` — point/unlit node graph    |
-|  [04]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe/receipt` — `RenderReceipt` chain |
-|  [05]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms   |
-|  [06]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs    |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]    | [CONSUMER]                                                            |
+| :-----: | :---------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------- |
+|  [01]   | `Renderer` / `WebGPUBackend` / `WebGLBackend`               | unified renderer | `viewer/scene/glb` — WebGPU/WebGL2 backend                            |
+|  [02]   | `MeshPhysicalNodeMaterial` / `MeshStandardNodeMaterial`     | node material    | `viewer/scene/appearance` — WebGPU OpenPBR TSL                        |
+|  [03]   | `PointsNodeMaterial` / `MeshBasicNodeMaterial`              | node material    | `viewer/scene/glb` — point/unlit node graph                           |
+|  [04]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe` ← `EvidenceTimelineWire.render.pixels` identity parity |
+|  [05]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms                          |
+|  [06]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs                           |
 
 [PUBLIC_TYPE_SCOPE]: loader and animation contracts
 

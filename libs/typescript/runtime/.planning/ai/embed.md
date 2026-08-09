@@ -108,6 +108,9 @@ const Cut = { Lane: _Lane, pieces: _pieces, scrub: _scrubbed }
 - Law: a raw provider states its `embedMany` and NOTHING about geometry — one `_raw` builder holds both engine arms and every non-curated row composes it, so a row body cannot carry a batch-width literal at all. A hand-frozen width inside a row denies that provider the wall-clock window and the hot tier the policy union grants its siblings, and it reads as a row-shaped fact while being a posture the deployment was never asked about; the curated OpenAI row keeps its own builder because the package ships the pair.
 - Law: an absent cache is an ABSENT KEY, not a written `undefined` — the hot-tier option is spread conditionally out of the `Option`, because the engine's option record is exact-optional and writing the key with no value is a different fact from omitting it.
 - Law: the cache is two tiers with distinct owners — the hot tier is the engine's own bounded `cache` option; the durable tier is the `_Embedded` persisted request family riding the data wave's engine values (`Batch.windowed` under the wall-clock window, then `Batch.durable` over `Persistence.ResultPersistence`, backed at the root by the data-wave cache lane with its tenant partition), primary-keyed `<fingerprint>:<body>` on the scrubbed body — so a re-embedding of unchanged corpus text after restart is a durable hit, not a provider call.
+- Law: the task roster transcribes the provider's published vocabulary WHOLE, carving only the unset sentinel — a sampled subset denies this corpus a posture the engine already answers, and the carve states its reason rather than leaving the gap unnamed.
+- Law: every row answers the descriptor floor on `_rowCells` — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — as the `providers` descriptors a `proc/config#ADMISSION_ROWS` `Profile` selects; `tenancy` names the mechanism a row separates tenants BY, since the closed axis selects the row and the cell explains the separation it performs.
+- Law: `degrade` carries what a row GIVES UP against its siblings and nothing else — a coordinate a row never owned is stated as undecided with its owner named, because a forfeit and an absent claim read the same to a caller only when both are wrong.
 - Law: provider identity is the admitted `Search.Embedding` value — model, dimensions, revision, and derived fingerprint travel as one fact through every provider row, while `Search.Corpus` composes the distinct relation identity at the data owner; a parallel identity tuple cannot drift, and a revision can never hide behind a constructor-local `"1"` default.
 - Growth: a new provider row is one table entry over `custom`; a cache or window policy change is a field on the one policy union; a Google task-type posture is a row field, never a call knob.
 - Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/ts/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
@@ -133,14 +136,62 @@ declare namespace Embedding {
     readonly engine: Batch.Engine
     readonly persistence: Batch.Persistence
   }
-  type Task =
-    | "RETRIEVAL_DOCUMENT"
-    | "RETRIEVAL_QUERY"
-    | "SEMANTIC_SIMILARITY"
-    | "CLASSIFICATION"
-    | "CLUSTERING"
+  type Task = (typeof _tasks)[number]
   type Custom = typeof _Custom.Type
+  type _Cells<T extends Record<keyof typeof _rows, Embedding.Descriptor> = typeof _rowCells> = T
+  type Descriptor = {
+    readonly fits: string
+    readonly admit: string
+    readonly tenancy: string
+    readonly lifetime: string
+    readonly degrade: string
+  }
 }
+
+// Providers publish this task vocabulary as a generated literal whose emitted symbol is mangled and cannot be named,
+// so the roster transcribes WHOLE rather than sampling it — a five-value subset silently denies this corpus every
+// code-retrieval, question-answering, and fact-verification posture the engine already answers. One carve stands:
+// `TASK_TYPE_UNSPECIFIED` means "the caller set nothing", so admitting it as a policy value would spell an unmade
+// decision as a made one.
+const _tasks = [
+  "RETRIEVAL_QUERY",
+  "RETRIEVAL_DOCUMENT",
+  "SEMANTIC_SIMILARITY",
+  "CLASSIFICATION",
+  "CLUSTERING",
+  "QUESTION_ANSWERING",
+  "FACT_VERIFICATION",
+  "CODE_RETRIEVAL_QUERY",
+] as const
+
+// Rows answer the descriptor floor as data a `proc/config#ADMISSION_ROWS` `Profile` SELECTS: `admit` names what a
+// caller hands in, `tenancy` the MECHANISM the row separates tenants by, `lifetime` the owner that ends a cached
+// vector, and `degrade` the forfeit. Selection reads the closed axis and the cell explains the separation, so a
+// `none|single|multi` value here re-mints the roster `core/value/identity#IDENTITY_OWNER` already publishes. Every
+// row decides its own vector lifetime because the durable band is this package's own store, and none defers it out.
+const _rowCells = {
+  openai: {
+    fits: "<curated-engine-with-package-owned-batching-and-hot-cache>",
+    admit: "<embedding-identity-and-window-policy>",
+    tenancy: "<per-credential-one-api-key-is-the-whole-boundary-and-it-resolves-to-one-organization-and-project>",
+    lifetime: "<durable-band-ttl-this-package-sets-hot-tier-evicts-on-the-capacity-it-was-given>",
+    degrade: "<none-beyond-the-credential-boundary-this-row-is-the-reference>",
+  },
+  google: {
+    fits: "<gemini-vectors-with-a-declared-task-posture-and-truncated-dimensionality>",
+    admit: "<embedding-identity-task-posture-and-window-policy>",
+    tenancy: "<per-credential-one-api-key-is-the-whole-boundary-and-it-resolves-to-one-cloud-project>",
+    lifetime: "<durable-band-ttl-this-package-sets-the-provider-caches-nothing-across-calls>",
+    degrade: "<no-curated-engine-ships-so-a-package-side-batching-gain-never-reaches-this-row>",
+  },
+  custom: {
+    fits: "<any-raw-embedMany-including-an-in-process-model-with-no-provider-at-all>",
+    admit: "<embedding-identity-window-policy-and-the-caller-s-own-embedMany>",
+    tenancy: "<whatever-the-caller-s-own-embedMany-dials-separates-by-and-an-in-process-model-separates-by-nothing>",
+    lifetime: "<durable-band-ttl-this-package-sets-and-nothing-else-is-reachable-from-here>",
+    degrade: "<the-declared-identity-is-a-caller-assertion-this-row-cannot-verify-against-the-vectors-it-returns>",
+  },
+} as const satisfies Record<keyof typeof _rows, Embedding.Descriptor>
 
 const _cached = (policy: Extract<Embedding.Custom, { readonly _tag: "Batched" }>) =>
   Option.match(policy.cache, { onNone: () => ({}), onSome: (cache) => ({ cache }) }) // exact-optional: an absent hot tier omits the key, never writes undefined
@@ -245,6 +296,7 @@ const _band = (
 
 [PORT]:
 - Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `Search.Embedding.fingerprint` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` scrubs and routes each singular port request through `Effect.request` over the resolver band, and every provider fault folds into the port's own family through the total `_folded` tag table — decode skew to `shape`, transport and unknown failures to `provider`, a `429`/`413` provider rejection to `budget` off the carried response status — so retrieval's lane-exclusion fold reads one vocabulary and no tag falls through an untyped default.
+- Law: a refusal blames the side that caused it — `_blamed` maps each guardrail reason onto the port's own vocabulary, so a screened query and a swept answer reach different operators.
 - Law: batching identity is the resolver value on BOTH postures — one `_band` resolver mints inside the Layer scope for the plain and the durable overload alike (`Batch.windowed` alone, or `Batch.windowed` under `Batch.durable`), identity stable, windows grouping across the whole scope; a resolver minted per call, or a plain path that bypasses the window by dialing the provider directly, defeats the coalescing the law exists to guarantee.
 - Law: the two Tags are the whole seam — this page imports the port types and nothing else data-owned; retrieval results flow back as app-passed values through the model page's `Tokens.weave`, never through an import edge.
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
@@ -302,6 +354,13 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
 
 const _Order = Schema.Struct({ order: Schema.NonEmptyArray(Schema.String) })
 
+const _blamed = {
+  policy: "shape",
+  screened: "shape",
+  swept: "provider",
+  provider: "provider",
+} as const satisfies Record<Guardrail.Reason, EmbedFault["reason"]>
+
 const _permuted = (presented: ReadonlyArray<string>, answered: ReadonlyArray<string>): ReadonlyArray<string> => {
   const known = HashSet.fromIterable(presented)
   const kept = Array.filter(Array.dedupe(answered), (cell) => HashSet.has(known, cell))
@@ -320,17 +379,18 @@ const _reranker = (policy: Guardrail.Policy): Layer.Layer<Reranker, never, Langu
         },
       }).pipe(
         Effect.map((response) => _permuted(Array.map(hits, (hit) => hit.cell), response.value.order)),
-        // blame crosses with the refusal: `policy` is THIS caller's own misconfiguration, which the port spells
-        // `shape`, and reporting it as `provider` sends a rerank bug to whoever operates the model
-        Effect.mapError((fault) =>
-          new EmbedFault({ reason: fault.reason === "policy" ? "shape" : "provider", detail: fault.reason })
-        ),
+        // Blame crosses with the refusal, and each refusal blames a different party: misconfiguration and a screened
+        // query are both this caller's own, which the port spells `shape`, while a swept answer and a provider filter
+        // belong to whoever operates the model. Collapsing four reasons onto one boolean misroutes a rerank bug.
+        Effect.mapError((fault) => new EmbedFault({ reason: _blamed[fault.reason], detail: fault.reason })),
       ),
   })
 
 const Embedding = {
   Custom: _Custom,
   rows: _rows,
+  cells: _rowCells,
+  tasks: _tasks,
   embedder: _embedder,
   reranker: _reranker,
   fingerprint: _fingerprint,
@@ -348,4 +408,5 @@ export { Cut, Embedding, Piece }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [DIMS_TRUNCATION_SUPPORT]-[OPEN]: which embedding rows honour a truncated `outputDimensionality`/dimension request, since the port refuses a vector whose length misses the declared `dims` and a row silently ignoring the request fails every call; verify against `@effect/ai-openai/OpenAiEmbeddingModel` and the Google `BatchEmbedContents` request shape on the member rail.
+- [PORT_REFUSAL_REASON]-[OPEN]: whether `EmbedFault` admits a refusal reason distinct from `provider`, so a moderation verdict on the rerank path stops borrowing the transport cell; verify against the `Embedder`/`EmbedFault` owner in `@rasm/ts/data`.

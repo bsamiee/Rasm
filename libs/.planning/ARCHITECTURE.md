@@ -36,6 +36,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 - Host-boundary packages own their host's native surface whole — exchange, drafting, sheet layout, and file IO stay rich and thin toward no contract.
 - One semantic implementation per runtime conforms to a portable domain contract, and neither implementation reads the other.
 - Branch adapters project a native surface into a corpus contract at the seam that contract declares, never earlier.
+- Host-boundary contracts name the host-free concept, since host vocabulary crossing the seam binds every peer decode to that one host's model.
 
 ## [04]-[GEOMETRY_FLOW]
 
@@ -172,6 +173,10 @@ Schema state is an infrastructure contract: every branch composes its own schema
 - Runtime verifies the generation it observes and never mutates it; a digest change replaces the generation whole.
 - Provider adapters, migration execution, protocol evolution, journal identity, and work identity stay branch-owned.
 - Deployment publishes only a generation proved against the corpus schema.
+- Recovery grades one verdict on two proofs — contract identity that the store carries the composed generation, and data recency of its frontier.
+- Recovery windows derive from the observation's own stamps, so no provider hands in a lag it measured against a clock the verifier never saw.
+- Absence splits opposite ways: an unmeasured recovery point refuses, while an absent bounce time passes on a store that never restored.
+- Each branch's recovery owner gauges its measured window against the supplied profile row's objective, never a branch-local durability table.
 
 ## [10]-[CONSUMPTION_MODEL]
 
@@ -181,10 +186,10 @@ Every `libs/` package is an independently versioned library an unrelated applica
 | :-----: | :---------- | :----- | :-------------------------------------------------------------------- |
 |  [01]   | `tenancy`   | closed | `none` \| `single` \| `multi`                                         |
 |  [02]   | `topology`  | closed | `in-host` \| `sidecar` \| `companion` \| `service` \| `edge` \| `cli` |
-|  [03]   | `host`      | open   | capability-descriptor rows the owning branch supplies                 |
+|  [03]   | `host`      | open   | consumption-descriptor rows the owning branch supplies                |
 |  [04]   | `lifecycle` | closed | `caller-owned` \| `package-owned`                                     |
 |  [05]   | `isolation` | closed | `in-proc` \| `thread` \| `process` \| `wasm` \| `remote`              |
-|  [06]   | `providers` | open   | capability-descriptor rows the owning branch supplies                 |
+|  [06]   | `providers` | open   | consumption-descriptor rows the owning branch supplies                |
 
 - Closed axes fix their value vocabulary here; an open axis fixes the descriptor shape alone, and each of its rows is capability one branch supplies.
 - Host integration lands as one descriptor row on the `host` axis, supplied by the branch whose runtime reaches that host.
@@ -196,6 +201,26 @@ Every `libs/` package is an independently versioned library an unrelated applica
 - Packages unable to serve an axis value refuse at admission with typed evidence naming the axis, never degrading or narrowing their surface.
 - Sibling presence rides an axis value — a package composes a sibling through a declared port the composition root binds.
 - Unbound ports read as a refused capability, never a crash.
+
+[CONSUMPTION_DESCRIPTOR]: one row shape serves every open-axis family, so a new family is a column set and a new engine is a row. Universal columns earn their seat by the whole-family test — every family already answers them — and a coordinate one family alone decides stays that family's extension.
+
+| [INDEX] | [COLUMN]   | [ANSWERS]                                                                   |
+| :-----: | :--------- | :-------------------------------------------------------------------------- |
+|  [01]   | `fits`     | the selection sentence a composition root picks this row on                 |
+|  [02]   | `admit`    | the entry that puts something in, named as the row's own member             |
+|  [03]   | `tenancy`  | the mechanism this row separates tenants BY, in its own vocabulary          |
+|  [04]   | `lifetime` | how long what entered survives, and which owner ends it — one alone is half |
+|  [05]   | `degrade`  | what the row GIVES UP against the coordinates its family names              |
+
+- Each branch transcribes the columns in its own casing law, and a family renaming one forks the coordinate a reader crosses families to compare.
+- Column values are the row's own vocabulary, so a value never re-mints a closed axis's roster and a mechanism never earns a column of its own name.
+- Leaves unable to reach the axis owner name a seating defect, never a license to re-mint — the roster seats where every consumer reaches it.
+- Coordinates uniform across a family — answered alike, or decided by no row in it — ride that family's lead sentence instead of a column.
+- Deciding nothing is a whole answer owing `degrade` nothing, since `degrade` names forfeits and an undecided coordinate forfeits none.
+- `degrade` derives from the capability columns that express the forfeit, and a stated residual carries only what no column expresses.
+- Foreclosed coordinates ride the row as a value pinned false; a type-level constant or an omission strands the fold reading them beside siblings.
+- Each row's key is its identity, never a coordinate, so ordinal key order stays the canonical wire order.
+- Family extension columns and the coordinate each family forecloses land as one `RULINGS.md` `[02]-[SHAPE]` row, under the same anchoring law.
 
 ## [11]-[DESIGN_LANGUAGE]
 

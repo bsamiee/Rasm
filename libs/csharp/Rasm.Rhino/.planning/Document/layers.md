@@ -1,14 +1,17 @@
 # [RASM_RHINO_LAYERS]
 
-`Rasm.Rhino.Document` owns the layer tree as a managed domain: full-path nesting topology, per-layer render material, linetype, print width, print color, and section style, visibility and locking with their persistent variants, the per-detail-viewport override family, and every structural mutation — create, graft, reparent, merge, duplicate, delete, purge, revive, current-layer anointment, and ordering. `Layers.Ask` projects one detached `LayerTree` with parameterized per-detail probe targets; `Layers.Commit` folds an admitted operation program inside one session capability window through the shared `DocumentCommit` envelope, so every structural change seals one undo record and returns one typed fact stream. `TableKind.Layers` stays the identity and reclamation row this page composes for purge tallies; the tree itself is minted here.
+`Rasm.Rhino.Document` owns the layer tree as a managed domain: full-path nesting topology, per-layer render material, linetype, print width, print color, and section style, visibility and locking with their persistent variants, the per-detail-viewport override family, and every structural mutation — create, graft, reparent, merge, duplicate, delete, purge, revive, current-layer anointment, and ordering.
+
+`Layers.Ask` folds two products off one read window: a detached `LayerTree` under parameterized per-detail probe targets, and a host-free `OrganizationFact` when the caller supplies the federation authority. `Layers.Commit` folds an admitted operation program inside one session capability window through the shared `DocumentCommit` envelope, so every structural change seals one undo record and returns one typed fact stream. `TableKind.Layers` stays the identity and reclamation row this page composes for purge tallies; the tree itself is minted here.
 
 ## [01]-[INDEX]
 
 - [02]-[IDENTITY_AND_ADDRESS]: `LayerName`, `LayerPath`, `LayerRef`, and the detached `LayerStamp` anchor.
 - [03]-[TREE_SNAPSHOT]: `LayerFace`, `LayerCondition`, `DetailFace`, `LayerNode`, and the `LayerTree` detached topology.
-- [04]-[EDITS_AND_OVERRIDES]: the `LayerEdit` staged-property program and the `LayerOverride` per-detail family.
+- [04]-[EDITS_AND_OVERRIDES]: `LayerEdit` staged-property program beside the `LayerOverride` per-detail family.
 - [05]-[COMMIT_RAIL]: `LayerOp`, `LayerDelta`, the `Layers` entry pair, and the `LayerReceipt` fact stream.
-- [06]-[SURFACE_LEDGER]: the page owner map.
+- [06]-[ORGANIZATION_PROJECTION]: `OrganizationFact` host-free egress, its `IOrganizationAuthority` port, and the `rasm.organization.v1` codec.
+- [07]-[SURFACE_LEDGER]: page owner map.
 
 ## [02]-[IDENTITY_AND_ADDRESS]
 
@@ -1041,7 +1044,9 @@ public sealed record LayerDelta {
     }
 }
 
-public static class Layers {
+// One entry class across two clusters: `[05]` carries the tree read and the commit rail, `[06]` the host-free
+// organization egress, and `Ask` folds its product off the request shape rather than proliferating a second verb.
+public static partial class Layers {
     public static Fin<LayerTree> Ask(DocumentSession session, params ReadOnlySpan<Guid> detailViewports) {
         Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         Seq<Guid> probes = toSeq(detailViewports.ToArray());
@@ -1081,7 +1086,257 @@ public static class Layers {
 }
 ```
 
-## [06]-[SURFACE_LEDGER]
+## [06]-[ORGANIZATION_PROJECTION]
+
+- Owner: `OrganizationFact` carries the host-free organization document this boundary emits — `OrganizationEntity` rows with content-keyed organizational address, leaf label, dense sibling ordinal, and resolved visibility and locking; `ContainmentFact` rows carrying nesting and membership as ONE edge family the `ContainmentTarget` `[Union]` discriminates by target key space; `ViewOverrideFact` rows carrying probed per-view presentation evidence. `IOrganizationAuthority` is the federation port a composition root binds, and `OrganizationCodec` lowers the fact onto `rasm.organization.v1` bytes.
+- Entry: `Layers.Ask(session, authority, views)` demands `SessionNeed.Read`, mints the tree and projects it inside ONE window, so probe targets stay call data exactly as the tree read carries them and no consumer re-opens the document to answer organization.
+- Law: every name on this egress states the HOST-FREE organizational concept and the Rhino layer vocabulary translates HERE. Publishing `LayerStamp` field-for-field binds every peer decode to one host's layer model, which `libs/.planning/ARCHITECTURE.md` `[03]-[UNIVERSAL_VS_CAPTURE]` forecloses, so the host `Guid`, the `-1`-sentinel table index, and the `::`-joined path each stop at this boundary.
+- Law: organizational identity is the content key over the count-framed ancestor label chain under `docs/laws/patterns.md` `[PREIMAGE_FRAMING]`, so one organizational address keys identically across source documents and a worksession merge unions them. Folding the source key into that preimage is the rejected form, since it re-scopes a federation address down to one file.
+- Law: membership targets are FEDERATION keys the authority issues, never host object ids — the host-object-to-entity binding lives in the element projection, which sits outside this plane's reference set. Residents the authority declines land NO edge, so an unclaimed object reads as absent membership rather than as a key no peer resolves.
+- Law: sibling ordinal is POSITIONAL in the snapshot's own sorted sibling sequence. Publishing the raw `SortIndex` pushes the host's case-insensitive tie-break onto every peer, and a peer ordering by codepoint inverts exactly the pairs UTF-16 ordering ranks the other way.
+- Law: per-view rows land only where `HasPerViewportSettings` proved settings, so row presence IS the evidence and `visible` is the host's resolved answer under them. Persistent visibility never crosses, because the host collapses its own three write states onto a two-state read and a peer column carrying that collapse carries no defined meaning.
+- Boundary: render and print product stays host-side evidence — `LayerFace` colours, print width, linetype, render material, and section style reach no wire field, and `PerceptualColor` riding a detached payload is the crossing the kernel colour rail already forecloses.
+- Boundary: `ContainmentTarget` crosses through its generated `Switch`, never a Mapperly derived-type row, because a union arm selecting a oneof slot is dispatch rather than member transcription.
+- Packages: Google.Protobuf (`ByteString`/`RepeatedField<T>`/`MessageExtensions.ToByteArray` over the generated `rasm.organization.v1` messages), Grpc.Tools (the `<Protobuf>` MSBuild item, `GrpcServices=None`, `PrivateAssets=all` — build-only, never a runtime surface), BCL inbox (`System.Buffers.ArrayBufferWriter<byte>`, `System.Buffers.Binary.BinaryPrimitives`, `System.Text.Encoding`).
+- Growth: one appended field on `EntityWire` beside one column here carries a new organizational axis; one `ContainmentTarget` case beside one oneof arm carries a new containment relation; one appended `ViewOverrideWire` field beside one probe fill carries a new presentation axis.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// Framing and encoding both live at this boundary: `ArrayBufferWriter<byte>` is BCL inbox, so the organizational
+// address preimage costs no manifest row, and `Rasm.Organization` is the generated namespace of the corpus source
+// rather than a namespace under this host package, because the family it spells is host-free.
+using System.Buffers;
+using System.Buffers.Binary;
+using System.Text;
+using Google.Protobuf;
+using Rasm.Organization;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// Target KEY SPACE is the whole discriminant: an `Entity` target resolves in this document's own address space and
+// a `Member` target in the federation space its authority issues. Two same-typed slots under a relation column
+// erase that distinction and hand every decoder a lookup it cannot route, so the union carries it structurally.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ContainmentTarget {
+    private ContainmentTarget() { }
+
+    private sealed record EntityCase(UInt128 Value) : ContainmentTarget;
+    private sealed record MemberCase(string Value) : ContainmentTarget;
+
+    public static ContainmentTarget Entity(UInt128 value) => new EntityCase(Value: value);
+
+    public static Fin<ContainmentTarget> Member(string value, Op? key = null) =>
+        key.OrDefault().AcceptText(value: value).Map(static admitted => (ContainmentTarget)new MemberCase(Value: admitted));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record OrganizationEntity(
+    UInt128 Key,
+    LayerName Name,
+    int Ordinal,
+    bool Visible,
+    bool Locked) : IDetachedDocumentResult;
+
+public sealed record ContainmentFact(UInt128 Container, ContainmentTarget Target) : IDetachedDocumentResult;
+
+public sealed record ViewOverrideFact(UInt128 Entity, string View, bool Visible) : IDetachedDocumentResult;
+
+public sealed record OrganizationFact(
+    UInt128 Source,
+    string Authority,
+    Seq<OrganizationEntity> Entities,
+    Seq<ContainmentFact> Containment,
+    Seq<ViewOverrideFact> Overrides,
+    Option<UInt128> Current) : IDetachedDocumentResult;
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+// Federation vocabulary this boundary cannot mint: host objects bind to graph entities inside the element
+// projection, which seats outside the host plane's reference set, so a composition root supplies the binding as
+// one declared port. An unbound port refuses at the entry — never a fabricated key and never a crash.
+public interface IOrganizationAuthority {
+    string Name { get; }
+    UInt128 Source { get; }
+    Option<string> MemberOf(Guid resident);
+    Option<string> ViewOf(Guid viewport);
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static partial class Layers {
+    public static Fin<OrganizationFact> Ask(
+        DocumentSession session,
+        IOrganizationAuthority authority,
+        params ReadOnlySpan<Guid> views) {
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Seq<Guid> probes = toSeq(views.ToArray());
+        return from admission in Admission.Pair(first: session, second: authority, key: op)
+               from admitted in probes
+                   .Traverse(view => guard(view != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => view).ToValidation())
+                   .As()
+                   .ToFin()
+               from fact in admission.First.Demand(
+                   use: document =>
+                       from tree in LayerTree.Of(document: document, detailViewports: admitted, key: op)
+                       from projected in Projected(document: document, tree: tree, authority: admission.Second, op: op)
+                       select projected,
+                   key: op,
+                   needs: [SessionNeed.Read])
+               select fact;
+    }
+
+    private static Fin<OrganizationFact> Projected(
+        RhinoDoc document,
+        LayerTree tree,
+        IOrganizationAuthority authority,
+        Op op) =>
+        from issuer in op.AcceptText(value: authority.Name)
+        from residents in Residents(document: document, op: op)
+        from rows in Ranked(tree: tree)
+            .Traverse(row => Projected(row: row, residents: residents, authority: authority, op: op).ToValidation())
+            .As()
+            .ToFin()
+        from current in tree.Current.Traverse(stamp => Address(path: stamp.Path, op: op)).As()
+        select new OrganizationFact(
+            Source: authority.Source,
+            Authority: issuer,
+            Entities: rows.Map(static row => row.Entity),
+            Containment: rows.Bind(static row => row.Containment),
+            Overrides: rows.Bind(static row => row.Overrides),
+            Current: current);
+
+    // Ordinal is POSITIONAL in the sibling sequence `LayerTree` already sorted, so the dense rank inherits the
+    // order the snapshot proved and no second comparison re-breaks the host's sort-index ties. `Flatten` supplies
+    // every node's child sequence once, so the whole ranking is one owned walk plus one flat bind — no second
+    // descent over a parent graph the snapshot already measured.
+    private static Seq<(LayerNode Node, int Ordinal)> Ranked(LayerTree tree) =>
+        Ranked(siblings: tree.Roots) + tree.Flatten().Bind(static node => Ranked(siblings: node.Children));
+
+    // Indexed projection has no carrier-side member, so this one ordering leaves the carrier and re-enters
+    // through `toSeq`, exactly as the snapshot's own sibling sort does.
+    private static Seq<(LayerNode Node, int Ordinal)> Ranked(Seq<LayerNode> siblings) =>
+        toSeq(siblings.Select(static (node, ordinal) => (Node: node, Ordinal: ordinal)));
+
+    // ONE object census grouped by layer index, never a per-layer query: a thousand-entity document costs one
+    // sweep. Filter posture matches the merge arm's own census (hidden and light residents included), so a layer
+    // merge and an organization read agree on what a layer holds. An attribute-less native row folds away rather
+    // than seeding a phantom index.
+    private static Fin<HashMap<int, Seq<Guid>>> Residents(RhinoDoc document, Op op) =>
+        from spec in QuerySpec.Of(hidden: true, lights: true, key: op)
+        from settings in spec.Build(document: document, key: op)
+        from natives in op.Catch(() => Optional(document.Objects.GetObjectList(settings: settings))
+            .ToFin(Fail: op.InvalidResult())
+            .Map(static values => toSeq(values).Strict()))
+        select natives.Fold(
+            HashMap<int, Seq<Guid>>(),
+            static (held, native) => Optional(native.Attributes).Match(
+                Some: attributes => held.AddOrUpdate(
+                    key: attributes.LayerIndex,
+                    Some: existing => existing.Add(value: native.Id),
+                    None: () => Seq(native.Id)),
+                None: () => held));
+
+    private static Fin<(OrganizationEntity Entity, Seq<ContainmentFact> Containment, Seq<ViewOverrideFact> Overrides)> Projected(
+        (LayerNode Node, int Ordinal) row,
+        HashMap<int, Seq<Guid>> residents,
+        IOrganizationAuthority authority,
+        Op op) =>
+        from key in Address(path: row.Node.Identity.Path, op: op)
+        from nesting in row.Node.Identity.Path.Parent.Traverse(parent => Address(path: parent, op: op)).As()
+        from members in residents.Find(row.Node.Identity.Index)
+            .IfNone(Seq<Guid>())
+            .Choose(resident => authority.MemberOf(resident: resident))
+            .Traverse(external => ContainmentTarget.Member(value: external, key: op).ToValidation())
+            .As()
+            .ToFin()
+        from overrides in row.Node.Details
+            .Choose(detail => authority.ViewOf(viewport: detail.Viewport).Map(view => (View: view, detail.Visible)))
+            .Traverse(probe => op.AcceptText(value: probe.View)
+                .Map(view => new ViewOverrideFact(Entity: key, View: view, Visible: probe.Visible))
+                .ToValidation())
+            .As()
+            .ToFin()
+        select (
+            Entity: new OrganizationEntity(
+                Key: key,
+                Name: row.Node.Name,
+                Ordinal: row.Ordinal,
+                Visible: row.Node.Condition.Visible,
+                Locked: row.Node.Condition.Locked),
+            Containment: nesting.Match(
+                    Some: parent => Seq(new ContainmentFact(Container: parent, Target: ContainmentTarget.Entity(value: key))),
+                    None: static () => Seq<ContainmentFact>())
+                + members.Map(target => new ContainmentFact(Container: key, Target: target)),
+            Overrides: overrides);
+
+    // Organizational address preimage: label count framed first, then every label framed by its UTF-8 byte width,
+    // so `A::B` and `B::A` key apart and a label carrying the host path separator shifts no field split. Frame
+    // widths are big-endian `int32`, matching every other preimage this boundary writes.
+    // Exemption: a measured span write into one pre-sized arena — expressing it as a fold carries a byte-offset
+    // accumulator richer than the answer, and the buffer never escapes this body.
+    private static Fin<UInt128> Address(LayerPath path, Op op) =>
+        from chain in path.Segments(key: op)
+        from key in op.Catch(() => {
+            ArrayBufferWriter<byte> bytes = new();
+            Frame(bytes: bytes, value: chain.Count);
+            foreach (LayerName label in chain) {
+                int width = Encoding.UTF8.GetByteCount(s: label.Value);
+                Frame(bytes: bytes, value: width);
+                bytes.Advance(count: Encoding.UTF8.GetBytes(label.Value, bytes.GetSpan(sizeHint: width)));
+            }
+            return Fin.Succ(value: ContentHash.Of(canonicalBytes: bytes.WrittenSpan));
+        })
+        select key;
+
+    private static void Frame(ArrayBufferWriter<byte> bytes, int value) {
+        BinaryPrimitives.WriteInt32BigEndian(destination: bytes.GetSpan(sizeHint: sizeof(int)), value: value);
+        bytes.Advance(count: sizeof(int));
+    }
+}
+
+// --- [COMPOSITION] ------------------------------------------------------------------------
+// Content keys leave as 16 BIG-ENDIAN bytes while `XxHash128` fills its own hash buffer little-endian, so byte
+// order normalizes exactly ONCE — here, at the encode — and every peer decodes what it received without reversing
+// a second time. Generated message construction is the one imperative seat on this page: protobuf owns mutable
+// repeated fields, and each fold lands its rows through `AddRange` at the boundary rather than inside a domain
+// transform.
+public static class OrganizationCodec {
+    public static Fin<ReadOnlyMemory<byte>> Encode(OrganizationFact fact, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(fact).Map(static admitted => (ReadOnlyMemory<byte>)Wire(fact: admitted).ToByteArray());
+    }
+
+    private static OrganizationWire Wire(OrganizationFact fact) {
+        OrganizationWire wire = new() { SourceKey = Key(value: fact.Source), Authority = fact.Authority };
+        fact.Current.IfSome(current => wire.Current = Key(value: current));
+        wire.Entities.AddRange(fact.Entities.Map(static entity => new EntityWire {
+            Key = Key(value: entity.Key),
+            Name = entity.Name.Value,
+            Ordinal = (uint)entity.Ordinal,
+            Visible = entity.Visible,
+            Locked = entity.Locked,
+        }));
+        wire.Containment.AddRange(fact.Containment.Map(static edge => edge.Target.Switch(
+            state: edge,
+            entityCase: static (row, target) => new ContainmentWire { Container = Key(value: row.Container), Entity = Key(value: target.Value) },
+            memberCase: static (row, target) => new ContainmentWire { Container = Key(value: row.Container), Member = target.Value })));
+        wire.Overrides.AddRange(fact.Overrides.Map(static probe => new ViewOverrideWire {
+            Entity = Key(value: probe.Entity),
+            View = probe.View,
+            Visible = probe.Visible,
+        }));
+        return wire;
+    }
+
+    private static ByteString Key(UInt128 value) {
+        Span<byte> bytes = stackalloc byte[KeyWidth];
+        BinaryPrimitives.WriteUInt128BigEndian(destination: bytes, value: value);
+        return ByteString.CopyFrom(bytes: bytes);
+    }
+
+    // Content-key width the estate wires everywhere; named once so no frame or span literal re-spells it.
+    private const int KeyWidth = 16;
+}
+```
+
+## [07]-[SURFACE_LEDGER]
 
 | [INDEX] | [CONCERN]              | [OWNER]                      | [FORM]                            | [ENTRY]                                   |
 | :-----: | :--------------------- | :--------------------------- | :-------------------------------- | :---------------------------------------- |
@@ -1095,8 +1350,11 @@ public static class Layers {
 |  [08]   | sibling ordering       | `LayerArrangement`           | by-name/explicit union            | `LayerOp.Arrange`                         |
 |  [09]   | commit program         | `LayerDelta`                 | named redraw-scoped program       | `Layers.Commit`                           |
 |  [10]   | consequence evidence   | `LayerReceipt` / `LayerSlot` | stamped fact stream + undo serial | typed projections                         |
+|  [11]   | host-free organization | `OrganizationFact`           | detached entity + containment set | `Layers.Ask` with an authority            |
+|  [12]   | federation vocabulary  | `IOrganizationAuthority`     | composition-root-bound port       | `MemberOf` / `ViewOf`                     |
+|  [13]   | organization egress    | `OrganizationCodec`          | `rasm.organization.v1` encode     | `Encode`                                  |
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

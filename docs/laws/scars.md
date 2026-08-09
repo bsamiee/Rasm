@@ -17,6 +17,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: Lane findings, alignment rows, and charter text inherit this law, so a report claim with no disk re-probe stays a hypothesis.
 - Boundary: Dispatch premises re-prove both ways — `blocked` and `already landed` alike — and a prose-read spelling re-reads at its owning fence.
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
+- Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
 
 [ASSERTED_VALUE]:
 - Law: Readable values fill from their surface's read, and a hand-asserted copy reads as a defect on sight.
@@ -53,6 +54,8 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Capability claims prove on the real rail — a native load, a real operand, the whole provider set; an unservable member refuses at selection.
 - Trigger: File-presence checks pass unloadable natives, trivial operands pass encoders refusing mid-write, one probe blesses an unprobed floor.
 - Boundary: Provider selection folds the WHOLE set in order onto a typed-refusal `Option`; per-build capability re-probes, never a remembered roster.
+- Boundary: Knobs a selected transport disables ACCEPT and do nothing, so a flag proves by its observed effect and never by its setter returning.
+- Boundary: One limitation reports asymmetrically — a sibling member throwing on the object whose knob went quiet is the only tell that both share a cause.
 
 [LAW_WITHOUT_PRODUCER]:
 - Law: Rows added to a data anchor land with their construction in the same edit.
@@ -93,6 +96,13 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: A predicate over a multi-valued foreign attribute carries the value with its verdict — a kept boolean forces fabrication of the dropped fact.
 - Trigger: A round-trip re-authors a declared choice as a constant, invisible to parse and diff — ingest kept a boolean, egress hardcoded the value.
 
+[SNAPSHOT_FROZEN_GUARD]:
+- Law: Conditional writes state their whole condition where the engine re-evaluates it per row, never a sibling expression frozen at statement start.
+- Trigger: Guards pass on the read value while the gated write lands on a value another writer moved, and receipts report stale read beside success.
+- Boundary: This scar spans every engine separating guard evaluation from its write — sibling data-modifying CTEs, any pre-read a later compare rode.
+- Boundary: Per-row re-check is per-ROW: a vector write commits every passing row, and set-wide all-or-nothing rides the transaction's undo.
+- Boundary: Refutation lands at the generating clause — a doctrine row recommending the chained form without the visibility law re-derives it.
+
 [REFUTED_MECHANISM_RECORD]:
 - Law: A mechanism disproved on its owning rail lands the refutation at the generating catalog clause, never in the receipt alone.
 - Trigger: An untouched generating clause re-derives the refuted prescription on the next pass.
@@ -101,3 +111,9 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: A build manifest names only what its own compiled closure provides; a namespace the source estate has yet to realize belongs to the fence that consumes it.
 - Trigger: The row hard-fails the one consumer that cannot drop it while every sibling carries a removal row that reads as deliberate configuration.
 - Boundary: The law spans every injection kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
+
+[DIGEST_OVER_UNORDERED_CONTAINER]:
+- Law: Digests, preimages, and wire arrays projected from a hash-keyed container read a canonical ORDER their owner publishes, never the container's own enumeration.
+- Trigger: Two runtimes derive different bytes from one logical value, and the fixture pinning them never freezes because neither side is wrong.
+- Boundary: Every unordered carrier a byte-deriving reader touches falls under it — a hash map, a set, a dictionary lowered to a JSON object, a record of counters.
+- Boundary: Order publishes ONCE on the owning value beside its writer; a reader sorting at its own call site desyncs the moment a second reader forgets.

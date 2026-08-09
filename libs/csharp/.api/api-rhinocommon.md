@@ -63,7 +63,7 @@
 | :-----: | :------------------------------------------------------------------------- | :------- | :--------------------------------------- |
 |  [01]   | `Vector3d.XAxis` / `.YAxis` / `.ZAxis`                                     | static   | reference axis directions                |
 |  [02]   | `Vector3d.Zero` / `.Unset`                                                 | static   | null and unset-direction sentinels       |
-|  [03]   | `Vector3d.IsValid`                                                         | property | finite-component admission               |
+|  [03]   | `Vector3d.IsValid`                                                         | property | sentinel-screening component admission   |
 |  [04]   | `Vector3d.IsZero`                                                          | property | null-direction admission                 |
 |  [05]   | `Vector3d.IsUnitVector`                                                    | property | unit-length admission                    |
 |  [06]   | `Vector3d.IsTiny(double)`                                                  | instance | degenerate-direction admission           |
@@ -91,6 +91,7 @@
 - `Vector3d.Multiply(Vector3d, Vector3d)`: dot product returning `double`; the vector-scalar overloads return `Vector3d`, so argument types decide the result kind.
 - `Vector3d.Unitize()`: mutates the receiver and returns `bool`, so a detached unit projection composes `Length` with `operator /`.
 - `Vector3d.IsParallelTo(Vector3d)`: `1` parallel, `-1` anti-parallel, `0` neither or a zero operand.
+- `Vector3d.IsValid`: reads `RhinoMath.IsValidDouble` per component, so it rejects `Vector3d.Unset` whose `-1.234e+308` coordinates and magnitude a `double.IsFinite` probe admits; a host-read direction gates here, never on finiteness.
 
 [ENTRYPOINT_SCOPE]: plane frames
 

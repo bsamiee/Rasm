@@ -5,7 +5,7 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 ## [01]-[INDEX]
 
 - [02]-[KIND_AND_STAMP]: `LightKind`, `SpotShape`, `ConeEvidence`, `AreaShape`, `LightFrame`, `Falloff`, `LightStamp` — the capability rows and the detached read.
-- [03]-[SEED_AND_EDIT]: `LightSeed`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits.
+- [03]-[SEED_AND_EDIT]: `LightSeed`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits, beside the `ScenePhotometry` wire band.
 - [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, `LightFact`, and the `Lights` entry pair.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -224,7 +224,13 @@ public sealed record LightStamp(
 - Law: seeds admit before the host — locations, vectors, and complete area shapes pass admission before the document grant, the spot seed consumes an already-admitted `SpotShape`, and the style writes exactly once at mint, so no half-styled light ever reaches the table.
 - Law: the mint owns its native — `LightSeed.Mint` answers `Fin<Lease<Light>>` and brackets the seat, so a refused or throwing seat releases the fresh `Light` before the fault leaves and the table commit consumes the lease through `Use`; a raw returned handle relies on the caller reaching its own `using` first, which a throwing seat forecloses.
 - Law: photometric power is one axis — `Radiance` discriminates scale from watts, lumens, and candela by case, the host converts between them, and a per-unit sibling edit family is the collapsed form.
+- Owner: `PhotometricAuthority`, `PhotometricPower`, `PhotometricWebRef`, and `ScenePhotometry` are the daylighting descriptor's light band, projected out of `LightStamp` and never read back in.
+- Law: authority is a producer RULE over four host readings, never a host flag — `Light` stores one power and publishes watts, lumens, and candela as converted views with no field naming which the modeller set, so `radiant-flux-w` claims the row exactly when watts reads finite and positive and `relative-scale` claims it otherwise.
+- Law: `relative-scale` is dimensionless and refuses every engine photometric slot by name — a bare `Intensity` seated as a lighting level publishes watts nobody authored.
+- Law: the descriptor emits METRES — `LightStamp` poses and extents read in model units, so `ScenePhotometry.Of` takes the caller's `metresPerUnit` factor and three peers never fork one conversion.
+- Law: write admissions bind the wire too — `shadow_fraction` crosses as an admitted `UnitInterval` even though the read path takes `ShadowIntensity` raw, so a degenerate document refuses at the producer rather than seating an out-of-range fraction on a consuming engine.
 - Boundary: the photometric-web (IES) payload is the render kinds page's `PhotometricWeb` — dialect-admitted by `PhotometricDialect`, minted through `PhotometricPress`, and landed on the light's attached render material child slot by `AttachTo`; this rail's photometric reach ends at `Radiance`, and `LightEdit` never grows an IES case.
+- Boundary: `PhotometricWebRef` carries the web by content key and dialect KEY STRING — the descriptor never decodes a distribution, and carrying the dialect as its own row binds this stratum to the render page it sits above.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -397,6 +403,12 @@ public abstract partial record LightEdit {
             attenuate: static (context, edit) => context.Op.Catch(() => edit.Value.Apply(working: context.Working)));
 }
 
+[SmartEnum<string>]
+public sealed partial class PhotometricAuthority {
+    public static readonly PhotometricAuthority RadiantFluxWatts = new("radiant-flux-w");
+    public static readonly PhotometricAuthority RelativeScale = new("relative-scale");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record LightShade(
     PerceptualColor Diffuse,
@@ -407,6 +419,93 @@ public sealed record LightShade(
         from ambient in Ambient.Traverse(value => op.Need(value)).As()
         from specular in Specular.Traverse(value => op.Need(value)).As()
         select new LightShade(Diffuse: diffuse, Ambient: ambient, Specular: specular);
+}
+
+// Four readings over ONE stored power beside the column that carries authority. `Light` exposes no field naming
+// which quantity the modeller set, so picking one reading and dropping three loses the host evidence a consumer
+// needs to explain a converted figure, while shipping four unranked floats hands every peer the same guess.
+public readonly record struct PhotometricPower(
+    PhotometricAuthority Authority, double Watts, double Lumens, double Candela, double Scale) {
+    internal static PhotometricPower Of(LightStamp stamp) =>
+        new(Authority: double.IsFinite(stamp.Watts) && stamp.Watts > 0d
+                ? PhotometricAuthority.RadiantFluxWatts
+                : PhotometricAuthority.RelativeScale,
+            Watts: stamp.Watts,
+            Lumens: stamp.Lumens,
+            Candela: stamp.Candela,
+            Scale: stamp.Intensity);
+}
+
+// Dialect crosses as its `PhotometricDialect.Key` text: the render page owns the roster and sits one stratum below
+// this one, so carrying the row itself seats a downward type on a detached value every peer decodes by string.
+public readonly record struct PhotometricWebRef(string ContentKey, string Dialect, long ByteLength);
+
+// `ConeEvidence`'s kernel cone carries an apex in MODEL units that repeats the stamp's own location, so the wire
+// keeps the three-state answer and drops the coordinate: half-angle and hot-spot are dimensionless, and the apex
+// is already `LocationMetres`. Carrying both hands a consumer two positions to reconcile under one unit change.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SceneCone {
+    private SceneCone() { }
+    public sealed record Absent : SceneCone;
+    public sealed record Shaped(double HalfAngleRadians, UnitInterval HotSpot) : SceneCone;
+    public sealed record Degenerate : SceneCone;
+
+    internal static SceneCone Of(ConeEvidence evidence) =>
+        evidence.Switch(
+            absent: static _ => (SceneCone)new Absent(),
+            shaped: static law => new Shaped(
+                HalfAngleRadians: law.Value.Cone.HalfAngle.Value, HotSpot: law.Value.HotSpot),
+            degenerate: static _ => new Degenerate());
+}
+
+public sealed record ScenePhotometry(
+    Guid Id,
+    Option<string> Name,
+    LightKind Kind,
+    bool Enabled,
+    Point3d LocationMetres,
+    Vector3d Direction,
+    Vector3d PerpendicularDirection,
+    PhotometricPower Power,
+    PerceptualColor Diffuse,
+    PerceptualColor Ambient,
+    PerceptualColor Specular,
+    UnitInterval ShadowFraction,
+    SceneCone Cone,
+    Option<AreaShape> ExtentMetres,
+    Falloff Attenuation,
+    Option<PhotometricWebRef> Web) : IDetachedDocumentResult {
+    internal static Fin<ScenePhotometry> Of(
+        LightStamp stamp, double metresPerUnit, Op key, Option<PhotometricWebRef> web = default) =>
+        from active in key.Need(stamp)
+        from scale in key.Positive(metresPerUnit)
+        from shadow in key.AcceptValidated<UnitInterval>(candidate: active.Shadow)
+        from extent in active.Area.Traverse(area => Scaled(area: area, scale: scale, key: key)).As()
+        select new ScenePhotometry(
+            Id: active.Id,
+            Name: active.Name,
+            Kind: active.Kind,
+            Enabled: active.Enabled,
+            LocationMetres: Scaled(point: active.Location, scale: scale),
+            Direction: active.Direction,
+            PerpendicularDirection: active.PerpendicularDirection,
+            Power: PhotometricPower.Of(stamp: active),
+            Diffuse: active.Diffuse,
+            Ambient: active.Ambient,
+            Specular: active.Specular,
+            ShadowFraction: shadow,
+            Cone: SceneCone.Of(evidence: active.Cone),
+            ExtentMetres: extent,
+            Attenuation: active.Attenuation,
+            Web: web);
+
+    private static Fin<AreaShape> Scaled(AreaShape area, double scale, Op key) =>
+        new AreaShape(
+            Length: area.Length * scale,
+            Width: area.Width.Map(width => width * scale)).Admit(op: key);
+
+    private static Point3d Scaled(Point3d point, double scale) =>
+        new(x: point.X * scale, y: point.Y * scale, z: point.Z * scale);
 }
 ```
 
@@ -607,6 +706,8 @@ public static class Lights {
 |  [06]   | table address      | `LightSelect` | every, index, id, and name onto index-paired rows       | `Lights.Ask` / `Commit` |
 |  [07]   | commit consequence | `LightFact`   | minted, amended, purged, revived onto the shared spine  | `Lights.Commit`         |
 |  [08]   | host dialogue      | spine owner   | `HostInteraction` composed, never a signal re-spelling  | `LightOp.Purge`         |
+|  [09]   | photometric rank   | `PhotometricPower` | four host readings under one declared authority   | `PhotometricPower.Of`   |
+|  [10]   | descriptor light   | `ScenePhotometry`  | metres-scaled wire row with unit-free cone        | `ScenePhotometry.Of`    |
 
 ## [06]-[RESEARCH]
 

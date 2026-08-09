@@ -114,6 +114,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Event Transport">
+        <PackageVersion Include="AMQPNetLite.Core"                                        Version="2.5.3" />
         <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.Amqp"                            Version="2.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.Kafka"                           Version="3.9.0" />
@@ -129,6 +130,7 @@
         <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                      Version="0.23.0" />
         <PackageVersion Include="Apache.Arrow.Compression"                                Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Flight"                                     Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Flight.AspNetCore"                          Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Flight.Sql"                                 Version="23.0.0" />
         <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="10.0.10" />
     </ItemGroup>
@@ -315,6 +317,7 @@
         <PackageVersion Include="AWSSDK.S3"                                               Version="4.0.101.4" />
         <PackageVersion Include="Azure.Security.KeyVault.Keys"                            Version="4.10.0" />
         <PackageVersion Include="Azure.Storage.Blobs"                                     Version="12.29.1" />
+        <PackageVersion Include="Azure.Storage.Blobs.Batch"                               Version="12.26.0" />
         <PackageVersion Include="Chr.Avro"                                                Version="10.13.1" />
         <PackageVersion Include="Chr.Avro.Binary"                                         Version="10.13.1" />
         <PackageVersion Include="Chr.Avro.Confluent"                                      Version="10.13.1" />
@@ -335,6 +338,7 @@
         <PackageVersion Include="Google.Cloud.Storage.V1"                                 Version="4.15.0" />
         <PackageVersion Include="JsonSchema.Net"                                          Version="9.4.0" />
         <PackageVersion Include="K4os.Compression.LZ4"                                    Version="1.3.8" />
+        <PackageVersion Include="K4os.Compression.LZ4.Streams"                            Version="1.3.8" />
         <PackageVersion Include="LightningDB"                                             Version="0.22.0" />
         <PackageVersion Include="linq2db.EntityFrameworkCore"                             Version="10.4.0" />
         <PackageVersion Include="Marten"                                                  Version="9.22.3" />
@@ -349,6 +353,7 @@
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"  Version="10.0.3" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"          Version="10.0.3" />
         <PackageVersion Include="Npgsql.NetTopologySuite"                                 Version="10.0.3" />
+        <PackageVersion Include="Npgsql.NodaTime"                                         Version="10.0.3" />
         <PackageVersion Include="Npgsql.OpenTelemetry"                                    Version="10.0.3" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.AWS"                       Version="1.17.0" />
         <!-- ConfluentKafka instrumentation ships alpha-only; the sole OTel-native Kafka client path. -->
@@ -466,6 +471,7 @@
         <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.3.3" />
         <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.3" />
         <PackageVersion Include="OpenTelemetry.Exporter.InMemory"                         Version="1.17.0" />
+        <PackageVersion Include="Polly.Testing"                                           Version="8.7.0" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3"                             Version="0.13.3" />
         <PackageVersion Include="Verify.DiffPlex"                                         Version="3.3.1" />
         <PackageVersion Include="Verify.XunitV3"                                          Version="31.28.0" />
@@ -590,7 +596,6 @@
 
         <!-- Messaging and store closure; Rides SwiftCollections.Lean.-->
         <PackageVersion Include="Chronicler.Core.Lean"                                    Version="0.4.0" />
-        <PackageVersion Include="K4os.Compression.LZ4.Streams"                            Version="1.3.8" />
         <PackageVersion Include="NATS.Client.Abstractions"                                Version="3.1.0" />
         <PackageVersion Include="NATS.Client.Core"                                        Version="3.1.0" />
         <PackageVersion Include="NATS.Client.Hosting"                                     Version="3.1.0" />

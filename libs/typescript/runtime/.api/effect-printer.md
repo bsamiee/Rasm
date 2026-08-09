@@ -40,7 +40,7 @@
 |  [01]   | `DocStream.DocStream<A>` | tagged union  | `Failed\|Empty\|Char\|Text\|Line\|PushAnnotation\|PopAnnotation` token stream |
 |  [02]   | `DocTree.DocTree<A>`     | tagged union  | `Empty\|Char\|Text\|Line\|Annotation\|Concat` decorated tree                  |
 |  [03]   | `Flatten.Flatten<A>`     | tagged union  | `Flattened\|AlreadyFlat\|NeverFlat` group-collapse analysis                   |
-|  [04]   | `Optimize.FusionDepth`   | tagged union  | `Shallow\|Deep` associativity-fusion depth                                    |
+|  [04]   | `Optimize.FusionDepth`   | type alias    | `Shallow\|Deep`; the two values are consts ON `Optimize`                      |
 
 [PUBLIC_TYPE_SCOPE]: layout + width model
 - A layout algorithm is a `Doc<A> => DocStream<A>` parameterized by `Layout.Options` carrying one `PageWidth`: `AvailablePerLine(lineWidth, ribbonFraction)` bounds the printable ribbon, `Unbounded` disables line-breaking for single-line output.
@@ -134,7 +134,7 @@
 |  [06]   | `PageWidth.availablePerLine(w, ribbon)`                   | width         | bounded ribbon width policy                             |
 |  [07]   | `PageWidth.unbounded`                                     | width         | unbounded width policy (never break)                    |
 |  [08]   | `DocStream.renderStream(self)` / `Doc.renderStream(self)` | render        | fold a `DocStream<A>` to `string` (annotations dropped) |
-|  [09]   | `Optimize.optimize(self, depth)`                          | fusion        | associativity-fuse (`FusionDepth.Shallow`\|`Deep`)      |
+|  [09]   | `Optimize.optimize(self, depth)`                          | fusion        | associativity-fuse; depth is `Optimize.Shallow`/`Deep`  |
 |  [10]   | `DocTree.treeForm(stream)`                                | backend       | reparse a `DocStream` to `DocTree`                      |
 |  [11]   | `DocTree.renderSimplyDecorated(t, …)`                     | backend       | fold a `DocTree` with scope callbacks                   |
 

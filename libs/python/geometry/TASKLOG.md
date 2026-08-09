@@ -41,17 +41,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the admitted root-manifest `ifccsv` row; `ifc/selector` grammar; the costing partition vocabulary; idea `[LIFECYCLE_TABULAR_EXCHANGE]`.
 - Atomic: one verb pair on the lifecycle verb table.
 
-[SCENE_DESCRIPTOR_DECODE]-[BLOCKED]: land the descriptor decode fold on the energy plane.
-- Capability: decode rows mapping descriptor bands to their owners — `SunState` onto the climate solar vocabulary, light roster onto the model admission, GLB shading through the tessellation rail — the daylight `RecipeName` rows riding the landed `RunSpec.recipe` axis.
-- Shape: rows on `libs/python/geometry/.planning/energy/simulate.md`, `libs/python/geometry/.planning/energy/climate.md`, and `libs/python/geometry/.planning/energy/model.md`.
-- Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — closed-loop solar and daylight studies from the live Rhino scene, the estate scene-descriptor vocabulary gaining its first consumer.
-- Anchors: idea `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the estate `[SCENE_DESCRIPTOR_SCHEMA]` schema pin as the field authority.
-- Arms: `[SCENE_DESCRIPTOR_SCHEMA]` lands the descriptor shape in the shared wire vocabulary at `libs/.planning`; before it does, every decoded column is a local invention the schema then contradicts.
-- Ripple: follows `libs/.planning` `[SCENE_DESCRIPTOR_SCHEMA]`; mirrors IDEAS.md `[DAYLIGHTING_SCENE_DESCRIPTOR]`.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
+[SCENE_DESCRIPTOR_DECODE]-[COMPLETE]: decode fold landed at `energy/simulate#SIMULATE` — `SkySource`, `SceneLighting`, `SceneContext`, `SceneReceipt`, and `Simulation.scene` over `_derived_sun`/`_sky`/`_graded`/`_shades`/`_lighting`, with `EnergyFault` gaining `authored_sun` and `shading_fidelity` at `energy/climate`.
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 

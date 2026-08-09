@@ -9,7 +9,7 @@
 - plane: `plane:runtime` (W1); folder-local to `state`.
 - rail: incremental-dataflow / fold-maintenance.
 
-`@electric-sql/d2ts` maintains a fold as an incremental dataflow graph over signed `MultiSet` deltas at partial-order `Version`s: a delta at a new version threads the operator graph without re-folding the prefix. It is the durable, versioned altitude of one fold algebra, adding the `Version`/`Antichain` frontier and the `Index`/`./sqlite` persistent trace the in-memory altitude omits.
+`@electric-sql/d2ts` maintains an in-process incremental graph over signed `MultiSet` deltas at partial-order `Version`s. The root adds versions and frontiers. Optional peer-gated subpaths expose SQLite state and Electric replication outside core ownership.
 
 ## [01]-[GRAPH_AND_TIME]
 
@@ -62,7 +62,7 @@
 
 ## [03]-[INDEX_AND_PERSISTENCE]
 
-`Index<K, V>` is the versioned trace every keyed operator keeps — a key→versions→signed-values map `reconstructAt` reads at any version and `compact` collapses below a stability frontier.
+`Index<K, V>` is a public standalone versioned collection. An `output` sink may populate it as an external mirror; operator internals stay encapsulated.
 
 | [INDEX] | [SURFACE]                                        | [PRODUCES]                   |
 | :-----: | :----------------------------------------------- | :--------------------------- |
@@ -87,13 +87,13 @@
 
 [STACK: `reduce`/`groupBy` + `@effect/typeclass` (`.api/effect-typeclass.md`)] — a keyed fold applies a Semigroup incrementally: the `reduce` reducer `(vals) => [R, number][]` is `Semigroup.combineMany` over signed multiplicities, and `groupByOperators.{sum,min,max}` specialize `Number.Monoid{Sum,Min,Max}` to signed pairs. `state/merge` declares the merge Semigroup; `state/fold` applies it through `reduce`, so reducer law and merge law are one.
 
-[STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini serves this operator algebra minus time (`sendData(collection)`, no `Version`); d2ts is the durable altitude (`sendData(version, collection)`, `Version`/`Antichain`, `Index.reconstructAt`, `./sqlite`). Both `Index` classes carry `join`, and the return shape is the altitude difference — d2ts answers `[Version, MultiSet<[K,[V,V2]]>][]`, one entry per contributing version, where d2mini answers a bare `MultiSet<[K,[V,V2]]>`, so a trace-level join crossing the altitudes reshapes at the boundary. `state/fold` binds one algebra and the runtime picks the altitude — browser in-memory or node durable through `read/fold`.
+[STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini omits time; d2ts adds `Version`/`Antichain`. Both root graphs are in-memory, and output sinks own any public `Index` mirror.
 
 [STACK: REPLAY_LAW + `state/causal` frontiers] — `Version.meet` is the stability-frontier GLB `state/causal` computes, `Antichain` the honest-uncertainty frontier over `value/clock` windows, `iterate` the happened-before transitive fold, and `Index.compact(frontier)` the retention handoff to `journal/retain`. A fold rebuilt from any event prefix replays through the same graph to the live version — the convergence `state/merge` asserts, checked as `@effect/vitest`(`tests/typescript/.api/effect-vitest.md`) `it.prop` laws over the `tests/contracts` fixtures.
 
 ## [05]-[RAIL_LAW]
 
-- Owns: versioned incremental dataflow — a `PipedOperator` graph over signed `MultiSet` deltas at partial-order `Version`s, the `Index` trace with `reconstructAt`/`compact`, and the `./sqlite`/`./electric` durable and replication bindings.
-- Accept: `sendData(version, delta)` of signed multisets; `pipe(...)` composition of the operator roster; `reduce`/`groupBy` as incremental `@effect/typeclass` Semigroup application; `Index.reconstructAt` for AsOf reads; `iterate` for transitive folds; `./sqlite` only at the durable node altitude.
-- Reject: re-folding or re-sorting a whole collection on change; a second fold implementation per runtime; importing `./sqlite`/`./electric` or their `better-sqlite3`/`@electric-sql/client` peers into `state`'s transport-free browser core; treating `Version` as a total order over a partial multi-replica domain.
-- Boundary: the `.` core is browser-safe and peer-free; the durable and replication subpaths are node-only peer-gated bindings. `Version` interning via `v()` is required for map-key identity. `min`/`max` reject negative multiplicity — retraction extremum folds route through `reduce`/`consolidate`; `distinct` consolidates signed sums per key and emits only positive-count survivors, so retraction through it is lawful.
+- Owns: versioned in-process dataflow, partial-order frontiers, public `Index` reconstruction/compaction, and optional peer-gated bindings.
+- Accept: versioned signed deltas, operator composition, incremental Semigroup folds, sink-owned `Index` mirrors, and transitive iteration.
+- Reject: whole-collection re-folds, parallel fold engines, internal-trace claims for public `Index`, core selection of `./sqlite` or `./electric`, and treating `Version` as a total order.
+- Boundary: root is browser-safe and peer-free. Downstream host owners may admit peer-gated subpaths. `v()` preserves map-key identity; signed extrema route through lawful reducers.

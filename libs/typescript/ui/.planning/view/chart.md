@@ -18,14 +18,13 @@ Chart owns declared statistics, streaming series, and user-driven pivots behind 
 - Law: arity is the projection's own modality — one source projects directly, and a NON-EMPTY set of sources disagreeing on x outer-joins through `uPlot.join` inside the same member, discriminated by the `isArrowTable`/`isArrowRecordBatch` evidence each value already carries; a `join` sibling export beside `columns` is the arity twin this entrypoint deletes.
 - Law: color obeys the token split — series strokes, categorical palettes, and axis inks resolve from `Theme.Palette.ramp`/`Theme` rows (canvas engines take resolved values rebuilt on theme flip; SVG takes classes through `cn`), the regime row's `canvas` column being the read that selects between them; `d3-scale-chromatic` colormaps appear ONLY where the color IS the datum's value (`scaleSequential(interpolateViridis)` density/heat), and a `scheme*` categorical array standing in for the token palette is the split-brain defect.
 - Law: `d3` is substrate, never surface — `rollup`/`bin`/`extent` folds prepare data beside a spec, scale/curve/format vocabularies pass through, and the DOM-coupled modules (`d3-selection`/`d3-zoom`/`d3-axis`) never appear; React owns chart DOM, `system/act` owns gesture.
-- Law: one fault family serves the page — `ChartFault` closes four reasons through the core `FaultClass.family` seam (`engine-lost` on a refused WASM spin-up or a severed host, `frame-refused` on octets no Arrow reader admits, `expression-refused` on an ExprTK column the engine rejects, `view-lost` on a derived view the engine drops), the `class` getter projects the core kind so severity, blame, and retryability derive from the core row table, and `roster` republishes the family's own tuple as the metric word census. A regime that spins an engine, decodes octets, or opens a view converts through `Effect.try`/`Effect.tryPromise` with the family minted in the `catch` slot; `Effect.promise` over a genuinely rejecting engine call is the named defect, because it re-grades an admission failure as a defect no consumer arm can route.
 - Law: measurement flows one way — `Chart.useFrame(sizing)` is the ONE producer, one `useParentSize` observer per panel whose `Chart.Panel` hands back the callback `parentRef` the panel spreads and the `Chart.Frame` every resident chart takes as a parameter: `Chart.plot` passes it into the Plot options value, `Chart.write` hands it to uplot's `setSize`, `Chart.bespoke` divides it by the margin into scale ranges. Debounce arrives as a `Chart.Sizing` policy row the composing panel supplies, so no chart holds a window literal; a chart calling the observer itself, or taking bare `width`/`height` scalars with no producer, is the named defect.
 - Packages: `apache-arrow` (`Table`/`RecordBatch` `getChild`, `isArrowTable`/`isArrowRecordBatch` narrowing); `uplot` (`AlignedData`, `join`, `setSize`); `@visx/responsive` (`useParentSize` — the one observer, `debounceTime`/`enableDebounceLeadingCall` as its policy row).
 - Boundary: `Grid` (`view/table`) owns fixed-shape interactive collections at DOM scale; `viewer/geo` owns the live basemap (Plot's `geo` mark serves statistical maps only); `viewer/probe` and `viewer/panel` render their metric and telemetry boards THROUGH this owner; `view/export` serializes what these brackets render and holds no engine of its own.
 - Growth: a new chart need selects a regime row; a new regime is one row with its bracket member on the one owner — never a sibling chart component family.
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { useParentSize } from "@visx/responsive"
 import { isArrowRecordBatch, isArrowTable, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Option, Schema } from "effect"
@@ -60,8 +59,8 @@ declare namespace Chart {
 }
 
 // One row per reason carrying the core kind alone: severity, blame, retryability, and quarantine are the core
-// FaultClass row table's, so a rank or retry column here would fork the branch lattice per folder.
-const _family = FaultClass.family(["engine-lost", "frame-refused", "expression-refused", "view-lost"] as const, {
+// Fault.Class row table's, so a rank or retry column here would fork the branch lattice per folder.
+const _family = Fault.Class.family(["engine-lost", "frame-refused", "expression-refused", "view-lost"] as const, {
   "engine-lost": { class: "unavailable" },
   "frame-refused": { class: "malformed" },
   "expression-refused": { class: "invalid" },
@@ -74,7 +73,7 @@ class ChartFault extends Schema.TaggedError<ChartFault>()("ChartFault", {
   detail: Schema.String,
 }) {
   static readonly roster: typeof _family.reasons = _family.reasons // the metric word census reads the family's own ordered tuple
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -382,12 +381,11 @@ function _stream(
 [PIVOT_SURFACE]:
 - Owner: `Chart.pivot(element, origin, feed)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread, the `Chart.Origin` case decides how the table arrives, the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s it, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.
 - Law: where the data lives is a case on one closed origin family, never an API fork — `Ingest` hands the bus frame to `client.table(frame, { format: "arrow", … })` (`index` makes updates upserts, `limit` ring-buffers a stream, `page_to_disk` spills past the memory ceiling — the table modes every feed chooses between, each an `Option` folded into the options value at the boundary so an unset mode omits its key rather than writing `undefined`), `Hosted` attaches to a host-published name through `open_table`, and `Joined` opens the LIVE reactive `client.join` re-deriving on either side's update. The three arms dispatch through `Match.valueTags` on the family's own tag, so a fourth origin is one case and one arm; a hand-maintained merged copy beside a `Joined` origin is the named defect.
-- Packages: `@perspective-dev/client` (`worker`, `Client.table`/`open_table`/`join`/`terminate`, `Table.view`/`update`/`validate_expressions`/`delete`, `View.to_arrow`/`on_update`/`delete`, the `Client`/`Table`/`View` types and the `TableInitOptions`/`JoinOptions`/`ViewConfigUpdate` option shapes); `@perspective-dev/viewer` + `@perspective-dev/viewer-datagrid` + `@perspective-dev/viewer-charts` (registration-by-import — the import IS the API; the plugin pair is closed, `viewer-d3fc`/`viewer-openlayers` rejected); `@rasm/ts/core` (`FaultClass`, `Convention`); `system/token` (the `./themes/*.css` roster imports once through the token stylesheet).
 - Law: the `ViewerConfig` is the ONE state value — `save()` emits it, `restore(update)` applies any subset, the config atom rides `Atom.kvs` with its schema, a `perspective-config-update` listener writes user-driven changes back through the atom, and atom-driven changes apply via `restore` — the same fold-echo law `Grid` follows for TanStack state; an attribute poke or DOM scrape beside the config value is the named defect.
 - Law: deltas stream, never poll — engine updates land through `table.update(arrowBuffer)` and repaint every dependent view incrementally; `View.on_update({ mode: "row" })` deltas ARE Arrow buffers feeding derived consumers, and a hand-maintained aggregate copy beside a live `View`/`join` is the named defect.
 - Law: a derived feed is a scoped view lane — `Chart.derive(pivot, feed, config)` opens `table.view(config)`, emits the `to_arrow` seed frame then every row-mode delta, and release runs `view.delete()`; each emitted frame is exactly `Chart.stream`'s discrete input, so pivot-derived series feed the streaming regime with no re-materialization.
 - Law: this owner brackets every view the engine opens, in exactly two lanes — `Chart.derive` is the LIVE lane a subscriber consumes as a stream, and `Chart.snapshot(pivot, feed, config, read)` is the ONE-SHOT lane whose `read` parameter is the only thing that varies, so a serializer chooses `to_arrow`, `to_csv`, or `to_json` without owning a bracket. `view/export` composes the snapshot lane for every tabular parcel; a consumer calling `table.view` outside these two members opens a view no scope releases, which is the named leak whichever engine it belongs to.
-- Law: expression columns validate before shipping — `Chart.expressions(pivot, exprs)` runs `table.validate_expressions(exprs)` and DECODES its report, because the engine answers a verdict record rather than throwing: a non-empty error map fails the gate as `expression-refused` carrying the refused column names, so a broken ExprTK column can never reach a `restore`. The aggregate vocabulary (`sum`/`distinct count`/`weighted mean`/`min by`/…) is the engine's roster referenced as data in the config value.
+- Law: expression columns validate before shipping — `Chart.expressions(pivot, exprs)` runs `table.validate_expressions(exprs)` and DECODES its report, because the package declares the return `unknown` and the engine answers a verdict record rather than throwing: refusals ride an `errors` map keyed by expression alias whose value carries the engine's own `error_message`, so a non-empty map fails the gate as `expression-refused` carrying each refused column beside its message, and a broken ExprTK column can never reach a `restore`. The aggregate vocabulary (`sum`/`distinct count`/`weighted mean`/`min by`/…) is the engine's roster referenced as data in the config value.
 - Law: React reaches the element by ref only — mount runs the bracket in the effect seam, props never flow inside, config does; the element is the boundary.
 - Law: the bracket is woven — acquisition carries `Effect.withSpan("rasm.ui.chart.pivot")` with the feed name as a log annotation, and every derived frame feeds `1` through `Effect.withMetric` into `_FRAMES`, so engine spin-up latency and delta throughput reach the app bridge with zero collector import; feed names stay log material, never metric tags.
 - Growth: a new exploration surface is one bracket call with its own config atom; a headless consumer (export, alert, derived feed) rides `Chart.derive`'s view lane — never a second engine.
@@ -495,8 +493,10 @@ const _pivot = (element: HTMLPerspectiveViewerElement, origin: Chart.Origin, fee
       }),
   )
 
-// the engine answers a verdict record rather than throwing, so the gate DECODES the report before reading it
-const _Validated = Schema.Struct({ errors: Schema.Record({ key: Schema.String, value: Schema.Unknown }) })
+// Engine answers a verdict record rather than throwing, and each refusal entry carries `error_message` — the gate decodes before it reads.
+const _Validated = Schema.Struct({
+  errors: Schema.Record({ key: Schema.String, value: Schema.Struct({ error_message: Schema.String }) }),
+})
 
 const _expressions = (
   pivot: Chart.Pivot,
@@ -511,7 +511,12 @@ const _expressions = (
     Effect.mapError((defect) => new ChartFault({ reason: "expression-refused", feed, detail: String(defect) })),
     Effect.filterOrFail(
       (report) => Record.isEmptyRecord(report.errors),
-      (report) => new ChartFault({ reason: "expression-refused", feed, detail: Array.join(Record.keys(report.errors), ",") }),
+      (report) =>
+        new ChartFault({
+          reason: "expression-refused",
+          feed,
+          detail: Array.join(Record.toEntries(report.errors).map(([alias, issue]) => `${alias}: ${issue.error_message}`), "; "),
+        }),
     ),
     Effect.asVoid,
   )

@@ -671,7 +671,7 @@ public static class ModelGovernance {
             op: "reasoning",
             effect: EffectClass.External,
             idempotency: Idempotency.NonIdempotent,
-            cost: new CostModel(cost, static _ => CostVector.Zero),
+            cost: CostModel.Constant(cost),
             permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.External, DataClassification.Operational),
             // Pricing shim: the compile arm refuses by construction, so this row never becomes a dispatched
             // body and has no lane to report from — the draw's own streaming rides the chat client.
@@ -755,11 +755,12 @@ public static class ModalIntake {
 
 ## [07]-[TS_PROJECTION]
 
-- Owner: `ReasoningTranscriptWire`, `ReasoningTurnWire`, `IntentMatchWire`, `GovernanceUsageWire` — the reasoning-session, transcript, intent-match, and token-usage wire shapes the dashboard consumes; an exact per-command receipt reuses `CapabilityCommandReceiptWire`, while an absent result join crosses as null.
-- Entry: the reasoning transcript crosses as the `ReasoningTranscriptWire` the dashboard reasoning timeline ingests, the turn sequence crosses as a literal-discriminated union the timeline renders, the intent matches cross as the ranked `IntentMatchWire[]` the command palette surfaces, and the token usage crosses as the `GovernanceUsageWire` the cost dashboard charts.
+- Owner: `ReasoningTranscriptWire`, `ReasoningTurnWire`, `IntentMatchWire`, and `GovernanceUsageWire` project reasoning evidence.
+- Entry: the transcript carries ordered turns; intent matches carry ranked discovery rows; usage carries token totals.
 - Packages: BCL inbox
 - Growth: one wire-member row per new transcript or turn field; the turn sequence crosses as a literal-discriminated union; zero new surface.
-- Boundary: the reasoning turn reconstructs in TS as a literal-discriminated union; transcript digest crosses as content-address text; tool-call receipt is nullable and reuses `CapabilityCommandReceiptWire` only when the exact value crossed, so the dashboard cannot mistake a `ToolResult` for committed command evidence; intent scores and token usage cross as their existing projections.
+- Boundary: reasoning turns retain literal discrimination, and transcript digests cross as content-address text.
+- Boundary: a tool-call receipt is nullable and uses the schema-derived `CommandReceipt` only when that exact value crossed.
 
 ```ts signature
 interface GovernanceUsageWire {
@@ -770,7 +771,13 @@ interface GovernanceUsageWire {
 
 type ReasoningTurnWire =
   | { readonly kind: "thinking"; readonly reasoning: string }
-  | { readonly kind: "tool-called"; readonly callId: string; readonly descriptor: string; readonly arguments: unknown; readonly receipt: CapabilityCommandReceiptWire | null }
+  | {
+      readonly kind: "tool-called";
+      readonly callId: string;
+      readonly descriptor: string;
+      readonly arguments: unknown;
+      readonly receipt: CommandReceipt | null;
+    }
   | { readonly kind: "message"; readonly text: string }
   | { readonly kind: "completed"; readonly reason: string | null; readonly usage: GovernanceUsageWire | null }
   | { readonly kind: "faulted"; readonly detail: string };

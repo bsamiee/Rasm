@@ -61,6 +61,15 @@
           "NodaTime": "3.3.3"
         }
       },
+      "Polly.Testing": {
+        "type": "Direct",
+        "requested": "[8.7.0, )",
+        "resolved": "8.7.0",
+        "contentHash": "pGP+0Axiz4dS9RkoUdMxG4/IPiTYQqgd4/f/Oyyq3rK5SrmzDL8f2DbO0NeMHg4ayMS/xc7g7cC1Byky4c6nIg==",
+        "dependencies": {
+          "Polly.Core": "8.7.0"
+        }
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.4.0, )",

@@ -549,7 +549,8 @@ public static class Walkthrough {
                         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
                         let sequenceHash = runtime.ContentHash(Encoding.UTF8.GetBytes(string.Join("|", held.Hashes)))
                         let sequence = new RenderReceipt(
-                            Kind, "frame-sequence", sequenceHash, None, held.Bytes, elapsed, runtime.Correlation, None, spec.Encode.Color.Key)
+                            Kind, "frame-sequence", sequenceHash, None, None, held.Bytes,
+                            elapsed, runtime.Correlation, None, spec.Encode.Color.Key)
                         from _ in runtime.Sink(sequence)
                         select sequence)),
             static held => IO.lift(() => held.Release()))

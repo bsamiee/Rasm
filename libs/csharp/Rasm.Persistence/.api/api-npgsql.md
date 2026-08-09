@@ -43,6 +43,22 @@
 - `PostgresException`: `SqlState` `ConstraintName` `ColumnName` `TableName` `Detail` `Hint` `IsTransient`; `PostgresErrorCodes.UndefinedObject = "42704"`, `InsufficientPrivilege = "42501"`
 - `NpgsqlTracingOptionsBuilder`: `ConfigureCommandFilter` `ConfigureBatchFilter` `ConfigureCopyOperationFilter` `ConfigureCommandSpanNameProvider` `EnableFirstResponseEvent` `EnablePhysicalOpenTracing`
 
+[FAULT_TYPES]: transient classification — the two `IsTransient` discriminants
+
+`PostgresException.IsTransient` answers this closed 22-SQLSTATE roster and nothing else; `NpgsqlException.IsTransient` answers the inner exception instead, because transport loss carries no SQLSTATE. Every retry decision folds one of those two bits; a re-spelled roster drifts from the driver the moment a class widens.
+
+| [INDEX] | [CLASS]                | [SQLSTATE]                                      | [CAPABILITY]                                      |
+| :-----: | :---------------------- | :----------------------------------------------- | :------------------------------------------------- |
+|  [01]   | resources (`53xxx`)    | `53000` `53100` `53200` `53300` `53400`         | disk, memory, connection, config-limit exhaustion |
+|  [02]   | intervention (`57Pxx`) | `57P03` `57P01` `57P02` `57P05`                 | cannot-connect-now, admin/crash stop, idle cut    |
+|  [03]   | system (`58xxx`)       | `58000` `58030`                                 | server-side system fault and IO error             |
+|  [04]   | rollback (`40xxx`)     | `40001` `40P01`                                 | serialization failure and detected deadlock       |
+|  [05]   | lock (`55xxx`)         | `55P03` `55006` `55000`                         | lock unavailable, object in use, state unmet      |
+|  [06]   | connection (`08xxx`)   | `08000` `08003` `08006` `08001` `08004` `08007` | lost, failed, refused, or unknown outcome         |
+
+- `NpgsqlException.IsTransient` reads `InnerException`: `IOException`, `SocketException`, `TimeoutException`, or `NpgsqlException { IsTransient: not false }` — every other inner type answers false.
+- `NpgsqlException : DbException` declares `public new NpgsqlBatchCommand? BatchCommand { get; set; }` — the failing batch member, shadowing the base declaration.
+
 [TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [CAPABILITY]              |

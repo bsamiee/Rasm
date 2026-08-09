@@ -51,6 +51,7 @@
 - Provide the layer on the `./server` subpath at the app root only; neutral rows yield `SqlClient`.
 - `url`/`authToken`/`encryptionKey` ride `Config.redacted`; sync cadence rides a `Config` duration.
 - libsql is contract-compatible with sqlite, not byte-compatible with the C `sqlite3` engine; the lane degradation table records every divergence.
+- `SqlError.cause` is `LibsqlError { code: string; rawCode?: number }`, and its `code` carries two vocabularies: the local path re-wraps the driver's own `SQLITE_*` code while the hrana path carries the server's response code verbatim, so a classifier reading one field answers whichever transport served the statement.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-libsql`

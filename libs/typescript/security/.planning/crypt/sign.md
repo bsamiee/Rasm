@@ -1,6 +1,5 @@
 # [SECURITY_SIGN]
 
-One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once, through `Material.admit`, and the `Material.Source` case a caller holds IS its trust boundary: the peer-attested `Credential` landing publishes a public chain and admits through `importSPKI`/`importX509` alone, this folder's own host-held bundle is the only source `importPKCS8` ever reads, and a published JWKS entry decodes once through `Schema.parseJson`. Private key material never crosses the AppHost wire and no second import path exists for a Doppler-fetched, peer-attested, or self-minted key; the `kid` is the producer's redacted key-id or the computed thumbprint, `CryptoKey.type` decides signing versus verify, and the lease window gates the one source that carries one. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Cost rows are bench-graded, never copied folklore: `Calibration` measures every `CryptoCost` row on the executing host into core `Claim` receipts — the `BenchmarkClaimWire` family with foreign-host admission — graded against each row's own `targetMs` ceiling, never against the KDF distribution's buckets — those freeze on the Convention row, so a cost bump moves a grade and re-buckets nothing. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument mounted from its core `Convention` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification and close at the core `FaultClass.family` seam, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
 
 ## [01]-[INDEX]
 
@@ -14,12 +13,9 @@ One crypto authority: argon2id credential digest-at-rest under a semaphore bulkh
 ## [02]-[FAULT_AND_ALG]
 
 [FAULT_AND_ALG]:
-- Owner: `SignFault` — the one reason-discriminated `Schema.TaggedError` every page in this folder instantiates with its own reason set; each row carries the core `FaultClass` kind, `get class()` projects it so `FaultClass.of` classifies structurally, and `override get message()` derives from fields. `KeyAlg` is the bounded signature-scheme vocabulary — each row carries `{ kty, crv?, use }`, the discriminant derives through `keyof typeof`, and a new scheme is one row.
-- Law: rows carry `class` only — rank, retryability, and blame derive from the branch `FaultClass` table, and the class-to-status projection is the serving edge's governed record; a local `{ rank, retry, status }` triple beside the class column is the split-brain this shape kills.
-- Law: the family seam closes the reason vocabulary by construction — `FaultClass.family` freezes the reason tuple and its exact-key row set, deriving the literal schema and the `classOf` projection, so a dead row or a rowless reason fails at the mint and no local guard pair exists here or on any sibling family; `KeyAlg` keeps its own `_Keys`/`_Kinds` pair because a scheme table is vocabulary, not a fault family.
 - Law: a `false` argon2 verify, a rejected OTP, and a rotated-out token are verdict arms, never faults — `SignFault` fires only when a primitive throws, a key refuses import, a load-shed sheds, or a token fails a trust gate.
 - Growth: a new failure mode is one reason literal and one class row; a new signature scheme is one `KeyAlg` row that `Material`, `Jwt`, and the external-verify page inherit unchanged.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 import { Algorithm, hash, hashRaw, Version, verify, type Options } from "@node-rs/argon2"
@@ -29,7 +25,7 @@ import { SHA1 } from "@oslojs/crypto/sha1"
 import { SHA256, SHA512, sha256 } from "@oslojs/crypto/sha2"
 import { constantTimeEqual } from "@oslojs/crypto/subtle"
 import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
-import { Budget, Claim, Convention, Credential, FaultClass, type AppIdentity, type WireFault } from "@rasm/ts/core"
+import { Board, Convention, Fault, Identity, Wire } from "@rasm/ts/core"
 import {
   calculateJwkThumbprint, calculateJwkThumbprintUri, createLocalJWKSet, createRemoteJWKSet, EncryptJWT, exportJWK,
   generateKeyPair, importJWK, importPKCS8, importSPKI, importX509, jwtDecrypt, jwtVerify, SignJWT, customFetch, jwksCache,
@@ -42,7 +38,7 @@ import {
 } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 
-const _family = FaultClass.family(
+const _family = Fault.Class.family(
   [
     "digest", "mac", "rng", "seal", "open", "wrap", "throttled",
     "material", "unsupported", "window",
@@ -92,7 +88,7 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -128,7 +124,7 @@ type Ring = {
 // One case per trust boundary: the peer-attested landing whose producer publishes public blocks only, this
 // folder's own host-held material under its lease window, and a remote JWKS entry.
 type _Source = Data.TaggedEnum<{
-  Attested: { readonly credential: Credential }
+  Attested: { readonly credential: Wire.Credential }
   Held: {
     readonly bundle: Redacted.Redacted<string>
     readonly fingerprint: string
@@ -158,13 +154,13 @@ const _PEM = {
   "PRIVATE KEY": Option.some(importPKCS8),
   "EC PRIVATE KEY": Option.some(importPKCS8),
   "RSA PRIVATE KEY": Option.some(importPKCS8),
-} as const satisfies Record<Credential.Label, Option.Option<(pem: string, alg: string) => Promise<CryptoKey>>>
+} as const satisfies Record<Wire.Credential.Label, Option.Option<(pem: string, alg: string) => Promise<CryptoKey>>>
 
 const _ARMOR = /-----BEGIN ([A-Z0-9 ]+)-----/
 const _BLOCK = /-----BEGIN ([A-Z0-9 ]+)-----[\s\S]*?-----END \1-----/g
-const _label = Schema.decodeUnknownOption(Credential.Label)
+const _label = Schema.decodeUnknownOption(Wire.Credential.Label)
 
-const _labelOf = (armored: string): Option.Option<Credential.Label> =>
+const _labelOf = (armored: string): Option.Option<Wire.Credential.Label> =>
   Option.flatMap(Option.fromNullable(_ARMOR.exec(armored)), (found) => _label(found[1]))
 
 const _handleOf = (key: CryptoKey, kid: string, alg: KeyAlg.Kind): KeyHandle =>
@@ -519,11 +515,9 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 - Law: the factory form is the rotation seam — the composition root builds the `Keyset` from `crypt/secret`'s `Material.Source.Held` values through `Material.ring`, wraps `Jwt.Default(keyset)` in `Reloadable.auto` driven by `Secret.changes`, so a Doppler rotation republishes the ring without a graph teardown, a `kid` retires with zero edits here, and a retired signing key keeps verifying while its handle stays published.
 - Law: `JwksSnapshot` is the ledger's own shape and the folder's single JWKS custody — it carries the key set beside the instant this owner observed it, never a package's `uat` scalar, because jose stamps that field in epoch MILLISECONDS off `Date.now()` while the certified relying-party client stamps it in epoch SECONDS: one stored number read under the wrong unit either reads as 1970 and refetches on every call or reads as the far future and never refetches a rotated key. The unit is therefore a per-seam projection off one owned instant — `JwksSnapshot.jose` renders the millisecond form this page seeds — and every other consumer of the same ledger projects its own.
 - Law: the remote resolver is built once per issuer under `Effect.cachedFunction` — the ledger snapshot seeds jose's cache through that projection, and a scoped fiber drives `resolver.reload()` on a jittered `Schedule.spaced(cacheAge)` so a provider key roll lands before the first `kid` miss; the tick asks only where the ask can land, gating on the resolver's own published `fresh`/`coolingDown`/`reloading` state so it stops issuing reloads jose refuses inside `cooldownDuration` and stops refetching an already-fresh set every `cacheAge` span. Each landed reload and each successful verify persists through `JwksLedger` from `resolver.jwks()` — the resolver's own accessor, so no mutable record survives the closure — and a tick whose reload genuinely failed logs at warning while an interrupted teardown stays silent; a cold build increments the `Convention.metric.securityJwksMiss` counter.
-- Law: every remote verify is internally resilient — a `deadline` timeout, the branch `Budget.schedule("pulse")` compile whose jitter, attempt bound, quiet-reset, and elapsed ceiling arrive as one value under the owner's own `FaultClass.retryable` gate, the `Convention.metric.securityJwksResolve` distribution, and its span; the fetch routes through `JwksTransport`, defaulted to the platform fetch and bound by the runtime wave to its instrumented `HttpClient.retryTransient({ schedule }).pipe(HttpClient.withTracerPropagation)` fetch adapter so rotation inherits the shared net policy and W3C trace propagation.
 - Law: the JWE profile is confidentiality, not a second token system — `seal` encrypts the same `AccessClaims` under `{ alg: "dir", enc: "A256GCM" }` and `unseal` reverses it with the same claim gates; a keyset without a seal handle refuses the profile as `unsupported`.
 - Receipt: `mint`/`seal` return the token `Redacted`; `verify`/`unseal` return `AccessClaims`, never a bare `JWTPayload`; the issuer overload returns the verified payload.
 - Growth: a new claim is one `AccessClaims` field; a new JOSE failure code is one `_codeReason` arm; a new external issuer costs nothing — the resolver memoizes per `jwksUri`.
-- Packages: `jose` (`SignJWT`/`jwtVerify`/`EncryptJWT`/`jwtDecrypt`, `createLocalJWKSet`/`createRemoteJWKSet`, the resolver's `reload`/`fresh`/`coolingDown`/`reloading`/`jwks` state, `jwksCache`/`customFetch` symbols, `ExportedJWKSCache`); `effect` (`Schedule`, `Metric`, `Effect.cachedFunction`, `Effect.forkScoped`, `Effect.unless`, `Schema.declare`/`Schema.mutable`); `@rasm/ts/core` (`Budget`, `Convention`).
 
 ```typescript
 class AccessClaims extends Schema.Class<AccessClaims>("AccessClaims")({
@@ -694,7 +688,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
             catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
           }).pipe(
             Effect.timeoutFail({ duration: deadline, onTimeout: () => new SignFault({ reason: "jwks", detail: issuer.jwksUri }) }),
-            Effect.retry(Budget.schedule("pulse")), // the branch compile, gate included: jitter, attempt bound, reset, and elapsed ceiling arrive as one value
+            Effect.retry(Fault.Budget.schedule("pulse")), // the branch compile, gate included: jitter, attempt bound, reset, and elapsed ceiling arrive as one value
             Metric.trackDuration(_jwksMs),
             Effect.tap(() => persist),
             Effect.map((result) => result.payload),
@@ -745,21 +739,18 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
 ## [07]-[CALIBRATION]
 
 [CALIBRATION]:
-- Owner: `Calibration` — the bench leg that turns `CryptoCost` folklore into per-host receipts: `bench` measures any rail probe into one core `Claim`, the decoded owner of `BenchmarkClaimWire`, and admits it against the executing `AppIdentity`; `calibrate` folds the same measurement over every cost row through `Crypto.digest` itself and grades p99 against the row's latency ceiling. Selection is evidence, never mutation: an unadmitted row demands a `CryptoCost` row edit backed by its receipt, and the `_stale` rehash fold propagates the options edit on the next successful verify.
 - Law: each target is a `CryptoCost` field and `_argonMs` takes its target boundaries from those rows, so the KDF histogram and calibration verdict read the same value; a target cannot drift beside its cost owner.
 - Law: `trials` admits only positive integers before a probe starts, and each sample derives milliseconds from `Clock.currentTimeNanos`; invalid counts reject on the typed rail and wall-clock adjustment cannot skew a receipt.
 - Law: trials run the production shape — `calibrate` probes `Crypto.digest` per row, so every trial passes the semaphore bulkhead, the `Convention.metric.securityKdf` distribution, and the KDF span exactly as a login does; a bench that bypasses the bulkhead measures a machine that does not exist.
-- Law: receipts are the core claim family — each metric carries `Claim.Band`'s sample count beside the rungs this probe measured, its optional `ticks`, raw `samples`, and enrichment bands, the host rides `Claim["host"]`, and every returned claim passes `Claim.admit` before grading; the grade names `p99`, so a probe that never measured that rung refuses at the board's rung axis rather than reading an absent value. Core's codec maps the same class to `BenchmarkClaimWire`; no security-local wire exists.
 - Law: throughput claims ride the same family — a `Jwt` mint or verify-fold claim is one `bench` call over that probe with its own suite key; a second receipt shape per crypto surface is the forked-family defect.
 - Growth: a new statistic is one metrics row inside `_receipt`; a new bench subject is one `bench` call; a new credential class inherits its target row through the `CryptoCost` guard.
 - Boundary: `HostFingerprint` construction (print, machine, arch, cores, runtime) is the composing runtime's boot fact, passed in — this page never probes the host; claim persistence and cross-host trend boards are the core bench-pack and corpus-gate consumers over the encoded family.
-- Packages: `effect` (`Clock`, `Order`, `Struct`, `Array`, `Number`); `@rasm/ts/core` (`Claim`); `Crypto` (`digest` as the measured probe).
 
 ```typescript
 declare namespace Calibration {
   type Row = keyof typeof CryptoCost
-  type Stats = typeof Claim.Band.Type
-  type Verdict = { readonly admitted: boolean; readonly claim: Claim; readonly row: Row; readonly target: number }
+  type Stats = typeof Board.Claim.Band.Type
+  type Verdict = { readonly admitted: boolean; readonly claim: Board.Claim; readonly row: Row; readonly target: number }
 }
 
 const _quantile = (sorted: ReadonlyArray<number>, q: number): number =>
@@ -767,19 +758,22 @@ const _quantile = (sorted: ReadonlyArray<number>, q: number): number =>
 
 const _stats = (timings: Array.NonEmptyReadonlyArray<number>): Calibration.Stats =>
   pipe(Array.sort(timings, Order.number), (sorted) => ({
-    avg: Number.sumAll(sorted) / sorted.length,
+    sampleCount: sorted.length,
+    rungs: {
+      avg: Number.sumAll(sorted) / sorted.length,
+      max: Array.lastNonEmpty(sorted),
+      min: Array.headNonEmpty(sorted),
+      p25: _quantile(sorted, 0.25),
+      p50: _quantile(sorted, 0.5),
+      p75: _quantile(sorted, 0.75),
+      p99: _quantile(sorted, 0.99),
+      p999: _quantile(sorted, 0.999),
+    },
     counters: Option.none(),
     gc: Option.none(),
     heap: Option.none(),
-    max: Array.lastNonEmpty(sorted),
-    min: Array.headNonEmpty(sorted),
-    p25: _quantile(sorted, 0.25),
-    p50: _quantile(sorted, 0.5),
-    p75: _quantile(sorted, 0.75),
-    p99: _quantile(sorted, 0.99),
-    p999: _quantile(sorted, 0.999),
-    samples: sorted,
-    ticks: sorted.length,
+    samples: Option.some(sorted),
+    ticks: Option.some(sorted.length),
   }))
 
 const _timed = <A, E, R>(probe: Effect.Effect<A, E, R>): Effect.Effect<number, E, R> =>
@@ -798,33 +792,49 @@ const _measured = <E, R>(probe: Effect.Effect<unknown, E, R>, trials: number): E
       )
     : Effect.fail(new SignFault({ reason: "unsupported", detail: `invalid calibration trials: ${trials}` }))
 
-const _receipt = (suite: string, host: Claim["host"], stats: Calibration.Stats): Effect.Effect<Claim> =>
+const _receipt = (suite: string, host: Board.Claim["host"], stats: Calibration.Stats): Effect.Effect<Board.Claim> =>
   Effect.map(DateTime.now, (minted) =>
-    new Claim({
+    new Board.Claim({
       suite,
       metrics: [
-        { label: "wall", unit: "ms", kind: "fn", band: stats },
+        {
+          label: "wall",
+          unit: "ms",
+          modality: "fn",
+          polarity: "minimize",
+          subject: { subject: "probe" },
+          band: stats,
+          warmups: Option.none(),
+          allocatedBytes: Option.none(),
+          operations: Option.none(),
+        },
       ],
       host,
       minted,
     }))
 
+const _admitted = (identity: Identity.App, claim: Board.Claim): Effect.Effect<Board.Claim, SignFault> =>
+  Board.Claim.matches(claim, identity)
+    ? Effect.succeed(claim)
+    : Effect.fail(new SignFault({ reason: "unsupported", detail: `claim host ${claim.host.print} != ${identity.host}` }))
+
 const Calibration = {
-  bench: <E, R>(suite: string, identity: AppIdentity, host: Claim["host"], probe: Effect.Effect<unknown, E, R>, trials: number): Effect.Effect<Claim, E | SignFault | WireFault, R> =>
+  bench: <E, R>(suite: string, identity: Identity.App, host: Board.Claim["host"], probe: Effect.Effect<unknown, E, R>, trials: number): Effect.Effect<Board.Claim, E | SignFault, R> =>
     Effect.flatMap(_measured(probe, trials), (stats) =>
-      Effect.flatMap(_receipt(suite, host, stats), (claim) => Claim.admit(claim, identity))),
+      Effect.flatMap(_receipt(suite, host, stats), (claim) => _admitted(identity, claim))),
   calibrate: (
-    identity: AppIdentity,
-    host: Claim["host"],
+    identity: Identity.App,
+    host: Board.Claim["host"],
     probe: Redacted.Redacted<string>,
     trials: number,
-  ): Effect.Effect<ReadonlyArray<Calibration.Verdict>, SignFault | WireFault, Crypto> =>
+  ): Effect.Effect<ReadonlyArray<Calibration.Verdict>, SignFault, Crypto> =>
     Effect.flatMap(Crypto, (cipher) =>
       Effect.forEach(Struct.keys(CryptoCost), (row) =>
         Effect.gen(function* () {
           const stats = yield* _measured(cipher.digest(row, probe), trials)
-          const claim = yield* Effect.flatMap(_receipt(`security-kdf-${row}`, host, stats), (receipt) => Claim.admit(receipt, identity))
-          return { admitted: stats.p99 <= CryptoCost[row].targetMs, claim, row, target: CryptoCost[row].targetMs }
+          const claim = yield* Effect.flatMap(_receipt(`security-kdf-${row}`, host, stats), (receipt) => _admitted(identity, receipt))
+          const p99 = Option.getOrThrow(Option.fromNullable(stats.rungs.p99))
+          return { admitted: p99 <= CryptoCost[row].targetMs, claim, row, target: CryptoCost[row].targetMs }
         }))),
 } as const
 

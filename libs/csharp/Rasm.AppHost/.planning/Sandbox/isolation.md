@@ -1,33 +1,27 @@
 # [APPHOST_SANDBOX_HOST]
 
-The capability-brokered plugin sandbox for the runtime spine: a two-row isolation axis runs a plugin under a Wasmtime core-module instance (WASI-Preview-1, granted-descriptor import table) or an out-of-process child, each row materializing its own owned vehicle; every plugin holds zero ambient authority and reaches host capability only through a brokered grant handle; resource quotas cap CPU, memory, wall-time, and egress per plugin over a call-entry gate and an epoch preemption that reaches a guest the gate cannot; a kill-or-quarantine rail evicts a misbehaving plugin and disposes its vehicle; and every artifact admits through the ONE `Sandbox/admission#SUPPLY_CHAIN_GATE` `SupplyChainGate.Admit` (as `AdmissionSubject.Plugin`) before it ever loads. The page owns the isolation axis, the grant broker handle, the quota cell, and the kill-quarantine rail; it consumes `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from `Sandbox/admission`, `CapabilityDescriptor`/`GrantBroker`/`GrantScope`, `CommandAlgebra`, `OutboundHop.CompanionSpawn`/`Discovery`, `PeerAdmission`, `CancelScope`, `DegradationCell`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+Capability-brokered plugin sandboxing for the runtime spine: two `Isolation` rows reach a vehicle here — `wasm` under a Wasmtime core-module instance with a WASI-Preview-1 granted-descriptor import table, `process` under an out-of-process child — and every other axis row refuses at admission with typed evidence naming the axis. Zero ambient authority is structural: a plugin reaches host capability only through a brokered grant handle, quotas cap CPU, memory, wall, and egress, and a kill-or-quarantine rail evicts a misbehaving plugin and disposes its vehicle.
+
+Every artifact admits through the ONE `Sandbox/admission#SUPPLY_CHAIN_GATE` `SupplyChainGate.Admit` as `AdmissionSubject.Plugin` before it loads. `Isolation`, `ProfileAxis`, and `AxisEvidence` arrive settled from `Runtime/profiles#PROFILE_AXIS`, and `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact`, `CapabilityDescriptor`/`GrantBroker`/`GrantScope`, `CommandAlgebra`, `OutboundHop.CompanionSpawn`/`Discovery`, `PeerAdmission`, `CancelScope`, `DegradationCell`, and `ReceiptSinkPort` follow as settled vocabulary; this page mints no eighth port.
 
 ## [01]-[INDEX]
 
-- [02]-[ISOLATION_AXIS]: WASM core-module and process isolation rows, each materializing its own vehicle under the no-ambient-authority load law.
+- [02]-[ISOLATION_AXIS]: Sandbox seating of the two reachable `Isolation` rows, the axis refusal covering the rest, and the no-ambient-authority load law.
 - [03]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
 - [04]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell over call-entry gating and epoch preemption, with kill and quarantine rail.
 
 ## [02]-[ISOLATION_AXIS]
 
-- Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `ComparerAccessors.StringOrdinal` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule carrying one isolation vehicle per row; `WasmCapsule` the owned `Wasmtime` store/instance/module/linker lifetime; `EpochPacer` the engine-wide interruption ticker; `SandboxFault` `[Union]` fault family deriving its codes through `FaultBand.Sandbox`.
-- Cases: wasm-module, process — wasm-module runs the plugin as a Wasmtime core-module instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; the two vehicles are SYMMETRIC slots on `PluginInstance` (`Option<WasmCapsule> Capsule` beside `Option<CompanionPeer> Child`), so neither row is prose while the other is a handle; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
-- Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the ONE `Sandbox/admission` gate admits the artifact as `AdmissionSubject.Plugin` (an all-empty artifact rejects `AttestationMissing` by construction), the row materializes its isolation vehicle, and the plugin loads with exactly the brokered grant scope and no ambient authority; `Enter<T>(PluginInstance plugin, Func<Instance, T> call)` returns `IO<T>` — the ONE crossing into a loaded guest, so the embedding's `TrapException` is observed at exactly one seat and its code lands on the instance's capsule before any caller re-classifies it; `SandboxRuntime.Preempting(int stackBytes)` mints the one engine every row shares with both preemption mechanisms armed, and `EpochPacer.Open(SandboxRuntime runtime, Func<Seq<PluginInstance>> live)` starts the one engine-wide `TimeProvider` ticker whose every tick advances the epoch and sweeps the live set through `Enforce`, returning its lease.
-- Auto: the wasm-module row MATERIALIZES the embedding rather than describing it — `Module.FromBytes` compiles the admitted `PluginArtifact.Component`, one `Store` per instance takes `SetWasiConfiguration` over a `WasiConfiguration` whose `WithPreopenedDirectory(host, guest, WasiDirectoryPermissions, WasiFilePermissions)` rows are exactly the `GrantScope` filesystem grants, `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors that pre-open set scopes, and one `Linker.DefineFunction(module, name, callback, parameterKinds, resultKinds)` lands per granted `CapabilityDescriptor` — so the import table IS the grant scope and an ungranted host capability is absent from the linkage, the no-ambient-authority law being a structural property rather than a runtime check; `Store.SetLimits(memorySize: row.QuotaShape.MaxMemoryBytes)` caps linear memory, `Config.WithFuelConsumption(true)` with the seeded `Store.Fuel` meters instructions, and `Config.WithMaximumStackSize` bounds recursion depth; the host callback reaches its call frame through `Caller` alone — `Caller.GetMemory(name)` then `Memory.GetSpan(address, length)` reads the guest's serialized `CommandArguments` and writes the result back — never a `Store` captured in the closure, which outlives the frame; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after; dispose follows the embedding hierarchy — store before engine — so the capsule releases its store, instance, module, and linker while the engine outlives every plugin.
-- Receipt: `SandboxReceipt` — plugin id, isolation key, granted scope hash, eviction reason, and the evicted arm's own convergence discriminant (the observed `TrapCode` for a wasm vehicle, the independent post-kill residual census for a child), `Instant`; the load transition logs through one `SpineLog` event and mints no receipt, because a load either yields the `PluginInstance` or fails on the rail and a receipt asserting `Loaded: true` beside a returned instance carries nothing the instance does not.
+- Owner: `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set carrying the admitting dispatch and the axis refusal; `PluginInstance` the loaded-plugin capsule carrying one isolation vehicle per row; `WasmCapsule` the owned `Wasmtime` store/instance/module/linker lifetime; `EpochPacer` the engine-wide interruption ticker; `SandboxFault` `[Union]` fault family deriving its codes through `FaultBand.Sandbox`; `Runtime/profiles#PROFILE_AXIS` `Isolation` owns the axis itself, composed whole here and never re-spelled sandbox-locally.
+- Cases: two of the five `Isolation` rows seat a sandbox vehicle — `wasm` runs the plugin as a Wasmtime core-module instance with a linear-memory boundary and import-only host access, `process` runs it as an out-of-process child reached over the local-ipc hop with OS-level isolation; `in-proc`, `thread`, and `remote` carry no vehicle and refuse at admission; the two vehicles are SYMMETRIC slots on `PluginInstance` (`Option<WasmCapsule> Capsule` beside `Option<CompanionPeer> Child`), so neither row is prose while the other is a handle; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined | AxisUnsupported.
+- Entry: `Fin<SandboxRow> Row` is the extension property total state-free `Switch` from axis value to frozen row, admitting the two sandbox-reachable rows and refusing the other three with `SandboxFault.AxisUnsupported` carrying the `AxisEvidence` that names the `isolation` axis; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the ONE `Sandbox/admission` gate admits the artifact as `AdmissionSubject.Plugin` (an all-empty artifact rejects `AttestationMissing` by construction), the row materializes its isolation vehicle, and the plugin loads with exactly the brokered grant scope and no ambient authority; `Enter<T>(PluginInstance plugin, Func<Instance, T> call)` returns `IO<T>` — the ONE crossing into a loaded guest, so the embedding's `TrapException` is observed at exactly one seat and its code lands on the instance's capsule before any caller re-classifies it; `SandboxRuntime.Preempting(int stackBytes)` mints the one engine every row shares with both preemption mechanisms armed, and `EpochPacer.Open(SandboxRuntime runtime, Func<Seq<PluginInstance>> live)` starts the one engine-wide `TimeProvider` ticker whose every tick advances the epoch and sweeps the live set through `Enforce`, returning its lease.
+- Auto: the `wasm` row MATERIALIZES the embedding rather than describing it — `Module.FromBytes` compiles the admitted `PluginArtifact.Component`, one `Store` per instance takes `SetWasiConfiguration` over a `WasiConfiguration` whose `WithPreopenedDirectory(host, guest, WasiDirectoryPermissions, WasiFilePermissions)` rows are exactly the `GrantScope` filesystem grants, `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors that pre-open set scopes, and one `Linker.DefineFunction(module, name, callback, parameterKinds, resultKinds)` lands per granted `CapabilityDescriptor` — so the import table IS the grant scope and an ungranted host capability is absent from the linkage, the no-ambient-authority law being a structural property rather than a runtime check; `Store.SetLimits(memorySize: row.QuotaShape.MaxMemoryBytes)` caps linear memory, `Config.WithFuelConsumption(true)` with the seeded `Store.Fuel` meters instructions, and `Config.WithMaximumStackSize` bounds recursion depth; the host callback reaches its call frame through `Caller` alone — `Caller.GetMemory(name)` then `Memory.GetSpan(address, length)` reads the guest's serialized `CommandArguments` and writes the result back — never a `Store` captured in the closure, which outlives the frame; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after; dispose follows the embedding hierarchy — store before engine — so the capsule releases its store, instance, module, and linker while the engine outlives every plugin.
+- Receipt: `SandboxReceipt` — plugin id, the typed `Isolation` row, granted scope hash, eviction reason, and the evicted arm's own convergence discriminant (the observed `TrapCode` for a wasm vehicle, the independent post-kill residual census for a child), `Instant`; the load transition logs through one `SpineLog` event and mints no receipt, because a load either yields the `PluginInstance` or fails on the rail and a receipt asserting `Loaded: true` beside a returned instance carries nothing the instance does not.
 - Packages: Wasmtime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one isolation row absorbs a new sandbox topology — a new linear-memory or OS-isolation backend is one `SandboxRow` with one vehicle slot, never a parallel loader; a new granted host capability is one `DefineFunction` row the scope fold already emits; a new fault is one `SandboxFault` case; zero new surface.
-- Boundary: the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` (the NuGet package id) at core-module + WASI-Preview-1, and that is a SETTLED ceiling rather than a pending probe: the managed assembly exposes `Config.WithComponentModel(bool)`, which toggles the NATIVE engine's component support, and NOT ONE managed component type — `Module`, `Linker`, and `Instance` are core-module only, while `TrapCode.CannotEnterComponent`/`NoAsyncResult` merely surface Rust-core trap rows — so WASI Preview 2 is unreachable from managed code, a component host is a native-side embedding rather than a `Wasmtime.NET` row, and the granted-descriptor import-table law, fuel metering, and linear-memory caps all run on the core-module `Engine`/`Linker`/`Store` surface; the Preview-1 `WasiConfiguration` surface — the `wasi_config_*` wraps, the four-argument `WithPreopenedDirectory` over `WasiDirectoryPermissions`/`WasiFilePermissions`, and `Store.SetWasiConfiguration` — is therefore the axis's whole sandbox-capability vocabulary and no page waits on a wider one; a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
+- Growth: a new linear-memory or OS-isolation backend settles as one `Isolation` value at the axis owner and one `SandboxRow` with one vehicle slot here, never a parallel loader and never a sandbox-local axis; a new granted host capability is one `DefineFunction` row the scope fold already emits; a new fault is one `SandboxFault` case; zero new surface.
+- Boundary: seating the axis is not owning it — a sandbox-local isolation vocabulary collides its `process` row with the axis owner's and re-spells its `wasm` one, so admitting a narrower subset of a closed axis is a REFUSAL at this page's own entry and never a second roster, and the axis stays whole for every consumer that reaches it; the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` (the NuGet package id) at core-module + WASI-Preview-1, and that is a SETTLED ceiling rather than a pending probe: the managed assembly exposes `Config.WithComponentModel(bool)`, which toggles the NATIVE engine's component support, and NOT ONE managed component type — `Module`, `Linker`, and `Instance` are core-module only, while `TrapCode.CannotEnterComponent`/`NoAsyncResult` merely surface Rust-core trap rows — so WASI Preview 2 is unreachable from managed code, a component host is a native-side embedding rather than a `Wasmtime.NET` row, and the granted-descriptor import-table law, fuel metering, and linear-memory caps all run on the core-module `Engine`/`Linker`/`Store` surface; the Preview-1 `WasiConfiguration` surface — the `wasi_config_*` wraps, the four-argument `WithPreopenedDirectory` over `WasiDirectoryPermissions`/`WasiFilePermissions`, and `Store.SetWasiConfiguration` — is therefore the axis's whole sandbox-capability vocabulary and no page waits on a wider one; a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SandboxIsolation {
-    public static readonly SandboxIsolation WasmModule = new("wasm-module");
-    public static readonly SandboxIsolation Process = new("process");
-}
-
 [Union]
 public abstract partial record SandboxFault : Expected, IValidationError<SandboxFault> {
     private SandboxFault(string detail, int code) : base(detail, code, None) { }
@@ -37,10 +31,19 @@ public abstract partial record SandboxFault : Expected, IValidationError<Sandbox
     public sealed record NoAuthority : SandboxFault { public NoAuthority(string detail) : base(detail, FaultBand.Sandbox.Code(2)) { } }
     public sealed record QuotaExceeded : SandboxFault { public QuotaExceeded(string unit, long over) : base($"{unit}:+{over}", FaultBand.Sandbox.Code(3)) => Unit = unit; public string Unit { get; } }
     public sealed record Quarantined : SandboxFault { public Quarantined(string detail) : base(detail, FaultBand.Sandbox.Code(4)) { } }
+
+    // Refusal composes the axis owner's own `AxisEvidence` rather than a detail string: `Runtime/profiles`
+    // mints that record for exactly this crossing, so one consumer parse reads which coordinate to restate
+    // whether an unservable value refused at profile admission or here, one stratum up.
+    public sealed record AxisUnsupported : SandboxFault {
+        public AxisUnsupported(AxisEvidence evidence) : base(evidence.Detail, FaultBand.Sandbox.Code(5)) => Evidence = evidence;
+
+        public AxisEvidence Evidence { get; }
+    }
 }
 
 public sealed record SandboxRow(
-    SandboxIsolation Isolation,
+    Isolation Isolation,
     bool LinearMemory,
     bool OutOfProcess,
     DeadlineClass Wall,
@@ -57,7 +60,7 @@ public sealed record SandboxRow(
 public sealed record PluginInstance(
     string PluginId,
     PluginArtifact Artifact,
-    SandboxIsolation Isolation,
+    Isolation Isolation,
     GrantScope Scope,
     QuotaCell Quota,
     Option<WasmCapsule> Capsule,
@@ -81,32 +84,41 @@ public sealed record WasmCapsule(Module Module, Linker Linker, Store Store, Inst
     }
 }
 
-// The eviction receipt carries the OBSERVED trap, never a `Loaded: false` boolean: the boolean cannot tell a
+// Eviction evidence carries the OBSERVED trap, never a `Loaded: false` boolean: that boolean cannot tell a
 // converged kill from a guest that returned on its own, while the code discriminates an epoch `Interrupt`, a
 // fuel `OutOfFuel`, and a guest-authored trap. Its wire projection is the stable NAME — TrapCode's numeric
 // values shift as the Rust core grows rows, so a numeric on the wire re-reads as a different cause.
-// The two `Option<T>` slots tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
+// Isolation rides TYPED, because a raw string forks the axis key space one projection at a time: a receipt
+// spelling its own row cannot be compared against the profile that admitted the plugin, and every reader then
+// re-parses prose back into a coordinate the closed vocabulary already carries.
+// Both `Option<T>` slots tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
 // drops an absent one at write, so a slot without a default reads back wire-required under
 // `RespectRequiredConstructorParameters` and fails the decode of the payload this producer emitted.
 public readonly record struct SandboxReceipt(
     string PluginId,
-    string Isolation,
+    Isolation Isolation,
     string ScopeHash,
     string Reason,
     Instant At,
     [property: JsonConverter(typeof(JsonStringEnumConverter<TrapCode>))] Option<TrapCode> Trap = default,
     Option<int> Residual = default) : IValidityEvidence {
-    // Each vehicle carries its OWN convergence discriminant and neither is a boolean. The wasm arm answers with
-    // the observed TrapCode. The process arm answers with an INDEPENDENT post-kill census count, because nothing
-    // on the process handle can: `WaitForExit` returns true the instant the direct child's handle closes — 0 ms,
-    // over a still-live grandchild — and `ExitCode` is 137 on every SIGKILL path whether the tree converged or
-    // not, so a receipt built from handle facts reports a clean kill over a leak. A converged eviction is a
-    // census of zero; an absent census is an UNPROVEN kill and reads as such rather than as success.
+    // Each vehicle carries its OWN convergence discriminant and neither is a boolean: `wasm` answers with its
+    // observed TrapCode, `process` with an INDEPENDENT post-kill census count, because nothing on the process
+    // handle can — `WaitForExit` returns true the instant the direct child's handle closes, 0 ms over a
+    // still-live grandchild, and `ExitCode` is 137 on every SIGKILL path whether the tree converged or not, so
+    // handle facts report a clean kill over a leak. Converged eviction is a census of zero, and an absent
+    // census reads as an UNPROVEN kill rather than as success. Dispatch runs the WHOLE axis, so the three rows
+    // no vehicle serves cannot mint a receipt at all — an `IsValid` ladder testing two keys admits them silently.
     [JsonIgnore]
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(!string.IsNullOrEmpty(PluginId) && !string.IsNullOrEmpty(Reason)),
-        ValidityClaim.Of(Isolation != SandboxIsolation.WasmModule.Key || Trap.IsSome),
-        ValidityClaim.Of(Isolation != SandboxIsolation.Process.Key || Residual == 0)).Holds;
+        Isolation.Switch(
+            state: this,
+            inProc: static _ => ValidityClaim.Of(false),
+            thread: static _ => ValidityClaim.Of(false),
+            process: static receipt => ValidityClaim.Of(receipt.Residual == 0),
+            wasm: static receipt => ValidityClaim.Of(receipt.Trap.IsSome),
+            remote: static _ => ValidityClaim.Of(false))).Holds;
 }
 
 // Engine is ONE per host and outlives every plugin — it holds the compiled-code cache and the epoch counter
@@ -167,14 +179,27 @@ public static class EpochPacer {
 }
 
 public static class SandboxRows {
-    public static readonly SandboxRow WasmModule = new(SandboxIsolation.WasmModule, LinearMemory: true, OutOfProcess: false, DeadlineClass.HopTotal, QuotaShape.Canonical);
-    public static readonly SandboxRow Process = new(SandboxIsolation.Process, LinearMemory: false, OutOfProcess: true, DeadlineClass.HopTotal, QuotaShape.Canonical);
+    public static readonly SandboxRow Wasm = new(Isolation.Wasm, LinearMemory: true, OutOfProcess: false, DeadlineClass.HopTotal, QuotaShape.Canonical);
+    public static readonly SandboxRow Process = new(Isolation.Process, LinearMemory: false, OutOfProcess: true, DeadlineClass.HopTotal, QuotaShape.Canonical);
 
-    extension(SandboxIsolation isolation) {
-        public SandboxRow Row => isolation.Switch(
-            wasmModule: static () => WasmModule,
-            process: static () => Process);
+    extension(Isolation isolation) {
+        // Two of five axis values reach a vehicle, and the other three REFUSE here rather than narrowing the
+        // axis to a sandbox-local pair: narrowing hides the coordinate a composition root must restate, while
+        // dispatching over all five makes a sixth axis value a compile break at this seat instead of a silent
+        // fall-through. Refusal is a capability this seat ADDS — every arm answers, none degrades.
+        public Fin<SandboxRow> Row => isolation.Switch(
+            inProc: static () => Unreachable(Isolation.InProc),
+            thread: static () => Unreachable(Isolation.Thread),
+            process: static () => Fin.Succ(Process),
+            wasm: static () => Fin.Succ(Wasm),
+            remote: static () => Unreachable(Isolation.Remote));
     }
+
+    // Evidence names the AXIS and the value, so a refusal here reads identically to one raised at profile
+    // admission and no consumer parses a sandbox-shaped detail string back into a coordinate.
+    static Fin<SandboxRow> Unreachable(Isolation isolation) =>
+        Fin.Fail<SandboxRow>(new SandboxFault.AxisUnsupported(new AxisEvidence(
+            ProfileAxis.Isolation, isolation.Key, "sandbox vehicles are linear-memory and out-of-process alone")));
 
     public static IO<PluginInstance> Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime) =>
         SupplyChainGate.Admit(runtime.Gate, new AdmissionSubject.Plugin(artifact), runtime.Spine.Token).Bind(admitted => admitted.Match(
@@ -248,7 +273,7 @@ public static class SandboxRows {
 - Receipt: each mediated call mints a `CommandReceipt` through the command algebra carrying the surface keyed by caller modality (the plugin id for a plugin call), so an operator, agent, and plugin call land on the same evidence stream and the `BrokeredCall` record carries the caller modality, permitted flag, and charged vector — never a parallel plugin log or a per-caller receipt.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new caller modality is one `CallerModality` row plus one `BrokeredCall` discriminant value the `Mediate` fold reads, never a parallel broker; the brokered call rides the existing command algebra, so a new plugin capability is one `CapabilityDescriptor` row the grant scope names; zero new surface.
-- Boundary: the grant handle is the only authority a plugin holds — a plugin that imports a host type directly is impossible because the wasm import table and the process control verbs are both scoped to the granted descriptors, so the handle is the sole bridge; the no-ambient-authority law is enforced by construction, not by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle, so the plugin path carries ONLY scope + dispatch-closure and the unified `Mediate` surface preserves that invariant: `CallerModality.Plugin` seats the handle's closure, never a service provider, so merging the mediation in a way that hands a plugin a service provider is the deleted form; the operator and agent modalities carry the host-side `CommandRuntime` closure but the plugin modality carries only the handle, so one mediation fold serves three callers without leaking host references into the plugin path; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle, so a plugin's authority grows only through explicit consent, never through ambient access; the handle's dispatch crosses the wasm boundary as a serialized `CommandArguments` and crosses the process boundary as the control-hop `DispatchTool` verb, so one mediation semantic serves both isolation rows; the `RuntimePolicy` verdict resolves against the branch `ONE_IDENTITY_STORE` principal/role rows and the per-call charge debits the branch `ONE_FENCED_LEASE_STORE` `Budget`, both consumed at the seam, so the unified admission point is the one gate identity, policy, and cost meet on (`Agent/capability#GRANT_BROKER` `DistributedBudget`).
+- Boundary: the grant handle is the only authority a plugin holds — a plugin that imports a host type directly is impossible because the wasm import table and the process control verbs are both scoped to the granted descriptors, so the handle is the sole bridge; the no-ambient-authority law is enforced by construction, not by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle, so the plugin path carries ONLY scope + dispatch-closure and the unified `Mediate` surface preserves that invariant: `CallerModality.Plugin` seats the handle's closure, never a service provider, so merging the mediation in a way that hands a plugin a service provider is the deleted form; the operator and agent modalities carry the host-side `CommandRuntime` closure but the plugin modality carries only the handle, so one mediation fold serves three callers without leaking host references into the plugin path; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle through `GrantBroker.Open` — the one seeding entry, because a ceiling GRANTS an opening balance and an elevated scope seated without it draws against zero and refuses its first call — so a plugin's authority grows only through explicit consent, never through ambient access; the handle's dispatch crosses the wasm boundary as a serialized `CommandArguments` and crosses the process boundary as the control-hop `DispatchTool` verb, so one mediation semantic serves both isolation rows; the `RuntimePolicy` verdict resolves against the branch `ONE_IDENTITY_STORE` principal/role rows and the per-call charge debits the branch `ONE_FENCED_LEASE_STORE` `Budget`, both consumed at the seam, so the unified admission point is the one gate identity, policy, and cost meet on (`Agent/capability#GRANT_BROKER` `DistributedBudget`).
 
 ```csharp signature
 // The caller axis: operator/agent/plugin are discriminants on one mediation, never parallel brokers.
@@ -466,7 +491,7 @@ public static class QuotaControl {
                           select Some(count),
             None: () => IO.pure(Option<int>.None))
         from at in IO.lift(() => runtime.Clocks.Now)
-        let receipt = new SandboxReceipt(plugin.PluginId, plugin.Isolation.Key, plugin.Scope.ScopeHash, reason, at,
+        let receipt = new SandboxReceipt(plugin.PluginId, plugin.Isolation, plugin.Scope.ScopeHash, reason, at,
             plugin.Capsule.Bind(static capsule => capsule.Trapped.Value), residual)
         from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, nameof(QuotaControl), JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host))
         select receipt;

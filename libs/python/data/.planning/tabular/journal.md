@@ -93,6 +93,14 @@ _CUSTODY_LAYOUT: Final[TableLayout] = TableLayout(schema=_CUSTODY_SCHEMA, partit
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _armed(handle: Lakehouse, layout: TableLayout) -> "RuntimeRail[Lakehouse]":
+    # arming rides the SYNC arm because admission runs before the composition's loop carries producers, and `Ensure`
+    # is idempotent, so a re-opened journal re-proves its layout rather than re-creating a relation. The handle rides
+    # back out on the rail, so the two opens compose as one chain instead of a construction discarding its own
+    # arming verdict — a refused plant then fails admission where a port member cannot tell it from a dead ledger.
+    return handle.run(LakeOp.Ensure(layout)).map(lambda _receipt: handle)
+
+
 def _subject(key: SubjectKey) -> str:
     # ONE predicate spelling for a custody identity: claim, read, and destroy keying differently strands a wrapped
     # key under a row no erasure reaches, which silently defeats the shred the whole plane exists to guarantee.
@@ -183,9 +191,17 @@ class FactJournal(Struct, frozen=True):
         # a producer leg on the commit owner would record a fact whose landing re-enters that commit forever. The
         # declaration rides admission because the commit owner cannot infer it — this plane's commits carry no
         # residence, exactly as a caller's table's do.
-        return Lakehouse.open(facts, table_format, secrets=secrets, plane=LakePlane.LEDGER).bind(
-            lambda held: Lakehouse.open(custody, table_format, secrets=secrets, plane=LakePlane.LEDGER).map(
-                lambda keys: cls(facts=held, custody=keys, fact_ref=facts, custody_ref=custody)
+        # both relations ARM here, at admission, off the layouts this page pins: a port member reaching an unplanted
+        # table answers a provider fault the drain's never-shedding retry then chases forever, indistinguishable from
+        # a dead ledger, and the very first `landed` on a fresh residence is exactly that call. Opening two handles
+        # and returning them unarmed left the two layouts declared and unreachable.
+        return (
+            Lakehouse.open(facts, table_format, secrets=secrets, plane=LakePlane.LEDGER)
+            .bind(lambda held: _armed(held, _FACT_LAYOUT))
+            .bind(
+                lambda held: Lakehouse.open(custody, table_format, secrets=secrets, plane=LakePlane.LEDGER)
+                .bind(lambda keys: _armed(keys, _CUSTODY_LAYOUT))
+                .map(lambda keys: cls(facts=held, custody=keys, fact_ref=facts, custody_ref=custody))
             )
         )
 
@@ -205,6 +221,11 @@ class FactJournal(Struct, frozen=True):
         # redelivery — a redelivery arrives in a LATER batch and lands on the matched half.
         if len(set(keys)) != len(keys):
             return Error(BoundaryFault(boundary=("journal.landed", "the offered batch carries one content key twice")))
+        # HEX is what the probe answers, because that is the spelling the durable `key` column holds: `_framed`
+        # writes `row.key.hex` and a scan reads text back, so both halves partition on that same projection.
+        # Comparing a `ContentKey` against those strings matches nothing ever, which empties `duplicate` permanently
+        # and hands the port's accepted-only projection every redelivery as a fresh row — the exact double-charge
+        # this probe replaced `num_output_rows` to prevent, reintroduced one type below it.
         match await self._matched(keys):
             case Result(tag="ok", ok=held):
                 landed = await self.facts.run_async(
@@ -212,19 +233,21 @@ class FactJournal(Struct, frozen=True):
                 )
                 return landed.map(
                     lambda _receipt: Landing(
-                        accepted=keys.filter(lambda key: key not in held), duplicate=keys.filter(lambda key: key in held)
+                        accepted=keys.filter(lambda key: key.hex not in held), duplicate=keys.filter(lambda key: key.hex in held)
                     )
                 )
             case refused:
                 return Error(refused.error)
 
-    async def _matched(self, keys: Block[ContentKey]) -> "RuntimeRail[frozenset[ContentKey]]":
+    async def _matched(self, keys: Block[ContentKey]) -> "RuntimeRail[frozenset[str]]":
         # ONE bounded key probe per batch on the pinned `key` column, which the layout sorts, so the read prunes to the
         # few files a batch of drain width can touch. Each fact carries its own stamp inside the payload it keys on, so
         # a key standing here is a redelivery of THIS plane's own prior attempt and never a distinct fact a peer minted
         # — which is what makes the pre-commit read exact rather than a race. The port's batching window never offers an
         # empty block, so the membership list always spells at least one literal.
-        listed = ", ".join(quote_literal(key) for key in keys)
+        # `quote_literal` takes the TEXT the column stores, so the literal list is built off `key.hex`: handing it a
+        # `ContentKey` renders that struct's repr into the `IN` list and the predicate matches no row on any engine.
+        listed = ", ".join(quote_literal(key.hex) for key in keys)
         plan = ScanPlan.DuckDb(f"SELECT key FROM source WHERE key IN ({listed})", ())
         railed = await async_boundary("journal.matched", lambda: on_thread(lambda: execute(plan, self.fact_ref)))
         return railed.map(lambda table: frozenset(table.column("key").to_pylist()))

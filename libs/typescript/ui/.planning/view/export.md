@@ -5,7 +5,7 @@ Export owns every way rendered state leaves the browser: one source family, one 
 ## [01]-[INDEX]
 
 - [02]-[FORMAT_LAW]: the format row table, the parcel owner, the content mint delegate, the fault family; `Export`, `ExportFault`.
-- [03]-[SERIALIZER_MATRIX]: the source family and the per-source admitted-format matrix; `Export`.
+- [03]-[SERIALIZER_MATRIX]: the source family, the per-source admitted-format matrix, the raster-encode port; `Export`, `Raster`.
 - [04]-[EGRESS_PORT]: the delivery capability Tag, the route vocabulary, the streaming lane; `Egress`.
 
 ## [02]-[FORMAT_LAW]
@@ -13,16 +13,15 @@ Export owns every way rendered state leaves the browser: one source family, one 
 [FORMAT_LAW]:
 - Owner: `Export` — one owner whose members are the octet fold, the parcel mint, and the delivery dispatch; a format is a `Export.format` row carrying `mime`, `extension`, and `binary`, so a new format is one row and the filename, the media type, and the text-versus-octets encode step all derive from it. A `mime` literal beside a call site, or a filename assembled by concatenation, restates a column the row already carries.
 - Owner: `Export.Parcel` — the Schema owner every export lands as: the resolved name, the format key, the content key the mint delegate answers, and the held octets. `filename` and `mime` are getters projecting the format row, so the two facts a delivery needs are derived from the parcel alone and no consumer re-reads the table.
-- Law: the content mint is a delegate, never a local hash — `mint: (octets: Uint8Array) => Effect.Effect<ContentKey>` arrives as a parameter exactly as `viewer/probe#CAPTURE_FOLD` takes it, because the branch's content mint has the delegation sites `core/value/contentKey` enumerates and this module carries no hash code; an export that mints its own key forks the address space every journal joins on.
+- Law: the content mint is a delegate; `mint` maps octets to `Digest.Key<"content">`, and this module carries no hash implementation.
 - Law: octets are the one currency — every serializer answers `Uint8Array`, text formats crossing through the encoder at the seam, so the parcel, the digest, and the port all speak one shape and no arm carries a `string | Uint8Array` union downstream.
-- Law: one fault family serves the page — `ExportFault` closes four reasons through the core `FaultClass.family` seam (`source-refused` where a handle answers nothing serializable, `encode-failed` where the serializer or the codec rejects the material, `egress-denied` where the operator or the host refuses the delivery, `egress-absent` where the composition satisfied no port), the `class` getter projects the core kind so severity, blame, and retryability derive from the core row table, and `roster` republishes the family tuple as the metric word census.
 - Law: the trip is woven at the owner — `Effect.withSpan("rasm.ui.export.parcel")` carries the format and the source tag as span attributes and log annotations, and the two convention rows mount once (`exportParcels` fanned on the format and source axes, `exportSize` pricing parcel octets on the format axis), so parcel count, size, and encode latency reach the app bridge with zero collector import; the format key is bounded and rides the tag axis, while the parcel name is identifier-grade and stays log material.
-- Packages: `@rasm/ts/core` (`ContentKey`, `Convention`, `FaultClass`); `effect` (`Schema`, `Effect`, `Data`, `Match`, `Record`).
+- Packages: `@rasm/ts/core` (`Digest`, `Convention`, `Fault.Class`); `effect` (`Schema`, `Effect`, `Data`, `Match`, `Record`).
 - Boundary: `view/chart` owns every perspective view bracket and hands this owner a read; `viewer/scene` owns the renderer and hands this owner an element; `viewer/probe` owns capture readback and hands this owner a pixel band; `system/cache` owns OPFS residency and this owner owns egress alone — a byte that stays in the browser is the cache's, a byte that leaves is this page's.
 - Growth: a new format is one row with its column in the matrix; a new source is one case with its row of serializers — never a second export surface beside this one.
 
 ```typescript
-import { ContentKey, Convention, FaultClass } from "@rasm/ts/core"
+import { Convention, Digest, Fault } from "@rasm/ts/core"
 import { Effect, Schema, type Types } from "effect"
 
 const _formats = ["arrow", "csv", "json", "svg", "png", "glb", "text"] as const
@@ -41,14 +40,17 @@ declare namespace Export {
   type Formats = typeof _formats
   type Format = keyof typeof _formatRows
   type FormatRow = { readonly mime: string; readonly extension: string; readonly binary: boolean }
-  type Mint = (octets: Uint8Array) => Effect.Effect<ContentKey>
+  type Mint = (octets: Uint8Array) => Effect.Effect<Digest.Key<"content">>
+  // Two row columns already decide the encodable-raster subset — an `image/*` media type carried as octets — so a new
+  // raster row admits the encode port with no second roster, and `svg` stays out on its text column
+  type Raster = { readonly [F in Format]: (typeof _formatRows)[F] extends { readonly mime: `image/${string}`; readonly binary: true } ? F : never }[Format]
   type _Rows<T extends Record<Formats[number], FormatRow> = typeof _formatRows> = T // row guard: a missing format or a malformed column fails at the declaration with zero widening
   type _Keys<K extends Formats[number] = Format> = K // key guard: a format row outside the tuple fails here
 }
 
 // One row per reason carrying the core kind alone: severity, blame, retryability, and quarantine stay the core
-// FaultClass row table's, so a local rank or retry column would fork the branch lattice per folder.
-const _family = FaultClass.family(["source-refused", "encode-failed", "egress-denied", "egress-absent"] as const, {
+// Fault.Class row table's, so a local rank or retry column would fork the branch lattice per folder.
+const _family = Fault.Class.family(["source-refused", "encode-failed", "egress-denied", "egress-absent"] as const, {
   "source-refused": { class: "invalid" },
   "encode-failed": { class: "malformed" },
   "egress-denied": { class: "denied" },
@@ -61,7 +63,7 @@ class ExportFault extends Schema.TaggedError<ExportFault>()("ExportFault", {
   detail: Schema.String,
 }) {
   static readonly roster: typeof _family.reasons = _family.reasons // the metric word census reads the family's own ordered tuple
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -74,7 +76,7 @@ const _Format = Schema.Literal(..._formats) // the tuple spread holds the non-em
 class Parcel extends Schema.Class<Parcel>("Parcel")({
   name: Schema.NonEmptyString,
   format: _Format,
-  key: ContentKey,
+  key: Digest.Key.content,
   octets: Schema.Uint8ArrayFromSelf,
 }) {
   get row(): Export.FormatRow {
@@ -101,19 +103,21 @@ const _encoded = (text: string): Uint8Array => _utf8.encode(text)
 - Law: the pivot arms open no view — all three ride `Chart.snapshot`, whose `read` parameter is the only axis they vary (`to_arrow`, `to_csv`, `to_json`), so every perspective bracket on the branch lives at its owner and this page holds a serializer, not a lifetime.
 - Law: tabular CSV is a pivot export, never a hand-rolled writer — `Rows` admits `arrow` alone because Arrow ships an IPC writer and no CSV writer, and the engine that already speaks CSV is perspective; a column-joining text fold beside `tableToIPC` restates a serializer the admitted engine owns, and the CSV of a client-modeled grid is the same rows loaded as a pivot origin.
 - Law: `Plot.plot` answers `SVGSVGElement | HTMLElement` — a caption, title, or legend option wraps the svg in a figure — so the `svg` arm discriminates on the tag it holds and reaches the inner element when it is wrapped; an `as SVGSVGElement` here serializes a figure wrapper as if it were the drawing.
-- Law: the raster arms split by who owns the pixels — a `<model-viewer>` element answers its own `toBlob`, and a three-owned renderer cannot be read off a live swap chain, so its band arrives already read back through `viewer/probe#CAPTURE_FOLD` and this page only encodes it; a `canvas.toBlob` against the scene's own canvas is the named defect, because the drawing buffer is not preserved.
+- Law: the raster arms split by who owns the pixels — a `<model-viewer>` element and a uplot backing canvas each answer their own live surface, while a three-owned renderer cannot be read off a live swap chain, so its plane arrives already read back through `viewer/probe#CAPTURE_FOLD`; a `canvas.toBlob` against the scene's own canvas is the named defect, because the drawing buffer is not preserved.
+- Law: a read-back plane encodes OFF the document — `Raster` is the folder-declared encode capability the browser root satisfies by wrapping `runtime:browser/fetch#WIRE_PROTOCOL`'s `Imprint` request, whose transfer list MOVES the plane into the decode pool, so the frame that just rendered never pays the PNG encode; the satisfier's `PoolFault`, worker, and decode failures map onto this page's `encode-failed` at that one wrap, exactly as `[4]`'s `Egress` wrap does, because neither package imports the other and a fault class cannot cross the strata; live canvases keep their own encoders, since an element handle cannot cross a worker boundary, so the port carries planes alone.
+- Law: the plane crossing the port is the hash preimage's own normalization — `Probe.packed` resolves row stride and origin into tightly packed top-left RGBA8, and the clamped view re-labels those bytes rather than copying them, so the exported image and the capture verdict read one buffer; a stride-blind `ImageData` construction shears a padded readback and inverts a bottom-left one.
 - Law: a draft encodes through the Schema that admitted it — `Schema.parseJson(schema)` fuses the encode and the stringify into one codec, so the exported payload and the wire payload cannot skew; a second serialization shape beside the kernel Schema is the parallel-validator defect `view/form` already names.
-- Packages: `apache-arrow` (`tableToIPC`, `RecordBatchWriter.throughDOM`); `@google/model-viewer` (`ModelViewerElement.exportScene`, `.toBlob`); `uplot` (the `ctx` readback — `u.ctx.canvas` is the only reach to the backing element); `view/chart` (`Chart.snapshot`, `Chart.Pivot`); `viewer/probe` (`Probe.Readback`).
-- Boundary: which config a pivot exports, which scale a figure inked, and which rows a grid selected are the owning surfaces' state; this matrix receives handles and answers octets.
-- Growth: a new admitted format for an existing source is one key in that source's row and one entry in `Admits` — the mapped contract turns the missing serializer into a compile error at the record while every call site stays untouched.
+- Packages: `apache-arrow` (`tableToIPC`, `RecordBatchWriter.throughDOM`); `@google/model-viewer` (`ModelViewerElement.exportScene`, `.toBlob`); `uplot` (the `ctx` readback — `u.ctx.canvas` is the only reach to the backing element, and it is a DOM canvas); `view/chart` (`Chart.snapshot`, `Chart.Pivot`); `viewer/probe` (`Probe.Readback`, `Probe.packed`); `effect` (`Context`, `Option`).
+- Boundary: which config a pivot exports, which scale a figure inked, and which rows a grid selected are the owning surfaces' state; this matrix receives handles and answers octets. Where the encode RUNS is the composition root's — the port declares the crossing, the host names the pool.
+- Growth: a new admitted format for an existing source is one key in that source's row and one entry in `Admits` — the mapped contract turns the missing serializer into a compile error at the record while every call site stays untouched; a lossy readback is one arm here, because the codec and quality axes already ride the port.
 
 ```typescript
 import type { ModelViewerElement } from "@google/model-viewer"
 import type { View, ViewConfigUpdate } from "@perspective-dev/client"
 import { tableToIPC, type Table } from "apache-arrow"
-import { Array, Data, Effect, Schema, type Scope } from "effect"
+import { Array, Context, Data, Effect, Option, Schema, type Scope } from "effect"
 import type uPlot from "uplot"
-import type { Probe } from "../viewer/probe.ts"
+import { Probe } from "../viewer/probe.ts"
 import { Chart } from "./chart.ts"
 
 declare namespace Export {
@@ -139,44 +143,48 @@ declare namespace Export {
     readonly Draft: "json"
     readonly Lines: "text"
   }
-  type Serialize<T extends Export.Kind> = (source: Export.Case<T>) => Effect.Effect<Uint8Array, ExportFault, Scope.Scope>
+  type Serialize<T extends Export.Kind> = (source: Export.Case<T>) => Effect.Effect<Uint8Array, ExportFault, Raster | Scope.Scope>
   type Matrix = { readonly [T in Export.Kind]: { readonly [F in Export.Admits[T]]: Export.Serialize<T> } }
   type _Admits<A extends Record<Export.Kind, Export.Format> = { [T in Export.Kind]: Export.Admits[T] }> = A // key guard: an admitted format outside the vocabulary fails here
 }
 
 const _Source = Data.taggedEnum<Export.Source>()
 
+// Raster declares this folder's encode capability and the browser root satisfies it over the decode pool, so an
+// element handle never crosses the port and a plane never encodes on the thread that drew it. Callers pass the parcel
+// because the refusal stamps where the octets fail, and the satisfier maps its own fault family onto this one.
+class Raster extends Context.Tag("ui/Raster")<Raster, {
+  readonly imprint: (
+    parcel: string,
+    pixels: ImageData,
+    format: Export.Raster,
+    quality: Option.Option<number>,
+  ) => Effect.Effect<Uint8Array, ExportFault>
+}>() {}
+
 const _blob = (parcel: string, take: () => Promise<Blob>): Effect.Effect<Uint8Array, ExportFault> =>
-  Effect.map(
-    Effect.tryPromise({
-      try: async () => new Uint8Array(await (await take()).arrayBuffer()),
-      catch: (defect) => new ExportFault({ reason: "encode-failed", parcel, detail: String(defect) }),
-    }),
-    (octets) => octets,
-  )
+  Effect.tryPromise({
+    try: async () => new Uint8Array(await (await take()).arrayBuffer()),
+    catch: (defect) => new ExportFault({ reason: "encode-failed", parcel, detail: String(defect) }),
+  })
 
-const _raster = (parcel: string, canvas: HTMLCanvasElement | OffscreenCanvas): Effect.Effect<Uint8Array, ExportFault> =>
+const _raster = (parcel: string, canvas: HTMLCanvasElement): Effect.Effect<Uint8Array, ExportFault> =>
   _blob(parcel, () =>
-    canvas instanceof OffscreenCanvas
-      ? canvas.convertToBlob({ type: _formatRows.png.mime })
-      // BOUNDARY ADAPTER: the DOM canvas encoder is callback-shaped and answers null on an unencodable surface
-      : new Promise<Blob>((settle, refuse) => canvas.toBlob((held) => (held === null ? refuse(new Error("<unencodable>")) : settle(held)), _formatRows.png.mime)))
+    // BOUNDARY ADAPTER: the DOM canvas encoder is callback-shaped and answers null on an unencodable surface
+    new Promise<Blob>((settle, refuse) => canvas.toBlob((held) => (held === null ? refuse(new Error("<unencodable>")) : settle(held)), _formatRows.png.mime)))
 
-const _drawn = (parcel: string, band: Uint8Array, width: number, height: number): Effect.Effect<Uint8Array, ExportFault> =>
-  Effect.flatMap(
-    Effect.try({
-      // BOUNDARY ADAPTER: the readback band is raw RGBA; an offscreen surface is the only admitted encoder for it
-      try: () => {
-        const surface = new OffscreenCanvas(width, height)
-        const ink = surface.getContext("2d")
-        if (ink === null) throw new Error("<no-2d-context>")
-        ink.putImageData(new ImageData(new Uint8ClampedArray(band), width, height), 0, 0)
-        return surface
-      },
-      catch: (defect) => new ExportFault({ reason: "encode-failed", parcel, detail: String(defect) }),
-    }),
-    (surface) => _raster(parcel, surface),
-  )
+// Encoding leaves the document with the plane: `Probe.packed` resolves stride and origin into the same tightly packed
+// top-left RGBA8 the hash preimage takes, the clamped view re-labels those bytes with no copy, and the port's transfer
+// list moves the buffer; the codec and quality axes ride the port, never this arm
+const _drawn = (parcel: string, row: Export.Case<"Readback">): Effect.Effect<Uint8Array, ExportFault, Raster> =>
+  Effect.flatMap(Raster, (port) =>
+    Effect.flatMap(row.readback(row.width, row.height), (capture) =>
+      port.imprint(
+        parcel,
+        new ImageData(new Uint8ClampedArray(Probe.packed(capture, row.width, row.height).buffer), row.width, row.height),
+        "png",
+        Option.none(),
+      )))
 
 const _svg = (parcel: string, figure: SVGSVGElement | HTMLElement): Effect.Effect<Uint8Array, ExportFault> =>
   Effect.map(
@@ -215,7 +223,7 @@ const _MATRIX: Export.Matrix = {
     glb: (row) => _blob("<scene>", () => row.element.exportScene()),
     png: (row) => _blob("<scene>", () => row.element.toBlob()),
   },
-  Readback: { png: (row) => Effect.flatMap(row.readback(row.width, row.height), (band) => _drawn("<readback>", band, row.width, row.height)) },
+  Readback: { png: (row) => _drawn("<readback>", row) },
   Draft: {
     json: (row) =>
       Effect.mapError(
@@ -229,7 +237,7 @@ const _MATRIX: Export.Matrix = {
 const _octets = <T extends Export.Kind, F extends Export.Admits[T]>(
   source: Export.Case<T>,
   format: F,
-): Effect.Effect<Uint8Array, ExportFault, Scope.Scope> =>
+): Effect.Effect<Uint8Array, ExportFault, Raster | Scope.Scope> =>
   // the mapped contract resolves the indexed access to one correlated signature: the per-case payload flows cast-free
   _MATRIX[source._tag][format](source)
 
@@ -243,7 +251,7 @@ const _parcel = <T extends Export.Kind, F extends Export.Admits[T]>(
   format: F,
   name: string,
   mint: Export.Mint,
-): Effect.Effect<Parcel, ExportFault, Scope.Scope> =>
+): Effect.Effect<Parcel, ExportFault, Raster | Scope.Scope> =>
   Effect.gen(function* () {
     const octets = yield* _octets(source, format)
     const key = yield* mint(octets) // the branch's content mint, delegated exactly as the capture fold takes it
@@ -318,7 +326,7 @@ const _deliver = (parcel: Parcel, route: Export.Route): Effect.Effect<void, Expo
 const _piped = (
   name: string,
   format: Export.Format,
-  key: ContentKey,
+  key: Digest.Key<"content">,
   batches: Table,
 ): Effect.Effect<void, ExportFault, Egress | Scope.Scope> =>
   Effect.gen(function* () {
@@ -350,7 +358,7 @@ const Export: Export.Shape = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Egress, Export, ExportFault, Parcel }
+export { Egress, Export, ExportFault, Parcel, Raster }
 ```
 
 ## [05]-[RESEARCH]
@@ -360,4 +368,4 @@ export { Egress, Export, ExportFault, Parcel }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[VALIDATE_REPORT]-[OPEN]: does `Table.validate_expressions` answer its refusals under an `errors` key, and is the value a message string or a structured issue; read the perspective engine's own `validate_expressions` return construction, since the shipped declaration answers bare `any`.
+(none)

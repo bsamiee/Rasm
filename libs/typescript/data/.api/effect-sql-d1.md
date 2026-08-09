@@ -44,6 +44,7 @@
 
 [TOPOLOGY]:
 - neutral-Tag superset: `D1Client extends SqlClient`, so `layer`/`layerConfig` bind both — journal, projection, and retrieve rows keep yielding the abstract `SqlClient` and stay dialect-portable, a driver-distinct row yields the concrete `D1Client`, and swapping to another sqlite lane or the pg spine is a `Layer` selection at the Workers root.
+- fault cause, typed-absent: the installed `@cloudflare/workers-types` declares `D1Response.error?: never` and no error class anywhere, yet `D1Client` throws `response.error` — a value the declarations say cannot exist, so `SqlError.cause` carries a platform shape this workspace names but cannot type. Its text wraps the engine message behind a `D1_ERROR:` prefix, so consumers match by containment on runtime behaviour no declaration proves.
 - no interactive transaction: `transactionAcquirer` dies via `Effect.dieMessage`, so `sql.withTransaction` is refused and `updateValues` is `never`; the lane runs every statement batch/exec-shaped over the prepared-statement cache, and a write needing atomicity composes batch statements or routes to the pg spine.
 
 [STACKING]:

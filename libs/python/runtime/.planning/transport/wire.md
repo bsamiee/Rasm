@@ -203,10 +203,13 @@ def mirror(name: str) -> RuntimeRail[WireMirrorCodec[Struct]]:
 ## [04]-[CRDT_CODEC]
 
 - Owner: the canonical op IS the wire arm — each arm's fields are the producer `[Key(k)]` slots, and the `evidence/clock#CLOCK` `Hlc`/`ElementId` reconstructions are derived property views through the field-less `_Stamped`/`_Identified` mixins, so no parallel wire-vs-canonical hierarchy or hand-written lift match survives. Interior code reads `op.cell`/`op.id` while the wire shape stays the flat producer envelope; `CrdtArm` closes the union so callers `match`/`assert_never` over the explicit set.
-- Cases: LWW survives only as the `set` arm reconstructing the `LwwRegister`; `beat`/`leave` carry the `EphemeralMap` presence delta a late-joining companion reconstructs from the op-log prefix; `IncrementOp.delta` stays plain `int` — a signed PN-counter increment.
+- Law: the union root carries `field`, the one slot every producer arm leads with, so slot 1 is fixed for all ten by construction and each arm's own roster starts at slot 2; a per-arm declaration lets one arm omit it and shift every slot behind it by one, which decodes as silent corruption rather than a refusal.
+- Cases: LWW survives only as the `set` arm reconstructing the `LwwRegister`; `beat`/`leave` carry the `EphemeralMap` presence delta a late-joining companion reconstructs from the op-log prefix; `increment` carries the producer's `(sequence, positive, negative)` cumulative triple, so the counter absorbs by ordinal and a replayed op re-lands the same total.
+- Cases: `OpLogEntry` is the pinned envelope — `seq`, `id`, `family`, `kind`, `entity`, and a `Raw` payload — so the resumable ordinal, the causal identity, and the lane all survive the crossing; `seq` resumes a drain and orders nothing, `id` orders and dedups, and the `Raw` payload lets a non-`crdt` lane cross this reader untouched.
+- Law: `OperationId` carries the `(origin, counter)` dot beside the frontier its minter observed, and identity NEVER derives from payload content — two peers writing identical bytes are two operations, so a content-keyed log reports the second as a duplicate and discards a real edit. Vector slots — `context` here, `WriteOp.context` and `MaintainOp.quiescent` alike — arrive ASCENDING by origin bytes, the producer's canonical order, because a hash-ordered slot list gives one causal position a different digest per runtime and per insertion history, which is what keeps the shared fixture unfreezable.
 - Auto: FLAT is the SOLE realized codec path — the `CRDT_OPLOG_WIRE_AMENDMENT` deprecates the MessagePack-csharp default `[tag, sub-object]` nesting, so no standing nested-envelope machinery survives here. `physical_ticks` is the C# `Instant.ToUnixTimeTicks()` 100-ns count; the `set` arm is the LWW `Adjudicate` survivor and the union the join-semilattice `[05]`'s `converged` fold materializes, so a peer decoding the prefix reconstructs the identical state any minter holds.
 - Auto: `CrdtOpEncode` is the exact mirror of `CrdtOpDecode` — one cached encoder over the same closed union at both arities — so this owner AUTHORS ops as well as merging them and the `crdt-op` corpus contract becomes a round-trip claim rather than a read-only one. A minted op and a decoded op therefore agree on the keyed-FLAT layout by construction; an encode path spelled per call site would fork exactly the field order the producer pins.
-- Growth: a new op kind is one tagged-union arm inheriting `_Stamped` or `_Identified`, one `converged` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the wire tag first, the companion follows, never ahead of the wire; the deprecated NESTED framing re-enters as one framing member with one `msgspec.Raw` re-frame row only if a producer publishes it; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder.
+- Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one tagged-union arm inheriting `_Stamped` or `_Identified`, one `converged` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the wire tag first, the companion follows, never ahead of the wire; the deprecated NESTED framing re-enters as one framing member with one `msgspec.Raw` re-frame row only if a producer publishes it; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -238,10 +241,12 @@ class CompressFn(Protocol):
 
 
 class CrdtOp(Struct, frozen=True, tag_field="tag", array_like=True):
-    # field-less tagged-union root: with `array_like=True` every base field would occupy a
-    # leading array slot in every arm and shift the producer `[Key(k)]` positions, so the
-    # base carries the discriminant only and each arm's first declared field IS wire slot 1.
-    pass
+    # tagged-union root carrying the ONE slot every producer arm leads with: `array_like=True` lays base fields ahead
+    # of each arm's own, so declaring `field` here puts it at wire slot 1 on all ten arms by construction and the arm's
+    # first declared field lands at slot 2. Declaring it per arm instead lets one arm forget it and shift every slot
+    # after it by one, which decodes as total corruption rather than a refusal. It carries no default: the producer
+    # writes the slot on every arm, and a default would force one onto every field of every arm behind it.
+    field: str
 
 
 class _Stamped(CrdtOp):
@@ -289,8 +294,12 @@ class RemoveOp(CrdtOp, tag=3):
 
 
 class IncrementOp(CrdtOp, tag=4, gc=False):
+    # cumulative per-origin halves under the producer's own ordinal, never a signed delta: the halves are monotone, so
+    # a redelivered op re-absorbs to the identical total where a delta fold counts it twice.
     origin: bytes
-    delta: int
+    sequence: WireU64
+    positive: WireU64
+    negative: WireU64
 
 
 class InsertAfterOp(_Identified, tag=5, gc=False):
@@ -311,7 +320,10 @@ class DeleteOp(_Identified, tag=6, gc=False):
 
 
 class MaintainOp(CrdtOp, tag=7):
+    # two retirement declarations in one op: named origins the producer settled, plus an ABSOLUTE liveness horizon on
+    # its own tick axis that every older presence row retires against.
     quiescent: list[tuple[bytes, WireU64]]
+    liveness_ticks: WireU64
 
 
 class BeatOp(_Stamped, tag=8, gc=False):
@@ -330,22 +342,67 @@ class LeaveOp(_Stamped, tag=9, gc=False):
 type CrdtArm = SetOp | WriteOp | AddOp | RemoveOp | IncrementOp | InsertAfterOp | DeleteOp | MaintainOp | BeatOp | LeaveOp
 
 
+class OperationId(Struct, frozen=True, array_like=True):
+    # operation identity: the `(origin, counter)` dot names one operation across every runtime, and `context` — the
+    # frontier its minter had observed — answers happened-before between two ids with no feed walk. Keyed on payload
+    # content instead, two peers writing identical bytes collapse into one operation and the second edit vanishes.
+    origin: bytes
+    counter: WireU64
+    context: list[tuple[bytes, WireU64]]
+
+    @property
+    def frontier(self) -> Map[bytes, int]:
+        # this dot INCLUDED: what a replica joins once the entry lands, and what the next id at this origin carries
+        # as its own context.
+        return Map.of_seq((origin, int(counter)) for origin, counter in self.context).add(self.origin, int(self.counter))
+
+    def applied(self, frontier: Map[bytes, int]) -> bool:
+        return frontier.try_find(self.origin).default_value(0) >= int(self.counter)
+
+
+class OpLogEntry(Struct, frozen=True, array_like=True):
+    # pinned entry envelope, positional — `[seq, [origin, counter, context], family, kind, entity, <raw>]`. `seq`
+    # orders and resumes the producer's own drain and NOTHING else; `id` is what dedups and orders causally, because a
+    # transport ordinal diverges the moment two peers resume from different frontiers. `payload` stays `Raw` so a
+    # non-`crdt` lane crosses this reader untouched — decoding every entry as an op misreads a scalar row as a union
+    # tag, and re-framing per lane is one `Raw` decode rather than a second envelope.
+    seq: WireU64
+    id: OperationId
+    family: str
+    kind: str
+    entity: str
+    payload: msgspec.Raw
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+_CRDT_LANE: Final[str] = "crdt"
 
 
 class CrdtOpDecode:
     # one decoder family keyed by output arity over the keyed-FLAT producer contract; the reusable cached codecs are the
     # shared seam — never a per-op `msgspec.msgpack.decode`.
     _arm: msgspec.msgpack.Decoder[CrdtArm] = msgspec.msgpack.Decoder(CrdtArm)
-    _prefix: msgspec.msgpack.Decoder[list[CrdtArm]] = msgspec.msgpack.Decoder(list[CrdtArm])
+    _prefix: msgspec.msgpack.Decoder[list[OpLogEntry]] = msgspec.msgpack.Decoder(list[OpLogEntry])
 
     @classmethod
     def decode(cls, payload: bytes, decompress: DecompressFn) -> RuntimeRail[CrdtArm]:
         return Decode.railed("crdt", lambda: cls._arm.decode(decompress(payload)))
 
     @classmethod
-    def stream(cls, payload: bytes, decompress: DecompressFn) -> RuntimeRail[Block[CrdtArm]]:
+    def stream(cls, payload: bytes, decompress: DecompressFn) -> RuntimeRail[Block[OpLogEntry]]:
         return Decode.railed("crdt.prefix", lambda: Block.of_seq(cls._prefix.decode(decompress(payload))))
+
+    @classmethod
+    def ops(cls, entries: Block[OpLogEntry]) -> RuntimeRail[Block[tuple[OperationId, CrdtArm]]]:
+        # lane filter and second-stage `Raw` decode in one pass: a foreign-lane entry drops here rather than reaching
+        # `converged`, and each surviving op keeps its id, since the fold's dedup and its compaction gate both read
+        # that id, which no op recovers on its own.
+        crdt = entries.filter(lambda entry: entry.family == _CRDT_LANE)
+        return Decode.railed(
+            "crdt.ops", lambda: Block.of_seq((entry.id, cls._arm.decode(bytes(entry.payload))) for entry in crdt)
+        )
 
 
 class CrdtOpEncode:
@@ -360,17 +417,19 @@ class CrdtOpEncode:
         return Decode.routed("crdt", lambda: compress(cls._arm.encode(op)))
 
     @classmethod
-    def stream(cls, ops: Block[CrdtArm], compress: CompressFn) -> RuntimeRail[bytes]:
-        return Decode.routed("crdt.prefix", lambda: compress(cls._arm.encode(list(ops))))
+    def stream(cls, entries: Block[OpLogEntry], compress: CompressFn) -> RuntimeRail[bytes]:
+        return Decode.routed("crdt.prefix", lambda: compress(cls._arm.encode(list(entries))))
 ```
 
 ## [05]-[CRDT_STATE]
 
 - Owner: `CrdtState` is the materialized replica — one column per convergence family, `LwwRegister`, `OrSet`, `Rga`, `PnCounter`, and `EphemeralMap` — and `converged(state, ops)` the one fold every replica replays an op-log prefix through. Each family owns its own absorb law as a method on its own shape, so the fold's arms carry routing alone and no arm re-derives another family's merge; the whole state is frozen, so a replay returns a successor rather than mutating a cell two readers share.
-- Cases: the ten `CrdtArm` members close onto five families — `set` and `write` both land the register, `add`/`remove` the observed set, `insert_after`/`delete` the sequence, `increment` the counter, `beat`/`leave` the presence map, and `maintain` prunes what its quiescence list declares settled. Two register arms are ONE owner because they answer every discriminant identically and differ only in whether the writer offered a causal context; a second register type beside the first would fork the survivor law the whole branch converges on.
+- Cases: the ten `CrdtArm` members close onto five families — `set` and `write` both land the register, `add`/`remove` the observed set, `insert_after`/`delete` the sequence, `increment` the counter, `beat`/`leave` the presence map, and `maintain` retires the presence rows its quiescence list names and its liveness horizon expires. Two register arms are ONE owner because they answer every discriminant identically and differ only in whether the writer offered a causal context; a second register type beside the first would fork the survivor law the whole branch converges on.
 - Law: every survivor decision on this page — the register's and the presence map's alike — reads the `evidence/clock#CLOCK` owner's `compare` and folds its `Ordering`, never a raw operator or a re-derived sign at the adjudication seam, because an operator discloses its equality behaviour only through the direction of the sign and two families adjudicating one clock by two spellings drift the instant either bound flips. The register's `equal` arm breaks the tie on origin bytes, since two replicas legitimately stamp one cell and an arbitrary choice there diverges the two materializations permanently; the presence arms resolve `equal` toward the beat, so a leave never evicts the event its own cell names.
 - Law: a causally-contexted `write` survives on DOMINANCE first — a version vector covering every entry the held one carries happened strictly after, so no stamp comparison runs — and only a genuinely concurrent pair falls back to the cell tiebreak. An unconditional last-writer-wins over the same pair silently drops a causal successor whose physical clock lagged its predecessor's.
-- Law: every arm is idempotent and order-insensitive under the tags the wire already carries — an `add` re-adds one tag to a set, a `remove` tombstones exactly the tags it observed so a re-delivered add stays dead, a `delete` tombstones an id whether or not its insert landed yet, and a `beat` loses to a later cell — so a redelivered prefix converges to the same state and no fold counts a duplicate twice. `increment` is the one arm carrying no id, so its at-most-once property is the op-log's own content-keyed append rather than this fold's; per-origin bucketing is what keeps the sum order-insensitive regardless.
+- Law: every arm is idempotent and order-insensitive under the tags the wire already carries — an `add` re-adds one tag to a set, a `remove` tombstones exactly the tags it observed so a re-delivered add stays dead, a `delete` tombstones an id whether or not its insert landed yet, and a `beat` loses to a later cell — so a redelivered prefix converges to the same state and no fold counts a duplicate twice. `increment` carries the producer's per-origin ordinal in place of an id: the bucket absorbs the highest ordinal whole over cumulative halves, so a replay re-lands the same total, and per-origin bucketing keeps the sum order-insensitive across origins.
+- Law: `converged` folds the op column; `OpLogEntry.seq` orders and resumes the delivery the codec drains, and no arm reads it, because a state keyed on a transport ordinal diverges the moment two peers resume from different frontiers.
+- Law: `replayed` is the entry-level fold and holds the two gates the op-level fold structurally cannot: a dot already under the applied frontier skips as a redelivery, where content equality reports a second genuine edit of identical bytes as that same skip and loses it; and a `maintain` whose minter never observed the horizon it declares refuses, since reclaiming a tombstone a concurrent insert still needs resurrects a deleted element. Both gates read `OperationId`, so the arms below stay identity-free and a replica that drains ops without their ids keeps neither guarantee.
 - Entry: an `insert_after` naming a predecessor no arriving prefix defined is the fold's one refusal — the transport delivers an ordered prefix, so a gap is a defect rather than a normal out-of-order arrival, and inserting at the head instead would silently reorder the sequence every peer holds.
 - Growth: a new convergence family is one `CrdtState` column with its own absorb method and its arms' routing rows; a new op on a standing family is one arm and no column; a new tiebreak axis is one field on the family that needs it, reaching the fold through its own method.
 - Boundary: this owner materializes and never transports — the codec above owns the bytes, the clock owner the comparison algebra, and the durable op-log its own persistence. No column carries a wall-clock instant: ordering is the `Hlc` cell alone, so a host whose clock drifts still converges.
@@ -388,7 +447,7 @@ from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.shapes import WireU64
 
-# `CrdtArm` and its ten members are this module's [04]-[CRDT_CODEC] owners — one module, two declaration regions.
+# `CrdtArm`, its ten members, and `OpLogEntry` are this module's [04]-[CRDT_CODEC] owners — one module, two regions.
 
 # --- [CONSTANTS] --------------------------------------------------------------------------
 
@@ -484,17 +543,21 @@ class Rga(Struct, frozen=True):
 
 
 class PnCounter(Struct, frozen=True):
-    # per-origin buckets rather than one running total: summing on READ makes the fold order-insensitive, where a
-    # single accumulator would depend on delivery order the instant two origins interleave. The arm carries no id, so
-    # at-most-once delivery is the op-log's own content-keyed append and never a dedup this fold could perform.
-    buckets: Map[bytes, int] = Map.empty()
+    # per-origin CUMULATIVE halves under the producer's ordinal, not a running total: summing on READ makes the fold
+    # order-insensitive where a single accumulator depends on delivery order the instant two origins interleave, and
+    # absorbing by sequence makes it idempotent where a delta fold double-counts every redelivery.
+    buckets: Map[bytes, tuple[int, int, int]] = Map.empty()
 
-    def incremented(self, origin: bytes, delta: int) -> "PnCounter":
-        return PnCounter(buckets=self.buckets.add(origin, self.buckets.try_find(origin).default_value(0) + delta))
+    def incremented(self, origin: bytes, sequence: int, positive: int, negative: int) -> "PnCounter":
+        # highest ordinal per origin wins WHOLE: both halves are monotone at the producer, so a lower ordinal
+        # carries a prefix of what the held pair already absorbed and re-applying it walks the total backwards.
+        candidate = (sequence, positive, negative)
+        survivor = self.buckets.try_find(origin).map(lambda held: held if held[0] >= sequence else candidate).default_value(candidate)
+        return PnCounter(buckets=self.buckets.add(origin, survivor))
 
     @property
     def value(self) -> int:
-        return sum(self.buckets.values())
+        return sum(positive - negative for _, positive, negative in self.buckets.values())
 
 
 class EphemeralMap(Struct, frozen=True):
@@ -514,8 +577,18 @@ class EphemeralMap(Struct, frozen=True):
         )
         return EphemeralMap(beats=self.beats.remove(origin) if cleared.default_value(False) else self.beats)
 
-    def pruned(self, quiescent: Block[bytes]) -> "EphemeralMap":
-        return EphemeralMap(beats=Map.of_seq((origin, held) for origin, held in self.beats.items() if origin not in quiescent))
+    def pruned(self, quiescent: Block[bytes], horizon: int) -> "EphemeralMap":
+        # two retirement rules in one pass: a declared origin retires by name, and any beat whose physical half sits at
+        # or below the liveness horizon retires by age. The horizon is absolute on the producer's tick axis, so every
+        # replica compacts the identical set — a locally derived window prunes by whichever host clock read it and
+        # leaves two replicas holding different presence maps for the same prefix.
+        return EphemeralMap(
+            beats=Map.of_seq(
+                (origin, held)
+                for origin, held in self.beats.items()
+                if origin not in quiescent and held[1].physical_ticks > horizon
+            )
+        )
 
     def _survivor(self, origin: bytes, state: bytes, cell: Hlc) -> tuple[bytes, Hlc]:
         # the held beat survives only when it happened strictly after, read through the SAME `compare`/`fold` seam the
@@ -555,6 +628,42 @@ def _vector(context: list[tuple[bytes, WireU64]]) -> Map[bytes, int]:
     return Map.of_seq((origin, int(counter)) for origin, counter in context)
 
 
+def replayed(state: CrdtState, frontier: Map[bytes, int], entries: Block[tuple[OperationId, CrdtArm]]) -> RuntimeRail[tuple[CrdtState, Map[bytes, int]]]:
+    # entry-level fold, threading the applied frontier beside the state. Two gates the op-level fold cannot run: one
+    # dot already under the frontier is a REDELIVERY and skips — content equality would report a second genuine edit
+    # of identical bytes as that same skip and lose it — and a `maintain` whose minter never observed the horizon it
+    # declares refuses, since applying it reclaims a tombstone a concurrent insert still needs and resurrects a
+    # deleted element. Both gates read the id, which is exactly why the op carries one.
+    def stepped(
+        rail: RuntimeRail[tuple[CrdtState, Map[bytes, int]]], entry: tuple[OperationId, CrdtArm]
+    ) -> RuntimeRail[tuple[CrdtState, Map[bytes, int]]]:
+        identity, op = entry
+        return rail.bind(
+            lambda held: Ok(held)
+            if identity.applied(held[1])
+            else _admissible(identity, op).bind(
+                lambda _: _applied(held[0], op).map(lambda moved: (moved, _joined(held[1], identity.frontier)))
+            )
+        )
+
+    return entries.fold(stepped, Ok((state, frontier)))
+
+
+def _admissible(identity: OperationId, op: CrdtArm) -> RuntimeRail[None]:
+    return (
+        Error(BoundaryFault(boundary=("crdt.maintain", f"unobserved-horizon:{identity.origin.hex()}")))
+        if isinstance(op, MaintainOp) and not _dominates(identity.frontier, _vector(op.quiescent))
+        else Ok(None)
+    )
+
+
+def _joined(held: Map[bytes, int], advanced: Map[bytes, int]) -> Map[bytes, int]:
+    return Map.of_seq(
+        (origin, max(held.try_find(origin).default_value(0), advanced.try_find(origin).default_value(0)))
+        for origin in set(held.keys()) | set(advanced.keys())
+    )
+
+
 def converged(state: CrdtState, ops: Block[CrdtArm]) -> RuntimeRail[CrdtState]:
     # the ONE fold every replica materializes an op-log prefix through: each arm routes to its family's own absorb
     # method and the total `match` proves the ten arms are covered, so a new op kind breaks here at type-check rather
@@ -578,7 +687,7 @@ def _applied(state: CrdtState, op: CrdtArm) -> RuntimeRail[CrdtState]:
         case RemoveOp():
             return Ok(replace(state, observed=state.observed.removed(op.observed_tags)))
         case IncrementOp():
-            return Ok(replace(state, counter=state.counter.incremented(op.origin, op.delta)))
+            return Ok(replace(state, counter=state.counter.incremented(op.origin, op.sequence, op.positive, op.negative)))
         case InsertAfterOp():
             # the fold's ONE refusal: the transport delivers an ordered prefix, so an unknown predecessor is a gap in
             # that prefix rather than a normal out-of-order arrival, and head-inserting instead would reorder the
@@ -601,10 +710,12 @@ def _applied(state: CrdtState, op: CrdtArm) -> RuntimeRail[CrdtState]:
         case LeaveOp():
             return Ok(replace(state, presence=state.presence.left(op.origin, op.cell)))
         case MaintainOp():
-            # quiescence is a declaration a producer publishes, so the prune reads it as data: presence rows for
-            # settled origins retire and the sequence and set keep every tombstone, because a tombstone is what makes
-            # a redelivered add or insert stay dead and reclaiming it re-opens exactly that hole.
-            return Ok(replace(state, presence=state.presence.pruned(Block.of_seq(origin for origin, _ in op.quiescent))))
+            # quiescence and the liveness horizon are both declarations a producer publishes, so the prune reads them
+            # as data: presence rows for settled or expired origins retire and the sequence and set keep every
+            # tombstone, because a tombstone is what makes a redelivered add or insert stay dead and reclaiming it
+            # re-opens exactly that hole.
+            quiescent = Block.of_seq(origin for origin, _ in op.quiescent)
+            return Ok(replace(state, presence=state.presence.pruned(quiescent, op.liveness_ticks)))
         case _ as unreachable:
             assert_never(unreachable)
 ```

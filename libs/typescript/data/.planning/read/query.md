@@ -14,6 +14,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 - [03]-[READ_FAMILY]: the `SqlSchema` typed-query surface — arity in the combinator, one decode rail.
 - [04]-[RESOLVER_ROWS]: the `SqlResolver` batch rows — ordered, grouped, findById, void, the cache verbs.
 - [05]-[TABLE_BINDING]: `Query.Relation` and `Query.table` — identity, timing, and verbs on one owner.
+- [06]-[ORGANIZATION_ROWS]: model organization on the read side — entity relation, containment and view edge relations, resolver rows.
 
 ## [02]-[MODEL_FAMILY]
 
@@ -33,7 +34,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 ```typescript signature
 import { Schema } from "effect"
 import { Model } from "@effect/sql"
-import { AppIdentity, TenantContext } from "@rasm/ts/core"
+import { Identity } from "@rasm/ts/core"
 
 const _BoardState = Schema.Struct({
   // payload columns carry their own authority: consumers reach board.state.lanes typed, no second decode anywhere
@@ -43,8 +44,8 @@ const _BoardState = Schema.Struct({
 
 class Board extends Model.Class<Board>("Board")({
   id: Model.Generated(Schema.Number),
-  app: AppIdentity.fields.app,
-  tenant: TenantContext.fields.tenant,
+  app: Identity.App.fields.app,
+  tenant: Identity.Tenant.fields.tenant,
   cell: Schema.NonEmptyString,
   title: Schema.NonEmptyString.pipe(Schema.maxLength(200)),
   state: Model.JsonFromString(_BoardState),
@@ -65,14 +66,14 @@ class Board extends Model.Class<Board>("Board")({
 - Growth: a new read shape is one accessor with its own `Request`/`Result` pair — the statement varies, the law never does; a request axis (window, filter) is a `Request` field, never a sibling accessor.
 - Law: both edges decode — the `Request` schema proves input before the statement binds, the `Result` schema proves every `Connection.Row` before domain code sees it, and both misses ride `ParseError` on the one admission rail; a `String(row["col"])`/`Number(...)` cast beside a statement is the untyped read this family deletes.
 - Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on `Model.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/evolve.md`'s `Upcast.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
-- Law: the request schema carries the domain brand — a read keyed by `StreamKey` fields, `ContentKey`, or a tenant brand admits through the owning schema, so an unbranded string cannot address a keyed relation.
+- Law: each request key composes its owner schema; an unbranded string cannot address a keyed relation.
 
 ```typescript signature
 import { Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 
 const _Window = Schema.Struct({
-  app: AppIdentity.fields.app,
+  app: Identity.App.fields.app,
   floor: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   take: Schema.Number.pipe(Schema.int(), Schema.between(1, 500)),
 })
@@ -90,7 +91,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
     execute: (cell) => sql`SELECT * FROM board WHERE cell = ${cell}`,
   }),
   head: SqlSchema.single({
-    Request: AppIdentity.fields.app,
+    Request: Identity.App.fields.app,
     Result: Schema.Struct({ top: Schema.Number }),
     execute: (app) => sql`SELECT coalesce(max(id), 0) AS top FROM board WHERE app = ${app}`,
   }),
@@ -104,19 +105,23 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 ## [04]-[RESOLVER_ROWS]
 
 - Owner: the batch-resolver vocabulary — the four `SqlResolver` rows, the bind-once identity law, and the write-through cache verbs; the general non-SQL batching engine is `read/batch.md`'s and these rows are its SQL specialization, fused with the decode law.
-- Packages: `@effect/sql` (`SqlResolver.ordered`, `SqlResolver.grouped`, `SqlResolver.findById`, `SqlResolver.void`, `SqlError.ResultLengthMismatch`); `effect` (`Schema`, `Option`, `Effect`).
+- Packages: `@effect/sql` (`SqlResolver.ordered`, `SqlResolver.grouped`, `SqlResolver.findById`, `SqlResolver.void`; the row members `execute`, `makeExecute`, `cachePopulate`, `cacheInvalidate`; `SqlError.ResultLengthMismatch`); `@effect/experimental` (`RequestResolver.dataLoader`); `effect` (`Schema`, `Option`, `Effect`); `read/batch.md` (`Batch.Engine`).
 - Entry: `resolver.execute(input)` is the one call surface — every caller in a flow shares the bound resolver, so concurrent keyed reads collapse into one statement window; `Effect.withRequestCaching(true)` composed at the flow boundary deduplicates repeated keys across the whole graph, and the request-cache Layer is `lane/cache.md`'s `dedup` row.
 - Receipt: `cachePopulate(id, result)` seeds the resolver cache from a write's own returning row and `cacheInvalidate(id)` evicts on mutation — write-through coherence as resolver verbs, never a parallel cache map; the seed rides the write's own tap so a flow that inserts then reads never re-queries what it just proved.
 - Growth: a new keyed lookup is one resolver row; a one-to-many axis is `grouped`'s key pair, never a per-parent loop.
 - Law: row selection is the relation's answer shape — `ordered` for strict 1:1 position-matched batches where the statement echoes its inputs (`INSERT ... RETURNING` is the canonical form and `SqlError.ResultLengthMismatch` guards the integrity), `grouped` for 1:N regrouped by extracted key, `findById` for id-keyed `Option` lookups, `void` for batched writes; choosing `ordered` where the statement drops misses is the integrity fault the guard exists to surface — the `StreamHead` row rides `findById` for exactly this reason, because a stream with zero events is a lawful `Option.none` the caller folds to head zero, never a length mismatch.
 - Law: resolvers bind once at the owning service construction — batch windows group by resolver identity, so a resolver minted per call defeats the window structurally; the same law governs the fused accessors of `[3]`.
 - Law: the batch statement is one set-shaped query — `sql.in` over the window's keys, `GROUP BY`/window functions where the group row demands — never a per-request statement inside the resolver body.
+- Law: window geometry reaches a SQL row through `makeExecute` — every row IS a `RequestResolver`, so `read/batch.md`'s collapse geometries wrap the value and `makeExecute` re-binds the typed `execute` over the wrapped resolver; wrapping without it hands back a bare resolver over `SqlRequest` and forfeits the schema-proven call surface these rows exist to hold.
+- Law: the durable band stops at this provider — `SqlRequest` is a plain request carrying no payload, success, or failure schema, so the persisted geometry composes over `read/batch.md`'s declared families alone and a SQL lookup wanting restart-survival caches its decoded answer at the cache lane; a row promising persistence here needs a second request declaration beside the one the resolver already mints.
 - Boundary: the `StreamHead` row reads `journal_event` under `journal/append.md`'s published read contract — the columns it touches are the append page's declared evidence surface, the repository ban holds, and the fused resolver wins here because the provider IS the database.
 
 ```typescript signature
 import { Effect, Option, Schema } from "effect"
+import { RequestResolver as Experimental } from "@effect/experimental"
 import { SqlResolver } from "@effect/sql"
 import { Journal, StreamKey } from "../journal/append.ts"
+import type { Batch } from "./batch.ts"
 
 const _resolverRows = (sql: SqlClient.SqlClient) => ({
   boards: SqlResolver.findById("BoardByCell", {
@@ -162,6 +167,15 @@ const _grown = (resolvers: _Resolvers, draft: typeof Board.insert.Type) =>
 
 const _retired = (resolvers: _Resolvers, cell: Board["cell"]) =>
   Effect.zipRight(resolvers.touch.execute(cell), resolvers.boards.cacheInvalidate(cell)) // mutation evicts: the next read re-proves against the relation
+
+// Realizing the `board` lane of `read/batch.md`'s census: geometry wrapping answers a bare resolver over
+// `SqlRequest`, so `makeExecute` re-binds the typed call surface on top of it — the collapse window widens to the
+// wall clock and the decode contract does not move.
+const _windowed = (resolvers: _Resolvers, engine: Batch.Engine) =>
+  Effect.map(
+    Experimental.dataLoader(resolvers.boards, { window: engine.window, maxBatchSize: engine.width }),
+    (wrapped) => resolvers.boards.makeExecute(wrapped),
+  )
 ```
 
 ## [05]-[TABLE_BINDING]
@@ -255,7 +269,138 @@ const Query = {
 export { Query }
 ```
 
-## [06]-[RESEARCH]
+## [06]-[ORGANIZATION_ROWS]
+
+- Owner: model organization as read-side relations — `Organization.Entity` the addressed entity row carrying label, sibling ordinal, resolved visibility and locking, and its container address; `organization_member` and `organization_view` the two one-to-many edge relations reached through grouped resolvers. `Organization.rows` binds the entity relation through `Query.table` and settles both edge resolvers beside it.
+- Packages: `@effect/sql` (`Model.Class`, `Model.fields`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`); `effect` (`Schema`, `Duration`); `lane/capability.md` (`Capability.Ensure`).
+- Entry: `Organization.rows(window)` inside the owning service build; callers reach entities through the bound repository and the four grouped resolvers, so a subtree walk collapses into one statement window per level.
+- Law: `address` is the ENTITY key and `member` a FEDERATION key the producing authority issued, so the two never share a column. Nesting rides `container` on the entity row because an entity has exactly one container, while membership and view overrides are the genuine one-to-many axes and earn their own relations.
+- Law: content-key columns carry the lowercase hex face this branch already reads, so a join against any peer's address lowers and never uppercases; the producer's 16 big-endian bytes lower exactly once, at the core landing this page consumes.
+- Law: sibling rank is the producer's DENSE `ordinal`, so `ORDER BY ordinal` reproduces the source order without a second comparison, and no client re-breaks a tie the producer already resolved.
+- Law: the edge relations take NO repository — they carry no independent identity and mutate only through the organization lane's whole-source replacement, which is exactly the posture the journal relations hold.
+- Boundary: rows arrive decoded from the wire and this page derives nothing — no address minted, no ordinal recomputed, no container inferred from a label chain, and no host handle anywhere in the schema.
+- Growth: one appended wire field is one column here and one row in the lane's projection; a new containment relation is one `kind` value beside one resolver row.
+
+```typescript signature
+import { Duration, Schema } from "effect"
+import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
+import type { Capability } from "../lane/capability.ts"
+import { Query } from "./query.ts"
+
+// Identifier evidence derives from the relation owner over page-authored literals, so all three names are total by
+// construction and no caller-derived string reaches an identifier position.
+const _ident = Schema.decodeSync(Query.Relation.fields.table)
+const _ENTITY = _ident("organization_entity")
+const _MEMBER = _ident("organization_member")
+const _VIEW = _ident("organization_view")
+
+const _Address = Schema.NonEmptyString.pipe(Schema.pattern(/^[0-9a-f]{32}$/), Schema.brand("OrgAddress"))
+
+class _Entity extends Model.Class<_Entity>("Organization.Entity")({
+  address: _Address,
+  source: _Address,
+  authority: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  ordinal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  container: Model.FieldOption(_Address),
+  visible: Model.BooleanFromNumber,
+  locked: Model.BooleanFromNumber,
+  folded_at: Model.DateTimeInsert,
+}) {}
+
+// Contained children re-anchor on `Model.fields` with `container` re-typed non-optional, because the statement's own
+// predicate proves presence: reading the model's `Option` here forces a group key to unwrap a value the WHERE clause
+// already guaranteed, and unwrapping by throw is the exception path this engine deletes.
+const _Child = Schema.Struct({ ...Model.fields(_Entity), container: _Address })
+
+// Edge relations carry no independent identity, so they take resolvers and no repository: an organization read
+// replaces a source's whole edge set, never one row. `member` and `view` stay unbranded strings because the
+// producing authority issues them — branding either here claims a grammar no peer promised.
+const _resolverRows = (sql: SqlClient.SqlClient) => ({
+  // one grouped row answers a whole level, so a depth-first walk pays one statement window per level, never per parent
+  children: SqlResolver.grouped("OrganizationChildren", {
+    Request: _Address,
+    RequestGroupKey: (address) => address,
+    Result: _Child,
+    ResultGroupKey: (row) => row.container,
+    execute: (containers) =>
+      sql`SELECT * FROM ${sql(_ENTITY)} WHERE ${sql.in("container", containers)} ORDER BY container, ordinal`,
+  }),
+  roots: SqlResolver.grouped("OrganizationRoots", {
+    Request: _Address,
+    RequestGroupKey: (source) => source,
+    Result: _Entity,
+    ResultGroupKey: (row) => row.source,
+    execute: (sources) =>
+      sql`SELECT * FROM ${sql(_ENTITY)} WHERE ${sql.in("source", sources)} AND container IS NULL ORDER BY ordinal`,
+  }),
+  members: SqlResolver.grouped("OrganizationMembers", {
+    Request: _Address,
+    RequestGroupKey: (address) => address,
+    Result: Schema.Struct({ address: _Address, member: Schema.NonEmptyString }),
+    ResultGroupKey: (row) => row.address,
+    execute: (addresses) =>
+      sql`SELECT address, member FROM ${sql(_MEMBER)} WHERE ${sql.in("address", addresses)} ORDER BY member`,
+  }),
+  views: SqlResolver.grouped("OrganizationViews", {
+    Request: _Address,
+    RequestGroupKey: (address) => address,
+    Result: Schema.Struct({ address: _Address, view: Schema.NonEmptyString, visible: Model.BooleanFromNumber }),
+    ResultGroupKey: (row) => row.address,
+    execute: (addresses) =>
+      sql`SELECT address, view, visible FROM ${sql(_VIEW)} WHERE ${sql.in("address", addresses)}`,
+  }),
+})
+
+// Whole-source roster: the lane replaces a source's projection as one unit, so its diff reads every address the
+// prior fold landed rather than probing per entity.
+const _reads = (sql: SqlClient.SqlClient) => ({
+  roster: SqlSchema.findAll({
+    Request: _Address,
+    Result: Schema.Struct({ address: _Address }),
+    execute: (source) => sql`SELECT address FROM ${sql(_ENTITY)} WHERE source = ${source}`,
+  }),
+})
+
+const _ddl: Capability.Ensure = {
+  relation: _ENTITY,
+  pg: `CREATE TABLE IF NOT EXISTS organization_entity (
+    address TEXT PRIMARY KEY, source TEXT NOT NULL, authority TEXT NOT NULL, name TEXT NOT NULL,
+    ordinal INTEGER NOT NULL, container TEXT, visible BOOLEAN NOT NULL, locked BOOLEAN NOT NULL,
+    folded_at TIMESTAMPTZ NOT NULL DEFAULT now());
+  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, ordinal);
+  CREATE TABLE IF NOT EXISTS organization_member (
+    address TEXT NOT NULL, member TEXT NOT NULL, PRIMARY KEY (address, member));
+  CREATE TABLE IF NOT EXISTS organization_view (
+    address TEXT NOT NULL, view TEXT NOT NULL, visible BOOLEAN NOT NULL, PRIMARY KEY (address, view));`,
+  sqlite: `CREATE TABLE IF NOT EXISTS organization_entity (
+    address TEXT PRIMARY KEY, source TEXT NOT NULL, authority TEXT NOT NULL, name TEXT NOT NULL,
+    ordinal INTEGER NOT NULL, container TEXT, visible INTEGER NOT NULL, locked INTEGER NOT NULL,
+    folded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, ordinal);
+  CREATE TABLE IF NOT EXISTS organization_member (
+    address TEXT NOT NULL, member TEXT NOT NULL, PRIMARY KEY (address, member));
+  CREATE TABLE IF NOT EXISTS organization_view (
+    address TEXT NOT NULL, view TEXT NOT NULL, visible INTEGER NOT NULL, PRIMARY KEY (address, view));`,
+}
+
+const _rows = (window: Duration.Duration) =>
+  Query.table(_Entity, {
+    relation: new Query.Relation({ table: _ENTITY, spanPrefix: "organization", window }),
+    id: "address",
+    ensure: _ddl,
+    reads: _reads,
+    resolvers: _resolverRows,
+  })
+
+const Organization = { Entity: _Entity, Address: _Address, rows: _rows } as const
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Organization }
+```
+
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

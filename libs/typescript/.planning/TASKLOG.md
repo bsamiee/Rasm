@@ -20,11 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[FOLDER_INTERNAL_SPINE_DIAGRAMS]-[QUEUED]: Every folder `ARCHITECTURE.md` renders its interior flow, so the crossing law reads as a graph beside its prose.
-- Capability: each package's `[04]-[INTERNAL]` carries the archetype flowchart its own subsystem spine earns — entry, transform, egress with edge labels naming the carried fact — so a cold reader derives interior order from the map instead of reconstructing it from paragraph clauses; the branch tier already renders both of its spines and the folder tier alone lags.
-- Shape: one `[04]-[INTERNAL]` flowchart per genuine spine on each of the six `libs/typescript/<pkg>/ARCHITECTURE.md` files, seated above the existing crossing-law prose.
-- Unlocks: the folder tier reaches the shape owner's full `[04]` contract, and every interior seating decision has a diagram to contradict.
-- Anchors: `.claude/skills/docgen/templates/architecture.template.md` INTERNAL archetype and its one-fence-per-spine rule; `libs/typescript/.planning/ARCHITECTURE.md` `[04]-[INTERNAL]`, the branch-grain exemplar; each folder's landed `[02]-[STRATA]` fence supplying the owner roster.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -33,9 +29,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [VARIANT_FAMILY_CENSUS]-[COMPLETE]: the census resolves the adoption question rather than opening it — `@effect/sql` `Model.Class` IS `VariantSchema.make` over the `select`/`insert`/`update`/`json`/`jsonCreate`/`jsonUpdate` variant set, so every relation family already derives (`data/read/query.md`, `data/journal/append.md`, `data/journal/retain.md`) and a bespoke `VariantSchema.make` earns a seat only where the variant axis is NOT the SQL one; the branch catalogue now carries the full constructor surface so the next adopter reads it there.
-[SIGNAL_PLANE_CLOSURE]-[COMPLETE]: spellings reconcile across the five legs — meter `Pulse.Board` projects through the app deploy-feed into iac's `runtime.pulse` pack row, the mirror-less direct `Pulse.Board` seam is absent, and tap labels align; `Convention` and `AppIdentity` rule every leg, while uncataloged Foundation panel members remain explicit terminal research rather than confirmed claims.
-[TAP_GRAMMAR_CONFORMANCE]-[COMPLETE]: every data point name re-proves the core `TapPoint` brand through `Tap.point` mints in `data/journal/append#HOOK_POINTS`; seam edges landed with identical `[KIND]` labels — `[SHAPE]: Tap.Registry` at data/ui/security↔runtime, `[SHAPE]: Tap.Point` at core↔data and core↔iac.
-[EXTERNAL_SPAN_CONTINUATION]-[COMPLETE]: HTTP, NATS, Kafka, MQTT, Connect, and CloudEvents cross core `Carrier.extract`/`inject` rows; `runtime/otel/emit#CONTINUATION` scopes scrubbed context through `Carrier.Current`, continues `Tracer.ExternalSpan`, and exposes the carried live context to every egress; `Journal.carrier` restores `rasmtenant` as `rasm.tenant` baggage.
+[FOLDER_INTERNAL_SPINE_DIAGRAMS]-[COMPLETE]: every folder architecture carries its owner flow from ingress through transformation to egress.
+[SIGNAL_PLANE_CLOSURE]-[COMPLETE]: the five legs compose core `Convention` and `Identity.App`; runtime pulse feeds IaC boards without a mirror rail.
+[TAP_GRAMMAR_CONFORMANCE]-[COMPLETE]: data sends its `Tap.Registry` to runtime; UI Hook and security Audit compose core Tap in folder-owned registries; IaC stays outside Tap.
+[EXTERNAL_SPAN_CONTINUATION]-[COMPLETE]: every transport composes `Carrier.extract`/`inject`; `Journal.carrier` restores `Identity.Tenant.scope` through `Convention.rasm.tenant`.
 [OTEL_SUBSTRATE_HOMING]-[COMPLETE]: `@effect/opentelemetry` demoted out of the branch substrate tier as a single-consumer package — branch registry row and branch catalogue removed; the runtime folder registry and `runtime/.api/` own the package and its catalogue.
 [PLATFORM_BINDING_ROWS]-[COMPLETE]: branch substrate registry enumerates the `-node`/`-bun`/`-browser` binding rows, matching the branch catalogues and the folder registries.
 [SEAM_REGISTRY_MERMAID]-[COMPLETE]: branch `[03]-[SEAMS]` renders as the kinded Mermaid seam registry, folder mirrors spelling the C# endpoint contracts verbatim.

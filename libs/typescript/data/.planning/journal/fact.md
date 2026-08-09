@@ -2,19 +2,19 @@
 
 Durable fact journal: audit evidence and usage metering as rows of ONE polymorphic `Fact` family draining through ONE buffered rail into ONE stream-discriminated table. `AuditFact` owns the actor/action/target vocabulary with typed diff evidence as a closed change family, `MeterFact` the `(app, tenant)`-keyed quantity against the closed resource vocabulary; both take their identity and their causal stamp on the rail and age under `journal/retain.md`'s retention classes — no second retention vocabulary exists.
 
-Journal append is the system of record — a missing metric point is a dashboard gap, a missing journal row is an evidence or billing defect — so appends retry unbounded, content identity makes that retry safe, and the rail-stamped `Hlc` orders the stream over any database clock or sequence. Nothing sheds: back-pressure suspends the writer, shutdown flushes the offered window, and what a dead database refuses stays on the unlanded roster. Rating is exact end to end, an integral `bigint` total lifting into `BigDecimal`, and the engine-level session audit runs beside this stream.
+Journal append is the system of record — a missing metric point is a dashboard gap, a missing journal row is an evidence or billing defect — so appends retry unbounded, content identity makes that retry safe, and the rail-stamped `Clock.Hlc` orders the stream over any database clock or sequence. Nothing sheds: back-pressure suspends the writer, shutdown flushes the offered window, and what a dead database refuses stays on the unlanded roster. Rating is exact end to end, an integral `bigint` total lifting into `BigDecimal`, and the engine-level session audit runs beside this stream.
 
 ## [01]-[INDEX]
 
 - [02]-[FACT_FAMILY]: closed `Fact` union — audit row, meter row, change family, resource table.
 - [03]-[JOURNAL_ROW]: stream-discriminated ensure, idempotent batch append, retention grooming.
 - [04]-[RATING]: rollup as a keyed fold and rating as exact `BigDecimal` policy evaluation.
-- [05]-[RAIL]: one buffered service — polymorphic record, stamped identity, bounded drain with its lossless close and unlanded roster, audit-port projection.
+- [05]-[RAIL]: one buffered service — polymorphic record, stamped identity, bounded drain with its lossless close and its owed/refused rosters, audit-port projection.
 
 ## [02]-[FACT_FAMILY]
 
 - Owner: `AuditFact` and `MeterFact` — two `Schema.TaggedClass` rows of the closed `Fact` union; the `Change` diff family; the subject-and-sealed erasure pair every subject-bearing fact carries; the `_resources` table carrying each metered resource's unit and its metric-egress tenancy posture.
-- Packages: `effect` (`Schema`, `Duration`); `@rasm/ts/core` (`AppIdentity`, `Hlc`, `TenantContext`); `journal/retain.md` (`Retain.Class` — the one retention vocabulary).
+- Packages: `effect`, core `Identity.App`, `Identity.Tenant`, `Clock.Hlc`, and `Retain.Class` supply values and rails.
 - Growth: a new evidence kind is one `Change` case with its arm in consumers' folds; a new metered resource is one `_resources` row with its rating rate row; a new fact stream is one more tagged member of the union — the table, the rail, and the grooming inherit it.
 - Law: diff evidence is the closed `Change` family — `Assigned { path, next }`, `Shifted { path, prior, next }`, `Cleared { path, prior }` — with `path` a JSON-pointer-shaped brand; a free-form details bag is the rejected shape because policy cannot fold what it cannot type.
 - Law: the audit `action` brand is the dotted verb path — pattern-refined at the field so the vocabulary stays greppable and dashboard-groupable without a central verb registry; attribute NAMES live on the observability convention owner, the fact SHAPE lives here, and the drain's own fan is what makes the verb groupable on a series rather than on a log search alone.
@@ -23,13 +23,13 @@ Journal append is the system of record — a missing metric point is a dashboard
 - Law: retention is `Retain.Class` — an audit fact references the class its policy demands (`regulatory` for compliance evidence, `operational` for routine trails), a meter fact is `regulatory` by constitution because it is billing truth; the retain grooming enforces the windows, this family only carries the key.
 - Law: erasure rides the subject pair, never the diff family — an identifying value seals under the subject's data key and lands in `sealed` while `subject` carries the custody coordinate, so destroying that key redacts the identifier and leaves the verb, the actor class, the target, and the instant queryable; a subject spelled into a `Change` value survives erasure in plaintext, which is the defect this pair forecloses.
 - Law: meter quantities are integral AND safe by schema — count, milliseconds, bytes, tokens, each bounded at `Number.MAX_SAFE_INTEGER` — so the `BigInt` lift in rating is provably exact per row; a fractional need is a smaller unit row, never a decimal quantity, and a magnitude past the safe ceiling refuses at the writer rather than arriving as a rounded double.
-- Law: `stamp` is the one ORDERING coordinate the family carries and the rail is its sole mint — an `Hlc` whose physical half is epoch millis and whose logical half ticks per fact, so two facts minted inside one millisecond stay distinct, the stream sorts on a coordinate no database clock supplies, and the wall instant recovers exactly through `Hlc.physicalOf`. Caller-threaded stamps let two producers mint one content key and dedup genuine evidence away as a redelivery, so the field carries no draft column; `occurred` is the separable half a producer that lane-queued its record before offering it carries, and it never orders, groups, or settles anything.
-- Law: identity fields ride the core brand anchors — `app` from `AppIdentity.fields.app`, `tenant` as `Option`-carried `TenantContext.fields.tenant` — so tenancy never travels as a bare string and an unattributed fact records absence, never forged tenancy.
+- Law: the rail alone mints each `Clock.Hlc`; its physical half records epoch ticks on the shared layout unit and its logical half distinguishes same-tick facts.
+- Law: app and optional tenant fields compose `Identity.App.fields.app` and `Identity.Tenant.fields.tenant`; no bare string enters.
 - Receipt: the encoded twins derive (`typeof AuditFact.Encoded`, `typeof MeterFact.Encoded`) — the row shapes the journal persists and downstream rollups read; no hand wire twin exists.
 
 ```typescript signature
 import { Schema } from "effect"
-import { AppIdentity, Hlc, TenantContext } from "@rasm/ts/core"
+import { Clock, Identity } from "@rasm/ts/core"
 import { SealedEnvelope } from "@rasm/ts/security"
 import { Retain } from "./retain.ts"
 
@@ -61,7 +61,7 @@ const _Quantity = Schema.Int.pipe(Schema.between(0, Number.MAX_SAFE_INTEGER))
 class AuditFact extends Schema.TaggedClass<AuditFact>()("AuditFact", {
   action: _Action,
   actor: Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(..._ACTORS) }),
-  app: AppIdentity.fields.app,
+  app: Identity.App.fields.app,
   change: Schema.Array(Change),
   // Upstream occurrence instant, where a producer sealed one: the rail's stamp is an ADMISSION coordinate, so a
   // record that queued behind a saturated lane before reaching it dates to the drain and not to its own event.
@@ -72,24 +72,24 @@ class AuditFact extends Schema.TaggedClass<AuditFact>()("AuditFact", {
   // custody ledger keys on and `sealed` the ciphertext its data key opens, so destroying that key redacts the
   // identifier while the append-only row and its verb, actor class, and target stay queryable forever.
   sealed: Schema.optionalWith(SealedEnvelope, { as: "Option" }),
-  stamp: Hlc,
+  stamp: Clock.Hlc,
   subject: Schema.optionalWith(Retain.Subject, { as: "Option" }),
   target: Schema.Struct({
     key: Schema.NonEmptyString,
     kind: Schema.NonEmptyString,
     parent: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   }),
-  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
+  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   trace: Schema.optionalWith(Schema.String, { as: "Option" }),
 }) {}
 
 class MeterFact extends Schema.TaggedClass<MeterFact>()("MeterFact", {
-  app: AppIdentity.fields.app,
+  app: Identity.App.fields.app,
   quantity: _Quantity,
   resource: Schema.Literal(..._RESOURCES),
-  stamp: Hlc,
+  stamp: Clock.Hlc,
   surface: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
+  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
 }) {
   get unit(): string {
     return _resources[this.resource].unit
@@ -118,12 +118,13 @@ declare namespace Fact {
 - Law: `ON CONFLICT (app, key) DO NOTHING … RETURNING key` makes the landing self-accounting — the statement is atomic and admits exactly two outcomes per offered row, so the returned keys partition the offered pairs into `accepted` and `duplicate` and no third state remains for a short write to hide in. Both halves carry their facts rather than tallies, because the drain projects the accepted half and tags the duplicate half by stream; one merged number claims zero redelivery, and zero redelivery is what a wedged retry re-offering one window forever looks like from the drain's own series.
 - Law: `stamp_physical` and `stamp_logical` lift the causal coordinate out of the opaque payload because every settlement, ordering, and grooming predicate reads it — `recorded_at` stays the durability stamp alone and no query predicates on it, so a row landing hours late under a dead database still settles in the period its fact occurred in.
 - Law: the tenant column mirrors the fact's tenancy for RLS predication — the ensure registers `Tenancy.rls("fact_journal")` like every tenant-carrying relation, so the registration is structural rather than a scope-dependent option, and an absent tenant stores NULL, visible to operators only.
-- Law: rowing and appending are SEPARATE rails because their faults have opposite lifetimes — `_rowed` fails only on encode, which a constructed member cannot reach, while `_append` fails only on `SqlError`, which is transient by definition. Splitting them is what lets the drain retry the append without bound and still stay total: one shared rail seats a permanent fault under an unbounded schedule and wedges every later fact behind one row no database can ever accept.
+- Law: rowing and appending are SEPARATE rails because their faults have opposite lifetimes — `_rowed` fails only on encode, which a constructed member cannot reach, while `_append` fails only on `SqlError`. Splitting them is what lets the drain retry the append and still stay total: one shared rail seats a permanent fault under an unbounded schedule and wedges every later fact behind one row no database can ever accept.
+- Law: `SqlError` is NOT uniformly transient, so the schedule reads it — a missing relation, a violated constraint, and an over-long value are refusals no wait resolves, and a schedule that retries every fault alike rebuilds the exact wedge the rail split exists to prevent, one layer up and out of sight. `Journal.signal` is the one classifier, the retry gates on it, and a `refused` batch leaves the owed roster for the refused one so the drain proceeds to the next window with the refusal readable rather than spinning on it forever.
 
 ```typescript signature
 import { Array, Effect, HashSet, Option, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { type ContentKey, Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenancy } from "../lane/tenant.ts"
 
@@ -132,12 +133,12 @@ declare namespace Fact {
   // for dedup, the causal halves for ordering and settlement, the class for grooming, the subject for DSAR — so a
   // billing window is an index read rather than a per-row decode wearing a pushdown's name.
   type Row = {
-    readonly app: AppIdentity.Key
-    readonly key: ContentKey
+    readonly app: Identity.App.Key
+    readonly key: Digest.Key<"content">
     readonly payload: string
     readonly retention: Retain.Class
-    readonly stamp_logical: Hlc.Logical
-    readonly stamp_physical: Hlc.Physical
+    readonly stamp_logical: Clock.Hlc.Logical
+    readonly stamp_physical: Clock.Hlc.Physical
     readonly stream: _FactValue["_tag"]
     readonly subject: string | null
     readonly tenant: string | null
@@ -148,6 +149,9 @@ declare namespace Fact {
   // count satisfies neither, and one merged tally claims zero redelivery.
   type Pair = { readonly fact: _FactValue; readonly row: Row }
   type Landing = { readonly accepted: ReadonlyArray<Pair>; readonly duplicate: ReadonlyArray<Pair> }
+  // `owed` and `refused` are two different debts and an operator answers them differently: an owed row waits on a
+  // database that may still come back, a refused one waits on a human. One roster holding both reports neither.
+  type Refusal = { readonly pair: Pair; readonly detail: string }
 }
 
 const _factDdl: Capability.Ensure = {
@@ -232,30 +236,30 @@ const _append = (
 ## [04]-[RATING]
 
 - Owner: the rollup fold, the bound window read, and the rating evaluation — `rollup` is ONE entry whose modality is the input shape: a row array folds pure through `HashMap.modifyAt` over `(app, tenant, resource)` tuples accumulating `{ count, total }`, a `Fact.Window` value reads the meter stream through `_meters` — the one decoded windowed SELECT this page owns, so no billing consumer hand-mints SQL against `fact_journal` — then runs the same fold; `rate` folds a caller-supplied rating policy over the rolled aggregates into exact per-key cost.
-- Packages: `effect` (`Array`, `BigDecimal`, `Data`, `HashMap`, `Option`); `@rasm/ts/core` (`Hlc` — the settlement coordinate); `@effect/sql` (`SqlSchema` — the window read); `journal/evolve.md` (`Upcast.json` — the dialect-honest payload decode).
+- Packages: `effect`, `SqlSchema`, `Clock.Hlc`, and `Upcast.json` supply exact folds, window reads, time, and payload decode.
 - Entry: `Fact.rollup(facts)` over rows in hand, `Fact.rollup(window)` over a billing period read from the journal; `Fact.rate(rolled, rating)` at settlement; the at-scale replication of these windows into the OLAP lane is `lane/olap.md`'s ingestion row.
 - Growth: a new charge model (tiered, floor, minimum) is one field on the rating row read inside `rate` — never a second rating function.
 - Law: rates are caller-supplied policy — a `Rating` record keyed by the resource union, each row a `BigDecimal` unit price with its currency — because prices are app policy, never lib constants; the shape closes over the derived union, so a missing rate row is a compile error at the policy literal.
 - Law: the accumulator is `bigint`, not a JS number — a `number` total silently rounds past 2^53, and `BigInt` accepts that rounded double without complaint, so the exact-arithmetic law dies in the fold rather than at the multiply where the page states it. Each quantity lifts exactly under the schema's safe-integer ceiling, the sum stays exact at any magnitude, and `BigDecimal.make(total, 0)` is a widening rather than a conversion.
 - Law: cost arithmetic is exact end to end — the integral total lifts through `BigDecimal.make(bigint, 0)`, multiplies against the rate row, and rounds `half-even` at scale 4 exactly once at the terminal — a float never touches money and rounding never happens mid-fold, which is the sibling `python:runtime/observability/journal#RATING` law spelled in this branch's types.
-- Law: `_meters` predicates on `stamp_physical`, the coordinate the RAIL minted, never on `recorded_at` — a database write clock is a durability fact, and settling on it files every retry-delayed row into whichever period its landing fell in, a misattribution no later query recovers because the true instant survives only inside the payload. `Hlc.physicalOf` is the one crossing from the wall-clock instants a settlement names into that coordinate, so window bound and row stamp share one time base by construction.
+- Law: `_meters` filters on rail-minted `stamp_physical`; `Clock.Hlc.physicalOf` places settlement bounds on the same axis.
 - Law: aggregates merge by the component-wise additive fold — associative by construction, so window rollups fuse across drains and a billing period is a fold over persisted window aggregates.
 
 ```typescript signature
 import { Array, BigDecimal, Data, DateTime, HashMap, Option, type ParseResult } from "effect"
 import { SqlSchema } from "@effect/sql"
-import { Hlc } from "@rasm/ts/core"
+import { Clock } from "@rasm/ts/core"
 import { Upcast } from "./evolve.ts"
 
 declare namespace Fact {
-  type Key = readonly [app: AppIdentity.Key, tenant: Option.Option<TenantContext.Key>, resource: Resource]
+  type Key = readonly [app: Identity.App.Key, tenant: Option.Option<Identity.Tenant.Key>, resource: Resource]
   // `total` is `bigint` because it is money's preimage: a `number` sum rounds past 2^53 and `BigInt` widens that
   // rounded double without complaint, so the exactness the rating law claims has to hold in the ACCUMULATOR.
   type Aggregate = { readonly count: number; readonly total: bigint }
   type Rate = { readonly currency: string; readonly per: BigDecimal.BigDecimal }
   type Rating = { readonly [R in Resource]: Rate }
   type Cost = { readonly amount: BigDecimal.BigDecimal; readonly currency: string }
-  type Window = { readonly app: AppIdentity.Key; readonly from: DateTime.Utc; readonly to: DateTime.Utc }
+  type Window = { readonly app: Identity.App.Key; readonly from: DateTime.Utc; readonly to: DateTime.Utc }
 }
 
 const _fused = (left: Fact.Aggregate, right: Fact.Aggregate): Fact.Aggregate => ({
@@ -269,12 +273,12 @@ const _fused = (left: Fact.Aggregate, right: Fact.Aggregate): Fact.Aggregate => 
 const _meters = (window: Fact.Window) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     SqlSchema.findAll({
-      Request: Schema.Struct({ app: AppIdentity.fields.app, from: Schema.DateTimeUtc, to: Schema.DateTimeUtc }),
+      Request: Schema.Struct({ app: Identity.App.fields.app, from: Schema.DateTimeUtc, to: Schema.DateTimeUtc }),
       Result: Schema.Struct({ payload: Upcast.json(MeterFact) }),
       execute: (bounds) =>
         sql`SELECT payload FROM fact_journal
             WHERE stream = 'MeterFact' AND app = ${bounds.app}
-              AND stamp_physical >= ${Hlc.physicalOf(bounds.from)} AND stamp_physical < ${Hlc.physicalOf(bounds.to)}`,
+              AND stamp_physical >= ${Clock.Hlc.physicalOf(bounds.from)} AND stamp_physical < ${Clock.Hlc.physicalOf(bounds.to)}`,
     })(window).pipe(Effect.map(Array.map((row) => row.payload))))
 
 const _folded = (facts: ReadonlyArray<MeterFact>): HashMap.HashMap<Fact.Key, Fact.Aggregate> =>
@@ -315,17 +319,18 @@ const _rate = (
 
 ## [05]-[RAIL]
 
-- Owner: the `Fact` service — a Layer factory over the app's `AppIdentity` (`Fact.Default(identity)`), holding one bounded intake, one scoped drain fiber, one stamp cell, and one unlanded roster; `record` is the ONE entrypoint, modal over its input — an audit draft, a meter charge, or a proven-non-empty batch of either — discriminated on the value, never a sibling per stream; `Fact.audits` satisfies the security `AuditJournal` port by projecting each record through the `_AUDITED` row table onto that same entrypoint.
-- Packages: `effect` (`Effect.Service`, `Layer`, `Mailbox`, `Fiber`, `Stream`, `Chunk`, `Schedule`, `Metric`, `Ref`, `HashMap`, `DateTime`, `Option`, `Predicate`, `Record`, `Array`, `Schema`); `@effect/sql` (`SqlClient`); `@rasm/ts/core` (`Convention` — the metric and attribute name rows; `Hlc` — the stamp algebra; `ContentKey` — the roster key); `@rasm/ts/security` (`AuditFault`, `AuditJournal`, `AuditRecord`, `SecurityFact`, `Shredder`); `./retain.ts` (`Retain.seal`, `SubjectKey`).
-- Entry: `Fact.record(draft)` for evidence, `Fact.record(charge)` for usage, `Fact.record(batch)` for either in bulk; `Fact.close` is the lossless shutdown a root awaits before its scope falls; `Fact.pending` reads the rows the plane still owes; wiring is `Fact.Default(identity)` provided a scope's `SqlClient` at the root.
+- Owner: `Fact.Default(identity)` binds one intake, drain fiber, `Clock.Hlc` cell, and the owed/refused roster pair behind polymorphic `record`.
+- Packages: `effect`, SQL, core `Convention`, `Clock.Hlc`, `Digest.Key`, security audit ports, and retention custody supply the rail.
+- Entry: `Fact.record(draft)` for evidence, `Fact.record(charge)` for usage, `Fact.record(batch)` for either in bulk; `Fact.close` is the lossless shutdown a root awaits before its scope falls; `Fact.pending` reads the rows the plane still owes and `Fact.refused` the rows no retry will land; wiring is `Fact.Default(identity)` provided a scope's `SqlClient` at the root.
 - Growth: a new stamped dimension is one line in the stamp; a new drain posture is one `_FLOW` field; a new fact stream extends the union and the discriminant fold, nothing else.
-- Law: the service stamps what the caller must not control — `app` from the identity, `stamp` from the rail's own `Hlc` successor cell, tenancy resolved pinned-first so a single-tenant process overrides the draft's key; construction runs the schema filters, so a malformed draft fails the writer, never the drain.
-- Law: `Ref<Hlc>` ticked under `Ref.modify` is the stamp cell, so two fibers recording inside one millisecond take distinct successors — an unsynchronized read-modify-write mints one stamp twice, and two facts sharing a stamp share a content key and dedup genuine evidence away as a redelivery. Wall readings enter as `Hlc.physicalOf(now)` and `Hlc.tick` owns the rest, so the branch's one stamp algebra governs and this rail spells none of it.
+- Law: the service stamps app and `Clock.Hlc`, resolves pinned tenancy first, and rejects malformed drafts before intake.
+- Law: `Ref<Clock.Hlc>` ticks through `Ref.modify`; `Clock.Hlc.physicalOf` admits wall readings and `Clock.Hlc.tick` mints successors.
 - Law: drafts are derived schema projections, never hand-declared patches — `Fact.AuditDraft`/`Fact.Charge` re-anchor on the owning field records through `omit("_tag", "app", "stamp")`, then `Schema.attachPropertySignature` restores the decoded family tag without requiring it on encoded ingress; the family's `Option`-carried tenancy survives untouched, the union stays discriminated even when future members acquire overlapping fields, and an edge-arriving draft decodes through the owning projection before it reaches `record`.
-- Law: the drain never load-sheds — evidence and billing truth suspend under backpressure and retry unbounded; egress quota belongs to the correctness-adjacent replication seams (`lane/olap.md`'s `ingest`), never to this rail.
+- Law: the drain never load-sheds — evidence and billing truth suspend under backpressure and retry every resolvable signal without bound; a refused batch parks as readable evidence rather than shedding, and egress quota belongs to the correctness-adjacent replication seams (`lane/olap.md`'s `ingest`), never to this rail.
 - Law: the intake is a `Mailbox` under the `suspend` strategy, never a `Queue`, because `end` is the only lossless stop this branch has — a consumer signalled done still drains the messages already offered, where `Queue.shutdown` cancels pending operations and discards the buffer, and interrupting the drain fiber at scope close abandons both the window in flight and everything queued behind it. `close` ends the intake then joins the drain, and the same pair rides `Effect.addFinalizer` seated AFTER the fork: scope finalizers run last-registered-first, so the flush completes and the fork's own interrupt then reaches a fiber that already finished.
 - Law: the unlanded roster is the plane's own accounting — every batch owes its pairs before the append and settles exactly the keys the landing covered, so a bounded shutdown, a dead database, or an intake that refused an offer after `end` all leave those rows readable through `pending` instead of vanishing. Settling by key rather than clearing the slot is what lets a re-armed root still owe what a prior drain never landed.
-- Law: the drain is TOTAL by construction — the row projection dies on a fault a constructed member cannot reach, the append's transient rail retries without bound, and `Effect.option` folds the unreachable exhaustion arm so unsettled pairs stay owed. Totality is not a nicety here: it is what types the drain fiber's error channel at `never` and therefore what makes the joining finalizer spellable at all.
+- Law: two rosters answer two debts — `pending` names what a recovering database still owes, `refused` what only an operator can resolve, and a refusal MOVES between them rather than clearing, so the count of facts this plane accepted and never landed stays exact across both. Merging them reports a permanent rejection as ordinary lag, which is the one reading that makes an evidence gap look like patience. `factRefused` counts each parked fact under its own stream tag, because a roster is readable only to whoever asks for it: without the series, a plane accumulating permanent rejections beneath a healthy drain rate charts as a healthy plane.
+- Law: the drain is TOTAL by construction — the row projection dies on a fault a constructed member cannot reach, the append retries every signal a wait can resolve, and the terminal match folds the refusal arm onto the refused roster. Totality is not a nicety here: it is what types the drain fiber's error channel at `never` and therefore what makes the joining finalizer spellable at all.
 - Law: the drain is one pipeline — `Mailbox.toStream` over the intake, `Stream.groupedWithin(width, patience)` so a quiet surface still flushes on latency, the batch appended under an unbounded jittered retry whose delay caps through `Schedule.union` (evidence is never dropped: a dead database suspends the drain, the bounded intake suspends writers, and pressure propagates instead of silently losing billing truth), each deferral counted and logged, then the landing's ACCEPTED rows alone projecting their counters, log lines, and usage in the same pass; counter updates read those rows — each fact's stream, its audit verb and actor class where the stream carries them, and each meter fact's resource and tenant tags — so every axis the instrument census declares is stamped in the same fold and none rides a per-effect metric decorator.
 - Law: projection gates on the landing because the retry is unbounded — a batch re-offered after an unacknowledged commit projects nothing the second time, so a lost acknowledgement costs one duplicate INSERT the key absorbs rather than a doubled billing counter and a doubled audit log line. Matched redeliveries carry their own series instead of vanishing, which is what makes a wedged retry visible at all.
 - Law: the audit port is a projection, never a second write path — every security record folds onto one `Fact.AuditDraft` and enters through `record`, so the drain, the unbounded retry, the retention window, the subject index, and the DSAR fold serve breach evidence exactly as they serve every other fact; a security-side store is the forked plane this satisfaction deletes.
@@ -339,8 +344,9 @@ const _rate = (
 ```typescript signature
 import { Array, Chunk, DateTime, Effect, Fiber, HashMap, Layer, Mailbox, Metric, Option, Predicate, Record, Ref, Schedule, Schema, Stream } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { type ContentKey, Convention, Hlc } from "@rasm/ts/core"
+import { Clock, Convention, Digest } from "@rasm/ts/core"
 import { AuditFault, AuditJournal, AuditRecord, SecurityFact, Shredder } from "@rasm/ts/security"
+import { Journal } from "./append.ts"
 import { Retain, SubjectKey } from "./retain.ts"
 
 const _FLOW = { intake: 512, patience: "2 seconds", width: 128 } as const
@@ -348,15 +354,23 @@ const _FLOW = { intake: 512, patience: "2 seconds", width: 128 } as const
 const _deduped = Convention.mount(Convention.metric.factDeduped)
 const _deferred = Convention.mount(Convention.metric.factDeferred)
 const _drained = Convention.mount(Convention.metric.factDrained)
+const _refused = Convention.mount(Convention.metric.factRefused)
 const _usage = Convention.mount(Convention.metric.meterUsage)
 
-// Deliberately UNBOUNDED — never a `Budget` row: every compiled budget exhausts, and the drain's own totality law
+// Deliberately UNBOUNDED — never a `Fault.Budget` row: every compiled budget exhausts, and the drain's own totality law
 // depends on a schedule that never does (an unsettled batch stays owed; `pending` names every row). The union caps
 // the delay at a 10s cadence, jitter decorrelates the fleet, and the price is stated here, not smuggled.
 const _RETRY = Schedule.exponential("100 millis").pipe(
   Schedule.jittered,
   Schedule.union(Schedule.spaced("10 seconds")),
 )
+
+// Endlessness is safe only while the fault a schedule sits on can still resolve. Rejections no wait changes grade
+// non-retryable on the shared class table, and `Journal.retryable` is the journal's projection of a driver fault onto
+// that table — without this gate the unbounded schedule holds one permanently-unacceptable batch forever and every
+// later fact queues behind it, the rowing/appending split rebuilt as a retry policy. Composing the projection rather
+// than comparing a signal literal keeps ONE opinion about refusal: a row landing at either owner moves this with it.
+const _retryable = Journal.retryable
 
 const _metered = (fact: MeterFact): Effect.Effect<void> => {
   const byResource = Metric.tagged(_usage, Convention.rasm.meterResource, fact.resource)
@@ -396,6 +410,16 @@ const _counted = (fact: Fact.Value): Effect.Effect<void> =>
 const _reoffered = (landing: Fact.Landing): Effect.Effect<void> =>
   Effect.forEach(landing.duplicate, (pair) =>
     Metric.increment(Metric.tagged(_deduped, Convention.rasm.factStream, pair.fact._tag)), {
+    concurrency: "inherit",
+    discard: true,
+  })
+
+// Facts a refusal parked, tagged by the stream the census declares. Rosters and series answer different questions —
+// `refused` names WHICH rows an operator owes, this counter answers whether any exist at all — so a plane quietly
+// accumulating permanent rejections beneath a healthy drain rate reads as healthy until somebody greps the logs.
+const _parked = (pairs: ReadonlyArray<Fact.Pair>): Effect.Effect<void> =>
+  Effect.forEach(pairs, (pair) =>
+    Metric.increment(Metric.tagged(_refused, Convention.rasm.factStream, pair.fact._tag)), {
     concurrency: "inherit",
     discard: true,
   })
@@ -545,15 +569,31 @@ const _audits: Layer.Layer<AuditJournal, never, Fact | Shredder | SqlClient.SqlC
 )
 
 class Fact extends Effect.Service<Fact>()("data/Fact", {
-  scoped: (identity: AppIdentity) =>
+  scoped: (identity: Identity.App) =>
     Effect.gen(function* () {
       const intake = yield* Mailbox.make<Fact.Value>({ capacity: _FLOW.intake, strategy: "suspend" })
-      const clock = yield* Ref.make(Hlc.genesis)
-      const owed = yield* Ref.make(HashMap.empty<ContentKey, Fact.Pair>())
+      const clock = yield* Ref.make(Clock.Hlc.genesis)
+      const owed = yield* Ref.make(HashMap.empty<Digest.Key<"content">, Fact.Pair>())
+      const denied = yield* Ref.make(HashMap.empty<Digest.Key<"content">, Fact.Refusal>())
       const owing = (pairs: ReadonlyArray<Fact.Pair>): Effect.Effect<void> =>
         Ref.update(owed, (held) => Array.reduce(pairs, held, (map, pair) => HashMap.set(map, pair.row.key, pair)))
       const settling = (pairs: ReadonlyArray<Fact.Pair>): Effect.Effect<void> =>
         Ref.update(owed, (held) => Array.reduce(pairs, held, (map, pair) => HashMap.remove(map, pair.row.key)))
+      // Refusals move rather than clear: batches leave the owed roster so the drain advances, and land on the refused
+      // one so evidence stays readable. Dropping one makes a permanent rejection indistinguishable from a landed row,
+      // which is the one confusion an evidence plane may never publish.
+      const refusing = (pairs: ReadonlyArray<Fact.Pair>, fault: SqlError.SqlError): Effect.Effect<void> =>
+        Effect.zipRight(
+          settling(pairs),
+          Ref.update(denied, (held) =>
+            Array.reduce(pairs, held, (map, pair) =>
+              HashMap.set(map, pair.row.key, { pair, detail: fault.message }))),
+        ).pipe(
+          Effect.zipRight(_parked(pairs)),
+          Effect.zipRight(
+            Effect.logError("fact drain refused").pipe(
+              Effect.annotateLogs({ count: pairs.length, detail: fault.message }))),
+        )
       const landed = (landing: Fact.Landing): Effect.Effect<void> =>
         // ACCEPTED rows alone project: the append retries without bound, so a batch replayed after an unacknowledged
         // commit must cost one absorbed duplicate rather than a second charge and a second audit line, and the
@@ -570,16 +610,15 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
           // never an input one — it dies loudly rather than parking as evidence no database could ever accept.
           const pairs = yield* Effect.orDie(Effect.forEach(facts, _rowed, { concurrency: "unbounded" }))
           yield* owing(pairs)
-          const settled = yield* _append(pairs).pipe(
+          yield* _append(pairs).pipe(
             Effect.tapError((fault) =>
               Metric.increment(_deferred).pipe(Effect.zipRight(
                 Effect.logError("fact drain deferred").pipe(Effect.annotateLogs({ count: pairs.length, fault: fault._tag }))))),
-            Effect.retry(_RETRY),
-            // `_RETRY` never exhausts, so this fold makes the unreachable arm total rather than shedding:
-            // an unsettled batch stays owed and `pending` names every row of it.
-            Effect.option,
+            Effect.retry({ schedule: _RETRY, while: _retryable }),
+            // Both arms stay reachable because the schedule exits only on a refusal, so this fold is total without
+            // shedding: landed batches project, refused ones move rosters, and the drain's error channel stays `never`.
+            Effect.matchEffect({ onFailure: (fault) => refusing(pairs, fault), onSuccess: landed }),
           )
-          yield* Effect.transposeOption(Option.map(settled, landed))
         })
       const drain = yield* Effect.forkScoped(
         Mailbox.toStream(intake).pipe(
@@ -601,7 +640,7 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
           // One successor per admitted fact under a single atomic modify, so concurrent recorders never share a
           // coordinate; the branch's stamp algebra owns the physical/logical decision and this rail spells none of it.
           const stamp = yield* Ref.modify(clock, (held) => {
-            const next = Hlc.tick(held, Hlc.physicalOf(now))
+            const next = Clock.Hlc.tick(held, Clock.Hlc.physicalOf(now))
             return [next, next] as const
           })
           const tenant = Option.orElse(identity.tenant, () => draft.tenant)
@@ -641,6 +680,7 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
           Effect.forEach(Array.ensure(input), stamped, { concurrency: 1, discard: true }),
         close,
         pending: Effect.map(Ref.get(owed), (held) => Array.fromIterable(HashMap.values(held))),
+        refused: Effect.map(Ref.get(denied), (held) => Array.fromIterable(HashMap.values(held))),
       }
     }),
   accessors: true,

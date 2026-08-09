@@ -112,6 +112,12 @@
           "Generator.Equals.Runtime": "4.0.2"
         }
       },
+      "Google.Protobuf": {
+        "type": "Direct",
+        "requested": "[3.35.1, )",
+        "resolved": "3.35.1",
+        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
+      },
       "Grpc.AspNetCore": {
         "type": "Direct",
         "requested": "[2.83.0, )",
@@ -154,6 +160,12 @@
           "Grpc.Net.Common": "2.83.0",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
         }
+      },
+      "Grpc.Tools": {
+        "type": "Direct",
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "vK2Go/83W0v2Nn7tTP9fGrX4IjmOa93s3M0SZeFimU1vIIr2wL9yNJlIyK21y85SGm3++JncB8IF751cjoLHuQ=="
       },
       "JetBrains.Annotations": {
         "type": "Direct",
@@ -628,6 +640,16 @@
         "resolved": "3.3.3",
         "contentHash": "EwouHZv99j5hraq34yQqvCQGDR59dynxPHlxFm2vY/sw2N2aR8cFel29ZxPqohjBWp9Qsnld7QCY+7uZ2PESGg=="
       },
+      "NodaTime.Serialization.Protobuf": {
+        "type": "Direct",
+        "requested": "[2.0.2, )",
+        "resolved": "2.0.2",
+        "contentHash": "yjwzq6ueTY0xy7IGzuMIrfNky0fGx96EdOEFEV4WaY/IkhMto4MxZWiUdPJnCQFzR/iSDhQE0rrlVKlRyEV5Sw==",
+        "dependencies": {
+          "Google.Api.CommonProtos": "[2.1.0, 3.0.0)",
+          "NodaTime": "[3.0.0, 4.0.0)"
+        }
+      },
       "NodaTime.Serialization.SystemTextJson": {
         "type": "Direct",
         "requested": "[1.4.0, )",
@@ -1029,6 +1051,14 @@
         "contentHash": "DUEiBio024JA+PD0By2DjnHMELyo8sjd9KmjQCjVT3nkxf0/y9TxwP9sDkZ4yTD+V0JU0KbzJ70tTruCJhfGGg==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
+        }
+      },
+      "Google.Api.CommonProtos": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "CEwg4cp80bf7q9vrvDwbwIJ3SG/p/K38dK3ZRG3r4zeFDNMF1Zt2y+iPdUJjtsNxDVQHv06nKViS7dgFT8E6zw==",
+        "dependencies": {
+          "Google.Protobuf": "[3.11.4, 4.0.0)"
         }
       },
       "Grpc.AspNetCore.Server": {
@@ -1697,12 +1727,6 @@
         "resolved": "3000.0.2.132",
         "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
       },
-      "Google.Protobuf": {
-        "type": "CentralTransitive",
-        "requested": "[3.35.1, )",
-        "resolved": "3.35.1",
-        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
-      },
       "Grpc.Net.Common": {
         "type": "CentralTransitive",
         "requested": "[2.83.0, )",
@@ -1711,12 +1735,6 @@
         "dependencies": {
           "Grpc.Core.Api": "2.83.0"
         }
-      },
-      "Grpc.Tools": {
-        "type": "CentralTransitive",
-        "requested": "[2.83.0, )",
-        "resolved": "2.83.0",
-        "contentHash": "vK2Go/83W0v2Nn7tTP9fGrX4IjmOa93s3M0SZeFimU1vIIr2wL9yNJlIyK21y85SGm3++JncB8IF751cjoLHuQ=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

@@ -168,7 +168,9 @@ public static class SupportBundle {
             let target = new VisualDestination.Bundle(member.ArtifactName, member.Classification)
             from destination in ExportDelivery.Deliver(runtime, target, payload)
             from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-            let receipt = new RenderReceipt(target.Key, Path.GetExtension(member.ArtifactName).TrimStart('.'), runtime.ContentHash(payload), None, payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+            let receipt = new RenderReceipt(
+                target.Key, Path.GetExtension(member.ArtifactName).TrimStart('.'), runtime.ContentHash(payload), None, None,
+                payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
             select receipt).As()
         from _ in staged.TraverseM(runtime.Sink).As()
         select staged;
@@ -237,7 +239,9 @@ public static class FlowReport {
         from sealed_ in PdfPolicies.Apply(runtime, spec.Pdf, payload)
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, sealed_)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, "pdf", runtime.ContentHash(sealed_), None, sealed_.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        let receipt = new RenderReceipt(
+            Kind, "pdf", runtime.ContentHash(sealed_), None, None, sealed_.LongLength,
+            elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
@@ -617,7 +621,9 @@ public static class OfficeExport {
         from payload in Write(spec, admitted)
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, spec.Format.Key, runtime.ContentHash(payload), None, payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        let receipt = new RenderReceipt(
+            Kind, spec.Format.Key, runtime.ContentHash(payload), None, None, payload.LongLength,
+            elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
@@ -872,7 +878,7 @@ public static class PrintArm {
         from plate in IO.lift<PrintPlate>(() => Transformed(row, raster))
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
         from _ in runtime.Sink(new RenderReceipt(
-            Kind, $"{row.Target.Key}-{row.IntentRow.Key}", runtime.ContentHash(plate.Pixels), None, plate.Pixels.LongLength,
+            Kind, $"{row.Target.Key}-{row.IntentRow.Key}", runtime.ContentHash(plate.Pixels), None, None, plate.Pixels.LongLength,
             elapsed, runtime.Correlation, None, row.Key))
         select plate;
 

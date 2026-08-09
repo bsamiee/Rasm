@@ -39,10 +39,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [BRANCH_SIGNAL_PLANE]-[COMPLETE]: five legs settled — `core/observe/convention.md` wire rows, `core/observe/board.md` packs, `runtime/otel/emit.md` lanes, `runtime/otel/meter.md` bridge, `iac/operate/observe.md` compile leg; the census feed landed as `Pulse.Board` filling `DashboardModel` payloads at the app deploy-feed seam and reaching iac as the `runtime.pulse` pack row — `BoardPack` never existed as an owner.
-[BRANCH_HOOK_RAIL]-[COMPLETE]: core `observe/tap.md` owns brand and modality vocabulary, runtime `runtime/otel/emit#HOOKS` runs the one dispatch engine, data `data/journal/append#HOOK_POINTS` conformed to `Tap.point` rows over a publisher port; tap seams mirror as `[SHAPE]: Tap.Registry` (data/ui/security↔runtime) with the ruled iac substrate boundary as `[SHAPE]: Tap.Point` (core↔iac).
-[BRANCH_CONTEXT_CARRIAGE]-[COMPLETE]: core `Carrier.Current` retains admitted tracestate and scrubbed baggage under the live span, runtime `Propagation` continues each dialect-decoded ingress through `OtelBridge.makeExternalSpan`/`withSpanContext`, data `Journal.envelope`/`Journal.carrier` round-trip the CloudEvents context with `rasmtenant`→baggage reconstruction, and fanout and MQTT inject their exact NATS/Kafka/MQTT rows.
-[CONTENT_IDENTITY]-[COMPLETE]: one seed-zero `XxHash128` mint at `core/value/contentKey`, every verifying and keying site delegating; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[BRANCH_HOOK_RAIL]-[COMPLETE]: core Tap owns point and handler grammar; data supplies runtime its `Tap.Registry`, while UI Hook and security Audit keep folder-owned registries composed from core Tap. IaC remains outside the rail.
+[BRANCH_CONTEXT_CARRIAGE]-[COMPLETE]: `Carrier.promote`/`tenant` carry `Identity.Tenant.scope` under `Convention.rasm.tenant`; journal and brokers compose `Carrier.record.read/write`.
+[CONTENT_IDENTITY]-[COMPLETE]: `Digest.Key<"content">` owns the seed-zero `XxHash128` mint, and every verifying and keying site delegates.
 [INTERCHANGE_DECODE_ONCE]-[COMPLETE]: one keyed codec census encodes or decodes every contract family exactly once.
 [JOURNAL_SPINE]-[COMPLETE]: `data/journal/append` owns the one atomic write with ledger and outbox in-commit, the read side folding through `data/read/fold`; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
-[TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `AppIdentity`, isolation a scope value never a fork; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `Identity.Tenant`; isolation remains a scope value.
 [CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `tests/contracts` corpus assertion; law settled at `ARCHITECTURE.md` `[03]-[SEAMS]`/`[04]-[INTERNAL]`.

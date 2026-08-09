@@ -15,32 +15,48 @@ Claim admission, lease, urgency order, park ceiling, tenant egress quota, and re
 ## [02]-[CHANNEL_FAMILY]
 
 [CHANNEL_FAMILY]:
-- Owner: `Deliver` — the channel dispatch table and the shapes every channel speaks. `Deliver.Receipt` is the settlement evidence: channel kind, transmission identity (the SMTP `messageId`, the webhook delivery id), per-recipient acceptance splits, the wire instant, and the transport's timing band — one `Schema.Class` whose fields serve both channels because settlement IS the same concept. `DeliverFault` is the one fault family: a reason row (`dial | refused | bounced | timeout | schema`) carrying its `FaultClass` kind, so the lane's judge fold reads retryability off the class table and a channel never declares a private fault rail.
-- Law: a channel is a row keyed by its kind — `{ payload, targets, transmit }` minted through `Deliver.channel` so the three members correlate on one payload type: the payload `Schema` is the admission authority the lane's `Lane.row` mint decodes against, `targets` projects the destinations the suppression gate answers over, and `transmit` carries the admitted payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the relay dispatches on the claim's stream prefix through keyed lookup — zero `Match` arms — and a new channel (push, SMS, chat) is one table row with one relay lane row, never a sibling drain.
+- Owner: `Deliver` maps every channel row onto one settlement receipt and one `Fault.Class` family.
+- Law: a channel is a row keyed by its kind — `{ payload, targets, weight, transmit }` minted through `Deliver.channel` so the members correlate on one payload type: the payload `Schema` is the admission authority the lane's `Lane.row` mint decodes against, `targets` projects the destinations the suppression gate answers over, and `transmit` carries the admitted payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the relay dispatches on the claim's stream prefix through keyed lookup — zero `Match` arms — and a new channel (push, SMS, chat) is one table row with one relay lane row, never a sibling drain.
+- Law: `_kinds` is the one channel roster — the receipt literal, the fault field, and the dispatch table derive from it, so a new channel cannot land while a second spelling still names the old pair.
+- Law: a channel key IS its claim-tag namespace, so routing splits the tag against the roster and no row carries a route predicate re-spelling that grammar.
+- Law: every row answers the consumption descriptor as data — `fits`, `admit`, `tenancy`, `lifetime` universal, `deliver`, `order`, `settle`, `replay`, `bound`, `refuse` the transport six, `degrade` closing — so a caller reads a forfeit instead of inferring it rather than meeting an omission that strands the fold reading one row beside its sibling.
+- Law: `tenancy` carries the MECHANISM a row separates by, never `none|single|multi` — the closed axis at `core/value/identity#IDENTITY_OWNER` selects the row and the cell states which field or credential draws the boundary the quota, the claim, and the signing secret all read.
+- Law: `settle` is the evidence shape a transport returns and `lifetime` the party that ends custody — the SMTP acceptance band from the next relay and the receiver's own `2xx` are distinct facts, so neither column stands in for the other and no row claims a span past the party ending it.
+- Law: `order` pins FALSE on both rows with its ground — `FOR UPDATE SKIP LOCKED` claiming drains a batch unordered and neither payload carries a key selecting an ordering domain — because a foreclosed coordinate stated as a value reads beside its siblings where an omission reads as an unasked question.
+- Law: `refuse` earns its column by DIVERGING — mail refuses synchronously on the SMTP code table and again asynchronously through an RFC-3461 report, while a webhook refuses on the response status and nothing arrives once the request closes; `bound` names `queue#THROTTLE` as the ceiling's owner instead of re-spelling one.
+- Law: `replay` reads `queue#LANE_POLICY` and splits on the RECEIVER — a replayed mail re-sends under a fresh `messageId` no peer dedups, while a replayed webhook repeats its `webhook-id` and the receiver's own dedup absorbs it.
 - Law: partial acceptance is a receipt, not a fault — a send where some recipients accept and some reject settles as a `Receipt` whose rejected band is non-empty; the suppression fold consumes the rejected band, and only a transmission that produced no acceptance at all folds to `DeliverFault`.
 - Law: the payload is decoded once at the lane seam — each channel's `payload` schema rides `Lane.row`, so a decode failure parks `invalid` through the lane's poison short-circuit before any deliver code runs, and a drain-local decoder is unspellable.
 - Growth: a new channel is one `Deliver.channel` row; a new settlement dimension is one `Receipt` field both channels populate; a new gate axis (a per-destination rate class, an allowlist) is a column on the channel row the relay lane reads.
-- Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect`; `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
-import { Array, Context, Data, DateTime, Duration, Effect, Option, Record, Redacted, Schema, Stream, Struct, pipe } from "effect"
+import { Array, Context, Data, DateTime, Duration, Effect, Option, Record, Redacted, Schema, Stream, pipe } from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
 import { Singleton } from "@effect/cluster"
-import { SqlClient } from "@effect/sql"
+import { SqlClient, SqlError } from "@effect/sql"
 import { createTestAccount, createTransport, getTestMessageUrl, type Transporter } from "nodemailer"
 import type Mail from "nodemailer/lib/mailer"
+import type SMTPConnection from "nodemailer/lib/smtp-connection"
+import { type CloudEvent, CONSTANTS, HTTP, type Message, Mode } from "cloudevents"
 import { Buffer } from "node:buffer"
 import { Fact, Journal } from "@rasm/ts/data"
 import { Crypto } from "@rasm/ts/security"
-import { type AppIdentity, Budget, FaultClass } from "@rasm/ts/core"
+import { Fault, type Identity } from "@rasm/ts/core"
 import { Client } from "../net/client.ts"
 import { Pulse } from "../otel/meter.ts"
 import { Setting } from "../proc/config.ts"
 import { WorkClass } from "./entity.ts"
 import { Lane, LaneVerdict, Throttle } from "./queue.ts"
 
+// Channel identity is ONE roster the receipt literal, the fault field, and the dispatch table all read, so a new row
+// cannot land while a second spelling still names the old pair. Each key IS its claim-tag namespace, so routing reads
+// tag namespaces directly instead of a predicate every row re-spells, and the park fold agrees with it by grammar.
+const _kinds = ["mail", "webhook"] as const
+const _Kind = Schema.Literal(..._kinds)
+
 class Receipt extends Schema.Class<Receipt>("DeliverReceipt")({
-  channel: Schema.Literal("mail", "webhook"),
+  channel: _Kind,
   transmission: Schema.NonEmptyString,
   accepted: Schema.Array(Schema.String),
   rejected: Schema.Array(Schema.Struct({ recipient: Schema.String, note: Schema.String })),
@@ -48,7 +64,7 @@ class Receipt extends Schema.Class<Receipt>("DeliverReceipt")({
   wire: Schema.Duration,
 }) {}
 
-const _family = FaultClass.family(["dial", "refused", "bounced", "timeout", "schema"] as const, {
+const _family = Fault.Class.family(["dial", "refused", "bounced", "timeout", "schema"] as const, {
   dial: { class: "unavailable" },
   refused: { class: "denied" },
   bounced: { class: "invalid" },
@@ -58,11 +74,11 @@ const _family = FaultClass.family(["dial", "refused", "bounced", "timeout", "sch
 
 class DeliverFault extends Data.TaggedError("DeliverFault")<{
   readonly reason: (typeof _family.reasons)[number]
-  readonly channel: "mail" | "webhook"
+  readonly channel: Deliver.Kind
   readonly detail: string
   readonly targets: ReadonlyArray<string>
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -71,13 +87,35 @@ class DeliverFault extends Data.TaggedError("DeliverFault")<{
 }
 
 declare namespace Deliver {
-  type Channel<A extends { readonly tenant: string }, I, R> = {
+  type Kind = (typeof _kinds)[number]
+  // Every channel answers the consumption descriptor as DATA, so a caller reads what a row gives up instead of
+  // inferring it: `fits` the selection sentence, `admit` the entry, `tenancy` the MECHANISM this row separates by,
+  // `lifetime` how long custody lasts AND who ends it. Transport six: `deliver` the guarantee a redrive produces,
+  // `order` the ordering domain and the key member selecting it, `settle` the evidence shape the wire returns,
+  // `replay` what a re-offered row does to a receiver that already saw it, `bound` what caps in-flight work, `refuse`
+  // what shape a refusal arrives in. `degrade` closes with the honest forfeit and records any divergence the other
+  // columns cannot express. Where this plane forecloses a coordinate, its cell pins that FALSE with the ground,
+  // because an omission strands the fold reading one row beside its sibling and a guess is what callers hardcode.
+  type Descriptor = {
+    readonly fits: string
+    readonly admit: string
+    readonly tenancy: string
+    readonly lifetime: string
+    readonly deliver: string
+    readonly order: string
+    readonly settle: string
+    readonly replay: string
+    readonly bound: string
+    readonly refuse: string
+    readonly degrade: string
+  }
+  type Channel<A extends { readonly tenant: string }, I, R> = Descriptor & {
     readonly payload: Schema.Schema<A, I>
-    readonly route: (stream: string) => boolean
     readonly targets: (payload: A) => ReadonlyArray<string>
     readonly weight: (payload: A) => number
     readonly transmit: (payload: A) => Effect.Effect<Receipt, DeliverFault, R>
   }
+  type _Table<T extends Record<Kind, Channel<never, never, never>> = typeof _channels> = T
 }
 
 const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Channel<A, I, R>): Deliver.Channel<A, I, R> => row
@@ -94,6 +132,9 @@ const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Chan
 - Law: DKIM is native and mandatory on production rows — `domainName`/`keySelector`/`privateKey` ride the transport options so every message signs RFC-6376 in-transport; the security wave's HMAC domain never touches mail.
 - Law: transport faults classify through the code table — `EAUTH` folds `refused` (terminal), a 4xx `responseCode` folds `dial` (transient — the lane's lease redelivers), a 5xx recipient failure folds `bounced` (the suppression fold consumes it); string-matching an error message is unspellable beside the table.
 - Law: `isIdle()` and the `idle` event are the relay's pacing signal — the mail lane row reads pool capacity per claim and defers the claim onto its lease while the pool is saturated, so bulk sends respect pool geometry instead of queueing in the transport, and the `idle` event bridges into the wake race so a freed pool re-triggers the drain without waiting the lease width.
+- Law: the `error` event binds inside the service scope — a pool fault arrives between sends where no claim owns it, and an emitter emitting `error` unlistened THROWS, so an unbound row converts a recoverable fault into a process death no verdict observes; it folds through `_classified` onto the log rail.
+- Law: DSN rides the dialing row's transport options — `notify: ["FAILURE", "DELAY"]` with `ret: "HDRS"` requests RFC-3461 reports, because SMTP acceptance proves handoff alone and a late bounce reaches suppression only as an asynchronous report.
+- Law: each transport row states its `degrade` — capture sinks forfeit wire evidence and the sandbox forfeits onward delivery, so a synthetic receipt reads as the evidence gap it is rather than as proof of delivery.
 - Receipt: the interior `_Sent` band folds to the shared `Receipt` — `accepted`/`rejected`/`rejectedErrors` become the acceptance bands, `messageId` the transmission identity, `envelopeTime` the wire band, with the two SMTP-only members widened optional so an unopened envelope reads no span rather than a forged one. Nodemailer's top-level `SentMessageInfo` is `any`, so importing it erases the transport boundary under a confident receipt name.
 - Growth: a provider, OAuth2, or inspect transport is one `_transports` row against one `Setting.mail.transport` value; a new message concern is one payload field and one `_mailOptions` projection.
 - Packages: `nodemailer` (`createTransport`, `createTestAccount`, `getTestMessageUrl`, `Transporter`, `Mail.Address`, `Mail.ListHeader`); `effect` (`Layer`, `Option`, `Record`, `Redacted`); `../proc/config.ts` (`Setting`).
@@ -109,11 +150,18 @@ type _Sent = {
   readonly envelopeTime?: number | undefined
 }
 
+// RFC-3461 delivery-status notification is the mail plane's ONE asynchronous evidence channel: SMTP acceptance proves
+// handoff to the next relay alone, so a `FAILURE`/`DELAY` request is what makes a late bounce arrive as a suppression
+// fact instead of silence. `HDRS` returns headers rather than the whole message, so the report carries no body copy.
+const _DSN = { notify: ["FAILURE", "DELAY"], ret: "HDRS" } as const satisfies SMTPConnection.DSNOptions
+
 const _transports = {
   // Each arm builds its own transporter, so the factory's per-shape overload resolves at the row and never over a union.
-  // `dials` is the column `verify` reads: a sink that opens no socket has nothing to prove at acquisition.
+  // `dials` is the column `verify` reads: a sink that opens no socket has nothing to prove at acquisition. `degrade`
+  // names what an arm FORFEITS, so a capture sink's synthetic receipt reads as the evidence gap it is at the row.
   smtp: {
     dials: true,
+    degrade: "<none>",
     open: (mail: Setting.Mail) =>
       Effect.sync(() =>
         createTransport({
@@ -125,13 +173,23 @@ const _transports = {
           rateLimit: mail.rate,
           auth: { user: mail.user, pass: Redacted.value(mail.pass) },
           dkim: { domainName: mail.domain, keySelector: mail.selector, privateKey: Redacted.value(mail.key) },
+          dsn: _DSN,
         })
       ),
   },
-  json: { dials: false, open: () => Effect.sync(() => createTransport({ jsonTransport: true })) },
-  stream: { dials: false, open: () => Effect.sync(() => createTransport({ streamTransport: true, buffer: true })) },
+  json: {
+    dials: false,
+    degrade: "<no-wire-evidence:accepted-band-is-the-envelope-echo>",
+    open: () => Effect.sync(() => createTransport({ jsonTransport: true })),
+  },
+  stream: {
+    dials: false,
+    degrade: "<no-wire-evidence:accepted-band-is-the-envelope-echo>",
+    open: () => Effect.sync(() => createTransport({ streamTransport: true, buffer: true })),
+  },
   ethereal: {
     dials: true,
+    degrade: "<no-onward-delivery:sandbox-captures-every-recipient>",
     open: () =>
       Effect.map(
         Effect.tryPromise({
@@ -150,6 +208,7 @@ const _transports = {
   },
 } as const satisfies Record<string, {
   readonly dials: boolean
+  readonly degrade: string
   readonly open: (mail: Setting.Mail) => Effect.Effect<Transporter<_Sent>, DeliverFault>
 }>
 
@@ -185,6 +244,22 @@ class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
         }),
         (onIdle) => Effect.sync(() => transporter.off("idle", onIdle)),
       ))
+    // Pool faults ride the emitter's OWN channel between sends, where no claim owns them, and an EventEmitter emitting
+    // `error` with no listener THROWS — so leaving this row unbound turns a recoverable pool fault into a process death
+    // no lane verdict, receipt, or suppression fold ever observes. Binding and draining inside the service scope folds
+    // each through the same `_classified` table the send path reads; a send-time fault still reaches its own claim.
+    yield* Effect.forkScoped(Stream.runForEach(
+      Stream.asyncScoped<Error>((emit) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const onError = (cause: Error) => emit.single(cause)
+            transporter.on("error", onError)
+            return onError
+          }),
+          (onError) => Effect.sync(() => transporter.off("error", onError)),
+        )),
+      (cause) => Effect.logError(_classified(cause)),
+    ))
     return { send, idle, wake } as const
   }),
 }) {}
@@ -231,16 +306,18 @@ const _mailReceipt = (info: _Sent, at: DateTime.Utc): Effect.Effect<Receipt, Del
 - Owner: `Hook` — signed webhook egress under byte identity: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
 - Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Receipt`, 410 folds `bounced` (the endpoint is gone — suppression consumes it), 429/5xx fold `dial` (the lease redelivers), a client timeout folds `timeout`.
 - Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
-- Law: the CloudEvents egress pair is exact — `new CloudEvent(attributes, strict?)` validates at construction and raises `ValidationError`, W3C extension attributes ride the envelope's own index signature, structured content type rides `datacontenttype`, and binary data bytes ride `data_base64`; `HTTP.structured(event)` and `HTTP.binary(event)` each project one `Message` carrying `headers` and `body`, and `HookPayload` signs that projected `body`, so the signed octets and the transmitted octets are one.
+- Law: `_hookProject` selects `HTTP.binary` or `HTTP.structured` through one `Mode` table.
+- Law: Projected binding headers and content type enter `HookPayload` once.
+- Law: `_hook` signs and transmits the same detached body bytes `_hookProject` produced.
 - Boundary: envelope construction is upstream payload admission — `HookPayload.body` and `headers` preserve the admitted bytes and band unchanged; this row signs and transmits them and does not invent an envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
-- Packages: `@effect/platform` (`HttpClientRequest`, `HttpBody`); `@rasm/ts/security` (`Crypto`); `../net/client.ts` (`Client`).
+- Packages: `cloudevents`, `@effect/platform`, `effect`, `@rasm/ts/security`, and `../net/client.ts`.
 
 ```typescript
 // single-sourced framing: media alone mints the content type, the signer alone mints the triple —
 // a caller band re-spelling either refuses at the admission filter
 const _RESERVED: ReadonlyArray<string> = [
-  "content-type", "content-length", "transfer-encoding",
+  CONSTANTS.HEADER_CONTENT_TYPE, "content-length", "transfer-encoding",
   "webhook-id", "webhook-timestamp", "webhook-signature",
 ]
 
@@ -262,13 +339,69 @@ const HookPayload = Schema.Struct({
   weight: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 
+const _hookBindings = {
+  [Mode.BINARY]: HTTP.binary,
+  [Mode.STRUCTURED]: HTTP.structured,
+} as const
+
+declare namespace Deliver {
+  type HookMode = keyof typeof _hookBindings
+  type HookDraft = Omit<typeof HookPayload.Type, "body" | "media">
+}
+
+const _hookUtf8 = new TextEncoder()
+
+const _messageBody = (message: Message, target: string): Effect.Effect<Uint8Array, DeliverFault> =>
+  message.body === undefined
+    ? Effect.succeed(new Uint8Array())
+    : typeof message.body === "string"
+      ? Effect.succeed(_hookUtf8.encode(message.body))
+      : message.body instanceof Uint8Array
+        ? Effect.succeed(new Uint8Array(message.body))
+        : Effect.fail(new DeliverFault({
+          reason: "schema", channel: "webhook", detail: "<cloudevent-body>", targets: [target],
+        }))
+
+const _hookProject = (
+  event: CloudEvent<unknown>,
+  mode: Deliver.HookMode,
+  draft: Deliver.HookDraft,
+): Effect.Effect<typeof HookPayload.Type, DeliverFault> =>
+  Effect.flatMap(
+    Effect.try({
+      try: () => _hookBindings[mode](event),
+      catch: (cause) => new DeliverFault({
+        reason: "schema", channel: "webhook", detail: String(cause), targets: [draft.destination.toString()],
+      }),
+    }),
+    (message) =>
+      pipe(message.headers[CONSTANTS.HEADER_CONTENT_TYPE], (media) => typeof media !== "string"
+        ? Effect.fail(new DeliverFault({
+          reason: "schema", channel: "webhook", detail: "<cloudevent-content-type>", targets: [draft.destination.toString()],
+        }))
+        : Effect.map(_messageBody(message, draft.destination.toString()), (body) => ({
+          ...draft,
+          body,
+          media,
+          headers: {
+            ...draft.headers,
+            ...Record.fromEntries(
+              Array.filterMap(Object.entries(message.headers), ([name, value]) =>
+                name.toLowerCase() === CONSTANTS.HEADER_CONTENT_TYPE || typeof value !== "string"
+                  ? Option.none()
+                  : Option.some([name, value] as const)),
+            ),
+          },
+        }))),
+  )
+
 class _HookSecret extends Context.Tag("runtime/work/Hook/Secret")<_HookSecret, {
   readonly resolve: (keyRef: string) => Effect.Effect<Redacted.Redacted<Uint8Array>, DeliverFault>
 }>() {}
 
 const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
   // BOUNDARY ADAPTER: byte-join kernel — the draft detaches immutable at the return
-  const prefix = new TextEncoder().encode(`${id}.${stamp}.`)
+  const prefix = _hookUtf8.encode(`${id}.${stamp}.`)
   const joined = new Uint8Array(prefix.length + body.length)
   joined.set(prefix)
   joined.set(body, prefix.length)
@@ -333,8 +466,8 @@ const _hookSettle = (status: number, target: string): Effect.Effect<never, Deliv
 - Packages: `@rasm/ts/data` (`Fact`); `effect` (`Effect`, `Option`).
 
 ```typescript
-const _admissible = <R>(suppressed: (channel: Receipt["channel"], target: string) => Effect.Effect<boolean, never, R>) =>
-(channel: Receipt["channel"], targets: ReadonlyArray<string>): Effect.Effect<void, DeliverFault, R> =>
+const _admissible = <R>(suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R>) =>
+(channel: Deliver.Kind, targets: ReadonlyArray<string>): Effect.Effect<void, DeliverFault, R> =>
   Effect.findFirst(targets, (target) => suppressed(channel, target)).pipe(
     Effect.flatMap(Option.match({
       onNone: () => Effect.void,
@@ -344,7 +477,7 @@ const _admissible = <R>(suppressed: (channel: Receipt["channel"], target: string
     })),
   )
 
-const _suppress = (channel: Receipt["channel"], target: string, note: string) =>
+const _suppress = (channel: Deliver.Kind, target: string, note: string) =>
   Fact.record({
     action: "deliver.suppressed",
     actor: { key: "deliver", kind: "service" },
@@ -368,9 +501,10 @@ const _settled = (receipt: Receipt) =>
 - Law: quota precedes transmission — `Throttle.spend` runs before the wire and its exceeded posture is the durable delay, so a tenant's burst paces the drain inside the lease width instead of converting into provider-side rejections; a lease that expires mid-delay redelivers, attempts already incremented, and a quota-store fault (`RateLimiterError`) defers `unavailable`.
 - Law: pacing composes the mail pool — the mail lane row reads `Mailer.idle` per claim and defers while the pool reports no capacity, so mail never queues inside the transport and webhook claims drain regardless of pool state.
 - Law: the wake source is data-owned — the drain subscribes the journal's wake stream through the scope port; a poll loop or a second LISTEN binding here is unspellable.
+- Law: the pass budget grades on `Journal.retryable`, never on the class default — every fault the pass raises is a store fault the journal already projects onto the shared class table, so a connection blip re-drives inside the tick and an undecodable claim batch refuses; accepting the property grader parks the whole shard's outbox on the first blip while the compiled budget records nothing.
 - Receipt: each pass folds `Lane.settle`'s verdict roster into one `deliver.drained` meter fact — claims, settled, deferred, parked — and marks the settled count onto the `Pulse` throughput counter in the same fold, so the OTel series and the journal fact cannot disagree on a pass.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` (`Singleton`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/meter.ts` (`Pulse`).
+- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript
 // one interior field schema every list key composes: the bare URL and the annotated arm are one decoded shape,
@@ -446,28 +580,52 @@ const _mailOptions = (message: typeof MailPayload.Type): Parameters<Transporter[
 
 const _channels = {
   mail: _channel({
+    fits: "<addressed-human-notification-over-smtp>",
+    admit: "<mail-prefixed-outbox-claim-decoded-through-MailPayload>",
+    tenancy: "<per-payload-tenant-field:-it-keys-the-outbox-claim-and-the-queue#THROTTLE-egress-quota-that-meters-it>",
+    // Custody ENDS at the accepting relay: this row cannot observe the mailbox, so it states the non-decision rather
+    // than naming a span it never measures, and the DSN request is the only evidence that returns after handoff.
+    lifetime: "<ends-at-smtp-acceptance-by-the-next-relay-which-then-owns-it;-undecided-past-handoff>",
+    deliver: "<at-least-once:-the-outbox-lease-redelivers-and-no-smtp-peer-dedups,-so-a-lapse-mid-send-resends>",
+    order: "<none:-skip-locked-claiming-drains-unordered-and-MailPayload-carries-no-key-selecting-a-domain>",
+    settle: "<the-accepted/rejected-band-plus-messageId-and-envelopeTime;-a-capture-sink-synthesizes-the-same-band>",
+    replay: "<queue#LANE_POLICY-re-offers-a-parked-row-under-a-fresh-messageId-no-peer-dedups,-so-the-mailbox-sees-two>",
+    bound: "<queue#THROTTLE-tenantEgress-and-the-pool's-own-isIdle-capacity;-this-row-spells-neither-ceiling>",
+    refuse: "<synchronously-a-reason-classed-DeliverFault-off-the-smtp-code-table,-then-an-rfc-3461-report-after-handoff>",
+    degrade: "<acceptance-is-handoff-not-delivery:-a-late-bounce-returns-only-as-a-dsn-report-or-suppression-fact>",
     payload: MailPayload,
-    route: (tag) => tag.startsWith("mail:"),
     targets: (message) => [...message.to, ...Option.getOrElse(message.cc, () => []), ...Option.getOrElse(message.bcc, () => [])],
     weight: (message) => message.weight,
     transmit: (message) => Effect.flatMap(Mailer, (mailer) => mailer.send(_mailOptions(message))),
   }),
   webhook: _channel({
+    fits: "<machine-callback-to-a-tenant-registered-endpoint-under-byte-identity-signing>",
+    admit: "<webhook-prefixed-outbox-claim-decoded-through-HookPayload>",
+    tenancy: "<per-payload-tenant-field-and-per-destination-keyRef:-one-tenant's-secret-signs-only-its-own-endpoint>",
+    lifetime: "<ends-at-the-receiver-2xx-which-the-receiver-itself-issues>",
+    deliver: "<at-least-once-past-2xx:-a-redrive-repeats-the-event-id-and-the-receiver-owns-the-dedup>",
+    order: "<none:-skip-locked-claiming-drains-unordered-and-HookPayload-carries-no-key-selecting-a-domain>",
+    settle: "<the-receiver's-2xx-status-alone;-the-response-body-is-never-read-as-evidence>",
+    replay: "<queue#LANE_POLICY-re-offers-a-parked-row-under-its-stable-webhook-id,-so-the-receiver's-dedup-absorbs-it>",
+    bound: "<queue#THROTTLE-tenantEgress-and-the-Client-lane's-http-concurrency;-this-row-spells-neither-ceiling>",
+    refuse: "<a-reason-classed-DeliverFault-folded-from-the-response-status;-nothing-returns-once-the-request-closes>",
+    degrade: "<no-ack-past-2xx:-a-receiver-answering-then-dropping-the-work-reads-identically-to-one-that-kept-it>",
     payload: HookPayload,
-    route: (tag) => tag.startsWith("webhook:"),
     targets: (payload) => [payload.destination.toString()],
     weight: (payload) => payload.weight,
     transmit: _hook,
   }),
 } as const
 
-const _routed = (tag: string): Option.Option<Receipt["channel"]> =>
-  Array.findFirst(Struct.keys(_channels), (kind) => _channels[kind].route(tag))
+// Routing reads the claim tag's own namespace against the roster, so a channel key IS its prefix: a per-row predicate
+// spells the same grammar once per row and lets one drift silently, and the park fold already splits the tag this way.
+const _routed = (tag: string): Option.Option<Deliver.Kind> =>
+  pipe(tag.split(":", 1)[0] ?? tag, (head) => Array.findFirst(_kinds, (kind) => kind === head))
 
 const _sent = <A extends { readonly tenant: string }, I, R, R2>(
-  kind: Receipt["channel"],
+  kind: Deliver.Kind,
   row: Deliver.Channel<A, I, R>,
-  suppressed: (channel: Receipt["channel"], target: string) => Effect.Effect<boolean, never, R2>,
+  suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R2>,
 ) =>
 (payload: A, meta: Lane.Meta) =>
   _admissible(suppressed)(kind, row.targets(payload)).pipe(
@@ -507,9 +665,14 @@ const _metered = (claims: number, verdicts: ReadonlyArray<LaneVerdict>) =>
       }),
     ))
 
+// Composing the journal's published projection keeps ONE opinion about refusal, and the default gate reads a `class`
+// property no driver fault carries: a claim or discharge `SqlError` grades on the shared class table, while a claim
+// batch that will not decode re-reads identically and refuses instead of spending the budget.
+const _redrivable = (fault: unknown): boolean => fault instanceof SqlError.SqlError && Journal.retryable(fault)
+
 const _drain = <R>(
-  app: AppIdentity["app"],
-  suppressed: (channel: Receipt["channel"], target: string) => Effect.Effect<boolean, never, R>,
+  app: Identity.App.Key,
+  suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R>,
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
@@ -525,22 +688,31 @@ const _drain = <R>(
     const claims = yield* Journal.claimBatch(sql, {
       app,
       take: WorkClass.bulk.concurrency * 4,
-      leaseSeconds: Duration.toSeconds(Budget.bulk.attempt),
+      leaseSeconds: Duration.toSeconds(Fault.Budget.at("bulk").attempt),
     })
     const verdicts = yield* Lane.settle(sql, "bulk", (tag) => Option.map(_routed(tag), (kind) => lanes[kind]), Lane.park)(claims)
     yield* _metered(claims.length, verdicts)
   })
 
 const Relay = <R, R2>(
-  app: AppIdentity["app"],
+  app: Identity.App.Key,
   wake: Stream.Stream<unknown, never, R>,
-  suppressed: (channel: Receipt["channel"], target: string) => Effect.Effect<boolean, never, R2>,
+  suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R2>,
 ) =>
   Singleton.make(
     "deliver-relay",
     Effect.flatMap(Mailer, (mailer) =>
-      Stream.mergeAll([wake, mailer.wake, Stream.tick(Budget.bulk.attempt)], { concurrency: "unbounded" }).pipe(
-        Stream.runForEach(() => _drain(app, suppressed)),
+      Stream.mergeAll([wake, mailer.wake, Stream.tick(Fault.Budget.at("bulk").attempt)], { concurrency: "unbounded" }).pipe(
+        // Each pass contains its OWN failure: `claimBatch`, `settle`, and the meter fold all reach the database, and a
+        // pass failure escaping the stream ends the branch's one outbox drain for the shard instead of skipping a tick.
+        // Retry spends the class budget under the journal's own gate, the cause fold catches the defect the typed rail
+        // cannot carry, and claims left unsettled ride their lease back onto the next wake — so a transient database
+        // fault costs one tick, not the relay.
+        Stream.runForEach(() =>
+          _drain(app, suppressed).pipe(
+            Effect.retry(Fault.Budget.schedule(WorkClass.bulk.budget, _redrivable)),
+            Effect.catchAllCause(Effect.logError),
+          )),
       )),
   )
 
@@ -552,7 +724,12 @@ const Deliver = {
   settled: _settled,
 }
 
-const Hook = { Secret: _HookSecret, transmit: _hook, payload: HookPayload }
+const Hook = {
+  Secret: _HookSecret,
+  payload: HookPayload,
+  project: _hookProject,
+  transmit: _hook,
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

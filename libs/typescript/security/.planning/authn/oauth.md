@@ -15,10 +15,8 @@ OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as on
 - Law: the 60-plus arctic provider classes share the ceremony shape, so a row is data over `createAuthorizationURL`/`validateAuthorizationCode`/`refreshAccessToken`/`revokeToken`; the row's `Config` is its whole credential contract — Apple's `teamId`/`keyId`/`pkcs8`, Microsoft's `tenant`, the generic row's `issuer` URL are per-row fields, so an unconfigured provider fails at first use with a precise `ConfigError` and no provider reads another's knobs.
 - Law: `Bound` holds every RESOLVED fact and the row holds only what the deployment declares, because an issuer's endpoints, JWKS URI, signing roster, and revocation capability are readable and a hand-asserted copy of a readable value drifts the first time the issuer moves. A pinned row states them as literals under its own vendor contract; the generic row reads them once at bind through `discovery`'s `serverMetadata()` — self-hosted Keycloak, Authentik, and Okta each serve the authorization, token, and revocation legs off unrelated paths, so `new URL("/authorize", issuer)` is wrong for all three and fails as a 404 at ceremony time rather than at bind. A missing authorization or token endpoint is `provider` at bind, an absent `revocation_endpoint` lowers `hasRevoke` to the typed lifecycle refusal instead of dialing a URL the issuer never published, and the signing roster is the advertised set intersected with the folder's own `KeyAlg` table so an unverifiable issuer refuses before its first id_token.
 - Law: `Departed` is a `Schema.Class` so the ceremony snapshot is wire-serializable — the state store persists it across the redirect and any process restart, the single-use consume is the transition witness, and the TTL is stamped as `expiresAt` data checked on land; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract, never a hand-rolled map.
-- Law: the fault rows close at the core `FaultClass.family` seam — `transport` is `unavailable` (the one retryable arm, which is why the branch budget's own class gate reproduces the hand `reason === "transport"` predicate exactly), `provider` is `invalid` (the issuer rejected the request or published no endpoint; terminal), `shape` is `invalid`, `state` and `idToken` are `denied`, `lifecycle` is `invalid`.
 - Growth: a new provider is one row and its `_kinds` entry; a self-hosted issuer reaches the generic row with zero endpoint knowledge; a multi-leg enrollment ceremony (device onboarding across restarts) is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same store.
 - Boundary: the edge owns the redirect and callback URL params; `authn/session` establishes the session; `crypt/sign` verifies the id_token; `OAuthStateStore` is satisfied by a short-lived data or session band; `openid-client` appears here as the metadata reader alone — arctic still runs all four ceremony legs, so the browser-ceremony custody split holds untouched.
-- Packages: `arctic` (`OAuth2Client`, `Google`/`GitHub`/`MicrosoftEntraId`/`Apple`, `generateState`/`generateCodeVerifier`, `OAuth2Tokens`, the fault family); `openid-client` (`discovery`, `Configuration.serverMetadata`, `ResponseBodyError`); `effect` (`Config`, `Context`, `Match`, `Redacted`, `Schema`, `Struct`); `@rasm/ts/core` (`Budget`, `FaultClass`); `crypt/sign` (`KeyAlg`, `SingleUse`).
 
 ```typescript
 import {
@@ -26,7 +24,7 @@ import {
   OAuth2Client, type OAuth2Tokens, OAuth2RequestError, UnexpectedErrorResponseBodyError, UnexpectedResponseError,
 } from "arctic"
 import { discovery, ResponseBodyError } from "openid-client"
-import { Budget, FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Array, Config, Context, DateTime, Duration, Effect, Match, Option, Redacted, Schema, Struct } from "effect"
 import { Jwt, KeyAlg, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
@@ -56,7 +54,7 @@ type ProviderRow = {
   readonly bind: Effect.Effect<Bound, OAuthFault>
 }
 
-const _family = FaultClass.family(["provider", "transport", "shape", "state", "idToken", "lifecycle"] as const, {
+const _family = Fault.Class.family(["provider", "transport", "shape", "state", "idToken", "lifecycle"] as const, {
   provider: { class: "invalid" },
   transport: { class: "unavailable" },
   shape: { class: "invalid" },
@@ -73,7 +71,7 @@ class OAuthFault extends Schema.TaggedError<OAuthFault>()("OAuthFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -251,11 +249,9 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 - Owner: `OAuth.authorize` mints `state`+`verifier`, seals the `Departed` snapshot under the ceremony TTL, and returns the redirect `URL`; `OAuth.callback` consumes the snapshot exactly once, gates kind and expiry, exchanges the code under the resilient leg, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`; the row's `Config` resolves and the arctic client constructs once per kind under `Effect.cachedFunction`.
 - Law: the state is consumed single-use so a replayed or foreign state is `OAuthFault.state`, a stale snapshot is `OAuthFault.state` on the expiry gate, and both land `Reject.mark("state")` while a completed callback lands its `state`-kinded admission and ceremony span through `Reject.measured` — the redirect surface's replay rate reads against its own completion rate; the verifier is never client-readable.
 - Law: `decodeIdToken` is never verification — `Jwt.verify(token, issuer)` pins issuer/audience/algorithms against the row's `oidc`; the throwing `idToken()` read is `Option`-lifted at the seam, so an OIDC row whose exchange returns no `id_token` is `OAuthFault.idToken`, never a defect; a non-OIDC row resolves its subject through the caller's `resolveSubject`, so every path lands a verified `CredentialRef`; `accessTokenExpiresAt`/`scopes` seed the session so the granted scope, not the requested scope, is authoritative.
-- Law: every provider leg is internally resilient — the `_leg` seam bounds arctic's fetch with the leg deadline and re-drives under `Budget.schedule("pulse")`, whose default class gate admits exactly the `unavailable`-classed `transport` arm and adds the quiet-reset and elapsed ceiling a call-site predicate drops; the classified-terminal `provider` arm never retries.
 - Receipt: `URL` on authorize (the edge redirects), `TokenPair` on callback (the edge frames it) — never a raw `OAuth2Tokens`.
 - Growth: a new provider is one row; a new claim projection is one `resolveSubject` composition.
 - Boundary: `authn/session` `Token.establish` mints the session; `crypt/sign` verifies external tokens; the state store is data/session-satisfied.
-- Packages: `arctic` (PKCE mints, the fault family); `crypt/sign` (`Jwt.verify` issuer overload); `crypt/verify` (`Reject.mark`/`Reject.measured`); `authn/session` (`Token.establish`, `CredentialRef`); `@rasm/ts/core` (`Budget`).
 
 ```typescript
 const _idToken = Option.liftThrowable((tokens: OAuth2Tokens) => tokens.idToken())
@@ -280,7 +276,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         Effect.timeoutFail({ duration: legDeadline, onTimeout: () => new OAuthFault({ reason: "transport", detail: "provider deadline" }) }),
         // `transport` is the family's one `unavailable` row, so the branch compile's own class gate re-drives exactly
         // the arm the hand predicate named — and brings the quiet-reset and elapsed ceiling that predicate dropped.
-        Effect.retry(Budget.schedule("pulse")),
+        Effect.retry(Fault.Budget.schedule("pulse")),
       )
     const _binding = yield* Effect.cachedFunction((kind: Provider.Kind) => _rows[kind].bind)
     const _row = (kind: Provider.Kind): ProviderRow => _rows[kind]

@@ -306,10 +306,11 @@ The heartbeat period is one policy value fixed at 3 × the health-probe row; one
 ## [05]-[FENCING_TOKEN]
 
 - Owner: `FencingToken` `[ValueObject<ulong>]` — the decoded carrier of the store-issued lease generation; `LeaseElection` the ONE Persistence PORT adapter acquiring, renewing, and fencing through the coordination op-union.
-- Entry: `Acquire(LeaseElection.Runtime runtime, string leaseKey)` returns `Fin<FencingToken>` — the adapter calls the Persistence coordination op-union with wire-stable primitives (lease key, holder id, staleness millis) and DECODES the store-issued `LeaseToken` generation into the carrier; `Fence(runtime, leaseKey, held)` routes a guarded write's token through the store's row-CAS predicate — the authoritative check; `Admits(FencingToken incoming)` survives ONLY as a documented client-side pre-check that short-circuits an obviously-stale retry before the round-trip, never a substitute for the store's verdict.
+- Law: this fence DETECTS and each guarded write REJECTS — `Fence` binds the coordination `LeaseGuard` READ case, which validates the held generation against the lease row and mutates nothing, so a passing guard proves the lease stood at the read instant and proves nothing about the write that follows; the authoritative rejection is the `WHERE token >= held` predicate inside each guarded write's own statement, re-evaluated by the engine against the committed row version, and `Wire/coordination#DISTRIBUTED_LOCK` `DistributedLock.Guard` brackets its critical section with that read on both sides to DETECT a stolen lock rather than to admit the section — a guard evaluated apart from the write it protects passes on a generation another writer already moved.
+- Entry: `Acquire(LeaseElection.Runtime runtime, string leaseKey)` returns `Fin<FencingToken>` — the adapter calls the Persistence coordination op-union with wire-stable primitives (lease key, holder id, staleness millis) and DECODES the store-issued `LeaseToken` generation into the carrier; `Fence(runtime, leaseKey, held)` reads the lease row through `LeaseGuard` and answers whether the held generation still stands; `Admits(FencingToken incoming)` survives ONLY as a documented client-side pre-check that short-circuits an obviously-stale retry before the round-trip, never a substitute for the store's verdict.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new fenced resource carries the same decoded token through the same `Fence` adapter, never a second token type; a new election driver acquires through the same `Acquire`; zero new surface.
-- Boundary: the fence is store-validated or it is not fencing — a per-process token mint, an in-memory latest-token cell, and an in-memory fence validation are the DELETED forms (two processes minting independent sequences is zero cross-process safety); the store issues the strictly-increasing generation as its fenced-lease column and validates every guarded write with `WHERE token >= held` (the Kleppmann reject-lower AT the resource), so a paused-then-resumed stale holder's late write rejects store-side and surfaces through the adapter as the decoded `LeaseFenced` fault — a registry-banded `Wire/coordination#DISTRIBUTED_LOCK` `CoordinationFault` case the composition-root delegate binding constructs at the seam, never a bare `Error.New` minted here; requests cross as wire-stable primitives and results decode from Persistence-owned types — no AppHost interface or type crosses down; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the store-validated token is the correctness proof the timeout alone cannot give; the token crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the Sandbox/provisioning#ROLLOVER_DRAIN `FleetRoll` conductor election, and the sidecar Wire/companion#PROCESS_MODALITY write-forward each acquire through this one rail — the store (`Rasm.Persistence` `ONE_FENCED_LEASE_STORE`) fences every token, aligned to a sibling branch, never coupled; a held lease without a store-validated token is the rejected form.
+- Boundary: the fence is store-validated or it is not fencing — a per-process token mint, an in-memory latest-token cell, and an in-memory fence validation are the DELETED forms (two processes minting independent sequences is zero cross-process safety); the store issues the strictly-increasing generation as its fenced-lease column, so a paused-then-resumed stale holder's late write rejects store-side and surfaces through the adapter as the decoded `LeaseFenced` fault — a registry-banded `Wire/coordination#DISTRIBUTED_LOCK` `CoordinationFault` case the composition-root delegate binding constructs at the seam, never a bare `Error.New` minted here; requests cross as wire-stable primitives and results decode from Persistence-owned types — no AppHost interface or type crosses down; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the store-validated token is the correctness proof the timeout alone cannot give; the token crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the Sandbox/provisioning#ROLLOVER_DRAIN `FleetRoll` conductor election, and the sidecar Wire/companion#PROCESS_MODALITY write-forward each acquire through this one rail — the store (`Rasm.Persistence` `ONE_FENCED_LEASE_STORE`) fences every token, aligned to a sibling branch, never coupled; a held lease without a store-validated token is the rejected form.
 
 ```csharp signature
 [ValueObject<ulong>(
@@ -319,18 +320,21 @@ public readonly partial struct FencingToken {
     public static readonly FencingToken Zero = Create(0UL);
 
     // Client-side PRE-CHECK only: short-circuits an obviously-stale retry before the round-trip.
-    // The authoritative fence is the store's row-CAS predicate (WHERE token >= held) — always consulted.
+    // Authoritative fence is the store's row-CAS predicate (WHERE token >= held) — always consulted.
     public bool Admits(FencingToken incoming) => incoming >= this;
 }
 
-// The ONE Persistence PORT adapter for lease custody: wire-stable primitives cross down, the
-// store-issued generation decodes back. AppHost mints nothing; the delegates bind the store's
-// coordination op-union at the composition root, their failures the decoded registry-banded
-// CoordinationFault cases (LeaseFenced on a rejected guarded write) constructed at that binding.
+// ONE Persistence PORT adapter for lease custody: wire-stable primitives cross down, the store-issued
+// generation decodes back. AppHost mints nothing; the delegates bind the store's coordination op-union
+// at the composition root, their failures the decoded registry-banded CoordinationFault cases
+// (LeaseFenced on a rejected guarded write) constructed at that binding.
 public static class LeaseElection {
     public sealed record Runtime(
         Func<string, LeasePolicy, Fin<(ulong Generation, Instant Deadline)>> AcquireLease,
         Func<string, LeasePolicy, ulong, Fin<(ulong Generation, Instant Deadline)>> RenewLease,
+        // `LeaseGuard` READ: validates the held generation against the lease row and writes nothing, so
+        // its pass is EVIDENCE and never admission — every guarded write carries its own reject-lower
+        // predicate, and only that predicate settles against a writer racing this read.
         Func<string, ulong, Fin<Unit>> GuardWrite,
         Func<string, ulong, Fin<Unit>> ReleaseLease,
         LeasePolicy Lease);

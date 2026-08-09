@@ -498,8 +498,8 @@ interface MaterialWire {
 # MIRROR_VOCABULARY registry (the producer's positional [Key(n)] roster is the schema authority; declaration
 # order IS key order except the two spelled out-of-order appends), proto3-style zero defaults on every scalar and
 # `T | None = None` on every nested record; a dataclass with required fields asserts a decode contract python
-# does not implement. The seam AppearanceSummary rosters on NEITHER registry: its wire leg is the
-# `rasm.element.v1` `AppearanceWire` payload inside `NodeWire`, a pending descriptor source.
+# does not implement. The seam AppearanceSummary rosters on the PROTO registry alone: its wire leg is the
+# `rasm.element.v1` `AppearanceWire` payload inside `NodeWire`, a descriptor-backed message.
 class WireColor(Struct, frozen=True, gc=False):
     r: float = 0.0
     g: float = 0.0

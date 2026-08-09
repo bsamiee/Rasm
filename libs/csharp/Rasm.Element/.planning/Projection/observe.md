@@ -316,9 +316,10 @@ public static class ElementTap {
    decode: static (stream, bounds, op) => ElementWire.DecodeGraph(stream, bounds, op),
    magnitude: static graph => (graph.Nodes.Count, graph.Edges.Length));
 
- public static Fin<GraphDelta> DecodedDelta(ElementHookRail rail, Stream payload, WireLimits limits, Op key) =>
+ public static Fin<GraphDelta> DecodedDelta(
+  ElementHookRail rail, Stream payload, Header basis, WireLimits limits, Op key) =>
   Decoded(rail, payload, limits, key, WireKind.Delta,
-   decode: static (stream, bounds, op) => ElementWire.DecodeDelta(stream, bounds, op),
+   decode: (stream, bounds, op) => ElementWire.DecodeDelta(stream, basis, bounds, op),
    magnitude: static delta => (delta.NodeCount, delta.EdgeCount));
 
  static Fin<T> Decoded<T>(

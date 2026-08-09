@@ -16,9 +16,9 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 ## [02]-[STORE_ROWS]
 
 [STORE_ROWS]:
-- Owner: the interior `_stores` family — one row per metrics store carrying `chart`/`repo`, the `write` (OTLP ingest path) and `read` (query API path) projections, ONE `values` projection folding retention, translation, exemplar storage, ruler, and object binding into the row's whole values block, the `plugin` column naming the Grafana datasource its query API answers, the `exemplars` and `rules` columns, and the shared `_Plane` floor (`fits`, `signals`, `tenancy`, `retain`, `degrade`) — with `spec.profile.observe.store` selecting the row; the family is Mimir-SHAPED: every coordinate an escalation needs is a column on every row, so store selection edits the spec, never a tier.
+- Owner: the interior `_stores` family — one row per metrics store carrying `chart`/`repo`, its floor `admit` as the OTLP entry path beside the `read` query-API projection, ONE `values` projection folding retention, translation, exemplar storage, ruler, and object binding into the row's whole values block, the `plugin` column naming the Grafana datasource its query API answers, the `exemplars` and `rules` columns, and the shared `_Plane` floor (`fits`, `admit`, `signals`, `tenancy`, `lifetime`, `degrade`) — with `spec.profile.observe.store` selecting the row; the family is Mimir-SHAPED: every coordinate an escalation needs is a column on every row, so store selection edits the spec, never a tier.
 - Law: one row, one values body — a store's dialect keys nest differently per chart (`server.*`, `mimir.structuredConfig.*`, `server.extraArgs.*`), so per-concern projections spread as sibling objects silently drop every key sharing a top-level parent; the row answers the whole block once and a coordinate added to the family obligates an answer on every row before it compiles.
-- Law: `_Plane` is the floor both backend families answer and `signals` is the whole discriminant — `_stores` rows hold `metrics` because a TSDB answers health and alerting, `_RESIDENCE` rows hold `logs` and `traces` because a wide-event plane answers evidence and history, and each family extends that floor with what only its own plane decides.
+- Law: `_Plane` seats every coordinate BOTH families answer, `admit` among them under a per-family shape parameter, and `signals` is the whole discriminant — `_stores` rows hold `metrics` because a TSDB answers health and alerting, `_RESIDENCE` rows hold `logs` and `traces` because a wide-event plane answers evidence and history, and each family extends that floor with what only its own plane decides.
 - Law: crossing the two families reads different VALUES under one column set, never a second shape — `tenancy` is the one floor column each plane spells in its own closed vocabulary, since a series plane isolates by label or org while a wide-event plane isolates by partition column or sort-key lead, and one vocabulary spanning both names a mechanism neither plane runs.
 - Law: an `org` row scopes its READ plane exactly as it scopes its ingest — `_scoped` is the one header projection, the collector stamping it on every exporter whose backend reads it and the board plane's own datasource stamping it on every query and every alert evaluation; a row isolating ingest while leaving the read plane unscoped provisions a door whose every request refuses for a missing scope, which reads on the board as an empty panel rather than as the tenancy posture the row declared.
 - Law: `plugin` is a row column, never a tier constant — every row's query API answers a named Grafana datasource, so a row whose engine ships its own plugin and its own query dialect selects it here and the board plane's provisioning follows the selection; deriving the plugin from the reference row binds every escalation to whatever the reference row happened to answer.
@@ -28,28 +28,33 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 - Law: this family's overrides nest per row and a flat key is a silent no-op — the reference row's chart declares no top-level `fullnameOverride` and invokes its own `prometheus.fullname` helper from zero templates, so the LIVE override is `server.fullnameOverride` and it becomes the rendered Service name outright, with no `-server` tail and port 80 onto the container's 9090; a flat spelling renames nothing and every address derived from the pinned name then resolves to a Service the chart never rendered, which is exactly the dead-address class the pinned-fullname law exists to close.
 - Law: a store row owns its chart's whole workload set AND its whole default behaviour set — the reference chart ships FOUR subcharts default-on (alert manager, kube-state-metrics, node exporter, pushgateway), each a workload this estate never declared and the first of them injecting an `alerting` block beside the delivery path `Boards` owns, while the fleet row ships a bundled object store and a bundled Kafka; every one is disarmed by name under the same whole-page law that deletes Loki's gateway and canary tiers.
 - Law: a default that is not a workload still installs a plane — the reference chart's own `scrapeConfigs` seat carries a cluster-wide kubernetes-SD job set (apiservers, nodes, cadvisor, service endpoints, pods) whose helpers keep naming the four disabled subcharts, so a row silent on that seat runs a SECOND ingest plane inside the store the one-ingress law exists to make the only one, against targets the same row just deleted; the seat empties explicitly, because the collector is the estate's one scraper and a store that discovers its own targets makes the store swap a re-plumb.
-- Law: the column is what every store-side expression renders through — `_promql` builds one `Query.Target` off the selected row, and the recording rule, the alert numerator, and the objective observable all render against it, so a row keeping bare dotted names and a row appending unit and type tails read their own series off one unchanged query value; a target built from the estate pin instead renders suffixes the victoriametrics row never wrote.
 - Law: `prometheus` is the reference row — its decisive column is `exemplars: true`: native exemplar storage (`enable-feature=exemplar-storage`, spelled without leading dashes because the chart renders each flag as `- --{{ . }}`) powers the metric→trace click-through into Tempo that the whole board plane links on; tenant stays the `rasm.tenant` label (`tenancy: "label"`), the rendered server Service is the pinned `server.fullnameOverride` verbatim, and retention rides `server.retention`.
 - Law: the receiver block has ONE seat — `server.otlp` is the canonical knob and the chart also dumps `serverFiles["prometheus.yml"]` verbatim into the same rendered ConfigMap key, so spelling `otlp` in both emits two `otlp:` keys in one YAML document; the same trap governs `global`, `storage`, `alerting`, and the remote pair, and the row therefore writes only rule CONTENT under `serverFiles`, where setting one sub-key merges into the chart's default document and leaves its own `rule_files` list — which is what mounts that content — intact.
 - Law: `mimir` is the fleet escalation — multi-component and memory-heavy, earned only past the single-store ceiling; its object-store binding reuses the object plane's endpoint and bucket coordinates through `structuredConfig.common.storage` (`backend: s3` with the endpoint and bucket rows, which every per-section store inherits — one storage truth, never a second store config) with `blocks_storage.s3.bucket_name`/`ruler_storage.s3.bucket_name` scoping the per-section prefixes, the two bundles this chart ships default-on both disarmed by name — `minio` so the escalation binds the estate's object plane instead of standing up a second one, and `kafka` because the buffer axis dials brokers the spec supplies and an in-chart broker is one nothing produces to — retention rides `structuredConfig.limits.compactor_blocks_retention_period`, the nginx gateway service is the pinned store fullname suffixed `-nginx` (ingest `location /otlp/v1/metrics`, query under `/prometheus`), `ruler.enabled` states the in-store rule component so a chart-default flip cannot silently drop store-side burn evaluation, and `tenancy: "org"` stamps the stack's org id as the `X-Scope-OrgID` header on every collector exporter whose backend reads it.
 - Law: `victoriametrics` is the resource-pressure escape — `exemplars: false` is its declared degradation: the metric→trace click-through drops to trace-search-by-time, a posture the row states so selecting it is an informed trade, never a surprise; the rendered service is the pinned store fullname suffixed `-server` on `:8428`, retention rides `server.retentionPeriod`, and its translation column carries the second declared asymmetry — the store keeps dotted names and appends no type or unit suffix, so a suffix-bearing series exists on the other two rows alone.
 - Law: rule evaluation rides a family column — burn numerators precompute once per group interval instead of once per alert evaluation, so `rules` rides the row and each dialect spells its own loader: prometheus reads `serverFiles["recording_rules.yml"]`, whose `groups` the chart's own `rule_files` default already mounts; mimir points `ruler_storage` at the `local` backend over a projected ConfigMap keyed `<tenant>/rules.yaml`, deliberately overriding the s3 backend `common.storage` supplies because a code-owned rule set is read-only by design and the API-backed bucket admits UI mutation; victoriametrics runs no in-store evaluator on this chart and carries that on `degrade`, so the row that cannot evaluate falls back to inline breach rendering rather than dropping the alert.
 - Law: Grafana-managed recording rules are refused, not deferred — `alerting.v0alpha1.RecordingRule` writes `spec.metric` into `spec.targetDatasourceUid` through that datasource's Prometheus remote-write API, and remote-write is declined estate-wide, so arming that resource re-opens the door the one-ingress law shuts; the store's own evaluator takes the capability instead, which also keeps it a residence mechanism rather than a new executor.
-- Law: `_recorded` names the precomputed series once for both readers — the rule group defines `<slug>:burn:<window>` off `Query.breach` and the alert fold reads that same name back, so the breach expression exists at exactly one site and the colon-separated store-derived spelling cannot collide with the dotted producer grammar Tier-0 fixes.
 - Law: degradation is a row declaration WITH A SEAT — each row's `degrade` column states what the estate loses on that row, the dashboards' exemplar links gate on the selected row's `exemplars` column, and the selected row itself seals on the tier beside the resident residence rows; a `_Plane` floor whose evidence half publishes and whose series half does not leaves half the trade unreadable while both halves read complete on the page.
 - Growth: a fourth store is one row with every column answered — the family is closed until a row lands; Thanos and Cortex stay outside it because reference, fleet-scale, and resource-pressure are the three postures a metrics store is selected for and neither adds a fourth.
 - Boundary: which store a stack runs is `program/spec.md`'s `observe.store` coordinate; the tenant metric label is the runtime plane's `Convention.rasm.tenant` dimension arriving on the wire, never re-minted here; remote-write is declined estate-wide, so OTLP is the one ingest door and that is what makes these rows swappable.
-- Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/ts/core` (`Convention`); `../program/spec.ts` (`StackSpec`).
+- Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/ts/core` (`Board`, `Convention`); `../program/spec.ts` (`StackSpec`).
 
 ```typescript signature
-// Both backend-row families answer this floor. `signals` is the whole discriminant between them, so a plane gaining
-// one signal is a value edit and never a second family; `tenancy` stays each plane's own closed vocabulary, since a
-// series plane and a wide-event plane isolate by mechanisms neither can spell for the other.
-type _Plane<Isolation extends string> = {
+// Both backend-row families answer this floor under the estate's own column spellings. `signals` is the whole
+// discriminant between them, so a plane gaining one signal is a value edit and never a second family; `tenancy` stays
+// each plane's own closed vocabulary, since a series plane and a wide-event plane isolate by mechanisms neither can
+// spell for the other. `lifetime` carries the ending OWNER beside the window, because a window with no owner reads as
+// a promise this tier made about a store's own compactor. `admit` seats ON the floor as its own parameter rather
+// than in each family's extension: every family answers it — a store row as the OTLP path a collector exporter
+// dials, a residence row as the writer that fills it — so it earns the floor by the whole-family test, and only its
+// SHAPE is per-family. Declared twice below the floor instead, one question read as two coordinates a reader
+// crossing families could not line up.
+type _Plane<Isolation extends string, Admit> = {
   readonly fits: string
+  readonly admit: Admit
   readonly signals: ReadonlyArray<"logs" | "metrics" | "traces">
   readonly tenancy: Isolation
-  readonly retain: string
+  readonly lifetime: string
   readonly degrade: string
 }
 
@@ -72,7 +77,7 @@ declare namespace Lgtm {
     readonly retention: StackSpec.Window
     readonly rules: Rules
     readonly translation: Convention.Translation
-    readonly histogram: Query.Histogram
+    readonly histogram: Board.Query.Histogram
     readonly objects?: Lgtm.Args["objects"]
   }
 }
@@ -82,7 +87,7 @@ const _stores = {
     chart: "prometheus", repo: "https://prometheus-community.github.io/helm-charts",
     // The rendered Service IS `server.fullnameOverride` — no `-server` tail survives the override — and it
     // answers port 80 onto the container's 9090, so the address carries no port either.
-    write: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}.${ns}.svc/api/v1/otlp`,
+    admit: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}.${ns}.svc/api/v1/otlp`,
     read: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}.${ns}.svc`,
     values: (row: Lgtm.Store) => ({
       // This chart's scaffold NESTS the override: its top-level `fullnameOverride` is absent from values and its
@@ -122,7 +127,7 @@ const _stores = {
       serverFiles: { "recording_rules.yml": { groups: row.rules.groups } },
     }),
     fits: "reference posture: one store, native exemplars, the click-through plane every board links on",
-    signals: ["metrics"], plugin: "prometheus", retain: "`server.retention` on the single server",
+    signals: ["metrics"], plugin: "prometheus", lifetime: "`server.retention` on the single server, which the store's own retention loop ends",
     exemplars: true, tenancy: "label", rules: true, translation: Convention.wire.translation, histogram: "native",
     degrade: "single-store; tenant is a label, never an isolation boundary",
   },
@@ -130,7 +135,7 @@ const _stores = {
     chart: "mimir-distributed", repo: "https://grafana.github.io/helm-charts",
     // The reverse proxy renders as `<pinned>-gateway` on port 80 — `nginx` is the values COMMENT's scope word and
     // the retired component name, never a rendered Service, so an address spelled off it resolves to nothing.
-    write: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-gateway.${ns}.svc/otlp`,
+    admit: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-gateway.${ns}.svc/otlp`,
     read: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-gateway.${ns}.svc/prometheus`,
     values: (row: Lgtm.Store) => ({
       fullnameOverride: row.fullname,
@@ -172,13 +177,13 @@ const _stores = {
       },
     }),
     fits: "fleet escalation: horizontal ingest and query past the single-store ceiling, org-isolated end to end",
-    signals: ["metrics"], plugin: "prometheus", retain: "`limits.compactor_blocks_retention_period` over the object plane",
+    signals: ["metrics"], plugin: "prometheus", lifetime: "`limits.compactor_blocks_retention_period` over the object plane, which the compactor ends",
     exemplars: true, tenancy: "org", rules: true, translation: Convention.wire.translation, histogram: "native",
     degrade: "multi-component memory cost; earned only past the single-store ceiling",
   },
   victoriametrics: {
     chart: "victoria-metrics-single", repo: "https://victoriametrics.github.io/helm-charts",
-    write: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-server.${ns}.svc:8428/opentelemetry`,
+    admit: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-server.${ns}.svc:8428/opentelemetry`,
     read: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-server.${ns}.svc:8428`,
     values: (row: Lgtm.Store) => ({
       fullnameOverride: row.fullname,
@@ -189,14 +194,13 @@ const _stores = {
       },
     }),
     fits: "resource-pressure escape: one lean binary where the reference row's footprint is the constraint",
-    signals: ["metrics"], plugin: "prometheus", retain: "`server.retentionPeriod` on the single binary",
+    signals: ["metrics"], plugin: "prometheus", lifetime: "`server.retentionPeriod` on the single binary, which the binary itself ends",
     exemplars: false, tenancy: "label", rules: false, translation: "NoTranslation", histogram: "classic",
     degrade: "no native histograms, no exemplar storage, no type/unit suffixes, no in-store rule evaluator: click-through degrades to trace search, series carry the bare dotted name, and burn numerators render inline per alert evaluation",
   },
-} as const satisfies Record.ReadonlyRecord<string, _Plane<"label" | "org"> & {
+} as const satisfies Record.ReadonlyRecord<string, _Plane<"label" | "org", (release: string, ns: pulumi.Input<string>) => pulumi.Output<string>> & {
   readonly chart: string
   readonly repo: string
-  readonly write: (release: string, ns: pulumi.Input<string>) => pulumi.Output<string>
   readonly read: (release: string, ns: pulumi.Input<string>) => pulumi.Output<string>
   readonly values: (row: Lgtm.Store) => Record.ReadonlyRecord<string, unknown>
   // Grafana datasource this row's query API answers: an engine shipping its own plugin and its own query dialect
@@ -211,7 +215,7 @@ const _stores = {
   // quantile and fraction arms render entirely differently per answer, so the capability is a row column and the
   // row arms its own dialect for it — reading the algebra's default renders bucket arithmetic against a store that
   // holds no buckets, which matches nothing and raises nothing.
-  readonly histogram: Query.Histogram
+  readonly histogram: Board.Query.Histogram
 }>
 
 // One scope-header projection both ends of an `org` row take: the collector stamps it on every exporter whose backend
@@ -242,7 +246,7 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Law: no row installs on chart defaults — an empty values object is not neutrality, it is an unowned deployment: chart defaults run Loki single-tenant with no retention and an EMPTY schema block its own server refuses to start against, Tempo with no OTLP receiver and no retention, and the collector with a `debug` exporter beside jaeger and zipkin doors the estate never opened; a values tree also carries whole default-on SUBTIERS — Loki's nginx gateway, canary daemonset, test pod, and two memcached tiers — so a row states which of its chart's own workloads it owns and disables the rest, the gateway among them because the collector dials the log door directly; every row states retention, tenancy, its ingest surface, and — where the workload holds state no later apply re-lands — its own storage claim, because a default-off claim is the one chart default whose cost arrives on a reschedule rather than at install; and a chart default the tier does not own is deleted by an explicit `null` values row, because values merge as maps and only `null` removes — and that tombstone lands INSIDE the map the tier's own document already owns, since a sibling spread beside that document replaces the whole key and drops every null it carried, deleting nothing while reading as a complete prune.
 - Law: tenancy governs every signal it can reach — the selected store row's `tenancy` column is the whole estate's isolation posture, so an `org` row arms Loki's `auth_enabled`, Tempo's `multitenancyEnabled`, and Pyroscope's tenant arm beside the metrics store, and the collector stamps `X-Scope-OrgID` on EVERY exporter whose backend reads it; a metrics-only org header leaves logs and traces pooled under one tenant on the same escalation, an asymmetry no `degrade` column ever declared.
 - Law: provenance rides the pins — when a `keyring` asset accompanies the versions, every chart row verifies (`verify: true` + the keyring), so a tampered chart fails at render and the estate's content-addressed discipline extends to its chart supply.
-- Law: the collector is the one ingest seam — the OTLP receiver admits, one named exporter per signal fans out (`otlp_http/logs` to Loki's OTLP ingest, `otlp_http/traces` to Tempo, `otlp_http/metrics` to the selected store row's `write` path, `otlp_http/profiles` to Pyroscope while the profiles row holds), and the `service.pipelines` rows wire receiver through processors to exporter per signal; workloads never learn a backend address, only the collector endpoint.
+- Law: the collector is the one ingest seam — the OTLP receiver admits, one named exporter per signal fans out (`otlp_http/logs` to Loki's OTLP ingest, `otlp_http/traces` to Tempo, `otlp_http/metrics` to the selected store row's `admit` path, `otlp_http/profiles` to Pyroscope while the profiles row holds), and the `service.pipelines` rows wire receiver through processors to exporter per signal; workloads never learn a backend address, only the collector endpoint.
 - Law: the config is a decoded owner at a STATED depth — `_plan` folds the tier's coordinates into one document and `Schema.decodeSync` admits it once: every component id closes against its own map, every pipeline and extension reference resolves, and every exporter body decodes against its own egress dialect, while a receiver, processor, connector, or extension body stays the `_Bag` whose vocabulary `.api/opentelemetry-collector.md` owns, because re-modeling four upstream component vocabularies here mints a twin that drifts on the next chart pin and the tier authors none of those bodies from a closed alphabet of its own; so a typo in an exporter name fails at the tier seam where the coordinate is still loggable instead of crash-looping a gateway the operator already accepted; closure runs one way by design — a component defined and unnamed is inert, which is what makes an escalation row an arming flip rather than an edit.
 - Law: the pipeline order is the tier's, never a preset's — `memory_limiter` runs first so the guard sees the request before any component allocates against it, identity enrichment (`k8s_attributes`, `resource_detection`) runs next so every downstream component sees the workload coordinates, gateway shaping (`transform`, `filter`) runs on enriched data, `cumulative_to_delta` runs after shaping so the rewrite reads the datapoint set that shaping left, and `batch` runs last so batching is the final act before egress; the chart's presets inject at their own insertion point, so this page declares the components itself and pays for the RBAC with an explicit `clusterRole.rules` roster rather than surrendering ordering to a values toggle. Every attribute key a component names — the `k8s_attributes` extract roster and its association sources, the OTTL environment migration's target, the probe filter's path — is a `core/observe/convention` row, so the keys this gateway stamps and the keys a board joins on are one set and a key spelled here as config text is the drift that set exists to delete.
 - Law: span-derived series are connectors, not a second pipeline — `span_metrics` mints RED series and `service_graph` mints topology series from the SAME admitted spans, each an exporter on the traces pipeline and a receiver on a metrics pipeline, so SDK-ful workloads earn the RED and service-map series the `ebpf` row earns only for SDK-less ones; Tempo's own metrics-generator is the declined alternative, recorded on its row, because two generators over one span stream fork the series. Both connectors name their dimensions as `core/observe/convention` rows, so a derived series carries the label vocabulary every board query spells and a dimension key naming an attribute no runtime stamps cannot enter as a literal.
@@ -254,16 +258,14 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Law: SDK-less workloads earn RED metrics as a chart row — the `ebpf` row installs the OpenTelemetry eBPF instrumentation chart (`opentelemetry-ebpf-instrumentation` from the collector's own repository), and `config.data.otel_traces_export.endpoint` with `config.data.otel_metrics_export.endpoint` bind explicitly to the tier's one `collectorEndpoint`; the row demands privileged eBPF host access, so it binds only where the deploy target grants it and the toggle is spec data, never a default.
 - Law: profiles ride the push path — Pyroscope ingests the runtime SDKs' push streams and the collector's profiles pipeline; the row is present-by-default and its removal is a spec delta, so the LGTM plane carries four signals, not three.
 - Law: charts render, releases do not exist — `helm.v4.Chart` keeps every rendered resource under Pulumi diff and CrossGuard visibility; `helm.v3.Release` is reached only where a chart demands true release lifecycle, and no row here does.
-- Entry: `new Lgtm("observe", { spec, namespace, versions, auth, data, objects, alerts, keyring? }, opts)` inside the k8s arm, `data` the pg coordinates as discrete fields, `objects` the object plane's coordinates the mimir and lake rows bind, and `alerts` the `Alert.Spec` set the tier compiles into the recording groups the store row loads.
 - Growth: a new signal backend is one `_charts` row with its endpoint projections; a collector component is one `_plan` component row and one pipeline mention; a residence is one `_RESIDENCE` row answering `chart`, `door`, `exporter`, and `plugin` — the chart earning its own install with the values body and init-script DDL that install mounts, the door earning realization and the published address, the exporter earning its component id, its write seat, and its egress dialect across the whole pipeline fan, and the plugin earning the board datasource with its dialect and dialed coordinates, each `None` stating the half this plane leaves to another owner; a new egress policy axis is one field on the shared `_POLICY` block every exporter dialect then answers.
 - Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `#BOARD_APPLY`'s upstream data; residence table shape and query dialect are the data planes' — this tier plants the DDL and publishes the door; the chart values and config vocabularies are the external contracts `.api/opentelemetry-collector.md` and `.api/clickhouse.md` own.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`, `core.v1.ConfigMap`, `core.v1.Service`, `core.v1.PersistentVolumeClaim`, `apps.v1.Deployment`); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`, `all`, `secret`, `asset`); `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Alert`, `Convention`, `Query`); `../program/spec.ts` (`StackSpec`, `Tier`); `opentelemetry-collector` (chart values beside the receivers/processors/connectors/exporters/extensions/service config document); `opentelemetry-ebpf-instrumentation` (`config.data.otel_traces_export`, `config.data.otel_metrics_export`); `clickhouse` (`clickhouse.{persistence,initScripts,defaultUser,replicasCount}`, `keeper.enabled`, `operator.enabled`).
 
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Duration, Option, Record, Schema } from "effect"
-import { type Alert, Convention, Query } from "@rasm/ts/core"
+import { Board, Convention, Reliability } from "@rasm/ts/core"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _OWN = (name: string) => name // the chart renders its own Service under the pinned fullname
@@ -302,9 +304,9 @@ const _RESIDENCE = {
     signals: ["logs", "traces"],
     // this tier provisions the catalog prefix and publishes the door; the Parquet under it is `data` `lane/olap`'s own
     // write, which is why no collector exporter and no chart row appear on this row
-    ingest: "object-plane Parquet minted by `data` `lane/olap` `Olap.lake.sink`, absorbed through `Olap.absorb`",
+    admit: "object-plane Parquet minted by `data` `lane/olap` `Olap.lake.sink`, absorbed through `Olap.absorb`",
     tenancy: "partition column",
-    retain: "table-format retention on the object plane's own lifecycle",
+    lifetime: "table-format retention the object plane's own lifecycle rules end, never this tier",
     cap: false,
     // No chart: the Parquet under this door is a data-plane writer's, so this row installs nothing here exactly as
     // its exporter and plugin columns already answer `None`.
@@ -329,9 +331,9 @@ const _RESIDENCE = {
   clickhouse: {
     fits: "interactive wide-event at any cardinality",
     signals: ["logs", "traces"],
-    ingest: "collector `clickhouse` exporter against branch-owned DDL",
+    admit: "collector `clickhouse` exporter against branch-owned DDL",
     tenancy: "tenant leads the sort key",
-    retain: "table TTL with `ttl_only_drop_parts`, beside materialized views",
+    lifetime: "table TTL with `ttl_only_drop_parts` beside materialized views, which the store's own TTL merge ends",
     cap: false,
     // This row installs its own chart, so its values body and its init-script DDL ride the row beside the door that
     // chart's Service answers; the tier folds the roster and mounts what the column hands it.
@@ -384,8 +386,7 @@ const _RESIDENCE = {
       }),
     degrade: "logs and traces only: metrics stay on the selected `_stores` row and profiles on Pyroscope, so an evidence query joins wide events to series across two planes rather than one",
   },
-} as const satisfies Record.ReadonlyRecord<string, _Plane<string> & {
-  readonly ingest: string
+} as const satisfies Record.ReadonlyRecord<string, _Plane<string, string> & {
   readonly cap: false
   // Chart install AND its body in one answer, on the same footing as `door`, `exporter`, and `plugin`: a boolean here
   // states a capability an install below then re-decides from a key literal, so the two can disagree and a second
@@ -472,7 +473,7 @@ declare namespace Lgtm {
   // docker arm, whose bundled store ships its own escaping default, its own plugin, and no rule evaluator at all, so
   // that read provisions a scope header no backend expects and renders recorded series nothing records.
   type Metrics = {
-    readonly target: Query.Target
+    readonly target: Board.Query.Target
     readonly plugin: string
     readonly scope: Record.ReadonlyRecord<string, string>
     readonly exemplars: boolean
@@ -511,7 +512,7 @@ declare namespace Lgtm {
       readonly metrics: pulumi.Output<string>
       readonly profiles: pulumi.Output<string>
     }
-    // Query rows are named for the PLANE each door answers, never for the engine behind it: `metrics` resolves to
+    // Query-door rows are named for the PLANE each door answers, never for the engine behind it: `metrics` resolves to
     // whichever `_stores` row the spec selected and `residence` to whichever `_RESIDENCE` row it armed, so a stack
     // escalating either family re-points one address and every reader keeps its spelling.
     readonly query: {
@@ -540,7 +541,7 @@ declare namespace Lgtm {
     readonly auth: pulumi.Input<string>
     readonly data: Data
     readonly objects?: { readonly endpoint: pulumi.Input<string>; readonly bucket: pulumi.Input<string> } // the object plane's coordinates the mimir ruler and the lake residence bind
-    readonly alerts: ReadonlyArray<Alert.Spec> // the same specs `Boards` compiles: one suite, one breach definition, two evaluation sites
+    readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
     readonly keyring?: pulumi.asset.Asset
   }
   // One bind, every axis: each collector arm reads the spec's own observe record rather than a boolean the caller
@@ -1180,7 +1181,7 @@ const _plan = (bind: Lgtm.Plan): Collector =>
     service: {
       extensions: [...(bind.gateway === undefined ? ["file_storage"] : []), "health_check", "pprof", "zpages"],
       telemetry: {
-        // gateway holds no AppIdentity, so its own resource reads the estate pin off the wire triple rather than spelling a second literal
+        // gateway holds no Identity.App, so its own resource reads the estate pin off the wire triple rather than spelling a second literal
         resource: { [Convention.attr.serviceNamespace]: Convention.wire.namespace },
         metrics: { level: "detailed", readers: [_SELF("metrics")] },
         logs: { level: "INFO", encoding: "json", processors: [_SELF("logs")] },
@@ -1231,20 +1232,20 @@ const _pruned = (config: Collector): Record.ReadonlyRecord<string, unknown> => (
 
 // --- [RECORDING_RULES]
 
-// Precomputed burn numerator. `Query.breach` defines it once here; `_expr` on the board plane reads this same
+// Precomputed burn numerator. `Board.Query.breach` defines it once here; `_expr` on the board plane reads this same
 // name back, so the expensive expression evaluates once per group interval instead of once per alert evaluation and
 // its definition still exists at exactly one site. Colon-separated spelling is the store-derived convention and
 // cannot collide with the dotted producer grammar Tier-0 fixes.
-const _recorded = (spec: Alert.Spec, window: Duration.DurationInput): string =>
+const _recorded = (spec: Reliability.Alert.Spec, window: Duration.DurationInput): string =>
   `${spec.slug}:burn:${Duration.toSeconds(Duration.decode(window))}s`
 
 // One render target for every store-side expression on this page. The selected row's `translation` column decides how a
 // mint name becomes a series name, so the recording rule, the alert numerator, and the objective observable read the
 // spelling the receiver actually wrote; `source` names the query end a rendered panel binds and rule evaluation ignores.
-const _promql = (store: (typeof _stores)[keyof typeof _stores]): Query.Target =>
-  Query.promql({ histogram: store.histogram, source: "metrics", translation: store.translation })
+const _promql = (store: (typeof _stores)[keyof typeof _stores]): Board.Query.Target =>
+  Board.Query.promql({ histogram: store.histogram, source: "metrics", translation: store.translation })
 
-const _groups = (alerts: ReadonlyArray<Alert.Spec>, target: Query.Target): Lgtm.Rules["groups"] =>
+const _groups = (alerts: ReadonlyArray<Reliability.Alert.Spec>, target: Board.Query.Target): Lgtm.Rules["groups"] =>
   Array.map(alerts, (spec) => ({
     name: spec.slug,
     interval: `${_COLLECTOR.rules.seconds}s`,
@@ -1252,7 +1253,7 @@ const _groups = (alerts: ReadonlyArray<Alert.Spec>, target: Query.Target): Lgtm.
     // let the multiwindow guard compare numerators sampled at two different instants
     rules: Array.map([spec.windows.short, spec.windows.long], (window) => ({
       record: _recorded(spec, window),
-      expr: Query.render(Query.breach(spec.sli, Query.span(Duration.decode(window))), target),
+      expr: Board.Query.render(Board.Query.breach(spec.sli, Board.Query.span(Duration.decode(window)), {}, spec.filters), target),
       labels: spec.annotations,
     })),
   }))
@@ -1282,7 +1283,7 @@ class Lgtm extends Tier {
   readonly urls: Lgtm.Urls
   readonly collectorEndpoint: pulumi.Output<string>
   readonly rendered: pulumi.Output<ReadonlyArray<unknown>>
-  // The SELECTED store row whole, sealed beside the resident residence rows: `fits`, `signals`, `retain`, and
+  // The SELECTED store row whole, sealed beside the resident residence rows: `fits`, `signals`, `lifetime`, and
   // `degrade` are declarations a consumer reads to know what this stack gave up on series, and they answer nowhere
   // else — `targets.metrics` publishes the four coordinates a board plane DIALS and states nothing about the trade.
   // A degradation column with no seat is a row that reads complete to a prose scan and reaches no reader at all.
@@ -1749,7 +1750,6 @@ const _infraReceivers = (ingest: StackSpec.Observe["ingest"]): ReadonlyArray<str
 - Law: pinning the image's own backends is the DECLINED alternative, never an unavailable one — the image publishes a per-backend extra-argument seam and mounts every backend config path, which reaches the representation flag directly and the escaping strategy through a replacement of the store's whole config file; the loop's value is running the published image unmodified, so the arm states what the image holds and renders against it, and a stack demanding estate-identical representation escalates to the k8s arm rather than forking the dev image.
 - Law: the loop evaluates no rules — no loader reaches the bundled store, so `recorded` is false here and every burn numerator renders inline through the same core projection the estate's evaluator-less store row renders through; reading the estate row's rule posture instead spells recorded series names on an arm that records none.
 - Growth: a dev-loop port or knob is one `_DEV` field.
-- Packages: `@pulumi/docker` (`Container`); `@pulumi/pulumi` (`interpolate`, `output`); `effect` (`Array`, `Option`, `Record`); `@rasm/ts/core` (`Convention`, `Query`).
 
 ```typescript signature
 import * as docker from "@pulumi/docker"
@@ -1767,7 +1767,7 @@ const _DEV = {
   // OTLP receiver and exemplar storage and arms no native-histogram feature, so this loop holds `le`-bearing buckets
   // and every quantile tile renders the bucket arm. Taking the algebra's default here would leave the one column the
   // store family calls decisive unanswered on the arm that publishes the same `Targets` shape.
-  histogram: "classic" satisfies Query.Histogram,
+  histogram: "classic" satisfies Board.Query.Histogram,
   // Bundled Grafana provisions its own datasources, yet this tier reprovisions them by name over the same URL
   // plane; this driver names the store the image runs, and no scope header exists because the loop holds one tenant.
   plugin: "prometheus",
@@ -1810,7 +1810,7 @@ class Dev extends Tier {
     // render SQL against, so `Boards` reads one shape from either producer and the values alone differ.
     this.targets = {
       metrics: {
-        target: Query.promql({ histogram: _DEV.histogram, source: "metrics", translation: _DEV.translation }),
+        target: Board.Query.promql({ histogram: _DEV.histogram, source: "metrics", translation: _DEV.translation }),
         plugin: _DEV.plugin,
         scope: {}, // one tenant in one container: no isolation header exists for this arm to stamp
         exemplars: true, // the bundled server runs exemplar storage, so the click-through into the loop's traces holds
@@ -1831,7 +1831,7 @@ class Dev extends Tier {
 ## [06]-[ENDPOINT_PROJECTION]
 
 [ENDPOINT_PROJECTION]:
-- Law: endpoints are one projection in three role planes — `_urls` derives every address from one bind record (release, namespace, the selected store row, the resident residence set, and the object plane's coordinates) under the fullname each chart row pins, with `ingest` rows carrying each backend's write path (Loki OTLP, Tempo OTLP, the store row's `write`, Pyroscope ingest) for the collector exporters, `query` rows carrying each backend's read API (Loki, Tempo, the store row's `read`, Pyroscope) for the Grafana data sources, and `collector` carrying the one door every workload and every eBPF exporter dials — one backend, its roles, never one URL doing two jobs; a chart bump that renames a service or moves a path edits exactly these rows and the store rows, and no consumer ever spells a service DNS.
+- Law: endpoints are one projection in three role planes — `_urls` derives every address from one bind record (release, namespace, the selected store row, the resident residence set, and the object plane's coordinates) under the fullname each chart row pins, with `ingest` rows carrying each backend's write path (Loki OTLP, Tempo OTLP, the store row's `admit`, Pyroscope ingest) for the collector exporters, `query` rows carrying each backend's read API (Loki, Tempo, the store row's `read`, Pyroscope) for the Grafana data sources, and `collector` carrying the one door every workload and every eBPF exporter dials — one backend, its roles, never one URL doing two jobs; a chart bump that renames a service or moves a path edits exactly these rows and the store rows, and no consumer ever spells a service DNS.
 - Law: the collector door is a projection row, never a tier-local literal — it derives from the same pinned fullname `row()` installs, so the ONE address whose failure kills every workload's telemetry egress, both eBPF exports, and `StackOutputs.otlp` is proved by the same construction that proves the four backend addresses, instead of resting on a helm fullname helper collapsing the way a reader assumed.
 - Law: that door is keyed by the collector topology — `_DOOR` names which chart row a workload dials, so an agent estate publishes the node-local daemonset and a gateway estate the deployment, and one published address serves both without a workload ever learning a second spelling or a downward-API hop.
 - Law: each row answers its own rendered Service name, never the projection's assumption — `svc` reads each row's own `service` projection over the pinned fullname, because a chart whose workload is a custom resource hands naming to its controller and that controller decorates the pinned name; assuming the two agree re-opens the dead-address class for exactly the rows a reader never thinks to check.
@@ -1871,7 +1871,7 @@ const _urls = (bind: {
     ingest: {
       logs: svc("loki", 3100, "/otlp"),
       traces: svc("tempo", _OTLP.http),
-      metrics: store.write(`${release}-store`, namespace),
+      metrics: store.admit(`${release}-store`, namespace),
       profiles: svc("pyroscope", 4040),
     },
     query: {
@@ -1895,7 +1895,6 @@ const _urls = (bind: {
 ## [07]-[BOARD_APPLY]
 
 [BOARD_APPLY]:
-- Owner: `Boards` — the tier-constructed `grafana.Provider` (`url` from the `urls.grafana` plane either producer publishes, `auth` as the `user:password` form woven from the Doppler read, the transient-fault posture as data — `retries`, `retryStatusCodes`, `retryWait` — and `storeDashboardSha256: true` so dashboard drift diffs by hash instead of full JSON) and the apply fold: one `oss.Folder` roots the app's boards (uid slugged from the spec's app key), `_SOURCES` maps backend rows onto `oss.DataSource` constructions through one `_provisioned` fold with the row key pinned as the datasource `uid`, each encoded `DashboardModel` compiles once through `_compiled` into one `oss.Dashboard` under the folder, producer packs join their already core-encoded boards and alerts into the same folds under a `_PACKS` provenance key, `library` rows realize `oss.LibraryPanel` shared panels through the same `_minted` fold, `_alerted` compiles the `Alert.Spec` rows into one `alerting.RuleGroup` with severity-routed delivery, `_slos` compiles the suite's objectives into `slo.SLO` rows, tenant organizations realize org-scoped per `spec.tenants` slug with a viewer identity and pinned home board each, one `oss.Annotation` stamps the deployment identity beside the fleet-roll annotation rows, and the machine identity mints once.
 - Law: the compile leg is the Foundation-SDK builder fold — `_compiled` decodes each model once, lands `uid`/`title`/`tags`/`refresh` member-for-member with `since` on `time`, lands the decoded variable array through `variables` and every annotation row through `annotation` (slug as the name, tone as the marker color), and `.build()` emits the Grafana JSON `pulumi.jsonStringify` posts as `configJson` — compiled once per model and applied to every org that carries it.
 - Law: the verified panel fold is an exhaustive record dispatch — `_minted` composes gauge ceilings and thresholds, units, Logs display rows, the Heatmap colour mode and colour scale through the one options builder that carries both, the Geomap coordinate layer, its typed marker style bindings (colour/label/weight through the `common` dimension builders into the layer's one untyped `config` envelope), and zoom controls, the Table sort and footer, the Timeseries axis and tooltip rows, the Nodes zoom mode, and the Nodes identity/label/colour/stat mapping through the cataloged generic transformation member onto the panel's own lowercase frame-column convention (frames named `nodes`/`edges` at the target refId, because admission keys on exactly that or an `id` field); `_compiled` lands shared title, description, transparency, repetition, layout, links, targets, and transformations.
 - Law: a core field with no builder member is a defect at ONE of the two owners and never a silent drop here — a value this plane's own enum cannot spell refuses at the compile seam through `_refuse`, and a field whose builder member does not exist at all is a deletion the core owner makes, so the compile leg either writes a declared field or names it; the Geomap label, weight, and colour mappings and the Nodes label, weight, and colour mappings are the open pair, each reaching a frame-column convention neither the pinned SDK's types nor the catalog enumerates, and `[08]` carries that question rather than a guessed column name.
@@ -1909,7 +1908,6 @@ const _urls = (bind: {
 - Law: refusals resolve at one owner — `_refuse` holds the whole reason vocabulary against a named coordinate, so an unrostered source key, a source rendering no dialect, and a form its dialect cannot spell each halt the deploy where the coordinate is still loggable; an arm minting its own message shape strands the coordinate an operator reads the failure by.
 - Law: the alert datasource IS the selected store row — `_alerted` binds the metrics door, whose row dials that store's `read` projection under its own plugin and its own scope header, so an escalation re-points every rule with no alert edit; the row key stays the uid one compiled board binds in every org, which is why the key names the door and never the engine behind it.
 - Law: the panel target contract is STRUCTURAL and the SDK's codegen roster bounds convenience alone — `withTarget` takes `cog.Builder<cog.Dataquery>`, `Builder<T>` declares `build(): T`, and `Dataquery` declares one marker method carrying no brand, private field, or registry probe, so `_ResidenceQuery` is a first-class target and an unbundled datasource is typed by writing its builder rather than by waiting for a bump; the marker thunk drops at serialization exactly as every generated builder's does, and the residence query record transcribes the plugin's own `CHSqlQuery` off `_COLUMNAR.plugin` rather than a spelling invented here.
-- Law: an absent `dialect` names a language the board plane cannot RENDER, never an SDK gap — `Query.Target` closes over PromQL and SQL, so Tempo's TraceQL and Pyroscope's profile selector reach an operator through an Explore link even where the pinned SDK types their dataquery, and a row gains its dialect when the core algebra gains that render target, never when a builder appears; a hand-spelled query body is the drift this compile leg deletes on either side of that line.
 - Law: the residence row answers `dialect`, `type`, and `settings` off ONE realized driver — the `_RESIDENCE` `plugin` column carries the driver, the language it speaks, and the coordinates it dials as one payload, so a residence family gaining an engine whose plugin reads another grammar against another listener renders and connects with no edit here; spelling any of the three at this row is the engine-name-as-family-key defect, and it survives undetected because the roster's one board-readable engine happens to be the one spelled.
 - Law: one board reads both planes — the residence row answers the `query` column with its own dialect, so an evidence tile compiles through the identical `_minted`, `_target`, and layout fold a series tile rides and an incident review stops alternating between a dashboard and an ad-hoc console; evidence outliving the store's series window becomes readable where the operator already reads, and the model's own `source` is what mixes the two on one board.
 - Law: every source row answers the whole column set — `query`, `type`, `url`, and the `settings` body one `_provisioned` fold encodes into `jsonDataEncoded` and `secureJsonDataEncoded` — so selecting a different backend changes values and never shape; a row whose driver dials coordinates rather than the provisioned address fills that body while a row that dials the address alone encodes an empty document, and a coordinate the family gains is a value edit at one row instead of a key the other rows silently drop.
@@ -1922,23 +1920,17 @@ const _urls = (bind: {
 - Law: the key rides INSIDE the projection that earns it, so this tuple originates no wire and one spelling stands at both ends by construction — every producer's pack value carries its own provenance member, which makes a pack arriving without a key unconstructable rather than merely irregular; a key first spelled here types an ingest arm against a name its own producer cannot stamp.
 - Law: this tuple is the closed vocabulary and the producing branches hold no second roster — each pack carries a key as an open value and THIS boundary decides which keys exist, so a producer stamping an unadmitted wire refuses at the typed seam while no branch forks the admitted set into a local enumeration of its own.
 - Law: signal owners minting measures, instruments, or a fault boundary claim no seat — a measure charter answers what a runtime emits and never what a folder renders, so the seat waits on a board-and-alert projection rather than on naming proximity.
-- Law: the alert compile is total over the spec — `_expr` folds each spec through `_burned`, joining the short and long breach-rate `> factor × budget` verdicts with `and` (the multiwindow guard that keeps a burst and a slow burn both honest), while both SLI spellings are core-owned: `Query.breach(spec.sli, window)` renders the alert's error-rate expression and `Query.indicator(objective.sli)` the operator's observable, each quoting dotted series, folding the `Latency` `le` bound through `Convention.duration`, escaping a `Partition` good set into one anchored matcher, and reading the level polarity row — so this fold never reconstructs `${metric}_bucket`/`${metric}_count`, never re-derives units, and never re-decides which side of a bound breaches, and the board burn panels, the objective queries, and these alert rules read the same two projections — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `slug` names the rule verbatim so a re-apply updates in place — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
 - Law: delivery routes by severity as data — the `contacts` record carries one receiver row per severity kind (`page`, `ticket`); each present row realizes one `alerting.ContactPoint`, one `NotificationPolicy` matcher route on the spec's own `Convention.rasm.sloSeverity` row, and one `alerting.MessageTemplate` whose body carries the row's wording lead, runbook link, and the two sorted planes; a row carrying a `quiet` calendar realizes one `alerting.MuteTiming` bound onto its route.
 - Law: labels and annotations split by what the provider DOES with each — labels are the routing, grouping, and silencing identity, so the spec's owned `Convention` rows (objective, burn, severity) land there and the rule's annotations carry the derived headline the spec's own `factor` and `spend` print; the inverse placement strands the whole SLO vocabulary in a plane no matcher, no `groupBies` roster, and no silence can read, and mints a free-string `severity` label beside a `Convention` row that already owns the concept.
 - Law: grouping is the owned roster — `_GROUPED` names the service and tenant dimensions the breached series carries beside the objective and severity rows the rule labels, so one notification per objective per tenant replaces one per firing window, and the root policy declares it while every child route inherits it.
 - Law: tenant read identity is org-scoped — each tenant org mints one viewer `oss.ServiceAccount` (`role: "Viewer"`, threaded `orgId`), one `oss.ServiceAccountPermissionItem` granting the operator team `Admin` custody over that identity, one `oss.OrganizationPreferences` pinning the tenant's first compiled board as the org home, and one `oss.ServiceAccountRotatingToken` under the same `_ROTATION` policy whose key egresses on the tier's `viewers` record for the composing arm to land in Doppler `{ value }` entries — tenant credentials ride Doppler custody exactly like the automation token, never a stack output.
 - Law: fleet rolls annotate beside deploys — each `rolls` row is the AppHost roll wire consumed as data (`wave`, `channel`, `verdict`, `hosts`), realized as one `oss.Annotation` whose text carries the roll coordinates and whose tone rides the `_ROLL_TONES` verdict row so a rollback reads as loud as an advance on every board; the record shape is the AppHost mint, this fold never re-derives roll facts.
-- Law: burn numerators resolve at one altitude — a store row whose `rules` column holds evaluates `Query.breach` once per group interval and the alert reads that recorded series back, while a row with no evaluator renders the same core projection inline; both arms trace to one definition, so the precomputation is a store capability rather than a second expression.
 - Law: profiles compile as typed queries and links, never as a fabricated panel — the pinned SDK ships `grafanapyroscope.DataqueryBuilder` and no visualization builder at all, so `_profiled` renders the profile selector once and every board carries it as a data link into the Pyroscope explorer scoped by the reading tenant; hand-written JSON for a panel the SDK cannot type is exactly the drift this compile leg deletes, and a provisioned datasource nothing exercises is the same defect wearing the opposite sign.
-- Law: SLOs compile from objectives, never from alerts — `_slos` maps the suite's own `Slo.Objective` values (name, target, window, SLI) onto `slo.SLO` rows whose SLI observable `_query` renders through the same core `Query` family the panels and alerts use, so every dotted series quotes and reads its native histogram and no store-series string is hand-spelled; the alert fold and the SLO fold read one upstream vocabulary and cannot disagree.
 - Law: tenancy is organizations, realized org-scoped — one `oss.Organization` per `spec.tenants` slug with the per-tenant folder, source set, and board fleet threaded `orgId` from the realized org's own output, so a tenant's boards and sources scope to its org while the default org carries the operator fleet, alerts, and machine identity.
 - Law: the deployment annotates itself — one `oss.Annotation` carries the deploy plane's time-ordered identity and stack coordinates as board-visible text, so every dashboard reads deploys against its own series; richer run evidence stays receipt material on the automation plane.
 - Law: the machine identity is minted least-privilege — one `oss.ServiceAccount` (`role: "Editor"`) holds exactly the folder-Admin grant one `oss.FolderPermissionItem` lands, and one `oss.ServiceAccountRotatingToken` (rotation window as `_ROTATION` policy data, `deleteOnDestroy` so a torn-down stack leaves no live credential) realizes the durable automation credential; the token key egresses as the tier's `automation` output for the composing arm to land in a Doppler `{ value }` entry, and the chart-seeded `admin:password` binding remains the one in-graph provider auth.
 - Law: one provider per stack — every resource in the tier threads `{ provider }` through `child()`; a second provider instance is the split-diamond defect; auth never rides env here — the in-graph read is the canonical binding for deploy-time application.
 - Entry: `new Boards("boards", { spec, urls, targets, auth, boards, packs, library, alerts, objectives, contacts, deploy, rolls }, opts)` — the k8s arm feeds `lgtm.{urls,targets}`, the docker arm `dev.{urls,targets}`; `boards`/`alerts`/`objectives` produced by the app's core observe suite call against those same targets, `packs` by the producer censuses, `rolls` by the AppHost fleet ledger.
-- Growth: a new query dialect is one `_DIALECTS` row answering every `_FORMS` entry beside the backend row naming it — an `_SOURCES` row for a new plane, the `_RESIDENCE` `plugin` column for a new residence engine — the builder bundled or branch-owned, the dispatch untouched; a new panel family is one model row upstream with its `_minted` arm and `_FORMED` row here; a new severity route is one `contacts` row; a new grouping axis is one `_GROUPED` row already owning a `Convention` key; a new SLI case is one upstream `Sli` case with its arms on the core breach and indicator folds, and this leg inherits both with no edit; a new tenant is one `spec.tenants` slug realizing its whole org-scoped fleet, viewer identity included; a new producer census is one `_PACKS` row; a new shared panel is one `library` row.
-- Boundary: `DashboardModel`/`Alert`/`Slo` shapes are the core observe plane's owners consumed as encoded values; pack censuses and the roll wire are their producers' mints consumed as data; folder placement conventions live here, board content never does; drift interpretation is `operate/policy.md`'s.
-- Packages: `@pulumiverse/grafana` (`Provider`, `oss.Folder`, `oss.DataSource`, `oss.Dashboard`, `oss.LibraryPanel`, `oss.Organization`, `oss.OrganizationPreferences`, `oss.Annotation`, `oss.ServiceAccount`, `oss.ServiceAccountRotatingToken`, `oss.ServiceAccountPermissionItem`, `oss.FolderPermissionItem`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `alerting.MessageTemplate`, `alerting.MuteTiming`, `slo.SLO`); `@grafana/grafana-foundation-sdk` (`cog` `Builder`/`Dataquery`, `dashboard` `DashboardBuilder`/`AnnotationQueryBuilder`/`ThresholdsConfigBuilder`/`ThresholdsMode`, the per-tag panel builders, `geomap` `MapViewConfigBuilder`/`ControlsOptionsBuilder`, `nodegraph` `ZoomMode`, `prometheus` `DataqueryBuilder`/`PromQueryFormat`, `loki` `DataqueryBuilder`, `grafanapyroscope` `DataqueryBuilder`, `common` `DataSourceRef`/`LogsSortOrder`/`LogsDedupStrategy`/`ColorDimensionConfigBuilder`/`TextDimensionConfigBuilder`/`TextDimensionMode`/`ScaleDimensionConfigBuilder`/`ScaleDimensionMode`); `grafana-clickhouse-datasource` (the `CHSqlQuery` record `_ResidenceQuery` transcribes); `@rasm/ts/core` (`Alert`, `Convention`, `DashboardModel`, `Query`, `Sli`, `Slo`); `effect` (`Array`, `Duration`, `Match`, `Option`, `Order`, `Record`, `Schema`, `Struct`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript signature
 import type { Builder, Dataquery } from "@grafana/grafana-foundation-sdk/cog"
@@ -1962,18 +1954,18 @@ import { PanelBuilder as Stat } from "@grafana/grafana-foundation-sdk/stat"
 import { PanelBuilder as Table } from "@grafana/grafana-foundation-sdk/table"
 import { PanelBuilder as Timeseries } from "@grafana/grafana-foundation-sdk/timeseries"
 import * as grafana from "@pulumiverse/grafana"
-import { Alert, Convention, DashboardModel, Query, type Sli, type Slo } from "@rasm/ts/core"
+import { Board, Convention, Reliability } from "@rasm/ts/core"
 import { Array, Duration, Match, Option, Order, Record, Schema, Struct } from "effect"
 
 declare namespace Boards {
-  type Model = typeof DashboardModel.Encoded
+  type Model = typeof Board.DashboardModel.Encoded
   type Wire = (typeof _PACKS)[number]
   type Pack = {
     readonly wire: Wire // the producer census this pack carries; the schema stays the producer's mint
     readonly boards: ReadonlyArray<Model>
-    readonly alerts: ReadonlyArray<Alert.Spec>
+    readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
   }
-  type Library = { readonly name: string; readonly panel: typeof DashboardModel.Panel.Encoded }
+  type Library = { readonly name: string; readonly panel: typeof Board.DashboardModel.Panel.Encoded }
   type Roll = {
     readonly wave: number
     readonly channel: string
@@ -2000,8 +1992,8 @@ declare namespace Boards {
     readonly boards: ReadonlyArray<Model>
     readonly packs?: ReadonlyArray<Pack>
     readonly library?: ReadonlyArray<Library>
-    readonly alerts: ReadonlyArray<Alert.Spec>
-    readonly objectives: ReadonlyArray<Slo.Objective>
+    readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
+    readonly objectives: ReadonlyArray<Reliability.Objective>
     readonly contacts: Contacts
     readonly deploy: { readonly id: pulumi.Input<string> }
     readonly rolls?: ReadonlyArray<Roll>
@@ -2153,7 +2145,7 @@ const _headed = (headers: Record.ReadonlyRecord<string, pulumi.Input<string>>): 
 const _SOURCES = {
   loki: { dialect: () => Option.some("loki" as const), present: () => true, type: () => "loki", url: (bind) => bind.urls.query.loki, settings: _PLAIN },
   metrics: {
-    // Store rows mint their target through `Query.promql`, so this language follows that projection rather than
+    // Store rows mint their target through `Board.Query.promql`, so this language follows that projection rather than
     // whichever engine sits behind the door — a row shipping its own plugin renders the dialect its family renders
     dialect: () => Option.some("prometheus" as const),
     present: () => true, // every stack runs a metrics store: the family has no `none` arm and alerting depends on it
@@ -2266,7 +2258,7 @@ class _ResidenceQuery implements Builder<Dataquery> {
     return this
   }
   // core renders the whole relation, absolute bucket boundaries included, so the plugin's `$__` macro vocabulary
-  // never fires and the residence receives the identical text `Query.render` produced for every other reader
+  // never fires and the residence receives the identical text `Board.Query.render` produced for every other reader
   rawSql(rawSql: string): this {
     this.internal.rawSql = rawSql
     return this
@@ -2362,7 +2354,7 @@ const _FORMED = {
   Stat: "timeseries",
   Table: "table",
   Timeseries: "timeseries",
-} as const satisfies Record<typeof DashboardModel.Panel.Type["_tag"], (typeof _FORMS)[number]>
+} as const satisfies Record<typeof Board.DashboardModel.Panel.Type["_tag"], (typeof _FORMS)[number]>
 
 // Admission of the model's own datasource key against the rows this stack REALIZED, never the declared roster: a key
 // outside the roster and a key naming a plane the spec disarmed are one defect, and both refuse at the compile seam
@@ -2388,12 +2380,12 @@ const _TIP = { hidden: TooltipDisplayMode.None, multi: TooltipDisplayMode.Multi,
 const _HEAT_MODE = {
   opacity: HeatmapColorMode.Opacity,
   scheme: HeatmapColorMode.Scheme,
-} as const satisfies Record<(typeof DashboardModel.Heatmap.Type)["color"], HeatmapColorMode>
+} as const satisfies Record<(typeof Board.DashboardModel.Heatmap.Type)["color"], HeatmapColorMode>
 
 const _HEAT_SCALE = {
   exponential: HeatmapColorScale.Exponential,
   linear: HeatmapColorScale.Linear,
-} as const satisfies Record<(typeof DashboardModel.Heatmap.Type)["scale"], HeatmapColorScale>
+} as const satisfies Record<(typeof Board.DashboardModel.Heatmap.Type)["scale"], HeatmapColorScale>
 
 // Axes and interaction are shared model fields whose builder members live on the Timeseries tag alone, so they land at
 // that one arm; carrying them on every other tag would emit a field no builder there reads.
@@ -2477,11 +2469,11 @@ const _stepped = <B extends { thresholds(builder: ThresholdsConfigBuilder): B }>
 const _united = <B extends { unit(unit: string): B }>(built: B, unit: Option.Option<string>): B =>
   Option.match(unit, { onNone: () => built, onSome: (value) => built.unit(value) })
 
-const _minted = (panel: typeof DashboardModel.Panel.Type) =>
+const _minted = (panel: typeof Board.DashboardModel.Panel.Type) =>
   // each tag's distinct payload lands at mint: a new panel tag fails compilation at this record until its arm exists
   Match.value(panel).pipe(Match.tagsExhaustive({
     Gauge: (row) => _stepped(new Gauge().max(row.ceiling), row.steps), // the gauge ceiling is the scale fact; the trip point rides its steps row
-    Geomap: (row) => _mapped(row.mapping, row.interaction.zoom),
+    Geomap: (row) => _mapped(row.mapping, row.zoom),
     // both colour axes land on the one options builder this panel reads them through: the model declared them and
     // the builder carries them, so neither survives as an emission fact the compile leg dropped on the floor
     Heatmap: (row) =>
@@ -2497,7 +2489,7 @@ const _minted = (panel: typeof DashboardModel.Panel.Type) =>
         .dedupStrategy(_DEDUP[row.deduplicate]),
     // Organize below renames the mapping row onto the conventional frame columns this graph reads. Greedy zoom claims
     // every wheel event where cooperative demands a modifier, so the model's zoom field IS this row's mode.
-    Nodes: (row) => new Nodes().zoomMode(row.interaction.zoom ? ZoomMode.Greedy : ZoomMode.Cooperative),
+    Nodes: (row) => new Nodes().zoomMode(row.zoom ? ZoomMode.Greedy : ZoomMode.Cooperative),
     Stat: (row) => _united(_stepped(new Stat(), row.steps), row.unit),
     // pagination is tier posture like the log ceiling; the sort row is the model's, so the footer and the sort land together
     Table: (row) =>
@@ -2505,7 +2497,7 @@ const _minted = (panel: typeof DashboardModel.Panel.Type) =>
         onNone: () => new Table(),
         onSome: (sort) => new Table().sortBy([new TableSortByFieldStateBuilder().displayName(sort.field).desc(sort.descending)]),
       }).footer(new TableFooterOptionsBuilder().enablePagination(_CEILING.paginate).show(false)),
-    Timeseries: (row) => _axed(_united(_stepped(new Timeseries(), row.steps), row.unit), row.axes, row.interaction.tooltip),
+    Timeseries: (row) => _axed(_united(_stepped(new Timeseries(), row.steps), row.unit), row.axes, row.tooltip),
   }))
 
 // Three owners, one correlated indexed dispatch: the SOURCE row names its dialect, `_FORMED` names the tag's neutral
@@ -2525,7 +2517,7 @@ const _target = <K extends _Dialect>(dialect: K, form: (typeof _FORMS)[number], 
 // took, and no second field re-states what the dial already carries.
 const _compiled = (model: Boards.Model, bind: _Dial) => {
   // BOUNDARY ADAPTER: Foundation SDK builders mutate their own drafts; this function contains that imperative contract.
-  const decoded = Schema.decodeSync(DashboardModel)(model) // one admission: every builder member below reads the decoded owner, never the wire bag
+  const decoded = Schema.decodeSync(Board.DashboardModel)(model)
   const board = new DashboardBuilder(decoded.title)
     .uid(decoded.uid)
     .tags([...decoded.tags])
@@ -2546,7 +2538,7 @@ const _compiled = (model: Boards.Model, bind: _Dial) => {
   }
   board.variables([...decoded.variables])
   for (const note of decoded.annotations) board.annotation(new AnnotationQueryBuilder().name(note.slug).iconColor(note.tone).enable(true))
-  for (const { panel, position } of DashboardModel.laid(decoded)) { // the shelf fold's positions land as gridPos; no hand layout exists
+  for (const { panel, position } of Board.DashboardModel.laid(decoded)) {
     const key = _sourced(panel.source, bind) // the model names its own plane, so one board mixes a store tile and a residence tile
     const source = _SOURCES[key]
     const built = _minted(panel)
@@ -2606,33 +2598,36 @@ const _compiled = (model: Boards.Model, bind: _Dial) => {
 
 const _window = (input: Duration.DurationInput): string => `${Duration.toSeconds(Duration.decode(input))}s`
 
-const _burned = (spec: Alert.Spec, breach: (window: Duration.DurationInput) => string): string =>
+const _burned = (spec: Reliability.Alert.Spec, breach: (window: Duration.DurationInput) => string): string =>
   Array.join(
     Array.map([spec.windows.short, spec.windows.long], (window) => `${breach(window)} > ${spec.factor * (1 - spec.target)}`),
     " and ",
   )
 
-// Numerators resolve at exactly one altitude: a store that evaluates rules already holds `Query.breach`'s result
+// Numerators resolve at exactly one altitude: a store that evaluates rules already holds `Board.Query.breach`'s result
 // under `_recorded`, so the rule reads the recorded series and the store computes it once per group interval; a store
 // with no evaluator renders the same core projection inline. Neither arm re-derives a threshold or a series spelling,
-// and `Query.breach` remains the one definition both arms trace back to.
-const _expr = (spec: Alert.Spec, recorded: boolean, target: Query.Target): string =>
+// and `Board.Query.breach` remains the one definition both arms trace back to.
+const _expr = (spec: Reliability.Alert.Spec, recorded: boolean, target: Board.Query.Target): string =>
   _burned(spec, (window) =>
-    recorded ? _recorded(spec, window) : Query.render(Query.breach(spec.sli, Query.span(Duration.decode(window))), target))
+    recorded
+      ? _recorded(spec, window)
+      : Board.Query.render(Board.Query.breach(spec.sli, Board.Query.span(Duration.decode(window)), {}, spec.filters), target))
 
 // Core owns the operator-read observable beside the breach expression, so this leg renders and
 // re-derives nothing — a local dispatch here forks the level polarity, the partition selector, and the
 // quantile spelling away from the burn panels reading the identical objective.
-const _query = (sli: Sli, target: Query.Target): string => Query.render(Query.indicator(sli), target)
+const _query = (objective: Reliability.Objective, target: Board.Query.Target): string =>
+  Board.Query.render(Board.Query.indicator(objective.sli, undefined, {}, objective.filters), target)
 
 const _alerted = (
-  alerts: ReadonlyArray<Alert.Spec>,
+  alerts: ReadonlyArray<Reliability.Alert.Spec>,
   bind: {
     readonly folder: pulumi.Output<string>
     readonly datasource: pulumi.Output<string>
     readonly contacts: Boards.Contacts
     readonly recorded: boolean // the metrics plane's own rule posture: the numerator is precomputed or it is not
-    readonly target: Query.Target // the selected row's translation: the numerator reads the series spelling its receiver wrote
+    readonly target: Board.Query.Target
   },
   child: pulumi.CustomResourceOptions,
 ): void => {
@@ -2709,9 +2704,9 @@ const _alerted = (
 }
 
 const _slos = (
-  objectives: ReadonlyArray<Slo.Objective>,
+  objectives: ReadonlyArray<Reliability.Objective>,
   folder: pulumi.Output<string>,
-  target: Query.Target,
+  target: Board.Query.Target,
   child: pulumi.CustomResourceOptions,
 ): ReadonlyArray<grafana.slo.SLO> =>
   Array.map(objectives, (objective) =>
@@ -2720,7 +2715,7 @@ const _slos = (
       description: `<slo:${objective.name}>`,
       folderUid: folder,
       objectives: [{ value: objective.target, window: _window(objective.window) }],
-      queries: [{ type: "freeform", freeform: { query: _query(objective.sli, target) } }],
+      queries: [{ type: "freeform", freeform: { query: _query(objective, target) } }],
     }, child))
 
 class Boards extends Tier {
@@ -2768,7 +2763,7 @@ class Boards extends Tier {
       new grafana.oss.Dashboard(board.uid, { configJson: board.json, folder: folder.uid }, child))
     const shelf = Array.map(args.library ?? [], (row) => ({
       row,
-      json: pulumi.jsonStringify(_minted(Schema.decodeSync(DashboardModel.Panel)(row.panel)).title(row.name).build()),
+      json: pulumi.jsonStringify(_minted(Schema.decodeSync(Board.DashboardModel.Panel)(row.panel)).title(row.name).build()),
     }))
     Array.map(shelf, ({ row, json }) =>
       new grafana.oss.LibraryPanel(row.name, { name: row.name, folderUid: folder.uid, modelJson: json }, child)) // compiled once, served to every board that references it

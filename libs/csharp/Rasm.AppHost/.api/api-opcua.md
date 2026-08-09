@@ -8,6 +8,9 @@
 - package: `OPCFoundation.NetStandard.Opc.Ua`
 - assembly: `Opc.Ua.Core` primary, aggregating `Opc.Ua.Client`, `Opc.Ua.Server`, `Opc.Ua.Configuration`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Types` — no DLL of its own
 - namespace: `Opc.Ua`, `Opc.Ua.Bindings`, `Opc.Ua.Configuration`, `Opc.Ua.Security`, `Opc.Ua.Security.Certificates`
+- resolve: the package ships a nuspec alone, so a `--key OPCFoundation.NetStandard.Opc.Ua` query resolves nothing and proves no absence
+- resolve: `StatusCode`, `StatusCodeCollection`, `ServiceResult`, and `ServiceResultException` decompile from `Opc.Ua.Types.dll`
+- resolve: `StatusCodes`, `Profiles`, `WriteValue`, `WriteValueCollection`, `WriteResponse`, `ResponseHeader`, `ClientBase`, `SessionClient`, and every `*DataType` from `Opc.Ua.Core.dll`; `SessionClientBatched` from `Opc.Ua.Client.dll`
 - asset: runtime library
 - rail: opcua-core
 
@@ -46,6 +49,20 @@
 |  [06]   | `UserIdentity`       | class         | anonymous, username, certificate identity        |
 |  [07]   | `ReverseConnectHost` | class         | reverse-connect listener                         |
 |  [08]   | `SessionChannel`     | class         | session-scoped transport channel                 |
+
+[PUBLIC_TYPE_SCOPE]: write refusal and status — `Opc.Ua`
+
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :------------------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `ISessionClientMethods`    | interface     | declares every session RPC, `Write` included     |
+|  [02]   | `SessionClientBatched`     | class         | operation-limit batching over `SessionClient`    |
+|  [03]   | `WriteResponse`            | class         | `ResponseHeader` + `Results` + `DiagnosticInfos` |
+|  [04]   | `ResponseHeader`           | class         | service-level verdict on every response          |
+|  [05]   | `ServiceResult`            | class         | lifted status, symbolic id, and inner cause      |
+|  [06]   | `ServiceResultException`   | exception     | thrown form of a `ServiceResult`                 |
+|  [07]   | `StatusCodes`              | static class  | `public const uint` status roster                |
+|  [08]   | `DiagnosticInfoCollection` | collection    | per-element diagnostics beside `Results`         |
+|  [09]   | `Profiles`                 | static class  | transport profile URI constants                  |
 
 [PUBLIC_TYPE_SCOPE]: managed client — `Opc.Ua.Client`
 
@@ -111,6 +128,26 @@
 |  [13]   | `ConfigurationUpdatingEventArgs` | event args     | configuration update notification         |
 |  [14]   | `SubscribedDataEventArgs`        | event args     | received dataset notification             |
 
+[PUBLIC_TYPE_SCOPE]: PubSub configuration and decode — `Opc.Ua.PubSub`, `Opc.Ua.PubSub.PublishedData`, `Opc.Ua`
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :------------------------------------ | :------------ | :---------------------------------------------------------- |
+|  [01]   | `UaPubSubConfigurator`                | class         | configuration mutation, every member returning `StatusCode` |
+|  [02]   | `ValidateBrokerCertificateHandler`    | delegate      | `bool(X509Certificate2)` broker-certificate gate            |
+|  [03]   | `PublishedData.DataSet`               | class         | `Name`, `Fields`, `IsDeltaFrame`, metadata                  |
+|  [04]   | `PublishedData.Field`                 | class         | `Value`, `TargetNodeId`, `TargetAttribute`, metadata        |
+|  [05]   | `PublishedData.FieldMetaData`         | class         | per-field declared type and name                            |
+|  [06]   | `DataSetDecodeErrorEventArgs`         | event args    | decode failure carrying message and reader                  |
+|  [07]   | `DataSetDecodeErrorReason`            | enum          | `NoError` / `MetadataMajorVersion`                          |
+|  [08]   | `RawDataReceivedEventArgs`            | event args    | undecoded network-message bytes                             |
+|  [09]   | `PublisherEndpointsEventArgs`         | event args    | publisher endpoint announcement                             |
+|  [10]   | `DataSetWriterConfigurationEventArgs` | event args    | writer-configuration announcement                           |
+|  [11]   | `PubSubConfigurationDataType`         | data type     | whole PubSub configuration document                         |
+|  [12]   | `PubSubConnectionDataType`            | data type     | one connection, its groups, and transport                   |
+|  [13]   | `WriterGroupDataType`                 | data type     | publish cadence and its dataset writers                     |
+|  [14]   | `DataSetReaderDataType`               | data type     | one subscribed dataset and its target set                   |
+|  [15]   | `PublishedDataSetDataType`            | data type     | one published dataset and its source                        |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: application configuration construction
@@ -174,6 +211,95 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 |  [09]   | `WriteValue.AttributeId`          | property | `uint` write attribute             |
 |  [10]   | `WriteValue.Value`                | property | `DataValue` write payload          |
 
+[ENTRYPOINT_SCOPE]: node write and its refusal rail
+
+`Write` declares on `Opc.Ua.ISessionClientMethods`, NOT on `ISessionClient`, and `Opc.Ua.SessionClient` implements it `virtual`. `Opc.Ua.Client.Session` declares no `Write` member of its own — it inherits through `SessionClientBatched : SessionClient`, which overrides `WriteAsync` to split by `OperationLimits.MaxNodesPerWrite` and concatenate each batch's `Results`, `DiagnosticInfos`, and `StringTable`.
+
+| [INDEX] | [SURFACE]                                               | [SHAPE]      | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------ | :----------- | :----------------------------------------- |
+|  [01]   | `ISessionClientMethods.WriteAsync(header, nodes, ct)`   | interface    | `Task<WriteResponse>`, the live write      |
+|  [02]   | `SessionClient.WriteAsync(...)`                         | virtual      | the implementing override                  |
+|  [03]   | `SessionClientBatched.WriteAsync(...)`                  | override     | splits on `MaxNodesPerWrite`, concatenates |
+|  [04]   | `Write(header, nodes, out results, out diagnostics)`    | `[Obsolete]` | synchronous write                          |
+|  [05]   | `BeginWrite(header, nodes, callback, state)`            | `[Obsolete]` | APM begin half                             |
+|  [06]   | `EndWrite(result, out results, out diagnostics)`        | `[Obsolete]` | APM end half                               |
+|  [07]   | `WriteResponse.ResponseHeader`                          | property     | service-level verdict                      |
+|  [08]   | `WriteResponse.Results -> StatusCodeCollection`         | property     | one `StatusCode` per written node          |
+|  [09]   | `WriteResponse.DiagnosticInfos`                         | property     | `DiagnosticInfoCollection`, optional       |
+|  [10]   | `ClientBase.GetResult(...)`                             | static       | lift one element to `ServiceResult`        |
+|  [11]   | `ClientBase.ValidateDataValue(...)`                     | static       | lift one read element to `ServiceResult`   |
+|  [12]   | `WriteValue.Validate(WriteValue) -> ServiceResult`      | static       | pre-wire refusal, null admits              |
+|  [13]   | `ClientBase.ValidateResponse(ResponseHeader)`           | static       | throws on a null or bad service header     |
+|  [14]   | `ClientBase.ValidateResponse<TRequest, TResponse>(...)` | static       | arity guard, reads no status value         |
+|  [15]   | `ClientBase.ValidateDiagnosticInfos<TRequest>(...)`     | static       | arity guard, reads no status value         |
+
+- `ClientBase.GetResult(StatusCode, int, DiagnosticInfoCollection?, ResponseHeader?) -> ServiceResult` spells the per-element lift in full, and `ClientBase.ValidateDataValue(DataValue, Type, int, DiagnosticInfoCollection, ResponseHeader) -> ServiceResult` its read-side twin.
+- `ClientBase.ValidateResponse<TRequest, TResponse>(IReadOnlyList<TResponse>, IReadOnlyList<TRequest>)` and `ValidateDiagnosticInfos<TRequest>(...)` compare element counts alone and read no status value.
+- `WriteValue.Validate` answers null where the value admits, else `BadStructureMissing`, `BadNodeIdInvalid`, `BadAttributeIdInvalid`, `BadIndexRangeInvalid`, `BadIndexRangeNoData`, or `BadTypeMismatch` — the one client-side refusal landing before the wire.
+
+[ENTRYPOINT_SCOPE]: `StatusCode` and `ServiceResult`
+
+`StatusCode` is a struct whose SIX predicates are all `static bool(StatusCode)`; no instance predicate exists, so a check spells `StatusCode.IsBad(code)`.
+
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `StatusCode.Code -> uint`                                                        | property | get and set                             |
+|  [02]   | `StatusCode.SymbolicId -> string`                                                | property | resolved symbolic name                  |
+|  [03]   | `CodeBits` / `FlagBits` / `SubCode`                                              | property | code-space partitions                   |
+|  [04]   | `StructureChanged` / `SemanticsChanged`                                          | property | structure and semantics flag bits       |
+|  [05]   | `HasDataValueInfo` / `LimitBits` / `Overflow` / `AggregateBits`                  | property | data-value flag bits                    |
+|  [06]   | `SetCodeBits(uint)` / `SetFlagBits(uint)`                                        | instance | fluent bit writes returning a new value |
+|  [07]   | `implicit operator StatusCode(uint)`                                             | operator | widen a raw code                        |
+|  [08]   | `explicit operator uint(StatusCode)`                                             | operator | narrow to the raw code                  |
+|  [09]   | `IsGood` / `IsNotGood` / `IsUncertain` / `IsNotUncertain` / `IsBad` / `IsNotBad` | static   | `bool(StatusCode)`, the only predicates |
+
+`ServiceResult` lifts one `StatusCode` with its symbolic identity, diagnostics, and inner cause.
+
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `ServiceResult.Good` / `.Bad`                                                    | static   | canonical results                       |
+|  [02]   | `Code -> uint` / `StatusCode -> StatusCode`                                      | property | numeric and struct forms                |
+|  [03]   | `NamespaceUri` / `SymbolicId`                                                    | property | symbolic identity of the fault          |
+|  [04]   | `LocalizedText` / `AdditionalInfo`                                               | property | human-readable diagnostics              |
+|  [05]   | `InnerResult -> ServiceResult`                                                   | property | nested cause                            |
+|  [06]   | `GetServiceResultException()`                                                    | instance | lift to `ServiceResultException`        |
+|  [07]   | `ToString()`                                                                     | instance | formatted text                          |
+|  [08]   | `IsGood` / `IsNotGood` / `IsUncertain` / `IsNotUncertain` / `IsBad` / `IsNotBad` | static   | null-tolerant predicates                |
+|  [09]   | `IsGoodOrUncertain`                                                              | static   | seventh predicate, no `StatusCode` twin |
+
+[ENTRYPOINT_SCOPE]: write-relevant `StatusCodes` constants
+
+`Opc.Ua.StatusCodes` declares each entry `public const uint`; `GetBrowseName(uint)`, `GetIdentifier(string)`, and the `GetSymbolicId(this StatusCode)` extension resolve names both ways.
+
+| [INDEX] | [MEMBER]                      |  [VALUE]   | [MEANING]                             |
+| :-----: | :---------------------------- | :--------: | :------------------------------------ |
+|  [01]   | `Good`                        | 0x00000000 | write accepted                        |
+|  [02]   | `GoodCompletesAsynchronously` | 0x002E0000 | accepted, completion deferred         |
+|  [03]   | `GoodClamped`                 | 0x00300000 | accepted after clamping to range      |
+|  [04]   | `UncertainLastUsableValue`    | 0x40900000 | value stale but usable                |
+|  [05]   | `BadNotWritable`              | 0x803B0000 | attribute refuses writes              |
+|  [06]   | `BadWriteNotSupported`        | 0x80730000 | server implements no write            |
+|  [07]   | `BadUserAccessDenied`         | 0x801F0000 | identity refuses the write            |
+|  [08]   | `BadNodeIdUnknown`            | 0x80340000 | node id resolves to nothing           |
+|  [09]   | `BadNodeIdInvalid`            | 0x80330000 | node id is malformed                  |
+|  [10]   | `BadAttributeIdInvalid`       | 0x80350000 | attribute id inadmissible on the node |
+|  [11]   | `BadIndexRangeInvalid`        | 0x80360000 | index range is malformed              |
+|  [12]   | `BadIndexRangeNoData`         | 0x80370000 | index range selects nothing           |
+|  [13]   | `BadTypeMismatch`             | 0x80740000 | value type mismatches the node        |
+|  [14]   | `BadOutOfRange`               | 0x803C0000 | value outside the node range          |
+|  [15]   | `BadOutOfService`             | 0x808D0000 | node taken out of service             |
+|  [16]   | `BadNoCommunication`          | 0x80310000 | underlying device unreachable         |
+|  [17]   | `BadDeviceFailure`            | 0x808B0000 | device-level fault                    |
+|  [18]   | `BadSensorFailure`            | 0x808C0000 | sensor-level fault                    |
+|  [19]   | `BadTimeout`                  | 0x800A0000 | operation exceeded its bound          |
+|  [20]   | `BadLocked`                   | 0x80E90000 | node locked by another owner          |
+|  [21]   | `BadRequestNotAllowed`        | 0x80E40000 | server refuses the request outright   |
+|  [22]   | `BadTooManyOperations`        | 0x80100000 | request exceeds the operation limit   |
+|  [23]   | `BadServerNotConnected`       | 0x800D0000 | no channel to the server              |
+|  [24]   | `BadSessionIdInvalid`         | 0x80250000 | session no longer valid               |
+|  [25]   | `BadSecureChannelClosed`      | 0x80860000 | channel closed under the session      |
+|  [26]   | `BadUnknownResponse`          | 0x80090000 | service answered with nothing         |
+
 [ENTRYPOINT_SCOPE]: certificate PKI operations
 
 | [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                             |
@@ -187,18 +313,84 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 
 [ENTRYPOINT_SCOPE]: PubSub application lifecycle
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------------- |
-|  [01]   | `UaPubSubApplication.Create(ITelemetryContext)`                     | factory  | creates an application with no data store |
-|  [02]   | `UaPubSubApplication.Create(IUaPubSubDataStore, ITelemetryContext)` | factory  | creates an application with a data store  |
-|  [03]   | `UaPubSubApplication.Create(configFilePath, telemetry, dataStore?)` | factory  | creates an application from a config file |
-|  [04]   | `UaPubSubApplication.SupportedTransportProfiles`                    | property | returns supported transport profile URIs  |
-|  [05]   | `UaPubSubApplication.Start()`                                       | instance | starts all configured connections         |
-|  [06]   | `UaPubSubApplication.Stop()`                                        | instance | stops all connections                     |
-|  [07]   | `UaPubSubApplication.Dispose()`                                     | instance | releases connections and data store       |
-|  [08]   | `UaPubSubApplication.DataReceived`                                  | event    | received dataset fan                      |
+`UaPubSubApplication` exposes NO public constructor: five `Create` factories are the only construction path, the fifth taking `(PubSubConfigurationDataType, IUaPubSubDataStore, ITelemetryContext)`. Every member below declares on `UaPubSubApplication`.
 
-- `UaPubSubApplication.DataReceived`: `EventHandler<SubscribedDataEventArgs>` carrying `NetworkMessage` and `Source`; `RawDataReceived` and `MetaDataReceived` are the raw and metadata siblings.
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `Create(ITelemetryContext)`                              | factory  | application with no data store                      |
+|  [02]   | `Create(IUaPubSubDataStore, ITelemetryContext)`          | factory  | application over a supplied store                   |
+|  [03]   | `Create(configFilePath, telemetry, dataStore?)`          | factory  | application from a configuration file               |
+|  [04]   | `Create(PubSubConfigurationDataType, ITelemetryContext)` | factory  | application from an in-memory document              |
+|  [05]   | `Create(config, dataStore, telemetry)`                   | factory  | document and store together                         |
+|  [06]   | `SupportedTransportProfiles`                             | static   | `string[]` of three profile URIs                    |
+|  [07]   | `UaPubSubConfigurator`                                   | property | the live configuration mutator                      |
+|  [08]   | `DataStore -> IUaPubSubDataStore`                        | property | published-value storage                             |
+|  [09]   | `PubSubConnections`                                      | property | `ReadOnlyList<IUaPubSubConnection>`                 |
+|  [10]   | `ApplicationId -> string`                                | property | get and set                                         |
+|  [11]   | `OnValidateBrokerCertificate`                            | field    | public `ValidateBrokerCertificateHandler`           |
+|  [12]   | `Start()` / `Stop()`                                     | instance | `void`, signalling nothing                          |
+|  [13]   | `Dispose()`                                              | instance | releases connections and data store                 |
+|  [14]   | `DataReceived`                                           | event    | `EventHandler<SubscribedDataEventArgs>`             |
+|  [15]   | `MetaDataReceived`                                       | event    | `EventHandler<SubscribedDataEventArgs>`             |
+|  [16]   | `RawDataReceived`                                        | event    | `EventHandler<RawDataReceivedEventArgs>`            |
+|  [17]   | `PublisherEndpointsReceived`                             | event    | `EventHandler<PublisherEndpointsEventArgs>`         |
+|  [18]   | `ConfigurationUpdating`                                  | event    | `EventHandler<ConfigurationUpdatingEventArgs>`      |
+|  [19]   | `DataSetWriterConfigurationReceived`                     | event    | `EventHandler<DataSetWriterConfigurationEventArgs>` |
+
+[ENTRYPOINT_SCOPE]: PubSub decode chain
+
+`DataReceived` hands one `SubscribedDataEventArgs`, and the value path runs `NetworkMessage` to `DataSetMessages` to `DataSet` to `Fields` to `Value`. `DataSet`, `Field`, and `FieldMetaData` live in `Opc.Ua.PubSub.PublishedData`; every other member below in `Opc.Ua.PubSub`.
+
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `SubscribedDataEventArgs.NetworkMessage -> UaNetworkMessage` | property | internal setter, decode entry                  |
+|  [02]   | `SubscribedDataEventArgs.Source -> string`                   | property | originating connection                         |
+|  [03]   | `UaNetworkMessage.DataSetMessages -> List<UaDataSetMessage>` | property | decoded dataset messages                       |
+|  [04]   | `UaNetworkMessage.DataSetMetaData -> DataSetMetaDataType`    | property | metadata payload                               |
+|  [05]   | `UaNetworkMessage.IsMetaDataMessage -> bool`                 | property | true where metadata rides alone                |
+|  [06]   | `UaNetworkMessage.WriterGroupId -> ushort`                   | property | producing writer group                         |
+|  [07]   | `UaNetworkMessage.DataSetWriterId -> ushort?`                | property | null unless one writer produced it             |
+|  [08]   | `UaNetworkMessage.DataSetDecodeErrorOccurred`                | event    | `EventHandler<DataSetDecodeErrorEventArgs>`    |
+|  [09]   | `UaDataSetMessage.DataSet -> DataSet`                        | property | internal setter, null on decode failure        |
+|  [10]   | `UaDataSetMessage.DataSetWriterId -> ushort`                 | property | producing writer                               |
+|  [11]   | `UaDataSetMessage.SequenceNumber -> uint`                    | property | publisher-assigned ordering                    |
+|  [12]   | `UaDataSetMessage.Timestamp -> DateTime`                     | property | publish instant                                |
+|  [13]   | `UaDataSetMessage.Status -> StatusCode`                      | property | message-level verdict                          |
+|  [14]   | `UaDataSetMessage.FieldContentMask`                          | property | `DataSetFieldContentMask` inclusion flags      |
+|  [15]   | `UaDataSetMessage.MetaDataVersion`                           | property | `ConfigurationVersionDataType` of the payload  |
+|  [16]   | `UaDataSetMessage.DecodeErrorReason`                         | property | `DataSetDecodeErrorReason` on the failing path |
+|  [17]   | `DataSet.Fields -> Field[]`                                  | property | the field array, one entry per metadata field  |
+|  [18]   | `DataSet.Name -> string`                                     | property | dataset name off the metadata                  |
+|  [19]   | `DataSet.DataSetWriterId -> int`                             | property | producing writer, widened                      |
+|  [20]   | `DataSet.SequenceNumber -> uint`                             | property | internal setter, publisher ordering            |
+|  [21]   | `DataSet.IsDeltaFrame -> bool`                               | property | delta versus key frame                         |
+|  [22]   | `DataSet.DataSetMetaData -> DataSetMetaDataType`             | property | describing metadata                            |
+|  [23]   | `Field.Value -> DataValue`                                   | property | value, `StatusCode`, and timestamps            |
+|  [24]   | `Field.TargetNodeId -> NodeId`                               | property | subscriber-side target node                    |
+|  [25]   | `Field.TargetAttribute -> uint`                              | property | subscriber-side target attribute               |
+|  [26]   | `Field.FieldMetaData -> FieldMetaData`                       | property | internal setter, declared field shape          |
+
+[ENTRYPOINT_SCOPE]: `UaPubSubConfigurator` mutation rail
+
+Every mutator answers `StatusCode` and throws nothing, so a configuration change reports its refusal as a returned value.
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `AddConnection(PubSubConnectionDataType)`             | instance | seat one connection                     |
+|  [02]   | `AddWriterGroup(uint parentConnectionId, ...)`        | instance | seat a writer group under a connection  |
+|  [03]   | `AddDataSetWriter(uint parentWriterGroupId, ...)`     | instance | seat a dataset writer under a group     |
+|  [04]   | `AddReaderGroup(...)` / `AddDataSetReader(...)`       | instance | seat the subscribe half                 |
+|  [05]   | `AddPublishedDataSet(...)` / `AddExtensionField(...)` | instance | seat a published dataset and its fields |
+|  [06]   | `Remove*(...)`                                        | instance | retire any seated element               |
+|  [07]   | `Enable(...)` / `Disable(...)`                        | instance | arm or disarm a seated element          |
+
+[ENTRYPOINT_SCOPE]: PubSub configuration data types
+
+- `PubSubConnectionDataType`: `Name`, `Enabled`, `Variant PublisherId`, `string TransportProfileUri`, `ExtensionObject Address`, `KeyValuePairCollection ConnectionProperties`, `ExtensionObject TransportSettings`, `WriterGroupDataTypeCollection WriterGroups`, `ReaderGroupDataTypeCollection ReaderGroups`.
+- `PubSubGroupDataType` is the group base: `Name`, `Enabled`, `MessageSecurityMode SecurityMode`, `SecurityGroupId`, `EndpointDescriptionCollection SecurityKeyServices`, `uint MaxNetworkMessageSize`, `GroupProperties`.
+- `WriterGroupDataType : PubSubGroupDataType` adds `ushort WriterGroupId`, `double PublishingInterval`, `double KeepAliveTime`, `byte Priority`, `StringCollection LocaleIds`, `HeaderLayoutUri`, `TransportSettings`, `MessageSettings`, `DataSetWriterDataTypeCollection DataSetWriters`.
+- `DataSetReaderDataType`: `Name`, `Enabled`, `Variant PublisherId`, `ushort WriterGroupId`, `ushort DataSetWriterId`, `DataSetMetaDataType DataSetMetaData`, `uint DataSetFieldContentMask`, `double MessageReceiveTimeout`, `uint KeyFrameCount`, `HeaderLayoutUri`, `SecurityMode`, `SecurityGroupId`, `SecurityKeyServices`, `DataSetReaderProperties`, `TransportSettings`, `MessageSettings`, `ExtensionObject SubscribedDataSet`.
+- `PublishedDataSetDataType`: `Name`, `StringCollection DataSetFolder`, `DataSetMetaDataType DataSetMetaData`, `KeyValuePairCollection ExtensionFields`, `ExtensionObject DataSetSource`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -206,7 +398,11 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 - `Opc.Ua` holds over 1000 types; configuration, certificate, channel, and address-space types coexist in this one namespace.
 - Managed `Opc.Ua.Client` (`Session`/`Subscription`/`MonitoredItem`) sits above `SessionClient` and owns the publish loop, keep-alive, and notification fan; the `SessionClient`/`ClientBase` RPC surface is the inherited read/write base, never the direct subscription owner.
 - `Subscription.PublishingInterval` is the `int` policy the row sets; `CurrentPublishingInterval` reads back the server-negotiated `double`, never cast to a `TimeSpan`.
-- PubSub transports UDP-UADP, MQTT-JSON, and MQTT-UADP, declared in `UaPubSubApplication.SupportedTransportProfiles`.
+- `Opc.Ua.Profiles` in `Opc.Ua.Core.dll` declares the transport URIs — `PubSubUdpUadpTransport` is `http://opcfoundation.org/UA-Profile/Transport/pubsub-udp-uadp`, with `PubSubMqttUadpTransport` and `PubSubMqttJsonTransport` its `pubsub-mqtt-uadp` and `pubsub-mqtt-json` siblings; the static `UaPubSubApplication.SupportedTransportProfiles` re-inlines the same three, ordered udp-uadp, mqtt-json, mqtt-uadp.
+- `SessionClient.WriteAsync` throws at two sites alone: a null service response raising `BadUnknownResponse`, and `ClientBase.ValidateResponse(ResponseHeader)` raising on a null or bad SERVICE-level result. `Results` is never inspected on the way out, so a per-node refusal arrives as one element of `Results` and throws nothing.
+- TRAP: `ServiceResult`'s statics are NULL-TOLERANT with asymmetric defaults — `IsGood(null)` is true, `IsBad(null)` false, `IsNotBad(null)` true, `IsUncertain(null)` false — so an unassigned result reads as good on the good rail and as not-bad on the bad rail.
+- TRAP: `ServiceResult.ToLongString` DOES NOT EXIST at this pin; `ToString()` is the only formatted read, and a fence spelling the long form fails to compile.
+- TRAP: `UaDataSetMessage.DataSet` is null wherever decode failed — the UADP decoder logs and answers null — and a DELTA frame yields a full-length `Fields` array whose untransmitted entries carry a null `Value` beside live `FieldMetaData`. Both nulls guard before a field projects into a value.
 - Certificate stores are directory (PEM/DER), Windows X.509, and `CertificateIdentifierCollectionStore`.
 - Session and PKI operations use the `*Async` variants, each taking a `CancellationToken`.
 

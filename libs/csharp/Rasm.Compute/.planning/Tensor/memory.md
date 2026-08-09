@@ -410,7 +410,7 @@ Each entry carries one ruling:
 - [01]-[FRAGMENTED_READ]: `GetReadOnlySequence` is the default read of staged bytes; segments map one-to-one onto pooled blocks (single-block and large-buffer streams collapse to one segment) and wire encode and decode never flatten the payload
 - [02]-[ZERO_COPY_EDGE]: `UnsafeByteOperations.UnsafeWrap` wraps sequence windows at the remote edge under the frame law the remote lane owns
 - [03]-[CODEC_WINDOW]: `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; `WriteTo` is the array-free stream-to-stream copy
-- [04]-[BLOCK_ALIGNMENT]: `BlockSize` is a whole multiple of the `ArtifactSync` wire frame, so a frame never straddles a pooled block and a block-boundary assertion needs no per-frame arithmetic; the multiple is a `StreamPoolPolicy.Canonical` value
+- [04]-[BLOCK_ALIGNMENT]: `BlockSize` is a whole multiple of the `ArtifactSyncService` wire frame, so a frame never straddles a pooled block and a block-boundary assertion needs no per-frame arithmetic; the multiple is a `StreamPoolPolicy.Canonical` value
 - [05]-[PAYLOAD_CAP]: `MaximumBufferSize` equals the wire payload cap the canonical channel policy owns, and `LargeBufferMultiple` divides it, so every large-buffer step lands on a cap boundary instead of overshooting the last one
 - [06]-[STREAM_CAP]: `MaximumStreamCapacity` zero is the package no-limit spelling; per-intent payload bounds own staging caps at admission through `AllocationClass.Grant`
 - [07]-[POOL_RETENTION]: free-bytes caps bound RETAINED (never in-use) memory and a return past a cap releases as a `BufferDiscarded` event; the large cap applies per size class, so `StreamPoolPolicy.Canonical` owns both the value and that multiplier

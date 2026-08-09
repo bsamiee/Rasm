@@ -14,7 +14,7 @@
 - [05]-[CREDENTIAL](.planning/authn/credential.md): Second factors — OTP, recovery codes, and machine keys ride one mint-and-resolve digest idiom.
 - [06]-[OAUTH](.planning/authn/oauth.md): Issuers as rows over one authorization-code ceremony; single-use state, OIDC verify through `Jwt`.
 - [07]-[WEBAUTHN](.planning/authn/webauthn.md): Both passkey halves as per-runtime subpaths — RP verifier and browser invocation.
-- [08]-[WORKLOAD](.planning/authn/workload.md): Machine identity — grant rows over one discovered client per issuer, DPoP sender-constraint, principal projection.
+- [08]-[WORKLOAD](.planning/authn/workload.md): Machine identity — grant rows per discovered issuer client, DPoP constraint, principal projection.
 
 [ACCESS]:
 - [09]-[CLAIM](.planning/access/claim.md): Entitlement vocabulary and the RBAC-union-ReBAC fold resolved once per request into a tagged verdict.
@@ -33,7 +33,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 [CEREMONY]:
 - `arctic` — browser authorization-code redirect and provider rows.
-- `openid-client` — machine-grant OIDC lane: client-credentials, RFC 8693 exchange, device and CIBA legs, DPoP, introspection, revocation, dynamic registration, the protected-resource read.
+- `openid-client` — machine-grant OIDC lane: client-credentials, RFC 8693, device/CIBA, DPoP, introspection, revocation, registration, resource read.
 - `@simplewebauthn/server`
 - `@simplewebauthn/browser`
 - `@otplib/core` — OTP substrate `otplib` composes.

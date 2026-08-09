@@ -1,25 +1,24 @@
 # [CORE_CONTRACT]
 
-The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family, settled at construction and re-settled on a compiled cadence, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure and never a boot grade the wire has since outgrown. The diff walk pairs fields by number, gates on leaf identity, then folds the ordered lane table — wire facts, oneof membership, serialized field options, enum rosters, and recursive nested-message descent — while the RPC walk pairs the pinned `DescService` roster's methods by name and compares `methodKind`, `idempotency`, and the input/output signature; every disagreement is a typed `DriftChange` row. The verdict is derived, never asserted: `ContractDrift.of` is the one mint computing the dominant verdict from the change set, and the class declaration filter-proves `verdict === dominant(changes)` on every decode, so a serialized receipt that claims `identical` over a breaking change set refuses at admission and `admitted`/`alarm` can never disagree with the change lattice they project. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, an out-of-vocabulary RFC 6902 op and the msgpack `Alien` ext land through this same verdict vocabulary at their registry rows, and live-message unknown-field residue is `codec`'s `Wire.residue` read, the runtime complement of this boot-time grade. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one lane row, and a new verdict policy axis is one severity column.
+`core/src/interchange/contract.ts` compares pinned and shipped contracts, grades binary, JSON, and source compatibility, and exposes one typed gate. `Contract.Drift` derives every verdict; `Contract.Descriptor` refreshes the declared census.
 
 ## [01]-[INDEX]
 
-- [02]-[DRIFT_VERDICT]: the change union, severity and grade tables, the verdict receipt and fold; `ContractDrift`.
-- [03]-[GENERATION_DIFF]: the field-signature walk, the wire-fact compare, the enum-roster walk; interior.
-- [04]-[GATE_SERVICE]: the verdict census, its re-grade cadence, per-family admission, the coverage law; `DescriptorGate`.
+- [02]-[DRIFT_VERDICT]: evidence, compatibility grades, and the derived receipt; `Contract.Drift`.
+- [03]-[GENERATION_DIFF]: protobuf descriptor and canonical capability-document walks.
+- [04]-[GATE_SERVICE]: declared census order, typed admission, and refresh policy; `Contract.Descriptor`.
 
 ## [02]-[DRIFT_VERDICT]
 
-- Owner: `ContractDrift`, the verdict receipt — one `Schema.Class` carrying the family, the pinned and live generation coordinates, and every field-level change as typed `DriftChange` union rows; `_severity` grades verdict policy (`rank`, `admitted`, `alarm`), `_grade` maps each change kind to its verdict, `_dominant` folds a change set through the rank lattice, `of` is the one mint, and `admitted`/`alarm` are row projections.
-- Law: the verdict derives from the evidence at both trust directions — `ContractDrift.of(family, pinned, live, changes)` computes `verdict` as `_dominant(changes)` so interior mints cannot restate the fold, and the class's declaration filter re-proves the same equation on decode, so a wire-carried receipt whose stored verdict disagrees with its own change rows is a `ParseError` at admission, never a lying `admitted` projection downstream.
-- Law: verdict admission is data — `identical` and `additive` admit decode, `breaking` refuses it; the refusal surfaces as a `WireFault` with reason `drift` at the consuming registry row, never a `ParseError` mid-decode.
-- Law: severity folds by the lattice — one `breaking` change makes the family `breaking` regardless of additive siblings, `identical` is exactly the empty change set, and `_dominant` is a grade lookup per change plus `Array.max` over the rank order.
-- Law: the change union carries the two enum-roster verdicts as first-class detected rows — `EnumValueAdded` grades `additive`, `EnumValueRemoved` grades `breaking` — and `WireTypeChanged` carries the delimited/packed wire-fact signatures both sides; every change kind the vocabulary declares is minted by the `[03]` walk, so no verdict row is dead vocabulary.
-- Law: the union spans the field-contract axes independently — `OneofChanged`, resolved `PresenceChanged`, `Utf8ValidationChanged`, serialized `OptionChanged`, and `RequiredFieldAdded` distinguish an additive optional field from a legacy-required addition old writers cannot satisfy; `ServiceMissing` plus the method triple `MethodAdded`/`MethodRemoved`/`MethodChanged` grade the RPC plane, and nested-message drift recurses at the nested coordinates.
-- Law: the verdict family is `Schema`-declared — verdicts serialize into CI artifacts and cross the reporting boundary; a process-local re-model is the parallel-shape defect.
-- Growth: a new change kind is one union case plus one `_grade` row — the grade record's mapped contract breaks until the row lands; a new policy axis is one `_severity` column.
-- Boundary: computing changes from descriptor generations is `[03]`'s walk; the `codec` registry consumes `admitted` through the gate service; the jsonpatch alien-op and msgpack `Alien` ext surfacings compose this vocabulary at their registry rows; live-message unknown-field residue is `codec`'s `Wire.residue` read.
-- Packages: `effect` (`Schema`, `Array`, `Order`); `./codec.ts` (`Wire`).
+- Owner: `Contract.Drift` stores one evidence set and the derived verdict for each compatibility axis.
+- Law: the class filter re-derives every stored verdict, so decoded receipts cannot detach claims from evidence.
+- Law: `identical` and `compatible` admit; `breaking` returns `Contract.Refusal` through `Contract.Gate<A>`.
+- Law: `_dominant` folds each axis independently; an empty evidence set is `identical` on every axis.
+- Law: removals, renames, JSON-name changes, option changes, wire facts, and capability-row changes remain distinct evidence.
+- Law: `_grade` is conservative: option changes break every axis, and enum changes break JSON and source compatibility.
+- Growth: one change case requires one complete `_grade` row and one detecting lane.
+- Boundary: the consuming wire owner maps `Contract.Refusal` into its fault vocabulary; this page never imports the codec.
+- Packages: `effect` (`Array`, `Effect`, `Order`, `Schema`).
 
 ```typescript signature
 import {
@@ -30,43 +29,77 @@ import {
   type DescMethod,
   type DescService,
   equals,
-  isMessage,
   type MessageShape,
   qualifiedName,
+  type Registry,
   ScalarType,
 } from "@bufbuild/protobuf"
 import { FeatureSet_FieldPresence, FieldOptionsSchema, FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt"
-import { Array, Effect, Function, HashMap, HashSet, Layer, Match, Option, Order, type ParseResult, Reloadable, Schema } from "effect"
-import { Budget } from "../value/fault.ts"
-import { Wire, WireFault } from "./codec.ts"
-import { Proto } from "./format.ts"
+import {
+  Array,
+  Duration,
+  Effect,
+  HashMap,
+  HashSet,
+  Layer,
+  Match,
+  Option,
+  Order,
+  type ParseResult,
+  Reloadable,
+  Schedule,
+  Schema,
+} from "effect"
+import { Digest } from "../value/contentKey.ts"
+import { Shape } from "../value/schema.ts"
+import { Format } from "./format.ts"
 
-const _verdicts = ["identical", "additive", "breaking"] as const
+const _verdicts = ["identical", "compatible", "breaking"] as const
+const _compatibilities = ["binary", "json", "source"] as const
+const _capabilityFamily = "CapabilityDescriptorWire" as const
+// Message shape is HALF the contract a client binds: `createClient` derives every member from the service's method
+// roster, so a removed method, a flipped streaming kind, or a swapped request type breaks a caller no message diff
+// can see. Services ride one custom-source family beside the capability document, coordinates carrying the detail.
+const _serviceFamily = "ServiceSurfaceWire" as const
+const _families = [...Format.proto.names, _capabilityFamily, _serviceFamily] as const
+const _Family = Schema.Literal(..._families)
 
 const _severity = {
   identical: { rank: 0, admitted: true, alarm: false },
-  additive: { rank: 1, admitted: true, alarm: false },
+  compatible: { rank: 1, admitted: true, alarm: false },
   breaking: { rank: 2, admitted: false, alarm: true },
 } as const
 
 const _grade = {
-  FieldAdded: "additive",
-  EnumValueAdded: "additive",
-  MethodAdded: "additive",
-  OptionChanged: "additive",
-  EnumValueRemoved: "breaking",
-  FieldRemoved: "breaking",
-  MethodRemoved: "breaking",
-  MethodChanged: "breaking",
-  OneofChanged: "breaking",
-  TypeChanged: "breaking",
-  WireTypeChanged: "breaking",
-  NumberReused: "breaking",
-  FamilyMissing: "breaking",
-  ServiceMissing: "breaking",
-  PresenceChanged: "breaking",
-  RequiredFieldAdded: "breaking",
-  Utf8ValidationChanged: "breaking",
+  FieldAdded: { binary: "compatible", json: "breaking", source: "compatible" },
+  FieldRenamed: { binary: "compatible", json: "compatible", source: "breaking" },
+  JsonNameChanged: { binary: "compatible", json: "breaking", source: "compatible" },
+  EnumValueAdded: { binary: "compatible", json: "breaking", source: "breaking" },
+  EnumValueRenamed: { binary: "compatible", json: "breaking", source: "breaking" },
+  DescriptorAdded: { binary: "compatible", json: "compatible", source: "compatible" },
+  OptionChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  EnumValueRemoved: { binary: "compatible", json: "breaking", source: "breaking" },
+  FieldRemoved: { binary: "compatible", json: "breaking", source: "breaking" },
+  DescriptorRemoved: { binary: "breaking", json: "breaking", source: "breaking" },
+  DescriptorChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  DescriptorDocumentChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  DescriptorAddressChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  OneofChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  TypeChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  WireTypeChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  NumberReused: { binary: "breaking", json: "breaking", source: "breaking" },
+  FamilyMissing: { binary: "breaking", json: "breaking", source: "breaking" },
+  PresenceChanged: { binary: "compatible", json: "breaking", source: "breaking" },
+  RequiredFieldAdded: { binary: "breaking", json: "breaking", source: "breaking" },
+  Utf8ValidationChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  MethodAdded: { binary: "compatible", json: "compatible", source: "compatible" },
+  MethodRemoved: { binary: "breaking", json: "breaking", source: "breaking" },
+  MethodKindChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  MethodSignatureChanged: { binary: "breaking", json: "breaking", source: "breaking" },
+  // Losing a no-side-effects declaration leaves the POST route intact and retires the cacheable GET beside it, so the
+  // wire holds on both encodings and a caller bound to that route is the one that must change.
+  MethodIdempotencyChanged: { binary: "compatible", json: "compatible", source: "breaking" },
+  ServiceRemoved: { binary: "breaking", json: "breaking", source: "breaking" },
 } as const
 
 const _FieldCoord = Schema.Struct({
@@ -81,20 +114,30 @@ const _EnumCoord = Schema.Struct({
   number: Schema.Int,
 })
 
-const _MethodCoord = Schema.Struct({
-  service: Schema.NonEmptyString,
-  method: Schema.NonEmptyString,
-})
+const _DescriptorCoord = Schema.Struct({ descriptor: Schema.NonEmptyString })
+const _ServiceCoord = Schema.Struct({ service: Schema.NonEmptyString })
+const _MethodCoord = Schema.Struct({ service: Schema.NonEmptyString, method: Schema.NonEmptyString })
+const _methodSides = ["input", "output"] as const
+const _methodKinds = ["unary", "server_streaming", "client_streaming", "bidi_streaming"] as const
+const _descriptorFields = ["surface", "effect", "idempotency", "scope", "units", "input", "output"] as const
+const _capabilityEffects = ["pure", "read", "write", "external", "irreversible"] as const
+const _capabilityIdempotency = ["idempotent", "keyed", "single-shot", "non-idempotent"] as const
+const _capabilityUnits = ["cpu-millis", "wall-millis", "bytes-egress", "model-tokens", "calls"] as const
 
 const _Change = Schema.Union(
   Schema.TaggedStruct("FieldAdded", { at: _FieldCoord }),
+  Schema.TaggedStruct("FieldRenamed", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
+  Schema.TaggedStruct("JsonNameChanged", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
   Schema.TaggedStruct("EnumValueAdded", { at: _EnumCoord }),
-  Schema.TaggedStruct("MethodAdded", { at: _MethodCoord }),
+  Schema.TaggedStruct("EnumValueRenamed", { at: _EnumCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
+  Schema.TaggedStruct("DescriptorAdded", { at: _DescriptorCoord }),
   Schema.TaggedStruct("OptionChanged", { at: _FieldCoord }),
   Schema.TaggedStruct("EnumValueRemoved", { at: _EnumCoord }),
   Schema.TaggedStruct("FieldRemoved", { at: _FieldCoord }),
-  Schema.TaggedStruct("MethodRemoved", { at: _MethodCoord }),
-  Schema.TaggedStruct("MethodChanged", { at: _MethodCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
+  Schema.TaggedStruct("DescriptorRemoved", { at: _DescriptorCoord }),
+  Schema.TaggedStruct("DescriptorChanged", { at: _DescriptorCoord, field: Schema.Literal(..._descriptorFields) }),
+  Schema.TaggedStruct("DescriptorDocumentChanged", {}),
+  Schema.TaggedStruct("DescriptorAddressChanged", {}),
   Schema.TaggedStruct("OneofChanged", {
     at: _FieldCoord,
     from: Schema.Option(Schema.NonEmptyString),
@@ -103,11 +146,25 @@ const _Change = Schema.Union(
   Schema.TaggedStruct("TypeChanged", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
   Schema.TaggedStruct("WireTypeChanged", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
   Schema.TaggedStruct("NumberReused", { at: _FieldCoord, retired: Schema.NonEmptyString }),
-  Schema.TaggedStruct("FamilyMissing", { family: Wire.wire }),
-  Schema.TaggedStruct("ServiceMissing", { service: Schema.NonEmptyString }),
+  Schema.TaggedStruct("FamilyMissing", { family: _Family }),
   Schema.TaggedStruct("PresenceChanged", { at: _FieldCoord, from: Schema.Int, to: Schema.Int }),
   Schema.TaggedStruct("RequiredFieldAdded", { at: _FieldCoord }),
   Schema.TaggedStruct("Utf8ValidationChanged", { at: _FieldCoord, from: Schema.Boolean, to: Schema.Boolean }),
+  Schema.TaggedStruct("MethodAdded", { at: _MethodCoord }),
+  Schema.TaggedStruct("MethodRemoved", { at: _MethodCoord }),
+  Schema.TaggedStruct("MethodKindChanged", {
+    at: _MethodCoord,
+    from: Schema.Literal(..._methodKinds),
+    to: Schema.Literal(..._methodKinds),
+  }),
+  Schema.TaggedStruct("MethodSignatureChanged", {
+    at: _MethodCoord,
+    side: Schema.Literal(..._methodSides),
+    from: Schema.NonEmptyString,
+    to: Schema.NonEmptyString,
+  }),
+  Schema.TaggedStruct("MethodIdempotencyChanged", { at: _MethodCoord, from: Schema.Int, to: Schema.Int }),
+  Schema.TaggedStruct("ServiceRemoved", { at: _ServiceCoord }),
 )
 
 const _rank: Order.Order<ContractDrift.Verdict> = Order.mapInput(
@@ -115,67 +172,140 @@ const _rank: Order.Order<ContractDrift.Verdict> = Order.mapInput(
   (verdict: ContractDrift.Verdict) => _severity[verdict].rank,
 )
 
-const _graded = (change: ContractDrift.Change): ContractDrift.Verdict => _grade[change._tag]
+const _graded = (
+  change: ContractDrift.Change,
+  compatibility: ContractDrift.Compatibility,
+): ContractDrift.Verdict => _grade[change._tag][compatibility]
 
-const _dominant = (changes: ReadonlyArray<ContractDrift.Change>): ContractDrift.Verdict =>
+const _dominant = (
+  changes: ReadonlyArray<ContractDrift.Change>,
+  compatibility: ContractDrift.Compatibility,
+): ContractDrift.Verdict =>
   Array.match(changes, {
     onEmpty: (): ContractDrift.Verdict => "identical",
-    onNonEmpty: (present) => Array.max(Array.map(present, _graded), _rank),
+    onNonEmpty: (present) => Array.max(Array.map(present, (change) => _graded(change, compatibility)), _rank),
   })
+
+const _settled = (changes: ReadonlyArray<ContractDrift.Change>): ContractDrift.Verdicts => ({
+  binary: _dominant(changes, "binary"),
+  json: _dominant(changes, "json"),
+  source: _dominant(changes, "source"),
+})
 
 class ContractDrift extends Schema.Class<ContractDrift>("ContractDrift")(
   Schema.Struct({
-    family: Wire.wire,
-    verdict: Schema.Literal(..._verdicts),
+    family: _Family,
+    verdicts: Schema.Struct({
+      binary: Schema.Literal(..._verdicts),
+      json: Schema.Literal(..._verdicts),
+      source: Schema.Literal(..._verdicts),
+    }),
     pinned: Schema.NonEmptyString,
     live: Schema.NonEmptyString,
     changes: Schema.Array(_Change),
   }).pipe(
-    Schema.filter((receipt) => receipt.verdict === _dominant(receipt.changes) || "<verdict-detached-from-changes>", {
-      identifier: "VerdictDerived", // the receipt cannot lie: a stored verdict its own change rows do not dominate refuses at decode and construction alike
-    }),
+    Schema.filter(
+      (receipt) =>
+        Array.every(
+          _compatibilities,
+          (compatibility) => receipt.verdicts[compatibility] === _dominant(receipt.changes, compatibility),
+        ) || "<verdict-detached-from-changes>",
+      { identifier: "VerdictDerived" },
+    ),
   ),
 ) {
   static readonly Change: typeof _Change = _Change
-  static readonly dominant: (changes: ReadonlyArray<ContractDrift.Change>) => ContractDrift.Verdict = _dominant
-  static readonly graded: (change: ContractDrift.Change) => ContractDrift.Verdict = _graded
+  static readonly dominant: (
+    changes: ReadonlyArray<ContractDrift.Change>,
+    compatibility: ContractDrift.Compatibility,
+  ) => ContractDrift.Verdict = _dominant
+  static readonly graded: (
+    change: ContractDrift.Change,
+    compatibility: ContractDrift.Compatibility,
+  ) => ContractDrift.Verdict = _graded
   static readonly rank: Order.Order<ContractDrift.Verdict> = _rank
   static readonly of = (
-    family: Wire.Family,
+    family: ContractDrift.Family,
     pinned: string,
     live: string,
     changes: ReadonlyArray<ContractDrift.Change>,
-  ): ContractDrift => ContractDrift.make({ family, verdict: _dominant(changes), pinned, live, changes })
-  get admitted(): boolean {
-    return _severity[this.verdict].admitted
+  ): ContractDrift => ContractDrift.make({ family, verdicts: _settled(changes), pinned, live, changes })
+  verdict(compatibility: ContractDrift.Compatibility): ContractDrift.Verdict {
+    return this.verdicts[compatibility]
   }
-  get alarm(): boolean {
-    return _severity[this.verdict].alarm
+  admitted(compatibility: ContractDrift.Compatibility): boolean {
+    return _severity[this.verdict(compatibility)].admitted
+  }
+  alarm(compatibility: ContractDrift.Compatibility): boolean {
+    return _severity[this.verdict(compatibility)].alarm
   }
 }
 
 declare namespace ContractDrift {
+  type Family = (typeof _families)[number]
   type Verdict = keyof typeof _severity
+  type Compatibility = (typeof _compatibilities)[number]
+  type Verdicts = { readonly [Compatibility in ContractDrift.Compatibility]: Verdict }
   type Change = Schema.Schema.Type<typeof _Change>
   type _Rows<T extends Record<(typeof _verdicts)[number], { readonly rank: number; readonly admitted: boolean; readonly alarm: boolean }> = typeof _severity> = T
-  type _Grades<T extends Record<Change["_tag"], Verdict> = typeof _grade> = T
+  type _Grades<T extends Record<Change["_tag"], Verdicts> = typeof _grade> = T
   type _Keys<K extends (typeof _verdicts)[number] = Verdict> = K
   type _GradeKeys<K extends Change["_tag"] = keyof typeof _grade> = K
 }
+
+class ContractRefusal extends Schema.TaggedError<ContractRefusal>()("ContractRefusal", {
+  family: _Family,
+  compatibility: Schema.Literal(..._compatibilities),
+  verdict: Schema.Literal(..._verdicts),
+  changes: Schema.Int.pipe(Schema.nonNegative()),
+}) {}
+
+class ContractFault extends Schema.TaggedError<ContractFault>()("Contract.Fault", {
+  detail: Schema.String,
+}) {
+  static readonly from = (cause: unknown): ContractFault =>
+    new ContractFault({ detail: cause instanceof Error ? cause.message : String(cause) })
+}
+
+const _Cadence = Schema.DurationFromSelf.pipe(
+  Schema.filter(
+    (cadence) => Duration.isFinite(cadence) && Duration.greaterThan(cadence, Duration.zero),
+    { identifier: "PositiveFiniteCadence" },
+  ),
+)
+
+class ContractRefresh extends Schema.Class<ContractRefresh>("Contract.Refresh")({ cadence: _Cadence }) {
+  readonly schedule = Schedule.spaced(this.cadence)
+}
+
+class ContractPin extends Schema.Class<ContractPin>("Contract.Pin")({
+  document: Schema.NonEmptyString,
+  digest: Digest.codecs.content.wire,
+  descriptors: Shape.Refined.OrdinalKey,
+}) {}
+
+const _Request = Schema.Struct({
+  family: _Family,
+  compatibility: Schema.Literal(..._compatibilities),
+})
+
 ```
 
 ## [03]-[GENERATION_DIFF]
 
-- Owner: the interior walk — `_leaf` classifies a `DescField` to its type signature through the `fieldKind` record dispatch, `_wireFacts` renders the delimited/packed encoding posture, `_signature` renders a `DescMethod` to its RPC signature, `_enumOf`/`_messageOf` project the roster-carrying descriptor off any field kind, `_lanes` is the ordered comparison-lane table every shared field pair folds through, and `_paired` is the one keyed roster fold — `added`, `removed`, `shared` arms over two generations — that `_enumChanges` instantiates by value number, `_serviced` by method name, and `_diffed` by field number, the field walk recursing over message-typed leaves under a visited-set guard; every disagreement folds into `DriftChange` rows.
-- Law: fields pair by number, never by name — the wire is number-addressed, so a renamed field with a stable number and signature is `identical`, a re-numbered field is a remove-plus-add pair, and a reused number whose signature changed is `NumberReused`, the severest field-level lie.
-- Law: leaf identity gates, lanes accumulate — a leaf disagreement is exclusive (`TypeChanged` under a stable name, `NumberReused` under a new one — deeper comparison across changed types is noise), and an agreeing leaf folds the whole `_lanes` table so one field pair can carry wire-fact, oneof, option, roster, and nested rows together; a ternary ladder that reports only the first disagreement is the rejected shape.
-- Law: `_wireFacts` is encoding equality separate from type equality — a flipped `delimitedEncoding` or `packed` posture emits `WireTypeChanged` carrying both fact signatures, because the bytes change while the type story claims stability; presentation facts (json name, comments) never enter any signature.
-- Law: field policy has three independent lanes — serialized `FieldOptions` equality emits `OptionChanged`, resolved `presence` emits `PresenceChanged`, and resolved `utf8Validation` emits `Utf8ValidationChanged`; oneof membership remains its own `OneofChanged` evidence, so edition resolution and option bytes cannot mask each other.
-- Law: enum rosters walk on every shared enum-carrying field — singular, list, and map-valued kinds reach the roster through the one `_enumOf` projection; a live value number absent pinned emits `EnumValueAdded`, a pinned number absent live emits `EnumValueRemoved`, keyed by value number so a renamed value with a stable number is `identical`.
-- Law: nested descent is the same fold — `_messageOf` mirrors `_enumOf`, an agreeing message-typed leaf recurses `_diffed` into the nested pair at its own coordinates, and the visited set keyed by pinned `qualifiedName` breaks recursive message cycles; a nested drift is therefore never invisible behind a stable qualified name.
-- Law: methods pair by name — the RPC path is name-addressed, unlike fields — and `_signature` compares `methodKind`, the input/output qualified names, and `idempotency` as one rendered string; a missing live service emits `ServiceMissing` before the method walk, so even an empty pinned service cannot pass as present.
-- Growth: a new drift axis is one change case plus one `_grade` row plus one `_lanes` row; the fold shape never changes.
-- Packages: `@bufbuild/protobuf` (`DescEnum`, `DescField`, `DescMessage`, `DescMethod`, `DescService`, `ScalarType`, `equals`, `qualifiedName`), `@bufbuild/protobuf/wkt` (`FieldOptionsSchema`); `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`).
+- Owner: `_paired` is the keyed roster fold; `_diffed`, `_enumChanges`, and `_descriptorChanges` supply typed arms.
+- Law: fields pair by number; stable-number name and JSON-name changes emit independent evidence.
+- Law: a changed leaf emits `TypeChanged` or `NumberReused`; an unchanged leaf folds every comparison lane.
+- Law: field names affect source compatibility, and `jsonName` affects JSON compatibility; neither changes protobuf wire identity.
+- Law: typed `Option` reads guard descriptor options, messages, enums, and registry lookups.
+- Law: enum values pair by number; stable-number renames emit `EnumValueRenamed`.
+- Law: nested messages recurse behind a qualified-name visited set; recursive descriptors terminate.
+- Law: capability rows pair by descriptor; the fixed producer fields remain separate evidence coordinates.
+- Law: methods pair by name, because protobuf assigns no method number; a rename reads as a removal beside an addition.
+- Law: method kind, both signature sides, and the idempotency declaration are independent evidence under one coordinate.
+- Law: an unresolved pinned service reads `ServiceRemoved`; a shipped-only service stays invisible and gates nothing.
+- Law: each capability document must match its declared row count and carry strictly ordinal descriptor and unit keys.
+- Packages: `@bufbuild/protobuf`, `@bufbuild/protobuf/wkt`, and `effect` descriptor, schema, and collection owners.
 
 ```typescript signature
 const _leaf = (field: DescField): string =>
@@ -202,9 +332,6 @@ const _leaf = (field: DescField): string =>
 const _wireFacts = (field: DescField): string =>
   `delimited:${field.delimitedEncoding === true}|packed:${field.packed === true}`
 
-const _signature = (method: DescMethod): string =>
-  `${method.methodKind}:${qualifiedName(method.input)}->${qualifiedName(method.output)}|idempotency:${method.idempotency}`
-
 const _coord = (message: DescMessage, field: DescField): typeof _FieldCoord.Type =>
   _FieldCoord.make({ message: qualifiedName(message), field: field.name, number: field.number })
 
@@ -220,10 +347,34 @@ const _messageOf = (field: DescField): Option.Option<DescMessage> =>
     ? Option.some(field.message)
     : Option.none()
 
+const _optionsOf = (field: DescField): Option.Option<MessageShape<typeof FieldOptionsSchema>> =>
+  Option.fromNullable(field.proto.options)
+
 const _optionsAlike = (was: DescField, is: DescField): boolean =>
-  was.proto.options === undefined || is.proto.options === undefined
-    ? was.proto.options === is.proto.options
-    : equals(FieldOptionsSchema, was.proto.options, is.proto.options)
+  Option.match(_optionsOf(was), {
+    onNone: () => Option.isNone(_optionsOf(is)),
+    onSome: (before) =>
+      Option.match(_optionsOf(is), {
+        onNone: () => false,
+        onSome: (after) => equals(FieldOptionsSchema, before, after),
+      }),
+  })
+
+const _strictlyOrdered = (values: ReadonlyArray<string>): boolean =>
+  Array.every(Array.zip(values, Array.drop(values, 1)), ([was, is]) => was < is)
+
+const _DescriptorRow = Schema.Struct({
+  descriptor: Schema.NonEmptyString,
+  surface: Schema.NonEmptyString,
+  effect: Schema.Literal(..._capabilityEffects),
+  idempotency: Schema.Literal(..._capabilityIdempotency),
+  scope: Schema.NonEmptyString,
+  units: Schema.Array(Schema.Literal(..._capabilityUnits)).pipe(
+    Schema.filter((units) => _strictlyOrdered(units) || "<capability-units-order>"),
+  ),
+  input: Schema.Unknown,
+  output: Schema.Unknown,
+})
 
 const _paired = <A>(
   before: ReadonlyArray<A>,
@@ -258,8 +409,135 @@ const _enumChanges = (pinned: DescEnum, live: DescEnum): ReadonlyArray<ContractD
       _tag: "EnumValueRemoved" as const,
       at: _EnumCoord.make({ enum: qualifiedName(pinned), value: value.name, number: value.number }),
     }],
-    shared: () => [],
+    shared: (was, is) =>
+      was.name === is.name
+        ? []
+        : [{
+            _tag: "EnumValueRenamed" as const,
+            at: _EnumCoord.make({ enum: qualifiedName(live), value: is.name, number: is.number }),
+            from: was.name,
+            to: is.name,
+          }],
   })
+
+const _documentRows = (pin: ContractPin) =>
+  Schema.Array(_DescriptorRow).pipe(
+    Schema.filter(
+      (rows) =>
+        rows.length === pin.descriptors
+        && _strictlyOrdered(Array.map(rows, (row) => row.descriptor))
+        && Array.every(rows, (row) => _strictlyOrdered(row.units))
+        || "<noncanonical-descriptor-pin>",
+      { identifier: "CanonicalDescriptorPin" },
+    ),
+  )
+
+const _decodePin = (octets: Uint8Array): Effect.Effect<ContractPin, ParseResult.ParseError> =>
+  Schema.decodeUnknown(Format.json.schema(ContractPin))(octets)
+
+const _decodeDocument = (
+  pin: ContractPin,
+): Effect.Effect<ReadonlyArray<typeof _DescriptorRow.Type>, ParseResult.ParseError> =>
+  Schema.decodeUnknown(Format.json.schema(_documentRows(pin)))(new TextEncoder().encode(pin.document))
+
+const _descriptorValues: ReadonlyArray<
+  readonly [(typeof _descriptorFields)[number], (row: typeof _DescriptorRow.Type) => string]
+> = [
+  ["surface", (row) => row.surface],
+  ["effect", (row) => row.effect],
+  ["idempotency", (row) => row.idempotency],
+  ["scope", (row) => row.scope],
+  ["units", (row) => JSON.stringify(row.units)],
+  ["input", (row) => JSON.stringify(row.input) ?? "<undefined>"],
+  ["output", (row) => JSON.stringify(row.output) ?? "<undefined>"],
+]
+
+const _descriptorChanges = (
+  pinned: ContractPin,
+  live: ContractPin,
+  before: ReadonlyArray<typeof _DescriptorRow.Type>,
+  after: ReadonlyArray<typeof _DescriptorRow.Type>,
+): ReadonlyArray<ContractDrift.Change> => {
+  const rows = _paired(before, after, (row) => row.descriptor, {
+    added: (row) => [{ _tag: "DescriptorAdded" as const, at: _DescriptorCoord.make({ descriptor: row.descriptor }) }],
+    removed: (row) => [{ _tag: "DescriptorRemoved" as const, at: _DescriptorCoord.make({ descriptor: row.descriptor }) }],
+    shared: (was, is) =>
+      Array.filterMap(_descriptorValues, ([field, value]) =>
+        value(was) === value(is)
+          ? Option.none()
+          : Option.some({ _tag: "DescriptorChanged" as const, at: _DescriptorCoord.make({ descriptor: is.descriptor }), field }),
+      ),
+  })
+  return [
+    ...rows,
+    ...(pinned.document !== live.document && rows.length === 0 ? [{ _tag: "DescriptorDocumentChanged" as const }] : []),
+    ...((pinned.document === live.document) === (pinned.digest === live.digest)
+      ? []
+      : [{ _tag: "DescriptorAddressChanged" as const }]),
+  ]
+}
+
+// Methods pair by NAME, because protobuf assigns no method number — a rename is therefore a removal beside an
+// addition, and this page mints no rename case it cannot prove. Request and response ride ONE side roster, so a
+// swapped message reads as the same evidence under a different coordinate instead of two hand-written arms.
+const _methodSideValues: ReadonlyArray<
+  readonly [(typeof _methodSides)[number], (method: DescMethod) => DescMessage]
+> = [
+  ["input", (method) => method.input],
+  ["output", (method) => method.output],
+]
+
+const _methodChanges = (
+  service: string,
+  pinned: DescService,
+  live: DescService,
+): ReadonlyArray<ContractDrift.Change> =>
+  _paired(pinned.methods, live.methods, (method) => method.name, {
+    added: (method) => [{ _tag: "MethodAdded" as const, at: _MethodCoord.make({ service, method: method.name }) }],
+    removed: (method) => [{ _tag: "MethodRemoved" as const, at: _MethodCoord.make({ service, method: method.name }) }],
+    shared: (was, is) => [
+      ...(was.methodKind === is.methodKind
+        ? []
+        : [{
+            _tag: "MethodKindChanged" as const,
+            at: _MethodCoord.make({ service, method: is.name }),
+            from: was.methodKind,
+            to: is.methodKind,
+          }]),
+      ...Array.filterMap(_methodSideValues, ([side, read]) =>
+        qualifiedName(read(was)) === qualifiedName(read(is))
+          ? Option.none()
+          : Option.some({
+              _tag: "MethodSignatureChanged" as const,
+              at: _MethodCoord.make({ service, method: is.name }),
+              side,
+              from: qualifiedName(read(was)),
+              to: qualifiedName(read(is)),
+            })),
+      ...(was.idempotency === is.idempotency
+        ? []
+        : [{
+            _tag: "MethodIdempotencyChanged" as const,
+            at: _MethodCoord.make({ service, method: is.name }),
+            from: was.idempotency,
+            to: is.idempotency,
+          }]),
+    ],
+  })
+
+// Pinned services are the baseline roster, so a service the shipped registry cannot resolve reads `ServiceRemoved`
+// exactly as an unresolved message family reads `FamilyMissing`. Services present only on the shipped side stay
+// invisible here by construction — the census walks a pin, and an unpinned addition breaks no caller this page gates.
+const _serviceChanges = (
+  pinned: ReadonlyArray<DescService>,
+  registry: Registry,
+): ReadonlyArray<ContractDrift.Change> =>
+  Array.flatMap(pinned, (service) =>
+    Option.match(Option.fromNullable(registry.getService(service.typeName)), {
+      onNone: (): ReadonlyArray<ContractDrift.Change> =>
+        [{ _tag: "ServiceRemoved" as const, at: _ServiceCoord.make({ service: service.typeName }) }],
+      onSome: (live) => _methodChanges(service.typeName, service, live),
+    }))
 
 type _Lane = (
   pair: readonly [DescField, DescField],
@@ -268,6 +546,14 @@ type _Lane = (
 ) => ReadonlyArray<ContractDrift.Change>
 
 const _lanes: ReadonlyArray<_Lane> = [
+  ([was, is], at) =>
+    was.name === is.name
+      ? []
+      : [{ _tag: "FieldRenamed" as const, at, from: was.name, to: is.name }],
+  ([was, is], at) =>
+    was.jsonName === is.jsonName
+      ? []
+      : [{ _tag: "JsonNameChanged" as const, at, from: was.jsonName, to: is.jsonName }],
   ([was, is], at) =>
     _wireFacts(was) === _wireFacts(is)
       ? []
@@ -327,104 +613,151 @@ const _diffed = (
   })
 }
 
-const _serviced = (pinned: DescService, live: DescService | undefined): ReadonlyArray<ContractDrift.Change> => {
-  const coordOf = (method: DescMethod): typeof _MethodCoord.Type =>
-    _MethodCoord.make({ service: qualifiedName(pinned), method: method.name })
-  return live === undefined ? [{ _tag: "ServiceMissing", service: qualifiedName(pinned) }] : _paired(pinned.methods, live.methods, (method) => method.name, {
-    added: (method) => [{ _tag: "MethodAdded" as const, at: coordOf(method) }],
-    removed: (method) => [{ _tag: "MethodRemoved" as const, at: coordOf(method) }],
-    shared: (was, is) =>
-      _signature(was) === _signature(is)
-        ? []
-        : [{ _tag: "MethodChanged" as const, at: coordOf(was), from: _signature(was), to: _signature(is) }],
-  })
-}
 ```
 
 ## [04]-[GATE_SERVICE]
 
-- Owner: `DescriptorGate`, the drift gate — one `Effect.Service` whose `Source` carrier binds the pinned generation coordinate, the pinned `DescService` roster, and `shipped`, the EFFECT yielding the live descriptor-set octets beside their generation; construction runs that read, decodes through the proto engine, builds the `FileRegistry`, and settles one immutable verdict per suite family, while `verdict`/`census`/`admitted` are reads over that census and `reloading` is the sibling Layer factory that re-runs the whole construction on a compiled cadence.
-- Law: coverage is the suite key tuple plus the supplied RPC roster — `Proto.names` is census-guarded at `format#PROTO_ENGINE`, so iterating it IS iterating every gated proto family; a suite family unresolved by `qualifiedName` in the live registry folds to a `FamilyMissing` breaking verdict, so silence cannot pass for compatibility. `FileDescriptorSetWire` never enters the verdict census — it is the gate's own transport. A family outside the proto census (`OpLogWire`, the cbor and jsonpatch arms) answers `admitted` with `Effect.void` by construction: the gate is proto-altitude only, and those arms drift-check through their own vocabulary closures.
-- Law: the RPC census is the pinned roster the composition root supplies — the same emitted `DescService` consts it hands the invoke `Dial`; `registry.getService` resolves each live counterpart, `_serviced` mints the method rows, and they fold into the `CapabilityDescriptorWire` verdict — the capability plane's one family — so the composition root sequences `admitted("CapabilityDescriptorWire")` ahead of the invoke `Capability.bind` with zero new gate surface, and an empty roster degrades the RPC axis to no coverage, never a false `identical` claim about services it was not given.
-- Law: the pinned side is the generated suite itself — each `GenMessage` is a `DescMessage`, so the build artifact is the baseline and no second pinned descriptor file exists to drift from the code that decodes with it.
-- Law: the gate decodes its own ingress through the one admission rail — `Proto.frame(FileDescriptorSetSchema)` with the message identity narrowed by `isMessage`; a non-set payload at this seam is a wiring defect and dies, never a typed fault.
-- Law: `admitted(family)` is the decode gate the registry's gated rows yield before decoding — a `breaking` family refuses with reason `drift` carrying the change count; the boot log, the CI artifact, and the refusal detail are projections of one verdict value, and `census` is that value's plain array read — the verdicts settled at construction, so no read re-enters the rail.
-- Law: the verdict census RE-GRADES on a cadence, because a peer redeploy moves the wire while the process lives — `reloading` is `Reloadable.auto` over the same service constructor under a compiled `Budget` schedule with the gate stood down, so each cycle re-runs `source.shipped` and settles a fresh census from the octets the runtime is actually serving. A verdict settled once at boot keeps decoding under an `admitted` grade the live descriptors no longer earn, which is the drift the whole gate exists to refuse. Under the reloading Layer a gated read resolves the CURRENT gate through `Reloadable.get(DescriptorGate)` and an operator forces a cycle through `Reloadable.reload(DescriptorGate)`; the generated accessors resolve the pinned instance and are the boot-only posture.
-- Growth: a second gated consumer composes `admitted` in its decode pipeline — one yield, zero gate edits; a new generation source (a registry endpoint, a file read, a control-plane subscription) is one `shipped` effect at the app root, never a second gate and never a second factory.
-- Boundary: the `codec` registry's `admittedGraph` entry takes this gate's `admitted` as its gate argument; the invoke page's `Capability.bind` composes `admitted("CapabilityDescriptorWire")` before binding; the runtime wave's boot sequence supplies the `shipped` read and the pinned service consts, and chooses the boot-only or the reloading Layer.
-- Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `DescService`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `Array`, `Function`, `HashMap`, `Layer`, `Option`, `Reloadable`, `Schedule`, `Schema`, `ParseResult`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`); `../value/fault.ts` (`Budget`).
+- Owner: `Contract.Descriptor` settles the descriptor census and implements `Contract.Gate<Contract.Family>`.
+- Law: the protobuf census follows `Format.proto.names`; the capability pin and the service pin append one custom-source row each.
+- Law: the service census walks the pinned `DescService` roster against the shipped registry, so message and RPC surfaces grade together.
+- Law: unresolved proto descriptors emit `FamilyMissing`; capability evidence comes only from its canonical JSON document.
+- Law: every read on this service reaches the declared `ContractFault | ParseResult.ParseError` channel; no decode path dies past it.
+- Law: the generated suite and pinned capability document are baselines; both shipped reads map failures into `Contract.Fault`.
+- Law: `Format.proto.frame(FileDescriptorSetSchema)` and `Format.json.schema(Contract.Pin)` decode their own ingress.
+- Law: `gate({ family, compatibility })` is the only admission port and returns `Contract.Refusal` on a breaking axis.
+- Law: `Contract` stays below wire vocabulary; codec maps the lower refusal into `Wire.Fault`.
+- Law: `Contract.Refresh` admits a positive finite cadence and compiles its `Schedule.spaced` value once.
+- Boundary: consumers resolve the current service through `Reloadable.get(Contract.Descriptor)` under the reloading layer.
+- Packages: `@bufbuild/protobuf`, `@bufbuild/protobuf/wkt`, `effect`, and `./format.ts` (`Format.proto`, `Format.json`).
 
 ```typescript signature
+// `Format.proto.frame` already types its output at the schema's own message, so an identity re-guard here decided
+// nothing and its die was the one path out of this service's declared failure channel — a refresh tick that hit it
+// would have killed the reloading fiber past every `ContractFault` handler watching for exactly that.
 const _decodeSet = (octets: Uint8Array): Effect.Effect<MessageShape<typeof FileDescriptorSetSchema>, ParseResult.ParseError> =>
-  Schema.decodeUnknown(Proto.frame(FileDescriptorSetSchema))(octets).pipe(
-    Effect.filterOrDieMessage(
-      (message): message is MessageShape<typeof FileDescriptorSetSchema> => isMessage(message, FileDescriptorSetSchema),
-      "<descriptor-set-identity>",
-    ),
-  )
+  Schema.decodeUnknown(Format.proto.frame(FileDescriptorSetSchema))(octets)
 
 class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/DescriptorGate", {
   effect: (source: DescriptorGate.Source) =>
     Effect.gen(function* () {
-      const shipped = yield* source.shipped // the read runs per construction, so a reload grades the octets the runtime serves NOW
-      const registry = createFileRegistry(yield* _decodeSet(shipped.octets))
-      const methodRows = Array.flatMap(source.rpc, (service) => _serviced(service, registry.getService(qualifiedName(service))))
-      const verdicts = Array.reduce(
-        Proto.names,
-        HashMap.empty<Wire.Family, ContractDrift>(),
-        (acc, family) => {
-          const pinned = Proto.suite[family]
-          const diffed = Option.match(Option.fromNullable(registry.getMessage(qualifiedName(pinned))), {
-            onNone: (): ReadonlyArray<ContractDrift.Change> => [{ _tag: "FamilyMissing", family }],
-            onSome: (current) => _diffed(pinned, current),
-          })
-          const changes = family === "CapabilityDescriptorWire" ? [...diffed, ...methodRows] : diffed
-          return HashMap.set(acc, family, ContractDrift.of(family, source.pinnedGeneration, shipped.generation, changes))
-        },
-      )
+      const [proto, capabilityOctets] = yield* Effect.all([
+        source.proto.shipped,
+        source.capability.shipped,
+      ] as const)
+      const registry = createFileRegistry(yield* _decodeSet(proto.octets))
+      const [pinnedPin, livePin] = yield* Effect.all([
+        _decodePin(source.capability.pinned),
+        _decodePin(capabilityOctets),
+      ] as const)
+      const [pinnedRows, liveRows] = yield* Effect.all([
+        _decodeDocument(pinnedPin),
+        _decodeDocument(livePin),
+      ] as const)
+      const protoCensus = Array.map(Format.proto.names, (family): ContractDrift => {
+        const pinned = Format.proto.suite[family]
+        const changes = Option.match(Option.fromNullable(registry.getMessage(qualifiedName(pinned))), {
+          onNone: (): ReadonlyArray<ContractDrift.Change> => [{ _tag: "FamilyMissing", family }],
+          onSome: (current) => _diffed(pinned, current),
+        })
+        return ContractDrift.of(family, source.proto.pinnedGeneration, proto.generation, changes)
+      })
+      const census: ReadonlyArray<ContractDrift> = [
+        ...protoCensus,
+        ContractDrift.of(
+          _capabilityFamily,
+          pinnedPin.digest,
+          livePin.digest,
+          _descriptorChanges(pinnedPin, livePin, pinnedRows, liveRows),
+        ),
+        ContractDrift.of(
+          _serviceFamily,
+          source.proto.pinnedGeneration,
+          proto.generation,
+          _serviceChanges(source.proto.services, registry),
+        ),
+      ]
+      const verdicts = HashMap.fromIterable(Array.map(census, (drift) => [drift.family, drift] as const))
+      const gate: Contract.Gate<ContractDrift.Family> = (request) =>
+        Option.match(HashMap.get(verdicts, request.family), {
+          onNone: () => Effect.dieMessage(`<contract-family:${request.family}>`),
+          onSome: (drift) =>
+            drift.admitted(request.compatibility)
+              ? Effect.void
+              : Effect.fail(
+                  new ContractRefusal({
+                    family: request.family,
+                    compatibility: request.compatibility,
+                    verdict: drift.verdict(request.compatibility),
+                    changes: drift.changes.length,
+                  }),
+                ),
+        })
       return {
-        verdict: (family: Wire.Family): Option.Option<ContractDrift> => HashMap.get(verdicts, family),
-        census: Array.fromIterable(HashMap.values(verdicts)),
-        admitted: (family: Wire.Family): Effect.Effect<void, WireFault> =>
-          Option.match(HashMap.get(verdicts, family), {
-            onNone: () => Effect.void,
-            onSome: (drift) =>
-              drift.admitted
-                ? Effect.void
-                : Effect.fail(
-                    new WireFault({
-                      family,
-                      reason: "drift",
-                      detail: `<breaking:${drift.changes.length}>`,
-                      evidence: Option.none(),
-                    }),
-                  ),
-          }),
+        verdict: (family: ContractDrift.Family): Option.Option<ContractDrift> => HashMap.get(verdicts, family),
+        census,
+        gate,
       }
     }),
   accessors: true,
 }) {
-  // The re-grade cadence is a compiled budget with its class gate stood down — a reload is a scheduled read, not a
-  // fault recovery, so the transience predicate the retry compile defaults to has nothing to grade here.
-  static readonly reloading = (source: DescriptorGate.Source): Layer.Layer<Reloadable.Reloadable<DescriptorGate>> =>
+  static readonly Row: typeof _DescriptorRow = _DescriptorRow
+  static readonly reloading = (
+    source: DescriptorGate.Source,
+    refresh: ContractRefresh,
+  ): Layer.Layer<Reloadable.Reloadable<DescriptorGate>, ContractFault | ParseResult.ParseError> =>
     Reloadable.auto(DescriptorGate, {
       layer: DescriptorGate.Default(source),
-      schedule: Budget.schedule("bulk", Function.constTrue),
+      schedule: refresh.schedule,
     })
 }
 
 declare namespace DescriptorGate {
   type Shipment = { readonly octets: Uint8Array; readonly generation: string }
   type Source = {
-    readonly shipped: Effect.Effect<Shipment>
-    readonly pinnedGeneration: string
-    readonly rpc: ReadonlyArray<DescService>
+    readonly proto: {
+      readonly shipped: Effect.Effect<Shipment, ContractFault>
+      readonly pinnedGeneration: string
+      // Generated `DescService` values are the RPC-surface pin, exactly as `Format.proto.suite` is the message pin;
+      // both baselines are compiled in, so neither census reads a second shipped document to know what it expects.
+      readonly services: ReadonlyArray<DescService>
+    }
+    readonly capability: {
+      readonly pinned: Uint8Array
+      readonly shipped: Effect.Effect<Uint8Array, ContractFault>
+    }
   }
+}
+
+abstract class Contract {
+  static readonly Drift: typeof ContractDrift = ContractDrift
+  static readonly Refusal: typeof ContractRefusal = ContractRefusal
+  static readonly Fault: typeof ContractFault = ContractFault
+  static readonly Refresh: typeof ContractRefresh = ContractRefresh
+  static readonly Pin: typeof ContractPin = ContractPin
+  static readonly Descriptor: typeof DescriptorGate = DescriptorGate
+  static readonly Family: typeof _Family = _Family
+  static readonly Request: typeof _Request = _Request
+}
+
+declare namespace Contract {
+  namespace Descriptor {
+    type Row = Schema.Schema.Type<typeof _DescriptorRow>
+  }
+  type Drift = ContractDrift
+  type Refusal = ContractRefusal
+  type Fault = ContractFault
+  type Refresh = ContractRefresh
+  type Pin = ContractPin
+  type Family = ContractDrift.Family
+  type Compatibility = ContractDrift.Compatibility
+  type Request<A> = { readonly family: A; readonly compatibility: Compatibility }
+  type Gate<A> = (request: Request<A>) => Effect.Effect<void, Refusal>
+  type Source = DescriptorGate.Source
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { ContractDrift, DescriptorGate }
+export { Contract }
 ```
 
 ## [05]-[RESEARCH]

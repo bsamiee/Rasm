@@ -219,9 +219,9 @@ public static partial class FederationProjection {
             op: tool.Name,
             effect: declared,
             idempotency: tool.ProtocolTool.Annotations?.IdempotentHint == true ? Idempotency.Idempotent : Idempotency.NonIdempotent,
-            cost: new CostModel(
-                Fixed: new CostVector(HashMap((CostUnit.Calls, 1L))),
-                Variable: static args => new CostVector(HashMap((CostUnit.BytesEgress, args.Payload.GetRawText().Length)))),
+            cost: CostModel.Of(
+                new CostVector(HashMap((CostUnit.Calls, 1L))),
+                CostModel.Per(CostUnit.BytesEgress, static args => args.Payload.GetRawText().Length)),
             permission: server.Trust.Floor(declared),
             // A peer tool reports on its OWN MCP session — the progress notifications the peer emits ride the
             // client the federation holds, never the Compute cell this host's lane would mint, so the federated
@@ -356,7 +356,7 @@ public static partial class FederationProjection {
             op: uri,
             effect: EffectClass.Read,
             idempotency: Idempotency.Idempotent,
-            cost: new CostModel(new CostVector(HashMap((CostUnit.Calls, 1L))), static _ => CostVector.Zero),
+            cost: CostModel.Constant(new CostVector(HashMap((CostUnit.Calls, 1L)))),
             permission: server.Trust.Floor(EffectClass.Read),
             progress: None,
             compile: args => FederatedDispatch.Compile(server, uri, args));
@@ -378,7 +378,7 @@ public static partial class FederationProjection {
             op: template,
             effect: EffectClass.Read,
             idempotency: Idempotency.Idempotent,
-            cost: new CostModel(new CostVector(HashMap((CostUnit.Calls, 1L))), static _ => CostVector.Zero),
+            cost: CostModel.Constant(new CostVector(HashMap((CostUnit.Calls, 1L)))),
             permission: server.Trust.Floor(EffectClass.Read),
             progress: None,
             compile: args => FederatedDispatch.Compile(server, template, args));

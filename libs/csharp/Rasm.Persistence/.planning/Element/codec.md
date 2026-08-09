@@ -48,6 +48,7 @@ public sealed partial class WireSurface {
 [JsonSerializable(typeof(SnapshotCatalogRow))]
 [JsonSerializable(typeof(SnapshotHeader))]
 [JsonSerializable(typeof(ElementIdentity))]
+[JsonSerializable(typeof(Rasm.Persistence.Version.EntityEditWire))]
 public partial class ElementJson : JsonSerializerContext {
     public static readonly JsonSerializerOptions Options =
         new JsonSerializerOptions(JsonSerializerOptions.Strict) {

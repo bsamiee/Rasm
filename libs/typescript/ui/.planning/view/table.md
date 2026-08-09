@@ -13,11 +13,6 @@ The one data-grid owner: TanStack Table models rows, headers, facets, grouping, 
 ## [02]-[STATE_FOLD]
 
 [STATE_FOLD]:
-- Owner: `Grid` — the state fold: ONE atom holds the whole TanStack `TableState` slice (sorting, filters, selection, grouping, expanded, pagination, sizing, order, column AND row pinning, visibility), `useReactTable` reads it as controlled `state` with `onStateChange` writing through `useAtomSet` (the exact `Updater` shape `makeStateUpdater` builds), and `Grid.apply(key)` folds one slice key through `functionalUpdate` so every `on<Slice>Change` handler is one row over one fold — never a per-slice `useState`.
-- Packages: `@tanstack/react-table` (`useReactTable`, `functionalUpdate`, `makeStateUpdater`, the state types — `SortingState`, `ColumnFiltersState`, `RowSelectionState`, `GroupingState`, `ExpandedState`, `PaginationState`, `ColumnPinningState`, `RowPinningState`, `ColumnOrderState`, `ColumnSizingState`, `VisibilityState`); `@effect-atom/atom-react` (the one store, `system/atom` law); `effect` (`Schema`).
-- Law: persistence is the declared subset — `Grid.Persisted` is the Schema owning exactly the layout slices that survive reload (order, sizing, visibility, column pinning), the `Atom.kvs` row decodes through it, and a malformed stored layout re-decodes to the seed instead of poisoning the fold; persisting the whole slice (selection, pagination) or a raw `localStorage` read beside the store is the named defect.
-- Law: the slice is one product — a second atom holding a parallel copy of any slice, or a component mirroring `sorting` into local state, restates the fold; projections read through `useAtomValue(atom, selector)`.
-- Growth: a new managed slice is one field on the slice product with one `Grid.apply` row — never a sibling state cell; a bespoke feature subset composes `_features: [RowSelection, ColumnPinning, …]` explicitly and the slice product shrinks to match.
 
 ```typescript
 import type {
@@ -36,8 +31,8 @@ import type {
   VisibilityState,
 } from "@tanstack/react-table"
 import { createColumnHelper, functionalUpdate } from "@tanstack/react-table"
-import type { Feed } from "@rasm/ts/core"
-import { Array, Option, Record, Schema } from "effect"
+import { Feed } from "@rasm/ts/core"
+import { Array, Match, Option, Order, Record, Schema } from "effect"
 
 declare namespace Grid {
   type Slice = {
@@ -93,17 +88,14 @@ const _apply = <K extends keyof Grid.Slice>(key: K) =>
 ## [03]-[COLUMN_PLANE]
 
 [COLUMN_PLANE]:
-- Owner: the column fold riding `Grid` — two ingress modalities on one plane: STATIC columns type against the wire-decoded row Schema via `createColumnHelper<Row>()` (accessor rows carrying `sortingFn`/`filterFn`/`aggregationFn` references by registry name); BANDED columns fold from a `Feed.Document` column band — `name`/`kind`/`dimension`/`nullable` rows become dynamic `accessor((row) => row[column.name], { id: column.name })` definitions, so a self-described result artifact renders with the band — never the payload — as the binding contract.
-- Law: the band `kind` axis selects a cell ROW from `_CELL`, contract-checked total over `Feed.Column["kind"]` so a wire vocabulary change breaks this table loudly, and the row carries every decision the cell otherwise re-derives: `measured` gates the `system/intl` `Format.number` projection over the SI magnitude a `dimension`-carrying column declares, `align` fixes the column's layout, `editable` states which kinds the `TableMeta` commit port may write, and `render` keys the roster's presentation. A bare projection name forces a second table to interpret it, and a producer discriminant never appears; a `stamp` column renders through `Format.instant` + `useDateFormatter`.
-- Law: column metadata is the declaration-merged interface, never an untyped bag — `ColumnMeta` carries the cell projection, dimension, nullability, and the `GlobalId` accessor + edit policy where a grid fronts model elements; `TableMeta` carries table-scoped capability (the edit write port); both type end-to-end through `flexRender` contexts.
-- Law: `flexRender` is the only bridge from column definition to markup — header, cell, footer, and aggregated presentations all pass through it; a cell component reading table internals directly is the named defect; a derivation the react-compiler cannot see (an FFI-boundary fold) memoizes through the table's own `memo(deps, fn)` util, never a hand `useMemo`.
-- Growth: a new column is one `columnHelper` row — or, for banded sources, one band row the fold picks up; a new cell presentation is one `kind` arm on the closed projection table.
 
 ```typescript
 declare module "@tanstack/react-table" {
   interface ColumnMeta<TData, TValue> {
     readonly cell: (typeof _CELL)[Feed.Column["kind"]]
     readonly dimension: Feed.Column["dimension"]
+    readonly precision: Feed.Column["precision"]
+    readonly role: Feed.Column["role"]
     readonly nullable: boolean
     readonly globalId?: (row: TData) => string
   }
@@ -128,44 +120,46 @@ const _CELL = {
   { readonly render: string; readonly align: "start" | "center" | "end"; readonly measured: boolean; readonly editable: boolean }
 >
 
+const _byColumn = Order.combine(
+  Order.mapInput(Order.number, (column: Feed.Column) => Option.getOrElse(column.rank, () => Number.MAX_SAFE_INTEGER)),
+  Order.mapInput(Order.string, (column: Feed.Column) => column.name),
+)
+
 const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Banded, unknown>> =>
-  Option.match(document.columns, {
-    onNone: () => [],
-    onSome: (band) =>
-      Array.map(band, (column) =>
-        _helper.accessor((row) => row[column.name], {
-          id: column.name,
-          header: column.name,
-          meta: { cell: _CELL[column.kind], dimension: column.dimension, nullable: column.nullable },
-        })),
-  })
+  Match.value(document).pipe(
+    Match.when({ media: "tabular" }, (ref) => Array.map(Array.sort(ref.columns, _byColumn), (column) =>
+      _helper.accessor((row) => row[column.name], {
+        id: column.name,
+        header: column.name,
+        meta: {
+          cell: _CELL[column.kind],
+          dimension: column.dimension,
+          precision: column.precision,
+          role: column.role,
+          nullable: column.nullable,
+          ...(column.role === "key" ? { globalId: (row: Grid.Banded) => String(row[column.name]) } : {}),
+        },
+      }))),
+    Match.when({ media: "text" }, () => []),
+    Match.when({ media: "image" }, () => []),
+    Match.when({ media: "model" }, () => []),
+    Match.when({ media: "binary" }, () => []),
+    Match.exhaustive,
+  )
 ```
 
 ## [04]-[DERIVE_MODELS]
 
 [DERIVE_MODELS]:
-- Law: only the used row models import — `getCoreRowModel` always; `getSortedRowModel`, `getFilteredRowModel`, `getFacetedRowModel` + `getFacetedUniqueValues`, `getGroupedRowModel` + `getExpandedRowModel`, and `getPaginationRowModel` join per surface; an imported-but-unwired model is dead mass, and a hand-derived sort/filter over `rows` restates the engine.
-- Law: grouping is model composition — `getGroupedRowModel` groups by the `grouping` slice, `getExpandedRowModel` opens the group rows, and aggregate cells resolve through the `aggregationFns` registry (`sum`/`min`/`max`/`extent`/`mean`/`median`/`unique`/`uniqueCount`/`count`) referenced by name on the column row; a bespoke reduce over group leaves is the named defect.
-- Law: TanStack derives, react-aria presents — rows, headers, facets, and aggregates come from the row models; semantics and keyboard come from `[5]`'s grid roles over the rendered markup; the two never swap duties.
-- Law: faceted values feed filter affordances — `getFacetedUniqueValues` supplies the option sets a filter overlay renders, and `getFacetedMinMaxValues` supplies the numeric range bounding a slider filter; the facet read is a model output, never a second pass over data.
-- Boundary: filter input debounce is a `system/atom` `Atom.debounce` row on the query atom, and the query value reaching the filter model rides `useDeferredValue` so keystrokes stay responsive against a large row set; collation-correct column sorting lifts `Format.collate` into a named `sortingFns` registry row.
-- Boundary: derivation locus splits the analytics surfaces — client-modeled rows with fixed shape are this `Grid`; engine-maintained pivot/aggregation over a live feed is `view/chart#PIVOT_SURFACE`, and declared statistical charts are `view/chart`'s other regimes — one surface never runs two engines.
 
 ## [05]-[GRID_SEMANTICS]
 
 [GRID_SEMANTICS]:
-- Law: semantics and modeling split by owner — react-aria supplies the `grid`/`row`/`columnheader`/`gridcell` roles and roving keyboard over the rendered markup; `aria-rowcount`/`aria-rowindex` stay on the FULL logical count while windowing mounts the visible span, so assistive tech sees the whole collection.
-- Law: `RowSelectionState` keys are `GlobalId` strings where the grid fronts model elements — the table's selection slice and the viewer's selection set are ONE atom projected two ways, never two stores reconciled; the selection echo in `[6]` closes the loop.
-- Law: header interactions are discrete rows — sort toggles and column menus bind through `system/act` `Gesture.useDiscrete`; column resize drag is the table's own sizing handler bound to the `columnSizing` slice, never a second gesture engine on the header.
 
 ## [06]-[WINDOWING]
 
 [WINDOWING]:
-- Owner: `Grid.range` — the module's virtualizer member: the pinned-range union `rangeExtractor` the `useVirtualizer` call site consumes; the hook itself binds at the consuming row — `count` from the row model, `getScrollElement` on the scroll container, `estimateSize` + `measureElement` for variable rows, `overscan` as a policy value, `getTotalSize()` sizing the spacer — with `Grid.range(pinned)` unioning pinned/sticky indices over `defaultRangeExtractor` so pinned rows stay mounted outside the visible span.
 - Packages: `@tanstack/react-virtual` (`useVirtualizer`, `defaultRangeExtractor`, `Range`, `VirtualItem`).
-- Law: the `rowPinning` slice is the pin source — its `top`/`bottom` row sets resolve to indices and feed `Grid.range`, so a pinned row stays mounted outside the visible span with zero extractor forks.
-- Law: a selection echo scrolls through `scrollToIndex(index, { align: "center" })` when the selection atom changes and the selected row sits outside the window — the echo is a subscription consequence, never a render-time side effect.
-- Law: window virtualization is this owner for the grid; a RAC collection with native `Virtualizer` support never mounts this hook beside it — one windowing engine per collection.
 - Growth: a new sticky class (a pinned footer, a group header) is one index-set argument to the range union — never a second extractor.
 
 ```typescript

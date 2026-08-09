@@ -1,4 +1,4 @@
-// rasm/channels.proto — the corpus-homed descriptor source the DESCRIPTOR_DRIFT contract gates.
+// rasm/channels/v1/channels.proto — the corpus-homed descriptor source the DESCRIPTOR_DRIFT contract gates.
 // Texture family: the TEXTURE_SET_BY_KEY document (TextureSetWire + ChannelWire/PackWire/PressReceiptWire/
 // PlaneRefWire), the ASSET_SET_MANIFEST document (AssetSetManifest + MapEntry/PackEntry/IblEntry/PlaneRef),
 // and the shared WireProvenance capture receipt. Field order transcribes the durable wire rosters —
@@ -9,7 +9,7 @@
 // the vocabulary owner and an unknown key is a decode refusal, not a schema arm.
 syntax = "proto3";
 
-package rasm;
+package rasm.channels.v1;
 
 option csharp_namespace = "Rasm.Channels";
 

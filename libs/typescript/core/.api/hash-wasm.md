@@ -59,8 +59,10 @@
 - Every entry is a `Promise` — the WASM compiles on first await, so a memoized `create<Name>` factory amortizes the compile across a chunk loop while a per-call one-shot recompiles each call; `digest("binary")` returns raw bytes in the same display order the hex renders.
 
 [STACKING]:
-- `effect` (`.api/effect.md`): `Effect.promise` carries the compile, `GlobalValue.globalValue` memoizes each factory promise per runtime, `Schema.decode`/`Schema.brand` brand the digest hex, `Redacted` seals the keyed-mac key to one unwrap at the mint.
-- within-lib — `value/contentKey` composes the whole surface: `createXXHash128(0, 0)` → the `Digest` `content` row → branded `ContentKey`, the sibling factory rows (`createXXHash64(0, 0)`, `createCRC32()`, `createBLAKE3(256)`, keyed `createBLAKE3(256, key)`) as `Digest` width rows, and `IHasher.save()`/`load()` as the `Digest.session`/`absorb`/`finish` checkpoint algebra; `createHMAC(create<Hash>(), key)` grows the keyed-digest combinator a peer HMAC contract demands.
+- `effect` (`.api/effect.md`): `Effect.promise` compiles; `GlobalValue` memoizes factories; `Schema` brands hex; `Redacted` seals sessions.
+- within-lib — `value/contentKey` maps unkeyed XXH128, XXH64, CRC32, and BLAKE3 factories onto `Digest` rows.
+- within-lib — `IHasher.save()`/`load()` power nested `Digest.Session` checkpoints.
+- HMAC and KDF entrypoints remain external package capabilities for security-owned consumers; core admits no keyed digest row.
 
 [LOCAL_ADMISSION]:
 - `value/contentKey` is the one import site of `hash-wasm`; every delegate composes the `Digest`/`ContentKey` value.
@@ -69,5 +71,5 @@
 [RAIL_LAW]:
 - Package: `hash-wasm`
 - Owns: WASM-backed digests across the xxHash, BLAKE, SHA-2/3, Keccak, MD/RIPEMD/Whirlpool/SM3, and CRC/Adler families, the streaming `IHasher` with `save`/`load` sessions, and the `createHMAC` combinator; the KDF family (`argon2*`, `bcrypt`, `scrypt`, `pbkdf2`) is the security folder's consumer surface, off the digest floor.
-- Accept: the one-shot `name(data, seed?)` for a single small payload, the memoized `create<Name>(…seed?)` factory for a streaming or repeated payload, `IDataType` inputs, `digest("binary")` for raw bytes, `createHMAC(create<Hash>(), key)` when a peer contract demands an HMAC.
+- Accept: one-shot small-payload hashes; memoized factories; `IDataType`; binary digests; security-owned HMAC/KDF outside core.
 - Reject: a byte-order shuffle on the hex path — the hex is already canonical; treating any entry as synchronous — every one is a `Promise`; a second import site outside `value/contentKey`.

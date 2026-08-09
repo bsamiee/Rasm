@@ -14,11 +14,9 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 - Owner: `Passkey` is the stored credential (id, subject, public key, counter, transports, and the MDS-projected authenticator `model`), `WebAuthnFault` the folder fault shape closed at the core family seam, `CeremonyPhase` the type-witnessed protocol position, `WebAuthnTrust` the trust-anchor Layer that configures `SettingsService` root certificates, initializes `MetadataService` from the FIDO MDS, and carries the pinned ceremony policy rows. `WebAuthnStore` holds credentials, `ChallengeStore` the single-use phase.
 - Law: attestation policy is a config row — `none` accepts any authenticator, `direct`/`enterprise` demand a validated cert chain; `WebAuthnTrust` sets the per-format root certs (`SettingsService.setRootCertificates`) and initializes MDS with a `strict`/`permissive` unregistered-AAGUID policy once at layer construction, so the format verifier validates provenance and the attestation type is a policy value the verify legs read, never a per-ceremony switch; the simplewebauthn trust services are process-global, so exactly one attestation policy exists per process — the folder law a multi-policy deployment answers with separate workloads.
 - Law: `CeremonyPhase` is the transition payload — start seals `{ intent, challenge, expiresAt }` under the ceremony TTL, finish consumes it single-use and gates intent and freshness, so `*Finish` before `*Start`, cross-ceremony completion, and challenge replay are all unspellable at the store contract; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract.
-- Law: passkey material is public-key crypto — the credential and challenge are typed boundary values, not `Redacted` secrets; the fault rows close at the core `FaultClass.family` seam so status and blame derive from the branch table.
 - Law: one alphabet spans the whole WebAuthn wire — the verified `WebAuthnCredential.publicKey` bytes render base64url-noPadding exactly as the credential id, the challenge, and every response coordinate do, so `Passkey.publicKey` admits through `Schema.Uint8ArrayFromBase64Url` and a journalled row round-trips back into verification under one encoding; a standard-base64 field here is the folder's lone exception to its own stated base64url law and decodes a `+`/`/` payload the authenticator never emitted.
 - Growth: a new authenticator vendor is one root-cert entry with its MDS metadata; a new attestation posture is one config row; a cross-restart multi-factor enrollment flow is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same single-use store.
 - Boundary: `@simplewebauthn/server` dispatches the format verifier internally; the browser half collects the response; `authn/session` establishes the session; the trust anchors are config/fetch-sourced at boot.
-- Packages: `@simplewebauthn/server` (`SettingsService`, `MetadataService`); `effect` (`Config`, `Context`, `Effect`, `Layer`, `Option`, `Schema`); `@rasm/ts/core` (`FaultClass`); `crypt/sign` (`SingleUse`); `authn/session` (`Subject`).
 
 ```typescript
 import * as RateLimiter from "@effect/experimental/RateLimiter"
@@ -28,7 +26,7 @@ import {
   type AuthenticationResponseJSON, type AuthenticatorSelectionCriteria, type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON, type RegistrationResponseJSON, type VerifiedRegistrationResponse, type WebAuthnCredential,
 } from "@simplewebauthn/server"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Config, Context, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, type SingleUse } from "../crypt/sign.ts"
@@ -37,7 +35,7 @@ import { CredentialRef, type SessionFault, type Subject, Token, type TokenPair }
 
 const _transports = ["ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb"] as const
 
-const _family = FaultClass.family(["ceremony", "challenge", "verification", "counter", "attestation", "throttled"] as const, {
+const _family = Fault.Class.family(["ceremony", "challenge", "verification", "counter", "attestation", "throttled"] as const, {
   ceremony: { class: "defect" },
   challenge: { class: "malformed" },
   verification: { class: "denied" },
@@ -70,7 +68,7 @@ class WebAuthnFault extends Schema.TaggedError<WebAuthnFault>()("WebAuthnFault",
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -276,15 +274,12 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
 ## [04]-[BROWSER_CEREMONY]
 
 [BROWSER_CEREMONY]:
-- Owner: `Passkeys.register`/`Passkeys.authenticate` — the `./browser` runtime module wrapping `navigator.credentials` into an `Effect` gated on a capability probe; `Passkeys.autofill` runs the conditional-UI assertion; `Passkeys.probe` reports platform-authenticator and autofill availability. `PasskeyFault` is the browser half's reason-discriminated family over the core `FaultClass.family` seam.
 - Law: the reason vocabulary is closed and the package's own codes map onto it, never through it — `_CODES` is a `Record<WebAuthnErrorCode, PasskeyFault.Reason>` whose stated annotation demands the package's whole twelve-code union, so a minor line adding a code breaks the mapping at compile time; the codes collapse to what a consumer can act on (`aborted` a user cancel or superseded ceremony, `origin` an RP-id or domain misconfiguration, `options` an RP-built options defect, `authenticator` a device refusal, `enrolled` a credential this authenticator already holds, `passthrough` the package deferring to `cause`) beside the one folder-local `unsupported` row the capability gate raises before any call. A free-string `code` field carries no class, forces every consumer to re-parse the package's spelling, and is the shape this family deletes.
 - Law: the ceremony is gated before the call — `browserSupportsWebAuthn` short-circuits an unsupported browser to a typed capability fault, and `autofill` demands `browserSupportsWebAuthnAutofill` as its second gate; a ceremony entry is never called without its probe.
 - Law: `WebAuthnAbortService` enforces the single-live-ceremony law — each ceremony auto-arms a fresh `AbortSignal` and a new call cancels the prior, and `Passkeys.cancel` fires on a client-route change; the v13 `{ optionsJSON }` object form is the only call shape, never the pre-12 positional form; `register` carries the `useAutoRegister` conversion affordance so a just-signed-in password upgrades to a passkey without a second ceremony surface.
 - Law: the browser never verifies — it invokes the authenticator and returns the response JSON; a `Schema` per JSON shape decodes both the inbound options and the outbound response at the fetch seam the ui folder owns; conditional-UI autofill (`useBrowserAutofill: true`) is a browser-only affordance the ui edge mounts on a login field.
 - Receipt: the `RegistrationResponseJSON`/`AuthenticationResponseJSON` the caller POSTs back to `WebAuthn.*Finish`; the browser collects the signed response, never a verdict.
 - Growth: a new probe (`platformAuthenticatorIsAvailable` variants) is one `probe` field; a new ceremony affordance is one options field; a new package code is one `_CODES` cell, and a genuinely new refusal meaning is one family row.
-- Boundary: this module is `runtime:browser` and imports no node code — the RP verification is the `./server` module; `@simplewebauthn/server` verifies; `FaultClass` is core, which runs identically in every lane.
-- Packages: `@simplewebauthn/browser` (`startRegistration`/`startAuthentication`, `useAutoRegister`, the probes, `WebAuthnAbortService`, `WebAuthnError`, `WebAuthnErrorCode`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 import {
@@ -293,10 +288,10 @@ import {
   type AuthenticationResponseJSON, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON, type WebAuthnErrorCode,
 } from "@simplewebauthn/browser"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Data, Effect } from "effect"
 
-const _family = FaultClass.family(
+const _family = Fault.Class.family(
   ["aborted", "origin", "options", "authenticator", "enrolled", "passthrough", "unsupported"] as const,
   {
     aborted: { class: "denied" },
@@ -334,7 +329,7 @@ class PasskeyFault extends Data.TaggedError("PasskeyFault")<{
   readonly reason: PasskeyFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {

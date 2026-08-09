@@ -28,6 +28,7 @@
 |  [09]   | `WriteBatchWithIndex`    | indexed batch    | atomic batch with read-your-writes index       |
 |  [10]   | `SstFileWriter`          | bulk writer      | writes an external SST for ingest              |
 |  [11]   | `LiveFileMetadata`       | file metadata    | per-SST level/size/key-range metadata          |
+|  [12]   | `RocksDbException`       | fault            | errptr message; carries NO status code         |
 
 [PUBLIC_TYPE_SCOPE]: options family
 
@@ -55,6 +56,7 @@
 |  [06]   | `CompactionFilter`                                  | compaction hook  | per-key drop/rewrite during compaction            |
 |  [07]   | `ISpanDeserializer<T>`                              | value codec      | zero-copy span→`T` value decode                   |
 |  [08]   | `IWriteBatch`                                       | batch contract   | shared `WriteBatch`/`WriteBatchWithIndex` surface |
+|  [09]   | `MergeOperators.OperandsEnumerator`                 | operand window   | `Count` + `Get(index)` spans, no copy             |
 
 [PUBLIC_TYPE_SCOPE]: enum and policy family
 
@@ -107,6 +109,9 @@
 |  [11]   | `WriteBatch.SetSavePoint()` / `.RollbackToSavePoint()` / `.PopSavePoint()` | instance | nested rollback within a batch   |
 |  [12]   | `WriteBatchWithIndex.Get(k, db)` / `.NewIterator(…)`                       | instance | reads pending batch writes       |
 |  [13]   | `WriteBatchWithIndex.CreateIteratorWithBase(baseIterator)`                 | instance | merges base + pending iterator   |
+|  [14]   | `WriteOptions.SetSync(bool)` / `.DisableWal(int)`                          | instance | the WHOLE write-options surface  |
+|  [15]   | `RocksDb.Write(WriteBatch, WriteOptions)`                                  | instance | a batch under a write posture    |
+|  [16]   | `WriteBatch.ToBytes()` / `.ToBytesPooled(out int)` / `FromSpan(span)`      | instance | serialize / rehydrate a batch    |
 
 [ENTRYPOINT_SCOPE]: iterate, snapshot, compact, ingest
 
@@ -135,6 +140,8 @@
 |  [05]   | `RocksDb.GetLatestSequenceNumber()`                                 | instance | latest WAL sequence number                  |
 |  [06]   | `RocksDb.GetUpdatesSince(sequenceNumber)`                           | instance | opens a `TransactionLogIterator` from a seq |
 |  [07]   | `MergeOperators.Create(name, partialMergeFunc, fullMergeFunc)`      | static   | builds a custom merge operator              |
+|  [08]   | `TransactionLogIterator.GetBatch(out ulong)` / `Valid()` / `Next()` | instance | one WAL batch at its sequence number        |
+|  [09]   | `ColumnFamilies.DefaultName` / `Descriptor(name, options)`          | static   | the seeded default family + one row         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -144,7 +151,11 @@
 - `Get`/`Put`/`Merge`/`Remove` span the key/value API: their `ReadOnlySpan<byte>` overloads and `Iterator.GetKeySpan()`/`GetValueSpan()` are zero-allocation, the `byte[]`/`string` overloads convenience, the `string` form carrying an optional `Encoding` (default UTF-8).
 - `WriteBatch` is the atomic unit: every `Put`/`Merge`/`Delete`/`DeleteRange` in one batch applies under one `Write`; `WriteBatchWithIndex` adds a queryable index for read-your-writes, and savepoints give nested rollback.
 - `Merge` is the LSM read-modify-write primitive: it enqueues an operand the installed `MergeOperator` resolves at read/compaction, never a get-modify-put round trip.
-- Consistency rides `Snapshot` (cheap in-memory read view), `Checkpoint` (durable hard-linked clone, the backup form), and `GetUpdatesSince`→`TransactionLogIterator` (the WAL changefeed).
+- Consistency rides `Snapshot` (cheap in-memory read view), `Checkpoint` (durable hard-linked clone via `Save(string, ulong logSizeForFlush = 0)`), and `GetUpdatesSince`→`TransactionLogIterator` whose `GetBatch(out ulong)` yields one `WriteBatch` per sequence number and whose `ToBytes()` serializes that batch for transport.
+- `RocksDbException(nint errptr) : RocksDbSharpException` marshals the errptr string and carries NOTHING else — no code, no enum, no property past `Exception` — so its `Message` IS RocksDB `Status::ToString()` and any failure discrimination parses that message's primary-code prefix (`NotFound: `, `Corruption: `, `Invalid argument: `, `IO error: `, `Resource busy: `, `Operation timed out: `, `Operation failed. Try again.: `, `Column family dropped: `, and their peers) beside its appended subcode; the prefix and subcode rosters resolve against the INSTALLED native library and a version bump re-proves them there, never against a header, since a literal the build stopped emitting silently demotes its whole family to unclassified.
+- `MergeOperators.Create(name, PartialMergeFunc, FullMergeFunc)` binds the two delegates verbatim: `byte[] PartialMergeFunc(ReadOnlySpan<byte> key, OperandsEnumerator operands, out bool success)` and `byte[] FullMergeFunc(ReadOnlySpan<byte> key, bool hasExistingValue, ReadOnlySpan<byte> existingValue, OperandsEnumerator operands, out bool success)`; `OperandsEnumerator` is a nested `ref struct` over `Count` and `ReadOnlySpan<byte> Get(int)`, so an operand fold reads native memory in place and answers with one sized `byte[]` beside its success flag — variable-width operands therefore frame their own lengths, since the enumerator hands back no boundary a concatenation recovers.
+- `ColumnFamilies(ColumnFamilyOptions? = null)` SEEDS the `DefaultName` descriptor at index 0 and `Add(DefaultName, …)` REPLACES that seat instead of appending, so a roster naming only its own families still opens; `Options<T>.SetMergeOperator(MergeOperator)` installs the operator per family through `ColumnFamilyOptions`, and both options types wrap native handles, so one instance per declared family serves the process rather than one per open.
+- `WriteOptions` publishes `SetSync(bool)` and `DisableWal(int)` and nothing else, so durability posture is those two calls or the default, and it rides per WRITE (`Put`/`Merge`/`Remove`/`Write(batch, options)`) rather than per store.
 
 [STACKING]:
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through its generated `IConvertible<TKey>` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md`); the bytes write via span `Put`/`Merge` and decode via `Get<T>(ISpanDeserializer<T>)`, the deserializer the seam where `api-messagepack`/`api-cbor` decode the value span with no managed copy.

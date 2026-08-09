@@ -13,24 +13,21 @@ Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempot
 ## [02]-[STEP_MINT]
 
 [STEP_MINT]:
-- Owner: `Step` — the once-executed durable step with its budget geometry compiled from a `WorkClass`-priced `Budget` row: `Step.run(name, clazz, { success, error, execute })` carries the exit schemas because the engine persists the `Exit` through them — the declared `error` unions the caller's family with `StepFault` so a budget trip serializes beside domain failure — and wraps the body in the row's per-attempt deadline (`Effect.timeoutFail` with `Budget[kind].attempt` failing into an `expired`-classed fault), hands `Budget.schedule(kind)` to `interruptRetryPolicy` so an interrupted step re-drives only while its fault classifies retryable, and stacks the whole-call deadline (`Budget[kind].total`) above the activity so the two-tier geometry every rail in the branch layers is identical here.
 - Law: an activity executes exactly once per key — the engine persists its `Exit` and replay short-circuits; a body that re-runs for its side effect, an ad-hoc run counter, or a sleep loop beside the schedule is the rejected form. `Activity.CurrentAttempt` is the attempt evidence a body reads, `WorkflowEngine.WorkflowInstance` the per-run evidence beside it — executionId, scope, suspended and interrupted flags — so a body stamps its own run identity onto spans without a parallel context; `Activity.idempotencyKey(name, { includeAttempt: true })` splits retries into distinct durable keys where each attempt's evidence matters.
-- Law: `StepFault` is this altitude's one reason-discriminated family — `attempt` (the per-try deadline), `total` (the whole-call deadline), and `hold` (a signal's expiry arm) close through the core `FaultClass.family` seam, so the class derives from the reason and no mint can name a class its reason contradicts; retryability, blame, and quarantine read the core row table, so no local column exists beside `reason` to disagree with them.
 - Law: the hedged-execution row is `Activity.raceAll` at the package surface — speculative arms run as durable steps and the first completion wins durably, so a tail-latency hedge is a declared arm set, never a hand-raced fiber pair or a local rename of the combinator.
 - Law: in-body pacing composes on the body, bounds compose on the declaration — `Activity.retry(effect, { while })` carries attempt gates the shipped surface types without a schedule; the schedule lives on `interruptRetryPolicy` and the budget row, one geometry per step.
-- Growth: a new deadline envelope is a `Budget` row on the core table; a new step concern (a spend meter, a progress mark) is a transformer composed at this mint, inherited by every step.
 - Boundary: durable throttles are `queue#THROTTLE` rows composed inside a body; this mint owns geometry, never quota.
-- Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`); `@rasm/ts/core` (`Budget`, `FaultClass`).
+- Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`, `Function`); `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`).
 
 ```typescript
 import { Activity, DurableClock, DurableDeferred, Workflow, WorkflowProxy, WorkflowProxyServer } from "@effect/workflow"
 import type { HttpApi } from "@effect/platform"
-import { Cause, Context, Data, Duration, Effect, Exit, Match, Schema } from "effect"
-import { Budget, FaultClass } from "@rasm/ts/core"
+import { Cause, Context, Data, Duration, Effect, Exit, Function, Match, Schema } from "effect"
+import { Fault } from "@rasm/ts/core"
 import { WorkClass } from "./entity.ts"
 
 // One row per refusal the durable altitude can raise: the class derives, so no mint can name a class its reason contradicts.
-const _family = FaultClass.family(["attempt", "total", "hold"] as const, {
+const _family = Fault.Class.family(["attempt", "total", "hold"] as const, {
   attempt: { class: "expired" },
   total: { class: "exhausted" },
   hold: { class: "expired" },
@@ -40,7 +37,7 @@ class StepFault extends Schema.TaggedError<StepFault>()("StepFault", {
   reason: _family.schema,
   step: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -48,7 +45,7 @@ class StepFault extends Schema.TaggedError<StepFault>()("StepFault", {
   }
 }
 
-const _run = <A, AI, AR, E extends { readonly class: FaultClass.Kind }, EI, ER, R>(
+const _run = <A, AI, AR, E extends { readonly class: Fault.Class.Kind }, EI, ER, R>(
   name: string,
   clazz: WorkClass.Kind,
   spec: {
@@ -57,7 +54,7 @@ const _run = <A, AI, AR, E extends { readonly class: FaultClass.Kind }, EI, ER, 
     readonly execute: Effect.Effect<A, E, R>
   },
 ) => {
-  const row = Budget[WorkClass[clazz].budget]
+  const row = Fault.Budget.at(WorkClass[clazz].budget)
   return Activity.make({
     name,
     success: spec.success,
@@ -68,7 +65,8 @@ const _run = <A, AI, AR, E extends { readonly class: FaultClass.Kind }, EI, ER, 
         onTimeout: () => new StepFault({ reason: "attempt", step: name }),
       }),
     ),
-    interruptRetryPolicy: Budget.schedule(WorkClass[clazz].budget),
+    // interrupt-only `Cause` values carry no failure the class rail reads, so the default gate refuses every replay
+    interruptRetryPolicy: Fault.Budget.schedule(WorkClass[clazz].budget, Function.constTrue),
   }).pipe(Effect.timeoutFail({
     duration: row.total,
     onTimeout: () => new StepFault({ reason: "total", step: name }),
@@ -84,10 +82,10 @@ const Step = { run: _run }
 - Owner: the definition law at the package surface — `Workflow.make({ name, payload, idempotencyKey, success, error, suspendedRetrySchedule })` with the payload a Schema family and `idempotencyKey` a pure projection of it, so `executionId(payload)` is content-derived and an equal payload resumes the same run instead of forking a duplicate; `Workflow.fromTaggedRequest` lifts a `Schema.TaggedRequest` whose payload/success/failure already travel as one declaration — the same triple an `Actor` protocol or a `Tool.fromTaggedRequest` row speaks, so one request class serves entity message, tool row, and workflow without re-declaration; `Flow` carries only the members the package lacks — the `verdict` fold and the saga pair (`compensated`, `saga`) — never renames of what it ships.
 - Law: the body binds through `workflow.toLayer((payload, executionId) => body)` and drives through the value's own members — `execute(payload, { discard: true })` for fire-and-forget returning the executionId, `poll` answering the `Result` ADT (`Complete | Suspended`) folded with `Match`, `interrupt`/`resume` for operator control; a suspended run is a durable fact awaiting a `Signal`, never an error.
 - Law: suspension and result-lifting are first-class verbs — `Workflow.suspend` parks the run explicitly where a body reaches a wait-for-world point, `Workflow.intoResult` lifts an effect into the durable `Result` so a sub-computation settles as data, `wrapActivityResult` is the activity-level twin, and `Workflow.provideScope` scopes a resource to the run's own lifetime — each a package member the body composes, never a local control convention.
-- Law: the engine is the `WorkflowEngine` Tag — `layerMemory` in specs, `ClusterWorkflowEngine.layer` composed at `entity#GRID` in production — and a definition naming its engine is the named defect; `suspendedRetrySchedule` takes a `Budget`-compiled schedule so a suspended run's re-check cadence rides the same geometry vocabulary.
 - Law: failure posture is declared data on the definition — `Flow.policy({ suspendOnFailure, captureDefects })` folds the two `Context.Reference` annotations into one `Context` value that rides `make`'s `annotations` slot, so a definition states whether a failed run parks for operator resume or settles failed, and whether a defect is captured as a typed exit or escapes as a defect. `Verdict.Suspended`, `interrupt`, and `resume` presuppose the suspend annotation, so a definition that never states it inherits the package default and the whole verdict arm is unreachable by construction; `Workflow.annotate`/`annotateContext` on the value are the same fold applied after the fact, never a second posture vocabulary.
 - Receipt: `Flow.Verdict` — the settled projection of a polled `Result`: `Settled` with the success value, `Suspended` with the execution id, `Interrupted` with it, `Failed` with the dominant fault class, and `Unknown` for the `undefined` a `poll` answers when no run under that execution id exists — the package's own partiality folded into the closed family at the seam, so dashboards and the serving plane's status endpoints never meet a bare `undefined`.
-- Law: the exit folds interrupt-first over the WHOLE `Cause`, never a squashed value — `Cause.isInterruptedOnly` splits the operator's own `interrupt` off the failure arm, because a deliberate drain reported as a fault reads to every board as an incident this page's own drive member caused; the surviving arm hands the cause to `FaultClass.of`, which harvests every failure and defect node through the severity lattice, so a parallel body's verdict names its DOMINANT class. Squashing first hands that fold one arbitrarily-picked node and the dominance the lattice exists for is spent before it runs.
+- Law: a run's lifetime spans process death and ends at exactly one of four owners — the body completing it, the saga fold compensating it, an operator `interrupt`ing it, or a `Signal` that never settles holding it suspended until one of the three arrives; a suspended run is durable existence, so no consumer reads a deadline this altitude never sets.
+- Law: `degrade` is stated — replay proves each activity runs once per KEY, not that the world saw one effect, so an activity whose side effect is externally observable and non-idempotent needs its own dedup at the boundary it reaches.
 - Growth: a new workflow is one definition value plus one `toLayer` body; an operator capability (bulk interrupt, drain-before-deploy) is a fold over `poll`/`interrupt` at the composition root.
 - Packages: `@effect/workflow` (`Workflow`, `WorkflowEngine`); `effect` (`Context`, `Effect`, `Match`, `Schema`).
 
@@ -96,7 +94,7 @@ type FlowVerdict<A> = Data.TaggedEnum<{
   Settled: { readonly value: A }
   Suspended: { readonly executionId: string }
   Interrupted: { readonly executionId: string }
-  Failed: { readonly class: FaultClass.Kind }
+  Failed: { readonly class: Fault.Class.Kind }
   Unknown: { readonly executionId: string }
 }>
 
@@ -113,12 +111,12 @@ const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E> | und
         Exit.match(complete.exit, {
           onSuccess: (value) => _Verdict.Settled({ value }),
           // interrupt-first: `interrupt` on this page's own drive is an operator act, not a fault; the surviving arm
-          // hands the WHOLE cause to `FaultClass.of`, which harvests every node through the severity lattice — a
+          // hands the WHOLE cause to `Fault.Class.of`, which harvests every node through the severity lattice — a
           // squash upstream picks one node arbitrarily and spends the dominance fold before it runs.
           onFailure: (cause) =>
             Cause.isInterruptedOnly(cause)
               ? _Verdict.Interrupted({ executionId })
-              : _Verdict.Failed({ class: FaultClass.of(cause) }),
+              : _Verdict.Failed({ class: Fault.Class.of(cause) }),
         })),
       Match.tag("Suspended", () => _Verdict.Suspended({ executionId })),
       Match.exhaustive,

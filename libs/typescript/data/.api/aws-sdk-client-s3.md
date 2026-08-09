@@ -46,6 +46,7 @@
 [PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error rail
 - Multipart is the low-level command family composed under an Effect scope; paginators and waiters are `AsyncIterable`/promise helpers the wrap lifts; the `S3ServiceException` hierarchy seeds the tagged rail.
 - [MULTIPART]: `CreateMultipartUploadCommand` `UploadPartCommand` `UploadPartCopyCommand` `CompleteMultipartUploadCommand` `AbortMultipartUploadCommand` `ListPartsCommand` `ListMultipartUploadsCommand` — hand-composed large-blob ingest, `Abort` on scope interrupt.
+- [MULTIPART_MEMBER]: `CreateMultipartUploadRequest.ChecksumAlgorithm`/`.ChecksumType`; `UploadPartRequest.ChecksumAlgorithm`/`.ChecksumSHA256`; `UploadPartOutput.ChecksumSHA256`; `CompletedPart.ETag`/`.PartNumber`/`.ChecksumSHA256`; `CompleteMultipartUploadRequest.IfNoneMatch`/`.IfMatch`/`.ChecksumType`/`.MpuObjectSize` — `Create` carries no conditional member.
 - [PAGINATOR]: `paginateListObjectsV2` `paginateListParts` `paginateListBuckets` `paginateListDirectoryBuckets` `paginateListObjectAnnotations` — `AsyncIterable` → `Stream.fromAsyncIterable`.
 - [WAITER]: `waitUntilObjectExists` `waitUntilObjectNotExists` `waitUntilBucketExists` `waitUntilBucketNotExists` — poll-to-consistency after a write/delete; `{ client, maxWaitTime }` bounds the wait.
 - [ERROR_BASE]: `S3ServiceException` — the tagged-error mapping source; `$metadata.httpStatusCode` carries 412/404.
@@ -71,12 +72,13 @@
 |  [01]   | `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256 }` | conditional put | first-writer wins; digest = key            |
 |  [02]   | `catch $metadata.httpStatusCode === 412` ⇒ `Effect.void`                | idempotency     | the re-put is a proven noop, not a fault   |
 |  [03]   | `Effect.acquireRelease(CreateMultipartUpload, AbortMultipartUpload)`    | multipart       | bounded-bytes ingest; abort on interrupt   |
-|  [04]   | `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }`       | multipart       | conditional at completion, first-writer    |
+|  [04]   | `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }`       | multipart       | conditional at complete; per-part digests  |
 |  [05]   | `GetObjectCommand{ ChecksumMode: "ENABLED" }`                           | read verify     | verify `ChecksumSHA256` against the key    |
 |  [06]   | `PutBucketLifecycleConfigurationCommand{ Rules }` + `PutObjectTagging`  | retention GC    | reference-sweep GC by retention class      |
 |  [07]   | `GetObjectCommandOutput.Body`                                           | body read       | node `SdkStream<Readable>`, single-consume |
 
 - `GetObjectCommandOutput.Body`: `transformToByteArray()` / `transformToWebStream()` / `transformToString(enc?)`; single-consume, so buffer once then `sharp(buffer).clone()` per derivative, never a re-piped stream.
+- Multipart checksum chain — the producer behind the end-to-end integrity claim: `CreateMultipartUpload{ ChecksumAlgorithm: "SHA256" }` declares the algorithm, every `UploadPart` asserts the same value, each `UploadPartOutput.ChecksumSHA256` crosses into its `CompletedPart.ChecksumSHA256`, and `CompleteMultipartUpload` re-verifies the assembly; `ChecksumType` (`COMPOSITE`/`FULL_OBJECT`) names which shape the assembled digest carries.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

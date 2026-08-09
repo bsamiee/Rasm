@@ -27,22 +27,22 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 - Boundary: the feed's transport and decode are `core`/app composition; the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
 
 ```typescript
-import type { BindingStatus, CoercedValue, CommandGate, Hlc, WriteReceipt } from "@rasm/ts/core"
+import type { Clock, Wire } from "@rasm/ts/core"
 import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
 import type { Motion } from "../../src/system/act.ts"
 import type { Theme } from "../../src/system/token.ts"
 
-type PanelEvent = BindingStatus | CoercedValue | WriteReceipt | CommandGate
+type PanelEvent = Wire.BindingStatus | Wire.CoercedValue | Wire.WriteReceipt | Wire.CommandGate
 
 declare namespace Panel {
-  type Phase = BindingStatus["phase"]
-  type Level = CommandGate["level"]
+  type Phase = Wire.BindingStatus["phase"]
+  type Level = Wire.CommandGate["level"]
   type Row = {
     readonly phase: Panel.Phase
     readonly landed: Option.Option<unknown>
-    readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Hlc }>
+    readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Clock.Hlc }>
     readonly coercion: Option.Option<{ readonly offered: unknown; readonly landed: unknown; readonly path: string }>
-    readonly stamp: Option.Option<Hlc>
+    readonly stamp: Option.Option<Clock.Hlc>
     readonly gate: Option.Option<{ readonly available: boolean; readonly level: Panel.Level }>
   }
   type Board = HashMap.HashMap<string, Row>
@@ -87,7 +87,7 @@ const _fold = (board: Panel.Board, event: PanelEvent): Panel.Board =>
       _at(board, gate.key, (row) => ({ ...row, gate: Option.some({ available: gate.available, level: gate.level }) })),
   })
 
-const _optimistic = (board: Panel.Board, binding: string, value: unknown, since: Hlc): Panel.Board =>
+const _optimistic = (board: Panel.Board, binding: string, value: unknown, since: Clock.Hlc): Panel.Board =>
   _at(board, binding, (row) => ({ ...row, optimistic: Option.some({ value, since }) }))
 
 const _drain = (
@@ -161,13 +161,13 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 - Growth: a producer kind is one `_arms` row; a producer emphasis is one `_EMPHASIS` row; a new indeterminate progress form is one `_INDETERMINATE` row — zero dispatch edits and zero new surface.
 
 ```typescript
-import type { ControlIntent } from "@rasm/ts/core"
+import type { Wire } from "@rasm/ts/core"
 import { Array } from "effect"
 
 declare namespace Panel {
-  type Widget = ControlIntent["kind"]
-  type Arm<K extends Panel.Widget> = Extract<ControlIntent, { readonly kind: K }>
-  type Binding = ControlIntent["binding"]
+  type Widget = Wire.ControlIntent["kind"]
+  type Arm<K extends Panel.Widget> = Extract<Wire.ControlIntent, { readonly kind: K }>
+  type Binding = Wire.ControlIntent["binding"]
   type Emphasis = Panel.Binding["emphasis"]
   type Fill = "solid" | "soft" | "ghost" | "inverted" | "link"
 }
@@ -197,12 +197,12 @@ const _INDETERMINATE = { bar: "pulse", ring: "spin", skeleton: "pulse" } as cons
   Motion.Hold
 >
 
-const _NONE: ReadonlyArray<ControlIntent> = []
+const _NONE: ReadonlyArray<Wire.ControlIntent> = []
 
 // the generic keeps each arm's part LITERAL, so `Panel.Part` derives from the fold instead of standing beside it
-const _node = <P extends string>(part: P, children: ReadonlyArray<ControlIntent> = _NONE) => ({ part, children })
+const _node = <P extends string>(part: P, children: ReadonlyArray<Wire.ControlIntent> = _NONE) => ({ part, children })
 
-const _arms = Match.type<ControlIntent>().pipe(
+const _arms = Match.type<Wire.ControlIntent>().pipe(
   Match.discriminatorsExhaustive("kind")({
     button: () => _node("Button"),
     label: () => _node("Text"),
@@ -255,7 +255,7 @@ declare namespace Panel {
 const _slot = (board: Panel.Board, key: string | null): Option.Option<Panel.Row> =>
   Option.flatMap(Option.fromNullable(key), (named) => HashMap.get(board, named))
 
-const _pending = (intent: ControlIntent): Option.Option<Motion.Hold> =>
+const _pending = (intent: Wire.ControlIntent): Option.Option<Motion.Hold> =>
   intent.kind === "progress" && intent.fraction === null
     ? Option.some<Motion.Hold>(_INDETERMINATE[intent.form])
     : Option.as(
@@ -263,7 +263,7 @@ const _pending = (intent: ControlIntent): Option.Option<Motion.Hold> =>
       "spin" as const,
     )
 
-const _chrome = (board: Panel.Board, intent: ControlIntent): Panel.Chrome => {
+const _chrome = (board: Panel.Board, intent: Wire.ControlIntent): Panel.Chrome => {
   const emphasis = _EMPHASIS[intent.binding.emphasis]
   const value = _slot(board, intent.binding.valueKey)
   return {
@@ -277,7 +277,7 @@ const _chrome = (board: Panel.Board, intent: ControlIntent): Panel.Chrome => {
   }
 }
 
-const _children = (intent: ControlIntent): ReadonlyArray<ControlIntent> => _arms(intent).children
+const _children = (intent: Wire.ControlIntent): ReadonlyArray<Wire.ControlIntent> => _arms(intent).children
 ```
 
 ## [05]-[CONTROL_SINKS]
@@ -333,17 +333,15 @@ const _route = (sinks: Panel.Sinks): ((interaction: Panel.Interaction) => void) 
 
 [LAYOUT_SOLVE]:
 - Owner: `Panel.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression`, map the closed `relation` vocabulary onto `Operator` and the closed `strength` vocabulary onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
-- Law: `Panel.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's zero-based rank (`-1` when the refusal lands past the constraint walk — edit registration, the initial solve, or a live `suggest`) — a program-construction defect surfaced as operator evidence, never retried. The fault is single-shape, so it states its one core `FaultClass` kind directly — `invalid`: caller-blamed, quarantined, never re-driven — and carries no taxonomy column of its own; `rank` is the constraint's position in the wire walk, never a severity rank. `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the drift defect this cluster's existence guards against. Drag is suggestion, never structure — a pointer drag feeds `suggest(edit, value)` per frame (the gesture source is `system/act#CONTINUOUS_OWNER`), the frozen program re-optimizes incrementally, and only wire-enumerated edits are suggestible — a suggestion against a non-edit variable is a construction error kiwi rejects, surfaced through the same fault.
 - Law: the four determinism axes are fixed by construction — identical constraint SET, identical insertion ORDER, identical STRENGTHS, identical EDIT sequence — so the TS tableau converges to the C# tableau; equal-strength competition resolves identically because insertion order is preserved. Drift is evidence, not tolerance — a position mismatch against a C#-provided expectation reports with the variable name and both values (`probe` consumes it); a fuzzy-match re-solve loop is the named defect.
 - Law: positions flow to render as one atom write per settle — the returned map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
 - Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
-- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver`); `@rasm/ts/core` (`LayoutProgram`, `FaultClass`); `effect` (`Effect`, `HashMap`, `Iterable`, `Schema`, `SynchronizedRef`).
 - Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at the codec — the fold's vocabulary maps grow a row each, nothing else moves.
 
 ```typescript
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
-import { FaultClass, type LayoutProgram } from "@rasm/ts/core"
+import { Fault, type Wire } from "@rasm/ts/core"
 import { Effect, HashMap, Iterable, Schema, SynchronizedRef } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
@@ -360,7 +358,7 @@ class SolveFault extends Schema.TaggedError<SolveFault>()("SolveFault", {
   rank: Schema.Int, // the constraint's position in the wire walk, `-1` past it — never a severity rank
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return "invalid"
   }
   override get message(): string {
@@ -381,7 +379,7 @@ type _Draft = { readonly solver: Solver; readonly cells: ReadonlyMap<string, Var
 const _read = (draft: _Draft): Panel.Positions =>
   HashMap.fromIterable(Iterable.map(draft.cells, ([name, cell]) => [name, cell.value()] as const))
 
-const _build = (program: LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
+const _build = (program: Wire.LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
   Effect.suspend(() => {
     // BOUNDARY ADAPTER
     const cursor = { rank: -1 }
@@ -409,7 +407,7 @@ const _build = (program: LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
     })
   })
 
-const _solve = (program: LayoutProgram): Effect.Effect<Panel.Solved, SolveFault> =>
+const _solve = (program: Wire.LayoutProgram): Effect.Effect<Panel.Solved, SolveFault> =>
   Effect.gen(function* () {
     const draft = yield* _build(program)
     const held = yield* SynchronizedRef.make(draft)

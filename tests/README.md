@@ -9,6 +9,8 @@ One folder scheme spans all languages:
 ```text conceptual
 tests/
 ├── contracts/         # cross-language contract corpus: seam schemas define, frozen assets prove
+│   ├── .api/          # corpus tool catalogs — the proto gate binary the root buf.yaml drives
+│   └── rasm/          # descriptor sources, one <family>/v1/ directory per proto package
 ├── csharp/
 │   ├── .api/          # dev-tool API catalogs the kit and suites compose
 │   ├── _architecture/ # boundary + infra-primitive laws proving both kits
@@ -114,7 +116,8 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
 |  [15]   | contract corpus seam        | `tests/contracts/<seam>/` per the corpus law                                             |
 |  [16]   | shared corpus definition    | `tests/contracts/<vocabulary>.schema.json`, beside the seam directories                  |
-|  [17]   | corpus descriptor source    | `tests/contracts/rasm/<file>.proto` beside its frozen `<file>.descriptor.binpb` snapshot |
+|  [17]   | corpus descriptor source    | `tests/contracts/rasm/<family>/v1/`, the source beside its frozen descriptor snapshot    |
+|  [18]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 

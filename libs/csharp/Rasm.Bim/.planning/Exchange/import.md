@@ -528,7 +528,7 @@ public static partial class BimIo {
     // projector preserves off the live graph. wire#WIRE_PROJECTION Admit and export#ROUNDTRIP Verify COMPOSE
     // ImportIfc, each re-wrapping its own admission prefix. Schema is sniffed off the bytes BEFORE construction:
     // ImportIfc binds the RAILED `Fin<GGRelease> SemanticProjector.Sniff(bytes, format, key)` — the ONE schema-sniff
-    // owner (STEP FILE_SCHEMA / ifcJSON schema_identifier / ifcXML xmlns), CodecReject `schema-header-missing`/
+    // owner (STEP FILE_SCHEMA / ifcJSON schemaIdentifier / ifcXML xmlns), CodecReject `schema-header-missing`/
     // `schema-header-unmapped` typed OUTSIDE the ModelRejected funnel with no silent schema default, so the
     // construction lands at that schema and a 2x3 file admits as 2x3.
     // Serialization dispatch is the ROW ITSELF: the format#FORMAT_AXIS Serialization column carries the

@@ -1,21 +1,45 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested rooted objects, projects the `ElementGraph` into a Merkle-pruned object forest, compares non-topologized content nodes directly, and classifies both axes in one base-relative merge. `ElementGraph.EqualityComparer.Default.Inequalities` localizes member changes for `EntityEdit.Members`; whole-node absence becomes `EntityEdit.Tombstone`. `GraphNode` remains a detection projection only: every RFC 6902 value resolves from a real seam `Node`, and every conflict projects the stored `(Hlc, actor)` evidence into `ConflictReceipt`.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge.
+`EntityEdit` emits base-addressed tombstones or closed RFC 6902 documents over exact `NodeWire` ProtoJSON.
+Insertions remain on the existing `EditOp.Insert` and `GraphDelta` mutation rail.
+`GraphNode` remains detection-only, and conflicts project stored `(Hlc, actor)` evidence into `ConflictReceipt`.
 
 ## [01]-[INDEX]
 
-- [02]-[STRUCTURAL_DIFF]: the re-ingest `Reconcile` GlobalId alignment, the `Inequalities` change-set, the Merkle-pruned `Object`-forest match, the non-topologized content-node axis, the base-relative three-way merge, the typed conflict classes, and the RFC 6902 patch egress.
+- [02]-[STRUCTURAL_DIFF]: Re-ingest alignment, Merkle-pruned matching, three-way merge, conflicts, and node edit egress.
 
 ## [02]-[STRUCTURAL_DIFF]
 
-- Owner: `GraphNode` the identity-keyed forest node carrying the geometry content axis (`GeometryHash` = the digest of the `Object`'s WHOLE `Representations.ByIdentifier` map), the node content-axis hash (`PropertyHash` = the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress.Of` over the `Projection/address#CANONICAL_WRITER` `Node.ToCanonicalBytes`), the sibling ordinal, and the Merkle subtree digest; `NodeRole` the NEUTRAL structural-role vocabulary (`Occurrence`/`Type`/`Container`/`Annotation`) a node's `ObjectKind` plus its containment-`Whole` role derive — never an IFC entity-class string the neutral seam classification does not carry; `EditOp` the forest-edit operation family driven by a generated `Switch`/`Map`; `MergeConflict` the typed conflict-class family carrying both sides' op-log stamp; `EntityEdit` the per-key egress kind (`Tombstone` whole-node removal vs `Members` RFC 6902 member-patch); `TallySlot`/`TallyFact` the edit-versus-conflict count axis; `MergeOutcome` the settled three-way receipt; `StructuralMerge` the static surface owning the re-ingest `Reconcile` GlobalId alignment, the `ElementGraph → GraphNode` forest projection, the content-node projection, the Merkle-pruned classification, the base-relative three-way merge over both axes, the conflict classification fold, the `Inequalities`-driven member-granular RFC 6902 patch projection, and the `ConflictReceipt` projection.
-- Cases: `Match | Insert | Delete | Update | Move | Reorder | Retype` on `EditOp`; `ParallelEdit | DeleteUpdate | MoveMove | ReorderReorder | TypeChange | TopologyBreak | ContainmentCycle` on `MergeConflict`; `Tombstone | Members` on `EntityEdit`; the patch egress maps `Delete → Tombstone`, `Insert → Members` carrying the REAL `Node` payload resolved from the `target` graph (the full Material/PropertySet/Object a CDE materializes, never the hash-only `GraphNode` diff projection), and `Update`/`Move`/`Reorder`/`Retype → Members` over the targeted member; an `Update` whose member rows did not localize replaces the WHOLE real target `Node` at the `""` root pointer, and a key neither graph still holds is the `Tombstone` — a `GraphNode` hash field never enters a patch.
-- Entry: `public static (ElementGraph Aligned, HashMap<NodeId, NodeId> Remap) Reconcile(ElementGraph persisted, ElementGraph ingested)` aligns a re-ingest's freshly-minted `NodeId`s to the durable persisted ids by correlating rooted nodes on `Node.Object.ExternalId` (the stable 1:1 GlobalId) plus GlobalId-less `Type` objects on the classification-independent `TypeKey` natural key (an ambiguous natural key drops from correlation — a 1:1 aligner never guesses) and rewriting the ingest's node ids + edge endpoints onto the durable ids; `public static Seq<GraphNode> Forest(ElementGraph graph)` projects each `Object` node's `Parent`/`Ordinal`/`Children` topology from the seam `Relationship.Compose` containment edges, its `GeometryHash` from the full `Object` `Representations.ByIdentifier` map, its `PropertyHash` from the seam `ContentAddress.Of` over `Node.ToCanonicalBytes`, and its `NodeRole` from `(ObjectKind, containment-whole)`, then seals the `SubtreeHash` bottom-up; `public static Seq<EditOp> Diff(Seq<GraphNode> from, Seq<GraphNode> to)` is the minimal forest-edit script; `public static MergeOutcome ThreeWay(ElementGraph @base, ElementGraph ours, ElementGraph theirs, Func<NodeId, Option<OpLogEntry>> stampOurs, Func<NodeId, Option<OpLogEntry>> stampTheirs)` folds non-conflicting `Object`-forest AND content-node edits and accumulates true overlaps as typed conflicts; `public static HashMap<NodeId, EntityEdit> Patch(Seq<EditOp> script, ElementGraph @base, ElementGraph target)` groups the resolved script by target key and projects each `Update` into the MEMBER-GRANULAR RFC 6902 ops the `@base`→`target` `Inequalities` member diff localizes (a changed `Layers[2].Thickness` is one `Replace` at that path, never a whole-node replace); `public static ConflictReceipt Project(MergeConflict conflict, ModelId model, Guid correlation, Instant at)` reuses the one conflict vocabulary, carrying the merged model and the conflict's real `ColumnFamily` (the geometry axis for a `TopologyBreak`, the CRDT axis for every property/structural class).
-- Auto: a re-ingest first runs `Reconcile` so the freshly-minted ingest `NodeId`s align to the durable persisted ids on the stable `Node.Object.ExternalId` GlobalId — and a GlobalId-less `Type` on its `TypeKey` natural key — (the neutral `NodeId` is minted afresh each `Project`, so a raw `NodeId`-keyed diff reads the whole re-import as delete-all + insert-all); with the graphs aligned, node matching is the durable `NodeId` and the `(GeometryHash, PropertyHash)` content signature drives change DETECTION — the forest edit emits `Match` for signature-equal same-parent nodes, `Move` for signature-equal parent-changed, `Reorder` for same-parent ordinal-changed, `Retype` for `NodeRole`-changed, `Update` for signature-changed carrying both content axes, and `Insert`/`Delete` for unmatched; the `GeometryHash` folds EVERY representation the `Object` carries (the heavy `Body` mesh AND the analytical `Axis`/`Box`/`FootPrint` content keys, sorted by identifier), so a structural-line or space-boundary geometry edit surfaces as a geometry divergence the same as a display-mesh edit; the `SubtreeHash` folds each node's own `(GeometryHash, PropertyHash, Ordinal, Role.Key)` preimage with its sorted children's digests through `XxHash128.Append`, clones the completed running state before sealing it, and compares one digest per node so the walk descends only where it diverges; the three-way merge runs TWO axes — the `Object`-forest axis (`Move`/`Reorder`/`Retype`/`TopologyBreak`/content `ParallelEdit` per key-axis) AND the content-node axis (the `Material`/`PropertySet`/`QuantitySet`/`Coverage`/`Appearance`/`Assessment` nodes the forest does not topologize, diffed directly off the node map so a single-side content edit APPLIES as a `Members` patch and a both-side content edit is a `ParallelEdit`) — and the `Inequalities` change-set localizes the changed MEMBER each `EntityEdit.Members` patch targets.
+- Owner: `GraphNode` carries forest identity, content axes, sibling position, and Merkle subtree digest.
+- Owner: `NodeRole`, `EditOp`, and `MergeConflict` close structural roles, operations, and conflicts.
+- Owner: `EntityEdit` carries base-addressed tombstone and member-patch egress.
+- Owner: `EntityEditWire` projects `EntityEdit` into the discriminated JSON contract.
+- Owner: `PatchPolicy` admits the caller-supplied operation ceiling shared with the crossing.
+- Owner: `TallyFact`, `MergeOutcome`, and `StructuralMerge` own merge evidence and the full merge fold.
+- Cases: `EntityEdit` is `Tombstone | Members`; both arms carry the addressed current-node base.
+- Cases: `Delete` maps to `Tombstone`; held-node material edits map to `Members`.
+- Cases: `EditOp.Insert` remains on the graph mutation rail and does not fabricate a held-node EntityEdit.
+- Entry: `Reconcile` aligns imported ids from GlobalId and unambiguous GlobalId-less type keys.
+- Entry: `Forest` and `DiffContent` project object topology and non-object content onto separate detection axes.
+- Entry: `ThreeWay` returns clean edits, typed conflicts, and tally evidence in one result.
+- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault rail.
+- Auto: Every base is `ContentAddress.Of(baseNode, base.Header.Tolerance)`.
+- Auto: `Members` diffs exact before/after `NodeWire` ProtoJSON; object keys sort ordinally.
+- Auto: Objects recurse; arrays, scalars, and changed roots replace whole; missing members add or remove.
+- Auto: Changed prototype members replace their containing object, so emitted pointers remain safe.
+- Auto: An over-ceiling member diff collapses to one root replacement carrying exact successor ProtoJSON.
 - Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects to `ConflictReceipt` with the held/incoming `(Hlc, actor)` from the changefeed; each projected `ConflictReceipt` fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
-- Packages: Rasm.Element (`ElementGraph`/`Node`/`NodeId`/`Relationship` + `ContentAddress.Of` the seam node-content key the `PropertyHash` axis composes), Generator.Equals (`[Equatable]` deep equality + `Inequalities` member diff for member-localization, `MemberPathSegment.Added`/`Removed` kind sentinels selecting each patch row's RFC 6902 verb), System.IO.Hashing (the `SubtreeHash` Merkle `XxHash128.Append`/`Clone` accumulator only — the node-content axis composes the seam `ContentAddress`, never a raw hasher), Microsoft.AspNetCore.JsonPatch.SystemTextJson (the untyped `JsonPatchDocument` JSON-pointer `Add`/`Replace` member-granular egress), System.Text.Json (`JsonSerializer.SerializeToElement` under the `Element/codec` `ElementJson.Options` — every patched value lowers through the ONE codec converter graph), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, System.Buffers.Binary, System.Runtime.InteropServices, System.Collections.Frozen, System.Collections.Immutable, BCL inbox.
-- Growth: a new edit op is one `EditOp` case plus one `Switch`/`Map` arm; a new conflict class is one `MergeConflict` case; a new egress kind is one `EntityEdit` case; zero new surface — a line-based text diff, a JSON-patch diff over serialized whole nodes, a third content axis, or a second merge resolver is the deleted form; the `Version/ledger#SYNC_TRANSPORTS` `GraphDiff` stays the transport-level set-difference and the `Version/timetravel#TIME_TRAVEL` `RangeDiff` the AS-OF member delta between two settled snapshots — three altitude-split diffs, never duplicated; `Reconcile` is the re-ingest identity ALIGNER that feeds the diff, never a fourth diff.
-- Boundary: node identity is the durable `NodeId` the re-ingest `Reconcile` aligns BEFORE the diff — a rooted node on the 1:1 IFC GlobalId (`Node.Object.ExternalId`), a GlobalId-less `Type` on the classification-excluded `TypeKey` natural key (an ambiguous key drops; the kernel V8a seed replaces the interim on landing) — the neutral `NodeId` is freshly minted each `Project`, so a re-imported model is correlated on the stable keys, never the minted id; a `NodeId`-only re-ingest diff that reads the whole import as delete-all + insert-all, a content-signature "match" that silently drops a changed element's identity continuity, a positional or ordinal-only match, or a `Guid`-keyed parallel node identity beside the graph's own key is the named defect because after `Reconcile` the graph owns the one durable key the diff matches on; the `ElementGraph → GraphNode` forest reads `Object` topology VERBATIM from the seam `Relationship.Compose` containment edges — the parent is the `Whole`, the child the `Part`, the sibling order the index among one `Whole`'s `Compose` edges — so a positional re-derivation or a second containment store is the deleted form; `NodeRole` derives from the NEUTRAL `(ObjectKind, containment-whole)` signal the graph already encodes — an `Object` matched as a `Compose.Contain` `Whole` is a `Container`, an occurrence/type flip is an `Occurrence`/`Type` retype — never an `['I','f','c',…]` string match against `Classification.Code` (the seam classification is a neutral `(system, code)`, the `Code` a code-within-the-system NOT an IFC entity class, so an IFC-class literal match is the phantom deleted form, the IFC roster living wholly in the `Rasm.Bim` projector); `GraphNode.GeometryHash` folds the `Object`'s WHOLE `Representations.ByIdentifier` keyed map (every `RepresentationIdentifier` the kernel content-keyed, sorted, the `Body` mesh AND the analytical `Axis`/`Box`/`FootPrint` — reading only `Body` silently misses a structural-line or space-boundary change, the deleted thin slice) of kernel-minted digests read not re-minted — the digests are `Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE` `GeometryHash` values minted over the kernel-FROZEN `EncodeForm` byte layouts, this page the seam's RE-TARGETED consumer, and the fold preimage pairs each identifier (the form lane) WITH its digest so a bare digest never crosses a form boundary — and `GraphNode.PropertyHash` composes the seam `ContentAddress.Of` over `Node.ToCanonicalBytes` — the ONE seam hasher, never a raw second `XxHash128` instance and never a re-digest; the `SubtreeHash` is the Persistence-local Merkle digest `XxHash128` over a stable deterministic byte stream (the `(GeometryHash, PropertyHash, Ordinal, Role, child digests)` rollup, NOT a node-content identity) with NO `GetHashCode` so two peers seal the identical digest and a byte-identical subtree under an unchanged root prunes whole; the content-node axis is diffed DIRECTLY off the two node maps (the `Material`/`PropertySet`/`QuantitySet`/`Coverage`/`Appearance`/`Assessment` nodes the `Object`-forest never topologizes), NOT recovered by `MemberPath`-segment archaeology — the change-set keys on the durable `NodeId` the map already holds, the `Inequalities` member diff used only to localize WHICH member an `EntityEdit.Members` patch touches, so a single-side content edit APPLIES (an `Object`-only forest silently drops it, the deleted form) and a both-side content edit is a `ParallelEdit`; the three-way merge is base-relative so a node both sides left untouched never enters a conflict, and a structural merge is always-succeeds-with-annotations — `ThreeWay` returns `MergeOutcome` carrying BOTH the clean merged edit script AND the full conflict sequence in one pass, never a `Validation` fail-XOR-succeed that discards the partial merge; each `MergeConflict` carries both sides' `(Hlc, actor)` resolved from the changefeed stamp delegates so `Project` mints a `ConflictReceipt` with real evidence; the merge result re-projects two ways — as `EditOp` rows applied through the CRDT algebra (a `Reorder` resolves against the `Version/commits#CRDT_ALGEBRA` `RgaSequence` sibling order) and as a `HashMap<NodeId, EntityEdit>` (one egress kind per touched key, a `Members` patch a CDE/inspector consumer applies break-on-first-error to the node snapshot clone, a `Tombstone` dropping it); a `ContainmentCycle` (a `Move` whose target becomes its own descendant) is detected on BOTH sides, the cycle walk visited-set-bounded so the detector terminates on the cyclic input, and the cycle-bearing key is excluded from the merged script before patch projection because a containment graph admits no cycle; the patch document is RFC 6902 whole — every emitted pointer token escapes `~` then `/` per RFC 6901 §3 (a raw dictionary-`Key` segment carries an IFC property key or a classification code embedding `/` verbatim, so an unescaped token addresses a different member and `ApplyTo` overwrites it without raising), and each `Inequality` row's verb comes from its terminal membership-segment kind — a blanket `Replace` over the diff is the deleted form because a replace at an added member's pointer is an RFC 6902 error that aborts the break-on-first-error apply and silently discards every later op in the document, while a replace at a removed member's writes null where the member must leave.
+- Packages: Rasm.Element owns graphs, node addressing, `NodeWire`, and its ProtoJSON projection.
+- Packages: JsonPatch owns the RFC 6902 document; System.Text.Json owns exact wire values and outer edit JSON.
+- Packages: System.IO.Hashing owns local Merkle accumulation; LanguageExt owns immutable carriers and `Fin`.
+- Packages: Thinktecture owns closed unions; NodaTime owns merge evidence time.
+- Growth: A new edit operation changes detection only; edit egress remains the closed lifecycle union.
+- Boundary: Re-ingest alignment precedes every durable-`NodeId` diff.
+- Boundary: The object forest reads `Relationship.Compose` containment and the complete representation map.
+- Boundary: Non-object content nodes diff directly from the node map and never disappear behind the object forest.
+- Boundary: `GraphNode` hashes drive detection only; patch paths target exact producer `NodeWire` ProtoJSON.
+- Boundary: TypeScript applies the patch to retained ProtoJSON and decodes the successor through the existing node landing.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -24,13 +48,17 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Generator.Equals;
+using System.Text.Json.Serialization;
+using Google.Protobuf;
 using LanguageExt;
+using LanguageExt.Common;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson.Operations;
 using NodaTime;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
+using Rasm.Element.Wire;
 using Rasm.Persistence.Element;                    // ElementJson.Options — the ONE codec STJ converter graph
 using System.IO.Hashing;
 using Thinktecture;
@@ -138,16 +166,103 @@ public abstract partial record MergeConflict {
         containmentCycle: static c => (c.OurCell, c.OurActor, c.OurCell, c.OurActor));
 }
 
-// The per-key egress: a Tombstone drops the node, a Members carries the UNTYPED RFC 6902 document whose ops are
-// JSON-pointer-pathed — the forest deltas at fixed pointers (`/parent`, `/ordinal`, `/role`), the content deltas
-// at the MEMBER-GRANULAR pointers the Generator.Equals Inequalities member diff localizes (a changed
-// `Layers/2/Thickness` is one Replace at that pointer, never a whole-node replace). The untyped JsonPatchDocument
-// is the primary SystemTextJson surface a CDE/inspector deserializes and ApplyTo-folds break-on-first-error.
+// Both egress arms carry authoritative held-node OCC. Members carries a closed RFC 6902 document whose paths target
+// exact NodeWire ProtoJSON; insertion stays on EditOp.Insert and the GraphDelta rail because no held node can supply Base.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record EntityEdit {
     private EntityEdit() { }
-    public sealed record Tombstone(NodeId Key) : EntityEdit;
-    public sealed record Members(NodeId Key, JsonPatchDocument Patch) : EntityEdit;
+    public sealed record Tombstone(NodeId Key, ContentAddress Base) : EntityEdit;
+    public sealed record Members(NodeId Key, ContentAddress Base, JsonPatchDocument Patch) : EntityEdit;
+}
+
+public sealed record PatchPolicy {
+    private PatchPolicy(int operationCeiling) => OperationCeiling = operationCeiling;
+    public int OperationCeiling { get; }
+
+    public static Fin<PatchPolicy> Of(int operationCeiling, Op key) => operationCeiling > 0
+        ? Fin.Succ(new PatchPolicy(operationCeiling))
+        : ElementFault.ValueRejected(key, $"<entity-edit-operation-ceiling:{operationCeiling}>");
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Add), "add")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Remove), "remove")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Replace), "replace")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Move), "move")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Copy), "copy")]
+[JsonDerivedType(typeof(JsonPatchOperationWire.Test), "test")]
+public abstract record JsonPatchOperationWire {
+    static readonly FrozenSet<string> UnsafeMembers = new[] { "__proto__", "prototype", "constructor" }
+        .ToFrozenSet(StringComparer.Ordinal);
+
+    private JsonPatchOperationWire() { }
+    public sealed record Add(string Path, JsonElement Value) : JsonPatchOperationWire;
+    public sealed record Remove(string Path) : JsonPatchOperationWire;
+    public sealed record Replace(string Path, JsonElement Value) : JsonPatchOperationWire;
+    public sealed record Move(string From, string Path) : JsonPatchOperationWire;
+    public sealed record Copy(string From, string Path) : JsonPatchOperationWire;
+    public sealed record Test(string Path, JsonElement Value) : JsonPatchOperationWire;
+
+    public static Fin<JsonPatchOperationWire> Of(Operation operation, Op key) =>
+        key.Catch(() => Project(operation, key)).MapFail(error => error.IsExceptional
+            ? (Error)ElementFault.ValueRejected(key, $"<entity-edit-operation-value:{operation.op}>")
+            : error);
+
+    static Fin<JsonPatchOperationWire> Project(Operation operation, Op key) => operation.OperationType switch {
+        OperationType.Add => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Add(path, Value(operation.value))),
+        OperationType.Remove => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Remove(path)),
+        OperationType.Replace => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Replace(path, Value(operation.value))),
+        OperationType.Move => Pointer(operation.from, key).Bind(from => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Move(from, path))),
+        OperationType.Copy => Pointer(operation.from, key).Bind(from => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Copy(from, path))),
+        OperationType.Test => Pointer(operation.path, key)
+            .Map(path => (JsonPatchOperationWire)new Test(path, Value(operation.value))),
+        _ => ElementFault.ValueRejected(key, $"<entity-edit-operation:{operation.op}>")
+    };
+
+    static JsonElement Value(object? value) => JsonSerializer.SerializeToElement(value, ElementJson.Options);
+
+    internal static bool IsUnsafe(string member) => UnsafeMembers.Contains(member);
+
+    static Fin<string> Pointer(string? value, Op key) =>
+        value is null || value.Length > 0 && value[0] != '/'
+            ? ElementFault.ValueRejected(key, $"<entity-edit-pointer:{value}>")
+            : toSeq(value.Split('/').Skip(1)).Exists(segment =>
+                !ValidEscapes(segment) || UnsafeMembers.Contains(segment.Replace("~1", "/").Replace("~0", "~")))
+                ? ElementFault.ValueRejected(key, $"<entity-edit-pointer:{value}>")
+                : Fin.Succ(value);
+
+    static bool ValidEscapes(string token) {
+        for (int i = 0; i < token.Length; i++) {
+            if (token[i] != '~') { continue; }
+            if (++i == token.Length || token[i] is not ('0' or '1')) { return false; }
+        }
+        return true;
+    }
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(EntityEditWire.Tombstone), "tombstone")]
+[JsonDerivedType(typeof(EntityEditWire.Members), "members")]
+public abstract record EntityEditWire {
+    private EntityEditWire() { }
+    public sealed record Tombstone(string Key, string Base) : EntityEditWire;
+    public sealed record Members(string Key, string Base, JsonPatchOperationWire[] Patch) : EntityEditWire;
+
+    public static Fin<EntityEditWire> Of(EntityEdit edit, PatchPolicy policy, Op key) => edit.Switch<Fin<EntityEditWire>>(
+        tombstone: static row => Fin.Succ((EntityEditWire)new Tombstone(row.Key.Value, row.Base.ToValue())),
+        members: row => row.Patch.Operations.Count > policy.OperationCeiling
+            ? ElementFault.ValueRejected(key, $"<entity-edit-operation-overrun:{row.Patch.Operations.Count}>")
+            : toSeq(row.Patch.Operations)
+            .Traverse(operation => JsonPatchOperationWire.Of(operation, key).ToValidation()).As().ToFin()
+            .Map(operations => (EntityEditWire)new Members(row.Key.Value, row.Base.ToValue(), operations.ToArray())));
+
+    public static Fin<byte[]> Encode(EntityEdit edit, PatchPolicy policy, Op key) =>
+        Of(edit, policy, key).Map(row => JsonSerializer.SerializeToUtf8Bytes(row, ElementJson.Options));
 }
 
 public readonly record struct TallyFact(TallySlot Slot, string Kind, int Count);
@@ -181,7 +296,7 @@ public static class StructuralMerge {
     // Content axis: every non-Object node the Object-forest never topologizes — the ContentRole switch names
     // that roster and breaks on the next case — projects as Parent-less GraphNodes carrying only the PropertyHash content
     // signature (GeometryHash 0). The three-way merge diffs these DIRECTLY off the node map so a single-side content
-    // edit APPLIES as a Members patch and a both-side content edit is a ParallelEdit — an Object-only forest would
+    // edit materializes as a Members patch and a both-side content edit is a ParallelEdit — an Object-only forest would
     // silently drop a changed property set / material, the deleted form.
     public static HashMap<NodeId, GraphNode> ContentNodes(ElementGraph graph) =>
         toHashMap(toSeq(graph.Nodes.Values).Filter(static n => n is not Node.Object).Map(n => (n.Id, new GraphNode(
@@ -208,11 +323,8 @@ public static class StructuralMerge {
     public static MergeOutcome ThreeWay(ElementGraph @base, ElementGraph ours, ElementGraph theirs, Func<NodeId, Option<OpLogEntry>> stampOurs, Func<NodeId, Option<OpLogEntry>> stampTheirs) {
         Seq<GraphNode> baseForest = Forest(@base), ourForest = Forest(ours), theirForest = Forest(theirs);
         HashMap<NodeId, GraphNode> baseContent = ContentNodes(@base), ourContent = ContentNodes(ours), theirContent = ContentNodes(theirs);
-        // Two axes per side keyed on the durable NodeId the node map already holds: the Object-forest edit script AND
-        // the content-node script, concatenated and grouped by (key, axis). Identity is the NodeId, NEVER recovered by
-        // MemberPath-segment archaeology (which depends on the generated [UnorderedEquality] dictionary path-segment
-        // shape and is the deleted fragile form) — Patch alone reads the graph Inequalities, and only to localize the
-        // member an EntityEdit.Members pointer targets.
+        // Two axes per side key on the durable NodeId the node map already holds. The object-forest and content-node
+        // scripts concatenate and group by (key, axis); no member-path projection participates in edit egress.
         HashMap<NodeId, HashMap<string, EditOp>> ourEdits = ByKeyAxis(Diff(baseForest, ourForest) + DiffContent(baseContent, ourContent));
         HashMap<NodeId, HashMap<string, EditOp>> theirEdits = ByKeyAxis(Diff(baseForest, theirForest) + DiffContent(baseContent, theirContent));
         HashMap<NodeId, GraphNode> oursByKey = toHashMap(ourForest.Map(static n => (n.Key, n)));
@@ -232,52 +344,86 @@ public static class StructuralMerge {
         return new MergeOutcome(merged, conflicts, Tally(merged, conflicts));
     }
 
-    // Group the resolved script by target key and project each into one EntityEdit. A group with a Delete is a
-    // Tombstone; otherwise a Members carrying the untyped RFC 6902 document — the forest deltas at fixed pointers,
-    // a content Update at the MEMBER-GRANULAR pointers the @base→target diff localizes (so the egress replaces a
-    // changed `Layers/2/Thickness`, never the whole node). The member pointers come from the ONE GRAPH-level
-    // Generator.Equals Inequalities call the page advertises — ElementGraph.EqualityComparer.Default.Inequalities
-    // reports `Nodes[id].Layers[2].Thickness`-shaped paths whose leading `Nodes[id]` segment groups the rows by
-    // owning NodeId, so the patch reads the VERIFIED ElementGraph [Equatable] surface, never a Node-level
-    // EqualityComparer the union root does not declare.
-    public static HashMap<NodeId, EntityEdit> Patch(Seq<EditOp> script, ElementGraph @base, ElementGraph target) {
-        HashMap<NodeId, Seq<Inequality>> byNode = MemberDiff(@base, target);
-        // A group with a Delete — or a key NEITHER graph still holds (a delete-after-insert race) — is the
-        // Tombstone: net absence is the truthful egress, never a fabricated payload. Every other group builds
-        // a Members document whose Append arms always resolve a REAL seam Node.
-        return toHashMap(toSeq(script.GroupBy(static op => op.Target)).Map(group => {
-            Seq<EditOp> ops = toSeq(group);
-            Option<Node> payload = target.Find(group.Key) | @base.Find(group.Key);
-            EntityEdit edit = ops.Exists(static op => op is EditOp.Delete)
-                ? new EntityEdit.Tombstone(group.Key)
-                : payload.Match<EntityEdit>(
-                    Some: node => new EntityEdit.Members(group.Key, ops.Fold(new JsonPatchDocument(), (doc, op) => Append(doc, op, byNode.Find(group.Key).IfNone(Seq<Inequality>()), node))),
-                    None: () => new EntityEdit.Tombstone(group.Key));
-            return (group.Key, edit);
-        }));
+    // Project held-node groups only. Insert remains on EditOp.Insert/GraphDelta because no current node can supply Base.
+    // Members diffs exact NodeWire ProtoJSON; TypeScript patches that same representation before node admission.
+    public static Fin<HashMap<NodeId, EntityEdit>> Patch(
+        Seq<EditOp> script, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
+        toSeq(script.GroupBy(static op => op.Target)).Fold(
+            Fin.Succ(HashMap<NodeId, EntityEdit>()),
+            (state, group) => state.Bind(edits => Edit(group.Key, toSeq(group), @base, target, policy, key)
+                .Map(edit => edit.Map(row => edits.AddOrUpdate(group.Key, row)).IfNone(edits))));
+
+    static Fin<Option<EntityEdit>> Edit(
+        NodeId subject, Seq<EditOp> ops, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
+        (ops.Exists(static op => op is EditOp.Delete), ops.Exists(static op => op is EditOp.Insert)) switch {
+            (true, true) => ElementFault.DeltaConflict(key, $"<merge-edit-existence-conflict:{subject.Value}>"),
+            (true, false) when target.Find(subject).IsSome =>
+                ElementFault.DeltaConflict(key, $"<merge-tombstone-target-present:{subject.Value}>"),
+            (true, false) => @base.Find(subject)
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-tombstone-base-absent:{subject.Value}>"))
+                .Map(node => Some<EntityEdit>(new EntityEdit.Tombstone(
+                    subject, ContentAddress.Of(node, @base.Header.Tolerance)))),
+            (false, true) when @base.Find(subject).IsSome =>
+                ElementFault.DeltaConflict(key, $"<merge-insert-base-present:{subject.Value}>"),
+            (false, true) when ops.Exists(static op => op is not EditOp.Insert and not EditOp.Match) =>
+                ElementFault.DeltaConflict(key, $"<merge-insert-mixed-edit:{subject.Value}>"),
+            (false, true) => target.Find(subject)
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-insert-target-absent:{subject.Value}>"))
+                .Map(static _ => Option<EntityEdit>.None),
+            _ => @base.Find(subject)
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.Value}>"))
+                .Bind(before => target.Find(subject)
+                    .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.Value}>"))
+                    .Map(after => PatchDocument(
+                        NodeJson(before, @base.Header.Tolerance), NodeJson(after, target.Header.Tolerance), policy) switch {
+                        { Operations.Count: 0 } => Option<EntityEdit>.None,
+                        var patch => Some<EntityEdit>(new EntityEdit.Members(
+                            subject, ContentAddress.Of(before, @base.Header.Tolerance), patch)),
+                    })),
+        };
+
+    static JsonElement NodeJson(Node node, double tolerance) {
+        using JsonDocument document = JsonDocument.Parse(JsonFormatter.Default.Format(ElementWire.Encode(node, tolerance)));
+        return document.RootElement.Clone();
     }
 
-    // The ONE graph-level member diff grouped by owning NodeId: ElementGraph.EqualityComparer.Default.Inequalities
-    // reports each changed member at a `Nodes[<NodeId>].<member-path>` path, so the leading `Nodes` dictionary-key
-    // segment carries the NodeId a content Update's member-granular pointers belong to (the edge `Edges[i]` rows are
-    // a separate diff axis this content-patch grouping ignores).
-    static HashMap<NodeId, Seq<Inequality>> MemberDiff(ElementGraph @base, ElementGraph target) =>
-        toHashMap(ElementGraph.EqualityComparer.Default.Inequalities(@base, target)
-            .Choose(static ineq => OwningNode(ineq.Path).Map(key => (key, ineq)))
-            .GroupBy(static row => row.key)
-            .Select(static g => (g.Key, toSeq(g.Select(static row => row.ineq)))));
+    static JsonPatchDocument PatchDocument(JsonElement before, JsonElement after, PatchPolicy policy) {
+        Seq<Operation> operations = Diff(before, after, "");
+        Seq<Operation> admitted = operations.Count <= policy.OperationCeiling
+            ? operations
+            : Seq(new Operation("replace", string.Empty, string.Empty, after.Clone()));
+        return new JsonPatchDocument(admitted.ToList(), ElementJson.Options);
+    }
 
-    // The owning NodeId of an Inequality whose path threads the `Nodes` dictionary — the segment immediately after
-    // the `Nodes` property segment is the dictionary Key carrying the NodeId; a non-`Nodes` path (an `Edges[i]` or
-    // `Header` change) yields None and is not a content-node member patch. A bounded array-pair scan (the
-    // EXPRESSION_SPINE named-kernel exemption — a fixed-segment-count path walk, never a domain fold).
-    static Option<NodeId> OwningNode(MemberPath path) {
-        MemberPathSegment[] segments = path.Segments;
-        for (int i = 1; i < segments.Length; i++) {
-            if (segments[i - 1].Value is "Nodes" && segments[i].Value is NodeId key) { return Some(key); }
+    static Seq<Operation> Diff(JsonElement before, JsonElement after, string path) {
+        if (JsonElement.DeepEquals(before, after)) { return Seq<Operation>(); }
+        if (before.ValueKind is not JsonValueKind.Object || after.ValueKind is not JsonValueKind.Object) {
+            return Seq(new Operation("replace", path, string.Empty, after.Clone()));
         }
-        return None;
+
+        HashMap<string, JsonElement> left = toHashMap(before.EnumerateObject()
+            .Select(static property => (property.Name, property.Value)));
+        HashMap<string, JsonElement> right = toHashMap(after.EnumerateObject()
+            .Select(static property => (property.Name, property.Value)));
+        Seq<string> names = toSeq(left.Keys.Concat(right.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+        if (names.Exists(name => JsonPatchOperationWire.IsUnsafe(name) && Changed(left.Find(name), right.Find(name)))) {
+            return Seq(new Operation("replace", path, string.Empty, after.Clone()));
+        }
+        return names.Bind(name =>
+            left.Find(name).Match(
+                Some: prior => right.Find(name).Match(
+                    Some: next => Diff(prior, next, Child(path, name)),
+                    None: () => Seq(new Operation("remove", Child(path, name), string.Empty, null!))),
+                None: () => right.Find(name).Match(
+                    Some: added => Seq(new Operation("add", Child(path, name), string.Empty, added.Clone())),
+                    None: Seq<Operation>)));
     }
+
+    static bool Changed(Option<JsonElement> before, Option<JsonElement> after) => before.Match(
+        Some: prior => after.Match(Some: next => !JsonElement.DeepEquals(prior, next), None: static () => true),
+        None: () => after.IsSome);
+
+    static string Child(string path, string member) => $"{path}/{member.Replace("~", "~0").Replace("/", "~1")}";
 
     // ONE projection over the derived Family + Evidence accessors — the seven near-identical Receipt arms are the
     // DERIVED_LOGIC collapse: the lane is `conflict.Family`, the two-sided stamps `conflict.Evidence`, so a new
@@ -334,8 +480,7 @@ public static class StructuralMerge {
     // the ingest->durable map (an unmapped id passes through unchanged), then re-freeze the snapshot. Node identity
     // rewrite and edge-endpoint rewrite are the seam-owned `Node.Relabel`/`Relationship.Remap` operations (the
     // Graph/element#NODE_MODEL + Relations/relation#EDGE_ALGEBRA owners) — the seam `Node`/`Relationship` are
-    // class-root [Equatable] [Union]s (the GRAPH_FAMILY form, so ElementGraph.Inequalities drills to member
-    // granularity) and a class-root union case has NO `with`, so the id/endpoint rewrite is the union's own total-
+    // class-root unions and a class-root union case has NO `with`, so the id/endpoint rewrite is the union's own total-
     // Map reconstruction, NOT a per-case `with` re-spelled in this consumer. Reconcile composes them, never re-deriving them.
     static ElementGraph Reindex(ElementGraph graph, HashMap<NodeId, NodeId> remap) {
         NodeId Resolve(NodeId id) => remap.Find(id).IfNone(id);
@@ -435,70 +580,6 @@ public static class StructuralMerge {
         toSeq(edits.Keys.Choose(key => ParentOf(key, edits, byKey).Filter(parent => IsDescendant(parent, key, byKey, HashSet<NodeId>()))
             .Map(parent => { (Hlc cell, string actor) = Stamp(stamp(key)); return (MergeConflict)new MergeConflict.ContainmentCycle(key, parent, ByOurs, cell, actor); })));
 
-    // The RFC 6902 patch egress — the UNTYPED JsonPatchDocument a CDE/inspector deserializes and ApplyTo-folds. The
-    // forest deltas write fixed JSON pointers (`/parent`, `/ordinal`, `/role`); a content Update writes the
-    // MEMBER-GRANULAR pointers the graph-level Inequalities rows (already grouped to this node, the leading
-    // `Nodes[id]` prefix stripped by Pointer) localize, each row's terminal segment kind selecting its own
-    // add/remove/replace verb — a changed `/Layers/2/Thickness` is one Replace at that pointer, an added layer one
-    // Add, a dropped one one Remove, never a whole-node replace. Every payload the document carries is the REAL seam `Node` resolved
-    // from the `target` graph (else `@base` — the last real state): an Insert seeds it at the node-key pointer,
-    // and an Update whose member rows did NOT localize (the diff reported the whole node) replaces the WHOLE
-    // TARGET NODE at the `""` root pointer — a real, applyable target-state change. The hash-only `GraphNode`
-    // diff projection NEVER enters a patch (a `/propertyHash`/`/geometryHash` pointer addresses no member of the
-    // target `Node` — the deleted illusory form). Patch resolves the payload before dispatch; absence becomes the
-    // group's Tombstone, so this fold has no swallowed `None` arm. A Delete is the separate Tombstone.
-    static JsonPatchDocument Append(JsonPatchDocument doc, EditOp op, Seq<Inequality> members, Node payload) =>
-        op.Switch<(JsonPatchDocument Doc, Seq<Inequality> Members, Node Payload), JsonPatchDocument>(
-            (doc, members, payload),
-            match: static (s, _) => s.Doc,
-            insert: static (s, i) => s.Doc.Add($"/{i.Node.Key.Value}", Codec(s.Payload)),
-            delete: static (s, _) => s.Doc,
-            update: static (s, u) => s.Members.IsEmpty
-                ? s.Doc.Replace(string.Empty, Codec(s.Payload))
-                : s.Members.Fold(s.Doc, static (d, ineq) => Member(d, ineq)),
-            move: static (s, m) => s.Doc.Replace("/parent", Codec(m.ToParent)),
-            reorder: static (s, r) => s.Doc.Replace("/ordinal", Codec(r.ToOrdinal)),
-            retype: static (s, r) => s.Doc.Replace("/role", Codec(r.ToRole.Key)));
-
-    // Every patched VALUE lowers through the ONE codec STJ converter graph (`ElementJson.Options` — the same
-    // Thinktecture/LanguageExt/NodaTime converter set the codec owner registers once), so an inserted seam
-    // `Node` or a replaced `Option`/`Seq`/NodaTime member round-trips; a default-options serialization of a
-    // seam value inside the patch document is the deleted form that cannot re-hydrate.
-    static JsonElement Codec<T>(T value) => JsonSerializer.SerializeToElement(value, ElementJson.Options);
-
-    // The RFC 6902 VERB is the terminal segment's kind, never a blanket Replace: Generator.Equals stamps a member
-    // present on one side alone with a terminal membership marker, so a Replace at an ADDED member's pointer targets
-    // a location the node does not yet carry — an RFC 6902 error the break-on-first-error `ApplyTo` refuses, silently
-    // discarding every later op in the same document — and at a REMOVED member's pointer writes a null value where
-    // the member must leave. The two kind sentinels read off the segment factories themselves, so no enum case
-    // spelling is transcribed and a vocabulary rename breaks at the factory rather than drifting past a stale literal.
-    static readonly MemberPathSegmentKind Added = MemberPathSegment.Added().Kind;
-    static readonly MemberPathSegmentKind Removed = MemberPathSegment.Removed().Kind;
-
-    static JsonPatchDocument Member(JsonPatchDocument doc, Inequality ineq) => ineq.Path.Segments switch {
-        [] => doc.Replace(string.Empty, Codec(ineq.Right)),
-        [.., var terminal] when terminal.Kind == Removed => doc.Remove(Pointer(ineq.Path)),
-        [.., var terminal] when terminal.Kind == Added => doc.Add(Pointer(ineq.Path), Codec(ineq.Right)),
-        _ => doc.Replace(Pointer(ineq.Path), Codec(ineq.Right)),
-    };
-
-    // Lower a grouped graph-level MemberPath (`Nodes[<NodeId>].Layers[2].Thickness`) to a node-LOCAL RFC 6902 JSON
-    // pointer (`/Layers/2/Thickness`) — skip the leading `Nodes`-property segment and the `NodeId` key segment, drop
-    // the terminal membership marker (a kind-only segment whose absent `Value` would emit a trailing empty token),
-    // and escape every residual token. Escaping is load-bearing here rather than hygiene: a dictionary-`Key` segment
-    // carries a raw AEC member name verbatim, and an IFC property key or a classification code embeds `/` routinely,
-    // so a raw interpolation lands a pointer addressing a DIFFERENT member that `ApplyTo` then overwrites silently.
-    static string Pointer(MemberPath path) =>
-        toSeq(path.Segments
-                .SkipWhile(static seg => seg.Value is "Nodes" or NodeId)
-                .Where(static seg => seg.Kind != Added && seg.Kind != Removed))
-            .Fold(string.Empty, static (acc, seg) => $"{acc}/{Token(seg.Value)}");
-
-    // RFC 6901 §3 escaping in the mandated order — `~` first, then `/`, because escaping `/` first turns every
-    // emitted `~1` into a token the `~` pass double-escapes to `~01`, addressing a member no node carries.
-    static string Token(object? value) =>
-        (value?.ToString() ?? string.Empty).Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
-
     static ConflictReceipt Receipt(NodeId key, ModelId model, ColumnFamily family, Hlc held, string heldActor, Hlc incoming, string incomingActor, Guid correlation, Instant at) =>
         new(model, key.Value, family, held, heldActor, incoming, incomingActor, correlation, at);
 
@@ -529,11 +610,11 @@ public static class StructuralMerge {
 |  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
 |  [07]   | subtree prune         | domain accumulator `Clone` + `Append`, stable LE preimage                     |
 |  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
-|  [09]   | patch egress          | untyped `JsonPatchDocument` JSON pointers                                     |
+|  [09]   | edit egress           | `Tombstone | Members` over authoritative held-node addresses                 |
 |  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
 |  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
 |  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
-|  [13]   | patch value codec     | `SerializeToElement` under `ElementJson.Options`                              |
+|  [13]   | patch target          | exact `NodeWire` ProtoJSON through `JsonFormatter`                            |
 
 Each row's binding invariant, keyed to its policy:
 
@@ -545,11 +626,11 @@ Each row's binding invariant, keyed to its policy:
 - [06]-[CONTENT_KEY]: the ONE seam hasher; never a raw second `XxHash128` instance.
 - [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`.
 - [08]-[CONFLICT_ACCUMULATION]: one-pass classify, both carried, never first-abort.
-- [09]-[PATCH_EGRESS]: member-granular per the graph `Inequalities`; each row's terminal segment kind picks its verb; every token RFC 6901-escaped; a CDE/inspector reads it; delete is a tombstone.
+- [09]-[EDIT_EGRESS]: both arms compare the held node's producer-carried base address.
 - [10]-[CONFLICT_RECEIPT]: held/incoming `(Hlc, actor)` from the changefeed.
 - [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
 - [12]-[TYPE_CORRELATION]: a re-keyed GlobalId-less `Type` diffs as RENAME; kernel V8a seed replaces the interim on landing.
-- [13]-[PATCH_VALUE_CODEC]: every patched value rides the ONE codec converter graph; default-options serialization deleted.
+- [13]-[PATCH_TARGET]: `Members` diffs and patches exact `NodeWire` ProtoJSON; insertion remains on `GraphDelta`.
 
 ## [03]-[RESEARCH]
 

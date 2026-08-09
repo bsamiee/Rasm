@@ -134,10 +134,10 @@ flowchart LR
     Security{{security}}
     Data[(data)]
     Core e1@-->|"[SHAPE]: FlagVerdict"| Proc
-    Core e2@-->|"[SHAPE]: Budget"| Net
+    Core e2@-->|"[SHAPE]: Fault.Budget"| Net
     Core e3@-->|"[SHAPE]: Convention"| Otel
-    Core e4@-->|"[CONTENT_KEY]: Digest"| Browser
-    Core e14@-->|"[SHAPE]: AppIdentity"| Browser
+    Core e4@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Browser
+    Core e14@-->|"[SHAPE]: Identity.App"| Browser
     Security e5@-->|"[SHAPE]: CookieSpec"| Browser
     Browser e6@<-->|"[BOUNDARY]: OAuth"| Security
     Security e7@-->|"[PORT]: BearerGuard"| Serve
@@ -148,10 +148,9 @@ flowchart LR
     Work e11@<-->|"[BOUNDARY]: Journal.claimBatch"| Data
     Ai e12@-->|"[PORT]: Embedder"| Data
     Data e15@-->|"[PORT]: Journal.census"| Otel
-    Security e16@-->|"[PROJECTION]: rasm.tenant"| Otel
+    Security e16@-->|"[SHAPE]: TenantScope.metered"| Serve
     Core e17@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e18@-->|"[SHAPE]: Tap.Registry"| Otel
-    Security e19@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e20@-->|"[SHAPE]: Journal.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
     Data e22@-->|"[SHAPE]: Backend.Generation"| Net
@@ -188,12 +187,38 @@ flowchart LR
     Browser e7@-->|"[PORT]: GlbViewport"| Ui
     Browser e12@-->|"[PORT]: Egress"| Ui
     Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
-    Ui e9@-->|"[SHAPE]: Tap.Registry"| Otel
     Otel e10@-->|"[TRANSPORT]: Profile.live"| Iac
     Otel e11@-->|"[PORT]: Vital.Report"| Ui
 ```
 
 ## [04]-[INTERNAL]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Runtime execution spine
+    accDescr: Protocol ingress continues its carrier through serving and work, then emits signals and delivery outcomes.
+    Ingress([protocol ingress])
+    Carrier[otel · Carrier continuation]
+    Serve[serve · front door]
+    Work[work · durable execution]
+    Signals[otel · signal bridge]
+    Delivery[net/work · delivery]
+    Egress([response + transport])
+    Ingress e1@-->|"continue: Carrier.Context"| Carrier
+    Carrier e2@-->|"scope: request"| Serve
+    Serve e3@-->|"dispatch: intent"| Work
+    Work e4@-->|"publish: work facts"| Signals
+    Work e5@-->|"deliver: claimed work"| Delivery
+    Signals e6@-->|"export: signals"| Egress
+    Delivery e7@-->|"emit: transport"| Egress
+```
 
 `proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability under one ambient redaction scrub every capture seam inherits; its vocabulary lives in core.
 

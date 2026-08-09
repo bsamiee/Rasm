@@ -2,7 +2,7 @@
 
 W3C propagation crosses the interchange plane as ONE typed `traceparent`/`tracestate`/`baggage` value, total parse/print folds, `rasm.tenant` promotion, a closed transport table, and the Connect `-bin` typed-metadata lane. HTTP, Connect, NATS, MQTT v5, CloudEvents, and Kafka inject and extract through one codec. Malformed input folds to absence under the restart posture, while ordered, bounded folds keep output byte-stable. Module `core/src/interchange/carrier.ts` admits a transport as one dialect row, a baggage axis as one member key, and a typed family as one name row.
 
-`Carrier` composes only the `value` floor's `TenantContext` and hands dialect frames to the runtime wave as data. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
+`Carrier` composes only the `value` floor's `Identity.Tenant` and hands dialect frames to the runtime wave as data. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
 
 ## [01]-[INDEX]
 
@@ -12,24 +12,28 @@ W3C propagation crosses the interchange plane as ONE typed `traceparent`/`traces
 
 ## [02]-[CONTEXT_VALUE]
 
-- Owner: the context anchors — `Traceparent`, the parent-span identity class over the non-zero `TraceId`/`SpanId` hex brands with the sampled flag; `Carrier.State`, the ordered `tracestate` member rows under the vendor-key grammar; `Carrier.Member`, the baggage rows carrying percent-decoded values with their property tails; and `Carrier.Context`, the assembled triple whose every field is honestly absent-or-present — `parent` as `Option`, the two lists empty when unclaimed.
-- Law: parse is total by the restart posture — a malformed `traceparent` folds to `Option.none` so the receiver restarts the trace instead of failing the call, a malformed `tracestate` or baggage member drops while its well-formed siblings survive, each baggage property tail proves the W3C property grammar or drops — a tail carrying a delimiter never re-frames a printed header — and context lists, serialized tracestate, and property tails truncate at their declared ceilings, so no downstream consumer meets an unbounded list; version `ff` refuses, version `00` admits only flags `00` or `01` and refuses extension fields, a future version parses its known four fields, and the all-zero trace or span id refuses through the brand pattern.
-- Law: print is the inverse total fold — the parent renders the supported `00-<trace>-<span>-<flags>` spelling with the sampled bit as the whole flags byte, one `_stateRows` fold applies member grammar, row count, and aggregate text bounds before state members join in held order, and baggage members percent-encode through the boundary-owned URI fold with unencodable members and malformed or overlong properties dropped at print exactly as malformed input drops at parse, so print-then-parse is identity over every surviving supported-version value.
-- Law: the span lift is structural — `Carrier.span({ traceId, spanId, sampled })` accepts any value carrying the three fields, so an Effect `Tracer.Span` and a recovered `ExternalSpan` lift identically with zero adapters. `Carrier.Current` scopes an admitted ingress context; `Carrier.current` overlays the live `Effect.currentSpan` parent while retaining carried tracestate and baggage, so core Connect egress and every runtime transport preserve foreign context without importing the runtime adapter.
+- Owner: `Traceparent`, `Carrier.State`, `Carrier.Member`, and `Carrier.Context` own parent, tracestate, baggage, and optionality.
+- Law: Malformed parents restart; invalid state or baggage members drop independently.
+- Law: Baggage properties prove delimiter-safe W3C grammar before entering context.
+- Law: Baggage admits 64 members, 4096 encoded bytes per member, and 8192 encoded bytes total.
+- Law: Version `ff`, invalid version-zero flags, extensions on version zero, and all-zero identities refuse.
+- Law: Parent print emits the supported version-zero spelling and sampled flag.
+- Law: `_stateRows` enforces grammar, first-key-wins uniqueness, member count, and aggregate text bounds before joining.
+- Law: Baggage print uses Effect `Encoding` before member and aggregate encoded-byte admission.
+- Law: `Carrier.span` lifts structural span fields; `Carrier.Current` scopes ingress; `Carrier.current` overlays the live parent and preserves lists.
 - Growth: a new context list (a fourth W3C header) is one field on the triple with its parse/print row; a new parse bound is one `_CEILING` field.
-- Boundary: which span is current is the rail's tracer; store-and-forward of a context beside a durable frame is the data wave's — this owner is the pure value and its folds.
-- Packages: `effect` (`Array`, `Effect`, `Either`, `Option`, `Schema`, `String`, `pipe`); `../value/identity.ts` (`TenantContext`).
+- Boundary: Tracer owns the live span; data owns persisted contexts; `Carrier` owns pure context values and folds.
+- Packages: `effect` (`Array`, `Effect`, `Either`, `Encoding`, `Option`, `Schema`, `String`, `pipe`); `../value/identity.ts` (`Identity.Tenant`).
 
 ```typescript signature
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
-import type { DescMessage, Message, MessageShape } from "@bufbuild/protobuf"
 import type { Wire } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
 import { Headers, HttpTraceContext } from "@effect/platform"
-import { Array, Context, Effect, Either, Option, Predicate, Record, Schema, String, pipe } from "effect"
+import { Array, Context, Effect, Either, Encoding, Option, Predicate, Record, Schema, String, pipe } from "effect"
 import { Convention } from "../observe/convention.ts"
-import { TenantContext } from "../value/identity.ts"
+import { Identity } from "../value/identity.ts"
 
-const _CEILING = { state: 32, stateText: 512, baggage: 32, key: 256, value: 256, properties: 16, property: 256 } as const
+const _CEILING = { state: 32, stateText: 512, baggage: 64, baggageMember: 4096, baggageText: 8192 } as const
 
 const _TraceId = Schema.String.pipe(Schema.pattern(/^(?!0{32})[0-9a-f]{32}$/), Schema.brand("TraceId"))
 const _SpanId = Schema.String.pipe(Schema.pattern(/^(?!0{16})[0-9a-f]{16}$/), Schema.brand("SpanId"))
@@ -41,26 +45,19 @@ class Traceparent extends Schema.Class<Traceparent>("Traceparent")({
 }) {}
 
 const _PARENT = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(-.+)?$/
-const _STATE_KEY = /^[a-z0-9][a-z0-9_\-*/]{0,255}$|^[a-z0-9][a-z0-9_\-*/]{0,240}@[a-z][a-z0-9_\-*/]{0,13}$/
+const _STATE_KEY = /^[a-z][a-z0-9_\-*/]{0,255}$|^[a-z0-9][a-z0-9_\-*/]{0,240}@[a-z][a-z0-9_\-*/]{0,13}$/
 const _STATE_VALUE = /^[\x20-\x2b\x2d-\x3c\x3e-\x7e]{0,255}[\x21-\x2b\x2d-\x3c\x3e-\x7e]$/
 const _BAGGAGE_KEY = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/
+const _BAGGAGE_VALUE = /^[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*$/
 // W3C baggage property grammar: token key, optional "=" then baggage-octets — every printable byte
 // except the dquote, comma, semicolon, and backslash delimiters that would re-frame the header.
 const _PROPERTY = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+(?:=[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*)?$/
 
 const _decodedParent = Schema.decodeUnknownOption(Traceparent)
 
-const _uri = (transform: (value: string) => string) => (value: string): Option.Option<string> => {
-  // BOUNDARY ADAPTER: URI codecs throw on malformed escapes and lone surrogates; restart posture turns either into absence.
-  try {
-    return Option.some(transform(value))
-  } catch {
-    return Option.none()
-  }
-}
-
-const _decodeUri = _uri(decodeURIComponent)
-const _encodeUri = _uri(encodeURIComponent)
+// Effect Encoding owns the URI exception rail; carrier's restart boundary folds its typed Either to absence.
+const _decodeUri = (value: string): Option.Option<string> => Either.getRight(Encoding.decodeUriComponent(value))
+const _encodeUri = (value: string): Option.Option<string> => Either.getRight(Encoding.encodeUriComponent(value))
 
 const _parent = (text: string): Option.Option<Traceparent> =>
   pipe(
@@ -76,9 +73,8 @@ const _parent = (text: string): Option.Option<Traceparent> =>
 const _properties = (properties: ReadonlyArray<string>): ReadonlyArray<string> =>
   pipe(
     properties,
-    Array.take(_CEILING.properties),
     Array.map(String.trim),
-    Array.filter((property) => property.length <= _CEILING.property && _PROPERTY.test(property)),
+    Array.filter((property) => _PROPERTY.test(property)),
   )
 
 type _StateFold = { readonly rows: ReadonlyArray<Carrier.State>; readonly length: number }
@@ -89,6 +85,7 @@ const _stateRows = (rows: ReadonlyArray<Carrier.State>): ReadonlyArray<Carrier.S
   pipe(
     rows,
     Array.filter(_stateMember),
+    (admitted) => Array.dedupeWith(admitted, (left, right) => left.key === right.key),
     Array.take(_CEILING.state),
     Array.reduce({ rows: [], length: 0 } satisfies _StateFold, (held, row) => {
       const length = held.length + (Array.isEmptyReadonlyArray(held.rows) ? 0 : 1) + row.key.length + row.value.length + 1
@@ -107,22 +104,31 @@ const _state = (text: string): ReadonlyArray<Carrier.State> =>
     _stateRows,
   )
 
-const _baggage = (text: string): ReadonlyArray<Carrier.Member> =>
+const _utf8 = { read: new TextDecoder(), write: new TextEncoder() } as const
+const _bytes = (text: string): number => _utf8.write.encode(text).byteLength
+
+const _baggageMember = (entry: string): Option.Option<Carrier.Member> =>
   pipe(
-    String.split(text, ","),
-    Array.filterMap((entry) =>
-      pipe(String.split(String.trim(entry), ";"), ([head, ...properties]) =>
-        pipe(
-          Option.fromNullable(/^([^=]+)=(.*)$/.exec(head ?? "")),
-          Option.filter(([, key]) => key !== undefined && _BAGGAGE_KEY.test(key) && key.length <= _CEILING.key),
-          Option.flatMap(([, key, value]) =>
-            Option.map(
-              Option.filter(_decodeUri(value ?? ""), (decoded) => decoded.length <= _CEILING.value),
-              (decoded) => ({ key: key ?? "", value: decoded, properties: _properties(properties) }),
-            )),
-        ))),
-    Array.take(_CEILING.baggage),
+    String.trim(entry),
+    Option.liftPredicate((held) => _bytes(held) <= _CEILING.baggageMember),
+    Option.flatMap((held) => pipe(String.split(held, ";"), ([head, ...properties]) =>
+      pipe(
+        Option.fromNullable(/^([^=]+)=(.*)$/.exec(head ?? "")),
+        Option.filter(([, key, value]) =>
+          key !== undefined && _BAGGAGE_KEY.test(key) && _BAGGAGE_VALUE.test(value ?? "")),
+        Option.flatMap(([, key, value]) =>
+          Option.map(_decodeUri(value ?? ""), (decoded) => ({
+            key: key ?? "",
+            value: decoded,
+            properties: _properties(properties),
+          }))),
+      ))),
   )
+
+const _baggage = (text: string): ReadonlyArray<Carrier.Member> =>
+  _bytes(text) > _CEILING.baggageText
+    ? []
+    : pipe(String.split(text, ","), Array.filterMap(_baggageMember), Array.take(_CEILING.baggage))
 
 const _printedParent = (parent: Traceparent): string =>
   `00-${parent.traceId}-${parent.spanId}-${parent.sampled ? "01" : "00"}`
@@ -130,45 +136,76 @@ const _printedParent = (parent: Traceparent): string =>
 const _printedState = (rows: ReadonlyArray<Carrier.State>): string =>
   Array.join(Array.map(_stateRows(rows), (row) => `${row.key}=${row.value}`), ",")
 
-const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
-  Array.join(
-    Array.filterMap(Array.take(members, _CEILING.baggage), (member) =>
-      pipe(
-        Option.some(member),
-        Option.filter(({ key, value }) =>
-          _BAGGAGE_KEY.test(key) && key.length <= _CEILING.key && value.length <= _CEILING.value),
-        Option.flatMap(({ key, value, properties }) =>
-          Option.map(_encodeUri(value), (encoded) => Array.join([`${key}=${encoded}`, ..._properties(properties)], ";"))),
-      )),
-    ",",
+const _printedMember = ({ key, value, properties }: Carrier.Member): Option.Option<string> =>
+  pipe(
+    Option.some(key),
+    Option.filter((held) => _BAGGAGE_KEY.test(held)),
+    Option.flatMap(() => _encodeUri(value)),
+    Option.map((encoded) => Array.join([`${key}=${encoded}`, ..._properties(properties)], ";")),
+    Option.filter((member) => _bytes(member) <= _CEILING.baggageMember),
   )
+
+type _BaggageFold = { readonly members: ReadonlyArray<string>; readonly bytes: number }
+
+const _printedMembers = (
+  members: ReadonlyArray<Carrier.Member>,
+  reserved = 0,
+  limit = _CEILING.baggage,
+): _BaggageFold =>
+  pipe(
+    members,
+    Array.filterMap(_printedMember),
+    Array.take(limit),
+    Array.reduce({ members: [], bytes: reserved } satisfies _BaggageFold, (held, member) => {
+      const bytes = held.bytes + (held.bytes > reserved || reserved > 0 ? 1 : 0) + _bytes(member)
+      return bytes <= _CEILING.baggageText ? { members: [...held.members, member], bytes } : held
+    }),
+  )
+
+const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
+  Array.join(_printedMembers(members).members, ",")
 ```
 
 ## [03]-[TENANT_BAGGAGE]
 
-- Owner: the tenancy member — `_TENANT`, the one `rasm.tenant` baggage key; `promote`, the upserting fold landing a `TenantContext` scope onto the baggage list; and `tenant`, the recovery decode reading the member back through `TenantContext.FromScope`.
-- Law: promotion is inject-side law — every outbound hop that holds a tenancy promotes it before the dialect row prints, the member value is the branded `scope` spelling so the one partition key crosses brokers verbatim, and cost attribution survives every broker boundary because the member rides the same baggage header every dialect carries; the upsert replaces an incumbent `rasm.tenant` member, reserves its slot before truncation, and returns at most the declared baggage ceiling, so a relayed context never loses or duplicates tenancy.
-- Law: recovery is a decode, never a split — the member value re-proves both key alphabets through `TenantContext.FromScope`, so a forged or truncated scope folds to `Option.none` and tenancy never enters domain flow as a bare string; resource-level tenant stamping stays `observe/convention`'s identity projection, and this member is the per-hop transport of the same value.
+- Owner: `_TENANT` names the one tenancy baggage member.
+- Owner: `promote` upserts `Identity.Tenant`; `tenant` decodes it through `Identity.Tenant.FromScope`.
+- Law: `promote` replaces `rasm.tenant` with `Identity.Tenant.scope`, reserves its slot, and enforces member and byte ceilings.
+- Law: `Identity.Tenant.FromScope` re-proves both key alphabets; malformed scope folds to `Option.none`.
+- Law: Resource stamping and propagation carry the same identity value.
 - Growth: a second promoted axis (a deployment ring, a request class) is one member-key constant with its promote/read pair beside this one.
-- Boundary: which fiber holds the tenancy is `invoke`'s `Dial.Ambient` reference; security's claim alignment consumes the recovered `TenantContext` and owns everything past it.
-- Packages: `effect` (`Array`, `Option`); `../observe/convention.ts` (`Convention`); `../value/identity.ts` (`TenantContext`).
+- Boundary: `Dial.Ambient` holds fiber tenancy; security consumes the recovered `Identity.Tenant`.
+- Packages: `effect` (`Array`, `Option`); `../observe/convention.ts` (`Convention`); `../value/identity.ts` (`Identity.Tenant`).
 
 ```typescript signature
 // Observe owns this baggage key outright, so one spelling site serves the branch and a rename there lands here
 // rather than orphaning a twin no consumer can see diverge.
 const _TENANT = Convention.rasm.tenant
 
-const _decodedTenant = Schema.decodeUnknownOption(TenantContext.FromScope)
+const _decodedTenant = Schema.decodeUnknownOption(Identity.Tenant.FromScope)
 
-const _promote = (context: Carrier.Context, tenant: TenantContext): Carrier.Context => ({
-  ...context,
-  baggage: [
-    ...Array.take(Array.filter(context.baggage, (member) => member.key !== _TENANT), _CEILING.baggage - 1),
-    { key: _TENANT, value: tenant.scope, properties: [] },
-  ],
-})
+const _promote = (context: Carrier.Context, tenant: Identity.Tenant): Carrier.Context =>
+  pipe(
+    { key: _TENANT, value: tenant.scope, properties: [] } satisfies Carrier.Member,
+    (promoted) => ({
+      promoted,
+      reserved: Option.match(_printedMember(promoted), { onNone: () => _CEILING.baggageText, onSome: _bytes }),
+    }),
+    ({ promoted, reserved }) => ({
+      promoted,
+      admitted: _printedMembers(
+        Array.filter(context.baggage, (member) => member.key !== _TENANT),
+        reserved,
+        _CEILING.baggage - 1,
+      ),
+    }),
+    ({ promoted, admitted }) => ({
+      ...context,
+      baggage: [...Array.filterMap(admitted.members, _baggageMember), promoted],
+    }),
+  )
 
-const _tenant = (context: Carrier.Context): Option.Option<TenantContext> =>
+const _tenant = (context: Carrier.Context): Option.Option<Identity.Tenant> =>
   Option.flatMap(
     Array.findFirst(context.baggage, (member) => member.key === _TENANT),
     (member) => _decodedTenant(member.value),
@@ -177,25 +214,29 @@ const _tenant = (context: Carrier.Context): Option.Option<TenantContext> =>
 
 ## [04]-[DIALECT_TABLE]
 
-- Owner: the transport table — `_KEYS`, the three W3C header names every dialect shares; `Carrier.Frame`, the mapped per-dialect frame vocabulary (`fanout`/`http`/`nats` over string header records, `connect` over platform `Headers`, `kafka` over the byte-valued record-header map, `mqtt` over the v5 `userProperties` map, `cloudevents` over the extension-attribute record); `_dialects`, the mapped read/write handler record; the generic indexed `inject`/`extract` pair; and `_BIN` with the `bin` lane — the Connect `-bin` typed-metadata rows riding `encodeBinaryHeader`/`decodeBinaryHeader`.
-- Law: one value, many frames — every row carries the same three keys, variation is exactly the frame's value codec (string on `http`/`connect`/`nats`, first-of-array on a repeated `mqtt` user property, UTF-8 bytes on `kafka`, a string-filtered `unknown` on `cloudevents`) and nothing else, so the table is data and a per-transport propagation fork has no authoring surface; the runtime clients realize each row against their live surfaces — `http` reads the normalized request-header record, `mqtt` prints into `opts.properties.userProperties` and reads the delivered packet's property block, `cloudevents` sets extension attributes the binary `Binding` emits as `ce-` headers, `kafka` lands record headers, `nats` lands `MsgHdrs` rows — and a raw header read past a row is the untyped-leak defect.
-- Law: inject writes only what the context claims — an absent parent writes no `traceparent`, empty lists write nothing, so a hop never mints an empty header; extract composes the total folds, so a partially-malformed frame yields the surviving members and the context is always constructible.
-- Law: parent recovery has a Zipkin fallback and the platform owns its parse — an absent or malformed `traceparent` falls through to the single-header then multi-header B3 decoders over a `Headers` projection of the same frame, each hit lifting through the structural span lift, so a peer emitting B3 (a service mesh, a JVM stack, a Zipkin-native hop) continues the trace instead of extracting to absence indistinguishable from a genuinely absent parent. The B3 names are READ keys alone — inject prints the W3C triple and nothing else, because the platform decoders carry no `tracestate` and no baggage and so can never own the print fold this page exists for; the fallback is an arm, never a replacement.
-- Law: the B3 keys ride the row's OWN value codec — the projection reads them through the same per-dialect `read` the W3C names take and assembles one header frame ONCE per extract, so every transport inherits the fallback, no dialect carves out of it, and a W3C-absent hop pays one projection rather than one per decoder; a per-transport B3 arm is the fork the one table forecloses.
-- Law: the read and write halves carry different key types — `read` spans every ingress name including the Zipkin roster while `write` takes `Injected`, the W3C three alone — so "inject prints the W3C triple and nothing else" is a parameter type a dialect row cannot violate rather than a discipline every row restates.
-- Law: the `-bin` lane is the TYPED metadata dialect beside the W3C rows, never a second context spelling — `_BIN` names the protobuf metadata families the invoke lanes attach (`rasm-tenant-bin` carrying `TenantContextWire`, `rasm-stamp-bin` carrying `HlcStampWire`), `bin.set` encodes a message through `encodeBinaryHeader(message, desc)` onto the `-bin`-suffixed name, and `bin.get` decodes through `decodeBinaryHeader(value, type)` with the codec's `DataLoss` throw folded to absence by the same restart posture the text folds hold; a new typed family is one `_BIN` row and its wire class, and `appendHeaders` remains the kit merge where a hand-assembled lane joins carrier headers with call headers.
-- Law: the byte crossing is one marked seam — the `kafka` row's UTF-8 pair is the module's `TextEncoder`/`TextDecoder` kernel, constructed once and never escaping, so every dialect stays runtime-neutral under node, bun, and the browser.
-- Growth: a new transport is one `Frame` field with its `_dialects` row; a new typed `-bin` family is one `_BIN` row; a further ingress dialect is one read-key tuple with its platform decoder in the fallback chain.
-- Boundary: live clients, broker connections, and binding serialization are the runtime wave's; the Connect lanes' per-call composition is `invoke#DIAL_AXIS`'s — its `_stamped` fold reads `Carrier.current`, promotes tenancy, prints the `connect` row, and leaves typed `_BIN` attachment to its interceptors.
-- Packages: `@connectrpc/connect` (`encodeBinaryHeader`, `decodeBinaryHeader`); `@bufbuild/protobuf` (`DescMessage`, `Message`, `MessageShape`); `@effect/platform` (`Headers`, `HttpTraceContext`); `effect` (`Array`, `Either`, `Option`, `Predicate`, `Record`).
+- Owner: `Carrier.Frame` maps each transport to its actual header value shape.
+- Owner: `_dialects` and `Carrier.record` share immutable record-header read and write rows.
+- Owner: `_BIN` carries typed metadata as base64 octets through Connect `-bin` headers.
+- Law: `_dialects` maps one W3C context to string, repeated-string, byte, or extension-record frames; consumers use only that row.
+- Law: `inject` omits absent fields and prints `tracestate` beneath a printed parent alone; `extract` drops malformed members independently and always returns `Carrier.Context`.
+- Law: Missing or malformed W3C parents fall through to platform `b3` then `xb3` decoders; injection remains W3C-only.
+- Law: Restart discards `tracestate`, so vendor rows survive the W3C parent alone and never a `b3`-recovered one.
+- Law: B3 projection reads through the selected dialect row once, so every transport shares the same fallback.
+- Law: `Row.read` accepts W3C and B3 keys; `Row.write` accepts only `Carrier.Injected` W3C keys.
+- Law: `_BIN` maps a metadata name to its `Wire` family; `bin.set/get` carry that family's own octets and fold decode failure to absence.
+- Law: Dialect rows decide selection, injection, and `degrade` alone — tenancy realizes through `promote`, and a context's lifetime ends with the `Carrier.Current` scope its caller opened.
+- Law: Kafka and `Carrier.record` share one `TextEncoder` and `TextDecoder` kernel.
+- Law: `record.read` selects the first repeated value and detaches bytes.
+- Law: `record.write` emits a fresh string record without importing a host byte type.
+- Growth: Add a transport as one `Carrier.Frame` field and dialect row; add typed metadata or fallback as one table row.
+- Boundary: Runtime owns clients and bindings; invoke composes `Carrier.current`, tenant promotion, Connect injection, and `_BIN`.
+- Packages: `@connectrpc/connect`, `@effect/platform`, and `effect`.
 
 ```typescript signature
 const _KEYS = ["traceparent", "tracestate", "baggage"] as const
 
 // The Zipkin ingress names, READ-only: the single-header form and the multi-header form the platform decoders parse.
 const _B3 = ["b3", "x-b3-traceid", "x-b3-spanid", "x-b3-sampled", "x-b3-parentspanid"] as const
-
-const _utf8 = { read: new TextDecoder(), write: new TextEncoder() } as const // BOUNDARY ADAPTER: the kafka row's byte-to-text kernel; neither instance escapes
 
 declare namespace Carrier {
   type Key = (typeof _KEYS)[number] | (typeof _B3)[number] // every header name a row READS
@@ -216,10 +257,13 @@ declare namespace Carrier {
     readonly mqtt: Record.ReadonlyRecord<string, string | ReadonlyArray<string>>
     readonly nats: Record.ReadonlyRecord<string, string>
   }
+  type RecordHeader = Uint8Array | string | ReadonlyArray<Uint8Array | string> | undefined
+  type RecordHeaders = Record.ReadonlyRecord<string, RecordHeader>
   type Dialect = keyof Frame
   type Row<F> = {
     readonly read: (frame: F, key: Key) => Option.Option<string>
     readonly write: (frame: F, key: Injected, value: string) => F
+    readonly degrade: string // what this frame shape forfeits carrying a W3C context, stated per row and readable by consumers
   }
   type Bin = keyof typeof _BIN
   type Shape = {
@@ -227,13 +271,18 @@ declare namespace Carrier {
     readonly Traceparent: typeof Traceparent
     readonly bin: {
       readonly names: typeof _BIN
-      readonly get: <Desc extends DescMessage>(headers: Headers.Headers, name: Bin, desc: Desc) => Option.Option<MessageShape<Desc>>
-      readonly set: (headers: Headers.Headers, name: Bin, message: Message, desc: DescMessage) => Headers.Headers
+      readonly get: (headers: Headers.Headers, name: Bin) => Option.Option<Uint8Array>
+      readonly set: (headers: Headers.Headers, name: Bin, octets: Uint8Array) => Headers.Headers
     }
     readonly current: Effect.Effect<Context>
+    readonly dialects: typeof _dialects // consumers read a row's `degrade` before selecting the transport that carries their context
     readonly empty: Context
     readonly extract: <K extends Dialect>(dialect: K, frame: Frame[K]) => Context
     readonly inject: <K extends Dialect>(dialect: K, context: Context, frame: Frame[K]) => Frame[K]
+    readonly record: {
+      readonly read: (headers: RecordHeaders) => Frame["kafka"]
+      readonly write: (frame: Frame["kafka"]) => Record.ReadonlyRecord<string, string>
+    }
     readonly parse: {
       readonly baggage: (text: string) => ReadonlyArray<Member>
       readonly traceparent: (text: string) => Option.Option<Traceparent>
@@ -244,9 +293,9 @@ declare namespace Carrier {
       readonly traceparent: (parent: Traceparent) => string
       readonly tracestate: (rows: ReadonlyArray<State>) => string
     }
-    readonly promote: (context: Context, tenant: TenantContext) => Context
+    readonly promote: (context: Context, tenant: Identity.Tenant) => Context
     readonly span: (span: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }) => Context
-    readonly tenant: (context: Context) => Option.Option<TenantContext>
+    readonly tenant: (context: Context) => Option.Option<Identity.Tenant>
   }
   type _Rows<T extends { readonly [K in Dialect]: Row<Frame[K]> } = typeof _dialects> = T
 }
@@ -258,53 +307,86 @@ const _BIN = {
   "rasm-tenant-bin": "TenantContextWire",
 } as const satisfies Record.ReadonlyRecord<`rasm-${string}-bin`, Wire.Family>
 
+const _recordRow = <Value>(
+  degrade: string,
+  read: (value: Value) => Option.Option<string>,
+  write: (value: string) => Value,
+): Carrier.Row<Record.ReadonlyRecord<string, Value>> => ({
+  degrade,
+  read: (frame, key) => Option.flatMap(Option.fromNullable(frame[key]), read),
+  write: (frame, key, value) => ({ ...frame, [key]: write(value) }),
+})
+
+const _records = {
+  text: _recordRow("<repeated-values-unrepresentable>", (value: string) => Option.some(value), (value) => value),
+  bytes: _recordRow(
+    "<header-octets-read-as-utf8>",
+    (value: Uint8Array) => Option.some(_utf8.read.decode(value)),
+    (value) => _utf8.write.encode(value),
+  ),
+  read: (headers: Carrier.RecordHeaders): Carrier.Frame["kafka"] =>
+    Record.fromEntries(
+      Object.entries(headers).flatMap(([key, value]) =>
+        pipe(
+          value === undefined || Predicate.isString(value) || value instanceof Uint8Array ? value : value[0],
+          (head) => head === undefined
+            ? []
+            : [[key, Predicate.isString(head) ? _utf8.write.encode(head) : new Uint8Array(head)] as const],
+        )),
+    ),
+  write: (frame: Carrier.Frame["kafka"]): Record.ReadonlyRecord<string, string> =>
+    Record.map(frame, (value) => _utf8.read.decode(value)),
+} as const
+
 const _dialects: { readonly [K in Carrier.Dialect]: Carrier.Row<Carrier.Frame[K]> } = {
-  // extension attributes, which the binary binding emits under `CONSTANTS.EXTENSIONS_PREFIX` — the prefix is the
-  // package's own constant, so a spec change breaks at one named member rather than in a hand-spelled header literal
+  // Events carry extension attributes UNPREFIXED, so this row reads an event's own attribute record; binary-mode
+  // bindings prefix those names into a header frame the http row already serves, and that prefix stays theirs.
   cloudevents: {
+    degrade: "<attribute-record-only>",
     read: (frame, key) => Option.filter(Option.fromNullable(frame[key]), Predicate.isString),
     write: (frame, key, value) => ({ ...frame, [key]: value }),
   },
   connect: {
+    degrade: "<repeats-flattened-before-arrival>", // `Headers` indexes one string per name, so a repeat never reaches this row
     read: (frame, key) => Headers.get(frame, key),
     write: (frame, key, value) => Headers.set(frame, key, value),
   },
-  fanout: {
-    read: (frame, key) => Option.fromNullable(frame[key]),
-    write: (frame, key, value) => ({ ...frame, [key]: value }),
-  },
-  http: {
-    read: (frame, key) => Option.fromNullable(frame[key]),
-    write: (frame, key, value) => ({ ...frame, [key]: value }),
-  },
-  kafka: {
-    read: (frame, key) => Option.map(Option.fromNullable(frame[key]), (bytes) => _utf8.read.decode(bytes)),
-    write: (frame, key, value) => ({ ...frame, [key]: _utf8.write.encode(value) }),
-  },
+  fanout: _records.text,
+  http: _records.text,
+  kafka: _records.bytes,
   mqtt: {
+    degrade: "<repeated-user-property-first-wins>",
     read: (frame, key) =>
       Option.flatMap(Option.fromNullable(frame[key]), (held) =>
-        Predicate.isString(held) ? Option.some(held) : Array.head(held)), // a repeated v5 user property reads first-wins
+        Predicate.isString(held) ? Option.some(held) : Array.head(held)),
     write: (frame, key, value) => ({ ...frame, [key]: value }),
   },
-  nats: {
-    read: (frame, key) => Option.fromNullable(frame[key]),
-    write: (frame, key, value) => ({ ...frame, [key]: value }),
-  },
+  nats: _records.text,
 }
 
-const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context, frame: Carrier.Frame[K]): Carrier.Frame[K] => {
-  const row = _dialects[dialect]
-  const baggage = _printedBaggage(context.baggage)
-  return pipe(
-    Option.match(context.parent, {
-      onNone: () => frame,
-      onSome: (parent) => row.write(frame, "traceparent", _printedParent(parent)),
-    }),
-    (held) => (Array.isNonEmptyReadonlyArray(context.state) ? row.write(held, "tracestate", _printedState(context.state)) : held),
-    (held) => (baggage.length > 0 ? row.write(held, "baggage", baggage) : held),
+const _record = {
+  read: _records.read,
+  write: _records.write,
+} as const
+
+const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context, frame: Carrier.Frame[K]): Carrier.Frame[K] =>
+  pipe(
+    { row: _dialects[dialect], baggage: _printedBaggage(context.baggage) },
+    ({ row, baggage }) =>
+      pipe(
+        Option.match(context.parent, {
+          onNone: () => frame, // no parent prints no state: vendor rows anchor to the parent whose trace minted them
+          onSome: (parent) =>
+            pipe(
+              row.write(frame, "traceparent", _printedParent(parent)),
+              (held) => Array.isNonEmptyReadonlyArray(context.state)
+                ? row.write(held, "tracestate", _printedState(context.state))
+                : held,
+            ),
+        }),
+        (held) => baggage.length > 0 ? row.write(held, "baggage", baggage) : held,
+      ),
   )
-}
 
 // The platform B3 decoders read a header frame, so the Zipkin names project off the row's own value codec into one
 // `Headers` map — the dialect stays a value codec, and the two Zipkin grammars stay the platform's own parse.
@@ -315,21 +397,27 @@ const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K])
     ),
   )
 
-const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Context => {
-  const row = _dialects[dialect]
-  return {
-    // one projection feeds both Zipkin grammars: the fallback is already lazy, so re-projecting per decoder would
-    // rebuild the same header map twice on every W3C-absent hop
-    parent: Option.orElse(Option.flatMap(row.read(frame, "traceparent"), _parent), () =>
-      pipe(_zipkin(dialect, frame), (zipkin) =>
-        Option.flatMap(
-          Option.orElse(HttpTraceContext.b3(zipkin), () => HttpTraceContext.xb3(zipkin)),
-          (external) => _span(external).parent, // the recovered external span lifts through the one structural span fold
-        ))),
-    state: Option.match(row.read(frame, "tracestate"), { onNone: () => [], onSome: _state }),
-    baggage: Option.match(row.read(frame, "baggage"), { onNone: () => [], onSome: _baggage }),
-  }
-}
+const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Context =>
+  pipe(
+    { row: _dialects[dialect], w3c: Option.flatMap(_dialects[dialect].read(frame, "traceparent"), _parent) },
+    ({ row, w3c }) => ({
+      // one projection feeds both Zipkin grammars: the fallback is already lazy, so re-projecting per decoder would
+      // rebuild the same header map twice on every W3C-absent hop
+      parent: Option.orElse(w3c, () =>
+        pipe(_zipkin(dialect, frame), (zipkin) =>
+          Option.flatMap(
+            Option.orElse(HttpTraceContext.b3(zipkin), () => HttpTraceContext.xb3(zipkin)),
+            (external) => _span(external).parent, // the recovered external span lifts through the one structural span fold
+          ))),
+      // Restart drops what it cannot anchor: vendor rows key to the W3C parent that carried them, so a refused parent
+      // and a b3-recovered one both admit an empty list rather than lineage naming a trace this hop no longer continues.
+      state: Option.isSome(w3c)
+        ? Option.match(row.read(frame, "tracestate"), { onNone: () => [], onSome: _state })
+        : [],
+      // Baggage travels on its own W3C specification and survives a restarted parent, so its admission stays unconditional.
+      baggage: Option.match(row.read(frame, "baggage"), { onNone: () => [], onSome: _baggage }),
+    }),
+  )
 
 const _empty: Carrier.Context = { parent: Option.none(), state: [], baggage: [] }
 
@@ -337,16 +425,14 @@ class _Current extends Context.Reference<_Current>()("core/Carrier/Current", {
   defaultValue: () => _empty,
 }) {}
 
-const _current: Effect.Effect<Carrier.Context> = Effect.flatMap(
-  Effect.all([Effect.option(Effect.currentSpan), _Current]),
-  ([span, carried]) => {
-    const live = Option.match(span, { onNone: () => _empty, onSome: _span })
-    return Effect.succeed({
+const _current: Effect.Effect<Carrier.Context> = Effect.map(
+  Effect.all({ carried: _Current, span: Effect.option(Effect.currentSpan) }),
+  ({ carried, span }) =>
+    pipe(Option.match(span, { onNone: () => _empty, onSome: _span }), (live) => ({
       parent: Option.orElse(live.parent, () => carried.parent),
       state: carried.state,
       baggage: carried.baggage,
-    })
-  },
+    })),
 )
 
 const _span = (span: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }): Carrier.Context => ({
@@ -359,15 +445,17 @@ const Carrier: Carrier.Shape = {
   Traceparent,
   bin: {
     names: _BIN,
-    get: (headers, name, desc) =>
+    get: (headers, name) =>
       Option.flatMap(Headers.get(headers, name), (value) =>
-        Either.getRight(Either.try(() => decodeBinaryHeader(value, desc)))), // the codec's DataLoss throw folds to absence by the restart posture
-    set: (headers, name, message, desc) => Headers.set(headers, name, encodeBinaryHeader(message, desc)),
+        Either.getRight(Either.try(() => decodeBinaryHeader(value)))), // the codec's DataLoss throw folds to absence by the restart posture
+    set: (headers, name, octets) => Headers.set(headers, name, encodeBinaryHeader(octets)),
   },
   current: _current,
+  dialects: _dialects,
   empty: _empty,
   extract: _extract,
   inject: _inject,
+  record: _record,
   parse: { baggage: _baggage, traceparent: _parent, tracestate: _state },
   print: { baggage: _printedBaggage, traceparent: _printedParent, tracestate: _printedState },
   promote: _promote,

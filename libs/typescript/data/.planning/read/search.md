@@ -6,28 +6,28 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 
 - [02]-[PORTS]: the `Embedder` port (fingerprint contract, `EmbedFault`) and the optional `Reranker`.
 - [03]-[INDEX_PLANE]: `Search.Embedding`, `Search.Corpus`, the embedding relation, and index rows.
-- [04]-[LANE_ROSTER]: the closed five-lane row table — grants, floor, rank fragment, per-call admission.
+- [04]-[LANE_ROSTER]: the closed five-lane row table — grants, floor, geometry, rank fragment, per-call admission.
 - [05]-[FUSION_QUERY]: `Search.of` — the RRF statement, rerank admission, facet/snippet/cursor families.
 
 ## [02]-[PORTS]
 
 - Owner: the `Embedder` `Context.Tag` — embed-with-fingerprint, the one cross-folder retrieval contract — and the `Reranker` tag read through `Effect.serviceOption` so rerank is presence-typed, never a knob.
-- Packages: `effect` (`Context`, `Schema`, `Array`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Context`, `Schema`, `Array`); `@rasm/ts/core` (`Fault.Class`).
 - Entry: the runtime branch's embedding rows satisfy `Embedder` at app composition; nothing in this folder imports a provider — the port is the whole seam, and a scope without an embedder simply has no semantic lane, the same degradation shape as a missing grant.
 - Receipt: singular `embed(text)` answers one vector under the port's own `fingerprint` — the satisfying Layer batches calls through `Batch.Engine`, the consuming seam proves both `vector.length === corpus.embedding.dims` and `port.fingerprint === corpus.embedding.fingerprint`, and only then can the semantic lane run.
 - Growth: an embedding capability axis (dimension negotiation, batch policy) is a member on this one port; a second model in one app is a second Layer against the same tag selected per scope, never a second tag.
-- Law: `EmbedFault` is the port's typed failure — reason-discriminated `budget | provider | shape` over the core `FaultClass.family` seam, schema-tagged so the persisted request band and any wire crossing carry it structurally — and retrieval folds it into lane exclusion BEFORE the census settles: the embed runs first, a failed embed folds to absence through `Effect.option`, the census marks the semantic lane `unembedded`, and the fused statement never names the lane its parameters cannot serve; text lanes still answer.
+- Law: `EmbedFault` closes through `Fault.Class.family`; a failed embed excludes only the semantic lane before census settlement.
 - Law: recovery policy reads the core lattice off `class` — `budget` classifies `exhausted` and `provider` `unavailable` (both system-blamed and retryable, so a satisfying Layer's own schedule re-drives them), `shape` classifies `invalid` because a vector disagreeing with the corpus dimension or fingerprint is quarantined evidence a re-drive cannot fix — so retryability, blame, and quarantine derive from the core row table and no local rank or retry column rides beside `class`.
 - Law: the `Reranker` answer is provider material, never trusted order — the port's declared type admits duplicates, unknown cells, and omissions, so the consuming seam (`[4]`'s rerank admission) proves the answer against its own candidate window and no port value can change hit cardinality; the port stays thin because the evidence lives at the seam that holds the candidates.
 - Law: the port's provider side batches through `read/batch.md`'s engine — the window geometry is the satisfying Layer's concern; this port declares only the vector contract.
 
 ```typescript signature
 import { Array, Context, Effect, Schema } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
-// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core Fault.Class row
 // table's — a rank or retry column here would fork that taxonomy into this folder.
-const _family = FaultClass.family(["budget", "provider", "shape"] as const, {
+const _family = Fault.Class.family(["budget", "provider", "shape"] as const, {
   budget: { class: "exhausted" },
   provider: { class: "unavailable" },
   shape: { class: "invalid" },
@@ -37,7 +37,7 @@ class EmbedFault extends Schema.TaggedError<EmbedFault>()("EmbedFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -67,7 +67,7 @@ class Reranker extends Context.Tag("data/Reranker")<Reranker, {
 
 ## [03]-[INDEX_PLANE]
 
-- Owner: `Search.Embedding` — model, dimensions, revision, and derived fingerprint under the provider identity regime — and `Search.Corpus` — the distinct relation identity composed with one embedding value — plus the `retrieve_embedding` ensure whose primary key includes that fingerprint and the dialect-paired index rows; vector method selection is grant-ordered data, never a query rewrite, and the runtime never executes a DDL statement.
+- Owner: `Search.Embedding` — model, dimensions, revision, and derived fingerprint under the provider identity regime — and `Search.Corpus` — the distinct relation identity composed with one embedding value and the declared body geometry — plus the `retrieve_embedding` ensure whose primary key includes that fingerprint and the dialect-paired index rows; vector method selection is grant-ordered data, never a query rewrite, and the runtime never executes a DDL statement.
 - Packages: `effect` (`Schema`, `Array`, `HashSet`, `Option`); `read/query.md` (`Query.Relation` — the identifier lexical class and relation owner); `lane/capability.md` (`Capability.Ensure` — the shape the provision plane applies and the rail proves); `lane/postgres.md` (the `vchord`, `vector`, `trigram`, `phonetic`, and `fuzzy` grants arrive as the granted set).
 - Entry: `Search.ddl(corpus, granted)` derives the corpus's ensure roster — the embedding relation plus the admitted index rows, each row's dialect pair landing as one `Capability.Ensure` — which the provision plane applies and `lane/tenant.md`'s roster collection proves at scope construction; an absent ACCELERATOR degrades scan speed, never correctness, while the FTS floor row is relation-bearing on the sqlite profiles (the `MATCH` arm queries a virtual table) and therefore always in the roster.
 - Receipt: the derivation returns the admitted artifact names — the corpus's index census, joined with the capability report in startup evidence.
@@ -75,6 +75,9 @@ class Reranker extends Context.Tag("data/Reranker")<Reranker, {
 - Law: fingerprint identity derives from `Search.Embedding` — pattern-refined `model` and `revision` plus bounded `dims` assemble under `Schema.decodeSync`, total because the field refinements close the composite pattern; `Search.Corpus` embeds that owner beside its relation field because provider identity and relation identity are distinct discriminants, while loose part brands and parallel DTOs remain unspellable.
 - Law: the corpus coordinate is layered evidence — `Search.Corpus.fields.table` derives from `Query.Relation.fields.table` and adds the corpus role, so a caller-derived string can never reach an identifier position, ensure texts interpolate only sealed names, and facet dimensions derive from `Query.Relation.fields.table` because the identifier law admits no second lexical class.
 - Law: every vector write and scan carries the fingerprint predicate — the column sits in the primary key and the semantic lane filters on it, so cross-model distance comparison is unrepresentable.
+- Law: the corpus declares its body geometry — `document` for prose, `label` for short identifying strings — because whole-string scorers read the leading characters of `body` and a corpus fusing their output over prose banks noise as rank evidence; the declaration is the corpus's own fact, so `[4]` refuses a mis-shaped lane by row rather than by a caller remembering which lanes suit its data.
+- Law: SPIKE — the geometry roster converges on its first consumer, and the deterministic floor ships whole beneath it: `document` and `label` are the two geometries every `[4]` row votes against, an unreachable pairing reports `unshaped`, and a corpus whose geometry no row names draws no admission answer. No scope in this branch binds a corpus, so disk carries no construction site declaring a `shape`; the owning scope that lands one WIDENS the roster with the geometry its body carries, and narrowing this field onto one consumer's body is the refused move.
+- Law: a grant token names a CAPABILITY, never an install — `lane/postgres.md` declares one `fuzzystrmatch` row supplying `phonetic` and `fuzzy`, so the pair admits and refuses together off one provisioned extension while staying two lane grants; the provision plane counts extension rows and this page counts scorers, so collapsing the pair here forks the grant alphabet that roster owns and merging the two scorers erases an equality lane and a distance lane into one.
 - Law: the vector row is ONE row with a grant-ordered method — `vchordrq` under `vchord`, else `hnsw` under `vector` — the stronger engine is data and an image upgrade re-indexes without touching a query.
 - Law: every index row states both dialects — the pg text and the sqlite text are one `ensure` pair, `SELECT 1` only where the lane genuinely cannot exist on the profile (vector and trigram ride pg-only grants), and the FTS floor row's sqlite arm is the external-content FTS5 virtual table with three sync triggers plus the idempotent `rebuild` command that admits pre-existing corpus rows, so the lane arm and its storage artifact are one row and cannot drift.
 
@@ -105,13 +108,20 @@ class _Embedding extends Schema.Class<_Embedding>("Search.Embedding")({
 
 const _Table = Query.Relation.fields.table.pipe(Schema.brand("Corpus"))
 
+// Corpus GEOMETRY, not a tuning knob: whole-string scorers (a soundex code, an edit distance) read the leading
+// characters of `body` and answer noise once `body` is prose, while the inverted, trigram, and vector lanes score
+// prose exactly. One declared geometry lets `[4]` refuse a lane it cannot score instead of pooling its noise.
+const _SHAPES = ["document", "label"] as const
+
 class _Corpus extends Schema.Class<_Corpus>("Search.Corpus")({
   table: _Table,
+  shape: Schema.Literal(..._SHAPES),
   embedding: _Embedding,
 }) {}
 
 declare namespace Search {
   type Corpus = _Corpus
+  type Shape = (typeof _SHAPES)[number]
   type Embedding = _Embedding
   type Model = Embedding["model"]
   type Dims = Embedding["dims"]
@@ -181,6 +191,17 @@ INSERT INTO ${corpus}_fts(${corpus}_fts) VALUES ('rebuild');`,
       sqlite: "SELECT 1",
     }),
   },
+  phonetic: {
+    artifact: "phonetic",
+    grant: "phonetic",
+    ensure: (corpus: Search.Table) => ({
+      // `daitch_mokotoff` answers a GIN-indexable code array and the lane's own `&&` searches it, so the phonetic
+      // lane stops being the one grant-bearing row with no artifact; `fastupdate = off` keeps the overlap probe exact
+      pg: `CREATE INDEX IF NOT EXISTS ${corpus}_phonetic ON ${corpus}
+       USING gin (daitch_mokotoff(body)) WITH (fastupdate = off);`,
+      sqlite: "SELECT 1",
+    }),
+  },
   keyset: {
     artifact: "keyset",
     grant: "core",
@@ -204,16 +225,21 @@ declare namespace Search {
 
 ## [04]-[LANE_ROSTER]
 
-- Owner: the `_lanes` anchor — five rows, each `{ grants, floor, material, rank }` where `rank` builds the lane's scored CTE body as a composed `sql` fragment over a typed bind value — and `_admitted`, the per-call fold intersecting the request's lanes with the scope's grants, floor postures, and required material.
+- Owner: the `_lanes` anchor — five rows, each `{ grants, floor, material, shapes, rank }` where `rank` builds the lane's scored CTE body as a composed `sql` fragment over a typed bind value — and `_admitted`, the per-call fold intersecting the request's lanes with the scope's grants, floor postures, required material, and the corpus's declared geometry.
 - Packages: composition over `[2]`/`[3]` values and the granted set; `@effect/sql` (the `sql` fragment constructor plus `sql.and` — every parameter binds by value inside the fragment, so no positional index exists anywhere on the page); `effect` (`Array`, `HashSet`, `Option`, `Record`).
 - Growth: a sixth lane is one row — the fusion statement folds whatever the admission returns; a lane's SQL tuning edits its row alone; a new bind axis is a `Search.Bind` field every row can read.
 - Law: lane rows are fragment builders, never SQL text — `rank(sql, corpus, bind)` interpolates `bind.text`/`bind.limit`/the vector literal as BOUND parameters and the corpus only through the brand-proven identifier or a value predicate, so a lane-set change cannot misalign parameters (there are none to count) and the statement stays typed, batched, and dialect-switched; hand-assembled `$N` text is the deleted spelling.
 - Law: every lane emits one shape — `(cell, rank)` with rank 1-based by lane-local score — because RRF consumes ranks, never scores; score normalization across heterogeneous lanes is exactly what the fusion deletes.
 - Law: the floor is a row column, never a special case — `floor: true` marks a lane that runs regardless of its accelerator grant (`fts` degrades to `ts_rank_cd` over `websearch_to_tsquery` on the spine and to the FTS5 `MATCH` arm on the sqlite profiles, both against `[3]`'s provisioned floor artifacts), and `_admitted` reads the column, so the census logic enumerates no lane by name and a future floored lane is one row fact.
-- Law: lane SQL rides its grant set AND its dialect — `fts` is the core `tsvector`/FTS5 floor, `trigram` rides `similarity()`, `phonetic` rides `soundex()`, `fuzzy` rides bounded `levenshtein()`, and `semantic` accepts the `vector` contract from either vector engine plus an admitted embedding; a lane the profile cannot express self-excludes through its grant set, so degradation is the fence, not prose.
+- Law: lane SQL rides its grant set AND its dialect — `fts` is the core `tsvector`/FTS5 floor, `trigram` rides `similarity()`, `phonetic` rides `daitch_mokotoff()` array overlap, `fuzzy` rides ceiling-bounded `levenshtein_less_equal()`, and `semantic` accepts the `vector` contract from either vector engine beside an admitted embedding; a lane the profile cannot express self-excludes through its grant set, so degradation is the fence, not prose.
+- Law: the phonetic scorer is `daitch_mokotoff`, never `soundex` — `soundex` reads bytes, so it answers one code for `Ozturk` and another for `Öztürk`, and it answers the EMPTY string for every CJK, Arabic, and Cyrillic label, which makes `soundex(a) = soundex(b)` true across an entire non-Latin corpus and floods the fused pool with the whole relation; `daitch_mokotoff` codes those pairs identically, answers NULL where it can code nothing at all, and its `text[]` result carries the GIN artifact `[3]` plants, so the lane gains an index where the equality form had none.
+- Law: the phonetic lane emits BOOLEAN evidence and orders by `cell` — a code overlap is a match or nothing, so no score exists to rank on and the stable key order is the honest spelling; what the lane forfeits is intra-lane discrimination, and RRF weights its hits by arrival position alone, which is why it stays off the `document` geometry where the candidate set is unbounded.
+- Law: the fuzzy lane bounds the DISTANCE, never the string alone — `levenshtein_less_equal` short-circuits at the request's `distance` ceiling and answers `ceiling + 1` past it, so the same call serves the predicate and the order while a row beyond the budget costs a truncated matrix instead of a full one; a predicate-free spelling ranks the whole corpus by edit distance and hands RRF `limit` rows of pure noise. `fuzzystrmatch` publishes no index operator class, so this lane is a bounded scan by construction and the `_WINDOW` prefix and the ceiling are its whole budget.
 - Law: the scope predicate is one composed fragment — `Search.Filter` is one schema-tagged family over equality, inequality, bounds, ranges, and set membership; `_scoped` exhaustively maps its cases into one `sql.and` fragment (or the neutral `1 = 1`), every lane splices it, and the semantic lane joins the corpus relation to apply it — so a filtered search filters EVERY lane before fusion and a hit outside the scope cannot enter the pool through any arm.
 - Law: the corpus contract is one relation with stable `cell`, searchable `body`, and admitted facet columns — `score` is a fused-query projection and never a corpus column, so the keyset support row indexes the stable `cell` tie-breaker only; `Search.of` takes the corpus value, and a second searchable relation is a second binding.
-- Law: admission is evidence and row-driven — each requested lane resolves to `ran`, `ungranted`, `unembedded`, or `excluded` from its `floor` and `material` columns; no lane name appears in the admission fold, and the output is both CTE roster and reply census.
+- Law: admission is evidence and row-driven — each requested lane resolves to `ran`, `ungranted`, `unembedded`, `unshaped`, or `excluded` from its `floor`, `material`, and `shapes` columns; no lane name appears in the admission fold, and the output is both CTE roster and reply census.
+- Law: each lane answers the coordinates it decides and declares the rest unowned — `grants`, `material`, and `shapes` together ARE the selection sentence; `material` is also the admit column, naming the write that fills the lane (`text` the corpus body itself, `embedding` a vector row minted under the corpus fingerprint); lifetime belongs to the corpus row for every text lane and to the FINGERPRINT for the semantic one, where superseded vectors stay queryable under their own until re-embedding completes. Tenancy is not this table's to decide — `_scoped` splices the caller's one fragment into every lane identically, so a tenancy column here forks the predicate `lane/tenant.md` owns; what each lane forfeits rides `floor` and the `ungranted`, `unembedded`, and `unshaped` dispositions, so a degraded lane names its own loss in the reply.
+- Law: geometry gates ahead of grants — a lane whose scorer cannot read the corpus's body geometry reports `unshaped` even where its extension is installed, because a granted lane contributing noise ranks that noise into the fused pool while an absent lane costs only recall; `phonetic` and `fuzzy` score `label` corpora alone, the inverted, trigram, and vector lanes score both, and a lane widening its reach is one column edit.
 
 ```typescript signature
 import { Statement, type SqlClient } from "@effect/sql"
@@ -223,10 +249,15 @@ class _Vector extends Schema.Class<_Vector>("Search.Vector")({
   fingerprint: _Fingerprint,
 }) {}
 
+// Whole-string scorers read a leading window, never the body: a `label` fits inside it, and the edit-distance
+// matrix is O(n·m), so an unwindowed pair pays quadratic cost per row for characters no label-shaped scorer reaches.
+const _WINDOW = 64
+
 class _Bind extends Schema.Class<_Bind>("Search.Bind")({
   text: Schema.NonEmptyString,
   limit: Schema.Int.pipe(Schema.greaterThan(0)),
   scope: Schema.declare(Statement.isFragment),
+  distance: Schema.Int.pipe(Schema.greaterThan(0)),
   vector: Schema.OptionFromSelf(_Vector),
 }) {}
 
@@ -239,6 +270,7 @@ const _lanes = {
     grants: ["core"],
     floor: true,
     material: "text",
+    shapes: ["document", "label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
       sql.onDialectOrElse({
         orElse: () =>
@@ -254,6 +286,7 @@ const _lanes = {
     grants: ["trigram"],
     floor: false,
     material: "text",
+    shapes: ["document", "label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
       sql`SELECT c.cell, rank() OVER (ORDER BY similarity(c.body, ${bind.text}) DESC) AS rank
           FROM ${sql(corpus)} c WHERE c.body % ${bind.text} AND ${bind.scope} LIMIT ${bind.limit}`,
@@ -262,22 +295,32 @@ const _lanes = {
     grants: ["phonetic"],
     floor: false,
     material: "text",
+    shapes: ["label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
-      sql`SELECT c.cell, rank() OVER (ORDER BY c.body) AS rank
-          FROM ${sql(corpus)} c WHERE soundex(c.body) = soundex(${bind.text}) AND ${bind.scope} LIMIT ${bind.limit}`,
+      sql`SELECT c.cell, rank() OVER (ORDER BY c.cell) AS rank
+          FROM ${sql(corpus)} c
+          WHERE daitch_mokotoff(c.body) && daitch_mokotoff(${bind.text}) AND ${bind.scope} LIMIT ${bind.limit}`,
   },
   fuzzy: {
     grants: ["fuzzy"],
     floor: false,
     material: "text",
+    shapes: ["label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
-      sql`SELECT c.cell, rank() OVER (ORDER BY levenshtein(left(c.body, 64), left(${bind.text}, 64))) AS rank
-          FROM ${sql(corpus)} c WHERE ${bind.scope} LIMIT ${bind.limit}`,
+      // one ceiling rides the predicate AND the order, so the scan truncates its matrix at the first cell past the
+      // budget instead of computing a full one per row and ranking the whole corpus by a distance nobody asked for
+      sql`SELECT c.cell, rank() OVER (
+            ORDER BY levenshtein_less_equal(left(c.body, ${_WINDOW}), left(${bind.text}, ${_WINDOW}), ${bind.distance})
+          ) AS rank
+          FROM ${sql(corpus)} c
+          WHERE levenshtein_less_equal(left(c.body, ${_WINDOW}), left(${bind.text}, ${_WINDOW}), ${bind.distance}) <= ${bind.distance}
+            AND ${bind.scope} LIMIT ${bind.limit}`,
   },
   semantic: {
     grants: ["vector", "vchord"],
     floor: false,
     material: "embedding",
+    shapes: ["document", "label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
       Option.match(bind.vector, {
         onNone: () => sql`SELECT cell, 1 AS rank FROM retrieve_embedding WHERE 1 = 0`,
@@ -291,7 +334,7 @@ const _lanes = {
 
 const _LANE_NAMES = ["fts", "trigram", "phonetic", "fuzzy", "semantic"] as const
 
-const _DISPOSITIONS = ["ran", "ungranted", "unembedded", "excluded"] as const
+const _DISPOSITIONS = ["ran", "ungranted", "unembedded", "unshaped", "excluded"] as const
 
 declare namespace Search {
   type Lane = (typeof _LANE_NAMES)[number]
@@ -302,15 +345,18 @@ const _admitted = (
   requested: ReadonlyArray<Search.Lane>,
   granted: HashSet.HashSet<string>,
   embedded: boolean,
+  shape: Search.Shape,
 ): Record.ReadonlyRecord<Search.Lane, Search.Disposition> =>
   Record.map(_lanes, (row, lane) =>
     !Array.contains(requested, lane)
       ? "excluded"
-      : row.material === "embedding" && !embedded
-        ? "unembedded"
-        : Array.some(row.grants, (grant) => HashSet.has(granted, grant)) || row.floor
-          ? "ran"
-          : "ungranted")
+      : !Array.contains(row.shapes, shape)
+        ? "unshaped" // the geometry gate outranks the grant gate: a granted lane scoring noise is worse than an absent one
+        : row.material === "embedding" && !embedded
+          ? "unembedded"
+          : Array.some(row.grants, (grant) => HashSet.has(granted, grant)) || row.floor
+            ? "ran"
+            : "ungranted")
 ```
 
 ## [05]-[FUSION_QUERY]
@@ -319,7 +365,7 @@ const _admitted = (
 - Packages: `effect` (`Effect`, `Option`, `HashMap`, `HashSet`, `Record`, `Schema`, `Array`); `@effect/sql` (the fused statement, the rerank-window body fetch, the snippet fetch, and the one-statement facet census are each composed fragment values — `sql.in` set-shaped over the hit cells, `sql.and` over the filter rows, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the grant read, taken once at bind because grants are scope-construction facts).
 - Entry: `const bound = yield* Search.of(corpus)` inside the owning scope's construction, then `bound.search(request)` per call; `Search.Request` admits text, lanes, policy refinements, decoded cursor, filters, facets, snippets, and rerank depth once, and the reply carries scored hits, facet counts, next cursor, lane census, and rerank disposition.
 - Receipt: `Search.Page.lanes` names each lane's disposition and `Search.Page.rerank` names the accelerator's — `applied`, `partial` (the provider omitted or repeated candidates and the seam repaired the window), `degraded` (the provider faulted and fusion order held), `off` — so a degraded scope and a misbehaving provider are both visible in every reply and a relevance regression traces to evidence, never to guesswork.
-- Growth: rerank depth, fusion constant `k`, facet bound, filter rows, and snippet shape are `Search.Request` fields derived from `Search.Policy`; a new reply projection is a field on the page, never a second search.
+- Growth: rerank depth, fusion constant `k`, edit-distance ceiling, facet bound, filter rows, and snippet shape are `Search.Request` fields derived from `Search.Policy`; a new reply projection is a field on the page, never a second search.
 - Law: the binding is bind-once — `Search.of` yields the client, reads the capability report, and mints every `SqlSchema` accessor exactly once, so a search call pays zero construction and resolver identity holds across calls; an accessor minted inside `search`'s body is the per-call rebuild `read/query.md` already names as the defect.
 - Law: fusion is in-database and fragment-composed — admitted lane fragments fold into the `WITH` roster and the `UNION ALL` pool by fragment interpolation, `Σ 1.0/(k + rank)` groups by cell, the keyset predicate arrives as a bound-value `HAVING` fragment when a cursor exists, and the statement is ONE round trip whose every parameter is value-bound; assembling lanes in process re-buys N queries and loses the shared plan, and hand-counted placeholder text is the deleted defect.
 - Law: every reply row decodes — the fused rows, the snippet clips, the facet counts, and the rerank bodies each prove through a `Result` schema (`score` through the numeric-or-string codec because aggregate numerics arrive dialect-dependent), so no `String(row[...])` cast exists on the page.
@@ -350,11 +396,14 @@ const _Cursor = Schema.compose(
 class _Policy extends Schema.Class<_Policy>("Search.Policy")({
   limit: Schema.Int.pipe(Schema.between(1, 200)),
   k: Schema.Int.pipe(Schema.between(1, 1000)),
+  // `distance` bounds the fuzzy lane's edit budget below the scorer's own window: a ceiling at or past `_WINDOW`
+  // admits every row and reinstates the full-corpus rank the ceiling exists to refuse
+  distance: Schema.Int.pipe(Schema.between(1, _WINDOW - 1)),
   rerank: Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(200)),
   facetTop: Schema.Int.pipe(Schema.between(1, 500)),
 }) {}
 
-const _PAGE = new _Policy({ limit: 20, k: 60, rerank: 0, facetTop: 50 })
+const _PAGE = new _Policy({ limit: 20, k: 60, distance: 4, rerank: 0, facetTop: 50 })
 
 const _Scalar = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
 
@@ -376,6 +425,7 @@ class _Request extends Schema.Class<_Request>("Search.Request")({
   }),
   limit: Schema.optionalWith(_Policy.fields.limit, { default: () => _PAGE.limit }),
   k: Schema.optionalWith(_Policy.fields.k, { default: () => _PAGE.k }),
+  distance: Schema.optionalWith(_Policy.fields.distance, { default: () => _PAGE.distance }),
   cursor: Schema.optionalWith(_Cursor, { as: "Option" }),
   filter: Schema.optionalWith(Schema.Array(_Filter), { default: () => [] }),
   facets: Schema.optionalWith(Schema.Array(Query.Relation.fields.table), { default: () => [] }),
@@ -505,7 +555,10 @@ const _ddl = (corpus: Search.Corpus, granted: HashSet.HashSet<string>) => {
   const admitted = Array.appendAll(
     Option.toArray(vector),
     Array.prepend(
-      Array.filter([_indexRows.trigram, _indexRows.keyset], (row) => row.grant === "core" || HashSet.has(granted, row.grant)),
+      Array.filter(
+        [_indexRows.trigram, _indexRows.phonetic, _indexRows.keyset],
+        (row) => row.grant === "core" || HashSet.has(granted, row.grant),
+      ),
       _indexRows.fts,
     ),
   )
@@ -619,7 +672,7 @@ const _of = (corpus: Search.Corpus) =>
                 ),
                 (vector) => ({ vector, fingerprint: port.fingerprint }),
               )))))
-        const census = _admitted(requested, capability.granted, Option.isSome(embedded))
+        const census = _admitted(requested, capability.granted, Option.isSome(embedded), corpus.shape)
         const running = Array.filter(Record.keys(census), (lane) => census[lane] === "ran")
         const cursor = request.cursor
         const limit = request.limit
@@ -627,6 +680,7 @@ const _of = (corpus: Search.Corpus) =>
           text: request.text,
           limit,
           scope: _scoped(sql, request.filter),
+          distance: request.distance,
           vector: Option.map(embedded, (held) => new _Vector({
             literal: `[${Array.join(held.vector, ",")}]`,
             fingerprint: held.fingerprint,

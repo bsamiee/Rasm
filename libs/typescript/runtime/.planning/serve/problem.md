@@ -1,6 +1,8 @@
 # [RUNTIME_PROBLEM]
 
-The outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and `Problem` — one RFC 9457 owner carrying the body schema, the governed class-to-status record, the total fold from any refused value, and the `Cause` fold — is the value that implements it, so the central error-mapper middleware has no existence: the route seam's net is one fold where a respondable failure renders through its own symbol and everything else lifts through the total probe ladder first. The ladder is ordered by evidence specificity and every rung is structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows with its `retryable`/`terminal` facts read off the value, a `ParseError` lands on `malformed` and a `RouteNotFound` on `absent`, and the residue classifies through `FaultClass.of` into the governed record — total, closed, and free of any cross-branch import. Exposure derives from the core `blame` axis so caller-blamed detail crosses outward and system-blamed detail redacts to its title, and the extension band is CLOSED at the schema — the body's `extensions` field is the exact allowlisted record, so a key outside the vocabulary is unrepresentable in a `Problem` value and cannot cross the HTTP boundary from any construction site; inbound never touches this module — a problem body is never decoded, reconstructed, or matched on. The module ships on the `./server` exports subpath as `runtime/src/serve/problem.ts`; a new core fault class breaks the record loudly at compile time.
+`Problem` owns the outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and this one RFC 9457 owner — body schema, governed class-to-status record, total fold from any refused value, `Cause` fold — is the value implementing it, so the central error-mapper middleware has no existence. Module `runtime/src/serve/problem.ts` ships on the `./server` exports subpath, and a new core fault class breaks the record loudly at compile time.
+
+Ladder order is evidence specificity and every rung structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows on its own `retryable`/`terminal` facts, a `ParseError` lands `malformed` and a `RouteNotFound` `absent`, and the residue classifies through `Fault.Class.of` into the governed record, free of any cross-branch import. Exposure derives from the core `blame` axis; the `extensions` band is CLOSED at the schema, so a key outside the vocabulary is unrepresentable in any `Problem` value. Inbound never touches this module.
 
 ## [01]-[INDEX]
 
@@ -12,17 +14,15 @@ The outbound-fault law of the front door: every fault leaving the branch over HT
 ## [02]-[STATUS_RECORD]
 
 [STATUS_RECORD]:
-- Owner: `_rows` — the governed record under a stated `Record<FaultClass.Kind, _Grade>` annotation: the mapped domain demands one row per core class and rejects any excess row, so core growth lands here as one compile-forced edit and this record is the only class-to-status site in the branch — `core/value/fault#CLASS_VOCABULARY` stays transport-free by this boundary.
-- Law: rows carry three serve-owned axes — `status` (the response code), `title` (the RFC 9457 type summary, human-stable and free of occurrence data), `grace` (the default `Retry-After` window as `Option<Duration>`, inhabited only on the re-drivable classes) — and nothing the core row already states: rank, retryability, and blame stay core columns read through `FaultClass[kind]`.
 - Law: the problem `type` member derives — `_type(kind)` is `_TYPE_BASE` plus the class literal, so the type-URI vocabulary is the core key space and a hand-authored slug registry cannot exist; `about:blank` never appears because every fold lands on a class.
 - Law: grace resolution is a two-rung ladder — a runtime hint carried by the fault value (a quota verdict's measured window, a limiter's `retryAfter` evidence) wins, the row's `grace` default fills, absence stays absent — `_retryAfter(grace, hint)` folds the ladder to whole seconds once, so no consumer re-derives header arithmetic.
 - Growth: a new core class is one row (compile-forced); a new response axis is one `_Grade` field plus its column on ten rows.
-- Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 import { HttpServerRespondable, HttpServerResponse } from "@effect/platform"
 import { Array, Cause, Duration, Effect, Option, Predicate, Record, Schema } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Current } from "./api.ts"
 
 const _TYPE_BASE = "/problems/"
@@ -31,7 +31,7 @@ type _Grade = { readonly status: number; readonly title: string; readonly grace:
 
 const _Status = Schema.Int.pipe(Schema.between(100, 599))
 
-const _rows: { readonly [K in FaultClass.Kind]: _Grade } = {
+const _rows: { readonly [K in Fault.Class.Kind]: _Grade } = {
   absent: { status: 404, title: "resource absent", grace: Option.none() },
   conflicted: { status: 409, title: "state conflict", grace: Option.none() },
   invalid: { status: 422, title: "unprocessable input", grace: Option.none() },
@@ -45,7 +45,7 @@ const _rows: { readonly [K in FaultClass.Kind]: _Grade } = {
   defect: { status: 500, title: "internal fault", grace: Option.none() },
 }
 
-const _type = (kind: FaultClass.Kind): string => `${_TYPE_BASE}${kind}`
+const _type = (kind: Fault.Class.Kind): string => `${_TYPE_BASE}${kind}`
 
 const _retryAfter = (
   grace: Option.Option<Duration.Duration>,
@@ -57,7 +57,6 @@ const _retryAfter = (
 ## [03]-[REDACTION_ROWS]
 
 [REDACTION_ROWS]:
-- Law: exposure derives from blame — `_expose(kind)` is `FaultClass[kind].blame === "caller"`, never a column: a caller-blamed class carries its fault detail outward as actionable repair material, a system-blamed class redacts to the row title so no internal evidence, path, or dependency name leaks through a 5xx body.
 - Law: the extension band is structural — `_Extensions` is the exact-optional record over `tag`, `reason`, and `requestId`, the `_EXPOSED` tuple anchors the key census, and the guard pair closes tuple and schema against each other in both directions; because the `Problem` class carries this schema as its `extensions` field, a key outside the vocabulary is unrepresentable in any `Problem` value — the allowlist cannot be bypassed at a construction site, and a new public member is one field row plus its tuple entry.
 - Law: `_redact(kind, extensions)` owns the blame gate over the structural band — a non-exposing class empties `tag` and `reason` while `requestId` survives on every class, because correlation is the one occurrence datum a system-blamed problem must keep: the operator resolves the redacted body against telemetry through it.
 - Boundary: which values populate the extensions is `[05]`'s fold; log-side and OTLP-side scrubbing is `otel/emit#REDACTION`'s policy; this cluster fixes only what crosses the HTTP body outward.
@@ -71,9 +70,9 @@ const _Extensions = Schema.Struct({
   requestId: Schema.String,
 }).pipe(Schema.partialWith({ exact: true }))
 
-const _expose = (kind: FaultClass.Kind): boolean => FaultClass[kind].blame === "caller"
+const _expose = (kind: Fault.Class.Kind): boolean => Fault.Class.at(kind).blame === "caller"
 
-const _redact = (kind: FaultClass.Kind, extensions: Problem.Extensions): Problem.Extensions =>
+const _redact = (kind: Fault.Class.Kind, extensions: Problem.Extensions): Problem.Extensions =>
   _expose(kind)
     ? extensions
     : Option.match(Option.fromNullable(extensions.requestId), {
@@ -115,10 +114,11 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
 [RESPONDABLE_OWNER]:
 - Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the CLOSED `extensions` band and the `retry` seconds the grace ladder resolved; the class is the value, the encode anchor, the fold entry, and the self-rendering respondable under one import, and its encoded twin is the wire body verbatim.
 - Law: the symbol implementation IS the egress projection — `Problem` implements `[HttpServerRespondable.symbol]()` as its own `respond`: `Schema`-encoded body under `application/problem+json` at the problem's own `status`, the `retry-after` header stamped exactly when `retry` is inhabited, `instance` and the `requestId` extension stamped from the ambient `Current.Stamp` inside the render so every egress path carries correlation; encoding the branch's own `Problem` failing is a defect (`Effect.orDie`), never a channel member — the fault altitude cannot itself fault.
-- Law: the probe ladder is ordered by evidence specificity — (1) an existing `Problem` passes through; (2) `FaultDetail` by tag probe projects through the upstream rows; (3) `ParseError` lands on `malformed`, `RouteNotFound` on `absent`; (4) the residue classifies through `FaultClass.of` alone, detail obeys exposure, the grace hint probes the fault's own `retryAfter` field before the class default, and `tag`/`reason` extensions populate then pass the redact fold in one construction — total over `unknown`, so an over-shared member is structurally impossible downstream.
 - Law: the class ALONE answers the status — a folder fault reaching this ladder carries `class` and nothing else of the taxonomy, so no per-fault status override exists to read and `[02]`'s record is the branch's one class-to-status site in fact, not only in claim; a refusal needing a code the record does not spell is a missing core class, never a serve-local column.
 - Law: `Problem.fromCause` discriminates in interrupt-first order — `Cause.isInterruptedOnly` folds to the `unavailable` row (the seam only observes an interrupt under shed or shutdown), a typed failure re-enters the ladder, a defect lands on the `defect` row — the same order every telemetry outcome fold uses.
-- Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then renders: a failure that implements the symbol resolves through `HttpServerRespondable.toResponse` (a folder fault opting in owns its own projection; `Problem` itself is the standing instance), and everything else rides the total ladder into `Problem.respond` — the two arms split on `HttpServerRespondable.isRespondable` because the ladder's render is effectful (it reads the ambient stamp) where the platform's `toResponseOrElse` demands a settled response value — so the route seam carries zero recovery arms, the served app's error channel is `never` by construction, and an unmapped fault cannot escape as a naked 500. Declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared.
+- Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then renders: a failure implementing the symbol runs its OWN projection, and everything else rides the total ladder into `Problem.respond`. Both arms split on `HttpServerRespondable.isRespondable` because the ladder's render is effectful (it reads the ambient stamp) where the platform's `toResponseOrElse` demands a settled response value.
+- Law: the opt-in arm invokes the symbol DIRECTLY and catches its whole cause — `HttpServerRespondable.toResponse` is `orDie` over a `respond` the platform types `unknown`, so it converts a refusing projection into a defect this seam's cause fold never observes and the platform answers a bare 500 carrying no body, no correlation, and no derived shield. Catching that cause routes the refusal back onto the ladder, the render the fault takes when it never opts in, so the served app's error channel is `never` in fact.
+- Law: declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared, and the class family DECIDES no tenancy and no lifetime — a status grades a refusal, and the request that carried it ended at the seam that rendered this body.
 - Boundary: attachment is `route#SEAM_ROWS`'s one composition; log/OTLP emission of the folded cause is `otel/crash#CAPTURE`'s, fed from the same seam; the class table and blame axis are `core/value/fault#CLASS_VOCABULARY`'s.
 - Growth: a new probe rung is one arm in `_of` plus its row in `[02]`; a new extension is one field row under `[03]`'s band plus its populate line.
 - Packages: `effect` (`Schema`, `Option`, `Effect`, `Cause`, `Predicate`); `@effect/platform` (`HttpServerRespondable`, `HttpServerResponse`); `./api.ts` (`Current`).
@@ -148,14 +148,14 @@ const _graced = (fault: unknown): Option.Option<Duration.Duration> =>
     ? Option.filter(fault.retryAfter, Duration.isDuration)
     : Option.none()
 
-const _extensions = (kind: FaultClass.Kind, fault: unknown): Problem.Extensions =>
+const _extensions = (kind: Fault.Class.Kind, fault: unknown): Problem.Extensions =>
   _redact(kind, {
     ...Option.match(_field(fault, "_tag"), { onNone: () => ({}), onSome: (tag) => ({ tag }) }),
     ...Option.match(_field(fault, "reason"), { onNone: () => ({}), onSome: (reason) => ({ reason }) }),
   })
 
 const _classed = (fault: unknown): Problem => {
-  const kind = FaultClass.of(fault)
+  const kind = Fault.Class.of(fault)
   const grade = _rows[kind]
   return new Problem({
     type: _type(kind),
@@ -236,7 +236,10 @@ class Problem extends Schema.Class<Problem>("Problem")({
       onNone: () => Problem.respond(Problem.fromCause(cause)),
       onSome: (fault) =>
         HttpServerRespondable.isRespondable(fault)
-          ? HttpServerRespondable.toResponse(fault)
+          // `toResponse` is `orDie` over a `respond` the platform types `unknown`, so it converts a refusing
+          // projection into a DEFECT the seam's own cause fold never observes. Invoking the symbol keeps that
+          // refusal in the channel, and the ladder beneath answers as the floor.
+          ? Effect.catchAllCause(fault[HttpServerRespondable.symbol](), () => Problem.respond(_of(fault)))
           : Problem.respond(_of(fault)),
     })
   [HttpServerRespondable.symbol](): Effect.Effect<HttpServerResponse.HttpServerResponse> {

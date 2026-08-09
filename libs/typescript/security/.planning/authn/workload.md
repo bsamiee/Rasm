@@ -1,6 +1,6 @@
 # [SECURITY_WORKLOAD]
 
-Machine identity: the certified relying-party plane a service, sidecar, or headless worker authenticates through when no browser ceremony exists and the hand-carried static token is the thing being deleted. One `Configuration` per issuer holds the whole client state — discovered metadata, client id, the client-authentication strategy, the JWKS custody, the non-repudiation posture — and every grant, introspection, revocation, and protected-resource read takes it first, so a grant is a case in one closed request family dispatched on the value and a new grant type is a case plus an arm, never a second client type or a `getTokenByX` member family. Sender constraint is the plane's default posture, not an option: one DPoP key pair mints per principal, its handle rides `options.DPoP` into every grant and every resource call so each proof binds to that call's own method and URL, and its RFC 7638 thumbprint is the `cnf.jkt` a resource server recomputes from the presented key — a stolen access token is inert without the private key that proved it, and a first-party token this folder issues for the same workload carries the identical confirmation value through `AccessClaims.cnf`. JWKS custody is the folder's ONE ledger: the certified client seeds from `JwksLedger` and writes back through it exactly as the jose resolver does, so an issuer's key set is fetched once per estate rather than once per library — and because the two packages count `uat` in different units, the ledger owns an instant and each seam renders its own scalar. Every response is ingress: `TokenEndpointResponse` carries an untyped index band, so a grant lands through one `Schema` owner into `MachinePrincipal` and no field reaches a transport credential before it decodes. Every leg is bounded and class-gated, with one protocol-mandated nonce re-run that is an arm rather than a retry policy, and every credential is `Redacted` from admission into the header projection the runtime wave mounts. `WorkloadFault` instantiates the folder fault shape over the core `FaultClass.family` seam.
+Machine identity: the certified relying-party plane a service, sidecar, or headless worker authenticates through when no browser ceremony exists and the hand-carried static token is the thing being deleted. One `Configuration` per issuer holds the whole client state — discovered metadata, client id, the client-authentication strategy, the JWKS custody, the non-repudiation posture — and every grant, introspection, revocation, and protected-resource read takes it first, so a grant is a case in one closed request family dispatched on the value and a new grant type is a case plus an arm, never a second client type or a `getTokenByX` member family. Sender constraint is the plane's default posture, not an option: one DPoP key pair mints per principal, its handle rides `options.DPoP` into every grant and every resource call so each proof binds to that call's own method and URL, and its RFC 7638 thumbprint is the `cnf.jkt` a resource server recomputes from the presented key — a stolen access token is inert without the private key that proved it, and a first-party token this folder issues for the same workload carries the identical confirmation value through `AccessClaims.cnf`. JWKS custody is the folder's ONE ledger: the certified client seeds from `JwksLedger` and writes back through it exactly as the jose resolver does, so an issuer's key set is fetched once per estate rather than once per library — and because the two packages count `uat` in different units, the ledger owns an instant and each seam renders its own scalar. Every response is ingress: `TokenEndpointResponse` carries an untyped index band, so a grant lands through one `Schema` owner into `MachinePrincipal` and no field reaches a transport credential before it decodes. Every leg is bounded and class-gated, with one protocol-mandated nonce re-run that is an arm rather than a retry policy, and every credential is `Redacted` from admission into the header projection the runtime wave mounts. `WorkloadFault` instantiates the folder fault shape over the core `Fault.Class.family` seam.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,6 @@ Machine identity: the certified relying-party plane a service, sidecar, or headl
 - Law: `enableNonRepudiationChecks` is a posture row, not a default — it demands a signed response wherever the issuer can produce one, so a deployment whose auditor requires provable issuer authorship flips one spec field and every JWT-secured response verifies against the discovered JWKS through that same custody.
 - Growth: a new issuer is one `IssuerSpec` value; a new client-auth strategy is one `_AUTH` row or one `Authentication` case; a new posture is one spec field the bind reads.
 - Boundary: `crypt/secret` supplies the client secret or the `PrivateKeyJwt` material; `crypt/sign` owns `JwksLedger`, `JwksSnapshot`, and `AccessClaims`; the runtime wave binds the instrumented fetch through `customFetch`; `authn/oauth` keeps the interactive browser ceremony and reaches none of these grants.
-- Packages: `openid-client` (`discovery`, `Configuration.serverMetadata`, `dynamicClientRegistration`, the `ClientAuth` mints, `setJwksCache`/`getJwksCache`, `enableNonRepudiationChecks`, `ResponseBodyError`, `WWWAuthenticateChallengeError`); `effect` (`Config`, `Context`, `Effect`, `Option`, `Redacted`, `Schema`); `@rasm/ts/core` (`Budget`, `FaultClass`); `crypt/sign` (`JwksLedger`, `JwksSnapshot`).
 
 ```typescript
 import {
@@ -32,12 +31,12 @@ import {
   type ClientAuth, type Configuration, type DPoPHandle, type ExportedJWKSCache, type IntrospectionResponse,
   type TokenEndpointResponse, type TokenEndpointResponseHelpers, type WWWAuthenticateChallenge,
 } from "openid-client"
-import { Budget, FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Match, Option, Redacted, Schema } from "effect"
 import { AccessClaims, JwksLedger, JwksSnapshot, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 
-const _family = FaultClass.family(
+const _family = Fault.Class.family(
   ["issuer", "transport", "grant", "nonce", "proof", "shape", "inactive", "unsupported", "expired"] as const,
   {
     issuer: { class: "invalid" },
@@ -62,7 +61,7 @@ class WorkloadFault extends Schema.TaggedError<WorkloadFault>()("WorkloadFault",
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -269,15 +268,12 @@ const _resolved = (bound: Bound, wire: GrantWire, floor: Duration.Duration): Eff
 - Law: sender constraint binds once per principal and travels with it — `randomDPoPKeyPair` mints the pair, `getDPoPHandle` wraps it against the bound `Configuration`, the handle rides `options.DPoP` into every grant and resource call, and the handle's own `calculateThumbprint` is the `jkt` the principal carries; the private key never leaves the handle, so the estate holds one proof custody per principal rather than one per call site.
 - Law: a resource call is PROVED, never merely authorized — `fetchProtectedResource` carries the token, the method, the body, and the same handle, so the proof binds to this call's own method and URL and a proof replayed against another endpoint fails at the resource server; a hand-assembled `authorization` header omits the proof entirely and silently downgrades a sender-constrained credential to a bearer one.
 - Law: DPoP nonce recovery is one arm keyed on the protocol CODE, never on the fault class — RFC 9449 carries `use_dpop_nonce` on two channels the certified client surfaces as two classes, the token endpoint answering with an error body and a resource server with a WWW-Authenticate challenge, so the triage reads the code across both and re-runs the same leg exactly once; keying the arm on the challenge class alone leaves every grant leg with no recovery and re-drives an `insufficient_scope` the issuer already decided, and folding the arm into the transport budget re-drives a genuine refusal. The handle records the server's nonce as the refusal lands, so the second attempt carries it and a third is a real answer.
-- Law: every leg is bounded and class-gated — a per-call deadline mints `transport`, `Budget.schedule("lease")` re-drives only the `unavailable`-classed arm under the branch compile's jitter, attempt bound, quiet-reset, and elapsed ceiling, and a token-endpoint error body is a terminal `grant` the issuer already decided.
 - Law: a crossing carries a live credential or none — `handoff` stashes under the principal's own remaining window so a slot cannot outlive the token inside it, `claim` consumes once and re-reads `lapsed` because the hop itself spends time, and an empty slot and a spent principal both answer `expired`; the pair takes the store through the requirement channel per call, so a single-process composition binds no port and pays nothing for a crossing it never makes.
 - Law: rotation is the principal's own lifetime, never a caller's timer — `rotate` reads the held refresh grant and re-drives the refresh arm, a bound refresh staying sender-constrained through the same handle, and a principal with no refresh grant re-runs the request that minted it; a caller comparing clocks against a stored expiry re-derives what `lapsed` already answers.
 - Law: introspection answers liveness, never authorization — `active: false` is the `inactive` refusal and the response's scope and confirmation claims are evidence a caller may cross-check, while the decision stays `access/claim`'s fold; a plane authorizing on an introspection body forks the entitlement owner.
 - Law: the plane carries its own denominator — every resolved principal lands the `credential`-kinded admission and ceremony span through `Reject.measured` under the `workload` surface facet, and every refused grant marks the same row, so a fleet-wide credential failure separates from a fleet-wide traffic change on one key set.
 - Receipt: `MachinePrincipal` on grant, rotate, and claim, the introspection evidence on introspect, the raw `Response` on call (the caller decodes at its own seam), `void` on retire and handoff — never a raw `TokenEndpointResponse`.
-- Growth: a new grant is one `GrantRequest` case, one `_GRANT_TYPES` row, and one arm; a new lifecycle verb is one member over the same `Bound`; a new resilience posture is a `Budget` row selection; a new transport is a mount site over `credential`, never a second projection.
 - Boundary: the app root supplies the `IssuerSpec` and the `JwksLedger` binding; the runtime wave supplies the instrumented fetch and mounts `credential` as an HTTP header, gRPC call metadata, or a NATS auth-callout header; `access/claim` owns what the principal may do.
-- Packages: `openid-client` (`clientCredentialsGrant`, `genericGrantRequest`, `refreshTokenGrant`, `initiateDeviceAuthorization`/`pollDeviceAuthorizationGrant`, `initiateBackchannelAuthentication`/`pollBackchannelAuthenticationGrant`, `randomDPoPKeyPair`/`getDPoPHandle`, `tokenIntrospection`, `tokenRevocation`, `fetchProtectedResource`); `effect` (`Config`, `Effect`, `Option`, `Duration`); `@rasm/ts/core` (`Budget`); `crypt/verify` (`Reject`).
 
 ```typescript
 class IssuerStore extends Context.Tag("security/authn/IssuerStore")<IssuerStore, SingleUse<MachinePrincipal, WorkloadFault>>() {}
@@ -291,7 +287,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       const _legged = <A>(run: () => Promise<A>): Effect.Effect<A, WorkloadFault> =>
         Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
           Effect.timeoutFail({ duration: deadline, onTimeout: () => new WorkloadFault({ reason: "transport", detail: spec.issuer }) }),
-          Effect.retry(Budget.schedule("lease")),
+          Effect.retry(Fault.Budget.schedule("lease")),
         )
       // Exactly one re-run, and only for the nonce handshake: the handle recorded the server's nonce as the
       // refusal landed, so the second attempt carries it. A genuine proof refusal keeps its single answer.

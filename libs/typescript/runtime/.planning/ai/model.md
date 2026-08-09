@@ -12,62 +12,92 @@ The intelligence spine: five provider families fold onto one capability-asymmetr
 ## [02]-[PROVIDER_ROWS]
 
 [PROVIDER_ROWS]:
-- Owner: `Providers` — the capability-asymmetry table as data: one row per family carrying its `Model.make` entry, its populated asymmetry cells, and its client Layer. The cells are facts, not code paths: `openai` is the reference row (language model on Responses, embeddings ×2 modalities, `OpenAiTokenizer.make({ model })`, four provider tools, a namespaced telemetry module), `anthropic` populates tokenizer (`AnthropicTokenizer.make` — a bare `Tokenizer.Service` value, not a factory) and five tool families, `google` carries raw-client embeddings only, `bedrock` carries SigV4 credentials and native guardrail traces, and `openrouter` carries aggregator routing and per-response cost metadata. Each row also carries the semantic-convention `system` identity (`gemini` and `aws.bedrock`, not local provider aliases) used by accounting. A consumer reads a cell; a `switch` over provider names is unspellable.
+- Owner: `Providers` — the capability-asymmetry table as data: one row per family carrying its `Model.make` entry, its divergent asymmetry cells, and its client Layer. Cells are facts, not code paths: `openai` populates native embeddings, the model-keyed tokenizer factory, and a namespaced telemetry module; `anthropic` populates the bare `Tokenizer.Service` value and the `cacheControl` breakpoint; `google` reaches embeddings, token counting, and caching through its raw client alone; `bedrock` carries SigV4 credentials and the `cachePoint` block; `openrouter` carries aggregator routing and a settled per-response cost. Each row also carries the semantic-convention `system` identity (`gemini` and `aws.bedrock`, not local provider aliases) used by accounting. A consumer reads a cell; a `switch` over provider names is unspellable.
+- Law: a cell earns its column by DIVERGING — a value every row repeats is deleted, and a roster tally is never a cell because no consumer spends a count.
+- Law: every row states its forfeit on `degrade`, so a caller reads what the row gives up against the reference row instead of discovering it at an absent tag.
+- Law: prompt caching is a `cache` cell, not a provider branch — the breakpoint mechanism diverges four ways across five rows, and the spend fold already prices `cachedInputTokens` at its own rate, so a plane pricing cache hits while stamping no breakpoint prices a discount it never earns.
 - Law: construction is uniform — every client is `layerConfig` with `Config.redacted` credentials over the `HttpClient` requirement `net/client`'s default-policy rows satisfy; a provider Layer never dials its own transport policy.
 - Law: `Model.make(name, layer)` is both a `Layer` and an `Effect` and carries the provider name Tag, so the ladder and the spend fold read the active row by yielding one Tag — provider identity is ambient, never threaded.
 - Law: per-request steering is the provider's `Config` Tag written through `withConfigOverride` — the OpenAI `strict`/`verbosity` knobs, the Anthropic parallel-tool toggle — scoped per effect, never baked into a row.
-- Growth: a sixth provider is one row with its cells; an asymmetry axis (caching, batching endpoint) is one column every row answers.
+- Growth: a sixth provider is one row with its cells; an asymmetry axis (a batching endpoint, a reasoning-continuity carrier) is one column every row answers.
 - Packages: `@effect/ai` (`Model`, `LanguageModel`); `@effect/ai-openai`, `@effect/ai-anthropic`, `@effect/ai-google`, `@effect/ai-amazon-bedrock`, `@effect/ai-openrouter`; `../net/client.ts` (`Client` — the `HttpClient` policy row).
 
 ```typescript
-import { type Chat, LanguageModel, Prompt, Response, Telemetry, Tokenizer, type Tool } from "@effect/ai"
+import { AiError, type Chat, LanguageModel, Prompt, Response, Telemetry, Tokenizer, type Tool } from "@effect/ai"
 import { AnthropicClient, AnthropicLanguageModel, AnthropicTokenizer } from "@effect/ai-anthropic"
 import { AmazonBedrockClient, AmazonBedrockLanguageModel } from "@effect/ai-amazon-bedrock"
 import { GoogleClient, GoogleLanguageModel } from "@effect/ai-google"
 import { OpenAiClient, OpenAiLanguageModel, OpenAiTelemetry, OpenAiTokenizer } from "@effect/ai-openai"
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter"
-import { Array, BigDecimal, Chunk, Config, Effect, ExecutionPlan, Layer, Match, Number, Option, Order, Schema, Stream, Struct, type Tracer } from "effect"
-import { Budget, FaultClass } from "@rasm/ts/core"
+import { Array, BigDecimal, Chunk, Config, Duration, Effect, ExecutionPlan, Layer, Match, Number, Option, Order, Schema, Stream, Struct, type Tracer } from "effect"
+import { Fault } from "@rasm/ts/core"
 import { Safety } from "./tool.ts"
 
 declare namespace Providers {
-  type Capability = {
-    readonly generation: readonly ["text", "object", "stream"]
+  // Descriptor coordinates are TOTAL — every row answers all five, because a row short of them drops a coordinate its
+  // own callers then hardcode. These are the `providers` axis descriptors a `proc/config#ADMISSION_ROWS` `Profile`
+  // SELECTS; the closed axis selects the row and the cell explains it, so `tenancy` names the MECHANISM this row
+  // separates by and never re-mints the `none|single|multi` roster its owner already publishes. Cells beyond the five
+  // earn their column by DIVERGING: a value repeated by every row decides nothing, and a roster tally no consumer
+  // spends is never a cell at all — the tool rosters live on `tool.md`, where a caller names one.
+  type Descriptor = {
+    readonly fits: string
+    readonly admit: "api-key" | "sigv4"
+    readonly tenancy: string
+    readonly lifetime: string
+    readonly degrade: string
+  }
+  type Capability = Descriptor & {
     readonly embed: "native" | "raw" | "none"
     readonly tokenizer: "keyed" | "value" | "fallback"
-    readonly tools: number
+    readonly cache: "cacheControl" | "cachePoint" | "implicit" | "client"
     readonly telemetry: "namespaced" | "core"
     readonly routing: "direct" | "aggregate"
-    readonly exactCost: boolean
-    readonly auth: "api-key" | "sigv4"
-    readonly configOverride: boolean
+    readonly cost: "aggregate" | "metered"
     readonly system: NonNullable<Telemetry.BaseAttributes["system"]>
   }
 }
 
+// `tenancy` states the mechanism a row separates tenants by — every row here separates by CREDENTIAL, and its cell
+// names the principal that credential resolves to. `lifetime` splits on OWNERSHIP: a cached prefix expires under the
+// provider's own policy, which this package cannot read or influence, so the honest answer is that the row DOES NOT
+// DECIDE it and names who does. That absence is not a forfeit and never rides `degrade`, which carries only what a
+// row gives up against its siblings — a row with no breakpoint where siblings place one genuinely gives something up.
 const _providers = {
   openai: {
     model: OpenAiLanguageModel.model,
     client: OpenAiClient.layerConfig({ apiKey: Config.redacted("OPENAI_API_KEY") }),
     cells: {
-      generation: ["text", "object", "stream"], embed: "native", tokenizer: "keyed", tools: 4,
-      telemetry: "namespaced", routing: "direct", exactCost: false, auth: "api-key", configOverride: true, system: "openai",
+      fits: "<reference-row-native-embeddings-keyed-exact-tokenizer-namespaced-telemetry>",
+      admit: "api-key", tenancy: "<per-credential-one-api-key-resolving-to-one-organization-and-project>",
+      lifetime: "<does-not-decide-the-provider-evicts-its-own-implicit-prefix-cache>",
+      degrade: "<no-cache-breakpoint-and-no-system-fingerprint-through-the-part-algebra>",
+      embed: "native", tokenizer: "keyed", cache: "implicit", telemetry: "namespaced", routing: "direct",
+      cost: "metered", system: "openai",
     },
   },
   anthropic: {
     model: AnthropicLanguageModel.model,
     client: AnthropicClient.layerConfig({ apiKey: Config.redacted("ANTHROPIC_API_KEY") }),
     cells: {
-      generation: ["text", "object", "stream"], embed: "none", tokenizer: "value", tools: 5,
-      telemetry: "core", routing: "direct", exactCost: false, auth: "api-key", configOverride: true, system: "anthropic",
+      fits: "<exact-tokenizer-value-and-a-caller-placed-cache-breakpoint>",
+      admit: "api-key", tenancy: "<per-credential-one-api-key-resolving-to-one-workspace>",
+      lifetime: "<does-not-decide-the-provider-expires-the-breakpoint-this-row-only-stamps>",
+      degrade: "<no-embedding-model>",
+      embed: "none", tokenizer: "value", cache: "cacheControl", telemetry: "core", routing: "direct",
+      cost: "metered", system: "anthropic",
     },
   },
   google: {
     model: GoogleLanguageModel.model,
     client: GoogleClient.layerConfig({ apiKey: Config.redacted("GOOGLE_API_KEY") }),
     cells: {
-      generation: ["text", "object", "stream"], embed: "raw", tokenizer: "fallback", tools: 4,
-      telemetry: "core", routing: "direct", exactCost: false, auth: "api-key", configOverride: true, system: "gemini",
+      fits: "<generation-through-the-shared-tags-with-every-other-capability-behind-the-raw-client>",
+      admit: "api-key", tenancy: "<per-credential-one-api-key-resolving-to-one-cloud-project>",
+      lifetime: "<does-not-decide-the-provider-owns-every-cache-entry-the-raw-client-creates>",
+      degrade: "<embeddings-token-count-and-caching-reach-the-raw-client-alone>",
+      embed: "raw", tokenizer: "fallback", cache: "client", telemetry: "core", routing: "direct",
+      cost: "metered", system: "gemini",
     },
   },
   bedrock: {
@@ -77,16 +107,24 @@ const _providers = {
       secretAccessKey: Config.redacted("AWS_SECRET_ACCESS_KEY"),
     }),
     cells: {
-      generation: ["text", "object", "stream"], embed: "none", tokenizer: "fallback", tools: 8,
-      telemetry: "core", routing: "direct", exactCost: false, auth: "sigv4", configOverride: true, system: "aws.bedrock",
+      fits: "<claude-under-an-aws-account-role-with-native-guardrail-traces-on-the-finish-part>",
+      admit: "sigv4", tenancy: "<per-credential-one-account-role-resolving-to-one-account-and-region>",
+      lifetime: "<does-not-decide-the-provider-expires-the-cache-point-this-row-only-places>",
+      degrade: "<no-embedding-model-and-no-first-party-tokenizer>",
+      embed: "none", tokenizer: "fallback", cache: "cachePoint", telemetry: "core", routing: "direct",
+      cost: "metered", system: "aws.bedrock",
     },
   },
   openrouter: {
     model: OpenRouterLanguageModel.model,
     client: OpenRouterClient.layerConfig({ apiKey: Config.redacted("OPENROUTER_API_KEY") }),
     cells: {
-      generation: ["text", "object", "stream"], embed: "none", tokenizer: "fallback", tools: 0,
-      telemetry: "core", routing: "aggregate", exactCost: true, auth: "api-key", configOverride: true, system: "openrouter",
+      fits: "<one-key-reaching-many-upstreams-with-a-settled-per-response-cost>",
+      admit: "api-key", tenancy: "<per-credential-one-aggregator-key-fronting-many-upstream-accounts-it-never-separates>",
+      lifetime: "<does-not-decide-the-resolved-upstream-expires-the-breakpoint>",
+      degrade: "<no-embedding-tokenizer-telemetry-or-provider-tool-binding>",
+      embed: "none", tokenizer: "fallback", cache: "cacheControl", telemetry: "core", routing: "aggregate",
+      cost: "aggregate", system: "openrouter",
     },
   },
 } as const satisfies Record<string, { readonly model: unknown; readonly client: unknown; readonly cells: Providers.Capability }>
@@ -94,31 +132,92 @@ const _providers = {
 declare namespace Providers {
   type Name = keyof typeof _providers
   type Row = (typeof _providers)[Name]
+  type Ttl = "5m" | "1h"
+  type _Rows<T extends Record<Name, { readonly cells: Capability }> = typeof _providers> = T
 }
 
-const Providers = { ..._providers, names: Struct.keys(_providers) }
+// Breakpoints read the `cache` cell, and the augmentation SLOT KEY is the row key itself, so a stamp lands under the
+// provider's own namespace with no name table beside the row table. Rows caching without a marker stamp nothing:
+// `implicit` needs none and `client` exposes caching only through a raw client this binding never dials.
+const _breakpoints = {
+  cacheControl: (provider: Providers.Name, ttl: Providers.Ttl) => ({ [provider]: { cacheControl: { type: "ephemeral", ttl } } }),
+  cachePoint: (provider: Providers.Name) => ({ [provider]: { cachePoint: { type: "default" } } }),
+  implicit: () => ({}),
+  client: () => ({}),
+} as const satisfies Record<
+  Providers.Capability["cache"],
+  (provider: Providers.Name, ttl: Providers.Ttl) => Prompt.ProviderOptions
+>
+
+const Providers = {
+  ..._providers,
+  names: Struct.keys(_providers),
+  breakpoint: (provider: Providers.Name, ttl: Providers.Ttl = "5m"): Prompt.ProviderOptions =>
+    _breakpoints[_providers[provider].cells.cache](provider, ttl),
+}
 ```
 
 ## [03]-[LADDER]
 
 [LADDER]:
-- Owner: `Ladder` — an arbitrary non-empty ordered tier table compiles into one execution plan; tier names are data, while every row carries a provider `Model` layer, attempt bound, `Budget` pacing schedule, failover predicate, the GenAI sampling band, and four-band token rates. `fast`, `deep`, and `fallback` are ordinary seed values rather than a closed type roster, so tenant-specific ladders and five-times-larger plans require no surface edit.
-- Law: `Ladder.drive` is ONE overloaded pair over the RAIL, not two drives — `Effect.withExecutionPlan` for the buffered call, `Stream.withExecutionPlan` for the streaming one, both consuming the same `_plan(table)` value and discriminating on `Effect.isEffect` (a `Stream` is not an `Effect`, so the two input shapes are runtime-disjoint) — exactly as `Guardrail.generate` overloads over its three modalities; the governed call depends only on the `LanguageModel` Tag and the plan swaps WHICH row satisfies it per step, so tier routing composes around any gated call without the call knowing tiers exist. The gate's streaming modality therefore routes tiers, bounds attempts, and paces on the tier's `Budget` exactly like the buffered one.
+- Owner: `_graded` grades the `AiError` union onto the branch fault lattice, and both ladder rungs read that grade.
+- Law: an unbranded provider failure grades `defect` by default, so an ungraded ladder retries nothing and fails over nowhere — the grade is what arms `while` and the tier schedule, and both take the same predicate so one call cannot retry under a policy the other refuses.
+- Law: `HttpResponseError` grades on STATUS, never on its tag — one tag covers a rate limit, a revoked key, and a malformed request, so a tag-level verdict either replays a caller error through every tier or strands a throttle on one attempt.
+- Law: `Ladder.after` reads the provider's own published wait off the refusal it already holds; a schedule ignoring it either hammers the window or over-waits it.
 - Law: the streaming arm refuses partial-stream fallback — `preventFallbackOnPartialStream: true` — because a gated stream has already released swept text deltas by the time a tier trips, and a silent re-run would replay them past the sweep window the gate's release rule holds.
 - Law: the plan's own requirement tail is derived, never restated — `Ladder.Needs` reads the compiled plan's `requirements` channel, so the provider-client set each tier drags behind it is a projection of the table and a sixth provider widens it with no signature edit.
 - Law: tier selection evidence rides the span — the settled step's provider name and attempt count annotate the generation span so cost attribution and failover health are queryable per call.
-- Law: the plan compiles from the tier table alone — `ExecutionPlan.make` receives one step record per tier (`provide` takes the provider row's `Model` value directly because a `Model` IS a `Layer`, `attempts` the tier bound, `schedule` the `Budget.schedule(kind)` compiled pacing value, `while` the retryability probe over `FaultClass`), and `Array.map` over the non-empty tier tuple preserves the non-empty step arity `make` demands.
 - Law: sampling is tier policy, not a call knob — `sampling` carries the package's own `RequestAttributes` band minus `model` (the tier already anchors that), so temperature, top-p, penalties, stop sequences, and seed travel with the row the gate prices and annotate the span from the same value.
 - Growth: a new tier is one table row; a per-tenant ladder is a table value selected by the caller's context.
-- Packages: `effect` (`ExecutionPlan`, `Effect.withExecutionPlan`, `Effect.isEffect`, `Stream.withExecutionPlan`); `@effect/ai` (`Telemetry.RequestAttributes`); `@rasm/ts/core` (`Budget`, `FaultClass`).
 
 ```typescript
-const _yields = (fault: unknown): boolean => FaultClass[FaultClass.of(fault)].retryable
+// `AiError` carries no branch class brand, so `Fault.Class.of` probes it, finds no `class` property, and grades every
+// provider failure `defect` — the one class the lattice marks non-retryable. That verdict disarms BOTH rungs at once:
+// `while` refuses every failover and `Fault.Budget.schedule`'s default gate refuses every in-tier retry, so a rate
+// limit reads as terminal and the tier table never runs. Grading the union onto the lattice is what arms the ladder.
+const _statusRows = [
+  { at: (status: number) => status === 408 || status === 429, class: "exhausted" },
+  { at: (status: number) => status === 401 || status === 403, class: "denied" },
+  { at: (status: number) => status === 404, class: "absent" },
+  { at: (status: number) => status === 409, class: "conflicted" },
+  { at: (status: number) => status >= 500, class: "unavailable" },
+] as const satisfies ReadonlyArray<{ readonly at: (status: number) => boolean; readonly class: Fault.Class.Kind }>
+
+// Status is the axis the TAG cannot carry: one `HttpResponseError` covers a rate limit, a revoked key, and a
+// malformed request, so a tag-level verdict either replays a 400 through every tier or strands a 429 on one attempt.
+const _status = (status: number): Fault.Class.Kind =>
+  Option.match(Array.findFirst(_statusRows, (row) => row.at(status)), {
+    onNone: () => "invalid" as const, // every remaining 4xx is the caller's own request, and replaying it changes nothing
+    onSome: (row) => row.class,
+  })
+
+const _graded = Match.type<AiError.AiError>().pipe(
+  // `Encode` and `InvalidUrl` are this process's own construction faults; `Transport` is the network and yields.
+  Match.tag("HttpRequestError", (fault) => fault.reason === "Transport" ? "unavailable" as const : "invalid" as const),
+  Match.tag("HttpResponseError", (fault) =>
+    fault.reason === "StatusCode" ? _status(fault.response.status) : "malformed" as const),
+  Match.tag("MalformedInput", () => "invalid" as const),
+  Match.tag("MalformedOutput", () => "malformed" as const),
+  Match.tag("UnknownError", () => "defect" as const),
+  Match.exhaustive,
+)
+
+const _classOf = (fault: unknown): Fault.Class.Kind =>
+  AiError.isAiError(fault) ? _graded(fault) : Fault.Class.of(fault) // a branch-branded fault still grades at its own owner
+
+const _yields = (fault: unknown): boolean => Fault.Class.at(_classOf(fault)).retryable
+
+// Providers publish their own wait on the refusal itself, so the header reads off the error the ladder already holds.
+const _after = (fault: unknown): Option.Option<Duration.Duration> =>
+  AiError.isAiError(fault) && fault._tag === "HttpResponseError"
+    ? Option.map(Option.flatMap(Option.fromNullable(fault.response.headers["retry-after"]), Number.parse), Duration.seconds)
+    : Option.none()
 
 const _step = (tier: Ladder.Tier) => ({
   provide: _providers[tier.provider].model(tier.model),
   attempts: tier.attempts,
-  schedule: Budget.schedule(tier.budget),
+  // one grading gates the in-tier retry too, because the default gate reads a `class` property no `AiError` carries
+  schedule: Fault.Budget.schedule(tier.budget, _yields),
   while: (fault: unknown) => Effect.succeed(_yields(fault)),
 })
 
@@ -130,7 +229,7 @@ declare namespace Ladder {
     readonly provider: Providers.Name
     readonly model: string
     readonly attempts: number
-    readonly budget: Budget.Kind
+    readonly budget: Fault.Budget.Kind
     readonly sampling: Omit<Telemetry.RequestAttributes, "model">
     readonly rate: {
       readonly input: BigDecimal.BigDecimal
@@ -154,7 +253,7 @@ function _tiered<A, E, R>(table: Ladder.Table, call: Effect.Effect<A, E, R> | St
     : Stream.withExecutionPlan(call, plan, { preventFallbackOnPartialStream: true })
 }
 
-const Ladder = { drive: _tiered, yields: _yields }
+const Ladder = { drive: _tiered, yields: _yields, grade: _classOf, after: _after }
 ```
 
 ## [04]-[GATE]
@@ -164,15 +263,13 @@ const Ladder = { drive: _tiered, yields: _yields }
 - Law: the carrier is a value, and its shape is the substrate's own — `Guardrail.Carrier` is `Pick<Chat.Service, "generateText" | "generateObject" | "streamText">`, so the persisted chat IS a carrier by construction and the free `LanguageModel` trio proves conformance at its `satisfies` seam. The default carrier is the free trio; handing a `Chat.Persisted` instead makes the same gated call append prompt and response to the conversation and write both to the backing store, so a session's history is generated, never assembled. A gated call beside a hand-written history append is the split this parameter deletes.
 - Law: the stream sweep retains withheld OUTPUT and its source id. Each text delta appends, sweeps the whole held window, and releases only the prefix older than `policy.window`; before every non-text part it sweeps and flushes the residual text first, preserving source order instead of allowing tool or metadata parts to overtake withheld text. `text-end` is the same boundary rule, and a match fails before any byte in the matched span emits.
 - Law: admission modes are policy rows — `Safety.admit` partitions the graded roster into executable `allowed` tools and visible-but-unresolved `held` tools, and the provider's `oneOf` receives their union while `disableToolCallResolution` prevents local execution whenever `held` is non-empty. An empty union compiles to `"none"`; mandatory choice compiles to `{ mode: "required", oneOf: visible }`; and a forced tool outside the visible union is a policy defect, never a silent escalation. This preserves held-call evidence for the agent approval loop without making the held tool executable.
-- Law: refusal is ONE reason-discriminated `GuardrailFault` whose class derives through the core `FaultClass.family` mint — the reason column IS the refusal vocabulary and `evidence` carries the case's one string (the tripped rule, the swept span, the provider's finish reason), so no second owner exists beside the fault and the whole family is encodable for the wire the agent's request triple already crosses. The four reasons split by BLAME, which is the whole point of the column: `screened` (the screen predicate refused the prompt), `swept` (the sweep predicate tripped on output), and `provider` (the model's own content-filter finish) classify `denied`, while `policy` — a mandatory choice with an empty visible union, or a forced tool outside it — classifies `invalid`, because a caller's own misconfiguration is a quarantinable defect and classing it `denied` reports a bug as a moderation verdict. Retryability, blame, and quarantine derive from the core row table, so no rank or retry column rides beside `class`; a caller discriminates on `reason`, never on message text.
-- Law: spend and telemetry fold per call as one accounting — `Spend.accounted(tier, response)` takes the aggregator's settled exact cost where the row carries one (`FinishPart.metadata.openrouter.usage.cost`, USD, admitted through `BigDecimal.safeFromNumber`) and otherwise multiplies `Usage` (input, output, reasoning, cached tokens) against the tier's `BigDecimal` rate rows; `Telemetry.addGenAIAnnotations(span, { system, operation, request, usage })` writes the standard `gen_ai.*` attribute set onto the generation span — the request band spreads the tier's whole sampling row, so a cost anomaly attributes to a config change rather than to traffic — and float arithmetic on money and hand-named span attributes are both unspellable.
+- Law: spend and telemetry fold per call as one accounting — `Spend.accounted(tier, response)` reads the settled cost through the tier row's `cost` cell (`FinishPart.metadata.openrouter.usage.cost`, USD, admitted through `BigDecimal.safeFromNumber`) and otherwise multiplies `Usage` (input, output, reasoning, cached tokens) against the tier's `BigDecimal` rate rows; `Telemetry.addGenAIAnnotations(span, { system, operation, request, usage })` writes the standard `gen_ai.*` attribute set onto the generation span — the request band spreads the tier's whole sampling row, so a cost anomaly attributes to a config change rather than to traffic — and float arithmetic on money and hand-named span attributes are both unspellable.
 - Law: the `telemetry` capability cell is a code path, not a fact — one annotation record keyed by that cell runs after the core fold: the `namespaced` row folds `OpenAiTelemetry.addGenAIAnnotations(span, { openai: { response: { serviceTier } } })` off the finish part's own `openai` metadata slot, the `core` row is a no-op, and the lookup replaces the provider `switch` the column exists to make unspellable. `_finish` is the one finish-part read both the exact-cost admission and this fold consume.
 - Law: tool-call ids are pluggable — the `IdGenerator` Tag rides the requirement set, and a durable agent supplies a deterministic generator Layer at its root so replayed turns mint identical tool-call ids and the workflow journal stays byte-stable across replay.
 - Growth: a screen or sweep policy is a predicate row on the gate's policy table; a new modality inherits the fold by construction; a provider gaining a namespaced telemetry module is one annotation row.
-- Packages: `@effect/ai` (`LanguageModel`, `Response`, `Prompt`, `Telemetry`, type `Chat`); `@effect/ai-openai` (`OpenAiTelemetry`); `effect` (`Stream`, `Chunk`, `BigDecimal`, `Schema`, type `Tracer`); `@rasm/ts/core` (`FaultClass`); `./tool.ts` (`Safety`).
 
 ```typescript
-const _refusals = FaultClass.family(["screened", "swept", "provider", "policy"] as const, {
+const _refusals = Fault.Class.family(["screened", "swept", "provider", "policy"] as const, {
   screened: { class: "denied" },
   swept: { class: "denied" },
   provider: { class: "denied" },
@@ -183,7 +280,7 @@ class GuardrailFault extends Schema.TaggedError<GuardrailFault>()("GuardrailFaul
   reason: _refusals.schema,
   evidence: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _refusals.classOf(this.reason)
   }
   override get message(): string {
@@ -377,11 +474,25 @@ const _spend = (tier: Ladder.Tier, usage: Response.Usage): BigDecimal.BigDecimal
 const _finish = (content: ReadonlyArray<Response.AnyPart>): Option.Option<Response.FinishPart> =>
   Array.findFirst(content, (part): part is Response.FinishPart => part.type === "finish") // the one finish read: exact cost and namespaced telemetry both consume it
 
-const _exact = (content: ReadonlyArray<Response.AnyPart>): Option.Option<BigDecimal.BigDecimal> =>
-  _finish(content).pipe(
-    Option.flatMapNullable((part) => part.metadata.openrouter?.usage?.cost),
-    Option.flatMap(BigDecimal.safeFromNumber), // the float-to-exact admission: an unrepresentable provider float refuses instead of drifting
-  )
+// Settled-cost readers key on the COST cell, matching the telemetry fold beside them: an aggregator publishes a
+// figure under its own metadata slot while every metered row prices from `Usage`, so a boolean flag beside a direct
+// metadata read left the column decorative and a sixth row gaining a settled figure is one reader, never a branch.
+const _settled = {
+  aggregate: (content: ReadonlyArray<Response.AnyPart>) =>
+    _finish(content).pipe(
+      Option.flatMapNullable((part) => part.metadata.openrouter?.usage?.cost),
+      Option.flatMap(BigDecimal.safeFromNumber), // the float-to-exact admission: an unrepresentable provider float refuses instead of drifting
+    ),
+  metered: () => Option.none<BigDecimal.BigDecimal>(),
+} as const satisfies Record<
+  Providers.Capability["cost"],
+  (content: ReadonlyArray<Response.AnyPart>) => Option.Option<BigDecimal.BigDecimal>
+>
+
+const _exact = (
+  tier: Ladder.Tier,
+  content: ReadonlyArray<Response.AnyPart>,
+): Option.Option<BigDecimal.BigDecimal> => _settled[_providers[tier.provider].cells.cost](content)
 
 const _annotations = {
   namespaced: (span: Tracer.Span, content: ReadonlyArray<Response.AnyPart>) =>
@@ -414,7 +525,7 @@ const _accounted = <Tools extends Record<string, Tool.Any>>(
             })).pipe(Effect.zipRight(_annotations[_providers[tier.provider].cells.telemetry](span, response.content))),
       }),
     ),
-    Option.getOrElse(_exact(response.content), () => _spend(tier, response.usage)),
+    Option.getOrElse(_exact(tier, response.content), () => _spend(tier, response.usage)),
   )
 
 const Spend = { of: _spend, exact: _exact, accounted: _accounted, finish: _finish }
@@ -438,21 +549,28 @@ const TokenBudget = Schema.Struct({
 declare namespace Tokens {
   type Pair = Schema.Schema.Type<typeof TokenBudget>
   type Passage = { readonly origin: string; readonly rank: number; readonly body: string }
-  type ExactMeter = { readonly provider: "anthropic" | "openai"; readonly model: string }
+  // callers nominate a tokenizer CELL, so an unmetered row borrows a shape rather than a provider identity
+  type Exact = Exclude<Providers.Capability["tokenizer"], "fallback">
+  type ExactMeter = { readonly meter: Exact; readonly model: string }
 }
 
-const _approximate = (fallback: Tokens.ExactMeter): Layer.Layer<Tokenizer.Tokenizer> =>
-  fallback.provider === "anthropic"
-    ? Layer.succeed(Tokenizer.Tokenizer, AnthropicTokenizer.make)
-    : OpenAiTokenizer.layer({ model: fallback.model })
+// Meters key on the TOKENIZER cell, never the provider name — exactly two exact shapes ship (a bare service value and
+// a model-keyed factory) and every unmetered row borrows one of them, so five provider arms spelled three behaviours
+// and a sixth provider would have added a fourth arm answering a question the column already answers.
+const _exactMeters = {
+  value: (_model: string) => Layer.succeed(Tokenizer.Tokenizer, AnthropicTokenizer.make),
+  keyed: (model: string) => OpenAiTokenizer.layer({ model }),
+} as const satisfies Record<Tokens.Exact, (model: string) => Layer.Layer<Tokenizer.Tokenizer>>
 
 const _meters = {
-  anthropic: (_model: string, _fallback: Tokens.ExactMeter) => Layer.succeed(Tokenizer.Tokenizer, AnthropicTokenizer.make),
-  openai: (model: string, _fallback: Tokens.ExactMeter) => OpenAiTokenizer.layer({ model }),
-  google: (_model: string, fallback: Tokens.ExactMeter) => _approximate(fallback),
-  bedrock: (_model: string, fallback: Tokens.ExactMeter) => _approximate(fallback),
-  openrouter: (_model: string, fallback: Tokens.ExactMeter) => _approximate(fallback),
-} as const satisfies Record<Providers.Name, (model: string, fallback: Tokens.ExactMeter) => Layer.Layer<Tokenizer.Tokenizer>>
+  value: _exactMeters.value,
+  keyed: _exactMeters.keyed,
+  // an unmetered row borrows the exact meter the caller nominates, so the borrowed shape reads off that meter's cell
+  fallback: (_model: string, fallback: Tokens.ExactMeter) => _exactMeters[fallback.meter](fallback.model),
+} as const satisfies Record<
+  Providers.Capability["tokenizer"],
+  (model: string, fallback: Tokens.ExactMeter) => Layer.Layer<Tokenizer.Tokenizer>
+>
 
 const _gauge = (prompt: Prompt.RawInput) =>
   Tokenizer.Tokenizer.pipe(Effect.flatMap((meter) => meter.tokenize(prompt)), Effect.map((tokens) => tokens.length))
@@ -480,7 +598,8 @@ const _weave = (system: string, passages: ReadonlyArray<Tokens.Passage>, pair: T
 
 const Tokens = {
   Budget: TokenBudget,
-  meter: (provider: Providers.Name, model: string, fallback: Tokens.ExactMeter) => _meters[provider](model, fallback),
+  meter: (provider: Providers.Name, model: string, fallback: Tokens.ExactMeter) =>
+    _meters[_providers[provider].cells.tokenizer](model, fallback),
   gauge: _gauge,
   fit: _fit,
   weave: _weave,
@@ -498,4 +617,5 @@ export { Guardrail, GuardrailFault, Ladder, Providers, Spend, Tokens }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [CACHE_PLACEMENT]-[OPEN]: which `Prompt` member attaches `Providers.breakpoint` to the trailing system message without rebuilding the message array, given `makeMessage` takes `options` at construction while `setSystem`/`appendSystem` take a body alone; verify against `@effect/ai/Prompt` on the member rail.
+- [RETRY_AFTER_SCHEDULE]-[OPEN]: which `Schedule` combinator consumes `Ladder.after` so the provider's published wait replaces the compiled exponential delay for that one attempt, given `Schedule.whileInput` gates without re-timing; verify against `effect/Schedule` on the member rail.

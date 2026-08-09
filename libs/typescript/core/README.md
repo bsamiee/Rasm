@@ -1,6 +1,6 @@
 # [TS_CORE]
 
-`core` is the branch's S0 vocabulary-and-law package — the value floor, the host-free state algebra over it, the contract wire plane with its keyed-decode registry, and the observability vocabulary. Every folder above composes these owners; core defines the shapes they carry and runs none of them.
+`core` is the branch's S0 host-free implementation floor: value admission, state folds and machines, contract codecs, and observability derivation. Every higher folder composes these owners; core owns no persistence, serving, renderer, or exporter.
 
 ## [01]-[ROUTER]
 
@@ -20,7 +20,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `cbor-x`
 - `@msgpack/msgpack`
 - `rfc6902`
-- `mqtt`
 - `hash-wasm`
 
 [FOLD_ALGEBRA]:
@@ -33,17 +32,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the TypeScript registry; the registry owns the contracts and `libs/typescript/.api/` holds the API evidence.
 
 [TYPING_RAILS]:
 - `effect`
 
 [PLATFORM]:
 - `@effect/platform`
-- `@effect/experimental`
-
-[WIRE_ENVELOPE]:
-- `cloudevents` — the carrier dialect row composes its contract; `data:journal/append` is the branch's member-level consumer.
+- `@effect/experimental` — `VariantSchema` projections and `Machine` state algebra.
 
 [BENCHMARK_STATISTICS]:
 - `mitata`

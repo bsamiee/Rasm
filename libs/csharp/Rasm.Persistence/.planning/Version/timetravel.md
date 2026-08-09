@@ -342,8 +342,9 @@ public static class TimeTravel {
     }
 
     // Authorship rides the Marten event Headers (the Element/graph#STREAM_GRAIN Append stamps `actor`/`origin` via
-    // SetHeader, the SAME header slot Version/ledger#CHANGEFEED OpLog.Project reads) — never re-derived. An origin
-    // header absent (a pre-origin event) defaults to Guid.Empty, matching the changefeed projection's own default.
+    // SetHeader, the SAME `actor` slot Version/ledger#CHANGEFEED OpLog.Project reads) — never re-derived. Blame
+    // names the AUTHORING store, so an absent origin header (a pre-origin event) reads Guid.Empty as "no store
+    // named" — a blame readout alone, never the LWW tie-break input the dot's own `Id.Origin` now settles.
     static string ActorOf(IEvent<GraphEvent> e) => e.Headers is { } h && h.TryGetValue("actor", out var actor) ? actor?.ToString() ?? string.Empty : string.Empty;
 
     static Guid OriginOf(IEvent<GraphEvent> e) => e.Headers is { } h && h.TryGetValue("origin", out var origin) && Guid.TryParse(origin?.ToString(), out var id) ? id : Guid.Empty;

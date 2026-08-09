@@ -50,6 +50,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [40]   | wire family row on an interchange census     | its landing class + each consuming arm     | a decoded family with no arm lands nothing   |
 |  [41]   | deploy-plane served decoder artifact row     | the consuming roster row + absence gate    | a decoder serves where its address publishes |
 |  [42]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
+|  [43]   | `navigator.connection` refinement per owner  | the peer's refinement + its axis carve     | one surface, two refinements, one owner each |
 
 ## [02]-[CONDITIONED]
 
@@ -66,6 +67,8 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Claimed absence proves by a failed live resolve against the installed distribution alone, and catalog silence never suffices.
 - Law: Members that verify land as a catalog row in the same pass.
 - Law: Catalog rows contradicting a doctrine page stay unverified until live reflection decides, and the losing surface repairs in the same change.
+- Law: Two pages contradicting on an external fact resolve on the installed distribution alone — neither confidence nor page count elects a winner.
+- Law: Repairing the side that reads weaker without probing inverts the defect, so both spellings stay unverified until the rail answers.
 - Law: Codec rows claim per container — standalone exactness re-proves in each carrier across the extent range; asserting both is two claims.
 
 [FENCE_SEAM]:

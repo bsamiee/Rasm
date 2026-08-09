@@ -124,6 +124,7 @@
 
     <ItemGroup Label="Time Identity">
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
@@ -137,8 +138,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

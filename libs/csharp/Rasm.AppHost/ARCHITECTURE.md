@@ -17,7 +17,7 @@ Rasm.AppHost/
 │   ├── Ports.cs         # Inward port records — the cross-package seam
 │   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode and hash-chained command log
 │   ├── Orchestration.cs # Crash-durable workflow and persistent-job owner over the command/event/schedule ports
-│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead, adaptive concurrency, load-shed, hedge
+│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead, adaptive concurrency, load-shed, circuit health
 │   └── Features.cs      # Config-backed OpenFeature targeting and rollout with sticky bucketing; one FlagVerdict seam
 ├── Agent/               # Bidirectional agent surface over the capability registry
 │   ├── Mcp.cs           # MCP-server projection of descriptors to tools, resources, and prompts
@@ -60,7 +60,7 @@ Five strata order the interior, member-resolved where a folder's owners split ac
 - S2 co-seat — the hash-chained `EventLog` (`Runtime/Determinism`) stamps `CommandReceipt` rows.
 - S2 co-seat — `Runtime/LaneGuard` folds S1 readings into `ShedVerdict`.
 - S3 `Wire` — `OutboundHop` delivery and `MembershipView` cluster coordination over the catalog and the substrate lease stamp.
-- S4 broker front — `SandboxIsolation` and `FleetRoll` broker plugins over the wire and the catalog.
+- S4 broker front — `SandboxRows` and `FleetRoll` broker plugins over the wire and the catalog.
 - S4 `CommandDispatch` (`Agent/Runtime`) — takes `GrantHandle` as same-stratum fact and threads every command onto the S2 log.
 
 ```mermaid
@@ -75,7 +75,7 @@ flowchart TB
     accTitle: AppHost interior strata
     accDescr: Five stacked strata from the broker front through wire delivery and the capability catalog onto the observability grade and the runtime substrate, every consumption edge pointing downward and naming one sourced type, and one forbidden upward edge.
     subgraph S4["S4 BROKER FRONT"]
-        Isolation[SandboxIsolation]
+        Isolation[SandboxRows]
         Roll[FleetRoll]
         Dispatch[CommandDispatch]
     end
@@ -158,7 +158,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, contracts, receipts, content keys, projections, transports, and faults with every C# peer, one edge per kind.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, contracts, receipts, content keys, projections, transports, faults, and one imported type with every C# peer, one edge per kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -193,6 +193,7 @@ flowchart LR
     Runtime e6@<-->|"[PORT]: ProjectionContext"| Persistence
     Wire e8@<-->|"[PORT]: CoordinationOp"| Persistence
     Runtime e15@<-->|"[PORT]: Hlc"| Persistence
+    Persistence e44@-->|"[IMPORT]: RecoveryObjective"| Runtime
     Runtime e16@-->|"[PROJECTION]: ReplayWindow"| Persistence
     Runtime e17@<-->|"[PORT]: HybridCache"| Persistence
     Persistence e18@-->|"[RECEIPT]: ProvisionVerdict"| Observability

@@ -91,7 +91,8 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 |  [06]   | `metadata() -> Promise<Metadata>`     | instance | pre-decode read                                   |
 |  [07]   | `stats() -> Promise<Stats>`           | instance | pixel analysis — `dominant`, `entropy`            |
 
-- `toBuffer`: `{ resolveWithObject: true }` returns `{ data: Buffer, info: OutputInfo }`, otherwise `Promise<Buffer>`.
+- `toBuffer`: `{ resolveWithObject: true }` returns `{ data: Buffer, info: OutputInfo }`, otherwise `Promise<Buffer>`; its backing `ArrayBuffer` is non-transferable on some runtimes.
+- `toUint8Array(): Promise<{ data: Uint8Array; info: OutputInfo }>` takes no options and always resolves the pair over a transferable `ArrayBuffer` — the store hand-off `object/file` composes, while `toBuffer` keeps the `Buffer`-shaped lanes.
 
 `[CODEC_ALIAS]: `jpeg` `png` `webp` `avif` `heif` `gif` `tiff` `jp2` `jxl` `raw`` — explicit-codec forms `toFormat` generalizes.
 
@@ -123,15 +124,15 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 - `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each terminal — `pipeline.toBuffer({ resolveWithObject: true })` returns `{ data, info }` on the success channel, and `metadata`/`stats` become `Effect`s feeding a `Match` on `Metadata.format`.
 - `@aws-sdk/client-s3`(`.api/aws-sdk-client-s3.md`): the `GetObjectCommand` response `Body` (`SdkStream<Readable>`) reads once via `Body.transformToByteArray()` into a `Buffer` that opens `sharp(buffer)`, then `clone()` fans per derivative-spec row; each derivative writes back through `PutObjectCommand{ IfNoneMatch: "*", ChecksumSHA256 }`, a 412 status resolving an idempotent noop.
 - `@aws-sdk/s3-request-presigner`(`.api/aws-sdk-s3-request-presigner.md`): a derivative row whose OWN `grant` policy asks mints one `getSignedUrl` `GetObject` URL bounded by the store's presign TTL; every other row answers `Option.none()` and its key, because a signature nothing reads is paid for at every fan-out.
-- `object/file`: the fan-out is `clone()` + `resize(row.resize)` + `toFormat(row.format, row.options)` over a derivative-spec ROW roster, each derivative content-keyed through the core `ContentKey` mint so its conditional-put stays idempotent; `metadata()` decides the per-row format and geometry while ONE `stats()` lift serves the placeholder colour, the proven-opacity retirement, and the entropy grade ladder.
+- `object/file`: `clone()` + `resize(row.resize)` + `toFormat(row.format, row.options)` fan out over a derivative-spec ROW roster, each derivative content-keyed through the core `ContentKey` mint so its conditional-put stays idempotent; `metadata()` decides the per-row format and geometry while ONE `stats()` lift serves the placeholder colour, the proven-opacity retirement, and the entropy grade ladder, and `toUint8Array()` hands each encoded derivative to the store as one transferable pair.
 
 [LOCAL_ADMISSION]:
 - Every terminal wraps in `Effect.tryPromise` with a tagged fault at the `object` boundary, so no raw Promise or sharp throw reaches domain code.
-- `object/file` runs the fan-out as `toFormat(row.format, row.options)` over a derivative-spec roster on one `clone()`d decode; a new derivative is a roster row keyed through the core `ContentKey` mint over the ENCODED bytes.
+- `object/file` runs the fan-out as `toFormat(row.format, row.options)` over a derivative-spec roster on one `clone()`d decode, terminating each row at `toUint8Array()` so the store takes the encoder's own allocation; a new derivative is a roster row keyed through the core `ContentKey` mint over the ENCODED bytes.
 - `SharpOptions.failOn` + `sharp.block` + `SharpOptions.limitInputPixels` gate untrusted uploads before decode, and `unlimited: false` bounds decompression-bomb exposure.
 
 [RAIL_LAW]:
 - Package: `sharp`
-- Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, `metadata`/`stats` introspection, metadata-keep controls, and process governance
+- Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, the `toBuffer`/`toUint8Array`/`toFile` terminal trio and their `OutputInfo` receipt, `metadata`/`stats` introspection, metadata-keep controls, and process governance
 - Accept: server-plane use in `object/file`, `Effect`-lifted terminals with tagged faults, `toFormat`-over-spec-rows fan-out on one `clone()`d decode, untrusted-input gating (`failOn`/`block`/`limitInputPixels`), content keys minted by the core `ContentKey` owner
 - Reject: a browser or wasm-lane import, a raw Promise or throw crossing into domain code, a hardcoded per-format encoder ladder, unbounded or untrusted decode, sharp owning content addressing or upload idempotency

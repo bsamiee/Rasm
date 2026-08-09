@@ -101,19 +101,46 @@ flowchart LR
     Data e14@-->|"[PROJECTION]: Backend.Projection"| Operate
     Runtime e4@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
     Runtime e5@-->|"[SHAPE]: Setting.life"| Kube
-    Core e7@-->|"[PROJECTION]: DashboardModel"| Operate
-    Core e8@-->|"[PROJECTION]: Alert.Spec"| Operate
-    Core e9@-->|"[PROJECTION]: Slo.Objective"| Operate
+    Core e7@-->|"[PROJECTION]: Board.DashboardModel/Board.Query"| Operate
+    Core e8@-->|"[PROJECTION]: Reliability.Alert.Spec"| Operate
+    Core e9@-->|"[PROJECTION]: Reliability.Objective"| Operate
     Core e15@-->|"[SHAPE]: Convention"| Operate
     Operate e16@-->|"[PORT]: analytics residence"| Data
-    Operate e17@-->|"[PROJECTION]: Lgtm.Targets"| Core
+    Operate e17@-->|"[PROJECTION]: Board.Query.Target"| Core
     Runtime e10@-->|"[TRANSPORT]: Export.live"| Program
     Runtime e11@-->|"[TRANSPORT]: Profile.live"| Operate
-    Core e12@-->|"[SHAPE]: Tap.Point"| Program
+    Core e12@-->|"[PROJECTION]: Reliability.Filter"| Operate
     Security e13@-->|"[BOUNDARY]: LeaseSpec"| Operate
 ```
 
 ## [04]-[INTERNAL]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: IaC realization spine
+    accDescr: Stack specs and provider rows drive program dispatch, deployment, typed outputs, and estate observation.
+    Spec([StackSpec])
+    Providers[provider · capability rows]
+    Program[program · arm dispatch]
+    Deploy[deploy · automation]
+    Outputs[StackOutputs]
+    Observe[operate/observe · collector + boards]
+    Estate([running estate])
+    Spec e1@-->|"select: stack arm"| Program
+    Providers e2@-->|"supply: capability rows"| Program
+    Program e3@-->|"realize: PulumiFn"| Deploy
+    Deploy e4@-->|"publish: typed outputs"| Outputs
+    Deploy e5@-->|"arm: reliability + board rules"| Observe
+    Outputs e6@-->|"bind: runtime coordinates"| Estate
+    Observe e7@-->|"operate: signal plane"| Estate
+```
 
 One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth. `automation` is the sole executor and internalizes resilience, retry, and per-run budgets.
 
@@ -128,7 +155,7 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 - Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane.
 - Data planes bind the published door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
-- Every pod this package declares stamps the one privilege anchor the `Tier` base carries; the guard pack asserts that stamp on estate-authored resources alone, since chart-rendered controllers reach the same analyzer.
+- Every declared pod stamps `Tier`'s privilege anchor; the guard pack asserts it only on estate-authored resources.
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
 - Static distribution publishes caller-owned artifact rows on the `served` plane and carries no UI codec semantics.

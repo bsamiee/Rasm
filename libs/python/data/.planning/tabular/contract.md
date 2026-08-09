@@ -278,14 +278,14 @@ class FrameAdmission(Struct, frozen=True):
 ## [04]-[COLLECTION]
 
 - Owner: `FrameCovenant` over `dataframely.Collection`; `RelationEdge` the row family modeling one foreign-key covenant between two named member frames (left, right, shared `on` keys, a closed `RelationCardinality`), folded into one `dy.Collection` subclass whose `@dy.filter` methods return the `require_relationship_*` keep-set. A new covenant is one `RelationEdge` row. The covenant composes `tabular/interop#INTEROP` `FrameInterop` as the one backend-agnostic lowering seam — every member lowers to a polars `LazyFrame` through `FrameInterop.translate(frame, Backend.POLARS)`, so a `narwhals.Implementation.DUCKDB` relation member admits through the same axis. The covenant `ContractClaim` (`subject="data-covenant"`) records the system-of-frames contract and never enforces.
-- Cases: `RelationCardinality` is a `StrEnum` whose value IS the exact `dataframely` builder name; `relate` resolves the bound builder by one `getattr(dy, self.value)` at boundary scope. The enum value is the dispatch key, so a new cardinality is one enum row whose value names its builder, never a switch arm plus a table entry.
+- Cases: `RelationCardinality` is a `StrEnum` whose value IS the exact `dataframely` builder name; `relate` resolves the bound builder by one `getattr(dy, self.value)` at boundary scope. The enum value is the dispatch key, so a new cardinality is one enum row whose value names its builder, never a switch arm plus a table entry. `ContractIo` and `Restore` carry behavior the same way — one `round_trip`/`prove` method each, closed by `assert_never` — because a module-scope row table keyed on a closed family both restates its cases and reifies the lazy `dataframely`/`polars` proxies at import.
 - Law: a covenant member is one admitted frame carried by name; its `ContentKey` composes a sibling content-keyed bundle by reference (`tabular/materialize#MATERIALIZE` `PartitionBundle.content_key`, `spatial/catalog#CATALOG` `StacDiscovery.content_key`, or any `ContentKey`-bearing frame), read off the sibling owner, never re-minted. `CovenantMember` pairs name, frame, `ContentKey`, and a `MemberPolicy` folding the `dataframely` `CollectionMember` per-member axes (`ignored_in_filters`/`propagate_row_failures`/`inline_for_sampling`); `MemberPolicy.member()` fuses onto the member's `dy.LazyFrame[S]` annotation as `Annotated[dy.LazyFrame[S], policy.member()]`, riding the annotation the dataframely metaclass reads, never a parallel class-attribute.
-- Entry: `run` binds the railed `ContentIdentity.of("covenant", member_keys)` Merkle key, lowers every member once through `_lower` (`FrameInterop.translate(frame, Backend.POLARS)` per member `traversed` `by=Disposition.ABORT`, so the first lowering fault aborts the run), then dispatches over the `CovenantOp` union — `Prove`/`Consistent`/`Restrict`/`Extend`/`Persist`/`Sample` — through one `boundary(f"covenant.{op.tag}")` `match` closed by `assert_never`. The lowered carrier is the ordered `(name, frame)` `Block` rather than a name-keyed dict so `Extend` runs survive a member name repeated across runs; single-occurrence arms project `dict(pairs)` once. The `cast` policy field threads into every `filter`/`validate`/`is_valid`/`cast` call as the one dtype-coercion knob, and `dy.Config(max_failure_examples=self.failure_examples)` bounds the captured example budget. `Prove` runs `filter(data, cast=, eager=True)`, splitting each member into `(valid, FailureInfo)` so a violation lands in one `CollectionFilterResult` without raising. `Consistent` folds the `is_valid` bool into a status-only claim rather than leaking a bare `bool`. `Restrict` derives the cross-member key off `collection.common_primary_key()` rather than a parallel `keys` parameter, composing `validate`→`join(anchor_keys, how="semi")`→`collect_all`. `Extend` folds an accreting series of runs through `concat_collection_members`, the `_runs` slicer cutting the ordered pair `Block` back to per-run slices by member count so each run keeps its own frames even when runs share names, casting each run to its schema before unioning run-wise. `Persist` proves the artifact itself over one directory and one `Validation` policy row (`"allow"`/`"warn"`/`"skip"`): `Frames` re-scans the `write_parquet`/`scan_parquet` round-trip, `Delta` the `write_delta`/`scan_delta` round-trip in the folder's OWN durable format, and `Contract` the `serialize`→`deserialize_collection`→`matches` round-trip (a `None` restore or structural mismatch is one `("contract", "round-trip")` breach). Both frame directions carry the `sink` slot, which lands each member's rejected rows under a `_failures/<member>` leaf of that same directory and names the leaf on the claim. `Sample` gates the `sample(num_rows, generator=)` synthetic system so a sampled covenant is self-consistent by construction. Every verb returns one `RuntimeRail[ContractClaim]`.
-- Auto: a pass yields `ContractClaim.of("data-covenant", (members, edges), (), key)`; a failure folds each member's `FailureInfo` into one breach stream carrying four kinds under a slot discriminant — `(member, "rule", ...)` from `counts()`, `(member, "co-occur", ...)` from `cooccurrence_counts()`, `(member, "detail", column, ...)` from the `details()` per-rule frame naming which column drove each rejection, and `(member, "invalid", "rows", ...)` from `invalid().height` totaling rejected rows — read off the dataframely receipt, never re-derived. A `Persist` carrying its sink adds a fifth kind, `(member, "sunk", leaf, rows)`, naming where that member's rejected FRAMES landed, emitted only where a member rejected something so a passing claim keeps its `PASSED` status. `invalid()` and `details()` are `FailureInfo` methods bound once per member, never property reads; `CollectionFilterResult.failure` is the per-member `FailureInfo` map (singular, keyed by member name), never a `failures` plural. The runtime-synthesized `type("Covenant", (dy.Collection,), namespace)` is admitted by the dataframely metaclass directly (member `__annotations__` plus `dy.filter()`-decorated edges enforcing the shared-primary-key invariant), so no literal `class` body is required.
+- Entry: `run` binds the railed `ContentIdentity.of("covenant", member_keys)` Merkle key, lowers every member once through `_lower` (`FrameInterop.translate(frame, Backend.POLARS)` per member `traversed` `by=Disposition.ABORT`, so the first lowering fault aborts the run), then dispatches over the `CovenantOp` union — `Prove`/`Consistent`/`Restrict`/`Extend`/`Persist`/`Contract`/`Sample` — through one `boundary(f"covenant.{op.tag}")` `match` closed by `assert_never`. The lowered carrier is the ordered `(name, frame)` `Block` rather than a name-keyed dict so `Extend` runs survive a member name repeated across runs; single-occurrence arms project `dict(pairs)` once. The `cast` policy field threads into every `filter`/`validate`/`is_valid`/`cast` call as the one dtype-coercion knob, and `dy.Config(max_failure_examples=self.failure_examples)` bounds the captured example budget. `Prove` runs `filter(data, cast=, eager=True)`, splitting each member into `(valid, FailureInfo)` so a violation lands in one `CollectionFilterResult` without raising. `Consistent` folds the `is_valid` bool into a status-only claim rather than leaking a bare `bool`. `Restrict` derives the cross-member key off `collection.common_primary_key()` rather than a parallel `keys` parameter, composing `validate`→`join(anchor_keys, how="semi")`→`collect_all`. `Extend` folds an accreting series of runs through `concat_collection_members`, the `_runs` slicer cutting the ordered pair `Block` back to per-run slices by member count so each run keeps its own frames even when runs share names, casting each run to its schema before unioning run-wise. `Persist` proves the artifact itself over one directory, one `ContractIo` direction, and one `Restore` disposition: `Parquet` writes through `Collection.write_parquet`, the one provider writer stamping the serialized covenant into every `<member>.parquet`, and re-scans under `validation="skip"`; `Delta` writes each member through `polars.DataFrame.write_delta` under its own `<member>` leaf and scans each back through `polars.scan_delta`, the folder's OWN durable format. Restoring grades unconditionally — `_claim` runs the same member-schema and cross-member `@filter` algebra over every restored frame and folds each violation into the breach stream, so validation is stricter than the read-time argument that ran it only on a metadata miss, and it regrades under the owner's own `cast` rather than the `cast=True` that argument forced. `round_trip` answers separately whether the artifact's own metadata PROVES this covenant — every member file's stamp for parquet, never for delta, where polars owns the commit — and `Restore` decides what an unproven artifact costs: `SKIP` reads no footers at all, `ALLOW` trusts silently, `WARN` meters one `domain="contract"` point, `FORBID` records one `("restore", "contract", "unproven")` breach. `Contract` proves the `serialize`→`deserialize_collection`→`matches` round-trip as its own verb over members alone (a `None` restore or structural mismatch is one `("contract", "round-trip")` breach), carrying no directory or sink slot for its arm to ignore. Frame persistence keeps the `sink` slot, which lands each member's rejected rows under a `_failures/<member>` leaf of that same directory and names the leaf on the claim. `Sample` gates the `sample(num_rows, generator=)` synthetic system so a sampled covenant is self-consistent by construction. Every verb returns one `RuntimeRail[ContractClaim]`.
+- Auto: a pass yields `ContractClaim.of("data-covenant", (members, edges), (), key)`; a failure folds each member's `FailureInfo` into one breach stream carrying four kinds under a slot discriminant — `(member, "rule", ...)` from `counts()`, `(member, "co-occur", ...)` from `cooccurrence_counts()`, `(member, "detail", column, ...)` from the `details()` per-rule frame naming which column drove each rejection, and `(member, "invalid", "rows", ...)` from `invalid().height` totaling rejected rows — read off the dataframely receipt, never re-derived. A `Persist` carrying its sink adds a fifth kind, `(member, "sunk", leaf, rows)`, naming where that member's rejected FRAMES landed, emitted only where a member rejected something so a passing claim keeps its `PASSED` status. `Restore.FORBID` prepends the one artifact-scoped kind, `("restore", "contract", "unproven")`, which names no member because the missing stamp is a property of the artifact rather than of any frame inside it. `invalid()` and `details()` are `FailureInfo` methods bound once per member, never property reads; `CollectionFilterResult.failure` is the per-member `FailureInfo` map (singular, keyed by member name), never a `failures` plural. The runtime-synthesized `type("Covenant", (dy.Collection,), namespace)` is admitted by the dataframely metaclass directly (member `__annotations__` plus `dy.filter()`-decorated edges enforcing the shared-primary-key invariant), so no literal `class` body is required.
 - Receipt: the covenant `ContractClaim` keys off the railed `ContentIdentity.of` Merkle-fold over the admitted member `ContentKey`s (the same composition the `tabular/materialize#MATERIALIZE` `snapshot_key` folds), resolved once on the `run` rail and threaded into every arm, so a single changed member flips the covenant key while the rest stay byte-stable. `contribute` emits the emitted-phase system-of-frames evidence, never replacing the typed `QueryReceipt` and never re-minting a member's content-key.
-- Packages: `dataframely` supplies the collection covenant and defers through one module-scope lazy import; `polars` and `numpy` stay type-only; `expression` owns the tagged operation, immutable maps, and traversal rail; `msgspec` owns frozen rows; `beartype` guards the public factories; runtime owns fault, identity, receipt, and scoped-hook surfaces.
-- Growth: a new covenant is one `RelationEdge`; a new cardinality one `RelationCardinality` row whose value names its builder; a new backend member admitted free by the `Backend` axis; a new produced-frame member one `CovenantMember` carrying its sibling-owned `ContentKey`; a new member-participation rule one `MemberPolicy` row; a cross-member grouped invariant beyond foreign-key cardinality one `@dy.filter` keep-set; a new breach diagnostic one slot row on the stream; a `cast`/`failure_examples` knob one policy field threaded into the existing call; a new verb one `CovenantOp` case; a new IO direction one `ContractIo` case plus one `persist` arm over the provider's own read/write pair.
-- Boundary: `dataframely` owns the Polars-native cross-frame integrity; `FrameInterop.translate` owns every member lowering; no raising in domain logic. An inline `narwhals.from_native(...).to_polars().lazy()` lowering, a hand-stitched anti/semi-join where `require_relationship_*` owns integrity, a second `ContentIdentity` mint over a sibling-owned key, a per-cardinality filter family, a per-verb method tree, a per-arm re-lowering, a re-derived member key, a hardwired per-arm `cast=False`, a parallel gate or per-kind breach record, a second claim type, a heterogeneous `RuntimeRail[ContractClaim | bool | bytes]` outcome union, and an undecorated `of`/`run` are the rejected forms.
+- Packages: `dataframely` supplies the collection covenant and `polars` every frame write and scan the provider deleted, both deferring through one module-scope lazy import; `numpy` stays type-only; `expression` owns the tagged operation, immutable maps, and traversal rail; `msgspec` owns frozen rows; `beartype` guards the public factories; runtime owns fault, identity, metric, receipt, and scoped-hook surfaces.
+- Growth: a new covenant is one `RelationEdge`; a new cardinality one `RelationCardinality` row whose value names its builder; a new backend member admitted free by the `Backend` axis; a new produced-frame member one `CovenantMember` carrying its sibling-owned `ContentKey`; a new member-participation rule one `MemberPolicy` row; a cross-member grouped invariant beyond foreign-key cardinality one `@dy.filter` keep-set; a new breach diagnostic one slot row on the stream; a `cast`/`failure_examples` knob one policy field threaded into the existing call; a new verb one `CovenantOp` case; a new IO direction one `ContractIo` case owning its `round_trip` arm; a new unproven-artifact disposition one `Restore` case owning its `prove` arm.
+- Boundary: `dataframely` owns the Polars-native cross-frame integrity, `polars` every frame read and write beneath it, `FrameInterop.translate` every member lowering; no raising in domain logic. An inline `narwhals.from_native(...).to_polars().lazy()` lowering, a hand-stitched anti/semi-join where `require_relationship_*` owns integrity, a second `ContentIdentity` mint over a sibling-owned key, a per-cardinality filter family, a per-verb method tree, a per-arm re-lowering, a re-derived member key, a covenant type re-synthesized per helper, a hardwired per-arm `cast=False`, a parallel gate or per-kind breach record, a second claim type, a heterogeneous `RuntimeRail[ContractClaim | bool | bytes]` outcome union, a `Schema`- or `Collection`-tier delta call, a read delegating validation to a `validation=` argument, a restore dropping the grading that argument ran, a module-scope row table keyed on `ContractIo`/`Restore`, a union case carrying slots its own arm ignores, and an undecorated `of`/`run` are the rejected forms.
 
 ```python signature
 from collections.abc import Iterator, Mapping
@@ -294,6 +294,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Literal, assert_never
 
 lazy import dataframely as dy
+lazy import polars as pl
 
 from beartype import beartype
 from expression import Nothing, Option, Some, case, tag, tagged_union
@@ -304,15 +305,15 @@ from rasm.data.tabular.interop import Backend, FrameInterop
 from rasm.runtime.hooks import Hooks
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import Disposition, FAULT_CONF, RuntimeRail, boundary, traversed
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 
 if TYPE_CHECKING:
     import numpy as np
-    import polars as pl
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Validation = Literal["allow", "warn", "skip"]
+type Frames = dict[str, "pl.DataFrame | pl.LazyFrame"]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -326,13 +327,61 @@ class RelationCardinality(StrEnum):
 
 
 class ContractIo(StrEnum):
-    FRAMES = "frames"
-    # the folder's OWN durable format: the evidence residence commits Delta and `DatasetKind.RECEIPTS` names it, so a
-    # covenant proving a system of frames that LIVE in Delta round-tripped them through parquet to prove persistence —
-    # exercising a format the proven system never uses. The provider ships the pair (`write_delta`/`scan_delta` on the
-    # collection, `write_delta`/`scan_delta`/`read_delta` on each `FailureInfo`), so the reach is one row.
+    # Each direction owns its OWN round trip: a module-scope row table both restates these cases and dereferences the
+    # lazy `dataframely`/`polars` proxies at import, reifying two heavy providers for a covenant that never persists.
+    PARQUET = "parquet"
+    # `DatasetKind.RECEIPTS` names Delta as the evidence residence's commit format, so a covenant over frames that LIVE
+    # in Delta proves the round trip it will really run rather than one through a format the proven system never uses.
     DELTA = "delta"
-    CONTRACT = "contract"
+
+    def round_trip(self, validated: "dy.Collection", directory: str, probe: bool) -> "tuple[Frames, bool]":
+        # Answers the restored members beside whether the artifact's OWN metadata proves this covenant. Synthesized
+        # covenants annotate every member required, so each leaf exists and no arm guards an absent optional member.
+        covenant = type(validated)
+        match self:
+            case ContractIo.PARQUET:
+                validated.write_parquet(directory)
+                # Generator, never a tuple: `probe=False` short-circuits before the first footer read, which is the
+                # whole cost `Restore.SKIP` declines to pay over a collection of many members.
+                stamps = (dy.read_parquet_metadata_collection(f"{directory}/{name}.parquet") for name in covenant.member_schemas())
+                proven = probe and all(stamp is not None and stamp.matches(covenant) for stamp in stamps)
+                return _members(covenant.scan_parquet(directory, validation="skip")), proven
+            case ContractIo.DELTA:
+                # polars owns the Delta commit, so no serialized covenant rides it and `probe` buys nothing here: every
+                # Delta restore faces an unproven artifact and answers to `Restore` alone.
+                for name, frame in _members(validated).items():
+                    frame.write_delta(f"{directory}/{name}")
+                return {name: pl.scan_delta(f"{directory}/{name}") for name in covenant.member_schemas()}, False
+            case unreachable:
+                assert_never(unreachable)
+
+
+class Restore(StrEnum):
+    # Owns what the deleted read-time `validation=` argument decided. Grading left this axis: `_claim` runs the
+    # member-schema and cross-member algebra over every restored frame unconditionally, so this axis spends itself on
+    # metadata alone — whether to pay for the stamp, and what an unproven artifact costs the claim.
+    SKIP = "skip"
+    ALLOW = "allow"
+    WARN = "warn"
+    FORBID = "forbid"
+
+    def prove(self, io: ContractIo, validated: "dy.Collection", directory: str) -> "tuple[Frames, tuple[tuple[str, ...], ...]]":
+        restored, proven = io.round_trip(validated, directory, probe=self is not Restore.SKIP)
+        if proven:
+            return restored, ()
+        match self:
+            case Restore.SKIP | Restore.ALLOW:
+                return restored, ()
+            case Restore.WARN:
+                # Stderr carried the provider's whole signal; on this spine an unproven restore is one point on the
+                # `domain="contract"` series the verdict rides, visible to a board without a breach row that would
+                # flip an otherwise passing claim to FAILED.
+                Metrics.record({"rasm.contract.unproven": 1.0}, domain="contract", kind=self)
+                return restored, ()
+            case Restore.FORBID:
+                return restored, (("restore", "contract", "unproven"),)
+            case unreachable:
+                assert_never(unreachable)
 
 
 class RelationEdge(Struct, frozen=True):
@@ -365,7 +414,7 @@ class CovenantMember(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class CovenantOp:
-    tag: Literal["prove", "consistent", "restrict", "extend", "persist", "sample"] = tag()
+    tag: Literal["prove", "consistent", "restrict", "extend", "persist", "contract", "sample"] = tag()
     prove: tuple[CovenantMember, ...] = case()
     consistent: tuple[CovenantMember, ...] = case()
     restrict: tuple[str, tuple[CovenantMember, ...]] = case()
@@ -375,6 +424,9 @@ class CovenantOp:
     # tallies instead of counts with nothing under them. It is a slot rather than a second verb because the rejects
     # are a property of the persistence this op already runs.
     persist: tuple[ContractIo, str, bool, tuple[CovenantMember, ...]] = case()
+    # Proving the serialized covenant reaches no directory and sinks no rejects, so it is its own verb over members
+    # alone rather than a `persist` direction whose arm silently ignores two of that case's four slots.
+    contract: tuple[CovenantMember, ...] = case()
     sample: tuple[int, tuple[CovenantMember, ...]] = case()
 
     @property
@@ -385,6 +437,7 @@ class CovenantOp:
                 | CovenantOp(tag="consistent", consistent=members)
                 | CovenantOp(tag="restrict", restrict=(_, members))
                 | CovenantOp(tag="persist", persist=(_, _, _, members))
+                | CovenantOp(tag="contract", contract=members)
                 | CovenantOp(tag="sample", sample=(_, members))
             ):
                 return members
@@ -401,7 +454,7 @@ class FrameCovenant(Struct, frozen=True):
     interop: FrameInterop
     edges: tuple[RelationEdge, ...]
     schemas: "Map[str, type[dy.Schema]]"
-    validation: Validation = "warn"
+    restore: Restore = Restore.WARN
     cast: bool = False
     failure_examples: int | None = None
     generator: "np.random.Generator | None" = None
@@ -414,11 +467,11 @@ class FrameCovenant(Struct, frozen=True):
         interop: FrameInterop,
         schemas: "Mapping[str, type[dy.Schema]]",
         *edges: RelationEdge,
-        validation: Validation = "warn",
+        restore: Restore = Restore.WARN,
         cast: bool = False,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> "FrameCovenant":
-        return cls(interop=interop, edges=edges, schemas=Map.of_seq(schemas.items()), validation=validation, cast=cast, scope=scope)
+        return cls(interop=interop, edges=edges, schemas=Map.of_seq(schemas.items()), restore=restore, cast=cast, scope=scope)
 
     @beartype(conf=FAULT_CONF)
     def run(self, op: CovenantOp) -> "RuntimeRail[ContractClaim]":
@@ -433,44 +486,41 @@ class FrameCovenant(Struct, frozen=True):
         with dy.Config(max_failure_examples=self.failure_examples) if self.failure_examples is not None else nullcontext():
             match op:
                 case CovenantOp(tag="prove", prove=members):
-                    return self._claim(members, dict(pairs), key)
+                    return self._claim(self._collection(members), dict(pairs), key)
                 case CovenantOp(tag="consistent", consistent=members):
                     passed = self._collection(members).is_valid(dict(pairs), cast=self.cast)
                     return ContractClaim.of(
                         "data-covenant", (len(self.schemas), len(self.edges)), () if passed else (("collection", "consistent"),), key
                     )
                 case CovenantOp(tag="restrict", restrict=(anchor, members)):
-                    collection = self._collection(members)
+                    covenant = self._collection(members)
                     data = dict(pairs)
-                    keys = data[anchor].select(collection.common_primary_key())
-                    restricted = collection.validate(data, cast=self.cast).join(keys, how="semi", maintain_order="none").collect_all()
-                    return self._claim(members, _members(restricted), key)
+                    keys = data[anchor].select(covenant.common_primary_key())
+                    restricted = covenant.validate(data, cast=self.cast).join(keys, how="semi", maintain_order="none").collect_all()
+                    return self._claim(covenant, _members(restricted), key)
                 case CovenantOp(tag="extend", extend=runs):
                     return self._claim(
-                        tuple(m for run in runs for m in run),
+                        self._collection(tuple(m for run in runs for m in run)),
                         dy.concat_collection_members([self._collection(run).cast(dict(run_pairs)) for run, run_pairs in _runs(runs, pairs)]),
                         key,
                     )
-                case CovenantOp(tag="persist", persist=(ContractIo.FRAMES, directory, sink, members)):
-                    collection = self._collection(members)
-                    collection.validate(dict(pairs), cast=self.cast).write_parquet(directory)
-                    return self._claim(members, _members(collection.scan_parquet(directory, validation=self.validation)), key, directory if sink else None)
-                case CovenantOp(tag="persist", persist=(ContractIo.DELTA, directory, sink, members)):
-                    # the Delta pair mirrors the parquet arm member for member — `write_delta` off the validated
-                    # collection and `scan_delta` back under the same `Validation` policy row — so a covenant over
-                    # frames the estate actually stores proves the round trip it will really run.
-                    collection = self._collection(members)
-                    collection.validate(dict(pairs), cast=self.cast).write_delta(directory)
-                    return self._claim(members, _members(collection.scan_delta(directory, validation=self.validation)), key, directory if sink else None)
-                case CovenantOp(tag="persist", persist=(ContractIo.CONTRACT, _, _sink, members)):
-                    collection = self._collection(members)
-                    restored = dy.deserialize_collection(collection.serialize())
-                    matched = restored is not None and restored.matches(collection)
+                case CovenantOp(tag="persist", persist=(io, directory, sink, members)):
+                    # `eager=True` is load-bearing rather than a repeated default: both directions hand materialized
+                    # frames to a provider writer, and the restored halves come back lazy off the scan either way.
+                    covenant = self._collection(members)
+                    validated = covenant.validate(dict(pairs), cast=self.cast, eager=True)
+                    restored, unproven = self.restore.prove(io, validated, directory)
+                    return self._claim(covenant, restored, key, directory if sink else None, unproven)
+                case CovenantOp(tag="contract", contract=members):
+                    covenant = self._collection(members)
+                    deserialized = dy.deserialize_collection(covenant.serialize())
+                    matched = deserialized is not None and deserialized.matches(covenant)
                     return ContractClaim.of(
                         "data-covenant", (len(self.schemas), len(self.edges)), () if matched else (("contract", "round-trip"),), key
                     )
                 case CovenantOp(tag="sample", sample=(rows, members)):
-                    return self._claim(members, _members(self._collection(members).sample(rows, generator=self.generator)), key)
+                    covenant = self._collection(members)
+                    return self._claim(covenant, _members(covenant.sample(rows, generator=self.generator)), key)
                 case unreachable:
                     assert_never(unreachable)
 
@@ -496,9 +546,16 @@ class FrameCovenant(Struct, frozen=True):
         )
 
     def _claim(
-        self, members: "tuple[CovenantMember, ...]", data: "dict[str, pl.LazyFrame]", key: ContentKey, sink: str | None = None
+        self,
+        covenant: "type[dy.Collection]",
+        data: Frames,
+        key: ContentKey,
+        sink: str | None = None,
+        prior: tuple[tuple[str, ...], ...] = (),
     ) -> ContractClaim:
-        result = self._collection(members).filter(data, cast=self.cast, eager=True)
+        # Callers hand the covenant type already synthesized: re-deriving it here re-ran the metaclass once per arm,
+        # letting a grading pass drift from the very type its own arm validated against.
+        result = covenant.filter(data, cast=self.cast, eager=True)
         # the rejected ROWS beside their tallies: `Block.choose` is the atomic single-pass filter-map, so a member
         # rejecting nothing writes nothing and contributes no row — a `sunk` row beside zero rejects would flip a
         # passing claim to FAILED, since this breach stream IS the status discriminant.
@@ -518,7 +575,7 @@ class FrameCovenant(Struct, frozen=True):
                 *(((name, "invalid", "rows", str(invalid.height)),) if invalid.height else ()),
             )
         )
-        return ContractClaim.of("data-covenant", (len(self.schemas), len(self.edges)), (*breaches, *sunk), key)
+        return ContractClaim.of("data-covenant", (len(self.schemas), len(self.edges)), (*prior, *breaches, *sunk), key)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -537,7 +594,7 @@ def _sunk(sink: str, name: str, failure: "dy.FailureInfo") -> "Option[tuple[str,
     return Some((name, "sunk", leaf, str(rejected.height)))
 
 
-def _members(collection: "dy.Collection") -> "dict[str, pl.LazyFrame]":
+def _members(collection: "dy.Collection") -> Frames:
     return {name: getattr(collection, name) for name in type(collection).member_schemas()}
 
 

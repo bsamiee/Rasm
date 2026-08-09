@@ -293,15 +293,16 @@ public static partial class ProgressUpdateMapper {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `ProgressPhaseKey`, `ProgressMarkWire` — the progress stream shape the dashboard and companion consume.
+- Owner: `ProgressPhaseKey`, `ProgressUpdateWire` — the progress stream shape the dashboard and companion consume.
 - Packages: BCL inbox
 - Growth: one key-literal row per new phase and one wire member per new capsule field; zero new surface.
+- Law: `ProgressUpdateWire` names the WIRE message `ProgressUpdateMapper` writes, never the `ProgressMark` capsule it transcribes — the same split `TransactionDraft`→`TransactionRequest`→`TransactionRequestWire` takes at `Runtime/wire#TS_PROJECTION`. Spelling the mirror off the domain capsule collides against the typescript branch's own `Evidence.Tally` fold subject, which counts done-against-total over an operation tree and shares no axis with this phase frame.
 - Boundary: the stream rides connect-es server-stream for-await over the binary transport; phase crosses as its declared key from generated `ProgressPhase.Keys`, rank crosses as the row rank, the instant crosses as a round-trip pattern string, and correlation crosses as a guid string. Aggregate marks cross the identical shape. Consumer cadence stays observer-side policy, while throughput and ETA derive from consecutive marks.
 
 ```ts signature
 type ProgressPhaseKey = "queued" | "selected" | "staged" | "running" | "streaming" | "finalizing" | "completed" | "cancelled" | "faulted";
 
-interface ProgressMarkWire {
+interface ProgressUpdateWire {
   readonly phase: ProgressPhaseKey;
   readonly rank: number;
   readonly fraction: number;

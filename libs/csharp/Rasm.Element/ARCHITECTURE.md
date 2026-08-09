@@ -11,8 +11,7 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 │   ├── Delta.cs          # Live working-graph mutation algebra and the persistable GraphDelta body
 │   ├── Wire.cs           # Content-key-preserving rasm.element.v1 crossing every peer runtime decodes
 │   ├── Corpus.cs         # Deterministic GraphForge and the graded benchmark-and-parity corpus roster
-│   ├── Table.cs          # Columnar row family projection and the AnalyticsSchema wire handoff
-│   └── element.proto     # Language-neutral rasm.element.v1 oneof contract
+│   └── Table.cs          # Columnar row family projection and the AnalyticsSchema wire handoff
 ├── Relations/            # Neutral objectified-edge algebra
 │   └── Relation.cs       # Closed neutral edge kinds plus a Generic passthrough so no foreign relation drops
 ├── Classification/       # Neutral cross-cutting axes

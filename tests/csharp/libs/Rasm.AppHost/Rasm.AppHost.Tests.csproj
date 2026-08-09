@@ -8,9 +8,11 @@
     </ItemGroup>
     <ItemGroup Label="Test Doubles">
         <!-- Shell classification strips the central Test Packages rows, so this suite carries its own doubles:
-             the observation rail asserts instrument writes and ClockPolicy pairs both time planes on one advance. -->
+             the observation rail asserts instrument writes, ClockPolicy pairs both time planes on one advance, and
+             the pipeline descriptor reads a built LaneGuard chain so a dropped strategy arm refutes structurally. -->
         <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Testing" PrivateAssets="all" />
+        <PackageReference Include="Polly.Testing" PrivateAssets="all" />
     </ItemGroup>
 </Project>

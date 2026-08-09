@@ -62,6 +62,8 @@
 |  [26]   | `ChannelWriter<T>.TryComplete(Exception?) -> bool`                             | instance | idempotent form returning `false`           |
 
 - `ChannelReader<T>.TryRead` / `TryPeek`: the `out` element carries `[MaybeNullWhen(false)]`.
+- `Channel<TWrite, TRead>.Reader` / `Writer`: each setter is `protected`, so a subclass seats its own halves and no consumer rebinds one.
+- `ChannelWriter<T>.Complete` is NON-virtual over the `virtual` `TryComplete`, so a custom writer overrides `TryComplete` alone and `Complete` inherits its refusal.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

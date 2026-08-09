@@ -2,7 +2,6 @@
 
 `Pulse` is the work-plane meter bridge — one lossy projection from durable-work evidence onto Convention-keyed Effect instruments, so queue depth, drain lag, and relay throughput read as OTel series while every dispute settles against the journal. `mark` folds a settlement fact into its counter row at the emitting call site, and `live` runs the sampled census sweep setting every gauge row from one `Probe` port the app root satisfies with the data journal's census statement — fact rows stay the billing truth, instruments stay bounded, and neither plane re-derives the other.
 
-Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `views` contributes the whole metric-stream governance table through the `Hooks` registry the export lanes drain. `board` projects the instrument and budget rows into the typed `Pulse.Board` deploy-feed value filling the core `DashboardModel` pack payloads, so a budget edit moves the emission grade and the board panel in one place. Its module is `runtime/src/otel/meter.ts`.
 
 ## [01]-[INDEX]
 
@@ -28,7 +27,7 @@ Two policy seams close at the same altitude: `verbosity` wires the config tier t
 
 ```typescript signature
 import { AggregationType, createAllowListAttributesProcessor, createDenyListAttributesProcessor } from "@opentelemetry/sdk-metrics"
-import { type AppIdentity, Convention } from "@rasm/ts/core"
+import { type Identity, Convention } from "@rasm/ts/core"
 import {
   Array, Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Option, Record, Schedule, Schema,
 } from "effect"
@@ -48,7 +47,7 @@ const _row = <N extends Convention.MetricName>(
   metric: N,
   tags: ReadonlyArray<string>,
   ...words: Convention.Words<N>
-): _Row<N> => ({ instrument: Convention.named[metric], metric: Convention.mount(metric, ...words), tags })
+): _Row<N> => ({ instrument: Convention.Metric.at(metric), metric: Convention.mount(metric, ...words), tags })
 
 const _level = <N extends Convention.MetricName>(
   metric: N,
@@ -183,29 +182,27 @@ const _views = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
 
 - Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed deploy-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the row's own Convention metadata; `budgets` carry each vital kind's good/poor thresholds, unit, and the level series `Vital.level` selects for it; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the boards derive from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
 - Law: every panel column reads the row, never the fold — kind, unit, description, and tag keys all live on `Convention.instrument` and the row's tag column, so one concatenated map over both tables emits every panel and a fold re-stating a kind is the duplication this projection deletes.
-- Law: the pack is runtime's mint and the app projects, never redefines — `budgets` rows land as the core `vital` pack's `gauges` payload (`kind`, the `metric` its unit selects, and the `poor` threshold as the gauge ceiling), `burn` rows feed the app's `Slo.Objective` inputs, and the encoded `DashboardModel` values those packs mint reach the iac `Boards` compile leg as the `runtime.pulse` pack rows; board truth cannot drift from emission truth because the fold reads the instrument tables, and no iac decode of this class exists — the deploy plane ingests core-encoded models alone.
 - Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the core slo plane's, compiled by the iac observe fold.
 - Law: `Pulse.wire` is the provenance key this producer mints — the deploy tuple admits a pack only under a key its producing branch spells, so the constant lives beside the projection earning it and the app's deploy feed stamps it rather than re-typing a literal; a key spelled at the consuming tier alone forks the moment either end edits it.
-- Entry: `Pulse.board(identity)` at the app's deploy-feed seam — a pure value mint, no Layer; the app maps `budgets` onto `DashboardModel.pack("vital", board, { gauges })` under the root's own `DashboardModel.Board` context, folds `burn` rows into its objective set, and stamps `Pulse.wire` on the encoded pack. `Pulse.Board` is this page's census value and `DashboardModel.Board` the core pack's emitter-and-plane context; the two never substitute.
 - Growth: a new burn family is one `_BURN` row; a new panel axis is one field on the panel struct every producer inherits.
-- Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/ts/core` (`Convention`, `AppIdentity`).
+- Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/ts/core` (`Convention`, `Identity.App`).
 
 ```typescript signature
 class _Board extends Schema.Class<_Board>("Pulse/Board")({
   app: Schema.NonEmptyString,
   panels: Schema.Array(Schema.Struct({
     description: Schema.String,
-    instrument: Schema.Literal(...Convention.kinds), // the vocabulary owner's roster: a wire form it gains widens the panel union with it
+    instrument: Convention.Kind.schema,
     name: Schema.NonEmptyString,
     tags: Schema.Array(Schema.String),
-    unit: Schema.Literal(...Convention.units), // UCUM codes close the same way the kind column does: a free-string unit passes the rescale divergence a name-only proof misses
+    unit: Convention.Unit.schema,
   })),
   budgets: Schema.Array(Schema.Struct({
     good: Schema.Number,
     kind: Schema.NonEmptyString,
     metric: Schema.Literal(...Vital.levels), // level series the kind's unit selects; the tuple keeps the decoded union closed
     poor: Schema.Number,
-    unit: Schema.Literal(...Convention.units),
+    unit: Convention.Unit.schema,
   })),
   burn: Schema.Array(Schema.Struct({
     bad: Schema.NonEmptyString,
@@ -224,7 +221,7 @@ const _BURN = [
   { bad: _WORK.parked.instrument.name, slice: Option.none(), total: _WORK.drained.instrument.name },
 ] as const
 
-const _board = (identity: AppIdentity): _Board =>
+const _board = (identity: Identity.App): _Board =>
   new _Board({
     app: identity.app,
     panels: Array.map(
@@ -247,7 +244,7 @@ const _board = (identity: AppIdentity): _Board =>
 const Pulse: {
   readonly Board: typeof _Board
   readonly Probe: typeof Probe
-  readonly board: (identity: AppIdentity) => _Board
+  readonly board: (identity: Identity.App) => _Board
   readonly live: (policy: Pulse.Policy) => Layer.Layer<never, never, Probe>
   readonly mark: typeof _marked
   readonly verbosity: Layer.Layer<never, never, Setting>

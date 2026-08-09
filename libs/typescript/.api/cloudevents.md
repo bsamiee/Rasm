@@ -70,11 +70,11 @@
 - `effect` `Schema`(`.api/effect.md`): `Binding.toEvent` yields `CloudEventV1<unknown>` or a batch array, and `Schema.decodeUnknown` decodes the `data` payload and the branded extensions into owned vocabulary, lifting a `ParseError` into the `Effect` error channel; a `BOUNDARY ADAPTER` lifts the construction throw through `Effect.try`.
 - `effect` `Match`/`Data`(`.api/effect.md`): `Mode` and the HTTP/Kafka/MQTT `Binding` selection dispatch through `Match.exhaustive`, so a transport is a table row, never an `if`/`switch` ladder over content-type strings.
 - `@bufbuild/protobuf`/`cbor-x`/`@msgpack/msgpack`(`core/.api/`): those own the `data` PAYLOAD codec, while `cloudevents` owns the ENVELOPE and its transport headers around that payload — the envelope codec never re-encodes the payload, the payload codec never mints an envelope.
-- `mqtt`(`core/.api/mqtt.md`): `MQTT.binary(event)` publishes through the `mqtt` client's `publishAsync` with its `User Properties`/payload frame, and `MQTT.toEvent` decodes a delivered `IPublishPacket` — this binding mints the envelope, the `mqtt` client owns the connection.
-- `value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` (the `ajv` `ErrorObject[]`) projects onto a `FaultClass` row at the `Effect.try` boundary — a typed decode fault, never a bare `TypeError`.
+- `mqtt`(`runtime/.api/mqtt.md`): `MQTT.binary` publishes through `publishAsync`; `MQTT.toEvent` decodes `IPublishPacket`; `mqtt` owns connectivity.
+- `value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` journal evidence inside `Effect.try`; bare `TypeError` never crosses.
 
 [LOCAL_ADMISSION]:
-- Construct via `new CloudEvent(props)` strict-on inside `Effect.try` mapping `ValidationError` onto `FaultClass`; `strict:false` only re-hydrates already-validated bytes.
+- Strict `new CloudEvent(props)` runs in `Effect.try`; `ValidationError` maps to `Fault.Class`, while `strict:false` only rehydrates trusted bytes.
 - Set and read tracing and baggage extension attributes only through the carrier folds, never a raw `CloudEvent[key]` read.
 - Name headers through `CONSTANTS.EXTENSIONS_PREFIX`/`CONSTANTS.CE_HEADERS`; `CE_USE_BIG_INT` opts in only where a `data` payload carries i64 fidelity the JSON envelope drops.
 - Select `binary` or `structured` explicitly and carry the returned headers exactly; encode the body to bytes once, before any signature.
@@ -82,5 +82,5 @@
 [RAIL_LAW]:
 - Package: `cloudevents`
 - Owns: the CloudEvents 1.0 envelope (`CloudEvent`/`CloudEventV1`, `cloneWith`/`toJSON`/`toString`/`validate`), `ValidationError`, the transport-agnostic `Message`/`Binding` contract, the HTTP/Kafka/MQTT binary+structured bindings, the `ce-`-prefixed extension-attribute header mapping with `headersFor`/`sanitize`/`allowedContentTypes`/`requiredHeaders`, the `emitterFor`/`httpTransport` per-call emission factory, and `CONSTANTS`/`V1`/`V03`
-- Accept: strict-validated construction wrapped in `Effect.try`, tracing and baggage set as branded extension attributes from the carrier folds, `Binding`/`Mode` selected as a `Match` row, `toEvent` output crossing `Schema.decodeUnknown` into owned vocabulary, `ValidationError` mapped onto `FaultClass`, per-call `emitterFor` emission, one body-to-bytes encoding before signing
+- Accept: strict `Effect.try` construction; carrier extensions; `Match`-selected bindings; decoded payloads; `Fault.Class` evidence; per-call emission; pre-sign encoding
 - Reject: static `Emitter` singleton and `event.emit()`, raw `ValidationError` throw into a fold, bare SDK envelope in domain code, raw extension string bypassing the carrier folds, hand-rolled `ce-` header literals or a hand-built CloudEvents JSON envelope, `strict:false` on untrusted bytes, serialization after signing, `Message.body` read as bytes without narrowing

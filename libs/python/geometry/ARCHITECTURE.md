@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_ARCHITECTURE]
 
-`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. It is a peer producer, never a Rasm consumer — alignment travels through the `ComputeService`/`ArtifactSync` contract and the content-keyed GLB tessellation rail, never a shared reference.
+`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. It is a peer producer, never a Rasm consumer — alignment travels through the `ComputeService`/`ArtifactSyncService` contract and the content-keyed GLB tessellation rail, never a shared reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -77,7 +77,7 @@ flowchart TB
 
 - S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, the `ContentKey` fold) exactly once and imports no sibling.
 - S0 every graduating producer returns through its `evidence_run` weave.
-- S1 `mesh` + `ifc` + `graph` + `energy` — producer stratum composing the spine alone; no import crosses among the four, while each orders its own interior: `ifc` seats every shared vocabulary at its one owner (`selector` the grammar, `costing` the `RuleSet` quantity table `analysis` grades against), `mesh` layers `cad` under `daemon`/`brep` and `repair`/`quality` under `spatial`, `graph` folds both analytics producers onto `analytic`, and `energy` seats `climate` beneath `model` beneath `district` with `simulate` reading the first two. An interior edge stays acyclic and reaches the vocabulary's single owner — a second transcription beside it is the rejected form.
+- S1 `mesh` + `ifc` + `graph` + `energy` — producers over the spine alone; no import crosses them, each interior acyclic at one vocabulary owner.
 - S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
 - S2 `scan` — sole cross-producer consumer, composing graduation and mesh `QualityMetrics` receipts for deviation and reconstruction closure grading.
 

@@ -1,6 +1,6 @@
 # [RUNTIME_PROFILE]
 
-`Profile` owns continuous wall and heap profiling from the node lane to the Pyroscope backend, labeled by the `AppIdentity` every span, metric, and log carries. Pyroscope transport bypasses OTLP: `@pyroscope/nodejs` samples through the native pprof engine and pushes on its own cadence, while this owner brackets the complete lifecycle as one policy value and one Layer.
+`Profile` owns continuous wall and heap profiling from the node lane to the Pyroscope backend, labeled by the `Identity.App` every span, metric, and log carries. Pyroscope transport bypasses OTLP: `@pyroscope/nodejs` samples through the native pprof engine and pushes on its own cadence, while this owner brackets the complete lifecycle as one policy value and one Layer.
 
 `Profile.live(policy)` seats identity, backend, auth, symbolication, the armed profiler roster, and path posture once at the node root; its ranked `Life` row drains the final profile and its diagnostic bridge folds the engine's own log sink into the process rail. `Profile.banded(vocabulary, labels, work)` admits bounded channel and step values, projects them onto the profile-store region label, and closes the span-profile join both directions: the live span takes the correlation attribute and the samples take its id and trace id back. Module: `runtime/src/otel/profile.ts`.
 
@@ -12,7 +12,6 @@
 
 ## [02]-[POLICY]
 
-- Owner: `Profile.Policy` — one typed row carrying every profiling decision: the `AppIdentity` (its settled dimensions mint `appName` and the store label set, so profile identity and resource identity are one projection), the backend origin, the tagged credential, the optional tenant coordinate, the flush cadence, the armed profiler roster, the wall and heap sampling rows, the two path postures, and the sourcemap search roots. Transport rows — backend origin, sealed credential — home in `Setting.otel` (`proc/config#ADMISSION_ROWS`' `profile` rows), so the app root assembles the policy from the boot-validated `Setting` and its own identity value, and no profiling decision exists outside the one row.
 - Law: identity is projected through the profile dialect, never restated — `appName` is `identity.app` and `tags` is `Convention.profiled(identity)`, the one profile-store selector projection whose `service_name` label the board `profile` pack and every flamegraph query key on. Folding the full `Convention.identity` attribute record here pushes OTLP resource spellings (`service.name`, `deployment.environment.name`) into a store whose label grammar is `service_name`/`span_name`, minting a second identity vocabulary the pack cannot query; a free-string label beside the projection is the same defect.
 - Law: the credential is a closed tagged family over the package's two auth shapes, not a bearer field with an unreachable twin — `Token` mints `authToken` for a self-hosted push gateway and `Basic` mints the `basicAuthUser`/`basicAuthPassword` pair a hosted tenant authenticates with, so a hosted backend needs no second policy and no init-site escape. Both arms seal their secret in `Redacted` end-to-end, unwrapped exactly once inside the `_credential` projection, and the exhaustive tag match decides the field set rather than a nullable pair a caller half-fills.
 - Law: the armed roster is policy, not a fan — `profilers` names which native samplers run, so a deployment carrying wall attribution without heap retention pressure arms one row and pays one sampler's overhead. Aggregate `start`/`stop` covers wall and heap alone while shipping a third `cpu` pair it never reaches, so the roster is strictly wider than the aggregate and arming every row loses nothing the package can do.
@@ -21,12 +20,11 @@
 - Law: `backend.origin` is a SELF-EGRESS coordinate, so the root that arms this lane hands the same origin to `Export.Policy.egress` — the push rides `@datadog/pprof`'s own HTTP on `flushIntervalMs`, outside any Effect region and outside every `SpanProcessor`, `LogRecordProcessor`, and metric reader, so the `suppressTracing` wrap that fences the OTLP legs reaches it never and `emit#INSTRUMENT`'s hostname roster is its only exclusion. Unrostered, an armed profiler under an SDK lane mints a traced outbound span per flush whose export mints another — continuous noise proportional to `flush`, and it is the profiler's own transport reading as application egress.
 - Boundary: arming is the composition root's decision — `Setting.otel.profile` resolving no origin means the root composes no `Profile.live` and contributes no `egress` row, so an unarmed deployment loads zero profiler code and this owner carries no unarmed branch.
 - Growth: a new profiling decision is one policy field consumed by the lifecycle bracket; a new native sampler is one `_PROFILERS` row; a new auth shape is one `Credential` case with its `_credential` arm; a new backend speaking this dialect is an origin value, and the one lane this owner ever admits is the OTLP profiles transport the swap row names.
-- Packages: `effect` (`Duration`, `Match`, `Option`, `Redacted`), `@rasm/ts/core` (`AppIdentity`, `Convention`), `@pyroscope/nodejs` (`PyroscopeConfig` and the per-sampler rows off the default export).
 
 ```typescript signature
 import Pyroscope, { init, wrapWithLabels, type PyroscopeConfig } from "@pyroscope/nodejs"
 import { Duration, Effect, Exit, Layer, Match, Option, type ParseResult, Record, Redacted, Runtime, Schema, Scope, type Tracer } from "effect"
-import { type AppIdentity, Convention } from "@rasm/ts/core"
+import { type Identity, Convention } from "@rasm/ts/core"
 import { Life } from "../proc/life.ts"
 
 // this package root re-exports its three config interfaces and nothing else, so every other type reads off the
@@ -52,7 +50,7 @@ declare namespace Profile {
     | { readonly _tag: "Token"; readonly secret: Redacted.Redacted<string> }
   type Sampler = keyof typeof _PROFILERS
   type Policy = {
-    readonly identity: AppIdentity
+    readonly identity: Identity.App
     readonly backend: {
       readonly credential: Credential
       readonly origin: string

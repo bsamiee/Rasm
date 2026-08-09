@@ -1,6 +1,6 @@
 # [PY_GEOMETRY]
 
-`geometry` is Python's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed and receipted, produced off the event loop for whichever consumer requests it. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
+`geometry` is Python's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed and receipted, produced off the event loop for whichever consumer requests it. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSyncService` gRPC contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
 
 ## [01]-[ROUTER]
 
@@ -22,7 +22,7 @@
 
 [MESH]:
 - [11]-[DAEMON](.planning/mesh/daemon.md): IfcOpenShell tessellation daemon folding source bytes and policy into per-element GLB, source-keyed.
-- [12]-[SERVE](.planning/mesh/serve.md): Geometry wire owner streaming GLB over contract-conforming `ArtifactSync`.
+- [12]-[SERVE](.planning/mesh/serve.md): Geometry wire owner streaming GLB over contract-conforming `ArtifactSyncService`.
 - [13]-[CAD](.planning/mesh/cad.md): CAD-STEP tessellation hop over `cadquery-ocp`, companion to the C# `StepIso10303` codec.
 - [14]-[REPAIR](.planning/mesh/repair.md): Robust mesh repair, winding and normal fix, and the public exact-boolean `to_manifold` kernel.
 - [15]-[BREP](.planning/mesh/brep.md): `cadquery-ocp` B-rep evaluation minting the `mesh-algebra` subject.
@@ -36,8 +36,8 @@
 - [21]-[FEATURES](.planning/graph/features.md): `networkx` centrality, community, cycle, and connectivity analytics over the network graph.
 
 [ENERGY]:
-- [22]-[CLIMATE](.planning/energy/climate.md): EPW admission and one `ClimateQuery` read surface — series, derived documents, solar, comfort, scalar indices, MRT, spatial maps.
-- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under one `check_all` census, energy-assigned through the shared host fold.
+- [22]-[CLIMATE](.planning/energy/climate.md): EPW admission and one `ClimateQuery` read surface over series, solar, comfort, indices, MRT, and maps.
+- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under `check_all`, energy-assigned at the shared host fold.
 - [24]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing exploding onto the model owner under one shared explosion policy.
 - [25]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — parent-woven translation, recipe-parameterized binding, columnar result decode.
 
@@ -79,7 +79,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `sectionproperties` — Warping, plastic, and shear enrichment.
 - `rtree` — R-tree bounding-box index for the spatial bounds arm.
 - `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm.
-- `gmsh` — Unstructured mesh generation; the compute `MeshExchange` generation arm owns it at the branch, and this folder consumes the meshes it produces rather than the kernel.
+- `gmsh` — Unstructured mesh generation the compute `MeshExchange` arm owns at the branch; this folder consumes the meshes, never the kernel.
 
 [ENERGY]:
 - `ladybug-geometry` — Planar and solid value-object substrate of the Ladybug band.

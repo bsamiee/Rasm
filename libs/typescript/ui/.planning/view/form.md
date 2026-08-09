@@ -98,7 +98,7 @@ const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
 ) {
   return yield* Hook.publish(registry, "rasm.ui.form.submit", { form, stage: "preflight" }).pipe(
     Effect.filterOrFail(
-      (admitted) => admitted,
+      Option.isNone,
       (): Submit.Refusal => ({ _tag: "DraftRefused", errors: { "": ["<vetoed>"] } }), // a veto refusal folds into the same sink a validation failure feeds
     ),
     Effect.zipRight(write),
@@ -182,15 +182,13 @@ const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "ti
 
 [UPLOAD_LANE]:
 - Owner: `Form.upload(file, policy, progress)` — one resumable session per source: the session constructs over the endpoint policy row, proves prior progress through `findPreviousUploads` and binds the first candidate through `resumeFromPreviousUpload` before `start()`, and completion resolves with the `OnSuccessPayload` receipt; interruption runs `abort()` — the stored URL survives, so the next session resumes at the proven offset — and an explicit cancel escalates `Upload.terminate(url)`.
-- Packages: `tus-js-client` (`Upload`, `UploadOptions`, `PreviousUpload`, `OnSuccessPayload`, `DetailedError`, the event and policy hooks); `effect` (`Effect`, `Option`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 - Law: progress is a tap parameter — `onProgress` folds into the app-composed sink (an atom write the `Meter`/`ProgressBar` gauges read), never component state; `onChunkComplete` rides the same sink where chunk grain matters.
-- Law: refusal reads the endpoint's own status and BANDS it into a reason — `DetailedError.originalResponse.getStatus()` folds through `Form.refusal` into the closed reason axis (`endpoint-denied` on an unauthorized or forbidden transfer, `payload-rejected` on a refused body, `transfer-lost` on a server or transport failure with no response), and the core `FaultClass.family` mint projects each reason's kind, so severity, blame, and retryability all derive from the core row table. The banding is load-bearing, not presentation: a permission refusal folded to `unavailable` reads as retryable, so a budget gate re-drives a `403` until its window expires while the operator sees no refusal — one class for every status is the named defect, `onShouldRetry` reads the SAME projection so the session and the rail cannot disagree, string-matching an error message is rejected, and a local rank, retry, or taxonomy-status column beside `class` forks the core lattice per folder.
 - Law: the received status stays inbound evidence beside the reason — the reason carries the routing and the status carries what the endpoint said, so a report names `409` rather than the band it fell into; the status never becomes the discriminant a handler switches on.
 - Law: the server owns finalization — content-address folding and object-store writes land server-side on the data folder's tus lane; this session is a protocol driver, and the finished object's identity returns on the wire.
 - Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Effect, Option, Schema } from "effect"
 import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
 
@@ -205,7 +203,7 @@ declare namespace Form {
 
 // One row per reason carrying the core kind alone: a refused permission is not a transient outage, so the three
 // bands route differently and the core row table decides retryability for each — no local retry column exists.
-const _family = FaultClass.family(["endpoint-denied", "payload-rejected", "transfer-lost"] as const, {
+const _family = Fault.Class.family(["endpoint-denied", "payload-rejected", "transfer-lost"] as const, {
   "endpoint-denied": { class: "denied" },
   "payload-rejected": { class: "invalid" },
   "transfer-lost": { class: "unavailable" },
@@ -225,7 +223,7 @@ class UploadFault extends Schema.TaggedError<UploadFault>()("UploadFault", {
   detail: Schema.String,
 }) {
   static readonly roster: typeof _family.reasons = _family.reasons
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {

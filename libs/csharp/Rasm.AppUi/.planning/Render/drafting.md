@@ -925,7 +925,9 @@ public static class DraftEmit {
         from bytes in IO.lift(() => write(size, pages, version))
         from artifact in ExportDelivery.Deliver(runtime, destination, bytes)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, format.Key, runtime.ContentHash(bytes), None, bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
+        let receipt = new RenderReceipt(
+            Kind, format.Key, runtime.ContentHash(bytes), None, None, bytes.LongLength,
+            elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 

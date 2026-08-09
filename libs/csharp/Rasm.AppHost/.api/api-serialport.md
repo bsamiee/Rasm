@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERIALPORT]
 
-`System.IO.Ports` owns BCL serial-fieldbus transport: `SerialPort` opens an RS-232/422/485 line over a named port, reads and writes line-framed or raw bytes synchronously or through the `DataReceived` event, and exposes the underlying `Stream` for binary protocols. AppHost's live-wire `serial` transport row binds it behind the one `TransportRow` adapter, and `ErrorReceived` faults project to `WireFault` at the boundary.
+`System.IO.Ports` owns BCL serial-fieldbus transport: `SerialPort` opens an RS-232/422/485 line over a named port, reads and writes line-framed or raw bytes synchronously or through the `DataReceived` event, and exposes the underlying `Stream` for binary protocols. AppHost's live-wire `serial` transport row binds it behind the one `TransportRow` adapter, and a thrown `TimeoutException` projects to `WireFault` at the boundary — the unix runtime raises no `ErrorReceived` event.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,6 +9,7 @@
 - assembly: `System.IO.Ports`
 - namespace: `System.IO.Ports`
 - asset: runtime library
+- resolve: `lib/net10.0/System.IO.Ports.dll` is the `PlatformNotSupportedException` facade; host truth decompiles from `runtimes/unix/lib/net10.0/`, and Windows-only members live in `runtimes/win/lib/net10.0/`
 - rail: live-wire
 
 ## [02]-[PUBLIC_TYPES]
@@ -46,19 +47,31 @@
 
 [ENTRYPOINT_SCOPE]: read, write, and events
 
-| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :-------------------------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `SerialPort.ReadLine() -> string`                   | instance | read one `NewLine`-framed line     |
-|  [02]   | `SerialPort.ReadExisting() -> string`               | instance | drain the receive buffer to text   |
-|  [03]   | `SerialPort.Read(byte[], int, int) -> int`          | instance | read raw bytes into a window       |
-|  [04]   | `SerialPort.WriteLine(string)`                      | instance | write text framed by `NewLine`     |
-|  [05]   | `SerialPort.Write(byte[], int, int)`                | instance | write raw bytes from a window      |
-|  [06]   | `SerialPort.BaseStream -> Stream`                   | property | raw binary-protocol stream         |
-|  [07]   | `SerialPort.BytesToRead`/`BytesToWrite`             | property | buffered byte counts               |
-|  [08]   | `SerialPort.DataReceived`                           | event    | `SerialDataReceivedEventHandler`   |
-|  [09]   | `SerialPort.ErrorReceived`                          | event    | `SerialErrorReceivedEventHandler`  |
-|  [10]   | `SerialPort.PinChanged`                             | event    | `SerialPinChangedEventHandler`     |
-|  [11]   | `SerialPort.DiscardInBuffer()`/`DiscardOutBuffer()` | instance | flush the receive and send buffers |
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :-------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `SerialPort.ReadLine() -> string`                   | instance | read one `NewLine`-framed line              |
+|  [02]   | `SerialPort.ReadExisting() -> string`               | instance | drain the receive buffer to text            |
+|  [03]   | `SerialPort.Read(byte[], int, int) -> int`          | instance | read raw bytes into a window                |
+|  [04]   | `SerialPort.WriteLine(string)`                      | instance | write text framed by `NewLine`              |
+|  [05]   | `SerialPort.Write(byte[], int, int)`                | instance | write raw bytes from a window               |
+|  [06]   | `SerialPort.BaseStream -> Stream`                   | property | raw binary-protocol stream                  |
+|  [07]   | `SerialPort.BytesToRead`/`BytesToWrite`             | property | buffered byte counts                        |
+|  [08]   | `SerialPort.DataReceived`                           | event    | `SerialDataReceivedEventHandler`            |
+|  [09]   | `SerialPort.ErrorReceived`                          | event    | `SerialErrorReceivedEventHandler`, win-only |
+|  [10]   | `SerialPort.PinChanged`                             | event    | `SerialPinChangedEventHandler`              |
+|  [11]   | `SerialPort.DiscardInBuffer()`/`DiscardOutBuffer()` | instance | flush the receive and send buffers          |
+
+[ENTRYPOINT_SCOPE]: `SerialError` flag roster
+
+`SerialError` values are FLAGS, so one `SerialErrorReceivedEventArgs.EventType` reads as a set rather than a single case.
+
+| [INDEX] | [MEMBER]    | [VALUE] | [MEANING]                                  |
+| :-----: | :---------- | :-----: | :----------------------------------------- |
+|  [01]   | `RXOver`    |    1    | receive buffer overflowed                  |
+|  [02]   | `Overrun`   |    2    | character overran before it was read       |
+|  [03]   | `RXParity`  |    4    | parity mismatch on a received character    |
+|  [04]   | `Frame`     |    8    | framing error on a received character      |
+|  [05]   | `TXFull`    |  0x100  | transmit buffer full, unreachable on unix  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -66,8 +79,9 @@
 - `SerialPort` is `IDisposable`; the AppHost binding holds it in a token-gated state cell, so a reconnect replaces the whole cell and a stale teardown never disposes a fresh port.
 - `DataReceived` fires on a `ThreadPool` thread; the handler decodes the frame and `TryWrite`s one `ExternalValue` into the bounded lane at the boundary, never running the interior on the event thread.
 - `NewLine`/`Encoding` frame a line protocol read through `ReadLine`, while a binary protocol reads `BaseStream` directly; the choice is a binding-spec column.
-- `ErrorReceived` projects a frame, overrun, or parity fault to `WireFault.ReadFailed` at the boundary, never propagating into the interior.
-- The port is an untyped byte stream and publishes no per-write echo token; the read instant is the host clock, so a serial binding's echo axis takes `EchoClass.Absent` and write proof is a value read-back.
+- TRAP: `ErrorReceived` NEVER fires on macOS or Linux. All five `new SerialErrorReceivedEventArgs(...)` construction sites live in `runtimes/win/lib/net10.0/System.IO.Ports.dll`; the unix runtime declares `SerialStream.ErrorReceived` and raises it nowhere, so `TXFull` is unreachable and a frame, overrun, or parity fault surfaces only as a read timeout.
+- `SerialPort.Write` refuses by `TimeoutException` alone — `SerialStream.Write` wraps it from an `OperationCanceledException` — and a closed port raises `InvalidOperationException`; no path returns a status value.
+- `SerialPort` streams untyped bytes and publishes no per-write echo token; the read instant is the host clock, so a serial binding's echo axis takes `EchoClass.Absent` and write proof is a value read-back.
 - `SerialPort` itself carries NO async read/write — `BaseStream.ReadAsync`/`WriteAsync` is the only async path — and `Read` on an armed `ReadTimeout` signals expiry by THROWING `TimeoutException`, never a zero return; setting `RtsEnable` by hand while `Handshake` is `RequestToSend`/`RequestToSendXOnXOff` throws, so a half-duplex RS-485 line drives RTS manually under a `Handshake` that leaves the pin free.
 
 [STACKING]:

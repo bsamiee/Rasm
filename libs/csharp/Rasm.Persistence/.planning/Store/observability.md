@@ -37,6 +37,16 @@ public readonly partial struct StoreSlot {
             && value.All(static ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch is '.' or '-')
             ? null
             : new StatFault.MalformedSlot(value);
+
+    // EF renders each `TagWith` as its own leading `-- ` comment line, so line one names the owning slot and any
+    // later line the predicate. The reader seats HERE because `StoreSlot` is this page's own vocabulary — both the
+    // `Element/identity#SAVE_INTERCEPTOR_SPINE` wire tap and `#PLAN_PROFILE` read it.
+    // Untagged text is non-rail traffic naming no owner, so the absent case is `None`, never a slot.
+    public static Option<StoreSlot> Owned(string sql) {
+        if (!sql.StartsWith("-- ", StringComparison.Ordinal)) { return None; }  // Exemption: leading-comment scan is the platform-forced statement seam
+        int end = sql.IndexOf('\n', StringComparison.Ordinal);
+        return TryCreate((end < 0 ? sql[3..] : sql[3..end]).Trim(), out StoreSlot slot) ? Some(slot) : None;
+    }
 }
 
 public sealed record SlotRegistry(FrozenSet<string> Slots) {
@@ -63,7 +73,7 @@ public sealed record SlotRegistry(FrozenSet<string> Slots) {
         .. IssueSource.Slots, .. Coordinate.Slots, .. ClusterProvision.Slots, .. ObjectIo.Slots,
         .. ModelResultIndex.Slots, .. ColumnarLane.Slots, .. ReadRouter.Slots, .. GraphSession.Slots,
         .. Federation.Slots, .. Traversals.Slots, .. SearchRoute.Slots, .. OpLog.Slots,
-        .. EgressPump.Slots, .. CdcIngress.Slots, .. StructuralMerge.Slots, .. Crdt.Slots, .. RecoveryRoutes.Slots,
+        .. EgressPump.Slots, .. CdcIngress.Slots, .. IdentityRail.Slots, .. StructuralMerge.Slots, .. Crdt.Slots, .. RecoveryRoutes.Slots,
         .. TimeTravel.Slots, .. contributed]);
 
     public static Fin<StoreSlot> Admit(SlotRegistry registry, StoreSlot slot) =>
@@ -379,6 +389,12 @@ public abstract partial record PlanSubject {
         postgres: static _ => PlanEngine.Postgres,
         duck: static _ => PlanEngine.Duck,
         sqlite: static _ => PlanEngine.Sqlite);
+
+    // Every arm carries its statement, so the owning-slot read is one projection rather than three call sites.
+    public string Sql => this.Switch(
+        postgres: static leg => leg.Sql,
+        duck: static leg => leg.Sql,
+        sqlite: static leg => leg.Sql);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -397,13 +413,13 @@ public abstract partial record PlanVerdict {
 // --- [MODELS] ---------------------------------------------------------------------------
 // Statement-identity baseline persists in the relational identity tier: pg `queryid` when the
 // server computes one, else the invariant hash of the statement text — one identity axis per engine.
-public sealed record PlanBaselineRow(PlanEngine Engine, UInt128 StatementKey, UInt128 Shape, Instant At) {
+public sealed record PlanBaselineRow(PlanEngine Engine, UInt128 StatementKey, UInt128 Shape, Option<StoreSlot> Owner, Instant At) {
     public Guid Id { get; init; } = Guid.CreateVersion7();
 }
 
 // `Verdict` carries no polymorphic annotations, so the wire crossing is the flattened `Rule` row the
 // `#STORE_INSTRUMENTS` arm tags on and the shapes the receipt already names.
-public sealed record PlanReceipt(PlanEngine Engine, UInt128 StatementKey, UInt128 Shape, PlanVerdict Verdict, Instant At, CorrelationId Correlation) {
+public sealed record PlanReceipt(PlanEngine Engine, UInt128 StatementKey, UInt128 Shape, Option<StoreSlot> Owner, PlanVerdict Verdict, Instant At, CorrelationId Correlation) {
     public PlanRule Rule => Verdict.Rule;
 }
 
@@ -415,14 +431,15 @@ public static class PlanProfile {
     // verdict; a first sighting persists through `baseline` and reads Baselined, never a silent implicit write.
     public static IO<PlanReceipt> Capture(PlanSubject subject, Func<PlanEngine, UInt128, IO<Option<PlanBaselineRow>>> held, Func<PlanBaselineRow, IO<Unit>> baseline, ProjectionContext frame) =>
         from captured in subject.Switch(postgres: Postgres, duck: Duck, sqlite: Sqlite)
+        let owner = StoreSlot.Owned(subject.Sql)   // the digested shape traces to the op that issued it, never an ownerless plan
         from prior in held(subject.Engine, captured.Key)
         from verdict in prior.Match(
             Some: row => IO.pure<PlanVerdict>(row.Shape == captured.Shape
                 ? new PlanVerdict.Unchanged(captured.Shape)
                 : new PlanVerdict.Drifted(row.Shape, captured.Shape)),
-            None: () => baseline(new PlanBaselineRow(subject.Engine, captured.Key, captured.Shape, frame.Now()))
+            None: () => baseline(new PlanBaselineRow(subject.Engine, captured.Key, captured.Shape, owner, frame.Now()))
                 .Map(_ => (PlanVerdict)new PlanVerdict.Baselined(captured.Shape)))
-        select new PlanReceipt(subject.Engine, captured.Key, captured.Shape, verdict, frame.Now(), frame.Correlation);
+        select new PlanReceipt(subject.Engine, captured.Key, captured.Shape, owner, verdict, frame.Now(), frame.Correlation);
 
     // Pg leg: EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) yields one json scalar carrying ONE array entry PER
     // statement, so the fold digests every entry in order — a head-only read makes two statements whose first
@@ -519,6 +536,10 @@ public sealed partial class PersistencePoint {
     public static readonly PersistencePoint SweepEvict = new("rasm.persistence.retention.sweep", modality: HookModality.Veto);
     public static readonly PersistencePoint MergeConflict = new("rasm.persistence.merge.conflict", modality: HookModality.Observe);
     public static readonly PersistencePoint RecoveryReplay = new("rasm.persistence.recovery.replay", modality: HookModality.Replay);
+    // The CDC boundary fires at BOTH ends: `EgressDelivered` over an `EgressReceipt` and this over the ingress
+    // pump's end-of-partition edge, which is the lane's one idle signal (`Version/ingress#INGRESS_PUMP`). Without
+    // it a stalled inbound lane and a drained one look identical to every subscriber.
+    public static readonly PersistencePoint IngressDrained = new("rasm.persistence.ingress.drained", modality: HookModality.Observe);
 
     public HookModality Modality { get; }
 }
@@ -533,6 +554,7 @@ public sealed record PersistenceHooks(
     HookPoint<SweepVerdict> SweepEvict,
     HookPoint<ConflictReceipt> MergeConflict,
     HookPoint<StepFact> RecoveryReplay,
+    HookPoint<IngressReceipt> IngressDrained,
     Atom<Seq<IsolatedFault>> Faults) {
 
     public static PersistenceHooks Live() {
@@ -544,6 +566,7 @@ public sealed record PersistenceHooks(
             Seat<SweepVerdict>(PersistencePoint.SweepEvict, faults),
             Seat<ConflictReceipt>(PersistencePoint.MergeConflict, faults),
             Seat<StepFact>(PersistencePoint.RecoveryReplay, faults),
+            Seat<IngressReceipt>(PersistencePoint.IngressDrained, faults),
             faults);
     }
 
@@ -553,7 +576,7 @@ public sealed record PersistenceHooks(
     // Census folds into the one frozen `HookRegistry` beside the AppHost rail's own
     // points — one audit table per composition, duplicate ids structurally fatal.
     public Seq<IHookPoint> Points => Seq<IHookPoint>(
-        ElementAppend, ElementCommitted, EgressDelivered, SweepEvict, MergeConflict, RecoveryReplay);
+        ElementAppend, ElementCommitted, EgressDelivered, SweepEvict, MergeConflict, RecoveryReplay, IngressDrained);
 
     // Append seam crosses the veto fold BEFORE the rail runs (a refusal returns on the caller's
     // own Fin rail), and the settled receipt fires the committed observe tap — a decoration at the composition
@@ -571,6 +594,13 @@ public sealed record PersistenceHooks(
         verdicts.Map(verdict => verdict.Evicts
             ? SweepEvict.Fire(verdict).IfFail(_ => new SweepVerdict.Held(verdict.Key, verdict.Bytes, "hook-veto"))
             : verdict);
+
+    // Ingress seam fires on the EDGE, not on every pump turn: the point's name claims the lane reached lag zero,
+    // so a receipt whose `AtEdge` counted no end-of-partition position states nothing and fires nothing. Firing
+    // unconditionally would publish an idle claim on a lane still draining, which is the fact the counter exists
+    // to separate. Same composition-root decoration as the append and sweep seams — no hook parameter on the pump.
+    public IngressReceipt Drained(IngressReceipt receipt) =>
+        receipt.AtEdge > 0 ? IngressDrained.Fire(receipt).IfFail(receipt) : receipt;
 }
 ```
 
@@ -801,6 +831,11 @@ public static class StoreInstruments {
     public const string HeldOutcome = "held";
     public const string DeadOutcome = "dead";
 
+    // Retriability values publish beside their slot for the same reason the settlement values do: the board's
+    // contention indicator reads the transient share, so a literal at either site forks it the moment one moves.
+    public const string TransientOutcome = "transient";
+    public const string TerminalOutcome = "terminal";
+
     // `pg_stat_io` reports `hits` only against relation objects; a wal or temp row carries reads with no
     // buffer-hit concept, so folding it into the ratio reports a cache miss no buffer ever took.
     const string RelationObject = "relation";
@@ -836,6 +871,7 @@ public static class StoreInstruments {
     public const string BlobBytes = Head + "blob.bytes";
     public const string BlobParts = Head + "blob.parts";
     public const string BlobFaults = Head + "blob.faults";
+    public const string CoordinationFaults = Head + "coordination.faults";
     public const string RetentionSwept = Head + "retention.swept";
     public const string UsageSize = Head + "usage.size";
     public const string UsageObjects = Head + "usage.objects";
@@ -881,6 +917,11 @@ public static class StoreInstruments {
         InstrumentSpec.Count(BlobBytes, "By", "object bytes transferred by provider and transfer verb", MeasureForm.Whole, ProviderSlot, VerbSlot),
         InstrumentSpec.Advised(BlobParts, "{part}", "multipart parts staged per object by provider", MeasureForm.Whole, Buckets.IterationCounts, ProviderSlot),
         InstrumentSpec.Count(BlobFaults, "{fault}", "object-plane refusals by provider and fault category", MeasureForm.Whole, ProviderSlot, CategorySlot),
+        // Fenced-store refusals partition on the union's own `Category` beside its retriability bit, because a
+        // `LeaseFenced` storm is split-brain while a `Contended` storm is lock pressure and one undifferentiated
+        // count reads identically for both. Both dimensions close over the publishing union, so declared and
+        // stamped cardinality cannot drift.
+        InstrumentSpec.Count(CoordinationFaults, "{fault}", "fenced-store refusals by fault category and retriability", MeasureForm.Whole, CategorySlot, OutcomeSlot),
         InstrumentSpec.Count(RetentionSwept, "{verdict}", "retention verdicts by class and deciding rule", MeasureForm.Whole, ClassSlot, RuleSlot),
         InstrumentSpec.Levels(UsageSize, "By", "durable bytes by tenant", MeasureForm.Whole, TenantContext.TenantSlot),
         InstrumentSpec.Levels(UsageObjects, "{object}", "durable objects by tenant", MeasureForm.Whole, TenantContext.TenantSlot),
@@ -936,6 +977,10 @@ public static class StoreInstruments {
                 set.Write(BlobFaults, 1L, InstrumentSet.Tags(
                     (ProviderSlot, payload.GetProperty("provider").GetString()),
                     (CategorySlot, payload.GetProperty("kind").GetString()))),
+            [Coordinate.FaultSlot.ToString()] = static (set, payload) =>
+                set.Write(CoordinationFaults, 1L, InstrumentSet.Tags(
+                    (CategorySlot, payload.GetProperty("category").GetString()),
+                    (OutcomeSlot, payload.GetProperty("transient").GetBoolean() ? TransientOutcome : TerminalOutcome))),
             // Retention verdicts fold per class and deciding rule off the sweep receipt's own partition, so the
             // one instrument answers "what did retention decide, where" without a per-verdict-kind instrument
             // family: the rule vocabulary is `SweepVerdict.Rule`'s and the class vocabulary the six-row axis.

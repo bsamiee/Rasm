@@ -1,6 +1,6 @@
 # [BIM_WIRE]
 
-`IfcWire` is the cross-runtime IFC interchange wire: one content-keyed artifact carrying an `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` re-authored to the IFC serializations GeometryGym emits through the Bim-internal `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, stamped with the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` so EVERY IFC serialization of one model shares one identity, and re-admitted through `IfcWire.Admit`.
+`IfcWire` is the cross-runtime IFC interchange wire: one raw artifact carrying the format key, IFC bytes, schema key, semantic `ContentAddress.OfGraph`, and mint instant. `SemanticProjector.Emit` re-authors an `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` to a GeometryGym serialization, and every serialization of one model shares the semantic address before re-admission through `IfcWire.Admit`.
 
 `Rasm.Bim` owns GeometryGym alone, so the IFC bytes ARE the BIM wire: the `python:geometry/ifc-companion` ifcopenshell peer and the TypeScript web peer decode the same serialization Bim emits, never re-minting a parallel BIM shape.
 
@@ -37,14 +37,15 @@ using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;   // both imported nam
 namespace Rasm.Bim;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// IfcWire is the cross-runtime IFC interchange artifact: IFC serialization bytes + the seam graph content-address
-// identity + the schema stamp (the data-interchange "payload + descriptor stamp + content hash" law). One
+// IfcWire stores InterchangeFormat.Key because the rich format row carries host-local codec and capability state.
+// ReleaseVersion stays typed because its generated converter projects the host-neutral key scalar.
+// Bytes remain the raw IFC payload, Content is the seam graph address, and At is the artifact time. One
 // ElementGraph emits to every GeometryGym IFC serialization (STEP/ifcXML/ifcJSON) ALL sharing one Content, because
 // identity is the SEMANTIC graph address (ContentAddress.OfGraph), never the byte hash — so a STEP and an ifcJSON
 // of one model join on one key. HOST-FREE: only IFC bytes + the content-key the Compute geometry-blob store and the
 // seam graph share, never a RhinoCommon type.
 public sealed record IfcWire(
-    InterchangeFormat Format,
+    string Format,
     ReadOnlyMemory<byte> Bytes,
     ReleaseVersion Schema,
     ContentAddress Content,
@@ -68,24 +69,40 @@ public sealed record IfcWire(
         Option<EmitContext> context, Instant at, Op key) =>
         format.Serialization.Filter(_ => format.RoundTrippable).Match(
             Some: form => projector.Emit(graph, form, key, context).Map(bytes =>
-                new IfcWire(format, bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
+                new IfcWire(format.Key, bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
             None: () => Fin.Fail<IfcWire>(Detail.WireEncode.At(key, format.Key)));
 
-    // Consumer admission: IFC bytes decode through the ONE GeometryGym decode owner — the import rail's
-    // BimIo.ImportIfc, schema sniffed before construction — re-wrapped with the wire-decode admission context
-    // (codec gate and parse funnel both land here), then a fresh SemanticProjector projects and Assemble runs
-    // IfcLegality (the relationship law with the two vocabulary arms), so a malformed, non-IFC, or IFC-illegal payload
-    // faults at admission (BimFault.ModelRejected, the wire-admission arm) rather than minting a half graph. Rooted
-    // NodeId re-mints (a fresh Guid-v7), the GlobalId riding the node ExternalId for re-ingest correlation; the
-    // projector's own delta Header overrides the Genesis seed.
+    // Admission resolves the canonical Format before BimIo.ImportIfc sniffs schema and constructs the database.
+    // ProjectionAssembly applies IfcLegality, and the projected Header must match the typed wire Schema.
+    // Rooted NodeId values re-mint while GlobalId remains the re-ingest correlation identity.
     public Fin<ElementGraph> Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
-        BimIo.ImportIfc(Format, Bytes, ctx.Key)
+        from format in ResolveFormat(Format, ctx.Key)
             .MapFail(error => (Error)Detail.WireDecode.At(ctx.Key, error.Message))
-            .Bind(db => ProjectionAssembly.Assemble(
-                ProjectionSuite.Of(
-                    Seq<IElementProjection>(new SemanticProjector(db, reconciler, profiles)),
-                    Seq(ConstraintRegistration.Of(new IfcLegality()))),
-                ElementGraph.Genesis(ctx.Header), ctx).Map(static r => r.Graph));
+        from schema in Schema is not null
+            ? Fin.Succ(Schema)
+            : Fin.Fail<ReleaseVersion>(Detail.WireDecode.At(ctx.Key, "schema:null"))
+        from db in BimIo.ImportIfc(format, Bytes, ctx.Key)
+            .MapFail(error => (Error)Detail.WireDecode.At(ctx.Key, error.Message))
+        from assembled in ProjectionAssembly.Assemble(
+            ProjectionSuite.Of(
+                Seq<IElementProjection>(new SemanticProjector(db, reconciler, profiles)),
+                Seq(ConstraintRegistration.Of(new IfcLegality()))),
+            ElementGraph.Genesis(ctx.Header), ctx)
+        let graph = assembled.Graph
+        from _ in graph.Header.Schema == schema
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Detail.WireDecode.At(
+                ctx.Key, $"schema:{schema.Key}:{graph.Header.Schema.Key}"))
+        select graph;
+
+    // Ordinal key equality keeps the wire canonical while Detect serves path, extension, and media-type ingress.
+    static Fin<InterchangeFormat> ResolveFormat(string value, Op key) =>
+        value is not null
+            && InterchangeFormat.TryGet(value, out InterchangeFormat? format)
+            && format is not null
+            && StringComparer.Ordinal.Equals(value, format.Key)
+                ? Fin.Succ(format)
+                : Fin.Fail<InterchangeFormat>(Detail.InterchangeFormatMiss.At(key, value ?? ""));
 
     // Content negotiation across the IFC serializations a peer admits (STEP > ifcXML > ifcJSON by interop breadth) —
     // data-interchange "fidelity routes the format" law, the IFC analog of the Persistence SnapshotCodec.Negotiate; an

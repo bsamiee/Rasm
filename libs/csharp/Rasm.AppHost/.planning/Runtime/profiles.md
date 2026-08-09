@@ -13,14 +13,14 @@ Rasm.AppHost boots every process from one supplied `ConsumptionProfile` row: a c
 
 ## [02]-[PROFILE_AXIS]
 
-- Owner: `ProfileAxis` names the six-axis roster; `Tenancy`, `DeploymentTopology`, `LifecycleOwner`, and `Isolation` close their vocabularies; `HostDescriptor` and `ProviderDescriptor` fix the two open axes' descriptor shape; `ConsumptionProfile` carries the supplied row, `RecoveryObjective` its `(Rpo, Rto)` durability column, and `ResolvedProfile` the only profile artifact siblings consume.
-- Cases: `tenancy` = none | single | multi; `topology` = in-host | sidecar | companion | service | edge | cli; `lifecycle` = caller-owned | package-owned; `isolation` = in-proc | thread | process | wasm | remote; `host` and `providers` carry descriptor rows this branch supplies through `HostRows` and `ProviderRows`; `HostAttach` = Foreign | AppRoot | Quiet | Managed; `HostSurface` = Embedded | Windowed | Offscreen | None; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved | AxisUnsupported in the 1100 code band.
+- Owner: `ProfileAxis` names the six-axis roster; `Tenancy`, `DeploymentTopology`, `LifecycleOwner`, and `Isolation` close their vocabularies; `HostDescriptor` and `ProviderDescriptor` fix the two open axes' descriptor shape over `DescriptorLifetime`, the span-and-ender pair both families answer `lifetime` with; `ConsumptionProfile` carries the supplied row, `RecoveryObjective` its `(Rpo, Rto)` durability column, and `ResolvedProfile` the only profile artifact siblings consume.
+- Cases: `tenancy` = none | single | multi; `topology` = in-host | sidecar | companion | service | edge | cli; `lifecycle` = caller-owned | package-owned; `isolation` = in-proc | thread | process | wasm | remote; `host` and `providers` carry descriptor rows this branch supplies through `HostRows` and `ProviderRows`, each row answering `Fits`, `Tenancy`, `Lifetime`, and `Degrade` beside its family's extension columns — `ShipVehicle`, `HostAttach`, `HostSurface`, `RecoveryObjective`, and the five capability booleans for a host, `Supplies` and `Reach` for a provider; `HostAttach` = Foreign | AppRoot | Quiet | Managed; `HostSurface` = Embedded | Windowed | Offscreen | None; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved | AxisUnsupported in the 1100 code band.
 - Entry: `Fin<ResolvedProfile> Resolve(ConsumptionProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default)` — `Admit` gates the axis values first, so `Fin` aborts on axis refusal, attachment rejection, and root rejection.
 - Auto: one supplied row replaces every bootstrap program — a host descriptor overrides its topology row's `Vehicle`, `Attach`, `Surface`, and `Durability` columns while an unhosted profile reads the topology row, so `ServerGc`, `ReadyToRun`, `ModuleScan`, `SingleInstance`, `CoHostedAssets`, `LocalStore`, `HostDocument`, and `OtlpExport` fold from axis values with no key roster between them; raw axis keys admit through each vocabulary's generated `Validate` against `ProfileFault`.
 - Receipt: `Canonical()` emits the six axis rows in roster order under an ordinal provider-key sort and `CanonicalJson()` renders them as the one UTF-8 `canonical-json` preimage — the byte-deriving input the `consumption-profile` corpus contract freezes, so the three branches diff one string rather than three rosters.
 - Packages: Microsoft.Extensions.Hosting, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one host integration is one `HostRows` descriptor row and one bound port is one `ProviderRows` row, each at zero new surface; a new closed-axis value is one member on its owning vocabulary, and a new axis is one `ProfileAxis` row beside one `ConsumptionProfile` column, both settling at the corpus roster first.
-- Boundary: axis values stay data — a compile-time assumption, an ambient global, a build flag, and a package branching on which product hosts it are the four deleted forms, so a host integration lands as a descriptor row and never as a closed case; `Admit` refuses an unservable axis value with `ProfileFault.AxisUnsupported` carrying `AxisEvidence` that names the axis, so silent degradation and a narrowed public surface never happen; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; `isolation` refuses where no bound provider supplies the crossing's capability; `RuntimeAttachment.Integrating` admits only where the resolved row carries `SingleInstance`, so a shared store root reaches exactly one live instance; `RecoveryObjective` is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the `(Rpo, Rto)` window, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the engine arms gauge their measured RPO/RTO against the column, never a second DR taxonomy; column values stay app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the `SingleInstance` value is probed through the discovery manifest, a `CoHostedAssets` host serves the built TS bundle same-origin from its app root through `UseStaticFiles(StaticFileOptions)` with `FileProvider`/`RequestPath` off the selected bundle root — `MapStaticAssets` is foreclosed because it resolves a BUILD-emitted static-web-asset manifest and this column selects its bundle at RUNTIME, so a tree the .NET build never enumerated is absent from that manifest and answers 404 — which makes the column's invariant a provider question rather than a build one: a `CoHostedAssets: true` row whose selected root resolves no readable directory is a boot-time refusal, never a per-request miss, with cross-origin headers held as designed growth; and the test-harness row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof.
+- Growth: one host integration is one `HostRows` descriptor row and one bound port is one `ProviderRows` row, each answering its family's whole coordinate set at zero new surface, so a row minted short of one is the deleted form; a new closed-axis value is one member on its owning vocabulary, and a new axis is one `ProfileAxis` row beside one `ConsumptionProfile` column, both settling at the corpus roster first.
+- Boundary: every open-axis row answers the consumption-descriptor coordinates in this branch's casing — `Fits` the selection sentence a composition root picks the row on, `Tenancy` the MECHANISM the row separates tenants by and never a `Tenancy` roster value, `Lifetime` a survival span paired with the `LifecycleOwner` that ends it, `Degrade` derived from the capability columns already expressing each forfeit; `Admit` rides each family's lead because every row in it answers alike — a host through `ProfileBoot.Boot` over its own `Attach` delegate pair, a provider through the `ConsumptionProfile.Providers` seat — and a residual states only what no column carries, which is why the provider family declares none and the host family spends one on `test-harness` alone; axis values stay data — a compile-time assumption, an ambient global, a build flag, and a package branching on which product hosts it are the four deleted forms, so a host integration lands as a descriptor row and never as a closed case; `Admit` refuses an unservable axis value with `ProfileFault.AxisUnsupported` carrying `AxisEvidence` that names the axis, so silent degradation and a narrowed public surface never happen; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; `isolation` refuses where no bound provider supplies the crossing's capability; `RuntimeAttachment.Integrating` admits only where the resolved row carries `SingleInstance`, so a shared store root reaches exactly one live instance; `RecoveryObjective` is the branch's one DR-target declaration — `Rasm.Persistence` IMPORTS the type through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [IMPORT]: RecoveryObjective` seam and a composition root threads `ResolvedProfile.Recovery` in as the value, so a Persistence-local `(Rpo, Rto)` record and a host-band-keyed RPO/RTO table there are both the deleted form; `ResolvedProfile` itself never crosses, because a one-line accessor over `.Recovery` is a forwarding wrapper rather than a port; grading lives with the observation, so `Rasm.Persistence/Store/schema` `RecoveryWindow.Gauged` is the ONE gauge folding each `RecoveryAxis` row's measured half against the declared column, and a `Meets*` predicate on this struct is the deleted second grader blind to the unmeasured half; column values stay app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the `SingleInstance` value is probed through the discovery manifest, a `CoHostedAssets` host serves the built TS bundle same-origin from its app root through `UseStaticFiles(StaticFileOptions)` with `FileProvider`/`RequestPath` off the selected bundle root — `MapStaticAssets` is foreclosed because it resolves a BUILD-emitted static-web-asset manifest and this column selects its bundle at RUNTIME, so a tree the .NET build never enumerated is absent from that manifest and answers 404 — which makes the column's invariant a provider question rather than a build one: a `CoHostedAssets: true` row whose selected root resolves no readable directory is a boot-time refusal, never a per-request miss, with cross-origin headers held as designed growth; and the test-harness row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof.
 
 Each `isolation` value names the crossing that answers it; an unbound capability refuses on the `isolation` axis rather than degrading to a weaker crossing:
 
@@ -116,7 +116,9 @@ public sealed partial class HostSurface {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DeploymentTopology {
-    public static readonly DeploymentTopology InHost = new("in-host", serverGc: false, vehicle: ShipVehicle.Yak, attach: HostAttach.AppRoot, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
+    // Unreachable by construction — `Admit` refuses in-host carrying no host descriptor and `ResolvedProfile.Recovery`
+    // prefers the host row's column, so this cell reads the `Relaxed` window both in-host host rows select.
+    public static readonly DeploymentTopology InHost = new("in-host", serverGc: false, vehicle: ShipVehicle.Yak, attach: HostAttach.AppRoot, surface: HostSurface.Windowed, durability: RecoveryObjective.Relaxed);
     public static readonly DeploymentTopology Sidecar = new("sidecar", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
     public static readonly DeploymentTopology Companion = new("companion", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
     public static readonly DeploymentTopology Service = new("service", serverGc: true, vehicle: ShipVehicle.Oci, attach: HostAttach.Managed, surface: HostSurface.None, durability: RecoveryObjective.Strict);
@@ -162,22 +164,37 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
     }
 }
 
-// Host descriptors and topology rows declare this (Rpo, Rto) window and project it onto
-// ResolvedProfile; Rasm.Persistence/Version/recovery gauges its measured RPO/RTO against the column.
+// Host descriptors and topology rows DECLARE this `(Rpo, Rto)` window and project it onto `ResolvedProfile`.
+// This struct is the branch's ONE declaration: `Rasm.Persistence` imports the type for its `Version/recovery`
+// gauge and its `Store/schema` admission parameter, the same S2-over-S1 crossing `Rasm.Materials` takes for
+// `BenchmarkGate`, so a Persistence-local `(Rpo, Rto)` record is a twin rather than a port shape. Declaring and
+// GRADING split: a `Meets*` predicate here takes a bare `Duration` that cannot spell the unmeasured half, and
+// `Store/schema` `RecoveryWindow.Gauged` already folds every `RecoveryAxis` row into one `RecoveryReading`.
 public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public static readonly RecoveryObjective Strict = new(Duration.FromMinutes(1), Duration.FromMinutes(15));
     public static readonly RecoveryObjective Standard = new(Duration.FromMinutes(5), Duration.FromMinutes(30));
     public static readonly RecoveryObjective Relaxed = new(Duration.FromMinutes(15), Duration.FromHours(1));
     public static readonly RecoveryObjective Instant = new(Duration.Zero, Duration.Zero);
-
-    public bool MeetsRpo(Duration measured) => measured <= Rpo;
-    public bool MeetsRto(Duration measured) => measured <= Rto;
 }
 
+// One shape carries the lifetime coordinate for both open-axis families, because stating a span without its
+// ender is half an answer: a reader learns how long what entered lasts and never who tears it down. Ender
+// spells the closed `lifecycle` vocabulary, so neither family mints a second word for caller and package.
+public readonly record struct DescriptorLifetime(string Survives, LifecycleOwner Ender);
+
+// Admission answers alike for every host row and rides this sentence instead of a column: `ProfileBoot.Boot`
+// composes the row's own `Attach.CreateBuilder`/`Attach.AttachLifetime` pair, so a column beside `Attach`
+// restates a member the row already carries. `Tenancy` names the MECHANISM a row separates tenants by and
+// never a `Tenancy` roster value — that closed axis is a profile column, and re-spelling it here forks one
+// vocabulary into two. `Residual` states only the forfeit no capability column already expresses.
 [ComplexValueObject]
 [ValidationError<ProfileFault>]
 public sealed partial class HostDescriptor {
     public string Key { get; }
+    public string Fits { get; }
+    public string Tenancy { get; }
+    public DescriptorLifetime Lifetime { get; }
+    public string Residual { get; }
     public ShipVehicle Vehicle { get; }
     public HostAttach Attach { get; }
     public HostSurface Surface { get; }
@@ -187,35 +204,134 @@ public sealed partial class HostDescriptor {
     public bool ModuleScan { get; }
     public bool SingleInstance { get; }
     public bool CoHostedAssets { get; }
+
+    // Forfeits DERIVE from the capability columns rather than restating them: a false column IS the forfeit,
+    // so one fact keeps one owner and no row claims a capability its own column denies. Residual rides the
+    // same fold as a pinned row whose held flag is its emptiness, so an unspent one drops out with the rest.
+    public Seq<string> Degrade => Forfeits.Filter(static row => !row.Held).Map(static row => row.Column);
+
+    private Seq<(bool Held, string Column)> Forfeits => [
+        (Document, nameof(Document)),
+        (LocalStore, nameof(LocalStore)),
+        (ModuleScan, nameof(ModuleScan)),
+        (SingleInstance, nameof(SingleInstance)),
+        (CoHostedAssets, nameof(CoHostedAssets)),
+        (Residual.Length == 0, Residual),
+    ];
 }
 
+// Admission answers alike for every provider row and rides this sentence: a composition root seats the row on
+// `ConsumptionProfile.Providers`, which `Grants` folds into the capability set `Supplies` is read against, so
+// no row carries an entry of its own. No provider row spends a degradation residual either, so this family
+// states none and `Degrade` derives from `Reach` alone.
 [ComplexValueObject]
 [ValidationError<ProfileFault>]
 public sealed partial class ProviderDescriptor {
     public string Key { get; }
+    public string Fits { get; }
+    public string Tenancy { get; }
+    public DescriptorLifetime Lifetime { get; }
     public Capability Supplies { get; }
     // Reach is the degradation coordinate: a remote-reaching provider drops out of the retained set the
     // moment DegradationLevel stops retaining RemoteCompute, while an in-proc row survives every level.
     public Isolation Reach { get; }
+
+    // Forfeit IS the crossing capability the reach demands, so this derives off `Isolation.Needs` and mints
+    // nothing: an in-proc or thread row needs no crossing, forfeits none, and answers empty.
+    public Seq<string> Degrade => Reach.Needs.Map(static needed => needed.Key).ToSeq();
 }
 
 // Rows this branch supplies for the OPEN axes. A consumer embedding the estate inside its own product
 // mints its own row against the same shape; nothing here is a closed set a package may switch over.
 public static class HostRows {
-    public static readonly HostDescriptor Rhino = HostDescriptor.Create("rhino", ShipVehicle.Yak, HostAttach.Foreign, HostSurface.Embedded, RecoveryObjective.Relaxed, document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
-    public static readonly HostDescriptor Gh2 = HostDescriptor.Create("gh2", ShipVehicle.Yak, HostAttach.Foreign, HostSurface.Embedded, RecoveryObjective.Relaxed, document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
-    public static readonly HostDescriptor DesktopShell = HostDescriptor.Create("desktop-shell", ShipVehicle.DesktopBundle, HostAttach.AppRoot, HostSurface.Windowed, RecoveryObjective.Standard, document: false, localStore: true, moduleScan: true, singleInstance: true, coHostedAssets: false);
-    public static readonly HostDescriptor WebAppRoot = HostDescriptor.Create("web-app-root", ShipVehicle.Oci, HostAttach.AppRoot, HostSurface.None, RecoveryObjective.Strict, document: false, localStore: false, moduleScan: false, singleInstance: false, coHostedAssets: true);
-    public static readonly HostDescriptor TestHarness = HostDescriptor.Create("test-harness", ShipVehicle.Folder, HostAttach.AppRoot, HostSurface.Offscreen, RecoveryObjective.Instant, document: false, localStore: false, moduleScan: true, singleInstance: false, coHostedAssets: false);
+    public static readonly HostDescriptor Rhino = HostDescriptor.Create(
+        key: "rhino",
+        fits: "a Rhino instance loads this estate through its own plug-in loader",
+        tenancy: "one document session per process, scoped by the launching user's profile root",
+        lifetime: new("until the host unloads the plug-in load context", LifecycleOwner.CallerOwned),
+        residual: "",
+        vehicle: ShipVehicle.Yak, attach: HostAttach.Foreign, surface: HostSurface.Embedded, durability: RecoveryObjective.Relaxed,
+        document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
+
+    public static readonly HostDescriptor Gh2 = HostDescriptor.Create(
+        key: "gh2",
+        fits: "a Grasshopper2 editor loads this estate beside its own solution graph",
+        tenancy: "one document session per process, scoped by the launching user's profile root",
+        lifetime: new("until the host unloads the plug-in load context", LifecycleOwner.CallerOwned),
+        residual: "",
+        vehicle: ShipVehicle.Yak, attach: HostAttach.Foreign, surface: HostSurface.Embedded, durability: RecoveryObjective.Relaxed,
+        document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
+
+    public static readonly HostDescriptor DesktopShell = HostDescriptor.Create(
+        key: "desktop-shell",
+        fits: "this estate ships and launches as its own desktop bundle",
+        tenancy: "one live instance per user, held by the single-instance discovery manifest",
+        lifetime: new("until the launched process exits", LifecycleOwner.PackageOwned),
+        residual: "",
+        vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.AppRoot, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard,
+        document: false, localStore: true, moduleScan: true, singleInstance: true, coHostedAssets: false);
+
+    public static readonly HostDescriptor WebAppRoot = HostDescriptor.Create(
+        key: "web-app-root",
+        fits: "an application root composes this estate and serves the built bundle same-origin",
+        tenancy: "a request-scoped TenantContext adopted per ingress carrier",
+        lifetime: new("until the application root stops the Generic Host", LifecycleOwner.CallerOwned),
+        residual: "",
+        vehicle: ShipVehicle.Oci, attach: HostAttach.AppRoot, surface: HostSurface.None, durability: RecoveryObjective.Strict,
+        document: false, localStore: false, moduleScan: false, singleInstance: false, coHostedAssets: true);
+
+    public static readonly HostDescriptor TestHarness = HostDescriptor.Create(
+        key: "test-harness",
+        fits: "a test assembly composes this estate against fake time and in-memory configuration",
+        tenancy: "one composition per test scope, sharing no root across scopes",
+        lifetime: new("until the fixture disposes the composition", LifecycleOwner.CallerOwned),
+        residual: "wall-clock progression, since FakeTimeProvider and FakeClock advance only where a test drives them",
+        vehicle: ShipVehicle.Folder, attach: HostAttach.AppRoot, surface: HostSurface.Offscreen, durability: RecoveryObjective.Instant,
+        document: false, localStore: false, moduleScan: true, singleInstance: false, coHostedAssets: false);
 }
 
 public static class ProviderRows {
-    public static readonly ProviderDescriptor OtlpCollector = ProviderDescriptor.Create("otlp-collector", Capability.TelemetryExport, Isolation.Remote);
-    public static readonly ProviderDescriptor RemoteSolver = ProviderDescriptor.Create("remote-solver", Capability.RemoteCompute, Isolation.Remote);
-    public static readonly ProviderDescriptor LocalSolver = ProviderDescriptor.Create("local-solver", Capability.LocalCompute, Isolation.Process);
-    public static readonly ProviderDescriptor DocumentBridge = ProviderDescriptor.Create("document-bridge", Capability.HostDocument, Isolation.InProc);
-    public static readonly ProviderDescriptor StoreReader = ProviderDescriptor.Create("store-reader", Capability.StoreRead, Isolation.InProc);
-    public static readonly ProviderDescriptor StoreWriter = ProviderDescriptor.Create("store-writer", Capability.StoreWrite, Isolation.InProc);
+    public static readonly ProviderDescriptor OtlpCollector = ProviderDescriptor.Create(
+        key: "otlp-collector",
+        fits: "a deployment exports the four signals to a collector endpoint",
+        tenancy: "resource attributes stamp the emitter, and the queue root scopes by host key",
+        lifetime: new("until the durable queue drains its last batch", LifecycleOwner.PackageOwned),
+        supplies: Capability.TelemetryExport, reach: Isolation.Remote);
+
+    public static readonly ProviderDescriptor RemoteSolver = ProviderDescriptor.Create(
+        key: "remote-solver",
+        fits: "solve capacity lives off-box behind the outbound hop",
+        tenancy: "a per-tenant Budget debits at the brokered mediation gate",
+        lifetime: new("until the calling scope cancels or the hop deadline elapses", LifecycleOwner.CallerOwned),
+        supplies: Capability.RemoteCompute, reach: Isolation.Remote);
+
+    public static readonly ProviderDescriptor LocalSolver = ProviderDescriptor.Create(
+        key: "local-solver",
+        fits: "solve capacity runs on this machine inside a spawned child",
+        tenancy: "one grant scope per spawned child, holding no ambient host authority",
+        lifetime: new("until the sandbox kill rail converges the child", LifecycleOwner.PackageOwned),
+        supplies: Capability.LocalCompute, reach: Isolation.Process);
+
+    public static readonly ProviderDescriptor DocumentBridge = ProviderDescriptor.Create(
+        key: "document-bridge",
+        fits: "a live host document backs this estate's reads and writes",
+        tenancy: "one host document every caller in the process shares",
+        lifetime: new("until the host closes the document", LifecycleOwner.CallerOwned),
+        supplies: Capability.HostDocument, reach: Isolation.InProc);
+
+    public static readonly ProviderDescriptor StoreReader = ProviderDescriptor.Create(
+        key: "store-reader",
+        fits: "a resolved local store root answers reads",
+        tenancy: "one per-user store root the resolved profile fixed",
+        lifetime: new("until the composition root disposes the reader", LifecycleOwner.PackageOwned),
+        supplies: Capability.StoreRead, reach: Isolation.InProc);
+
+    public static readonly ProviderDescriptor StoreWriter = ProviderDescriptor.Create(
+        key: "store-writer",
+        fits: "a resolved local store root accepts writes",
+        tenancy: "one per-user store root the resolved profile fixed",
+        lifetime: new("until the composition root disposes the writer", LifecycleOwner.PackageOwned),
+        supplies: Capability.StoreWrite, reach: Isolation.InProc);
 }
 
 // `Host` tails the positional list carrying `= default`: this profile rides `PhaseReceipt` across the suite wire,
@@ -260,8 +376,11 @@ public sealed record ConsumptionProfile(
     // Roster order under UTF-8 fixes the `canonical-json` PREIMAGE this corpus contract freezes as a vector, so
     // fixtures derive bytes from this member rather than from a reader's transcription of the roster, and each
     // branch proving parity compares one string. Values escape through `JsonEncodedText`, so a descriptor key
-    // carrying a quote or a non-ASCII segment renders identically on every runtime; serializing a dictionary is
-    // deleted, because property order there belongs to the collection rather than the roster and drifts on rehash.
+    // carrying a quote or a control character renders as an admissible literal; NON-ASCII does not survive the
+    // crossing, because this encoder emits `\uXXXX` where the peer branches' encoders emit raw UTF-8 — the
+    // printable-ASCII bound `tests/contracts/MANIFEST.md` `[02.10]` states is what makes the three renders one
+    // string. Serializing a dictionary is deleted, because property order there belongs to the collection rather
+    // than the roster and drifts on rehash.
     public string CanonicalJson() =>
         $"{{{string.Join(',', Canonical().Select(static row =>
             $"\"{JsonEncodedText.Encode(row.Key).Value}\":\"{JsonEncodedText.Encode(row.Value).Value}\""))}}}";

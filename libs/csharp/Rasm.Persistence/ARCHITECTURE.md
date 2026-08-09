@@ -15,7 +15,7 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   ├── Ledger.cs            # Op-log changefeed, HLC clock, CRDT merge dispatch, sync transports
 │   ├── Commits.cs           # Content-addressed commit-DAG and convergent CRDT algebra
 │   ├── TimeTravel.cs        # AS-OF reconstruct/diff/blame/bisect fold over the changefeed prefix
-│   ├── Merge.cs             # Three-way structural merge and RFC 6902 patch egress
+│   ├── Merge.cs             # Three-way structural merge and base-addressed RFC 6902 edit egress
 │   ├── Provenance.cs        # W3C-PROV causal DAG and attested tamper-evidence ledger
 │   ├── Retention.cs         # Retention-class sweep and full-history reachability GC
 │   ├── Recovery.cs          # Backup-substrate routes and verified PITR choreography
@@ -94,7 +94,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Seams split into two fences by counterpart group: the first binds the kernel and the AEC-domain peers through shape, content-key, wire, and projection contracts; the second binds the platform host and the cross-runtime peers through port, wire, contract, and receipt families. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
+Seams split into two fences by counterpart group: the first binds the kernel and the AEC-domain peers through shape, content-key, wire, and projection contracts; the second binds the platform host and the cross-runtime peers through port, wire, contract, receipt, and import families. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
 ```mermaid
 ---
@@ -159,7 +159,7 @@ config:
 ---
 flowchart LR
     accTitle: Persistence platform and cross-runtime seams
-    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, receipts, content keys, and contracts with the app host, the app UI, and the Python and TypeScript runtimes, one edge per kind.
+    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, receipts, content keys, contracts, and one imported type with the app host, the app UI, and the Python and TypeScript runtimes, one edge per kind.
     subgraph persistence[RASM.PERSISTENCE]
         Element[Element store]
         Version[Version engine]
@@ -183,6 +183,7 @@ flowchart LR
     Data e17@<-->|"[CONTENT_KEY]: ContentKey"| Query
     Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
     Version e8@<-->|"[PORT]: Hlc"| AppHost
+    Version e27@-->|"[IMPORT]: RecoveryObjective"| AppHost
     AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
     Query e11@<-->|"[PORT]: HybridCache"| AppHost
     Store e12@<-->|"[PORT]: CoordinationOp"| AppHost

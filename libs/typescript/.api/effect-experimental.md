@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_EFFECT_EXPERIMENTAL]
 
-`@effect/experimental` owns the overlay-lane family: every service is one `Context.Tag` with a `layer*` whose storage is a swappable Layer dependency — memory for specs, IndexedDB/`KeyValueStore` for browsers, SQL for durable nodes — so one lane rides every runtime by Layer selection. Each lane overlays a durable owner; `journal/append` on `@effect/sql` holds the record of truth, and no overlay journal or persisted queue is ever a second authority `[OVERLAY_BOUNDARY_RULING]`.
+`@effect/experimental` owns local-first overlays, storage-backed services, and host-neutral `Machine` actors. Storage services select memory, IndexedDB, key-value, or SQL Layers; `Machine` holds in-process state only. The SQL journal remains the durable authority.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `@effect/experimental` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`)
 - optional-peer: `ioredis` (Redis `Persistence` backing), `lmdb` (Lmdb backing) — both UNADMITTED
-- runtime: dual — browser-safe client/journal/sync/encryption lanes; node/bun server/actor/queue lanes
+- runtime: dual — browser-safe client/journal/sync/encryption and host-neutral Machine; node/bun server/queue bindings
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -45,13 +45,14 @@
 
 - `EventLogRemote` MsgPack codec: `decodeRequest`/`encodeRequest`/`decodeResponse`/`encodeResponse`.
 
-[PUBLIC_TYPE_SCOPE]: durable execution — Machine actors, persisted queue/cache
-- rail: durable-execution
-- `Machine` is a serializable durable actor — state with tagged public/private request procedures, booted to an `Actor` (`Subscribable` of state), snapshot/restore across process restarts; `PersistedQueue`/`PersistedCache` overlay a `KeyValueStore`.
+[PUBLIC_TYPE_SCOPE]: actor execution and persisted queue/cache
+- rail: actor-execution/persistence
+- `Machine` is a host-neutral in-process serializable actor. `snapshot` and `restore` encode and consume state; they do not store it.
+- `PersistedQueue` and `PersistedCache` are separate storage-backed services over `KeyValueStore`/`Persistence`.
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                                   |
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------------------- |
-|  [01]   | `Machine.Machine` / `Machine.SerializableMachine`  | actor def     | `work/flow/durable` durable-actor definitions                  |
+|  [01]   | `Machine.Machine` / `Machine.SerializableMachine`  | actor def     | host-neutral in-process actor definitions                      |
 |  [02]   | `Machine.Actor` / `Machine.SerializableActor`      | live actor    | booted actor; `Subscribable` of state for `state`/`ui` binding |
 |  [03]   | `Machine.MachineContext` / `Machine.MachineDefect` | context/fault | in-actor context + defect rail                                 |
 |  [04]   | `PersistedQueue.PersistedQueue` / `…Factory`       | durable queue | `work/queue/job` durable job families over a store             |
@@ -109,18 +110,19 @@
 |  [06]   | `EventLogServer.layerStorageMemory`                                       | server storage | memory storage; SQL `[SQL_OVERLAY_BACKING]` |
 |  [07]   | `EventLogEncryption.layerSubtle` / `makeEncryptionSubtle(crypto: Crypto)` | encryption     | Web Crypto E2E; zero-knowledge server       |
 
-[ENTRYPOINT_SCOPE]: durable execution + persistence + governance
-- rail: durable-execution/resource
-- `Machine.boot` launches a serializable actor, `snapshot`/`restore` crossing process restarts; `Persistence.layerResultKeyValueStore` backs the persistence tree onto a `KeyValueStore`. `RateLimiter.makeWithRateLimiter` wraps an effect with `algorithm` (`fixed-window` | `token-bucket`) and `onExceeded` (`delay` | `fail`) as policy values, `makeSleep` the bare exceeded-sleep form.
+[ENTRYPOINT_SCOPE]: actor execution + persistence + governance
+- rail: actor-execution/resource
+- `Machine.boot` launches an in-process actor; `snapshot`/`restore` cross an encoded state boundary without persistence.
+- `Persistence.layerResultKeyValueStore` mounts the separate persistence tree onto a `KeyValueStore`.
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE]       | [CAPABILITY]                       |
 | :-----: | :--------------------------------------------------------------------------- | :------------ | :--------------------------------- |
 |  [01]   | `Machine.procedures.make(state)` / `.add<Req>()(tag, handler)`               | procedures    | build the request-handler list     |
 |  [02]   | `Machine.procedures.addPrivate<Req>()(tag, handler)`                         | procedures    | Private-union twin; type-curried   |
 |  [03]   | `Machine.serializable.add`/`.addPrivate(schema, handler)`                    | procedures    | schema-first dual; wire-lane twin  |
-|  [04]   | `Machine.make` / `makeWith<State, Input>()` / `makeSerializable`             | actor def     | `work/flow/durable` durable actors |
+|  [04]   | `Machine.make` / `makeWith<State, Input>()` / `makeSerializable`             | actor def     | host-neutral in-process actors     |
 |  [05]   | `Machine.retry(policy)` / `withTracingEnabled(bool)`                         | actor def     | re-drive failed init; span toggle  |
-|  [06]   | `Machine.boot` / `snapshot` / `restore`                                      | actor         | run one; carry it across restarts  |
+|  [06]   | `Machine.boot` / `snapshot` / `restore`                                      | actor         | run one; encode and restore state  |
 |  [07]   | `Persistence.layerResult` / `layerResultMemory` / `layerResultKeyValueStore` | result store  | schema-typed result tier           |
 |  [08]   | `Persistence.layerMemory` / `layerKeyValueStore`                             | backing store | raw-byte backing tier              |
 |  [09]   | `PersistedQueue.make` / `makeFactory` / `layer` / `layerStoreMemory`         | durable queue | `work/queue/job` durable jobs      |
@@ -149,15 +151,16 @@
 [STACKING]:
 - `@effect/platform-browser`(`.api/effect-platform-browser.md`) / `@effect/platform-bun`(`.api/effect-platform-bun.md`): `EventLog.layerIdentityKvs({ key })` binds a `KeyValueStore` satisfied by `BrowserKeyValueStore.layerLocalStorage` or `BunKeyValueStore.layerFileSystem`, and `EventLogRemote.layerWebSocket` binds a `Socket.WebSocketConstructor` from `BrowserSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor`; each overlay declares the `@effect/platform` Tag and the platform binding satisfies it.
 - `@effect/platform`(`.api/effect-platform.md`): `EventLogServer.makeHandlerHttp` mounts at the `serve/live` socket `HttpApp` port a `BunHttpServer`/`NodeHttpServer` serve row hosts; `EventLogEncryption.layerSubtle` composes `crypt/secret` key material for the zero-knowledge server.
-- `data`/`state`: EventLog reducers fold into `core/state` vocabulary; `Reactivity.invalidate` is the read-your-writes signal `journal/append`'s publish transaction emits after an OCC append and `read/live` consumes; `Machine` actors persist through `PersistedQueue`/`Persistence` onto the `KeyValueStore` driver `proc/exec#RUNTIME_ROWS` (node/bun) and `browser/persist#Overlay` (browser) bind.
+- `data`/`state`: EventLog reducers fold into core state, and `Reactivity.invalidate` signals read-your-writes publication.
+- `Machine` remains host-neutral; runtime workflow/cluster/storage owners compose durable replay or persistence around it.
 - `net/client` + `core/value/fault`: sync and `Sse.Retry` reconnection budgets ride `core/value/fault` degradation, never a hand-rolled loop; `authn/session` and `crypt/verify` fold `RateLimitExceeded` to their own `throttled` reason, and `serve/problem`'s `exhausted` row renders the 429/Retry-After problem detail.
 
 [LOCAL_ADMISSION]:
-- EventLog client and journal are browser-safe (`layerIndexedDb`, `layerWebSocketBrowser`, `layerSubtle` over Web Crypto); `EventLogServer`/`Machine`/`PersistedQueue` durable lanes are node/bun only.
+- EventLog client, journal, and Machine are host-neutral or browser-capable; server and persisted-queue bindings select host Layers.
 - every lane bounds its backing at the composition root; a lane imported with no Layer-provided store is the defect.
 
 [RAIL_LAW]:
 - Package: `@effect/experimental`
-- Owns: EventLog local-first event-sourcing (event/group/journal/log), E2E-encrypted WebSocket sync + mountable server, serializable durable `Machine` actors, `KeyValueStore`-backed `Persistence`/`PersistedCache`/`PersistedQueue`, `Reactivity` invalidation, `Sse` codec, distributed `RateLimiter`, batching `RequestResolver`, `DevTools`
-- Accept: EventLog as the local-first OVERLAY client (`schema`→`layer`→`makeClient`), `EventLogServer` mounted at the `serve/live` HttpApp port, swappable storage Layers per lane, `RateLimiter.makeWithRateLimiter`/`makeSleep` with `algorithm`/`onExceeded` as policy values, `Sse` as the one SSE codec, durable `Machine`/`PersistedQueue` for `work`
-- Reject: EventLog or a persisted queue as the system of record (the SQL journal owns truth `[OVERLAY_BOUNDARY_RULING]`), a hand-rolled SSE parser or retry loop, a second local-first or durable-actor implementation, `ioredis`/`lmdb` backings, storage hardcoded inside a lane instead of Layer-injected
+- Owns: local-first EventLog, host-neutral Machine, storage services, reactivity, SSE, rate limiting, request batching, and DevTools
+- Accept: Machine for in-process actor execution and encoded snapshots; host owners compose persistence and replay through admitted Layers
+- Reject: automatic Machine persistence, overlays as system of record, hand-rolled protocol loops, unadmitted backings, and fixed storage

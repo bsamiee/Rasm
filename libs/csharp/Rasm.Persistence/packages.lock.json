@@ -14,6 +14,12 @@
           "FSharp.Core": "8.0.100"
         }
       },
+      "AMQPNetLite.Core": {
+        "type": "Direct",
+        "requested": "[2.5.3, )",
+        "resolved": "2.5.3",
+        "contentHash": "oFWIBOa6z2PPcOIh2mHct6mHT4QpzBljzYtA24bjCtuSaKwaKZFt9Uae4jLSEOdQB6If22CuktaCFTvXR9ex1w=="
+      },
       "Apache.Arrow": {
         "type": "Direct",
         "requested": "[23.0.0, )",
@@ -75,6 +81,16 @@
           "Apache.Arrow": "23.0.0",
           "Google.Protobuf": "3.31.1",
           "Grpc.Net.Client": "2.71.0"
+        }
+      },
+      "Apache.Arrow.Flight.AspNetCore": {
+        "type": "Direct",
+        "requested": "[23.0.0, )",
+        "resolved": "23.0.0",
+        "contentHash": "h+gMias/rlrppWSjhqw9XgmuO2w5BSD0iz2SajOGozfazeY3+PIwBGEV8Wm12IxwewvwicECy3ZxKNWTXsUEug==",
+        "dependencies": {
+          "Apache.Arrow.Flight": "23.0.0",
+          "Grpc.AspNetCore.Server": "2.71.0"
         }
       },
       "Apache.Arrow.Flight.Sql": {
@@ -142,6 +158,17 @@
         "contentHash": "pWh7xZBto8YcwiO853AB3uijTfVqs9PDte0Bu9/Zd8O9nwKiitWm0Jej1vsNkmYUzeG1552f8vJPjmtW30pBUQ==",
         "dependencies": {
           "Azure.Core": "1.55.0",
+          "Azure.Storage.Common": "12.28.0"
+        }
+      },
+      "Azure.Storage.Blobs.Batch": {
+        "type": "Direct",
+        "requested": "[12.26.0, )",
+        "resolved": "12.26.0",
+        "contentHash": "40u4LRCFfPsEGSwin//tgzG9l/WuADJ8J4ZzER4sQzqXA/29e7gY+dCu3uyj8hOLVerGcVWXS2mwPpEygNom4Q==",
+        "dependencies": {
+          "Azure.Core": "1.55.0",
+          "Azure.Storage.Blobs": "12.29.0",
           "Azure.Storage.Common": "12.28.0"
         }
       },
@@ -404,6 +431,16 @@
         "requested": "[1.3.8, )",
         "resolved": "1.3.8",
         "contentHash": "LhwlPa7c1zs1OV2XadMtAWdImjLIsqFJPoRcIWAadSRn0Ri1DepK65UbWLPmt4riLqx2d40xjXRk0ogpqNtK7g=="
+      },
+      "K4os.Compression.LZ4.Streams": {
+        "type": "Direct",
+        "requested": "[1.3.8, )",
+        "resolved": "1.3.8",
+        "contentHash": "P15qr8dZAeo9GvYbUIPEYFQ0MEJ0i5iqr37wsYeRC3la2uCldOoeCa6to0CZ1taiwxIV+Mk8NGuZi+4iWivK9w==",
+        "dependencies": {
+          "K4os.Compression.LZ4": "1.3.8",
+          "K4os.Hash.xxHash": "1.0.8"
+        }
       },
       "LanguageExt.Core": {
         "type": "Direct",
@@ -702,6 +739,16 @@
         "dependencies": {
           "NetTopologySuite": "2.6.0",
           "NetTopologySuite.IO.PostGIS": "2.1.0",
+          "Npgsql": "10.0.3"
+        }
+      },
+      "Npgsql.NodaTime": {
+        "type": "Direct",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
+        "dependencies": {
+          "NodaTime": "3.2.2",
           "Npgsql": "10.0.3"
         }
       },
@@ -1093,11 +1140,6 @@
           "Aardvark.Base.IO": "[5.3.20, 5.4.0)"
         }
       },
-      "AMQPNetLite.Core": {
-        "type": "Transitive",
-        "resolved": "2.5.3",
-        "contentHash": "oFWIBOa6z2PPcOIh2mHct6mHT4QpzBljzYtA24bjCtuSaKwaKZFt9Uae4jLSEOdQB6If22CuktaCFTvXR9ex1w=="
-      },
       "Apache.Arrow.Adbc.Telemetry.Traces.Listeners": {
         "type": "Transitive",
         "resolved": "0.23.0",
@@ -1412,6 +1454,14 @@
         "type": "Transitive",
         "resolved": "6.1.0",
         "contentHash": "L8yQ70Wd9p8hMJvnmpgyZfr2R6Q7S0/lPyEBI1tacJa5XzsoJSVtHdmfsMaHyufwk03hlUsBXgNerAs66kxHdA=="
+      },
+      "Grpc.AspNetCore.Server": {
+        "type": "Transitive",
+        "resolved": "2.71.0",
+        "contentHash": "kv+9YVB6MqDYWIcstXvWrT7Xc1si/sfINzzSxvQfjC3aei+92gXDUXCH/Q+TEvi4QSICRqu92BYcrXUBW7cuOw==",
+        "dependencies": {
+          "Grpc.Net.Common": "2.71.0"
+        }
       },
       "Grpc.Auth": {
         "type": "Transitive",
@@ -1988,15 +2038,6 @@
           "NetTopologySuite": "[2.0.0, 3.0.0-A)"
         }
       },
-      "Npgsql.NodaTime": {
-        "type": "Transitive",
-        "resolved": "10.0.3",
-        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
-        "dependencies": {
-          "NodaTime": "3.2.2",
-          "Npgsql": "10.0.3"
-        }
-      },
       "OpenTelemetry.Api": {
         "type": "Transitive",
         "resolved": "1.17.0",
@@ -2345,16 +2386,6 @@
         "requested": "[3.0.10, )",
         "resolved": "3.0.10",
         "contentHash": "yZIhtw8sYuvsONzQbZxWpR60tMWYHXoo0DL6nyOqSFiU5POjBTSEyWFpTQtJEZuy+oqiYTXKXY/Mjx7KnqIQFw=="
-      },
-      "K4os.Compression.LZ4.Streams": {
-        "type": "CentralTransitive",
-        "requested": "[1.3.8, )",
-        "resolved": "1.3.8",
-        "contentHash": "P15qr8dZAeo9GvYbUIPEYFQ0MEJ0i5iqr37wsYeRC3la2uCldOoeCa6to0CZ1taiwxIV+Mk8NGuZi+4iWivK9w==",
-        "dependencies": {
-          "K4os.Compression.LZ4": "1.3.8",
-          "K4os.Hash.xxHash": "1.0.8"
-        }
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

@@ -1,0 +1,173 @@
+// rasm/scene/v1/scene.proto — the corpus-homed DAYLIGHTING SCENE descriptor source the DESCRIPTOR_DRIFT contract
+// gates. One package per source and the directory spells the package, so this file mints `rasm.scene.v1` and claims
+// no fully-qualified name the compute suite or the appearance family already owns. The producer is the Rhino
+// host-boundary capture owner and the consumer is the host-free Python energy analysis owner; the descriptor names
+// the host-free concept alone, so no field spells a Rhino type.
+// Enum-valued columns cross as their closed-vocabulary key strings, never proto enums: the producer's roster owns the
+// vocabulary and an unknown key is a decode refusal rather than a schema arm. Numbers only append past the last, and
+// removals reserve name and number.
+// Every length is METRES and every angle DEGREES unless the field name says otherwise; `source_unit` records the host
+// unit as provenance, so no peer re-scales and three decoders cannot fork one conversion.
+syntax = "proto3";
+
+package rasm.scene.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Rasm.Scene";
+
+// --- [GEOMETRY] -------------------------------------------------------------------------
+
+message SceneVector {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Linear-light RGB in [0,1] per component, already off the producer's perceptual owner; a peer applying a transfer
+// curve here forks the one sRGB reflection the appearance vocabulary freezes.
+message SceneSpectrum {
+  double r = 1;
+  double g = 2;
+  double b = 3;
+}
+
+// --- [SUN] ------------------------------------------------------------------------------
+
+// The geodetic frame an annual engine run needs, bounded to what EnergyPlus `Site:Location` and `Building` admit:
+// latitude [-90,90] deg, longitude [-180,180] deg (+ is East), time zone [-12,+14] hr, elevation [-300,8900) m, and
+// `north_axis_deg` the building rotation measured clockwise from true North. `moment` is the UTC instant the angles
+// were solved at; `daylight_saving_minutes` records the offset the host's own local clock carried, since the host
+// authors local time and the instant alone cannot recover it.
+message SolarFrame {
+  double latitude_deg = 1;
+  double longitude_deg = 2;
+  double time_zone_hours = 3;
+  double elevation_m = 4;
+  double north_axis_deg = 5;
+  int32 daylight_saving_minutes = 6;
+  google.protobuf.Timestamp moment = 7;
+}
+
+// Apparent solar position: `altitude_deg` in [-90,90] above the horizon, `azimuth_deg` in [0,360) measured EAST OF
+// NORTH — North 0, East 90, South 180, West 270. Radiance measures azimuth west of South, so a Radiance-facing
+// consumer converts at its own edge and the wire states one convention.
+message SolarAngles {
+  double altitude_deg = 1;
+  double azimuth_deg = 2;
+}
+
+// The sun solved from a site and an instant: any peer holding the same almanac reproduces `angles` from `frame`, and
+// only this arm can seat a `Site:Location`.
+message SitedSun {
+  SolarFrame frame = 1;
+  SolarAngles angles = 2;
+}
+
+// The sun the modeller authored directly — the host is under manual control, so no site derivation exists. Drives a
+// point-in-time sky; an annual engine run refuses this arm by name rather than back-solving a site from two angles.
+message AuthoredSun {
+  SolarAngles angles = 1;
+}
+
+// `intensity_scale` is the host's DIMENSIONLESS render multiplier, never an irradiance: sky irradiance is the weather
+// file's and the descriptor carries none, so a consumer reading this into a W/m2 slot fabricates radiation.
+message SceneSun {
+  oneof derivation {
+    SitedSun sited = 1;
+    AuthoredSun authored = 2;
+  }
+  bool enabled = 3;
+  double intensity_scale = 4;
+}
+
+// --- [PHOTOMETRY] -----------------------------------------------------------------------
+
+// The authored photometric web as a content-keyed REFERENCE, never a decoded distribution: no engine on the consuming
+// rail reads one, so decoding here would publish physics nothing consumes. `dialect` is the producer's roster key.
+message PhotometricWebRef {
+  string content_key = 1;
+  string dialect = 2;
+  uint64 byte_length = 3;
+}
+
+// Four host readings over one stored power beside the one column that carries authority. `authority` is
+// `radiant-flux-w` when `watts` is finite and positive — the column an engine lighting level reads directly — and
+// `relative-scale` otherwise, which is dimensionless and refuses every photometric slot.
+message PhotometricPower {
+  string authority = 1;
+  double watts = 2;
+  double lumens = 3;
+  double candela = 4;
+  double scale = 5;
+}
+
+message SpotCone {
+  double half_angle_rad = 1;
+  double hot_spot = 2;
+}
+
+// `width_m` is present on the rectangular kind alone; the linear kind carries `length_m` and no width.
+message AreaExtent {
+  SceneVector length_m = 1;
+  SceneVector width_m = 2;
+}
+
+// `cone_state` separates the three answers a spot cone gives — `absent` where the kind carries none, `shaped` where
+// the document admits one, `degenerate` where the kind carries one the document's tolerance refuses — so a consumer
+// tells a coneless light from a document the producer could not admit. `shadow_fraction` is [0,1].
+message ScenePhotometry {
+  bytes id = 1;
+  string name = 2;
+  string kind = 3;
+  bool enabled = 4;
+  SceneVector location_m = 5;
+  SceneVector direction = 6;
+  SceneVector perpendicular = 7;
+  PhotometricPower power = 8;
+  SceneSpectrum diffuse = 9;
+  SceneSpectrum ambient = 10;
+  SceneSpectrum specular = 11;
+  double shadow_fraction = 12;
+  string cone_state = 13;
+  SpotCone cone = 14;
+  AreaExtent extent = 15;
+  string attenuation = 16;
+  SceneVector attenuation_coefficients = 17;
+  PhotometricWebRef web = 18;
+}
+
+// --- [SHADING] --------------------------------------------------------------------------
+
+// The declared fidelity the shading payload was tessellated AT, so a consumer grades rather than guesses. The two
+// deflection columns transcribe the estate's landed tessellation policy — `deflection_m` the maximum linear chord
+// deviation, `angle_tolerance_rad` the angular deflection in RADIANS — and `triangle_budget` is the shadow-overlap
+// figure ceiling the capture tessellated against, which a consuming engine bounds independently.
+message TessellationFidelity {
+  double deflection_m = 1;
+  double angle_tolerance_rad = 2;
+  int64 triangle_budget = 3;
+}
+
+// The shading geometry by REFERENCE: the GLB body rides the artifact byte seam under its own contract and this row
+// carries the key, the counts, and the fidelity, so the descriptor never re-carries a payload another entry owns.
+message ShadingArtifact {
+  string content_key = 1;
+  string artifact_hash = 2;
+  int64 element_count = 3;
+  int64 triangle_count = 4;
+  TessellationFidelity fidelity = 5;
+}
+
+// --- [DESCRIPTOR] -----------------------------------------------------------------------
+
+// One capture of one host scene: `content_key` covers the framed preimage of every band below, so two captures of an
+// unchanged scene dedupe and a single edited light re-keys the whole descriptor.
+message SceneDescriptor {
+  string content_key = 1;
+  string source_unit = 2;
+  SceneSun sun = 3;
+  repeated ScenePhotometry lights = 4;
+  ShadingArtifact shading = 5;
+  google.protobuf.Timestamp captured_at = 6;
+}

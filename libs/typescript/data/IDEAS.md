@@ -19,22 +19,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows land as read-side query-store relations for transport and visualization.
-- Capability: Wire-carried layer and relation keys decode into `Model.Class` relations — layer identity, layer-path nesting, membership, and per-viewport overrides as decoded rows — so the read side serves host organization to transport and visualization consumers keyed by the one `ContentKey`, with no host handle.
-- Shape: `libs/typescript/data/.planning/read/query.md` gains the boundary decoder folding the detached fact rows into the read side's projection tables; `SqlSchema` typed reads and `SqlResolver` batched loaders serve layer organization over `Query.table`, the object and journal planes carry the rows across runtimes under the one `ContentKey`, the decoded relations feed the layer-visualization surface, and the projection lane binds in `libs/typescript/data/.planning/read/fold.md`.
-- Unlocks: Host-organized read-side queries, cross-runtime layer transport, and a visualization-ready organizational axis every peer reads by content identity.
-- Anchors: `read/query.md` `Model.Class`/`SqlSchema`/`SqlResolver`/`Query.table`; the one `ContentKey` content-identity wire; `README.md` durable-persistence plane and the bit-identical content-identity demand across wire peers.
-- Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the query-store relations carry only detached fact rows, never a host layer handle.
-- Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-
-[HOST_OPLOG_CRDT_CONSUMER]-[QUEUED]: Host op-log entries decode, replay, and merge against the journal plane — the TypeScript end of the shared op-log CRDT wire owner.
-- Capability: `OperationId`-keyed causal entries decode at the boundary and replay through the journal's one write owner, so cross-runtime sync, collaborative merge, and checkpoint replay land as journal operations keyed by the shared causal identity, with `ContentHash` payloads resolved through the object plane.
-- Shape: TypeScript contract bindings admit op-log rows; replay, merge, and checkpoints fold through the journal owners.
-- Unlocks: Multi-runtime document sync into the durable plane, deterministic replay for audit, and the consumer half that arms the producer's wire.
-- Anchors: `journal/append.md` `Journal.publish`/`Occ`/`StreamKey`; `journal/evolve.md` upcast road for entry payload versions; `object/store.md` `ContentKey` payload custody.
-- Tension: a neutral op-log contract owns schema and identity; TypeScript owns its codec binding and merge policy.
-- Ripple: `libs/.planning` `[HOST_OPLOG_CRDT_PRODUCER]`.
-
 [FOREIGN_RELATIONAL_READS]-[QUEUED]: MySQL and MSSQL enter through the existing read owner.
 - Capability: Composition-root clients expose typed enterprise relations through the provider-neutral query surface.
 - Shape: `read/query.md` consumes the admitted `SqlClient`; no backend lane or interop page is added.
@@ -49,17 +33,19 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `object/store.md` S3-conditional store; `journal/retain.md` retention classes and crypto-shredding; `lane/capability.md` `Backend.compose` source rows.
 - Tension: object custody is provider-shaped where relational artifacts are content-shaped; a bucket has no canonical byte form, so its artifact row keys on a declared custody descriptor rather than content, and that descriptor must stay identity-bearing without turning operator settings into generation inputs.
 
-[GENERATION_RECOVERY_CONTRACT]-[QUEUED]: Restored lanes admit on evidence — the contract owner grades recovery instead of trusting the store it opened.
-- Capability: the contract admission verdict widens to a restored store — recovered generation identity, the frontier instant the restore reached, and the objective the composition root declares grade together, so a promoted replica, a point-in-time restore, and a rebuilt embedded lane resolve on one verdict; the branch mints its recovery evidence from its own lanes and reads no peer's runbook.
-- Shape: recovery observation and verdict rows on `libs/typescript/data/.planning/lane/capability.md` `[05]-[CONTRACT]`, sourced from the lane owners that already carry restore mechanics — `lane/sqlite.md` embedded rebuild and `journal/evolve.md` generation succession.
-- Unlocks: a TypeScript-only application restores and admits with no peer present, and the merged-generation restore in a polyglot root reads one verdict shape at every branch.
-- Anchors: `lane/capability.md` `Backend.observe`/`Backend.admit` join and its `_Check` invariant rows; `journal/retain.md` retention classes bounding the reachable window; `tests/contracts/MANIFEST.md` `BACKEND_CONTRACT`.
-- Tension: contract identity is content-shaped where recovery evidence is time-shaped — a restore lands a valid generation whose data frontier trails it, so the verdict carries both facts without minting a second generation notion.
-- Ripple: mirrors `libs` `[GENERATION_RECOVERY_CONTRACT]`, the cross-libs origin carding the corpus-schema rows; peer counterpart `python:runtime` `[GENERATION_RECOVERY_CONTRACT]`.
+[LEGAL_HOLD_SUSPENSION]-[QUEUED]: Declared holds outrank the retention window — evidence under litigation outlives the class that closes it.
+- Capability: retention gains a suspension authority above the class window, so a preservation obligation is a custody fact the sweep reads rather than an operator's memory, and the ender vocabulary carries a third closer beside the wall-clock groom and the shredder.
+- Shape: `libs/typescript/data/.planning/journal/retain.md` `[02]-[RETENTION_ROWS]` — the hold declaration beside `_Policy`, the `_GROOMS` predicate reading it, and both renderings carrying it so a scheduled maintenance statement honours the suspension the in-process sweep honours.
+- Unlocks: litigation-safe operation of the durable plane — a preservation order is answered per matter instead of by pausing every sweep estate-wide, and the erasure leg states which subjects a live hold forecloses.
+- Anchors: `journal/retain.md` `_Policy` rows with their `lifetime.owner` ender pair, `_GROOMS` with its `live` eligibility gate and `scope` column, `Retain.groomText` rendering the statements `read/fold#MAINTENANCE` schedules; `journal/fact.md` `Fact.audits` for the declaration trail; `journal/retain.md` `[04]-[DSAR_EXPORT]` erasure.
+- Tension: two questions shape the surface and neither is settled — WHO declares a hold, since this plane admits no operator identity and a hold any writer stamps is no hold; and whether a hold SUSPENDS the sweep, leaving the class intact so lifting it ages the row out at once, or RECLASSIFIES the row, which demands the ledger carry the pre-hold class or the restore forges one.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
+[GENERATION_RECOVERY_CONTRACT]-[COMPLETE]: landed at `lane/capability#CONTRACT` as `Backend.Objective`/`Window`/`Reading`/`Observation`, `_window` deriving off the observation's own stamps, `_exceeding` carrying the opposite absence polarity per half, and the `recovery` `_Check` seated after the realization rows. Wire shapes untouched, so no peer decode ripples.
+[HOST_OPLOG_CRDT_CONSUMER]-[COMPLETE]: decode lands on `journal/append#ATOMIC_PUBLISH`, lifting through the same `spec.plan.decode` the windowed read runs, so a producer-side schema move rides the one upcast chain. `state/causal` already separated the dot from the content digest and needed only its encode sorted by replica.
+[LAYER_TOPOLOGY_GRAPH_FACTS]-[COMPLETE]: landed as `read/query#ORGANIZATION_ROWS` — the `Organization.Entity` relation with its `organization_member`/`organization_view` edge relations and four grouped resolvers — beside the `read/fold#LANE_SPEC` `Lane.Organization` fold. Rows decode from the core `Wire.Organization` landing and this plane mints nothing.
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
@@ -71,5 +57,5 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [AUDIT_JOURNAL_SATISFACTION]-[COMPLETE]: `journal/fact.md` `[05]-[RAIL]` landed `Fact.audits` — the security `AuditJournal` port satisfied by projecting each `AuditRecord` through the `_AUDITED` row table onto one `Fact.AuditDraft`, `action` derived from the registry point and `retention` from the point's lane class, subject-bearing fields sealed under `Retain.seal` before the draft leaves and `AuditFact` widened with the `subject`/`sealed` erasure pair; `fact_journal` gained its partial subject index and `retain.md` `[04]-[DSAR_EXPORT]` gained the fact leg, so export and erasure answer one custody coordinate across all three planes.
 [LANE_INSTRUMENT_PROJECTION]-[COMPLETE]: superseded by `[CACHE_CENSUS_SAMPLING]` — `lane/cache.md` `[05]-[POOLS]` carries `CacheLane.census(name, cache)` off the substrate's own `cacheStats` snapshot, so pool, OLAP, outbox, and cache projections all read one instrument plane and the arming catalog row landed at `libs/typescript/.api/effect.md`.
 [OBJECT_PLANE_INSTRUMENT_PROJECTION]-[COMPLETE]: object-plane instrument rows landed — `object/store.md` `[05]-[INSTRUMENT_ROWS]` `_measured`/`_reclaimed` off the receipt and sweep-mark folds, `object/stream.md` `_streamed` after durable re-home, reference commit, and staging retirement; core `convention.md` `[03]-[RASM_ROWS]` owns the exact vocabulary.
-[RELAY_CLOUDEVENTS_PROJECTION]-[COMPLETE]: `journal/append.md` `[07]-[RELAY_ROWS]` `_envelope` landed as `Journal.envelope` — strict-validated `CloudEvent` with component-encoded source coordinates, `rasmtenant`, and W3C trace extensions, verified against `libs/typescript/.api/cloudevents.md`; `runtime/ARCHITECTURE.md` `Data e20` mirrors the shape.
+[RELAY_CLOUDEVENTS_PROJECTION]-[COMPLETE]: `Journal.envelope` uses `Carrier.promote` to emit a complete `CloudEventV1`; tenancy travels only in W3C baggage.
 [DATA_HOOK_TAP_REGISTRY]-[COMPLETE]: `journal/append.md` `[08]-[HOOK_POINTS]` landed the closed four-point registry with veto/observe fan and app-scoped Layer factory; taps armed at `object/stream.md` tus create/finalize, `object/file.md` gated intake, `journal/retain.md` erase tombstone, and the `lane/olap.md` escalation composition seam.

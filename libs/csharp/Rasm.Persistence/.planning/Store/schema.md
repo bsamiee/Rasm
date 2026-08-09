@@ -1,20 +1,21 @@
 # [PERSISTENCE_STORE_SCHEMA]
 
-Rasm.Persistence composes framework-owned schema artifacts and the provisioning vocabulary into one immutable `SchemaContract`. One canonical UTF-8 projection mints the generation identity, JSON Schema, language-neutral contract artifact, and conformance corpus. EF, Marten, raw SQL, providers, deploy code, and runtimes retain their native execution models; none may mint a parallel schema identity or restate the capability catalog.
+Rasm.Persistence composes framework-owned schema artifacts and the provisioning vocabulary into one immutable `SchemaContract`. One canonical UTF-8 projection mints the generation identity, JSON Schema, contract artifact, and conformance corpus, and one verdict grades a deployment on two proofs — the store carries that generation, and the data behind it sits inside the declared recovery window. EF, Marten, raw SQL, providers, deploy code, and runtimes keep native execution models; none mints a parallel schema identity, restates the capability catalog, or re-spells the recovery objective.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTRACT]: admitted artifact graph, existing capability rows, and generation-bearing boundary.
+- [02]-[CONTRACT]: admitted artifact graph, the provider-identity axis, existing capability rows, and generation-bearing boundary.
 - [03]-[IDENTITY]: deterministic composition, canonical bytes, contract schema, and generation identity.
-- [04]-[PROJECTION]: one artifact set consumed by TypeScript, Python, IaC, fixtures, and runtime adapters.
+- [04]-[PROJECTION]: one artifact set consumed by TypeScript, Python, IaC, fixtures, and runtime adapters, and the two-proof admission verdict grading it against observed evidence.
 - [05]-[CONFORMANCE]: derived corpus and adapter admission without copied constants.
 - [06]-[RESEARCH]: external package and framework capabilities required by this owner.
 
 ## [02]-[CONTRACT]
 
 - Owner: `SchemaContract` composes content-addressed artifacts already produced by EF, Marten, and raw SQL owners.
+- Law: `BackendProvider` names the engine identities a generation is MINTED FOR across the estate and `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` names the engines this package opens and provisions in-process; the two vocabularies are disjoint by construction, so a provider identity a peer hosts is a first-class contract consumer carrying no `StoreProfile` row — the backend contract composes per branch and merges by artifact key, so `Pglite` rides the postgres generation unchanged and this package never opens one.
 - Law: `CapabilityContract` projects each `ServerExtension` onto the wire carrying both closed vocabularies — `FailureRank` and `RestartClass` ride as their own types and reach the wire as keys; provisioning owns the roster, the absence policy, and the restart rank order an aggregated repair folds through.
-- Boundary: operator settings, capacity, coordinates, secrets, schedules, observations, and recovery points never enter identity.
+- Boundary: operator settings, capacity, coordinates, secrets, schedules, and observations never enter identity; the recovery window is OBSERVATION evidence the admission verdict grades and never reaches `SchemaContractWire`, so the canonical bytes, the generation digest, and every peer's decode of them are untouched by it.
 - Packages: Thinktecture, LanguageExt, QuikGraph, `System.Text.Json.Schema`, JsonSchema.Net, and kernel `ContentHash`.
 - Growth: a framework adds one artifact row; a server capability remains one `ServerExtension` row; no schema DSL grows here.
 
@@ -29,6 +30,7 @@ using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
 using Json.Schema;
 using LanguageExt;
+using NodaTime;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
@@ -79,6 +81,9 @@ public sealed partial class ArtifactRole {
     public static readonly ArtifactRole SemanticProbeSet = new("semantic-probe-set");
 }
 
+// `Pglite` is a PEER-HOSTED contract identity with no `StoreProfile` realization — no .NET provider exists — yet
+// its wire shape is pg-verbatim down to `code` and `constraint`, so the postgres generation serves a peer's
+// deployment with no second minting and no adapter row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -362,13 +367,17 @@ internal static partial class CapabilityMap {
 
 ## [04]-[PROJECTION]
 
-- Owner: `ContractProjection.Emit` writes one instance, one derived JSON Schema, and one conformance corpus, carrying them as one `ContractBundle` beside the identity-stamped publication files.
+- Owner: `ContractProjection.Emit` writes one instance, one derived JSON Schema, and one conformance corpus, carrying them as one `ContractBundle` beside the identity-stamped publication files; `BackendObservation` carries the realized capability and artifact sets beside the recovery stamps a local adapter took, deriving its `RecoveryWindow` from those stamps alone; `RecoveryAxis` closes the graded axis roster with each row's own absence law and `RecoveryReading` carries one axis's breach verdict beside the headroom it kept; `BackendVerdict` is the closed admission outcome and `BackendAdmission` the one grader over it.
 - Law: `BackendObservation.Of` projects a `ProvisionVerdict.Provisioned` onto the observed capability set; the verdict already names the exact `ServerExtension` keys the contract's capability rows carry, so this branch interposes no canonical-to-local adapter table, and artifact evidence arrives from the owners that realized each artifact.
 - Law: the emitted set is THIS branch's contribution conforming to the corpus `BACKEND_CONTRACT` schema; a C#-only application deploys it directly, and a polyglot application merges it with peer contributions at the app root by artifact key.
 - Law: C#, TypeScript, Python, IaC, and fixtures decode these machine artifacts through local boundary adapters; each peer mints its own contribution rather than reading this one as its source.
 - Law: adapters compare expected generation and observed evidence; availability or desired declarations prove nothing.
+- Law: contract identity and data recency are TWO proofs on one verdict, never two generations — `GenerationDrift` proves the store carries the composed contract off the existing digest, and `RecoveryWindowExceeded` proves the data behind it is recent enough for the window the deployment declared, so a verdict carrying one alone cannot tell a moved schema from an intact schema behind a stale recovery point; `RecoveryWindow` derives both halves from the observation's OWN stamps — a lag admits at ZERO, the freshest measured recency, while only a frontier stamped after its own reading is skew dropping to unmeasured — and the two halves absorb absence oppositely under each `RecoveryAxis` row's declared law.
+- Entry: `public static BackendVerdict Admit(SchemaContract expected, BackendObservation observed, RecoveryObjective objective)` grades one contract against one observation, taking the declared objective as a PARAMETER — the composition root threads its `ResolvedProfile.Recovery` value in — so deployment shape reaches this owner as data and no runtime import inverts the strata.
 - Output: fixed file names live inside a generation-qualified bundle; deployment transports bytes without editing them.
-- Boundary: providers execute native migrations and provisioning; this owner neither synthesizes DDL nor orchestrates deployment.
+- Packages: Rasm.AppHost (`Runtime/profiles#PROFILE_AXIS` `RecoveryObjective`), NodaTime carrying the observation stamps and the durations both recovery halves gauge in.
+- Growth: a new recovery axis is one `RecoveryAxis` row carrying its measured accessor, its declared accessor, and its own absence law, beside its matching column on the `ResolvedProfile.Recovery` objective a composition root fills — the one `Gauged` fold then carries it into the verdict and the headroom readout alike.
+- Boundary: providers execute native migrations and provisioning; this owner neither synthesizes DDL nor orchestrates deployment; recovery evidence stays OBSERVATION-side, so a stamp, a lag, or an objective never enters the contract wire and `RecoveryObjective` is read settled from the profile row rather than re-spelled as a second DR vocabulary.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -411,10 +420,71 @@ public sealed record ContractProjection(
         new(artifact, content, ContentHash.Of(content.Span));
 }
 
+// Recovery axes carrying OPPOSITE absence laws, which is the whole split: an observation that took no frontier
+// reading proves no recency and refuses, while a store that never restored owes no bounce time and passes.
+// `Refusing` rides the ROW so a third axis states its own absence law instead of a fold branching on which axis
+// it walks, and the two accessor columns keep the gauge one fold over `Items` rather than a per-axis body.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class RecoveryAxis {
+    public static readonly RecoveryAxis Rpo = new("rpo", refusing: true,
+        static window => window.Rpo, static objective => objective.Rpo);
+    public static readonly RecoveryAxis Rto = new("rto", refusing: false,
+        static window => window.Rto, static objective => objective.Rto);
+
+    public bool Refusing { get; }
+    public Func<RecoveryWindow, Option<Duration>> Measured { get; }
+    public Func<RecoveryObjective, Duration> Declared { get; }
+
+    private RecoveryAxis(string key, bool refusing,
+        Func<RecoveryWindow, Option<Duration>> measured,
+        Func<RecoveryObjective, Duration> declared) : this(key) =>
+        (Refusing, Measured, Declared) = (refusing, measured, declared);
+}
+
+// One reading per axis answers BOTH questions an operator asks — whether that half breached, and what headroom it
+// kept — so the verdict and the readout fold ONE row set instead of a hand-written body per answer that a third
+// axis row reaches only half of. `Measured` absent IS the unmeasured state and never a zero, since a constructed
+// zero publishes a reading no provider took, and `Breached` resolves that absence through the axis's own law
+// rather than a branch naming RPO by hand.
+public readonly record struct RecoveryReading(RecoveryAxis Axis, Option<Duration> Measured, Duration Declared) {
+    public bool Breached => Measured.Match(Some: held => held > Declared, None: () => Axis.Refusing);
+    public Option<Duration> Headroom => Measured.Map(held => Declared - held);
+}
+
+// Measured window the declared objective grades against. Each half is optional because each has a real absence a
+// zero would forge: a provider that took no frontier reading, a live store that was never restored.
+public readonly record struct RecoveryWindow(Option<Duration> Rpo, Option<Duration> Rto) {
+    // `Gauged` carries every axis into one reading set the verdict filters and the operator reads headroom off,
+    // so a third axis row lands in both answers at once. An admitted generation therefore always carries a
+    // measured recency half, while an absent bounce is still the store that never restored.
+    public Seq<RecoveryReading> Gauged(RecoveryObjective objective) =>
+        toSeq(RecoveryAxis.Items)
+            .Map(axis => new RecoveryReading(axis, axis.Measured(this), axis.Declared(objective)));
+
+    public Seq<RecoveryReading> Exceeding(RecoveryObjective objective) =>
+        Gauged(objective).Filter(static reading => reading.Breached);
+}
+
 public sealed record BackendObservation(
     GenerationId Generation,
     FrozenSet<string> HeldCapabilities,
-    FrozenSet<string> HeldArtifacts) {
+    FrozenSet<string> HeldArtifacts,
+    Instant ObservedAt,
+    Option<Instant> Frontier,
+    Option<Duration> RestoredIn) {
+    // Lag derives HERE off the two stamps this observation carries, so no provider hands in a window it computed
+    // against a clock the verdict never saw. `ObservedAt` is this adapter's own read and never absent, `Frontier`
+    // names the newest datum the store proves durable, and `RestoredIn` names the restore's own span — each one
+    // stated or stated missing, since a default lets a provider skip the question and grade a window nobody took.
+    // Lag SIGN alone discriminates, and ZERO sits on the measured side: a frontier stamped at its own reading
+    // instant is the freshest store this verdict exists to admit, where a frontier stamped AFTER the reading is
+    // skew whose negative lag drops to unmeasured and refuses.
+    public RecoveryWindow Window => new(
+        Frontier.Map(seen => ObservedAt - seen).Filter(static lag => lag >= Duration.Zero),
+        RestoredIn);
+
     // `Created` is the cluster's realized extension set read in the one verification batch, and contract
     // capability rows are keyed by that same `ServerExtension.Key` space, so the projection is direct. Artifact
     // evidence enters as a caller argument because only the migration and storage owners that realized an
@@ -422,8 +492,11 @@ public sealed record BackendObservation(
     public static BackendObservation Of(
         GenerationId observed,
         ProvisionVerdict.Provisioned cluster,
-        FrozenSet<string> heldArtifacts) =>
-        new(observed, cluster.Created, heldArtifacts);
+        FrozenSet<string> heldArtifacts,
+        Instant observedAt,
+        Option<Instant> frontier,
+        Option<Duration> restoredIn) =>
+        new(observed, cluster.Created, heldArtifacts, observedAt, frontier, restoredIn);
 }
 
 [Union]
@@ -432,10 +505,17 @@ public abstract partial record BackendVerdict {
     public sealed record GenerationDrift(GenerationId Expected, GenerationId Observed) : BackendVerdict;
     public sealed record CapabilityGap(Seq<string> Keys) : BackendVerdict;
     public sealed record ArtifactGap(Seq<string> Keys) : BackendVerdict;
+    public sealed record RecoveryWindowExceeded(Seq<RecoveryReading> Breaches) : BackendVerdict;
 }
 
 public static class BackendAdmission {
-    public static BackendVerdict Admit(SchemaContract expected, BackendObservation observed) {
+    // Identity and recency are two proofs on ONE verdict: drift answers whether the store carries the composed
+    // contract, and the window answers whether the data behind it is current. Recency seats LAST, after the
+    // realization arms, because a store missing the artifacts has no window worth grading, and the ladder is
+    // what separates a moved schema from an intact schema behind a stale recovery point. `objective` rides in as
+    // one parameter off the caller's resolved profile row, so this owner reads deployment shape as data.
+    public static BackendVerdict Admit(
+        SchemaContract expected, BackendObservation observed, RecoveryObjective objective) {
         Seq<string> requiredCapabilities = toSeq(expected.Wire.Capabilities
             .Where(static row => row.FailureRank == FailureRank.Required.Key)
             .Select(static row => row.Key)
@@ -443,6 +523,7 @@ public static class BackendAdmission {
         Seq<string> requiredArtifacts = toSeq(expected.Wire.Artifacts
             .Select(static row => row.Key)
             .Where(key => !observed.HeldArtifacts.Contains(key)));
+        Seq<RecoveryReading> breaches = observed.Window.Exceeding(objective);
 
         return observed.Generation != expected.Generation
             ? new BackendVerdict.GenerationDrift(expected.Generation, observed.Generation)
@@ -450,7 +531,9 @@ public static class BackendAdmission {
                 ? new BackendVerdict.CapabilityGap(requiredCapabilities)
                 : !requiredArtifacts.IsEmpty
                     ? new BackendVerdict.ArtifactGap(requiredArtifacts)
-                    : new BackendVerdict.Admitted(observed);
+                    : !breaches.IsEmpty
+                        ? new BackendVerdict.RecoveryWindowExceeded(breaches)
+                        : new BackendVerdict.Admitted(observed);
     }
 }
 ```

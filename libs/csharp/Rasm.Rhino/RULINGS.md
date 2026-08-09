@@ -8,13 +8,23 @@
 
 ## [02]-[SHAPE]
 
-- A host simple-name homonym takes a csproj `<Using Alias>` row ONLY when one winner serves the whole assembly — `Dimension` (kernel measure in Document/Modeling, host annotation base in Annotation) and `Color` (Eto paint in Eto/HostUi, GDI carrier at named host seams) each have per-sub-domain winners, so both spell fully qualified at every colliding site; a project alias for either silently rebinds the other folder's bare reads, the defect that produced the tables.md/layers.md CS0104 pair.
-- `HostUi/shell` `ProgressLease` is the package's ONE host governance-band producer — its `Fraction`/`Ticks` reporters and escape-armed `Cancel` feed every pacing carrier (`MeshRuntime`, `ProjectionPacing`, the kernel `ArrangementPolicy.Governed`), a refused advance parks on the lease fault cell, and a folder minting its own `IProgress` shim or `CancellationTokenSource` beside a lease is the forked form.
-- `Exchange/options` `PolicyMap` generates the name-mirrored policy `Apply` seats as existing-target mappings under `RequiredMappingStrategy.Source` — target completeness stays off because sibling slots fill the host object's remaining members; `IgesFitPolicy` stays hand-seated, since one shape fills the `Curve*` and `Surface*` host prefixes by SLOT and no single mapping expresses a slot-dependent rename.
+- Contracts this boundary produces name the HOST-FREE concept — `Document/layers#ORGANIZATION_PROJECTION` translates layer vocabulary at the seam.
+- Federation keys reach the wire through `IOrganizationAuthority` alone — the host-object-to-entity binding seats above this package's reference set.
+- Content-key preimages frame at their PRODUCING owner — `CanonicalWriter` seats at `Rasm.Element`, out of the host plane's reference set.
+- `ProgressLease` is the ONE governance-band producer — every paced carrier reads its `Fraction`/`Ticks` and armed `Cancel`; a local shim forks it.
+- `PolicyMap` generates `Apply` seats under `RequiredMappingStrategy.Source` — `IgesFitPolicy` is hand-seated, one shape filling two prefixes BY SLOT.
+- `SolarFrame` narrows the georeference to engine bounds at the PRODUCER — refusing downstream loses which document wrote the site.
+- `PhotometricPower` ranks four host readings by producer RULE — `Light` publishes converted views and names no authored quantity.
+- `SceneCone` drops the kernel cone's model-unit apex — the stamp's own location already carries it, and two positions reconcile wrong.
+- `Sun.Vector` points sun-toward-scene and `Sun.North` bears north counter-clockwise off `+X` — `SunDerivation` negates and derotates.
+- Sealed-commit facts cross with NO operation identity — this plane holds no origin slot, so a dot minted here collides across two hosts.
+- `CommitSink.Sealing` rides the commit envelope's own `project` slot — a tap beside it publishes a record the seal then discards.
+- `Observation.Commit` admits `Delivery.Inline` alone — a deferred arm returns success before any subscriber saw the fact it may refuse.
 
 ## [03]-[COLLAPSE]
 
-- `RhinoInstrumentPartition` and `RhinoInstruments` stay separate — the partition is kind-keyed receipt-to-instrument projection data declared at the boundary and executed at the app root, while `RhinoInstruments` is the contributed-meter-row port under one custody; folding them into one instrument owner erases the declared-projection-versus-contributed-mechanism split, denser on paper and weaker in both guarantees.
+- `RhinoInstrumentPartition` and `RhinoInstruments` stay separate — declared projection data against contributed meter rows; folding them erases both.
+- Host astronomy statics and `SunProblem.Ephemeris` stay two-formed — what the HOST believes against what a peer reproduces is the whole discriminant.
 
 ## [04]-[STRUCTURE]
 

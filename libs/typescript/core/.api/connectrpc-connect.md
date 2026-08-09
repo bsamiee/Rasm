@@ -47,6 +47,7 @@
 [ENTRYPOINT_SCOPE]: constructing the client and the invocation seam
 - rail: interchange/invoke
 - `createClient(service, transport)` is the one factory — always the codegen `DescService` over a `connect-web` `Transport`, never a hand-written method map.
+- `createUnaryFn` and `createServerStreamingFn` are internal helpers absent from the root barrel and package export map.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                        |
 | :-----: | :------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
@@ -95,6 +96,7 @@
 [TOPOLOGY]:
 - transport and client are orthogonal: `Transport` implements the protocol, `createClient` is generic over it, so protocol selection is a `Transport` choice and `Client<T>` holds one shape across every arm.
 - `createClient` derives every method signature from the emitted `DescService`, so the SDK is one descriptor and a hand-authored client method is the drift defect.
+- Core binds typed calls through public `createClient`; internal client-function factories are neither imports nor transcription sources.
 - `ConnectError` carries the fault: a failed call rejects with `code`/`metadata`/`details`, which `interchange/codec` folds to `HopReason` — the wire fault altitude, distinct from any local `Data.TaggedError`.
 - interception is the cross-cutting seam: an `Interceptor` onion attaches trace propagation, auth, and per-call `ContextValues`, never the call site.
 
@@ -110,4 +112,4 @@
 - Package: `@connectrpc/connect`
 - Owns: the `Transport` port, `createClient`/`Client<T>` and the callback/any client variants, `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, the `-bin` header codec, and the `./protocol` transport-construction kit
 - Accept: `createClient` over a `connect-web` `Transport` and an emitted `DescService`; client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`; `ConnectError` folded through `interchange/codec`; retry via `Effect.retry(Schedule)` gated on retryable `Code`; `CallOptions.signal` from Effect interruption; trace propagation via an `Interceptor`; a custom Effect-native `Transport` from `./protocol`
-- Reject: a hand-written client method map beside the emitted descriptor, a bare `Promise`/`AsyncIterable` or raw `try`/`catch` in domain code, ad-hoc `Code` inspection outside the `fromConnect` fold, the server-side router surface anywhere in `wire` except `createRouterTransport` in kit-driven specs
+- Reject: hand-written client maps, internal client-function factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `fromConnect`, and server routers in `wire` except kit-driven `createRouterTransport`

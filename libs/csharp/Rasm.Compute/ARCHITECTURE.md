@@ -330,8 +330,8 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - NATS Core pump drains `SubscribeAsync<byte[]>`; `BrokerChannels.Capture` admits samples as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
 - MQTT's event-delivered receive loop bridges through one bounded channel onto that same stream, its ack riding a successful enqueue alone.
 - Parent adoption off that carrier is the kernel causal-frame band's; neither pump opens a span nor re-mints the pair.
-- `Runtime/codecs` owns the ONE HDF5 archive session; every composing cluster — solver history/modes/checkpoints, ensemble and response corpora, sparse and basis exchange, graduation and initializer ingest, gridded weather, the shared demands/modal artifact — reaches the library through it and never opens an `H5File` of its own.
-- Every archive artifact leaves content-addressed through `ArtifactIndexRow.Admit` on the Persistence blob lane — interchange egress under content keys, never a Compute-side file catalog, scan, or index; the Persistence retention owner classes the archive families on its own `ArtifactKind` rows.
+- `Runtime/codecs` owns the ONE HDF5 archive session; every composing cluster reaches the library through it and opens no `H5File` of its own.
+- Archive artifacts egress content-keyed through `ArtifactIndexRow.Admit`; the Persistence retention owner classes them by `ArtifactKind`.
 - `Runtime/codecs` builds every columnar `RecordBatch` Compute produces over the kernel encode.
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.

@@ -390,7 +390,7 @@ from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Mete
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
-from rasm.runtime.roots import STORE_RETRIES, STORE_TIMEOUT, ResourceRef
+from rasm.runtime.roots import STORE_BACKENDS, STORE_RETRIES, STORE_TIMEOUT, Backend, ResourceRef
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -439,17 +439,27 @@ _REPOSITORY: "Final[RepositoryConfig]" = ic.RepositoryConfig(
     ),
 )
 
-_STORAGE: "Final[Map[str, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
+# icechunk constructor per BRANCH BACKEND, keyed by the `StoreBackend` row family's own classification column so
+# this page states one constructor per residence class and no scheme at all.
+_ICE_BACKEND: "Final[Map[Backend, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
     ("s3", lambda r: IceStorage(s3=(r.root, r.relative, None))),
-    ("gs", lambda r: IceStorage(gcs=(r.root, r.relative))),
     ("gcs", lambda r: IceStorage(gcs=(r.root, r.relative))),
-    ("az", lambda r: IceStorage(azure=(r.root, r.relative, None))),
-    ("abfs", lambda r: IceStorage(azure=(r.root, r.relative, None))),
+    ("azure", lambda r: IceStorage(azure=(r.root, r.relative, None))),
+    ("http", lambda r: IceStorage(http=r.root)),
+    ("local", lambda r: IceStorage(local=str(r.path))),
+    ("memory", lambda r: IceStorage(memory=None)),
+])
+
+# scheme -> constructor, DERIVED off the row family's own alias sets exactly as the sibling `gridded/store` derives
+# its kvstore drivers. A hand-listed roster beside that family is the second scheme roster the runtime owner's
+# boundary rejects, and it silently dropped `s3a`, `abfss`, and `azure` — every one of which the family classifies as
+# a remote residence and every one of which then fell through to the local row, opening a LOCAL FILESYSTEM
+# repository for a cloud residence. `r2` and `tigris` are icechunk's own S3-compatible vendors that the family
+# carries no row for, so they seat as explicit rows beside the derivation rather than forcing it flat.
+_STORAGE: "Final[Map[str, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
+    *((alias, _ICE_BACKEND[row.backend]) for row in STORE_BACKENDS for alias in row.aliases),
     ("r2", lambda r: IceStorage(r2=(r.root, r.relative, None))),
     ("tigris", lambda r: IceStorage(tigris=(r.root, r.relative))),
-    ("http", lambda r: IceStorage(http=r.root)),
-    ("https", lambda r: IceStorage(http=r.root)),
-    ("memory", lambda r: IceStorage(memory=None)),
 ])
 
 
@@ -467,7 +477,10 @@ class IceStorage:
 
     @staticmethod
     def for_ref(ref: ResourceRef) -> "IceStorage":
-        return _STORAGE.try_find(ref.scheme).default_value(lambda r: IceStorage(local=str(r.path)))(ref)
+        # an unclassified scheme falls to the local row through the SAME spelling the derivation uses, since a path
+        # this branch cannot classify is a filesystem path; what makes that fallback safe is the derivation above
+        # carrying every classified cloud alias, rather than a hand roster leaving three of them to reach it.
+        return _STORAGE.try_find(ref.scheme).default_value(_ICE_BACKEND["local"])(ref)
 
     def build(self) -> "Storage":
         match self:

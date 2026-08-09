@@ -11,8 +11,8 @@ Schema evolution without migrations and its read accelerator in one owner: every
 
 ## [02]-[CHAIN_VOCABULARY]
 
-- Owner: `Upcast.Raw` — the `{tag, version, payload}` envelope every persisted row projects into before lifting; `Upcast.Chain` — `{latest, steps}` where `steps[i]` lifts version `i + 1` to `i + 2` over the encoded shape; `ChainIncomplete` — the page's one single-shape fault, classifying `invalid` off the core `FaultClass` lattice because an inconsistent roster is the wiring caller's own declaration, refused once and never re-driven.
-- Packages: `effect` (`Either`, `Schema`); `@rasm/ts/core` (`FaultClass`).
+- Owner: `Upcast.Raw` carries persisted coordinates; `Upcast.Chain` carries ordered lifts; `ChainIncomplete` classifies invalid rosters.
+- Packages: `effect` (`Either`, `Schema`); `@rasm/ts/core` (`Fault.Class`).
 - Growth: a new version of one event is one step pushed onto its chain and `latest` bumped by one — old steps never change, because the versions they lift are already in the log.
 - Law: steps are total pure functions over encoded payloads — `(payload: unknown) => unknown` with no failure channel; partiality has nowhere to hide because the terminal decode re-proves every invariant the current schema states.
 - Law: completeness is positional — a chain of `latest: 4` carries exactly three steps; `_sized` proves it at plan construction as a value, `Either.right` the proven chain and `Either.left` the typed `ChainIncomplete`, so a roster mismatch is a wiring fault the composing Layer folds once, never a throw and never a read-time surprise.
@@ -22,7 +22,7 @@ Schema evolution without migrations and its read accelerator in one owner: every
 
 ```typescript signature
 import { Either, Schema } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
 declare namespace Upcast {
   type Raw = {
@@ -43,7 +43,7 @@ class ChainIncomplete extends Schema.TaggedError<ChainIncomplete>()("ChainIncomp
   steps: Schema.Int,
   latest: Schema.Int,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return "invalid" // the roster the wiring site handed is unusable as written: quarantined evidence, never a re-drive
   }
   override get message(): string {
@@ -224,10 +224,11 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
 ## [05]-[HYDRATE]
 
 - Owner: the admitted `Snapshot.Cadence` policy, the `due` cadence fold, and `hydrate` — snapshot-plus-tail is one load: the option folds to a seed and a `from` window, the journal read stream folds the tail.
-- Packages: `effect` (`Stream`); `journal/append.md` (`Journal.of(...).read`).
-- Entry: lanes call `Snapshot.due(version, cadence)` after each apply and `bound.save` when it answers true; `Snapshot.hydrate(bound, journal, stream, fold)` is the one state-recovery entry every lane and rebuild composes.
-- Growth: a new cadence shape (byte budget, elapsed time) is a field on the policy row consumed inside `due` — the call sites never change.
-- Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the modulo fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
+- Packages: `effect` (`Stream`); `journal/append.md` (`Journal.of(...).read`, `Journal.Receipt`).
+- Entry: lanes call `Snapshot.due(receipt, cadence)` with the receipt the append just returned and `bound.save` when it answers true; `Snapshot.hydrate(bound, journal, stream, fold)` is the one state-recovery entry every lane and rebuild composes.
+- Growth: a new cadence shape (byte budget, elapsed time) is a field on the policy row read inside `due` against the same span — the call sites never change.
+- Law: cadence reads the landed SPAN, never the head alone — the receipt states `first` and `version`, so a multiple crossed anywhere inside a batch fires exactly once and a batch geometry cannot silently divide the effective cadence; asking the head for a multiple is the shape that makes cadence a function of batch size with nothing observable saying so.
+- Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the crossing fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
 
 ```typescript signature
 import { Stream } from "effect"
@@ -250,8 +251,13 @@ declare namespace Snapshot {
   }
 }
 
-const _due = (version: number, cadence: Snapshot.Cadence): boolean =>
-  version > 0 && version % cadence.every === 0
+// Batch appends move the head by their own length, so asking whether the HEAD is a multiple fires only when a batch
+// happens to LAND on one: writers whose batch size shares no factor with the cadence cross multiple after multiple
+// without ever answering true, and their streams replay from an ever-older snapshot with nothing reporting the drift.
+// Reading the SPAN each receipt already carries answers whether a multiple lies inside it, so one cadence holds for
+// every batch shape and singular appends stay the degenerate one-wide span.
+const _due = (receipt: Journal.Receipt, cadence: Snapshot.Cadence): boolean =>
+  Math.floor(receipt.version / cadence.every) > Math.floor((receipt.first - 1) / cadence.every)
 
 const _hydrate = <S, A extends Journal.Event>(
   bound: Snapshot.Bound<S>,

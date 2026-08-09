@@ -17,7 +17,7 @@ It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, an
 - [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package seam every peer crosses.
 - [09]-[DETERMINISM](.planning/Runtime/determinism.md): Reproducibility kernel — pinned RNG/float-mode and the hash-chained command log.
 - [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md): Crash-durable workflow and persistent-job owner over the command/event/schedule ports.
-- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): In-process `WorkLane` resilience governor — bulkhead, adaptive concurrency, load-shed, hedge.
+- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): In-process `WorkLane` resilience governor — bulkhead, adaptive permits, load-shed, circuit health.
 - [12]-[FEATURES](.planning/Runtime/features.md): Config-backed OpenFeature targeting and rollout minting the one `FlagVerdict` seam.
 
 [AGENT]:
@@ -163,6 +163,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [TIME_IDENTITY]:
 - `NodaTime`
+- `NodaTime.Serialization.Protobuf` — carries `Duration` and `Instant` across the control-verb wire.
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
 
@@ -191,9 +192,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.AI` — concrete builder and middleware owner behind the injected contracts.
 
 [WIRE_CODEGEN]:
+- `Google.Protobuf` — runtime for the control-verb request and reply messages the codegen emits.
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
 - `Grpc.Core.Api` — `ControlService` descriptors, marshallers, and the per-call context the control rail binds.
+- `Grpc.Tools` — build-only codegen over the Compute-owned control proto; its `<Protobuf>` item carries the mode.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
 [RUNTIME_INBOX]:

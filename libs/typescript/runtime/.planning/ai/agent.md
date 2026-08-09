@@ -12,19 +12,13 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 ## [02]-[SESSION]
 
 [SESSION]:
-- Owner: `Session`, one `Schema.Class` — the session row is itself an admitted value: `key` (branded, tenant-scoped — one session per `(tenant, conversation)` identity, the same key the entity id carries when the session escalates to the durable row, so in-process and sharded sessions share identity by construction), `budget` (`window`, `reply`, and `steps`, with a reply reserve strictly below the window), `compaction` (the lane literal), `mode` (the safety mode — its guard alias proves the field covers `Safety.Mode` so a new mode breaks this row at compile time), and `idle` (the retirement window, threaded as the persisted chat's `timeToLive`). `Session.open(row)` yields the persisted chat through the substrate's own restore-or-create — `Chat.Persistence` then `getOrCreate(row.key, { timeToLive: row.idle })` — so a reopened session recovers its history after process loss and a hand-assembled history record beside `Chat` is the killed lane; `Session.persisted` re-exports `Chat.layerPersisted({ storeId })`, the Layer the app root backs with a data-wave key-value scope through `Persistence.BackingPersistence`.
-- Law: the persisted chat IS the durable surface, and the gate's carrier parameter is what makes it so — `getOrCreate` answers a `Persisted` chat carrying `id` and `save`, and handing that chat to `Guardrail.generate` as the carrier appends both turns AND writes them to the backing store on every generation, so a turn needs no closing save and `save` is reserved for the one place a lane writes history by hand. The snapshot rides the substrate's own twins (`export`/`exportJson`) only at the wire hop; a persistence failure folds to the `session`-reasoned `AgentFault`, never a raw backing error.
-- Law: compaction is two lanes and ONE write — both lanes are pure prompt producers under one `Match` (`trim` truncates through the model page's fit enforcement, the tokenizer owning the cut; `digest` folds the history into one summary block), a single `Ref.set` seeds the result, and one `save` persists it; a per-lane write forks the seam that has to stay singular for the save to mean anything. The lane is a policy value on the session row.
-- Law: the digest generation runs on the gate's DEFAULT free carrier, never on the chat — a summarization routed through the chat would append itself to the very history it compacts — and it runs with `Toolkit.empty` because no tool is reachable from a summarization.
-- Law: retirement is a lifecycle fact — the `idle` window is the persisted chat's `timeToLive`, so an untouched session ages out of the backing store by declaration; the final digest records as evidence before release, and an unbounded session set is the named leak.
 - Growth: a memory concern (pinned facts, user preferences) is a system block the digest lane preserves, never a second store.
-- Packages: `@effect/ai` (`Chat`, `AiError`, `Prompt`, `Toolkit`); `@effect/experimental` (`Persistence` — the backing requirement behind `Chat.layerPersisted`); `effect` (`Effect`, `Ref`, `Match`, `Schema`); `./model.ts` (`Tokens`, `Guardrail`, `GuardrailFault`).
 
 ```typescript
 import { type AiError, Chat, type LanguageModel, Prompt, type Response, Tool, Toolkit } from "@effect/ai"
-import { Array, BigDecimal, Effect, Either, HashSet, Match, Option, Ref, Schema } from "effect"
-import { Budget, FaultClass, type Spent, Transition } from "@rasm/ts/core"
-import { Guardrail, GuardrailFault, type Ladder, Spend, Tokens } from "./model.ts"
+import { Array, BigDecimal, Effect, Either, Function, HashSet, Match, Option, Record, Ref, Schema } from "effect"
+import { Fault, Transition } from "@rasm/ts/core"
+import { Guardrail, GuardrailFault, Ladder, Spend, Tokens } from "./model.ts"
 import type { Safety } from "./tool.ts"
 
 class Session extends Schema.Class<Session>("Session")({
@@ -49,10 +43,26 @@ declare namespace Session {
 
 const _backed = (fault: { readonly _tag: string }): AgentFault => new AgentFault({ reason: "session", detail: fault._tag })
 
+// Retryability must SURVIVE the fold. Every provider failure landing on one reason hands the class lattice a single
+// verdict for a throttle, a revoked key, and a malformed answer, so whatever retries above this fold either replays a
+// call that can never succeed or abandons one that would. The model page already grades the union on its real axis,
+// so this fold reads that grade and lands each band on the reason carrying the SAME retryability.
+const _bands = {
+  exhausted: "budget",
+  denied: "refused",
+  unavailable: "session",
+  expired: "session",
+} as const satisfies Partial<Record<Fault.Class.Kind, AgentFault["reason"]>>
+
 const _folded = (fault: GuardrailFault | AiError.AiError): AgentFault =>
   Match.value(fault).pipe(
     Match.tag("GuardrailFault", (refused) => new AgentFault({ reason: "refused", detail: refused.reason })),
-    Match.orElse(_backed), // a meter or transport fault inside session maintenance is a session fault, never a refusal
+    // an unbanded grade is terminal by construction: replaying identical octets against the same peer settles nothing
+    Match.orElse((held) =>
+      new AgentFault({
+        reason: Record.get(_bands, Ladder.grade(held)).pipe(Option.getOrElse(() => "provider" as const)),
+        detail: held._tag,
+      })),
   )
 
 const _open = (row: Session) =>
@@ -83,34 +93,28 @@ const _open = (row: Session) =>
 ## [03]-[TURN]
 
 [TURN]:
-- Owner: `Agent` and the request triple. `_PHASES` is the one phase anchor — the `Turn.phase` literal spreads it and the machine's node guard closes against it, so the receipt vocabulary and the statechart roster are one declaration. `Act` is the inbound tagged request — the admitted `Session` carrier, utterance, and app-passed retrieval passages — with `Turn` as its success (the reply text, held-call evidence, citation band, spend receipt, settled phase) and `AgentFault` as its failure. The carrier owns identity, budget, compaction, safety mode, and lifetime together; repeating `session.key` and `mode` on the request creates independent knobs with contradictory turn values. `Schema.TaggedRequest` declares payload, success, and failure in one class, and that single declaration is the entity Rpc, the `Tool.fromTaggedRequest` row, and the wire contract.
-- Law: the turn is one fold, budget-bounded — recall (`Session.open`), gauge-and-compact when the history outgrows its budget share, weave (`Tokens.weave` over the passages — retrieval arrives as values, the data wave is never imported), screen once (the gate screens the woven prompt, not each iteration), then the tool-loop: at most `steps` chat-carried gated generations where each iteration's `toolChoice` and `disableToolCallResolution` compile from the safety partition, and the loop exits on a toolless reply, a held call, or the step ceiling — the ceiling folding to an `exhausted`-classed fault, never a silent truncation.
-- Law: the loop feeds ONLY new material because the carrier is the accumulator — the opening iteration carries the woven prompt plus the utterance and every later iteration carries `Prompt.empty`, since the chat has already merged the assistant message and its resolved tool results into history through the substrate's own `Prompt.fromResponseParts` append. A loop that re-feeds the prior response duplicates every tool result it meant to forward, and the reconstruction is the substrate's, never this page's.
-- Law: the loop's carrier is `Either` on the rail, not a flag — `Effect.iterate` advances on `Either.right` and settles on `Either.left`, with the `while` gate reading both the carrier and the remaining steps, so the ceiling is the ONE place a still-advancing cursor survives the loop and that survival IS the `budget`-reasoned fault; a boolean `done` cell beside the state cannot state the difference between settled and spent.
-- Law: every turn settles with evidence — spend accumulated across iterations from the gate's own accounting, phase read from the machine's macro receipt (never re-derived from what the fold just decided), held calls as data (each provider-minted `{ id, tool, params }` re-admitted through the `Json` schema so the parameter value is structurally comparable at release), and provenance as data: the response's `DocumentSourcePart`/`UrlSourcePart` citation parts project into the `Turn.sources` band with the address and the display title both, so a grounded reply carries citations a reader can follow; a turn's receipt is what supervision, billing, and the approval surface read, so the loop returns `Turn`, never bare text.
-- Law: the turn drives the machine at exactly three points — `act` on entry, then `settle` or `hold` on the way out, and the compaction pair around the fold when the meter demands — so the phase on the receipt is the machine's own `entered` node, and `_isPhase` (the derived guard over the one phase anchor) narrows the node roster to the receipt vocabulary with no cast.
-- Law: replay parity rides a deterministic `IdGenerator` Layer at the durable root so re-driven turns mint identical tool-call ids and the workflow journal stays byte-stable.
 - Growth: a loop concern (reflection pass, plan-then-act) is a phase row plus a fold arm, never a second loop.
-- Packages: `@effect/ai` (`Prompt`, `Tool`, `Toolkit`, `Response`, `LanguageModel`); `effect` (`Effect`, `Either`, `BigDecimal`, `Option`, `Schema`); `./model.ts` (`Guardrail`, `Spend`, `Tokens`, `Ladder`); `./tool.ts` (`Safety`).
 
 ```typescript
 const _PHASES = ["idle", "thinking", "awaiting", "compacting"] as const
 const _Phase = Schema.Literal(..._PHASES) // the one anchor spread: the receipt literal, the machine's node guard, and the phase refinement all read it
 const _isPhase = Schema.is(_Phase)
 
-const _reasons = FaultClass.family(["budget", "refused", "tool", "session"] as const, {
+const _reasons = Fault.Class.family(["budget", "refused", "tool", "session", "provider"] as const, {
   budget: { class: "exhausted" },
   refused: { class: "denied" },
   // a disposition that contradicts held evidence is caller-malformed and quarantinable: re-driving the identical verdict set can never settle
   tool: { class: "invalid" },
   session: { class: "unavailable" },
+  // a peer answering wrongly is not a session outage: `session` is retryable and would replay a call that cannot settle
+  provider: { class: "malformed" },
 })
 
 class AgentFault extends Schema.TaggedError<AgentFault>()("AgentFault", {
   reason: _reasons.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _reasons.classOf(this.reason)
   }
   override get message(): string {
@@ -171,7 +175,7 @@ class Act extends Schema.TaggedRequest<Act>()("Act", {
 
 const _asTool = Tool.fromTaggedRequest(Act)
 
-const _spent = (fault: Spent): AgentFault => new AgentFault({ reason: "budget", detail: fault._tag })
+const _spent = (fault: Transition.Spent): AgentFault => new AgentFault({ reason: "budget", detail: fault._tag })
 
 const _landed = (entered: ReadonlyArray<string>): Turn["phase"] =>
   Option.getOrElse(Array.findFirst(entered, _isPhase), () => "idle" as const) // the machine's own entered node, narrowed by the anchor's derived guard
@@ -259,13 +263,13 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
       onLeft: (settled) =>
         Effect.map(
           Effect.mapError(drive.actor.feed(settled.held.length > 0 ? "hold" : "settle"), _spent),
-          (macro) =>
+          (fact) =>
             new Turn({
               reply: settled.reply,
               held: settled.held,
               sources: settled.sources,
               spend: settled.spend,
-              phase: _landed(macro.entered),
+              phase: _landed(fact.macro.entered),
             }),
         ),
     })
@@ -275,26 +279,24 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
 ## [04]-[ACTOR]
 
 [ACTOR]:
-- Owner: the phase machine — one `Transition.spec`: a depth-one statechart (`session` compound over the four `_PHASES` atomics, the node roster closed against the anchor by the `_Nodes` guard), signals `act | settle | hold | release | compact | done`, verdict programs naming what the driver does next; the rows are the whole interaction protocol — an unmatched signal is an empty program, never a hand branch — the `awaiting` node's watch row arms the approval deadline as a delayed self-signal, and `recover` re-initializes a defecting actor under a `pulse`-budget schedule. The compiled spec's `boot` runs the machine scoped beside the session so phase and history live and die together; `freeze`/`restore` carry an interactive session across a page or process hop.
-- Law: the signal plane is literal-only by the core machine's own law, so held-call evidence never rides a signal and the machine's `extended` stays `Schema.Null` — the durable evidence home is the persisted chat itself, and the mechanism is the carrier: because the turn generates THROUGH the chat, the emitted tool-call parts land in history and in the backing store as part of the same call that produced them, and `_kept` projects the `Turn.held` band off that very response. A second evidence store beside the substrate is the named split, and a gate that bypassed the chat would leave this law with nothing behind it.
-- Law: recovery is priced by the branch budget — `recover` is `Budget.schedule("pulse")`, the interactive point-op row, so a defecting actor re-initializes under the same jittered, attempt-bounded, window-capped geometry every other interactive rail uses; a curve composed at this site would carry no jitter, no reset, and no elapsed bound the row already states.
-- Law: the altitude ruling is enforced by construction — the in-process actor serves the interactive lane (live phase, request-serialized turns, snapshot durability); the durable multi-process lane is `Actor.make({ name: "agent", protocol, clazz: "interactive", tenant })` over the SAME `Act` protocol, where per-session single-writer ordering, mailbox fencing, and message durability are entity facts — the machine table travels unchanged, and no third session runtime exists between them.
-- Law: the turn drives the machine, never the reverse — `act` enters `thinking`, a toolless settle emits `settle` back to `idle`, a held call emits `hold` into `awaiting`, the compaction trigger emits `compact`; a phase mutated outside a signal is unspellable because the table is the only transition author.
-- Growth: a new interaction posture (streaming turn, background reflection) is a node row plus its transition rows; the entity escalation inherits it by sharing the spec.
-- Packages: `@rasm/ts/core` (`Transition`, `Budget`); `../work/entity.ts` (`Actor` — the escalation mint).
+- Packages: `@rasm/ts/core` (`Transition`, `Fault.Budget`); `effect` (`Function`); `../work/entity.ts` (`Actor` — the escalation mint).
 
 ```typescript
-const _nodes = {
-  session: { kind: "compound", initial: "idle" },
+const _phaseNodes = {
   idle: { kind: "atomic", parent: "session" },
   thinking: { kind: "atomic", parent: "session" },
-  awaiting: { kind: "atomic", parent: "session", watch: { after: "15 minutes", signal: "done" } },
+  awaiting: {
+    kind: "atomic",
+    parent: "session",
+    watches: [{ key: "approval", after: "15 minutes", signal: "done" }],
+  },
   compacting: { kind: "atomic", parent: "session" },
-} as const
+} as const satisfies Record<(typeof _PHASES)[number], object>
 
-declare namespace _nodes {
-  type _Nodes<K extends (typeof _PHASES)[number] = Exclude<keyof typeof _nodes, "session">> = K // guard: the node roster IS the phase anchor plus the compound root
-}
+const _nodes = [
+  { id: "session", kind: "compound", initial: "idle" },
+  ...Array.map(_PHASES, (id) => ({ id, ..._phaseNodes[id] })),
+] as const
 
 const _spec = Transition.spec({
   name: "agent",
@@ -317,19 +319,19 @@ const _spec = Transition.spec({
   fuel: 4,
   lag: 32,
   traced: true,
-  recover: Budget.schedule("pulse"), // the interactive point-op geometry, not a per-site curve
+  // `MachineDefect` is this schedule's sole inhabitant — a serializable machine boots without failure, so `InitError`
+  // resolves `never` and the remaining defect carries `_tag`/`cause` alone, which the default gate refuses
+  recover: () => Fault.Budget.schedule("pulse", Function.constTrue),
 })
 
-const _boot = _spec.boot
+const _compiled = Effect.fromEither(_spec)
+const _boot = Effect.flatMap(_compiled, (compiled) => compiled.boot)
+const _restore = (frozen: Transition.Frozen) => Effect.flatMap(_compiled, (compiled) => compiled.restore(frozen))
 ```
 
 ## [05]-[APPROVAL]
 
 [APPROVAL]:
-- Owner: the held-call fold — when the gate's admission returns held names, the generation runs with tool resolution disabled, `_kept` intersects the response's emitted tool calls with that held roster and re-admits each `{ id, tool, params }` through the `Json` schema onto the `Turn.held` band (the durable copy riding the same chat-carried write), and the machine enters `awaiting` on the `hold` signal the turn fold feeds. Release is a COMPLETE disposition: `Agent.release(spec)` demands exactly one id-correlated verdict per held call, rejects duplicate ids and structural parameter drift, refuses an empty held band, settles every verdict through the supplied tool-result continuation in source order, and feeds `release` only after every settlement succeeds; the returned `Release` receipt carries both partitions as the audit evidence. The two release paths split by longevity: the in-process path supplies the live continuation, and the durable path — an approval that outlives the process — declares a `work/flow#SIGNAL_GATE` deferred whose token travels to the approval surface and whose settlement re-drives the entity turn with the same fold; the `awaiting` watch row expires unanswered holds into `done`, so an abandoned approval degrades to a bounded, evidenced no-op.
-- Law: a held call never executes speculatively — the tool continuation receives an approval value only after the complete disposition validates, with parameters structurally equal to the held evidence; an "execute then ask" ordering is unspellable because resolution was disabled at the gate, and a partial, duplicate, or superset disposition fails before any continuation or signal fires.
-- Law: approval is an audited action — release and expiry each append a fact row (who, which tool, which session, which verdict) through the data wave's fact rail at the approving surface; this page holds evidence and phases, the serving plane owns the approval endpoint.
-- Growth: an approval policy axis (auto-release below a spend ceiling, four-eyes for `destroy`) is a predicate over the held band composed at release, never a second hold mechanism.
 - Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/ts/core` (`Transition`).
 
 ```typescript
@@ -382,6 +384,7 @@ const Agent = {
   tool: _asTool,
   spec: _spec,
   boot: _boot,
+  restore: _restore,
   act: _act,
   release: _release,
   held: _pending,
@@ -399,4 +402,5 @@ export { Act, Agent, AgentFault, Session, Turn }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [COMPACT_DIGEST]-[OPEN]: which member performs the `digest` compaction arm, given the `trim` arm binds `Tokens.fit` while `digest` names a summarizing rewrite no `Chat` or `Prompt` member performs; verify against `@effect/ai/Chat` and `@effect/ai/Prompt` on the member rail.
+- [REASONING_CONTINUITY]-[OPEN]: whether a chat-carried multi-turn loop round-trips each provider's reasoning-continuity carrier (`AnthropicReasoningInfo`, `AmazonBedrockReasoningInfo`, `OpenRouterReasoningInfo`, the Google `thoughtSignature`, the OpenAI reasoning `itemId`/`encryptedContent`) through `Prompt.fromResponseParts`, since a dropped signature makes the next turn refuse; verify against `@effect/ai/Prompt` `fromResponseParts` and each provider's `Prompt` augmentation on the member rail.

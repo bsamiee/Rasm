@@ -24,14 +24,20 @@ Assets subdivide by seam, then by message: one directory per cross-language seam
 
 ```text conceptual
 tests/contracts/
-├── MANIFEST.md              # the seam registry: classes, pin states, minters, frozen expectations
+├── MANIFEST.md                    # Seam registry: classes, pin states, minters, frozen expectations
+├── .api/                          # Corpus tool catalog: the gate binary's commands, config schema, rule vocabulary
+├── rasm/<family>/v1/              # Descriptor source per family, seated at the directory its package spells
+│   ├── <family>.proto             # Language-neutral message and service declaration
+│   └── <family>.descriptor.binpb  # Frozen FileDescriptorSet parity digest
 └── <seam>/
-    ├── contract.schema.json # the definition every conforming branch implements
-    ├── <message>.bin        # frozen wire bytes
-    └── <message>.json       # canonical JSON projection of the same payload
+    ├── contract.schema.json       # Definition every conforming branch implements
+    ├── <message>.bin              # Frozen wire bytes
+    └── <message>.json             # Canonical JSON projection of the same payload
 ```
 
-Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each is registered as a manifest entry with its own payload kind. A descriptor source and its `FileDescriptorSet` snapshot land together as one peer asset (`rasm/<file>.proto` beside `<file>.descriptor.binpb`): the snapshot is the drift gate's per-source baseline, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
+Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each registers a manifest entry with its own payload kind. A descriptor source and its `FileDescriptorSet` snapshot land together as one peer asset: the snapshot is the drift contract's per-source parity digest, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
+
+[PROTO_SEATING]: `buf` `PACKAGE_DIRECTORY_MATCH` binds each source to the directory its package spells, so `rasm.<family>.v1` seats at `rasm/<family>/v1/<family>.proto` and one directory holds one package. Every later family inherits that seat rather than re-deciding it, and the corpus root gains a directory per family instead of a flat file set three packages deep.
 
 [SHARED_DEFINITION]: definitions several seams conform to land ONCE beside the seam directories as `<vocabulary>.schema.json`, and each referencing seam's `contract.schema.json` reaches one by `$ref` rather than restating a row. Such a definition registers no manifest entry of its own — a definition names no minter and emits no asset, so the entry schema's exclusive maps have nothing to bind — and every entry conforming to it names it in `Shape`. Rosters ride it as `const` subschemas so a branch validates its own projection against the frozen vocabulary instead of a reader comparing two tables by eye. Two seams re-spelling one roster is the fork this form forecloses; the shared definition freezes before either seam's own definition lands, because a seam schema that fixes a shared row locally has already forked it.
 
@@ -66,4 +72,8 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 
 ## [04]-[REGENERATION]
 
-Contract changes trigger regeneration by class: an `infrastructure` schema change re-proves every minter against the new definition, and a `domain` contract change re-emits from its producer. Either path updates the manifest in the same change, and a regenerated asset lands only with every participating binding reconciled. `buf breaking` uses FILE category from the first `.proto`.
+Contract changes trigger regeneration by class: an `infrastructure` schema change re-proves every minter against the new definition, and a `domain` contract change re-emits from its producer. Either path updates the manifest in the same change, and a regenerated asset lands only with every participating binding reconciled.
+
+[PROTO_GATE]: the root `buf.yaml` declares this directory as buf's one module, and every verb runs from `node_modules/.bin/buf`. `buf lint` holds each source to `STANDARD` less the two rules the estate's ruled wire vocabulary displaces; `buf breaking --against '.git#branch=main' --against-config buf.yaml` refuses a `FILE`-category change, reading the baseline under the current rules so a rule edit takes effect on the same run; `buf format -d --exit-code` gates layout on the diff, the bare `--exit-code` form printing each formatted file to stdout instead.
+
+Each source regenerates its snapshot through `buf build --path <source> --as-file-descriptor-set --exclude-imports --exclude-source-info`, the one flag set the three minters compare byte-for-byte. That same exclusion keeps the snapshot out of the breaking baseline — it resolves no imports — and `tests/contracts/.api/bufbuild-buf.md` owns the command, config, and rule surface.

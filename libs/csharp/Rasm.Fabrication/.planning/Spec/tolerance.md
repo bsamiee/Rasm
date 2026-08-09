@@ -11,7 +11,7 @@
 - [04]-[FIT_ALGEBRA]: generated `ItGradeName`, closed-form `FitLetter` deviations over `DiameterBand`, the `FitException` carve, and the validated fit and general-tolerance seed laws.
 - [05]-[SURFACE_TEXTURE]: the ISO 21920 parameter roster, its measure-owned units and bands, the one-shape requirement, and the `RaTarget` scallop projection.
 - [06]-[STACK_CHAIN]: `ToleranceTerm`, the `StackMethod` analytic algebra, and the `ChainReceipt` every stackup consumer reads.
-- [07]-[OWNER_FOLD]: `SpecAxis` quantity admission and the `Tolerance.Apply` fold over `ToleranceRequest` into `ToleranceReceipt`.
+- [07]-[OWNER_FOLD]: `SpecAxis` quantity admission, the `Tolerance.Apply` fold over `ToleranceRequest` into `ToleranceReceipt`, and the `GdtFrameWire` byte egress.
 
 ## [02]-[GEOMETRIC_VOCABULARY]
 
@@ -23,9 +23,12 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
@@ -303,6 +306,10 @@ public abstract partial record ToleranceZone(ToleranceZoneKind Kind, ZoneWidth W
 [ComplexValueObject]
 [ValidationError<FabricationFault>]
 public sealed partial class DatumReference {
+    // ISO 5459 reference letters, I/O/Q excluded as digit-confusable at drawing scale. Admission compiles exactly
+    // what the WIRE compiles, so a label this owner admits and a drawing peer refuses is unspellable.
+    private static readonly FrozenSet<char> Letters = "ABCDEFGHJKLMNPRSTUVWXYZ".ToFrozenSet();
+
     public string Label { get; }
     public DatumPrecedence Precedence { get; }
     public MaterialCondition Material { get; }
@@ -311,8 +318,16 @@ public sealed partial class DatumReference {
     static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string label,
         ref DatumPrecedence precedence, ref MaterialCondition material) {
         label = label?.Trim().ToUpperInvariant() ?? string.Empty;
-        validationError = label.Length > 0 ? null : Tolerance.Refusal("datum-reference");
+        validationError = Legal(label) ? null : Tolerance.Refusal("datum-reference");
     }
+
+    // One reference letter, or a common datum as two DISTINCT letters hyphen-joined — the whole ISO 5459 spelling.
+    private static bool Legal(string label) => label.Split('-') switch {
+        [{ Length: 1 } single] => Letters.Contains(single[0]),
+        [{ Length: 1 } first, { Length: 1 } second] =>
+            Letters.Contains(first[0]) && Letters.Contains(second[0]) && first != second,
+        _ => false,
+    };
 }
 
 [ComplexValueObject]
@@ -511,8 +526,10 @@ public sealed partial class FeatureFrameReceipt {
     public FeatureScope Scope => Control.Scope;
     public ToleranceZoneKind Kind => Control.Zone.Kind;
     public double WidthMm => Control.Zone.Width.ToValue();
+    // Ordinal, never the default comparer: culture-sensitive ordering makes ONE frame two byte streams across hosts,
+    // and this order is what `GdtFrameWire` frames, so the receipt and the wire read one sequence.
     public Arr<ZoneModifier> Modifiers => toSeq(Control.Zone.Modifiers
-        .OrderBy(static modifier => modifier.ToValue())).ToArr();
+        .OrderBy(static modifier => modifier.Key, StringComparer.Ordinal)).ToArr();
     public Arr<DatumReference> Datums => Control.Datums.References;
     public MaterialCondition Material => Control.Material;
     public Option<FeatureSize> Size => Control.Size;
@@ -526,9 +543,11 @@ public sealed partial class FeatureFrameReceipt {
     // and its ordinal, so the drawing plane composes a feature-control frame without re-opening the specification.
     public Seq<FrameSymbolRow> Annotation =>
         Seq(new FrameSymbolRow(FrameCompartment.Characteristic, Control.Characteristic.Symbol, 0))
+        // Shortest-round-trip rendering, never a fixed decimal mask: a three-place mask draws a 0.0001 mm zone as a
+        // bare zero, which reads on the drawing as an unachievable perfect form rather than as the zone specified.
         + Seq(new FrameSymbolRow(
             FrameCompartment.Zone,
-            string.Concat(Control.Zone.Kind.Prefix, WidthMm.ToString("0.###", CultureInfo.InvariantCulture)),
+            string.Concat(Control.Zone.Kind.Prefix, WidthMm.ToString(CultureInfo.InvariantCulture)),
             0))
         + (Control.Material == MaterialCondition.Regardless
             ? Seq<FrameSymbolRow>()
@@ -1394,6 +1413,12 @@ public sealed record ChainReceipt(ContentKey Source, StackMethod Method, double 
 - Law: the axis names a QUANTITY FAMILY and `QuantityInfo` is what UnitsNet gives that family as identity — a `Type` compares by CLR reflection while the parse, the unit roster, and the base dimensions all resolve off the info row, so two axes over one family stay distinct by axis while sharing one identity.
 - Packages: `Thinktecture.Runtime.Extensions` owns admission and dispatch; `LanguageExt.Core` owns accumulating admission, closed-fault sequencing, and immutable folds; `Rasm.Domain` owns `Op`, `Fault.InvalidValue`, and `Fault.OutOfRange`; `UnitsNet` owns runtime-selected quantity parsing and `IQuantity.As` unit projection; `MathNet.Numerics` owns the stack distribution families; `CutterForm` carries MTConnect-derived ISO-13399 geometry and its `CutterFamily` decides whether a cusp exists at all.
 - Boundary: `IToleranceEncoder` is the open egress strategy; format and culture state close inside its implementation, so `ToleranceRequest.Project` carries one policy value instead of delegate and provider knobs.
+- Wire: `GdtFrameWire` is the ONE landed encoder and `tests/contracts/tolerance-wire` pins its bytes; geometric frames alone cross it, `fit`, `texture`, `general`, and `chain` refusing by name because ISO 129-1 dimensional tolerance reaches a drawing through the consumer's own presentation vocabulary.
+- Wire: `WireCell` is the framing alphabet and `Framed` its one law — a collection and an `Option` alike frame as a count then that many elements, so presence carries no second spelling; field order IS `FeatureControl`'s member declaration order, and `Layout` bumps only when that order moves.
+- Wire: vocabulary KEYS cross where ordinals never do, so a roster reordered at either end re-maps nothing, and `ContentKey` crosses whole with kind ahead of digest since two egress families over equal bytes mint equal digests.
+- Wire: `CorpusFrame` freezes the byte-deriving input, so the pinned vector regenerates from this page rather than from a captured buffer.
+- Law: zone width crosses as its exact magnitude and a symbol never crosses at all — decimal presentation and glyph belong to the consuming drawing standard, where a producer-rounded string draws a sub-micron zone as zero.
+- Boundary: frame-box facts cross while model-space geometry does not — datum targets and basic dimensions need a view transform this wire has no view to apply, so each rides the geometry seam.
 
 ```csharp signature
 // --- [VOCABULARIES] -------------------------------------------------------------------------------------------------------------------------------
@@ -1441,6 +1466,154 @@ public sealed partial class SpecQuantity {
 // --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
 public interface IToleranceEncoder {
     Fin<ReadOnlyMemory<byte>> Encode(Tolerance value);
+}
+
+// --- [WIRE_FRAMING]
+
+// One framing alphabet for the whole wire: every cell is fixed-width or self-framing, so no split is separator-borne.
+// Little-endian orders every scalar and big-endian every digest — the `[CONTENT_KEY]` split, held in one place.
+[Union]
+public abstract partial record WireCell {
+    private WireCell() { }
+    public sealed record Marker(string Ascii) : WireCell;
+    public sealed record Count(uint Value) : WireCell;
+    public sealed record Magnitude(double Value) : WireCell;
+    public sealed record Identity(UInt128 Value) : WireCell;
+    public sealed record Token(string Value) : WireCell;
+
+    private const int DigestWidth = 16;
+
+    public void StageInto(IBufferWriter<byte> sink) => Switch(
+        state: sink,
+        marker: static (target, cell) => Utf8(target, cell.Ascii),
+        count: static (target, cell) => Little(target, cell.Value),
+        magnitude: static (target, cell) => Real(target, cell.Value),
+        identity: static (target, cell) => Big(target, cell.Value),
+        token: static (target, cell) => {
+            Little(target, (uint)Encoding.UTF8.GetByteCount(cell.Value));
+            Utf8(target, cell.Value);
+        });
+
+    // Exemption: span staging is a measured byte kernel. Every cell writes through the one buffer writer, so the
+    // layout stays a projection and mutation lives at this boundary alone.
+    private static void Little(IBufferWriter<byte> sink, uint value) {
+        BinaryPrimitives.WriteUInt32LittleEndian(sink.GetSpan(sizeof(uint)), value);
+        sink.Advance(sizeof(uint));
+    }
+
+    private static void Real(IBufferWriter<byte> sink, double value) {
+        BinaryPrimitives.WriteDoubleLittleEndian(sink.GetSpan(sizeof(double)), value);
+        sink.Advance(sizeof(double));
+    }
+
+    // Digests cross as the `[CONTENT_KEY]` law's 16 big-endian bytes, never the little-endian buffer the hash fills.
+    private static void Big(IBufferWriter<byte> sink, UInt128 value) {
+        BinaryPrimitives.WriteUInt128BigEndian(sink.GetSpan(DigestWidth), value);
+        sink.Advance(DigestWidth);
+    }
+
+    private static void Utf8(IBufferWriter<byte> sink, string text) =>
+        sink.Advance(Encoding.UTF8.GetBytes(text, sink.GetSpan(Encoding.UTF8.GetByteCount(text))));
+}
+
+// `GdtFrameWire` is the ONE landed `IToleranceEncoder`: an ISO 1101 feature-control frame as framed binary, pinned
+// byte-for-byte by the `tests/contracts/tolerance-wire` entry. Widening this grammar to the dimensional arms seats a
+// second tolerance producer behind one shape, so those arms refuse here and reach a drawing through its own vocabulary.
+public sealed class GdtFrameWire : IToleranceEncoder {
+    // Fixed-width and read before any length cell, so a foreign or truncated buffer refuses at byte 0 rather than
+    // sizing an allocation from a field that is not a length.
+    private const string Magic = "GDTF";
+    private const uint Layout = 1u;
+
+    // `CorpusFrame` freezes the byte-deriving input the pin reads, derived from stated seeds rather than captured,
+    // so a layout edit regenerates the vector from this page. Position on an axis at MMC over a three-datum system,
+    // ONE datum carrying its own material condition, beside a composite lower segment — precisely the frame a wire
+    // collapsing per-datum modifiers, zone kind, or the lower segment re-encodes identically and cannot discriminate.
+    public static readonly ToleranceRequest.Feature CorpusFrame = new(
+        CharacteristicId.Create(ContentHash.Of("tolerance-wire:corpus-a:characteristic"u8)),
+        ContentKey.Of(EgressKind.QualityRecord, "tolerance-wire:corpus-a"u8),
+        FeatureCharacteristic.Position,
+        FeatureScope.Axis,
+        new ToleranceZone.Simple(ToleranceZoneKind.Diameter, ZoneWidth.Create(0.25),
+            Set(ZoneModifier.CommonZone, ZoneModifier.FreeState)),
+        DatumSystem.Create(Arr(
+            DatumReference.Create("A", DatumPrecedence.Primary, MaterialCondition.Regardless),
+            DatumReference.Create("B", DatumPrecedence.Secondary, MaterialCondition.Maximum),
+            DatumReference.Create("C", DatumPrecedence.Tertiary, MaterialCondition.Regardless))),
+        MaterialCondition.Maximum,
+        FrameExtension.Create(Arr<BasicDimension>(), Arr<DatumTarget>(),
+            Some(CompositeSegment.Create(ZoneWidth.Create(0.08), Set<ZoneModifier>(),
+                DatumSystem.Create(Arr(
+                    DatumReference.Create("A", DatumPrecedence.Primary, MaterialCondition.Regardless)))))),
+        Some(FeatureSize.Create(FeatureGeometry.Internal, 9.9, 10.1)),
+        Option<double>.None);
+
+    public Fin<ReadOnlyMemory<byte>> Encode(Tolerance value) => value.Switch(
+        geometric: static row => Fin.Succ(Emit(Cells(row.Value))),
+        fit: static _ => Refuse("fit"), texture: static _ => Refuse("texture"),
+        general: static _ => Refuse("general"), chain: static _ => Refuse("chain"));
+
+    private static Fin<ReadOnlyMemory<byte>> Refuse(string arm) => Fin.Fail<ReadOnlyMemory<byte>>(
+        Tolerance.Invalid($"gdt-frame-wire:{arm}", "a geometric tolerance, the one arm an ISO 1101 frame spells"));
+
+    // Field order IS `FeatureControl`'s member declaration order, so a member the owner gains has one lawful seat.
+    private static Seq<WireCell> Cells(FeatureControl control) =>
+        Seq<WireCell>(new WireCell.Marker(Magic), new WireCell.Count(Layout),
+            new WireCell.Identity(control.Id.ToValue()))
+        + Key(control.Source)
+        + Seq<WireCell>(new WireCell.Token(control.Characteristic.Key),
+            new WireCell.Token(control.Scope.Key),
+            new WireCell.Token(control.Zone.Kind.Key),
+            new WireCell.Magnitude(control.Zone.Width.ToValue()))
+        + Tail(control.Zone)
+        + Framed(Ordered(control.Zone.Modifiers), Modifier)
+        + Framed(toSeq(control.Datums.References), Datum)
+        + Seq<WireCell>(new WireCell.Token(control.Material.Key))
+        + Framed(control.Extension.Composite, Segment);
+
+    // Kind is identity-bearing on a `ContentKey`, so it crosses ahead of the digest exactly as the key's own canonical
+    // form writes it; a digest-only join merges two egress families that mint equal digests over equal bytes.
+    private static Seq<WireCell> Key(ContentKey key) =>
+        Seq<WireCell>(new WireCell.Token(key.Kind.Key), new WireCell.Identity(key.Digest));
+
+    // Zone kind alone discriminates the second dimension, so no arm tag rides beside it to contradict it and the tail
+    // carries no count of its own — the token before it fixes the width totally, and `Dimensions` yields at most one.
+    private static Seq<WireCell> Tail(ToleranceZone zone) => zone.Dimensions() switch {
+        var (height, offset) => (height.ToSeq() + offset.ToSeq())
+            .Map(static value => (WireCell)new WireCell.Magnitude(value)),
+    };
+
+    // ONE framing law: a collection and an `Option` alike frame as a count then that many elements, so an empty run
+    // and an absent one read identically at every peer and presence needs no second spelling.
+    private static Seq<WireCell> Framed<T>(Seq<T> rows, Func<T, Seq<WireCell>> cells) =>
+        Seq<WireCell>(new WireCell.Count((uint)rows.Count)) + rows.Bind(cells);
+
+    private static Seq<WireCell> Framed<T>(Option<T> row, Func<T, Seq<WireCell>> cells) => Framed(row.ToSeq(), cells);
+
+    // Modifier order is the receipt's own, ordinal and never the default comparer: one frame stays one byte stream.
+    private static Seq<ZoneModifier> Ordered(Set<ZoneModifier> modifiers) =>
+        toSeq(modifiers.OrderBy(static modifier => modifier.Key, StringComparer.Ordinal));
+
+    private static Seq<WireCell> Modifier(ZoneModifier modifier) => Seq<WireCell>(new WireCell.Token(modifier.Key));
+
+    // Precedence rides the POSITION, since admission already seats the references in precedence order and a second
+    // precedence token beside it is a fact the two spellings can disagree on. A datum's own material condition rides
+    // its row: folding it onto the frame's drops the modifier off the drawn box.
+    private static Seq<WireCell> Datum(DatumReference datum) =>
+        Seq<WireCell>(new WireCell.Token(datum.Label), new WireCell.Token(datum.Material.Key));
+
+    // Composite lower segments are a second row inside the SAME box, so each crosses here and never as a second
+    // frame, carrying no kind of its own because the upper segment's zone kind governs both rows.
+    private static Seq<WireCell> Segment(CompositeSegment segment) =>
+        Seq<WireCell>(new WireCell.Magnitude(segment.Width.ToValue()))
+        + Framed(Ordered(segment.Modifiers), Modifier)
+        + Framed(toSeq(segment.Datums.References), Datum);
+
+    private static ReadOnlyMemory<byte> Emit(Seq<WireCell> cells) {
+        ArrayBufferWriter<byte> sink = new();
+        cells.Iter(cell => cell.StageInto(sink));
+        return sink.WrittenMemory;
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------

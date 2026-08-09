@@ -1,33 +1,40 @@
 # [CORE_FORMAT]
 
-Format engines carry the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. `Json` is the module's one byte-to-text crossing fused with `Schema.parseJson`: the bounded frame, the composed owned-vocabulary schema, the newline-delimited document walk, the canonical egress, and the held-octet render a refused frame still answers through. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. Module `core/src/interchange/format.ts` owns them; a new proto family is one suite row, a new engine posture axis is one policy field, and a further dialect is a new engine owner beside them, never a widening of one.
+`Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError` rail, four arms — protobuf, CBOR, MessagePack, JSON — publish bounded complete-payload codecs, and the closed RFC 6902 algebra applies patches prototype-safely. Module `core/src/interchange/format.ts` admits an encoding as one arm row, a descriptor family as one `_suite` key, and a MessagePack extension as one type-byte registration.
+
+`Format` composes the `value` floor's `Shape` and `Clock.Hlc` beside the generated `interchange_pb.ts` descriptors, and hands `interchange/codec` the arm rows that select a family's codec, name its contract-compatibility token, and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
 
 ## [01]-[INDEX]
 
-- [02]-[ENGINE_FOLD]: the shared defect-to-`ParseError` fold every arm's transform composes; interior.
-- [03]-[PROTO_ENGINE]: read/write posture, frame/family/stream, the suite table, the one registry; `Proto`.
-- [04]-[CBOR_ENGINE]: the configured canonical decoder, the DoS gate, the quirk augmentation; `Cbor`.
-- [05]-[MSGPACK_ENGINE]: the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress; `Pack`.
-- [06]-[JSONPATCH_ENGINE]: the op union, apply, diff, OCC guards, and the patch content key; `Patch`.
-- [07]-[JSON_ENGINE]: the bounded UTF-8 crossing, the fused parse, the newline walk, the held-octet render; `Json`.
+- [02]-[ENGINE_FOLD]: one defect-normalizing fold every arm's transform composes; interior.
+- [03]-[PROTO_ENGINE]: semantic protobuf and the singular descriptor registry; `Format.proto`.
+- [04]-[CBOR_ENGINE]: bounded complete-payload decode; `Format.cbor`.
+- [05]-[MSGPACK_ENGINE]: bounded complete payloads and the `Clock.Hlc` extension; `Format.msgpack`.
+- [06]-[JSONPATCH_ENGINE]: typed operations and prototype-safe rooted application; `Format.Patch`.
+- [07]-[JSON_ENGINE]: bounded UTF-8 JSON and refused-octet rendering; `Format.json`.
+- [08]-[ARM_ROWS]: fits, admit, compatibility, self-description, render, and degrade per arm; `Format.arms`.
 
 ## [02]-[ENGINE_FOLD]
 
-[ENGINE_FOLD]:
-- Owner: `_lifted`, the one transform builder every byte arm instantiates — a `(decode, encode)` function pair folds into a `Schema.transformOrFail` from held octets to `Schema.Unknown`, each direction catching the engine's throw through `Either.try` into `ParseResult.Type`, so a codec defect joins the admission rail at the seam it occurred and the interior never meets a raw engine throw.
-- Law: engines configure once at module scope — instance options, ceilings, extension registries are module-init facts; a per-call engine construction re-mints codec state and is the rejected form.
-- Law: a decode-only arm states its posture as a typed refusal — the encode direction fails `ParseResult.Forbidden` so an accidental egress through a decode-only schema dies at the boundary as evidence, never as silent bytes.
-- Growth: a further dialect instantiates `_lifted` with its own engine pair; the fold shape never changes.
+- Owner: `_lifted` admits raw octets, normalizes engine defects, and bounds encoded output.
+- Law: engines and registries configure once at module initialization.
+- Law: a decode-only engine refuses encode with `ParseResult.Forbidden`.
 - Packages: `effect` (`Schema`, `ParseResult`, `Either`).
 
 ```typescript signature
-import { Array, Effect, Either, Option, ParseResult, pipe, Predicate, Schema, Stream, type Types } from "effect"
+import { Array, Effect, Either, Match, Option, ParseResult, Schema, type Types } from "effect"
+
+const _Octets = Schema.Uint8ArrayFromSelf.pipe(
+  Schema.filter((octets) => octets.byteLength <= Shape.Ingress.floor.bytes, {
+    message: () => "<payload-overrun>",
+  }),
+)
 
 const _lifted = (
   decode: (octets: Uint8Array) => unknown,
   encode: (value: unknown) => Uint8Array | undefined,
 ): Schema.Schema<unknown, Uint8Array> =>
-  Schema.transformOrFail(Schema.Uint8ArrayFromSelf, Schema.Unknown, {
+  Schema.transformOrFail(_Octets, Schema.Unknown, {
     strict: true,
     decode: (octets, _options, ast) =>
       Either.try({ try: () => decode(octets), catch: (defect) => new ParseResult.Type(ast, octets, String(defect)) }),
@@ -43,46 +50,28 @@ const _lifted = (
 
 ## [03]-[PROTO_ENGINE]
 
-[PROTO_ENGINE]:
-- Owner: `Proto`, the protobuf-es engine — `_READ`/`_WRITE` posture rows, the `_Message` foreign-identity schema, `frame(gen)` the raw byte-to-message schema, `family(gen, owned)` the composed byte-to-owned-vocabulary schema every proto registry row instantiates, `stream(gen)` the size-delimited frame walk lifted to `Stream`, `delimit(gen, message)` the length-prefixed egress twin of that walk, `peek(octets)` the frame-header triage read, `option(options, ext)` the custom-option read over any `Desc*.proto.options` carrier, the `_suite` `GenMessage` table over the ordered `_names` tuple, and the one `createRegistry` value `Any` unpacking and error-detail decode resolve against.
-- Law: `readUnknownFields: true` and `writeUnknownFields: true` are the drift-safe posture — an unknown field is preserved evidence the contract gate grades, never a decode fault, and a partial peer's round-trip re-emits what it did not understand; `recursionLimit` bounds adversarial nesting before allocation grows, surfacing as `ParseError` at the seam.
-- Law: the framed lane states its own admitted-message ceiling — `sizeDelimitedDecodeStream` defaults `readMaxBytes` to 64 MiB, so `_STREAM` widens the read posture with the `Ingress` floor's own assembled-byte row and no frame the branch's ingress budget refuses can reach a decode; leaving the default standing makes the proto arm the one engine whose stream lane admits past the budget every sibling engine already prices, and a fresh literal here forks the ceiling the ingress owner declares.
-- Law: `_Message` admits the foreign message by identity through `Schema.declare` over `isMessage` — a decoded message is `$typeName`-branded plain data, never `instanceof`-discriminated, and it leaves this module only through `family`'s composed owned vocabulary.
-- Law: 64-bit fields are `bigint` end to end — `protoInt64` bridges construction sites, and a `Number`-coerced i64 loses precision past 2^53 and is the named defect.
-- Law: the suite is the only site touching the generated `interchange_pb.ts` — sibling pages import `Proto`, never the emit; the generated module is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime by the workspace catalog, regenerated atomically with a census edit, and never hand-edited.
-- Law: generation input spans EVERY producing estate's corpus schema, not one branch's — the census seats a python-minted family beside the C#-minted rows, so `AssetSetManifest` reaches `_suite` exactly as a `Rasm.*` message does and the row carries no second engine, no second registry, and no second decode path. Generation input scoped to one producer strands a rostered census family with no suite row and breaks the tuple guard at the declaration, which is the intended failure — the fix is the input, never a hand-written schema beside the emit.
-- Law: the registry is program-wide singular — a second `createRegistry` call forks `Any` and detail resolution and is the drift defect; `peek` reads a size-delimited header without consuming — `sizeDelimitedPeek` answers `{ size, offset, eof }`, an incomplete varint folds to `Option.none`, and the settled pair carries `size` with `offset` so the holder of a tail proves `offset + size` against the held extent — the triage the quarantine rail classifies `truncated` against.
-- Law: `delimit` is the framed egress twin — `sizeDelimitedEncode` under the `_WRITE` posture, composed only where an emission joins a size-delimited transport; quarantine replay octets stay whole-message form, the codec registry's own decode coordinate, so ingress framing and replay framing never entangle.
-- Law: `option` is the annotation read — `hasExtension` guards, `getExtension` reads, and the pair rides `Option` over the carrier's `proto.options` message, so a descriptor annotation (the SI-scalar `QuantityFamily` row on `QuantityWire`, a field-behavior mark) resolves typed through the generated extension descriptor and no consumer touches the raw options message; an absent options carrier or unset extension is `Option.none`, never a sentinel.
-- Law: `toBinary` canonical bytes are the content-key input — proto is deterministic per field order, so the codec parity combinator hashes engine egress and never a second serialization.
-- Growth: a new proto wire family is one census row, one regenerated emit, and one `_suite` row — the tuple/table guards break until all three agree; a read-posture axis is a `_READ` field.
-- Boundary: which family binds which suite row, quarantine classification, and every landing shape are the codec registry's; descriptor reflection over the `FileDescriptorSet` is the contract gate's altitude.
-- Packages: `@bufbuild/protobuf` (`fromBinary`, `toBinary`, `isMessage`, `createRegistry`, `getExtension`, `hasExtension`, `DescExtension`, `DescMessage`, `Extendee`, `ExtensionValueShape`, `Message`, `Registry`); `@bufbuild/protobuf/wire` (`sizeDelimitedDecodeStream`, `sizeDelimitedEncode`, `sizeDelimitedPeek`); `effect` (`Schema`, `Stream`, `Either`, `Option`, `Array`, `pipe`); `../value/schema.ts` (`Ingress`); generated `./interchange_pb.ts`.
+- Owner: `Format.proto` composes complete protobuf messages with owned schemas and exposes one descriptor registry.
+- Law: unknown fields survive semantic decode and encode, while recursion and raw-byte admission remain bounded.
+- Law: protobuf parity is semantic; only frozen map and unknown-field posture fixtures may claim exact bytes.
+- Law: generated descriptors enter through `_suite`; no handwritten peer schema or second registry exists.
+- Law: `_suite` keys transcribe declared message names verbatim; a family owning no descriptor source rides a `codec` arm.
+- Packages: `@bufbuild/protobuf`; `effect`; `../value/schema.ts`; generated `./interchange_pb.ts`.
 
 ```typescript signature
 import {
   createRegistry,
-  type DescExtension,
   type DescMessage,
-  type Extendee,
-  type ExtensionValueShape,
   fromBinary,
-  getExtension,
-  hasExtension,
   isMessage,
   type Message,
   type Registry,
   toBinary,
+  toJsonString,
 } from "@bufbuild/protobuf"
-import { sizeDelimitedDecodeStream, sizeDelimitedEncode, sizeDelimitedPeek } from "@bufbuild/protobuf/wire"
-import { Ingress } from "../value/schema.ts"
+import { Shape } from "../value/schema.ts"
 import * as pb from "./interchange_pb.ts"
 
 const _READ = { readUnknownFields: true, recursionLimit: 24 } as const
-// The framed lane carries its own admitted-message ceiling: `sizeDelimitedDecodeStream` defaults `readMaxBytes` to
-// 64 MiB, so an unstated posture would leave the proto arm the one engine whose stream lane admits a frame the
-// branch's own ingress budget already refuses — the row reads the `Ingress` floor rather than a fresh literal.
-const _STREAM = { ..._READ, readMaxBytes: Ingress.floor.maxAssembledBytes } as const
 const _WRITE = { writeUnknownFields: true } as const
 
 const _Message: Schema.Schema<Message> = Schema.declare((input: unknown): input is Message => isMessage(input))
@@ -93,41 +82,41 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
     (value) => (isMessage(value, gen) ? toBinary(gen, value, _WRITE) : undefined),
   ).pipe(Schema.compose(_Message, { strict: false }))
 
-// The roster is exactly the families a `.proto` DECLARES, and `rasm/channels.proto` — the one landed descriptor
-// source — declares the texture families alone. A source-generated-JSON producer is therefore absent BY LAW: the
-// AppHost runtime-evidence set ([02.21]) and the AppUi product-shell set ([02.22]) each owe no descriptor source
-// under [02.9], so a row here for one of them would bind a schema no `.proto` declares and read its bytes through
-// a reader nothing writes for. The appearance families are absent on their own ground — their wire is the
-// producer's MessagePack integer-keyed roster, and a proto declaration beside it is a second schema for one wire.
-// The seam summary is no family at all: it rides inside `NodeWire` field 7 as the `rasm.element.v1` payload.
+// Keys TRANSCRIBE descriptor names verbatim — a key is the message a `.proto` declares and its value the generated
+// `<Name>Schema` protoc-gen-es derives from that same name — so the corpus mints every spelling and this registry
+// re-spells none. Rows group by declaring source: element the graph envelopes and their node and edge payloads,
+// channels the texture families, compute the suite service vocabulary, organization the containment envelope.
+// Compute's messages carry NO `Wire` suffix while element's carry it on every message, because that suffix breaks a
+// COLLISION rather than marking a projection — element seats a wire type beside a domain twin per message, where
+// nothing co-resident with compute's collides. `AssetSetManifest` reads unsuffixed for that one reason.
+//
+// Families enter only where THIS branch decodes them: `rasm.scene.v1` declares a landed source whose consumer is the
+// python energy owner, so a row for it mounts a reader against bytes no browser receives.
+//
+// Families owning no descriptor source stay absent BY LAW and ride their own `interchange/codec` arm: the AppHost
+// runtime-evidence set ([02.21]) and the AppUi product-shell set ([02.22]) owe none under [02.9]; the appearance
+// families mint their wire as the producer's MessagePack integer-keyed roster; `HlcStampWire` carries the [02.7]
+// two-half cell whose frozen layout a descriptor's tag bytes would displace; a quantity crosses inside
+// `MeasureValueWire`. Seam summary is no family at all — it rides `NodeWire` field 7 as the `rasm.element.v1`
+// payload.
 const _names = [
-  "HlcStampWire", "FaultDetailWire", "QuantityWire", "ElementGraphWire", "GraphDeltaWire", "NodeWire", "RelationshipWire",
-  "ProgressMarkWire", "BenchmarkClaimWire",
-  "BcfTopicWire", "BcfViewpointWire", "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
+  "ElementGraphWire", "GraphDeltaWire", "NodeWire", "RelationshipWire",
   "TextureSetWire", "AssetSetManifest",
-  "ArtifactFrameWire", "GeometryPayloadWire",
+  "FaultDetail", "ArtifactFrame", "GeometryPayload",
+  "OrganizationWire",
 ] as const
 
 const _suite = {
-  HlcStampWire: pb.HlcStampWireSchema,
-  FaultDetailWire: pb.FaultDetailWireSchema,
-  QuantityWire: pb.QuantityWireSchema,
   ElementGraphWire: pb.ElementGraphWireSchema,
   GraphDeltaWire: pb.GraphDeltaWireSchema,
   NodeWire: pb.NodeWireSchema,
   RelationshipWire: pb.RelationshipWireSchema,
-  ProgressMarkWire: pb.ProgressMarkWireSchema,
-  BenchmarkClaimWire: pb.BenchmarkClaimWireSchema,
-  BcfTopicWire: pb.BcfTopicWireSchema,
-  BcfViewpointWire: pb.BcfViewpointWireSchema,
-  GeoFeatureWire: pb.GeoFeatureWireSchema,
-  BimWire: pb.BimWireSchema,
-  DiffWire: pb.DiffWireSchema,
-  IdsAuditWire: pb.IdsAuditWireSchema,
   TextureSetWire: pb.TextureSetWireSchema,
   AssetSetManifest: pb.AssetSetManifestSchema,
-  ArtifactFrameWire: pb.ArtifactFrameWireSchema,
-  GeometryPayloadWire: pb.GeometryPayloadWireSchema,
+  FaultDetail: pb.FaultDetailSchema,
+  ArtifactFrame: pb.ArtifactFrameSchema,
+  GeometryPayload: pb.GeometryPayloadSchema,
+  OrganizationWire: pb.OrganizationWireSchema,
 } as const
 
 declare namespace Proto {
@@ -138,13 +127,6 @@ declare namespace Proto {
     readonly registry: Registry
     readonly frame: typeof _frame
     readonly family: <A, I>(gen: DescMessage, owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
-    readonly stream: (gen: DescMessage) => (frames: AsyncIterable<Uint8Array>) => Stream.Stream<Message, unknown>
-    readonly delimit: (gen: DescMessage, message: Message) => Uint8Array
-    readonly peek: (octets: Uint8Array) => Option.Option<{ readonly size: number; readonly offset: number }>
-    readonly option: <Ext extends DescExtension>(
-      options: Extendee<Ext> | undefined,
-      ext: Ext,
-    ) => Option.Option<ExtensionValueShape<Ext>>
   }>
   type _Rows<T extends Record<(typeof _names)[number], DescMessage> = typeof _suite> = T
   type _Keys<K extends (typeof _names)[number] = Name> = K
@@ -156,113 +138,88 @@ const Proto: Proto.Shape = {
   registry: createRegistry(...Array.map(_names, (name) => _suite[name])),
   frame: _frame,
   family: (gen, owned) => _frame(gen).pipe(Schema.compose(owned, { strict: false })),
-  stream: (gen) => (frames) => Stream.fromAsyncIterable(sizeDelimitedDecodeStream(gen, frames, _STREAM), (defect) => defect),
-  delimit: (gen, message) => sizeDelimitedEncode(gen, message, _WRITE),
-  peek: (octets) =>
-    pipe(sizeDelimitedPeek(octets), (header) =>
-      header.size === null ? Option.none() : Option.some({ size: header.size, offset: header.offset })),
-  option: (options, ext) =>
-    Option.fromNullable(options).pipe(
-      Option.flatMap((carrier) => (hasExtension(carrier, ext) ? Option.some(getExtension(carrier, ext)) : Option.none())),
-    ),
 }
 ```
 
 ## [04]-[CBOR_ENGINE]
 
-[CBOR_ENGINE]:
-- Owner: `Cbor`, the canonical-CBOR engine — a configured `Decoder`/`Encoder` pair under the cross-language posture (`useRecords: false`, `mapsAsObjects: true`, `tagUint8Array: true`) with `variableMapSize` on the encoder, `frame` the bidirectional byte schema, `frames` the concatenated multi-frame walk, and `chunked` the iterator lane over `decodeIter` for a segment set that outgrows one buffer; the `setSizeLimits` DoS ceilings arm at module init, on the same engine-configuration seam that constructs the pair, so no decode path exists before the gate.
-- Law: the top-level `decode`/`encode` bind cbor-x's shared default instance whose `useRecords: true` engages the proprietary tag-105 record dialect no C# writer speaks — a top-level call on cross-language bytes is the drift defect, and this engine's configured pair is the only codec the plane touches.
-- Law: the arm carries a real inverse — `variableMapSize` writes the shortest-form map header the content-stability law already asserts, so the encode leg is byte-canonical and the codec registry's cbor row takes the golden-byte roundtrip proof exactly as every proto and msgpack row does. A decode-only cbor arm made that row the one family the divergence proof could never run against, which is a hole in the proof estate rather than a posture.
-- Law: the ceiling is an admission invariant, never an optional boot effect — `setSizeLimits(_CEILINGS)` executes in the same module-init seam as the decoder construction and the ext registrations (the package's own once-at-init contract), so every public decode path is bounded before the engine is constructible and a composition root cannot sequence an unbounded decode ahead of the gate; a post-decode size check or a consumer-armed limit layer is the deleted spelling.
-- Law: Contract CBOR is content-stable — deterministic key order, shortest-form integers — so the decoded header's content key re-verifies against the held octets through the codec parity combinator; the engine never re-canonicalizes and never re-mints.
-- Law: the quirk augmentation is the owner's capture — the shipped `index.d.ts` declares a `setMaxLimits` the runtime never exports and omits both `setSizeLimits` and `decodeIter`, which the runtime does export, so the declared gate is the phantom and the real one is invisible; the `declare module` block beside the engine declares only verified runtime truth, never calls the mislabeled member, and downstream composes `setSizeLimits` typed without re-discovering the mismatch.
-- Law: `tagUint8Array: true` keeps byte fields as `Uint8Array` views for content-key verification; a decoded `Tag` value dispatches at the consuming registry row, never here.
-- Law: `chunked` rides the same posture — `decodeIter` takes the `_POSTURE` options record, so the multi-segment `SnapshotHeader` roster streams through the canonical decoder and the module-level default instance (whose `useRecords: true` speaks the tag-105 dialect) stays untouched on this lane too.
-- Growth: a ceiling axis is one `_CEILINGS` field; a posture axis is one `_POSTURE` field every lane inherits.
-- Boundary: the `SnapshotHeader` landing shape, its parity verify, and quarantine classification are the codec registry's; the ceilings guard this engine's decode plane and the frame rail's assembly budgets are `value` `Ingress` rows enforced at the frame page.
-- Packages: `cbor-x` (`Decoder`, `Encoder`, `setSizeLimits`, `decodeIter` via the local augmentation); `effect` (`Schema`, `Stream`).
+- Owner: `Format.cbor`, the bounded RFC 8949 decoder for one complete payload.
+- Law: the arm is decode-only because cbor-x does not prove producer map ordering.
+- Law: package size ceilings derive from `Shape.Ingress` and arm before decoder construction.
+- Law: transport framing supplies one complete payload because raw chunk walks accept incomplete EOF tails.
+- Packages: `cbor-x` (`Decoder`, `setSizeLimits` via the local augmentation); `effect` (`Schema`).
 
 ```typescript signature
-import { decodeIter, Decoder, Encoder, setSizeLimits } from "cbor-x"
+import { Decoder, setSizeLimits } from "cbor-x"
 
 declare module "cbor-x" {
   function setSizeLimits(limits: {
     readonly maxArraySize?: number
     readonly maxMapSize?: number
-    readonly maxObjectSize?: number
   }): void
-  function decodeIter(
-    iterable: AsyncIterable<Uint8Array>,
-    options?: { readonly useRecords?: boolean; readonly mapsAsObjects?: boolean; readonly tagUint8Array?: boolean },
-  ): AsyncIterableIterator<unknown>
 }
 
 const _POSTURE = { useRecords: false, mapsAsObjects: true, tagUint8Array: true } as const
-const _CEILINGS = { maxArraySize: 65536, maxMapSize: 16384, maxObjectSize: 1048576 } as const
+const _CEILINGS = {
+  maxArraySize: Shape.Ingress.floor.collection,
+  maxMapSize: Shape.Ingress.floor.members,
+} as const
 
 setSizeLimits(_CEILINGS) // The once-at-init DoS gate arms before codec construction.
 const _cborDecoder = new Decoder(_POSTURE)
-const _cborEncoder = new Encoder({ ..._POSTURE, variableMapSize: true }) // shortest-form map headers: the content-stability law made mechanical
+
+// `schema` and `frame` are one construction read at two grains, exactly as the MessagePack arm reads them: a family
+// composes its owned schema onto the frame and a held payload renders through the bare one. Leaving `schema` off
+// this arm made its one family spell the composition inline, so the cbor binding read unlike every sibling row.
+const _cborFrame: Schema.Schema<unknown, Uint8Array> =
+  _lifted((octets) => _cborDecoder.decode(octets), () => undefined)
 
 const Cbor: {
   readonly frame: Schema.Schema<unknown, Uint8Array>
-  readonly frames: (octets: Uint8Array) => ReadonlyArray<unknown>
-  readonly chunked: (segments: AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
+  readonly schema: <A, I>(owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
 } = {
-  frame: _lifted((octets) => _cborDecoder.decode(octets), (value) => _cborEncoder.encode(value)),
-  frames: (octets) => _cborDecoder.decodeMultiple(octets) ?? [],
-  chunked: (segments) => Stream.fromAsyncIterable(decodeIter(segments, _POSTURE), (defect) => defect),
+  frame: _cborFrame,
+  schema: (owned) => _cborFrame.pipe(Schema.compose(owned, { strict: false })),
 }
 ```
 
 ## [05]-[MSGPACK_ENGINE]
 
-[MSGPACK_ENGINE]:
-- Owner: `Pack`, the MessagePack engine — one `ExtensionCodec` carrying the contract sixteen-byte `Hlc` cell as extension row `_EXT.hlc`, decoding through `Hlc.FromBytes` so the two-half little-endian layout has exactly one spelling; one configured `Decoder`/`Encoder` pair under `useBigInt64: true` and the `max*Length` ceilings; `schema(owned)` the composed byte-to-owned schema, `frames` the sync concatenated walk, `stream` the backpressured multi-frame walk, `encode`/`transfer` the canonical and zero-copy egress, and the `Alien`/`alien` foreign-ext seam.
-- Law: the multi-frame walk carries both arrival modalities off ONE options record — `frames` reads a buffered run of ops already in hand and `stream` reads a backpressured source, mirroring the cbor arm member for member, so the `Hlc` extension row and every `max*Length` ceiling apply identically on both. A buffered op run — an HTTP body, a replayed quarantine octet run, a fixture vector — otherwise has to be wrapped in an async iterable to reach a decoder that never needed one.
-- Law: the ext registry and the union tag are two tables, never a branch ladder — the `Hlc` ext row decodes the fixed cell into the kernel stamp inside the codec, and the op union's own discriminant dispatches at the landing schema; an unregistered ext surfaces as `ExtData`, never dropped, and `Pack.Alien` — the `Schema.declare` identity over the engine class — is the one seam a consuming row's dispatch arm composes, with `Pack.alien(ext, cell)` the encode-side mint so the class construction never leaks past this module.
-- Law: the interner context threads the mint — `context.intern` is `Schema.decodeSync(Hlc.FromBytes)` handed into every ext decode, so the stamp mints once at the seam and no module-level mint singleton exists; a TS re-mint of the sixteen-byte layout is the named cross-language drift defect.
-- Law: `useBigInt64: true` is i64 fidelity — HLC counters, sequence ordinals, and version counts decode as `bigint`; a decoder without it silently truncates past 2^53 and is the precision defect. Default cached key decoding already owns hot repeated map keys; no `keyDecoder` override exists to tune.
-- Law: `sortKeys: true` on the encoder is canonical egress — re-encoded quarantine octets and transfer payloads are byte-stable; `transfer` returns the encoder's shared-buffer view for a zero-copy worker crossing, dead to this side the moment the buffer transfers.
-- Growth: a domain ext row is one `register` call beside the `Hlc` row in the contract-allocated positive type range; a ceiling axis is one `_CEILINGS` field.
-- Boundary: the `CrdtOp` union, the oplog stream row with its gap Mealy, and the version-plane landings are the codec registry's; the built-in `EXT_TIMESTAMP` row stays registered on the default codec path for `Date` fields.
-- Packages: `@msgpack/msgpack` (`Decoder`, `Encoder`, `ExtData`, `ExtensionCodec`, `decodeMulti`, `decodeMultiStream`); `effect` (`Schema`, `Stream`, `Array`); `../value/clock.ts` (`Hlc`).
+- Owner: `Format.msgpack` owns bounded complete-payload decode, encode, and the `Clock.Hlc` extension.
+- Law: extension decode delegates to `Clock.Hlc.FromBytes`, and i64 values remain `bigint`.
+- Law: transport framing supplies complete payloads because package stream decoders accept incomplete EOF tails.
+- Law: encoder key sorting stabilizes this arm's egress without claiming a cross-implementation canonical encoding.
+- Law: `frame` decodes a payload with no owned schema, so a held frame renders where its family's schema already refused.
+- Packages: `@msgpack/msgpack` (`Decoder`, `Encoder`, `ExtData`, `ExtensionCodec`); `effect` (`Schema`); `../value/clock.ts` (`Clock.Hlc`).
 
 ```typescript signature
-import { Decoder as PackDecoder, decodeMulti, decodeMultiStream, Encoder as PackEncoder, ExtData, ExtensionCodec } from "@msgpack/msgpack"
-import { Hlc } from "../value/clock.ts"
+import { Decoder as PackDecoder, Encoder as PackEncoder, ExtData, ExtensionCodec } from "@msgpack/msgpack"
+import { Clock } from "../value/clock.ts"
 
 const _EXT = { hlc: 8 } as const
 const _PACK_CEILINGS = {
-  maxStrLength: 65536,
-  maxBinLength: 16777216,
-  maxArrayLength: 65536,
-  maxMapLength: 16384,
-  maxExtLength: 16777216,
+  maxStrLength: Shape.Ingress.floor.bytes,
+  maxBinLength: Shape.Ingress.floor.bytes,
+  maxArrayLength: Shape.Ingress.floor.collection,
+  maxMapLength: Shape.Ingress.floor.members,
+  maxExtLength: Shape.Ingress.floor.bytes,
 } as const
 
 declare namespace Pack {
-  type Context = { readonly intern: (cell: Uint8Array) => Hlc }
+  type Context = { readonly intern: (cell: Uint8Array) => Clock.Hlc }
   type Shape = {
-    readonly ext: typeof _EXT
-    readonly Alien: Schema.Schema<ExtData>
-    readonly alien: (ext: number, cell: Uint8Array) => ExtData
+    readonly frame: Schema.Schema<unknown, Uint8Array>
     readonly schema: <A, I>(owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
-    readonly frames: (octets: Uint8Array) => ReadonlyArray<unknown>
-    readonly stream: (frames: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
-    readonly encode: (value: unknown) => Uint8Array
-    readonly transfer: (value: unknown) => Uint8Array
   }
 }
 
-const _context: Pack.Context = { intern: Schema.decodeSync(Hlc.FromBytes) }
-const _cell = Schema.encodeSync(Hlc.FromBytes)
+const _context: Pack.Context = { intern: Schema.decodeSync(Clock.Hlc.FromBytes) }
+const _cell = Schema.encodeSync(Clock.Hlc.FromBytes)
 
 const _extensions: ExtensionCodec<Pack.Context> = new ExtensionCodec<Pack.Context>()
 _extensions.register({
   type: _EXT.hlc,
-  encode: (value) => (value instanceof Hlc ? _cell(value) : null),
+  encode: (value) => (value instanceof Clock.Hlc ? _cell(value) : null),
   decode: (data, _type, context) => context.intern(data),
 })
 
@@ -270,155 +227,183 @@ const _packOptions = { extensionCodec: _extensions, context: _context, useBigInt
 const _packDecoder = new PackDecoder<Pack.Context>(_packOptions)
 const _packEncoder = new PackEncoder<Pack.Context>({ ..._packOptions, sortKeys: true })
 
+// One lifted pair serves every family: `schema` composes an owned schema onto it and the bare frame stays reachable,
+// so a quarantined payload renders through the same configured decoder that refused it rather than through a second
+// construction whose ceilings and extension registry could drift off this one.
+const _packFrame: Schema.Schema<unknown, Uint8Array> =
+  _lifted((octets) => _packDecoder.decode(octets), (value) => _packEncoder.encode(value))
+
 const Pack: Pack.Shape = {
-  ext: _EXT,
-  Alien: Schema.declare((input: unknown): input is ExtData => input instanceof ExtData),
-  alien: (ext, cell) => new ExtData(ext, cell),
-  schema: (owned) =>
-    _lifted((octets) => _packDecoder.decode(octets), (value) => _packEncoder.encode(value)).pipe(
-      Schema.compose(owned, { strict: false }),
-    ),
-  frames: (octets) => Array.fromIterable(decodeMulti(octets, _packOptions)),
-  stream: (frames) => Stream.fromAsyncIterable(decodeMultiStream(frames, _packOptions), (defect) => defect),
-  encode: (value) => _packEncoder.encode(value),
-  transfer: (value) => _packEncoder.encodeSharedRef(value),
+  frame: _packFrame,
+  schema: (owned) => _packFrame.pipe(Schema.compose(owned, { strict: false })),
 }
 ```
 
 ## [06]-[JSONPATCH_ENGINE]
 
-[JSONPATCH_ENGINE]:
-- Owner: `Patch`, the RFC 6902 engine — the six-op `Operation` union whose `path`/`from` fields carry the branch `Refined.JsonPointer` brand so a malformed pointer dies at admission, never inside the apply engine; `FromJson` the fused string codec; `apply` the clone-fenced value-rail application; `holds` the non-mutating OCC pre-check; `diff` the content-key-reconciled minimal patch; `guarded` the OCC egress prefixing `createTests` pre-image proofs; `encode` and `key` the egress projections; `pointer` the RFC 6901 traversal-and-token codec riding rfc6902's own `Pointer`.
-- Law: rfc6902 stays the pure engine under the Schema boundary — the C#-authored `JsonPatchDocument` decodes once through the union, `applyPatch` returns one result slot per op with errors as values, and the first non-`null` slot folds through the `Match.instanceOf` triage into the interchange fault vocabulary at the consuming registry row; a raw operation array or a thrown apply fault never crosses.
-- Law: mutation is fenced by a clone — the engine applies in place, so `apply` clones the target before `applyPatch` and the decoded base stays immutable on the rail.
-- Law: the diff is parameterized, never enumerated — `Patch.keyed(identity)` compiles an explicit `VoidableDiff` policy from the entity family's content-key projection: two admitted keys compare by identity, a key change replaces the value whole, and an absent key falls through to `diffAny`. Generic patching uses `Patch.structural`; no object becomes content-addressed merely because it carries a string field named `key`, and a per-shape differ roster is the rejected form.
-- Law: egress mints through `_mintedDoc` — the engine emits RFC 6901-valid pointers by construction, so the interior `Schema.decodeSync` brand mint is the trusted-construction channel over proven inputs and the throw path is structurally unreachable; `diff` and `guarded` land the branded `Document` every consumer already speaks.
-- Law: the egress is self-guarding — `guarded` emits `test` ops over the base pre-image ahead of the mutation so the C# OCC append refuses a stale patch before applying; `key` mints the patch content key through the one `Digest` content row over the encoded document, so `EntityEdit` identity is the branch identity.
-- Law: the guard is verifiable on THIS side — `holds` folds the applier's own non-mutating precondition check over the document's `test` entries against an un-cloned base and answers the first failing slot with its ordinal, reusing the triage `apply` already carries; without it a holder of a base and a guarded patch has to run the full mutating apply to learn a precondition failed. Both members answer the same `[Slot, number]` pair, so `stale` and `conflict` keep their single mint site at the consuming registry row's slot triage.
-- Law: `TestError` slots carry `{ actual, expected }` both ways — the drift report reads evidence as data; an op outside the closed six is contract-drift material graded at the contract page's verdict vocabulary.
-- Law: pointer authority splits by altitude — the `Refined.JsonPointer` brand owns admission grammar at the schema seam, and `pointer` owns traversal and the `~0`/`~1` token codec through `Pointer.fromJSON`/`escapeToken`/`unescapeToken`, so a hand-rolled escape or path walk beside either owner is the re-implementation defect; `pointer.evaluate` reads a branded path against a value as `Option` off the evaluation triple's own parent-and-key presence — a resident `null` leaf is `Option.some(null)`, only a missing location folds to `Option.none`, and nothing throws.
-- Growth: an apply-policy axis is one `_APPLY` field; a new reconciliation family is one `Patch.keyed` projection at its composition root.
-- Boundary: the `JsonPatchDocument` census row, the slot-to-fault classification (`WireFault.fromSlot`), and the OCC/conflict fault reasons are the codec registry's; the version-plane append that consumes the guard is the data branch's.
-- Packages: `rfc6902` (`applyPatch`, `createPatch`, `createTests`), `rfc6902/diff` (`isDestructive`, `VoidableDiff`), `rfc6902/pointer` (`Pointer`, `escapeToken`, `unescapeToken`), `rfc6902/patch` (`test`, `InvalidOperationError`, `MissingError`, `TestError`), `rfc6902/util` (`clone`); `effect` (`Schema`, `ParseResult`, `Effect`, `Array`, `Option`, `Predicate`, `pipe`); `../value/schema.ts` (`Refined`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
+- Owner: `Format.Patch` owns the closed RFC 6902 operation union and rooted immutable application.
+- Law: paths reject prototype tokens, one structured clone isolates the input pair, and non-root ops delegate to `rfc6902`.
+- Law: root removal returns `Option.none`; the EntityEdit members arm requires a present successor.
 
 ```typescript signature
-import { applyPatch, createPatch, createTests } from "rfc6902"
-import { isDestructive, type VoidableDiff } from "rfc6902/diff"
-import { type InvalidOperationError, type MissingError, test, type TestError } from "rfc6902/patch"
-import { escapeToken, Pointer, unescapeToken } from "rfc6902/pointer"
-import { clone } from "rfc6902/util"
-import { type ContentKey, Digest } from "../value/contentKey.ts"
-import { Refined } from "../value/schema.ts"
+import { applyPatch } from "rfc6902"
+import { InvalidOperationError, MissingError, TestError } from "rfc6902/patch"
+import { Pointer, unescapeToken } from "rfc6902/pointer"
 
-const _op = Schema.Union(
-  Schema.Struct({ op: Schema.Literal("add"), path: Refined.JsonPointer, value: Schema.Unknown }),
-  Schema.Struct({ op: Schema.Literal("remove"), path: Refined.JsonPointer }),
-  Schema.Struct({ op: Schema.Literal("replace"), path: Refined.JsonPointer, value: Schema.Unknown }),
-  Schema.Struct({ op: Schema.Literal("move"), from: Refined.JsonPointer, path: Refined.JsonPointer }),
-  Schema.Struct({ op: Schema.Literal("copy"), from: Refined.JsonPointer, path: Refined.JsonPointer }),
-  Schema.Struct({ op: Schema.Literal("test"), path: Refined.JsonPointer, value: Schema.Unknown }),
+const _prototypeTokens = new Set(["__proto__", "prototype", "constructor"])
+const _safePointer = (path: string): boolean =>
+  path === "" || path.slice(1).split("/").every((token) => !_prototypeTokens.has(unescapeToken(token)))
+
+const _PatchPointer = Shape.Refined.JsonPointer.pipe(
+  Schema.filter(_safePointer, { identifier: "PrototypeSafeJsonPointer" }),
 )
 
-const _document = Schema.Array(_op)
-const _FromJson: Schema.Schema<Patch.Document, string> = Schema.parseJson(_document)
-const _encodedPatch = Schema.encode(_FromJson)
-const _mintedDoc = Schema.decodeSync(_document)
+const _PatchOperation = Schema.Union(
+  Schema.Struct({ op: Schema.Literal("add"), path: _PatchPointer, value: Shape.Json }),
+  Schema.Struct({ op: Schema.Literal("remove"), path: _PatchPointer }),
+  Schema.Struct({ op: Schema.Literal("replace"), path: _PatchPointer, value: Shape.Json }),
+  Schema.Struct({ op: Schema.Literal("move"), from: _PatchPointer, path: _PatchPointer }),
+  Schema.Struct({ op: Schema.Literal("copy"), from: _PatchPointer, path: _PatchPointer }),
+  Schema.Struct({ op: Schema.Literal("test"), path: _PatchPointer, value: Shape.Json }),
+)
 
-const _APPLY = { implicitArrayCreation: false } as const
-const _utf8 = new TextEncoder()
+const _PatchDocument = Schema.Array(_PatchOperation).pipe(
+  Schema.filter((patch) => patch.length <= Shape.Ingress.floor.collection || "<patch-operation-overrun>"),
+)
 
-const _structural: VoidableDiff = () => undefined
-
-const _keyed = (identity: (value: unknown) => Option.Option<ContentKey>): VoidableDiff => (input, output, pointer) =>
-  Option.match(Option.zipWith(identity(input), identity(output), (actual, expected) => [actual, expected] as const), {
-    onNone: () => undefined,
-    onSome: ([actual, expected]) => actual === expected ? [] : [{ op: "replace", path: pointer.toString(), value: output }],
-  })
+type _PatchJson = Shape.Json
+const _patchAlike = Schema.equivalence(Shape.Json)
 
 declare namespace Patch {
-  type Operation = Schema.Schema.Type<typeof _op>
+  type Operation = Schema.Schema.Type<typeof _PatchOperation>
   type Document = ReadonlyArray<Operation>
   type Slot = InvalidOperationError | MissingError | TestError
-  type Reconcile = VoidableDiff
   type Shape = {
-    readonly FromJson: typeof _FromJson
-    readonly FromValue: typeof _document
-    readonly destructive: (operation: Operation) => boolean
-    readonly apply: (target: unknown, patch: Document) => Effect.Effect<unknown, readonly [Slot, number]>
-    readonly holds: (base: unknown, patch: Document) => Effect.Effect<void, readonly [Slot, number]>
-    readonly structural: Reconcile
-    readonly keyed: (identity: (value: unknown) => Option.Option<ContentKey>) => Reconcile
-    readonly diff: (reconcile: Reconcile) => (base: unknown, next: unknown) => Document
-    readonly guarded: (reconcile: Reconcile) => (base: unknown, next: unknown) => Document
-    readonly encode: (patch: Document) => Effect.Effect<string, ParseResult.ParseError>
-    readonly key: (patch: Document) => Effect.Effect<ContentKey, ParseResult.ParseError>
-    readonly pointer: {
-      readonly of: (path: typeof Refined.JsonPointer.Type) => Pointer
-      readonly evaluate: (path: typeof Refined.JsonPointer.Type, target: unknown) => Option.Option<unknown>
-      readonly escape: (token: string) => string
-      readonly unescape: (token: string) => string
-    }
+    readonly Operation: typeof _PatchOperation
+    readonly Document: typeof _PatchDocument
+    readonly apply: (target: _PatchJson, patch: Document) => Effect.Effect<
+      Option.Option<_PatchJson>, readonly [Slot, number]
+    >
   }
 }
 
-const Patch: Patch.Shape = {
-  FromJson: _FromJson,
-  FromValue: _document,
-  destructive: isDestructive,
-  structural: _structural,
-  keyed: _keyed,
-  apply: (target, patch) =>
-    Effect.suspend(() => {
-      const successor = clone(target)
-      const slots = applyPatch(successor, [...patch], _APPLY)
-      return Option.match(
-        Array.findFirst(
-          Array.map(slots, (slot, index) => [slot, index] as const),
-          (pair): pair is readonly [Patch.Slot, number] => pair[0] !== null,
-        ),
-        { onNone: () => Effect.succeed(successor), onSome: Effect.fail },
-      )
+const _missing = (path: string): Either.Either<never, Patch.Slot> => Either.left(new MissingError(path))
+const _evaluated = (target: Shape.Json, path: string) => Either.try({
+  try: () => Pointer.fromJSON(path).evaluate(target),
+  catch: () => new MissingError(path),
+})
+
+const _located = (target: Shape.Json, path: string): Either.Either<Shape.Json, Patch.Slot> => {
+  return Either.flatMap(_evaluated(target, path), (endpoint) =>
+    endpoint.parent !== undefined && endpoint.parent !== null
+      && Object.prototype.hasOwnProperty.call(endpoint.parent, endpoint.key)
+      ? Either.right(endpoint.value as Shape.Json)
+      : _missing(path))
+}
+
+const _insert = (target: Shape.Json, path: string, value: Shape.Json): Either.Either<Shape.Json, Patch.Slot> =>
+  Either.flatMap(_evaluated(target, path), (endpoint) => {
+    if (typeof endpoint.parent !== "object" || endpoint.parent === null) return _missing(path)
+    if (Array.isArray(endpoint.parent)) {
+      if (endpoint.key === "-") {
+        endpoint.parent.push(value)
+        return Either.right(target)
+      }
+      if (!/^(0|[1-9]\d*)$/.test(endpoint.key)) return _missing(path)
+      const index = Number(endpoint.key)
+      if (!Number.isSafeInteger(index) || index > endpoint.parent.length) return _missing(path)
+      endpoint.parent.splice(index, 0, value)
+      return Either.right(target)
+    }
+    Object.defineProperty(endpoint.parent, endpoint.key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    })
+    return Either.right(target)
+  })
+
+const _present = (
+  target: Option.Option<Shape.Json>,
+  path: string,
+  use: (document: Shape.Json) => Either.Either<Option.Option<Shape.Json>, Patch.Slot>,
+): Either.Either<Option.Option<Shape.Json>, Patch.Slot> =>
+  Option.match(target, { onNone: () => _missing(path), onSome: use })
+
+const _delegated = (
+  document: Shape.Json,
+  operation: Patch.Operation,
+): Either.Either<Option.Option<Shape.Json>, Patch.Slot> =>
+  Either.flatMap(
+    Either.try({
+      try: () => applyPatch(document, [operation], { implicitArrayCreation: false })[0]!,
+      catch: () => new InvalidOperationError(operation),
     }),
-  // The pre-check runs the applier's own guard against an UN-cloned base: nothing mutates, so the same first-non-null
-  // triage `apply` carries answers whether the guarded patch still holds without spending the mutation to find out.
-  holds: (base, patch) =>
-    Option.match(
-      Array.findFirst(
-        Array.map(patch, (operation, index) => [operation.op === "test" ? test(base, operation, _APPLY) : null, index] as const),
-        (pair): pair is readonly [Patch.Slot, number] => pair[0] !== null,
+    (slot) => slot === null ? Either.right(Option.some(document)) : Either.left(slot),
+  )
+
+const _rooted = (
+  target: Option.Option<Shape.Json>,
+  operation: Patch.Operation,
+): Either.Either<Option.Option<Shape.Json>, Patch.Slot> => {
+  if (operation.path === "") {
+    return Match.value(operation).pipe(
+      Match.discriminatorsExhaustive("op")({
+        add: ({ value }) => Either.right(Option.some(value)),
+        remove: () => _present(target, "", () => Either.right(Option.none())),
+        replace: ({ value }) => _present(target, "", () => Either.right(Option.some(value))),
+        test: ({ value }) => _present(target, "", (document) =>
+          _patchAlike(document, value)
+            ? Either.right(target)
+            : Either.left(new TestError(document, value))),
+        copy: ({ from }) => _present(target, "", (document) =>
+          from === "" ? Either.right(target) : Either.map(_located(document, from), Option.some)),
+        move: ({ from }) => _present(target, "", (document) =>
+          from === "" ? Either.right(target) : Either.map(_located(document, from), Option.some)),
+      }),
+    )
+  }
+  return _present(target, operation.path, (document) => Match.value(operation).pipe(
+    Match.discriminatorsExhaustive("op")({
+      add: (row) => _delegated(document, row),
+      remove: (row) => _delegated(document, row),
+      replace: (row) => _delegated(document, row),
+      test: (row) => _delegated(document, row),
+      copy: (row) => row.from === ""
+        ? Either.map(_insert(document, row.path, structuredClone(document)), Option.some)
+        : _delegated(document, row),
+      move: (row) => row.from === ""
+        ? Either.left(new InvalidOperationError(row))
+        : _delegated(document, row),
+    }),
+  ))
+}
+
+const Patch: Patch.Shape = {
+  Operation: _PatchOperation,
+  Document: _PatchDocument,
+  apply: (target, patch) => Effect.suspend(() => {
+    const draft = structuredClone({ target, patch })
+    return Array.reduce(
+      draft.patch,
+      Either.right(Option.some(draft.target)) as Either.Either<Option.Option<Shape.Json>, readonly [Patch.Slot, number]>,
+      (held, operation, index) => Either.flatMap(
+        held,
+        (current) => Either.mapLeft(_rooted(current, operation), (slot) => [slot, index] as const),
       ),
-      { onNone: () => Effect.void, onSome: Effect.fail },
-    ),
-  diff: (reconcile) => (base, next) => _mintedDoc(createPatch(base, next, reconcile)),
-  guarded: (reconcile) => (base, next) =>
-    pipe(createPatch(base, next, reconcile), (mutation) => _mintedDoc([...createTests(base, mutation), ...mutation])),
-  encode: _encodedPatch,
-  key: (patch) => Effect.flatMap(_encodedPatch(patch), (text) => Digest.mint("content", _utf8.encode(text))),
-  pointer: {
-    of: (path) => Pointer.fromJSON(path),
-    evaluate: (path, target) =>
-      pipe(Pointer.fromJSON(path).evaluate(target), (found) =>
-        found.parent === null || Predicate.hasProperty(found.parent, found.key)
-          ? Option.some(found.value)
-          : Option.none()),
-    escape: escapeToken,
-    unescape: unescapeToken,
-  },
+    ).pipe(Effect.fromEither)
+  }),
 }
 ```
 
 ## [07]-[JSON_ENGINE]
 
-[JSON_ENGINE]:
-- Owner: `Json`, the arm the AppHost's source-generated `System.Text.Json` roster crosses on — `_utf8` the module's one byte-to-text crossing lifted through `_lifted` under the assembled-byte bound, `frame` the bounded byte-to-value schema, `schema(owned)` the composed byte-to-owned-vocabulary schema every json registry row instantiates, `stream(frames)` the newline-delimited document walk lifted to `Stream`, `encode(value)` the UTF-8 egress a quarantine thunk re-mints through, and `text(octets)` the held-octet render.
-- Law: the crossing is one marked kernel pair and no third decoder exists — `_strict` fails a malformed sequence into `_lifted`'s admission rail so a truncated multi-byte tail dies at the seam as evidence, while `_render` is lossy exactly so `text` answers over octets the strict pair already refused; that render is the one diagnostic a binary arm structurally cannot give, and it never feeds a decode.
-- Law: the parse fuses at the declaration — `Schema.parseJson` carries `JSON.parse` and `JSON.stringify` as one bidirectional codec composed onto the crossing, so no `JSON.parse` call stands beside a decode and `schema` composes the owned vocabulary onto that pair exactly as `Pack.schema` composes onto the msgpack pair.
-- Law: the arm carries a real inverse — the roster crosses under `JsonSerializerDefaults.Web`, whose member spelling is a mechanical projection of the producer's own members, so the encode leg re-emits what the producer wrote and the codec registry's json rows take the golden-byte roundtrip proof exactly as every proto and msgpack row does.
-- Law: the admitted-document ceiling reads the `Ingress` floor's assembled-byte row rather than a fresh literal, exactly as `Proto._STREAM` does, and it arms on the OCTETS ahead of the crossing so an oversized document refuses before a decoder allocates its text. The walk prices each line by its code-unit extent against that same row — UTF-8 spends at least one byte per code unit, so the text read is a conservative reading of the byte budget and never admits past it.
-- Law: the walk is newline-delimited because the producer emits one document per line — `Stream.decodeText` and `Stream.splitLines` own the framing, blank separators drop before the parse, and a hand buffer scanning for `\n` re-derives both operators.
-- Growth: a posture axis is one `_TEXT` field; a second framing (length-prefixed, record-separator) is one member beside `stream`, never a second engine.
-- Boundary: which family decodes through this arm, every landing shape, and the quarantine render that consumes `text` are the codec registry's; the assembled-byte budget itself is the `value` `Ingress` owner's.
-- Packages: `effect` (`Schema`, `Stream`, `Effect`); `../value/schema.ts` (`Ingress`).
+- Owner: `Format.json` owns bounded strict UTF-8 JSON composition and refused-octet rendering.
+- Law: `Shape.Ingress.floor.bytes` admits raw octets before UTF-8 allocation.
+- Law: structural decode and encode share `Schema.parseJson`; parity compares semantics, not member order.
+- Law: transport adapters frame NDJSON and feed complete records.
+- Packages: `effect` (`Schema`); `../value/schema.ts` (`Shape`).
 
 ```typescript signature
 const _TEXT = { fatal: true } as const
@@ -427,52 +412,159 @@ const _strict = new TextDecoder("utf-8", _TEXT)
 // The lossy twin exists for `text` alone: a quarantined frame renders where the strict pair already refused,
 // and no decode path reaches it.
 const _render = new TextDecoder("utf-8")
-const _encoder = new TextEncoder()
+const _jsonEncoder = new TextEncoder()
 
-const _bounded: Schema.Schema<Uint8Array, Uint8Array> = Schema.Uint8ArrayFromSelf.pipe(
-  Schema.filter((octets) => octets.byteLength <= Ingress.floor.maxAssembledBytes, {
-    message: () => "<json-document-overrun>",
-  }),
-)
-
-const _utf8: Schema.Schema<unknown, Uint8Array> = _bounded.pipe(
-  Schema.compose(_lifted((octets) => _strict.decode(octets), (value) => _encoder.encode(value as string))),
-)
-
-// both directions of the fused codec configure once at module scope: one admission policy, never a per-line mint
-const _json = Schema.parseJson()
-const _document = Schema.decodeUnknown(_json)
-const _rendered = Schema.encodeSync(_json)
+const _jsonBytes: Schema.Schema<unknown, Uint8Array> =
+  _lifted((octets) => _strict.decode(octets), (value) => _jsonEncoder.encode(value as string))
 
 const Json: {
-  readonly frame: Schema.Schema<unknown, Uint8Array>
   readonly schema: <A, I>(owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
-  readonly stream: (frames: AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
-  readonly encode: (value: unknown) => Uint8Array
   readonly text: (octets: Uint8Array) => string
 } = {
-  frame: _utf8.pipe(Schema.compose(_json, { strict: false })),
-  schema: (owned) => _utf8.pipe(Schema.compose(Schema.parseJson(owned), { strict: false })),
-  stream: (frames) =>
-    Stream.fromAsyncIterable(frames, (defect) => defect).pipe(
-      Stream.decodeText("utf-8"),
-      Stream.splitLines,
-      Stream.filter((line) => line.length > 0),
-      Stream.mapEffect((line) =>
-        line.length > Ingress.floor.maxAssembledBytes
-          ? Effect.fail(`<json-document-overrun:${line.length}>`)
-          : _document(line)),
-    ),
-  encode: (value) => _encoder.encode(_rendered(value)),
+  schema: (owned) => _jsonBytes.pipe(Schema.compose(Schema.parseJson(owned), { strict: false })),
   text: (octets) => _render.decode(octets),
 }
+```
+
+## [08]-[ARM_ROWS]
+
+- Owner: `_armRows` carries every fact a consumer reads about an encoding without naming the encoding.
+- Law: `fits` is the one sentence a reader selects an arm on; `admit` is the entry binding an owned schema to it.
+- Law: `compatibility` names the contract-descriptor token the arm's bytes present.
+- Law: `selfDescribing` states whether a payload decodes with no owned schema; the proto arm alone needs a descriptor.
+- Law: `render` prints a held frame for an operator and is total — a failed decode yields absence, never a throw.
+- Law: `degrade` names what the arm gives up; no row leaves it blank and no row spells a capability there.
+- Law: an arm decides nothing about tenancy or lifetime, and carries no column stating either.
+- Growth: a new encoding is one arm row; a consumer selecting on an arm name reads a column that already exists.
+- Boundary: `Wire` owns family-to-arm assignment and supplies the descriptor a proto render needs.
+
+```typescript signature
+// One row per encoding arm — the columns every consumer of this plane reads off the arm ALONE, so quarantine
+// rendering, contract compatibility, and schema-free reachability stop being three name ladders on three pages.
+// `admit` and `render` both take the family's descriptor as an argument rather than resolving one, because a
+// descriptor is a FAMILY fact and this table is keyed on the arm: passing it in keeps both members total for the
+// three arms that ignore it and keeps the proto row honest about the one thing it cannot supply itself.
+//
+// TENANCY and LIFETIME are absent as columns because an arm DECIDES NOTHING about either, and a column stating a
+// value it does not decide states a guess. An arm is a pure byte-to-value transform holding nothing across calls:
+// tenancy rides `Carrier` baggage as `Identity.Tenant` and never enters an encoding, and a decoded value's lifetime
+// belongs to whichever consumer bound it. `Wire.Quarantine` is the plane that genuinely decides both, and answers
+// them at its own owner.
+const _arms = ["proto", "json", "cbor", "msgpack"] as const
+
+declare namespace Arm {
+  type Kind = (typeof _arms)[number]
+  type Row = {
+    readonly fits: string
+    readonly admit: <A, I>(
+      owned: Schema.Schema<A, I>,
+      descriptor: Option.Option<DescMessage>,
+    ) => Option.Option<Schema.Schema<A, Uint8Array>>
+    readonly compatibility: "binary" | "json"
+    readonly selfDescribing: boolean
+    readonly render: (octets: Uint8Array, descriptor: Option.Option<DescMessage>) => Option.Option<string>
+    readonly degrade: string
+  }
+  type _Rows<T extends { readonly [K in Kind]: Row } = typeof _armRows> = T
+}
+
+// Held frames render for an operator alone, so the printer is TOTAL over what the binary arms decode: `useBigInt64`
+// puts real bigints on the op-log, commit, and vector families and a bare `JSON.stringify` throws on every one of
+// them, while byte cells would print as objects with numeric keys. Ext cells keep their type byte, so a positional
+// record whose slots drifted reads apart from a malformed one at a glance.
+const _printed = (value: unknown): string =>
+  JSON.stringify(value, (_key, held: unknown) =>
+    typeof held === "bigint"
+      ? `${held}n`
+      : held instanceof Uint8Array
+      ? `<bytes:${held.byteLength}>`
+      : held instanceof ExtData
+      ? { ext: held.type, cell: `<bytes:${(held.data instanceof Uint8Array ? held.data : held.data(0)).byteLength}>` }
+      : held, 2) ?? "<unrenderable>"
+
+const _decoded = (schema: Schema.Schema<unknown, Uint8Array>) => (octets: Uint8Array): Option.Option<string> =>
+  Option.map(Either.getRight(Schema.decodeUnknownEither(schema)(octets)), _printed)
+
+const _armRows = {
+  proto: {
+    fits: "<schema-evolving-cross-language-payload-with-a-declared-descriptor>",
+    // The one arm whose admission can REFUSE: without its family's descriptor there is no schema to bind, and the
+    // three self-describing arms return the composition unconditionally.
+    admit: (owned, descriptor) => Option.map(descriptor, (gen) => Proto.family(gen, owned)),
+    compatibility: "binary",
+    selfDescribing: false,
+    // Field names live in the descriptor, never in the bytes, so this row yields absence without one rather than
+    // printing a tag-to-value map no operator can read against the `.proto` source.
+    render: (octets, descriptor) =>
+      Option.flatMap(descriptor, (gen) =>
+        Option.map(
+          Either.getRight(Schema.decodeUnknownEither(_frame(gen))(octets)),
+          (message) => toJsonString(gen, message, { prettySpaces: 2 }),
+        )),
+    degrade: "<no-self-description>",
+  },
+  json: {
+    fits: "<operator-readable-payload-whose-producer-emits-text>",
+    admit: (owned) => Option.some(Json.schema(owned)),
+    compatibility: "json",
+    selfDescribing: true,
+    // Held octets ARE the document, so this render survives the malformed case the other three arms cannot.
+    render: (octets) => Option.some(Json.text(octets)),
+    degrade: "<base64-inflated-octets>",
+  },
+  cbor: {
+    fits: "<canonical-binary-payload-a-foreign-writer-mints-and-this-branch-only-reads>",
+    admit: (owned) => Option.some(Cbor.schema(owned)),
+    compatibility: "binary",
+    selfDescribing: true,
+    render: (octets) => _decoded(Cbor.frame)(octets),
+    degrade: "<encode-refused-unproven-map-order>",
+  },
+  msgpack: {
+    fits: "<compact-binary-payload-carrying-extension-cells-and-i64-magnitudes>",
+    admit: (owned) => Option.some(Pack.schema(owned)),
+    compatibility: "binary",
+    selfDescribing: true,
+    render: (octets) => _decoded(Pack.frame)(octets),
+    degrade: "<arm-local-key-sort-only>",
+  },
+} as const satisfies { readonly [K in Arm.Kind]: Arm.Row }
+
+type _ArmKind = Arm.Kind
+type _ArmRow = Arm.Row
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Cbor, Json, Pack, Patch, Proto }
+declare namespace Format {
+  type Arm = _ArmKind
+  namespace Arm {
+    type Row = _ArmRow
+  }
+  type Shape = {
+    readonly arms: typeof _arms
+    readonly rows: { readonly arm: typeof _armRows }
+    readonly proto: typeof Proto
+    readonly cbor: typeof Cbor
+    readonly msgpack: typeof Pack
+    readonly Patch: typeof Patch
+    readonly json: typeof Json
+  }
+}
+
+const Format: Format.Shape = {
+  arms: _arms,
+  rows: { arm: _armRows },
+  proto: Proto,
+  cbor: Cbor,
+  msgpack: Pack,
+  Patch,
+  json: Json,
+}
+
+export { Format }
 ```
 
-## [08]-[RESEARCH]
+## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

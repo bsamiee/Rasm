@@ -19,6 +19,7 @@
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
         <PackageReference Include="Npgsql.NetTopologySuite" />
+        <PackageReference Include="Npgsql.NodaTime" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
         <PackageReference Include="Pgvector" />
@@ -54,6 +55,7 @@
         <PackageReference Include="Apache.Arrow.Adbc.Drivers.BigQuery" />
         <PackageReference Include="Apache.Arrow.Compression" />
         <PackageReference Include="Apache.Arrow.Flight" />
+        <PackageReference Include="Apache.Arrow.Flight.AspNetCore" />
         <PackageReference Include="Apache.Arrow.Flight.Sql" />
         <PackageReference Include="Ara3D.BimOpenSchema" />
         <PackageReference Include="Ara3D.BimOpenSchema.IO" />
@@ -65,6 +67,7 @@
         <PackageReference Include="FlowtideDotNet.Substrait" />
         <PackageReference Include="JsonSchema.Net" />
         <PackageReference Include="K4os.Compression.LZ4" />
+        <PackageReference Include="K4os.Compression.LZ4.Streams" />
         <PackageReference Include="MiniExcel" />
         <PackageReference Include="MPXJ.Net" />
         <PackageReference Include="ParquetSharp" />
@@ -96,6 +99,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Append And Egress">
+        <PackageReference Include="AMQPNetLite.Core" />
         <PackageReference Include="CloudNative.CloudEvents.Amqp" />
         <PackageReference Include="CloudNative.CloudEvents.Kafka" />
         <PackageReference Include="Confluent.Kafka" />
@@ -117,6 +121,7 @@
         <PackageReference Include="AWSSDK.S3" />
         <PackageReference Include="Azure.Security.KeyVault.Keys" />
         <PackageReference Include="Azure.Storage.Blobs" />
+        <PackageReference Include="Azure.Storage.Blobs.Batch" />
         <PackageReference Include="Google.Cloud.Kms.V1" />
         <PackageReference Include="Google.Cloud.Storage.V1" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />

@@ -1,13 +1,13 @@
 # [IAC_DATA]
 
-`ObjectStore`, `Nats`, and `Postgres` own k8s durability — conditional-put object engines through typed chart values, the JetStream endpoint with websocket, persistence, and quorum, and CNPG archiving, backup, recovery, PgBouncer, and database targets behind one `admit` rail whose `DataRefused` faults name the extension, pooling, and recovery axes. `_TENANCY` selects the tenant escalation and `_custody` gives each realized cluster its own credential triple and archive prefix. Growth is one matrix, engine, tenancy, pooling, or recovery row.
+`ObjectStore`, `Nats`, and `Postgres` own k8s durability — conditional-put object engines through typed chart values, the JetStream endpoint with websocket, persistence, and quorum, and CNPG archiving, backup, recovery, PgBouncer, and database targets behind one `admit` rail whose `DataRefused` faults name the extension, pooling, and recovery axes. `_TIERS` selects the tenant escalation and `_custody` gives each realized cluster its own credential triple and archive prefix. Growth is one matrix, engine, tier, pooling, or recovery row.
 
 ## [01]-[INDEX]
 
 - [02]-[OBJECT_STORE]: the conforming-engine vocabulary and the chart-realized store + credentials; `ObjectStore`.
 - [03]-[FANOUT_STORE]: the NATS JetStream server row: websocket, fsync hardening, quorum; `Nats`.
 - [04]-[CNPG_CLUSTER]: the admission rail, operator charts, per-scope custody, pooler, backups; `Postgres`.
-- [05]-[APP_FINALIZE]: tenancy escalation, empty Database targets, and the replication seam; `Postgres`.
+- [05]-[APP_FINALIZE]: data-tier escalation, empty Database targets, and the replication seam; `Postgres`.
 
 ## [02]-[OBJECT_STORE]
 
@@ -287,7 +287,7 @@ const _VOIDS = {
   statement: ["advisory", "channel", "skipLocked"],
 } as const satisfies Record.ReadonlyRecord<StackSpec.Pooling, ReadonlyArray<Pg.Primitive>>
 
-// `_scopes` enumerates every cluster the tenancy escalation realizes, so recovery proves against
+// `_scopes` enumerates every cluster the data-tier escalation realizes, so recovery proves against
 // that whole set and never the primary alone.
 const _scopes = (name: string, spec: StackSpec): ReadonlyArray<string> =>
   spec.pgTier === "cluster-per-tenant"
@@ -583,7 +583,7 @@ class Postgres extends Tier {
 - Law: finalization is declarative and in-cluster; the deploy host reaches only Kubernetes, never the cluster's `.svc` network.
 - Law: each typed `Database` CR converges the managed app role, `template0`, and granted extension floors after cluster readiness.
 - Law: `_granted` refuses unknown extensions and ungranted dependency capabilities on the rail before any target reaches the provider.
-- Law: `_TENANCY` exhaustively maps each `pgTier` to zero or more additional targets and reads `spec.pgTier`, the one total projection over the tenancy union; a fourth tier is one record row.
+- Law: `_TIERS` exhaustively maps each `pgTier` to zero or more additional targets and reads `spec.pgTier`, the one total projection over the separation union; a fourth tier is one record row.
 - Law: `Postgres.targets` exposes readiness and libpq environment rows; `Converge` owns framework materialization, hydration, and proof.
 - Law: a target authenticates as its scope's managed owner — the libpq rows carry `ctx.owner.role` against that scope's app secret, so every relation the runner authors lands owned by the role the application then binds as, and no grant fold repairs a superuser-owned schema after the fact.
 - Law: the replication seam is the typed static pair — `Postgres.publication(name, { cluster, database, target }, child)` and `Postgres.subscription(name, { cluster, database, publication, external }, child)` construct the CNPG `Publication`/`Subscription` CRs for the multi-region or tenant-migration estate; the pair is dormant capability with a typed spelling, so a replication topology is rows at the composition site, never a tier rewrite.
@@ -593,7 +593,7 @@ class Postgres extends Tier {
 - Law: CNPG owns physical slot survival; typed `Publication` and `Subscription` CRs own logical topology.
 - Law: security labels remain generated framework artifacts; each carrier applies its native projection through convergence.
 - Law: replace-on-change fields are create-time constants — `template`, `encoding`, and locale rows on the Database CR never appear as mutable knobs; changing them is a new database by construction, and `protect` guards the cluster above it.
-- Growth: a second app database is another `Postgres`; a dependency edge is one `Pg.demands` pair at the matrix owner; a tenancy tier is one `_TENANCY` row; a pooling mode is one `_VOIDS` row.
+- Growth: a second app database is another `Postgres`; a dependency edge is one `Pg.demands` pair at the matrix owner; a data tier is one `_TIERS` row; a pooling mode is one `_VOIDS` row.
 - Boundary: recovery bootstraps a new cluster; the ordinary database and convergence folds then materialize, hydrate, prove, and publish it; the primitive roster and its grant semantics are the matrix owner's.
 - Packages: `@pulumi/kubernetes`; `../crds/cnpg`; `effect` (`Array`, `Effect`, `Option`); `@rasm/ts/data` (`Pg`).
 
@@ -691,7 +691,7 @@ const _database = (
     },
   }, child)
 
-const _TENANCY: {
+const _TIERS: {
   readonly [K in StackSpec.PgTier]: (ctx: _Finalize) => ReadonlyArray<Postgres.Target>
 } = {
   "shared-rls": () => [],
@@ -723,7 +723,7 @@ const _finalized = (ctx: _Finalize): Postgres.Targets => {
   const database = _database(ctx.owner.database, ctx.owner.database, ctx, ctx.cluster)
   return [
     _target(ctx.owner.database, ctx.owner.database, ctx.direct, database, ctx.custody, ctx),
-    ..._TENANCY[ctx.args.spec.pgTier](ctx),
+    ..._TIERS[ctx.args.spec.pgTier](ctx),
   ]
 }
 

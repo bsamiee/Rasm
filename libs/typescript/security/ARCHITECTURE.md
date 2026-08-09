@@ -20,15 +20,15 @@ security/
     └── access/                # Authorization: entitlement fold, tenancy contract, and the security fact rail
         ├── audit.ts           # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
         ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts          # Ambient TenantContext reference + the rasm.tenant RLS shape the data stratum enforces
+        └── tenant.ts          # Identity.Tenant binding, session-coordinate vocabulary, and tenant metric aspect
 ```
 
 ## [02]-[STRATA]
 
-- S0 `access/audit` + `access/tenant` — floor mints importing only core; `audit` the fact plane, `tenant` the `TenantScope` reference and RLS shape.
+- S0 `access/audit` + `access/tenant` — core-only floor; `audit` owns facts, and `tenant` owns `TenantScope` plus session coordinates.
 - S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope.
 - S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes the `sign` authority.
-- S3 `authn/oauth` + `authn/webauthn` + `authn/workload` + `access/claim` — ceremonies and decisions over the spine; `authn` and `access` stay independent peers; `workload` imports `AccessClaims`/`JwksLedger`/`JwksSnapshot` from S1 and `Reject` from S2, reaching no session owner.
+- S3 ceremonies and claims — `authn` and `access` stay peers; `workload` reaches the sign and verify owners, never session.
 
 ```mermaid
 ---
@@ -99,7 +99,7 @@ flowchart LR
     Data[(data)]
     Runtime{{runtime}}
     Iac{{iac}}
-    Core e1@-->|"[SHAPE]: TenantContext"| Access
+    Core e1@-->|"[SHAPE]: Identity.Tenant"| Access
     Data e2@-->|"[PORT]: ClaimStore"| Access
     Access e3@-->|"[BOUNDARY]: TenantScope"| Data
     Data e4@-->|"[PORT]: SessionStore"| Authn
@@ -112,12 +112,42 @@ flowchart LR
     Crypt e10@-->|"[BOUNDARY]: LeaseSpec"| Iac
     Access e11@-->|"[PORT]: FlagGate"| Runtime
     Core e12@-->|"[SHAPE]: Convention"| Crypt
-    Access e13@-->|"[PROJECTION]: rasm.tenant"| Runtime
+    Access e13@-->|"[SHAPE]: TenantScope.metered"| Runtime
     Data e14@-->|"[PORT]: AuditJournal"| Access
-    Access e15@-->|"[SHAPE]: Tap.Registry"| Runtime
+    Core e15@-->|"[SHAPE]: Tap.Name/Modality/Handler"| Access
 ```
 
 ## [04]-[INTERNAL]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Security authority spine
+    accDescr: Tenant scope and authentication produce access claims; policy drives cryptographic authority and audit evidence.
+    Request([tenant + credential])
+    Tenant[tenant · Identity.Tenant binding]
+    Authn[authn · verified principal]
+    Access[access · claims]
+    Policy[policy · entitlement fold]
+    Crypto[crypt · signed authority]
+    Audit[(audit · SecurityFact)]
+    Decision([decision + evidence])
+    Request e1@-->|"bind: tenant scope"| Tenant
+    Request e2@-->|"verify: credential"| Authn
+    Tenant e3@-->|"scope: principal"| Access
+    Authn e4@-->|"carry: principal"| Access
+    Access e5@-->|"resolve: claims"| Policy
+    Policy e6@-->|"authorize: protected mint"| Crypto
+    Policy e7@-->|"publish: decision fact"| Audit
+    Crypto e8@-->|"publish: custody fact"| Audit
+    Audit e9@-->|"emit: decision evidence"| Decision
+```
 
 `crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces, holding every secret `Redacted` from first decode into the primitive call, so no signature, log, or snapshot carries raw material.
 
@@ -137,6 +167,6 @@ flowchart LR
 - Flag evaluation is the `FlagGate` consumer port the runtime stratum satisfies; the entitlement fold composes flag verdicts and owns no flag engine.
 - Audit facts persist through the `AuditJournal` port the data stratum satisfies on its journal spine.
 - Analytics egress leaves only as the `AuditTrace` projection under the keyed `Pseudonym` mask.
-- Board and alert compilation rides the core-to-iac `DashboardModel`/`Alert.Spec` seams over the folder's declared objectives.
+- Board and alert compilation rides `Board.DashboardModel` and `Reliability.Alert.Spec` into IaC.
 - KDF cost claims leave as core `Claim` receipts — the `BenchmarkClaimWire` landing under `Claim.admit` host admission.
 - KDF measurement runs against the folder's own bulkhead, never persisting or grading a claim.

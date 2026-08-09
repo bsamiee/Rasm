@@ -16,9 +16,12 @@ Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm: it a
 - Receipt: rides the one `ComputeReceipt.Assessment` case, no daylight-local receipt; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node, and the weather-bearing run's `ResultBlob` names the annual matrix artifact.
 - Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), PureHDF (`NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`, `IH5Object.Attribute`/`AttributeExists`, `H5File`, `H5Dataset<T>` — the gridded row and the matrix artifact), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition`/`SolarSite`/`SunPosition` solar almanac), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a tilted-plane fact (a window vertical-sky-component) composes the row's `Horizon` term beside the `Circumsolar` one already folded; a re-cadenced sweep or hemisphere fan is one `DaylightPolicy` column; sDA/ASE-class EN 17037 hour-threshold metrics are ONE reduction over the stored matrix rows — the scalar mean cannot reach them, and no re-run is ever needed; a new gridded variable is one `WeatherSource.Gridded` column; zero new surface.
-- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal, and the app stages the decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys; sky ingress rides the two-row `WeatherSource` axis — the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, and the gridded corpus row over `Runtime/codecs#HDF_ARCHIVE` whose netCDF SEMANTICS (CF `units`/`calendar`, coordinate datasets) resolve ABOVE the raw-HDF5 rail (PureHDF surfaces raw objects), gating `hours since <date>` on a standard calendar and refusing the rest typed — never a second weather decode path nor a weather column on the sampling policy; the gridded corpus keys by CONTENT KEY beside its declared cell and year span, never by path; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose. EN 17037 fixes the reference plane HORIZONTAL, so the plane-of-array form collapses exactly: the isotropic weight `(1 + cos S)/2` becomes the measured sky-view factor, the circumsolar ratio `a/b` is unity under an above-horizon sun, and the horizon band's `sin S` factor is zero — the fold composes `Circumsolar` alone and `Horizon` stays row surface the tilted case reads, never a term applied at a tilt that annihilates it. Every sampling count and step is a `DaylightPolicy` column that folds the assessment content key, never a runner constant a re-cadenced sweep silently re-uses the cached answer of.
+- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal, and the app stages the decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys; sky ingress rides the two-row `WeatherSource` axis — the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, and the gridded corpus row over `Runtime/codecs#HDF_ARCHIVE` whose netCDF SEMANTICS (CF `units`/`calendar`, coordinate datasets) resolve ABOVE the raw-HDF5 rail (PureHDF surfaces raw objects), gating `hours since <date>` on a standard calendar and refusing the rest typed — never a second weather decode path nor a weather column on the sampling policy; the gridded corpus keys by CONTENT KEY beside its declared cell and year span, never by path; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose — and its ANGLES project into the float clash coordinate at `SurveyRay`, this page's ONE narrowing, so the almanac's double bijection is never floored by a ray engine and no host coordinate reaches a signature here. EN 17037 fixes the reference plane HORIZONTAL, so the plane-of-array form collapses exactly: the isotropic weight `(1 + cos S)/2` becomes the measured sky-view factor, the circumsolar ratio `a/b` is unity under an above-horizon sun, and the horizon band's `sin S` factor is zero — the fold composes `Circumsolar` alone and `Horizon` stays row surface the tilted case reads, never a term applied at a tilt that annihilates it. Every sampling count and step is a `DaylightPolicy` column that folds the assessment content key, never a runner constant a re-cadenced sweep silently re-uses the cached answer of.
 
 ```csharp signature
+using Vector3 = System.Numerics.Vector3;             // the clash engine's float coordinate owns the bare name; the seam Rasm.Element.Graph.Vector3 double triple is spelled whole
+using SeamVector3 = Rasm.Element.Graph.Vector3;      // footprint-ring coordinate the centroid fan folds in double before its one narrowing
+
 // --- [TYPES] -------------------------------------------------------------------------------
 // PerezBand transcribes the eight published clearness bands (overcast 1.000–1.065 through pristine >6.200),
 // each row carrying the whole six-coefficient set: the band resolves from the derived ε, and F11..F13 / F21..F23
@@ -339,6 +342,19 @@ public static class DaylightAnalysis {
                    hourly.PlaneWm2);
     }
 
+    // Survey-frame ray in the clash engine's float coordinate — +Y north, +X east, altitude off the horizon — and
+    // this page's ONE narrowing: the design-day sun and the cosine-weighted hemisphere fan span the SAME frame, so
+    // both families read one projection and a per-site `(float)` cast is the forked-floor form. Kernel angles carry
+    // double through the trig and shed their tail only at the traversal boundary, where the BVH's own float
+    // triangle wire fixes the floor at `1.1e-3°` — a loss the ray engine owns and the almanac never inherits.
+    static Vector3 SurveyRay(SunPosition sun) =>
+        SurveyRay(sun.AzimuthDeg * Math.PI / 180.0, sun.AltitudeDeg * Math.PI / 180.0);
+
+    static Vector3 SurveyRay(double azimuth, double altitude) =>
+        new((float)(Math.Cos(altitude) * Math.Sin(azimuth)),
+            (float)(Math.Cos(altitude) * Math.Cos(azimuth)),
+            (float)Math.Sin(altitude));
+
     // Design-day sun sweep: the policy step walks each requested day from local midnight and every above-horizon
     // sample casts one occlusion ray along its own sun direction. The day tag rides each sample because the two
     // reductions below partition on it differently.
@@ -348,8 +364,8 @@ public static class DaylightAnalysis {
             .Bind(day => SolarPosition
                 .SunPath(site, day.AtMidnight().WithOffset(offset).ToInstant(), Duration.FromHours(request.Policy.SunStepHours), request.Policy.SunSamplesPerDay)
                 .Filter(static row => row.Sun.AboveHorizon)
-                .Map(row => (Day: day, row.Sun.Direction)))
-            .TraverseM(row => ClashScale.Occluded(scene.Scene, origin, row.Direction, scene.SceneDiameter)
+                .Map(row => (Day: day, Ray: SurveyRay(row.Sun))))
+            .TraverseM(row => ClashScale.Occluded(scene.Scene, origin, row.Ray, scene.SceneDiameter)
                 .Map(occluded => (row.Day, Occluded: occluded)))
             .As();
     }
@@ -372,9 +388,8 @@ public static class DaylightAnalysis {
             .TraverseM(i => {
                 double az = 2.0 * Math.PI * (i % policy.HemisphereAzimuths) / policy.HemisphereAzimuths;
                 double alt = Math.PI / 2.0 * (0.5 + i / policy.HemisphereAzimuths) / policy.HemisphereAltitudes;
-                Vector3 ray = new(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
                 double weight = Math.Sin(alt) * Math.Cos(alt);
-                return ClashScale.Occluded(scene.Scene, origin, ray, scene.SceneDiameter).Map(occluded => (Weight: weight, Occluded: occluded));
+                return ClashScale.Occluded(scene.Scene, origin, SurveyRay(az, alt), scene.SceneDiameter).Map(occluded => (Weight: weight, Occluded: occluded));
             })
             .As()
             .Map(static rays => rays.Fold((Open: 0.0, Total: 0.0), static (acc, r) => (acc.Open + (r.Occluded ? 0.0 : r.Weight), acc.Total + r.Weight)))
@@ -387,7 +402,7 @@ public static class DaylightAnalysis {
     // diffuse plus the unoccluded direct projection — because the matrix artifact rows it verbatim.
     static Fin<(double MeanDiffuse, double[] PlaneWm2)> HourlyDiffuse(DaylightScene scene, Vector3 origin, Seq<SkyState> hours, double skyView, DaylightPolicy policy) =>
         toSeq(Enumerable.Range(0, hours.Count).Where(index => index % policy.OcclusionCadenceHours == 0).Select(index => hours[index]))
-            .TraverseM(hour => ClashScale.Occluded(scene.Scene, origin, hour.Sun.Direction, scene.SceneDiameter)
+            .TraverseM(hour => ClashScale.Occluded(scene.Scene, origin, SurveyRay(hour.Sun), scene.SceneDiameter)
                 .Map(occluded => {
                     double diffuse = Diffuse(hour, skyView, occluded);
                     double direct = occluded ? 0.0 : hour.DirectNormalWm2 * Math.Max(0.0, Math.Cos(hour.Sun.ZenithDeg * Math.PI / 180.0));
@@ -437,20 +452,31 @@ public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> Sam
                     : Fin.Fail<DaylightScene>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, "<daylight-obstruction-scene-invalid>"));
             });
 
-    // ONE centroid definition across all three components: the area-weighted shoelace, every axis divided by the
-    // same 3·Σcross. A vertex-mean on the elevation axis alone re-weights a dense-tessellated edge and slides the
-    // reference plane off the area centre the other two axes name.
+    // ONE centroid definition across all three components: the area-weighted triangle fan about the ring's FIRST
+    // vertex, so every axis carries an apex sitting on the footprint's own plane. An ORIGIN apex stays exact on
+    // whichever two axes its cross product spans and reads a storey slab at two thirds of its elevation on the
+    // third, while a vertex mean re-weights a dense-tessellated edge and slides the reference plane off the area
+    // centre. Fan coordinates ride the seam double triple and the clash frame rides float, so the fold closes
+    // whole in double and narrows once on the way out.
     static Fin<Vector3> Centroid(FootprintPolygon footprint) {
-        Seq<Vector3> next = footprint.Ring.Skip(1).Add(footprint.Ring[0]);
-        (double Cross, double X, double Y, double Z) sum = footprint.Ring.Zip(next).Fold(
-            (Cross: 0.0, X: 0.0, Y: 0.0, Z: 0.0),
-            static (acc, edge) => {
-                double cross = edge.Item1.X * edge.Item2.Y - edge.Item2.X * edge.Item1.Y;
-                return (acc.Cross + cross, acc.X + (edge.Item1.X + edge.Item2.X) * cross,
-                    acc.Y + (edge.Item1.Y + edge.Item2.Y) * cross, acc.Z + (edge.Item1.Z + edge.Item2.Z) * cross);
-            });
+        SeamVector3 apex = footprint.Ring[0];
+        (double Cross, double X, double Y, double Z) sum = footprint.Ring
+            .Zip(footprint.Ring.Skip(1).Add(apex))
+            .Fold(
+                (Cross: 0.0, X: 0.0, Y: 0.0, Z: 0.0),
+                (acc, edge) => {
+                    double cross = ((edge.Item1.X - apex.X) * (edge.Item2.Y - apex.Y))
+                        - ((edge.Item2.X - apex.X) * (edge.Item1.Y - apex.Y));
+                    return (acc.Cross + cross,
+                        acc.X + ((edge.Item1.X + edge.Item2.X + apex.X) * cross),
+                        acc.Y + ((edge.Item1.Y + edge.Item2.Y + apex.Y) * cross),
+                        acc.Z + ((edge.Item1.Z + edge.Item2.Z + apex.Z) * cross));
+                });
         return Math.Abs(sum.Cross) > 1e-12
-            ? Fin.Succ(new Vector3(sum.X / (3.0 * sum.Cross), sum.Y / (3.0 * sum.Cross), sum.Z / (3.0 * sum.Cross) + SampleLiftM))
+            ? Fin.Succ(new Vector3(
+                (float)(sum.X / (3.0 * sum.Cross)),
+                (float)(sum.Y / (3.0 * sum.Cross)),
+                (float)((sum.Z / (3.0 * sum.Cross)) + SampleLiftM)))
             : Fin.Fail<Vector3>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, "<daylight-target-degenerate-footprint>"));
     }
 

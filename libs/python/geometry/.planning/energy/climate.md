@@ -16,6 +16,7 @@ Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane chart
 - Receipt: `ClimateReceipt.spec` is the evidence subject — the admitted weather key beside the query that read it — and `graduates` derives its `ContentKey` from it, so no caller supplies a key. Discomfort is the comfort fold's own measurement: a series, solar, or index read never computed it, so `graduates` OMITS the measure and the spine's `_breached` refuses `unmeasured:discomfort` rather than clearing a ceiling on a fabricated zero. The comfort fold records `rasm.geometry.comfort.discomfort` onto the charter at the producing site.
 - Packages: `ladybug-core` and `ladybug-comfort` per the table rows; the spatial `map.*` kernels are the `energy/simulate` readback surface, and `LateBound` is the seam every one of them crosses.
 - Growth: a new climate read is one `ClimateQuery` case, one `_dispatch` arm, and one `ClimateResult` arm; a new field is one `ClimateField` member; a new grain one `Grain` member, method name deriving; a new projection one `Derived` case beside its `DerivedDocument` arm, IP-units over `EPW.convert_to_ip` the named next; a new comfort model one `COMFORT` row; a new scalar index one `INDEX` row over its `IndexInput` roster; a new spatial map one `MAPS` row; a new band refusal is one `EnergyFault` case carrying its own coordinate tuple, minted at the page that raises it and read by every consumer off the tag. `Adaptive` is not weather-drivable — it builds `from_air_and_rad_temp` over model results, so its home is the `energy/simulate` readback, its `AdaptiveParameter` already serializable through this page's parameter discipline; urban-microclimate EPW morphing enters as one more `Derived` case with its own package admission.
+- Boundary: `SolarQuery` reads the WEATHER file's own sun and a captured scene descriptor carries angles a peer already solved — `energy/simulate` projects those angles straight onto a sky, since routing them back through `Sunpath` re-derives an ephemeris the descriptor settled and silently substitutes a second almanac's answer.
 - Boundary: no diagram furniture — artifacts owns the sun-path diagram and `Sunpath` gains no diagram consumer here; no radiance simulation (the recipe rail owns it), no HBJSON model semantics (`energy/model` owns them), no chart/legend composition (artifacts-plane material), and no re-derived solar vector algebra — `Sunpath` emits `ladybug_geometry` primitives and this owner projects them to arrays.
 
 ```python signature
@@ -223,13 +224,18 @@ class EnergyFault(Exception):
     # the lane's `async_boundary` on the offloaded translate kernel — so the coordinate facts survive as kwargs the
     # boundary fault lifts whole. A `raise ValueError(f"...")` flattens those facts into a string every consumer
     # re-parses and forks the refusal vocabulary against the `BrepFault`/`QualityFault`/`RepairFault` mesh peers.
-    tag: Literal["empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target", "district_defects"] = tag()
+    tag: Literal[
+        "empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target",
+        "district_defects", "authored_sun", "shading_fidelity",
+    ] = tag()
     empty_model: tuple[str, int] = case()  # (admission modality, check-row census) — a model with no rooms
     index_constant: tuple[str, str] = case()  # (index model, the demanded constant slot no source answers)
     unknown_output: tuple[tuple[str, ...], int] = case()  # (requested names absent from the SQL census, census size)
     unresolved_output: tuple[str, tuple[str, ...]] = case()  # (recipe, declared outputs its product never resolved)
     unsupported_target: tuple[str, str] = case()  # (translation target, the constraint that refuses it)
     district_defects: tuple[int, tuple[tuple[str, int], ...]] = case()  # (defect rows, the per-code roster)
+    authored_sun: tuple[str, str] = case()  # (recipe, the sited coordinate a manual-control sun never carries)
+    shading_fidelity: tuple[str, float, float] = case()  # (refused bound, declared value, the ceiling it crossed)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------

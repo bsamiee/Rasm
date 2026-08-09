@@ -1,30 +1,26 @@
 # [SECURITY_TENANT]
 
-Tenancy contract: the ambient reference the request's active `TenantContext` rides, the `SessionCoordinate` vocabulary of session GUCs the data wave pins, and the metric-tagging aspect that makes every security instrument per-tenant sound. Tenancy is one core value — `TenantContext`, the `(app, tenant)` pair with its derived `scope` partition key — and this page never re-mints it; it owns the request-scoped BINDING, the coordinate vocabulary, and the telemetry tag, so a tenant never travels as a bare string past a seam, every downstream query inherits the boundary with no parameter threading, and every folder metric a request emits carries its tenant dimension through one aspect. `TenantScope` is a `Context.Reference` whose default is the unauthenticated scope; the edge binds the request's `TenantContext` and subject once, the data wave reads it to pin each `SessionCoordinate` row inside its transaction transformer — a `security/access/tenant → data` [SHAPE] seam — and `TenantScope.metered` wraps any effect so its metrics land tagged under the core `Convention.rasm.tenant` key — the dimension the runtime export lane's tenant metric-view row governs under its cardinality ceiling. This contract is a value, never configuration prose: each GUC name is one coordinate row both this page's projection and the data wave's RLS policy predicate read, so a rename lands once and a new session coordinate (shard key, search-path override, region) is one row with its derivation over the same `Principal`. This page holds no SQL: the data wave owns the `within` transaction seam and the policy DDL, and hundreds of apps under mixed isolation are rows in the data wave's store map, never deployments of different code.
+Tenancy contract: the ambient reference the request's active `Identity.Tenant` rides, the `SessionCoordinate` vocabulary of session GUCs the data wave pins, and the metric-tagging aspect that makes every security instrument per-tenant sound. Tenancy is one core value — `Identity.Tenant`, the `(app, tenant)` pair with its derived `scope` partition key — and this page never re-mints it; it owns the request-scoped BINDING, the coordinate vocabulary, and the telemetry tag, so a tenant never travels as a bare string past a seam, every downstream query inherits the boundary with no parameter threading, and every folder metric a request emits carries its tenant dimension through one aspect. `TenantScope` is a `Context.Reference` whose default is the unauthenticated scope; the edge binds the request's `Identity.Tenant` and subject once, the data wave reads it to pin each `SessionCoordinate` row inside its transaction transformer — a `security/access/tenant → data` [SHAPE] seam — and `TenantScope.metered` wraps any effect so its metrics land tagged under the core `Convention.rasm.tenant` key — the dimension the runtime export lane's tenant metric-view row governs under its cardinality ceiling. This contract is a value, never configuration prose: each GUC name is one coordinate row both this page's projection and the data wave's RLS policy predicate read, so a rename lands once and a new session coordinate (shard key, search-path override, region) is one row with its derivation over the same `Principal`. This page holds no SQL: the data wave owns the `within` transaction seam and the policy DDL, and hundreds of apps under mixed isolation are rows in the data wave's store map, never deployments of different code.
 
 ## [01]-[INDEX]
 
-- [02]-[SCOPE_BINDING]: the ambient tenancy reference, its request-scope provision, the metric tag aspect; `TenantScope`.
+- [02]-[SCOPE_BINDING]: the ambient tenancy reference, its principal mint, its request-scope provision, the metric tag aspect; `TenantScope`.
 - [03]-[RLS_CONTRACT]: the session-coordinate GUC vocabulary and the per-row projection; `SessionCoordinate`.
 
 ## [02]-[SCOPE_BINDING]
 
 [SCOPE_BINDING]:
-- Owner: `TenantScope` — a `Context.Reference` carrying the request's active `TenantContext` (as `Option`, `none` for an unauthenticated or single-tenant-pinned request) and the acting subject; the statics ride the class: `bind` provisions it for a request scope, the reference itself is the read (`yield* TenantScope`), `scoped` runs an effect under the resolved principal, `scopeOf` projects the partition key, and `metered` is the telemetry aspect — it reads the bound principal and tags every metric the wrapped effect emits with the `Convention.rasm.tenant` dimension, falling back to the unscoped label, so the folder's counters and timers stay per-tenant sound when thousands of apps share the library. This reference is the one hop from request altitude to every tenant-bounded read: the edge sets it once from the resolved claim, and no query threads a tenant parameter.
-- Law: the value is the core `TenantContext`, never a security-local re-declaration — its `scope` key partitions the data wave's per-tenant store Layers and keys `LayerMap`/`HashMap` slots with the structural `Equal` the class carries; a second tenancy notion TS-side is the split-brain the core owner already forbids.
-- Law: binding is Layer provision — `bind` is `Effect.provideService` around a request scope, so the ambient tenancy rides the same substitution mechanism as every capability and never becomes a signature tail; a bare string tenant crossing a seam is unspellable because signatures take `TenantContext` or its branded `Key`.
+- Law: every bound `Principal` mints here — the edge names its subject, the data wave's explicit-tenant transformer omits it, and both take the shape from one member, so a coordinate the type acquires reaches every construction site at once instead of only the ones that remembered.
 - Law: `metered` is the folder's one tenant-tag seam — a security owner emits plain effect-native `Metric` instruments, the serving edge wraps the request handler once in `TenantScope.metered`, and every instrument inside lands tagged; no owner re-reads the reference for telemetry and no exporter is named here.
 - Law: per-tenant series ride governed — `metered` tags with the core `Convention.rasm.tenant` key, the one dimension the runtime export lane's tenant metric-view row admits under its cardinality ceiling, so the per-tenant fan is bounded at the exporter and a free-string tenant key that dodges the governor is unspellable at this seam.
-- Growth: a new scope dimension (region, deployment ring) is one field on the core `TenantContext` inherited here; a new binding source (an API-key principal, a machine identity) is a caller-composed `TenantContext` provided through the same `bind`.
-- Boundary: who mints the `TenantContext` is `access/claim`'s resolution from a verified token or the edge's principal; how a request carries it is edge material; the data wave reads the reference to bind RLS; the runtime wave exports the tagged instruments; this page owns only the ambient seam.
-- Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/ts/core` (`Convention`, `TenantContext`).
+- Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/ts/core` (`Convention`, `Identity.Tenant`).
 
 ```typescript
-import { Convention, TenantContext } from "@rasm/ts/core"
+import { Convention, Identity } from "@rasm/ts/core"
 import { Context, Effect, Option } from "effect"
 
 type Principal = {
-  readonly context: Option.Option<TenantContext>
+  readonly context: Option.Option<Identity.Tenant>
   readonly subject: Option.Option<string>
 }
 
@@ -33,10 +29,14 @@ const _UNSCOPED = "unscoped"
 class TenantScope extends Context.Reference<TenantScope>()("security/access/TenantScope", {
   defaultValue: (): Principal => ({ context: Option.none(), subject: Option.none() }),
 }) {
-  static readonly scopeOf = (principal: Principal): Option.Option<TenantContext.Scope> =>
+  static readonly scopeOf = (principal: Principal): Option.Option<Identity.Tenant.Scope> =>
     Option.map(principal.context, (context) => context.scope)
   static readonly bind = <A, E, R>(principal: Principal, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.provideService(effect, TenantScope, principal)
+  static readonly of = (context: Identity.Tenant, subject?: string): Principal => ({
+    context: Option.some(context),
+    subject: Option.fromNullable(subject),
+  })
   static readonly scoped = <A, E, R>(effect: (principal: Principal) => Effect.Effect<A, E, R>): Effect.Effect<A, E, R | TenantScope> =>
     Effect.flatMap(TenantScope, effect)
   static readonly metered = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
@@ -51,17 +51,16 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 ## [03]-[RLS_CONTRACT]
 
 [RLS_CONTRACT]:
-- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`rasm.tenant`, the RLS predicate key), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. The tenant row's `guc` is the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting` — consumers read `SessionCoordinate.tenant.guc` directly, one hop, no promotion alias.
-- Law: every projection reads the core `TenantContext` getters — the branded spelling computed from fields already proven by their own patterns — so the one scope spelling can never disagree with its parts, and an unauthenticated principal projects `none` on every row, the fail-closed default RLS reads zero rows under.
+- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (the RLS predicate key, projected off the core `Convention.rasm.tenant` symbol this page never respells), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. The tenant row's `guc` is the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting` — consumers read `SessionCoordinate.tenant.guc` directly, one hop, no promotion alias.
 - Law: the contract is transport-free — this page never composes `@effect/sql` and never spells `SET LOCAL`; the data wave's transaction transformer folds the coordinate table over the bound principal, pinning each `Some` projection, so search-path, tenant, and audit subject travel one write path.
 - Growth: a new session coordinate the data wave pins (a shard key, a search-path override, a region) is one `SessionCoordinate` row; a GUC rename lands once in its row.
 - Boundary: the `set_config` write, the RLS `CREATE POLICY` ensure, and the per-isolation Layer construction are all the data wave's; this page declares the names and the projections the enforcement reads.
-- Packages: `effect` (`Option`); `@rasm/ts/core` (`TenantContext`).
+- Packages: `effect` (`Option`); `@rasm/ts/core` (`Identity.Tenant`).
 
 ```typescript
 const SessionCoordinate = {
   tenant: {
-    guc: "rasm.tenant",
+    guc: Convention.rasm.tenant,
     read: (principal: Principal): Option.Option<string> =>
       Option.map(principal.context, (context) => String(context.tenant)),
   },

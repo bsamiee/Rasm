@@ -1,171 +1,140 @@
 # [CORE_CONTENTKEY]
 
-`ContentKey` and `Digest` carry the branch's one content identity and the engine beneath it: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian persistence layout `docs/laws/patterns.md` `[CONTENT_KEY]` fixes for every branch alike — and `Digest` is the ONE hasher surface, a width-parameterized row table whose `content` row is that mint, whose sibling rows carry the short trace address, the wire checksum, and the Merkle proof-tree digest, and whose session and keyed modalities ride the same compiled state machines. Census delegation names every content-mint site — `interchange/frame` reassembly, the runtime browser fetch worker, the data object store, and the data object planes minting chunk sub-keys (`object/stream`) and derivative keys (`object/file`) through the same mint — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. `hash-wasm` already renders the digest in that big-endian order, so the hasher's hex IS the canonical spelling and no byte-order step exists on the key path. This owner MINTS the branch's `CANONICAL_BYTE_IDENTITY` instance under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law at seed zero, parity across the three independent mints IS the conformance, and bit-parity asserts against `MESH_ADJACENCY_GOLDEN`, the frozen domain vector the `tests/contracts` drivers replay. Module `core/src/value/contentKey.ts` owns it — the only cataloguing and import site of `hash-wasm` in the branch.
+`Digest` is the sole content-digest owner and the branch's only `hash-wasm` import site. Algorithm rows derive branded keys and both wire codecs; one polymorphic mint and one sealed incremental-session algebra consume isolated machines. Module: `core/src/value/contentKey.ts`.
 
-## [01]-[INDEX]
+## [01]-[DIGEST_OWNER]
 
-- [02]-[KEY_BRAND]: the `:x32` branded schema and its binary and X32-hex wire twins; `ContentKey`.
-- [03]-[DIGEST_TABLE]: the width-row vocabulary, memoized compiles, the polymorphic mint; `Digest`.
-- [04]-[RESUMABLE_SESSION]: the save/load checkpoint algebra over one shared compiled hasher; `Digest`.
-- [05]-[SEALED_DIGEST]: the keyed authentication mint and its `Seal` brand; `Digest`.
-
-## [02]-[KEY_BRAND]
-
-[KEY_BRAND]:
-- Owner: `ContentKey`, a same-name schema-plus-type pair — the const is the branded schema every field record composes (`Schema.Struct({ key: ContentKey })`), the type is the branded string every signature speaks, and one import serves both planes.
-- Law: the `:x32` spelling is the whole refinement — exactly 32 lowercase hex characters, the big-endian hex of the 16-byte digest — so an admitted key is wire-canonical by construction and equality is bare `===` on branded strings with zero comparator ceremony.
-- Law: an inbound key on a C# wire shape decodes through this schema at the wire's field record; a key minted locally arrives through `Digest.mint("content", ...)` — both paths land the identical brand, so verification at a delegate is mint-then-compare with no normalize step.
-- Law: `Digest.FromBytes` is the binary twin — 16 raw bytes carried on a frame decode through `Encoding.encodeHex` into the branded hex and encode back through `Encoding.decodeHex` — one declaration owns the byte-carried key, and a delegate-side hex conversion is unspellable; the decode arm lands the hex on the brand's encoded plane and the brand's own refinement re-proves before the branded key exists, so no assertion bridges bytes to brand; `digest("binary")` bytes and the frame bytes share this display order, the reverse of the little-endian destination-buffer dump `XxHash128` writes, so raw-buffer parity reverses exactly one side and the hex path never does.
-- Law: `Digest.FromX32` is the hex-carried twin — a peer minting keys through the C# `ContentAddress.ToValue()` spells them 32 UPPERCASE hex, so that spelling admits at its own refinement, folds case ONCE here, and re-emits UPPERCASE on encode; the round trip is byte-identical, which is what keeps `docs/laws/patterns.md` `[WIRE_TOKEN]` intact while the branded interior stays lowercase. Case folding at a landing field, a consumer join, or a path construction is the same delegate-side conversion the byte twin already forecloses, and a landing carrying the foreign spelling raw strands every `ContentKey` join behind a per-call fold.
-- Law: a child key — a chunk sub-key, a derivative's key — is the content mint over the child's OWN bytes; parenthood is receipt data on the consuming plane's row (`parent`, `ordinal`, `child`), never a derivation from the parent's hex, so the identity algebra has one input (bytes) and the family relationship stays evidence a receipt carries.
-- Boundary: the data object store aliases its object key as a type alias over this brand, never a re-brand; a second brand over the same digest forks container identity.
-- Packages: `effect` (`Schema`, `Encoding`, `ParseResult`).
-
-## [03]-[DIGEST_TABLE]
-
-[DIGEST_TABLE]:
-- Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries each width row's factory and key brand as two columns of one row, so `Digest.Key<K>` derives by indexed access over the row's `key` column and the factory-to-brand correspondence has exactly one edit site; the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation, and the roster is seed data on one parameterized pattern — a new digest width is one row carrying both columns, never a new surface.
-- Law: four rows ride the table — `content` (`createXXHash128(0, 0)`, 32 hex, the cross-language ContentKey), `trace` (`createXXHash64(0, 0)`, 16 hex, the short correlation address log and sampling keys carry), `check` (`createCRC32()`, 8 hex, the wire checksum frame rails verify), `proof` (`createBLAKE3(256)`, 64 hex, the collision-resistant digest the data object stream folds its chunk-receipt Merkle proof tree through — leaf-versus-node domain separation is the consumer's framing byte) — and the seed is zero on every seeded row; a non-zero seed on any content-address path is out of contract.
-- Law: each row's factory promise is memoized through `GlobalValue.globalValue` under a row-keyed scope, so the WASM compile happens once per runtime per row across bundler-duplicated module instances, `init()` resets state between mints without recompiling, and an untouched row never compiles.
-- Law: the walk carries BOTH output modalities on one chunk fold — `IHasher.digest` overloads `"binary"` to the raw bytes beside the default hex, so `mint` lands the branded spelling and `raw` lands the bytes the hasher already held; a byte slot otherwise pays a hex render plus a hex parse to recover a digest that never needed a spelling, and the page's own display-order law then applies to a hex path that no byte consumer walks. `raw` carries no brand because a byte form has no spelling to refine — a key slot takes `mint`, a byte slot takes `raw`, and neither re-encodes the other.
-- Law: `mint` is modality-polymorphic — one annotated arrow whose payload discriminates on the value shape: a whole `Uint8Array` or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest walk; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes. Iterable payloads ARE the streaming verify — a multi-band reassembly proves its declared key over held bands with zero joined re-hash, and the interchange `Parity` combinator delegates exactly this walk, so no streaming-verify sibling exists anywhere.
-- Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), the returned hex is proven by construction against the row's brand, and the per-row decode record is the mapped handler contract that keeps the generic indexed dispatch cast-free; `Effect.orDie` states that a decode fault here is a defect, never a channel member.
-- Law: the digest walk is synchronous and JS-thread-atomic — every await sits before `init`, so concurrent mints on a shared hasher cannot interleave and the shared state machine needs no lock.
-- Exemption: `_walk` is a marked kernel — the `IHasher` state machine forces the statement loop across the chunk walk, only the immutable hex string leaves, and the implementer carries the `// BOUNDARY ADAPTER` mark on its first line.
-- Growth: a wider or keyed-content row (`createXXHash3`, a `createBLAKE3` width variant) is one table row carrying its factory and brand columns; a KDF surface (`argon2id`, `bcrypt`, `scrypt`) stays out of this floor — secret derivation is the security branch's concern.
-- Boundary: delegates import `Digest` and compare; they never import `hash-wasm`, never re-hash for parity claims (byte-level corpus equality only), and their mismatch faults are their own folder rails.
-- Packages: `hash-wasm` (`createXXHash128`, `createXXHash64`, `createCRC32`, `createBLAKE3`, `IHasher`); `effect` (`Effect`, `GlobalValue`, `Predicate`, `Redacted`, `Schema`).
-
-## [04]-[RESUMABLE_SESSION]
-
-[RESUMABLE_SESSION]:
-- Owner: the session algebra on `Digest` — `session(kind, saved?)` opens a fresh checkpoint or resumes a saved one, `absorb(session, chunk)` advances it, `finish(session)` seals it into the row's branded key — and a session is an immutable value `{ kind, state }` whose `state` is the `IHasher.save()` snapshot, so chunks arriving over time, interleaved mints, and cross-await streaming all share the one compiled hasher instead of constructing a private machine per mint.
-- Law: every step is a synchronous `load -> update -> save` atom over the shared hasher — the mutable state machine is entered and exited inside one expression, no hasher reference lives across an await, and two interleaved sessions cannot corrupt each other because each step rehydrates its own snapshot.
-- Law: the saved state is as sensitive as the input — a session over secret bytes is held and transported under the caller's secrecy discipline, and a snapshot resumes only under the same `hash-wasm` build; a persisted snapshot crossing a build boundary is a defect the caller owns.
-- Law: resume discriminates on arity — `session(kind)` compiles-and-initializes, `session(kind, saved)` wraps the snapshot with zero hasher work — and both land the same session shape on the same rail.
-- Growth: a windowed rolling digest is one consumer fold over `absorb`/`finish`; no session variant lands here.
-- Boundary: which stream a session folds over, its chunk sizing, and its backpressure are the consuming rail's geometry; this owner fixes the checkpoint algebra only.
-
-## [05]-[SEALED_DIGEST]
-
-[SEALED_DIGEST]:
-- Owner: `Digest.mac`, the keyed authentication mint — `createBLAKE3(256, key)` over the sealed 32-byte key, walking the same payload modalities as `mint` and landing the 64-hex `Seal` brand — the wire-auth digest a frame or capability descriptor carries beside its content key.
-- Law: the key arrives `Redacted<Uint8Array>` and unwraps exactly once inside the mint — the one consuming boundary — so a raw key never occupies a signature, a log, or a session snapshot; a malformed key length is a defect the compile rejection escalates, never a channel member.
-- Law: `Seal` is its own brand — a keyed digest branded `ContentKey` forges content identity, so the two brands never unify and a MAC can never occupy an identity slot.
-- Law: the keyed hasher is private per call — the key parameterizes the compile, so no keyed state machine is shared or memoized, and the unkeyed rows' global memo is never keyed material.
-- Growth: an HMAC row over a digest factory (`createHMAC(createSHA256(), key)`) lands as one sibling arm when a peer contract demands an HMAC construction over a specific hash; the blake3 keyed mode stays the default seal.
-- Boundary: which surfaces carry seals, key custody, and rotation are `security` concerns; this owner mints and brands only.
+- The ordered algorithm vocabulary carries factory, width, brand, and wire case; `Digest.Key<K>` and `Digest.codecs[K]` derive from those rows.
+- `content` is seed-zero XXH128, `trace` seed-zero XXH64, `check` CRC32, and `proof` BLAKE3-256; text crosses only after explicit encoding.
+- `Digest.Session` seals every detached checkpoint behind `Redacted`; each operation loads one snapshot atomically into a fresh machine.
+- Keyed authentication and KDFs belong to the security owner; no keyed key material or unbranded raw digest leaves this module.
 
 ```typescript signature
-import { Effect, Either, Encoding, GlobalValue, ParseResult, Predicate, Redacted, Schema } from "effect"
+import { Effect, Either, Encoding, ParseResult, Predicate, Record, Redacted, Schema } from "effect"
 import { createBLAKE3, createCRC32, createXXHash64, createXXHash128, type IHasher } from "hash-wasm"
+import { Shape } from "./schema.ts"
 
-const _hex = (width: number): RegExp => new RegExp(`^[0-9a-f]{${width}}$`)
+const _hex = (width: number, alphabet: "lower" | "upper" = "lower"): RegExp =>
+  new RegExp(`^[0-9${alphabet === "lower" ? "a-f" : "A-F"}]{${width}}$`)
 
-const _content = Schema.String.pipe(Schema.pattern(_hex(32)))
-const ContentKey: Schema.brand<typeof _content, "ContentKey"> = _content.pipe(Schema.brand("ContentKey"))
-type ContentKey = typeof ContentKey.Type
+const _key = <const Brand extends string>(brand: Brand, width: number) =>
+  Schema.String.pipe(Schema.pattern(_hex(width)), Schema.brand(brand))
 
-const _Trace = Schema.String.pipe(Schema.pattern(_hex(16)), Schema.brand("TraceKey"))
-const _Check = Schema.String.pipe(Schema.pattern(_hex(8)), Schema.brand("Checksum"))
-const _Proof = Schema.String.pipe(Schema.pattern(_hex(64)), Schema.brand("ProofKey"))
-const _Seal = Schema.String.pipe(Schema.pattern(_hex(64)), Schema.brand("Seal"))
-const _Bytes = Schema.Uint8ArrayFromSelf.pipe(Schema.filter((bytes) => bytes.length === 16))
-const _X32 = Schema.String.pipe(Schema.pattern(/^[0-9A-F]{32}$/)) // the peer's own spelling, refined here so a lowered or unpadded alias refuses exactly as its minting owner refuses it
-
+const _kinds = ["check", "content", "proof", "trace"] as const
 const _rows = {
-  check: { key: _Check, make: () => createCRC32() },
-  content: { key: ContentKey, make: () => createXXHash128(0, 0) },
-  proof: { key: _Proof, make: () => createBLAKE3(256) },
-  trace: { key: _Trace, make: () => createXXHash64(0, 0) },
+  check: { bytes: 4, key: _key("Checksum", 8), make: () => createCRC32(), wire: "lower" },
+  content: { bytes: 16, key: _key("ContentKey", 32), make: () => createXXHash128(0, 0), wire: "upper" },
+  proof: { bytes: 32, key: _key("ProofKey", 64), make: () => createBLAKE3(256), wire: "lower" },
+  trace: { bytes: 8, key: _key("TraceKey", 16), make: () => createXXHash64(0, 0), wire: "lower" },
 } as const
+type _AlgorithmRows = {
+  readonly [Kind in (typeof _kinds)[number]]: Omit<(typeof _rows)[Kind], "make">
+}
+const _algorithmRows = Record.map(_rows, ({ bytes, key, wire }) => ({ bytes, key, wire })) as unknown as _AlgorithmRows
+const _algorithms = Shape.vocabulary(_kinds, _algorithmRows)
 
-declare namespace Digest {
-  type Kind = keyof typeof _rows
-  type Key<K extends Kind = Kind> = Schema.Schema.Type<(typeof _rows)[K]["key"]> // derives from the row's key column: no hand mapping restates the correspondence
-  type Payload = Uint8Array | Iterable<Uint8Array>
-  type Seal = typeof _Seal.Type
-  type Session<K extends Kind = Kind> = { readonly kind: K; readonly state: Uint8Array }
-  type Shape = {
-    readonly FromBytes: Schema.transformOrFail<typeof _Bytes, typeof ContentKey>
-    readonly FromX32: Schema.transform<typeof _X32, typeof ContentKey>
-    readonly Seal: typeof _Seal
-    readonly absorb: <K extends Kind>(session: Session<K>, chunk: Uint8Array) => Effect.Effect<Session<K>>
-    readonly finish: <K extends Kind>(session: Session<K>) => Effect.Effect<Key<K>>
-    readonly mac: (key: Redacted.Redacted<Uint8Array>, payload: Payload) => Effect.Effect<Seal>
-    readonly mint: <K extends Kind>(kind: K, payload: Payload) => Effect.Effect<Key<K>>
-    readonly raw: (kind: Kind, payload: Payload) => Effect.Effect<Uint8Array>
-    readonly session: <K extends Kind>(kind: K, saved?: Uint8Array) => Effect.Effect<Session<K>>
-  }
-  type _Rows<T extends Record<Kind, { readonly key: Schema.Schema.Any; readonly make: () => Promise<IHasher> }> = typeof _rows> = T
+const _codec = <Key extends Schema.Schema.Any>(key: Key, bytes: number, wire: "lower" | "upper") => {
+  const Bytes = Schema.Uint8ArrayFromSelf.pipe(Schema.filter((value) => value.length === bytes))
+  const Wire = Schema.String.pipe(Schema.pattern(_hex(bytes * 2, wire)))
+  return {
+    bytes: Schema.transformOrFail(Bytes, key, {
+      strict: true,
+      decode: (value) => ParseResult.succeed(Encoding.encodeHex(value)),
+      encode: (value, _options, ast) =>
+        Either.match(Encoding.decodeHex(value), {
+          onLeft: () => ParseResult.fail(new ParseResult.Type(ast, value, "<malformed-digest>")),
+          onRight: ParseResult.succeed,
+        }),
+    }),
+    wire: Schema.transform(Wire, key, {
+      strict: true,
+      decode: (value) => value.toLowerCase(),
+      encode: (value) => wire === "upper" ? value.toUpperCase() : value,
+    }),
+  } as const
 }
 
-const _minted: { readonly [K in Digest.Kind]: (hex: string) => Effect.Effect<Digest.Key<K>> } = {
-  check: (hex) => Effect.orDie(Schema.decode(_rows.check.key)(hex)),
-  content: (hex) => Effect.orDie(Schema.decode(_rows.content.key)(hex)),
-  proof: (hex) => Effect.orDie(Schema.decode(_rows.proof.key)(hex)),
-  trace: (hex) => Effect.orDie(Schema.decode(_rows.trace.key)(hex)),
+type _Keys = { readonly [Kind in (typeof _kinds)[number]]: _AlgorithmRows[Kind]["key"] }
+type _Codecs = {
+  readonly [Kind in (typeof _kinds)[number]]: ReturnType<typeof _codec<_AlgorithmRows[Kind]["key"]>>
 }
+const _keys = Record.map(_algorithmRows, (row) => row.key) as unknown as _Keys
+const _codecs = Record.map(
+  _algorithmRows,
+  (row) => _codec(row.key, row.bytes, row.wire),
+) as unknown as _Codecs
 
-const _compiled = <K extends Digest.Kind>(kind: K): Effect.Effect<IHasher> =>
-  Effect.promise(() => GlobalValue.globalValue(`@rasm/ts/core/Digest/${kind}`, () => _rows[kind].make()))
+const _minted = <Kind extends Digest.Kind>(kind: Kind, hex: string): Effect.Effect<Digest.Key<Kind>> =>
+  Effect.orDie(Schema.decode(_algorithms.at(kind).key)(hex))
 
-// The output modality is a parameter, not a second walk: `IHasher.digest` overloads `"binary"` to the raw bytes and
-// the default to hex, so a byte-slot consumer takes the bytes the hasher already holds instead of paying a hex render
-// plus a hex parse to recover them, and the two modalities share one chunk walk.
-function _walk(hasher: IHasher, payload: Digest.Payload): string
-function _walk(hasher: IHasher, payload: Digest.Payload, out: "binary"): Uint8Array
-function _walk(hasher: IHasher, payload: Digest.Payload, out?: "binary"): string | Uint8Array {
-  // BOUNDARY ADAPTER: the IHasher state machine forces the statement loop; only the immutable digest leaves
+const _hasher = <Kind extends Digest.Kind>(kind: Kind): Effect.Effect<IHasher> =>
+  Effect.promise(() => _rows[kind].make())
+
+const _walk = (hasher: IHasher, payload: Digest.Payload): string => {
+  // BOUNDARY ADAPTER: IHasher is statement-shaped mutable state; only its detached digest leaves this atomic walk.
   const armed = hasher.init()
   if (Predicate.isUint8Array(payload)) armed.update(payload)
   else for (const chunk of payload) armed.update(chunk)
-  return out === undefined ? armed.digest() : armed.digest(out)
+  return armed.digest()
 }
 
-const _FromBytes: Schema.transformOrFail<typeof _Bytes, typeof ContentKey> = Schema.transformOrFail(_Bytes, ContentKey, {
-  strict: true,
-  decode: (bytes) => ParseResult.succeed(Encoding.encodeHex(bytes)),
-  encode: (hex, _options, ast) =>
-    Either.match(Encoding.decodeHex(hex), {
-      onLeft: () => ParseResult.fail(new ParseResult.Type(ast, hex, "<malformed-hex>")),
-      onRight: (bytes) => ParseResult.succeed(bytes),
-    }),
-})
+class _Session<Kind extends Digest.Kind = Digest.Kind> {
+  readonly kind: Kind
+  readonly #state: Redacted.Redacted<Uint8Array>
 
-// Both directions are total against `_X32`'s own refinement, so the transform is the strict form and ContentKey's
-// lowercase filter re-proves the decoded hex before the brand exists — no assertion bridges the two spellings.
-const _FromX32: Schema.transform<typeof _X32, typeof ContentKey> = Schema.transform(_X32, ContentKey, {
-  strict: true,
-  decode: (spelled) => spelled.toLowerCase(),
-  encode: (key) => key.toUpperCase(),
-})
+  private constructor(kind: Kind, state: Uint8Array) {
+    this.kind = kind
+    this.#state = Redacted.make(state.slice())
+    Object.freeze(this)
+  }
 
-const Digest: Digest.Shape = {
-  FromBytes: _FromBytes,
-  FromX32: _FromX32,
-  Seal: _Seal,
-  absorb: (session, chunk) =>
-    Effect.map(_compiled(session.kind), (hasher) => ({
-      kind: session.kind,
-      state: hasher.load(session.state).update(chunk).save(),
-    })),
-  finish: (session) =>
-    Effect.flatMap(_compiled(session.kind), (hasher) => _minted[session.kind](hasher.load(session.state).digest())),
-  mac: (key, payload) =>
-    Effect.flatMap(Effect.promise(() => createBLAKE3(256, Redacted.value(key))), (hasher) =>
-      Effect.orDie(Schema.decode(_Seal)(_walk(hasher, payload)))),
-  mint: (kind, payload) => Effect.flatMap(_compiled(kind), (hasher) => _minted[kind](_walk(hasher, payload))),
-  raw: (kind, payload) => Effect.map(_compiled(kind), (hasher) => _walk(hasher, payload, "binary")), // no brand: the byte form carries no spelling to refine, so a byte slot takes it and a key slot takes `mint`
-  session: (kind, saved) =>
-    saved === undefined
-      ? Effect.map(_compiled(kind), (hasher) => ({ kind, state: hasher.init().save() }))
-      : Effect.succeed({ kind, state: saved }),
+  static make = <Kind extends Digest.Kind>(kind: Kind, state: Uint8Array): _Session<Kind> => new _Session(kind, state)
+  static load = <Kind extends Digest.Kind>(session: _Session<Kind>, hasher: IHasher): IHasher =>
+    hasher.load(Redacted.value(session.#state).slice())
+
+  checkpoint(): Redacted.Redacted<Uint8Array> {
+    return Redacted.make(Redacted.value(this.#state).slice())
+  }
+}
+
+function _open<Kind extends Digest.Kind>(kind: Kind): Effect.Effect<_Session<Kind>>
+function _open<Kind extends Digest.Kind>(kind: Kind, checkpoint: Redacted.Redacted<Uint8Array>): Effect.Effect<_Session<Kind>>
+function _open<Kind extends Digest.Kind>(
+  kind: Kind,
+  checkpoint?: Redacted.Redacted<Uint8Array>,
+): Effect.Effect<_Session<Kind>> {
+  return checkpoint === undefined
+    ? Effect.map(_hasher(kind), (hasher) => _Session.make(kind, hasher.init().save()))
+    : Effect.map(_hasher(kind), (hasher) => _Session.make(kind, hasher.load(Redacted.value(checkpoint).slice()).save()))
+}
+
+const Digest = {
+  ..._algorithms,
+  Key: _keys,
+  codecs: _codecs,
+  mint: <Kind extends Digest.Kind>(kind: Kind, payload: Digest.Payload): Effect.Effect<Digest.Key<Kind>> =>
+    Effect.flatMap(_hasher(kind), (hasher) => _minted(kind, _walk(hasher, payload))),
+  Session: {
+    open: _open,
+    absorb: <Kind extends Digest.Kind>(session: Digest.Session<Kind>, chunk: Uint8Array): Effect.Effect<Digest.Session<Kind>> =>
+      Effect.map(_hasher(session.kind), (hasher) =>
+        _Session.make(session.kind, _Session.load(session, hasher).update(chunk).save())),
+    checkpoint: <Kind extends Digest.Kind>(session: Digest.Session<Kind>): Redacted.Redacted<Uint8Array> => session.checkpoint(),
+    finish: <Kind extends Digest.Kind>(session: Digest.Session<Kind>): Effect.Effect<Digest.Key<Kind>> =>
+      Effect.flatMap(_hasher(session.kind), (hasher) => _minted(session.kind, _Session.load(session, hasher).digest())),
+  },
+} as const
+
+declare namespace Digest {
+  type Kind = (typeof _kinds)[number]
+  type Key<Kind extends Digest.Kind = Digest.Kind> = Schema.Schema.Type<(typeof _rows)[Kind]["key"]>
+  type Payload = Uint8Array | Iterable<Uint8Array>
+  type Session<Kind extends Digest.Kind = Digest.Kind> = _Session<Kind>
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { ContentKey, Digest }
+export { Digest }
 ```
 
 ## [06]-[RESEARCH]

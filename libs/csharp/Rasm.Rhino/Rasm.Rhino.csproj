@@ -16,6 +16,16 @@
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
+    <!-- rasm.organization.v1 is the corpus-homed source this boundary produces; ProtoRoot pins the corpus root so the
+         generated descriptor path matches the frozen snapshot every peer minter carries. -->
+    <ItemGroup Label="Wire Transcription">
+        <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/organization/v1/organization.proto"
+                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
+                  GrpcServices="None" />
+    </ItemGroup>
+
     <ItemGroup Label="Observability">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />

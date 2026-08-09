@@ -2,7 +2,7 @@
 
 Table-format interchange crosses one `LakeOp` operation axis with one `TableFormat` provider axis on one `Lakehouse` owner over Delta, Iceberg, Lance, DuckLake, and the non-transactional Parquet tree. `Lakehouse.run` folds the ensure/write/read/delete/update/merge/evolve/optimize/vacuum/changefeed/index/restore/reference lifecycle through the `LakeOp` tagged union and dispatches one `(TableFormat, tag)` arm to a `RuntimeRail[LakeReceipt]` — the operation axis format-agnostic, the format binding a separate discriminant, so a new format is one `TableFormat` row and its arms, never a parallel Iceberg or Lance owner, and formats reaching fewer operations state that as `_REFUSAL` rows. `Lakehouse` commits and reads snapshots over the provider surface; it holds no durable store.
 
-`Residence` rows the analytics planes this owner writes — the Delta evidence table, the Iceberg alternative, the Parquet cold tail — each answering fits, ingest, tenancy, retention, and a degradation derived from the reach matrix, so arming a residence is a row and no arm carries a partition or retention literal. `Lakehouse.sink` folds a receipt stream through `receipt_frame` onto the pinned `_RECEIPT_SCHEMA` and commits it through the SAME `(format, tag)` matrix a caller's table rides, so the evidence plane inherits reach, veto, retry, span, and snapshot identity whole. `ResidenceRow.ops` splits that plan across a `LakePhase` axis: INGEST arms the plane off its own `TableLayout` and commits one append per drain, MAINTAIN carries the clustering and retention passes the deploy plane schedules, because a clustering pass folded into ingest rewrites every file the plane holds on every drain. Both rosters derive off the reach matrix, so a residence whose format authors no table object plans no arming rather than declaring the absence by hand, and no residence waits on a foreign engine to plant it first. That plane carries NO cardinality ceiling — unbounded dimensionality is the capability a metrics view cap exists to destroy — and its `cap` column is typed `False` so no later pass adds one.
+`Residence` rows the analytics planes this owner writes — the Delta evidence table, the Iceberg alternative, the Parquet cold tail — each answering fits, admit, tenancy, lifetime, and a degradation derived from the reach matrix, so arming a residence is a row and no arm carries a partition or lifetime literal. `Lakehouse.sink` folds a receipt stream through `receipt_frame` onto the pinned `_RECEIPT_SCHEMA` and commits it through the SAME `(format, tag)` matrix a caller's table rides, so the evidence plane inherits reach, veto, retry, span, and snapshot identity whole. `ResidenceRow.ops` splits that plan across a `LakePhase` axis: INGEST arms the plane off its own `TableLayout` and commits one append per drain, MAINTAIN carries the clustering and retention passes the deploy plane schedules, because a clustering pass folded into ingest rewrites every file the plane holds on every drain. Both rosters derive off the reach matrix, so a residence whose format authors no table object plans no arming rather than declaring the absence by hand, and no residence waits on a foreign engine to plant it first. That plane carries NO cardinality ceiling — unbounded dimensionality is the capability a metrics view cap exists to destroy — and its `cap` column is typed `False` so no later pass adds one.
 
 Time travel is one vocabulary both directions of the axis read: `Read`/`Restore` consume a generation, an instant, or a named ref, and `Reference` AUTHORS that name — so a tag-string read reaches a tag this owner minted rather than one a foreign engine happened to leave behind, the same out-of-band step `Ensure`'s arming argument deletes. Iceberg's read path is the core-loadable DuckDB `iceberg` extension with `pyiceberg` the catalog-write fallback; Lance carries the multimodal-asset versioning and `create_index` ANN rail; DuckLake rides one `Attach` row over the shared `tabular/columnar#SCAN` `DuckDbSession`, the single session every DuckDB-backed arm reuses. `changefeed` is the Delta `load_cdf` and DuckLake `table_changes` feed the `tabular/materialize#MATERIALIZE` `DerivedSnapshot._materialize` consumer reads, and the receipt carries that feed on its `payload` slot so the consumer composes this owner rather than re-opening `DeltaTable` behind it. Every commit contributes through runtime `ReceiptContributor`, keys by `ContentIdentity`, and — when mutating — rides the `runtime/reliability/resilience#RESILIENCE` `RetryClass.LAKE_COMMIT` `guarded_sync` envelope; `open`/`run`/`run_async` admit through `@beartype(conf=FAULT_CONF)`, the shared config the sibling `interop`/`egress`/`columnar` seams bind. Table-protocol governance — deletion vectors, `TableFeatures` — is DECLINED here: the C# `Rasm.Persistence` at-rest owner holds it, never a data-side commit toggle.
 
@@ -13,7 +13,7 @@ Time travel is one vocabulary both directions of the axis read: `Read`/`Restore`
 ## [02]-[LAKEHOUSE]
 
 - Owner: `Lakehouse` over the `LakeOp` operation axis (a `tagged_union` matched by `match (self.table_format, op)`) and the `TableFormat` `StrEnum` provider axis, dispatched one `(format, tag)` arm — two orthogonal discriminants, so a new operation is one `LakeOp` case and a new format one `TableFormat` row, never a `read_delta`/`write_delta`/`delete_delta` method family and never a parallel `IcebergLakehouse`/`LanceLakehouse` pair. Writer tuning rides one `WriteTuning` policy `Struct` carried on `Write`, never a parallel `WriteTuned` op or a knob tail; the merge delete-on-no-match rides one `delete_unmatched` discriminant selecting the third `when_not_matched_by_source_delete` clause, never a `MergeDelete` op.
-- Owner: `Residence` rows the analytics planes by CAPABILITY — `ResidenceRow` answering the estate residence floor (`fits`, `ingest`, `tenancy`, `retain`, `degrade`, `cap` typed `False`) beside this owner's own extension of kind, format, partition roster, clustering roster, writer tuning, retention window, and an arming `TableLayout`, with `degrade` DERIVED off `_REFUSAL`, so a format losing an op degrades every residence riding it with zero row edits and a hand-written degradation sentence cannot drift from the refusal producing it.
+- Owner: `Residence` rows the analytics planes by CAPABILITY — `ResidenceRow` answering the estate residence floor (`fits`, `admit`, `tenancy`, `lifetime`, `degrade`, `cap` typed `False`) beside this owner's own extension of kind, format, partition roster, clustering roster, writer tuning, lifetime window, and an arming `TableLayout`, with `degrade` DERIVED off `_REFUSAL`, so a format losing an op degrades every residence riding it with zero row edits and a hand-written degradation sentence cannot drift from the refusal producing it.
 - Owner: `TableLayout` states the authored table spec as DATA — schema, `PartitionTransform`-keyed partition pairs, sort order, properties — and each format arm projects that one declaration onto its own grammar (`bucket[16]` tokens at the iceberg catalog, `bucket(16, col)` SQL at ducklake, bare columns at delta), so a second residence arms through the same row shape and a transform a format cannot spell refuses by name rather than vanishing.
 - Owner: `TableFormat.PARQUET` seats the object-plane tree as a FORMAT rather than a writer hanging off the residence family — its `_REFUSAL` cells state the whole non-transactionality, its armed write and read inherit the reach gate, the commit veto, the retry envelope, the span, and the receipt every sibling format rides, and `ResidenceRow.degrade` then derives the cold row's degradation from those cells instead of a hand-kept sentence beside them. Provider-dialect divergence stays a row: `_PARQUET_EXISTING` projects the write mode onto the tree's collision policy and `_PARQUET_CODEC` the writer's codec roster onto its file options, a codec the tree cannot spell refusing by name rather than downgrading.
 - Law: `contribute` records the file-churn pair under the owner's own `DOMAIN` segment keyed by operation, so the commit plane projects onto the metric spine beside its tabular siblings.
@@ -218,7 +218,7 @@ class LakePlane(StrEnum):
 
 class Residence(StrEnum):
     # analytics residences keyed by CAPABILITY, mirroring how the deploy plane parameterizes its metrics-store
-    # family: each row answers fits, ingest, tenancy, retention, and an honest degradation, so arming a residence
+    # family: each row answers fits, admit, tenancy, lifetime, and an honest degradation, so arming a residence
     # is a row and hardcoding one below the family is the deleted form. Subject and format stay separate axes —
     # `DatasetKind` names the source shape and `TableFormat` the commit protocol, this enum the subject.
     EVIDENCE = "evidence"
@@ -456,15 +456,17 @@ class ResidenceRow(Struct, frozen=True):
     zorder: tuple[str, ...]
     tuning: WriteTuning
     tenancy: str
-    retain: str
-    # `retain_hours` carries the retention WINDOW as row data beside the prose naming its mechanism, so the plan holds
-    # no literal and a residence keeping evidence longer is one row edit. `None` takes the format's own default window.
-    retain_hours: int | None
+    # `lifetime` answers BOTH halves — how long a committed row survives AND which owner ends it — because a duration
+    # naming no ender leaves a plane every reader assumes somebody else expires.
+    lifetime: str
+    # `lifetime_hours` carries that window as row data beside the prose naming its ending owner, so the plan holds no
+    # literal and a residence keeping evidence longer is one row edit. `None` takes the format's own default window.
+    lifetime_hours: int | None
     fits: str
     # Writers that FILL this plane, stated per row because each fill path genuinely differs: two rows commit
     # through a transactional log and the cold row lands a generation through the columnar egress. Leaving this
     # floor column off lets a caller hardcode which entrypoint fills which plane.
-    ingest: str
+    admit: str
     # `layout` carries the table SPEC this residence arms itself from, so a catalog-governed plane comes into
     # existence through the same matrix that writes it and no composition remembers an out-of-band create. A row
     # leaving it `None` declares that its format needs no authored spec, and `ops` then plans no `Ensure` at all.
@@ -498,7 +500,7 @@ class ResidenceRow(Struct, frozen=True):
                 planned = (*armed, LakeOp.Write(mode="append", partition_by=self.partition_by, evolve_schema=True, tuning=self.tuning))
             case LakePhase.MAINTAIN:
                 clustered = (LakeOp.Optimize(self.tuning.target_file_size, self.zorder, partition),) if self.zorder else ()
-                planned = (*clustered, LakeOp.Vacuum(self.retain_hours, dry_run=False))
+                planned = (*clustered, LakeOp.Vacuum(self.lifetime_hours, dry_run=False))
             case unreachable:
                 assert_never(unreachable)
         return tuple(op for op in planned if _REFUSAL.try_find((self.table_format, op.tag)).is_none())
@@ -1544,10 +1546,10 @@ _RESIDENCE: Final[Map[Residence, ResidenceRow]] = Map.of_seq([
             zorder=("tenant", "content_key"),
             tuning=WriteTuning(compression="ZSTD", statistics_truncate_length=64, bloom_columns=("tenant", "content_key", "kind")),
             tenancy="tenant leads the clustering key, so a single-tenant predicate prunes files before a row is read",
-            retain="the MAINTAIN plan's Vacuum against the table's own log-retention window",
-            retain_hours=None,
+            lifetime="a committed row survives to the table's own log-retention window; the MAINTAIN plan's Vacuum expires it, on the cadence the deploy plane schedules that plan",
+            lifetime_hours=None,
             fits="mutable evidence carrying time travel and a change feed",
-            ingest="`Lakehouse.sink` appends one `write_deltalake` commit per receipt drain through the INGEST plan",
+            admit="`Lakehouse.sink` appends one `write_deltalake` commit per receipt drain through the INGEST plan",
             # delta arms from the pinned receipt schema and its own hive columns; `identity` is the only transform
             # this format reaches, so the layout states the pair the write already partitions on and nothing more.
             layout=TableLayout(
@@ -1567,10 +1569,10 @@ _RESIDENCE: Final[Map[Residence, ResidenceRow]] = Map.of_seq([
             zorder=(),
             tuning=WriteTuning(compression="ZSTD"),
             tenancy="tenant buckets in the spec `Ensure` authors, so a tenant predicate prunes without a directory per tenant",
-            retain="the MAINTAIN plan's Vacuum expiring snapshots older than the window",
-            retain_hours=None,
+            lifetime="a committed snapshot survives to the window the format's own table properties declare; the MAINTAIN plan's Vacuum expires it on the deploy plane's cadence",
+            lifetime_hours=None,
             fits="catalog-governed multi-engine read where a foreign engine holds the catalog",
-            ingest="`Lakehouse.sink` appends through the catalog transaction the INGEST plan's own `Ensure` authored",
+            admit="`Lakehouse.sink` appends through the catalog transaction the INGEST plan's own `Ensure` authored",
             # this row is why the operation exists: a catalog-governed residence stayed DECLARABLE and unarmable,
             # waiting on a foreign engine to plant it. Iceberg reaches the full transform set, so the spec bucket-hashes
             # tenant rather than pathing one directory per tenant, and days the timestamp its own predicates scan.
@@ -1591,10 +1593,10 @@ _RESIDENCE: Final[Map[Residence, ResidenceRow]] = Map.of_seq([
             zorder=(),
             tuning=WriteTuning(compression="ZSTD"),
             tenancy="tenant stays a row column; a hive segment per tenant fragments the tree past any pruning it buys",
-            retain="object-plane lifecycle at the deploy plane; the MAINTAIN plan derives EMPTY off the refusal rows",
-            retain_hours=None,
+            lifetime="a landed generation survives to the object-plane lifecycle rule the deploy plane sets, and that plane is its sole ender — the MAINTAIN plan derives EMPTY off the refusal rows, so this owner expires nothing",
+            lifetime_hours=None,
             fits="cold tail, cheapest per byte, whole-partition batch scan",
-            ingest="`Lakehouse.sink` lands one `ColumnarEgress.Dataset` generation per drain; the tree carries no log to commit to",
+            admit="`Lakehouse.sink` lands one `ColumnarEgress.Dataset` generation per drain; the tree carries no log to commit to",
         ),
     ),
 ])

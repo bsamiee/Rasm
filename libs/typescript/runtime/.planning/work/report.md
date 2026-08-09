@@ -32,10 +32,10 @@ import { Buffer } from "node:buffer"
 import path from "node:path"
 import { PassThrough, Transform } from "node:stream"
 import { Array, Chunk, Clock, Data, DateTime, Deferred, Duration, Effect, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Bench, BenchFault, Drop, Render } from "../proc/worker.ts"
 
-const _family = FaultClass.family(["engine", "sink", "archive", "slip", "ceiling", "consumed"] as const, {
+const _family = Fault.Class.family(["engine", "sink", "archive", "slip", "ceiling", "consumed"] as const, {
   engine: { class: "defect" },
   sink: { class: "unavailable" },
   archive: { class: "defect" },
@@ -49,7 +49,7 @@ class ReportFault extends Data.TaggedError("ReportFault")<{
   readonly arm: "csv" | "xlsx" | "pdf" | "zip"
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {

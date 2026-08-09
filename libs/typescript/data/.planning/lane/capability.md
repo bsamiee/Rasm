@@ -1,13 +1,13 @@
 # [DATA_CAPABILITY]
 
-This folder's fail-closed capability rail: one closed row/ensure vocabulary, one `Capability` service that proves every extension row, every declared relation, and every dependency demand at Layer construction through two roster-batched probes, and one fault family for everything a probe refuses. Nothing in the folder assumes an extension, a version floor, or a relation — presence is proven or the capability does not exist, and the granted set is a value siblings gate on: `require` fails typed, `when` degrades to `Option`. Extension proof is one `RequestResolver`-batched dialect-honest catalog lookup; relation proof is one schema-qualified census over the complete ensure roster. This same rail carries the DDL split: the provisioning plane applies the idempotent ensure rows, this service proves them at startup, runtime never mutates schema.
+One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `Capability` service proving every extension row, relation, and demand at Layer construction, and one fault family for its refusals. Nothing assumes an extension, a version floor, or a relation — presence proves or the capability does not exist, and siblings gate on the granted set through `require` and `when`. `Backend` composes that proven catalogue into one generation and grades a restored store on two proofs: identity that it carries the generation, recency that its frontier holds the declared window.
 
 ## [01]-[INDEX]
 
-- [02]-[ROW_VOCABULARY]: the row, ensure, and demand shapes, the version-order fold, the one fault family.
-- [03]-[BATCHED_PROBE]: the probe request family and the one-statement `RequestResolver` over the roster.
-- [04]-[PROBE_SERVICE]: the `Capability` service — construction-time proof, granted set, `require`/`when` gates.
-- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, evidence.
+- [02]-[ROW_VOCABULARY]: row, ensure, and demand shapes, the version-order fold, one fault family.
+- [03]-[BATCHED_PROBE]: probe request family and the one-statement `RequestResolver` over the roster.
+- [04]-[PROBE_SERVICE]: `Capability` service construction-time proof, granted set, `require`/`when` gates.
+- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, recovery grading, evidence.
 
 ## [02]-[ROW_VOCABULARY]
 
@@ -15,17 +15,17 @@ This folder's fail-closed capability rail: one closed row/ensure vocabulary, one
 - Law: `floor` compares segment-numeric through `_byVersion` over one padded width, so a segment count never outranks a segment value and a real two-segment `extversion` meets an equal three-segment floor; `"0.0.0"` is the presence-only floor and the probe still fails closed on absence. Floor gating itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
 - Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
 - Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
-- Law: one `CapabilityFault` family, reason-discriminated and closed through the core `FaultClass.family` seam — `absent` (extension not installed) and `schema` (declared relation missing) classify `absent`, `floor` (installed below floor) classifies `breached` because a declared minimum the environment sits under is a limit break, `requires` (dependency grant refused) classifies `denied`; all four route identically at startup (fail or shrink, repair provision), so retryability and blame derive from the core row table and no local policy column is earned.
-- Packages: `effect` (`Order`, `Schema`, `String`); `@rasm/ts/core` (`FaultClass`).
+- Law: `CapabilityFault` closes through `Fault.Class.family`; core class rows own retryability and blame.
+- Packages: `effect` (`Order`, `Schema`, `String`); `@rasm/ts/core` (`Fault.Class`).
 - Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
 
 ```typescript signature
 import { Array, Order, Schema, String, pipe } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
-// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core Fault.Class row
 // table's — a rank or retry column here would fork that taxonomy into this folder.
-const _family = FaultClass.family(["absent", "floor", "schema", "requires"] as const, {
+const _family = Fault.Class.family(["absent", "floor", "schema", "requires"] as const, {
   absent: { class: "absent" },
   floor: { class: "breached" },
   schema: { class: "absent" },
@@ -58,7 +58,7 @@ class CapabilityFault extends Schema.TaggedError<CapabilityFault>()("CapabilityF
   subject: Schema.String,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -138,6 +138,8 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 - Receipt: `Capability.Report` — `granted`, `versions`, `refused` — the typed probe evidence startup logging and the fact journal consume; a tally beside it restates what the report carries.
 - Growth: a consumer needing a new gate composes `require`/`when`, never a second probe path; a new dialect's relation probe is one `onDialectOrElse` arm.
 - Law: probes are fail-closed — an absent row is refused, never assumed; a refused ensure relation fails Layer construction (the DDL split was violated), a refused extension row only shrinks the granted set and consumers degrade through `when`.
+- Law: the relation census reads the CATALOG and never `information_schema` — the standard view carries base tables, views, and foreign tables while omitting materialized views entirely, so an ensure for the incremental-view row the matrix admits never verifies and fails construction forever against a relation that exists; the same view also hides relations the current role holds no privilege on, turning a grant defect into an indistinguishable absence whose fault detail prints DDL an operator then re-runs for nothing. `relkind` names the admitted kinds as a literal set, so a new relation kind is one token.
+- Law: the sqlite census filters on relation TYPE — the schema table lists indexes and triggers beside tables, so an unfiltered name match lets an index sharing an ensured relation's name answer for it and construction passes over a table nobody created.
 - Law: demands compute a least fixed point from core grants — each pass admits only rows whose demanded grants already exist in the accepted set, then widens that set with their capabilities; convergence refuses unresolved and cyclic rows with reason `requires`, so one starved row can never satisfy another row transiently. Demand pairs arrive as data, and the deploy plane's image derivation reads the same pairs at provision.
 - Law: the Tag carries the caller's grant vocabulary — `Capability.of<Pg.Grant>()` reaches one runtime key with `G` live in the static type, so `require` and `when` accept only that roster's keys; a Tag fixing its service type at the class widens every gate to bare `string` and deletes the closure the roster exists to provide.
 - Law: `require` is the hard gate (`Effect<void, CapabilityFault>`), `when` the soft gate (refusal reifies as `Option.none`); a boolean read of the granted set outside these two members is the smuggled knob.
@@ -173,6 +175,12 @@ declare namespace Capability {
 // naming a gate outside its own roster fails to compile instead of failing closed at run time.
 const _KEY = "data/Capability"
 
+// Admitted relation kinds, one roster per dialect: ordinary and partitioned tables, plain views, MATERIALIZED
+// views (which the standard information view omits outright, so an incremental-view ensure verifies here and
+// nowhere else), and foreign tables. Adding a kind is one token.
+const _PG_KINDS = ["r", "p", "v", "m", "f"] as const
+const _SQLITE_KINDS = ["table", "view"] as const
+
 const _capability = <G extends string, F extends string>(
   build: Capability.Build<G, F>,
 ): Effect.Effect<
@@ -189,9 +197,15 @@ const _capability = <G extends string, F extends string>(
       Result: Schema.Struct({ relation: Schema.String }),
       execute: (coordinate) =>
         sql.onDialectOrElse({
-          orElse: () => sql`SELECT name AS relation FROM sqlite_master WHERE ${sql.in("name", coordinate.relations)}`,
-          pg: () => sql`SELECT table_name AS relation FROM information_schema.tables
-                        WHERE table_schema = ${coordinate.schema} AND ${sql.in("table_name", coordinate.relations)}`,
+          orElse: () =>
+            sql`SELECT name AS relation FROM sqlite_master
+                WHERE ${sql.in("type", _SQLITE_KINDS)} AND ${sql.in("name", coordinate.relations)}`,
+          pg: () =>
+            sql`SELECT c.relname AS relation FROM pg_catalog.pg_class AS c
+                JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+                WHERE n.nspname = ${coordinate.schema}
+                  AND ${sql.in("c.relkind", _PG_KINDS)}
+                  AND ${sql.in("c.relname", coordinate.relations)}`,
         }),
     })
     const probed = yield* Effect.forEach(
@@ -246,7 +260,7 @@ const _capability = <G extends string, F extends string>(
       const [waiting, ready] = Array.partitionMap(pending, (entry) => {
         const [row] = entry
         const unmet = Array.findFirst(demands, ([flag, grant]) =>
-          Array.contains(row.flags, flag) && !HashSet.has(available, grant))
+          Array.contains(row.flags ?? [], flag) && !HashSet.has(available, grant))
         return Option.isNone(unmet) ? Either.right(entry) : Either.left(entry)
       })
       return ready.length > 0
@@ -255,7 +269,7 @@ const _capability = <G extends string, F extends string>(
             accepted,
             Array.map(waiting, ([row]) => {
               const demand = Array.findFirst(demands, ([flag, grant]) =>
-                Array.contains(row.flags, flag) && !HashSet.has(available, grant))
+                Array.contains(row.flags ?? [], flag) && !HashSet.has(available, grant))
               return new CapabilityFault({
                 reason: "requires",
                 subject: row.extension,
@@ -310,7 +324,7 @@ declare namespace Capability {
 
 ## [05]-[CONTRACT]
 
-- Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds contributions into the deployment unit; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps local evidence; `Backend.admit` joins expected against observed.
+- Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds contributions into the deployment unit; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps one local reading — realized catalogue and recovery stamps together — into an observation; `Backend.admit` grades one verdict on the two proofs.
 - Cases: Effect SQL migrations, journal DDL, the PGLite generation, and object-plane ensures each land as one `Source` row carrying key, role, bytes, providers, and dependencies — the branch composes from its own artifacts alone.
 - Law: compose encodes the contract ONCE and digests the bytes it just framed; `project` reads transported octets and never re-encodes to compare, because `JSON.stringify` is canonical in no runtime but its own. `JSONSchema.make` derives the schema artifact from the same AST, so the encode and the schema cannot drift.
 - Law: core `Digest.mint("content", bytes)` mints the generation over the canonical UTF-8 artifact; data imports no hash package and reads no peer's digest.
@@ -319,13 +333,17 @@ declare namespace Capability {
 - Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
 - Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
 - Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
-- Packages: `effect` Schema, JSONSchema, collections, and rails; core `ContentKey`, `Digest`, and `FaultClass`.
-- Growth: a provider adds adapter rows over its existing matrix; a new invariant is one `_Check` row; a generated field changes the one projection schema.
+- Law: recovery is ONE verdict on two proofs, never two generations — contract identity proves the store carries the composed generation, and recency proves the frontier behind it is current for the window the deployment declared; both refuse through `BackendFault`, so a stale store never publishes as an admitted generation.
+- Law: the measured window derives from the observation's OWN stamps, so a provider hands in the readings it took and never a lag it computed against a clock this owner never saw; a lag admits at ZERO — a frontier stamped at its own reading instant is the freshest measured recency — and only a frontier stamped after that reading is skew grading as unmeasured.
+- Law: absence splits opposite ways — an unmeasured recovery point refuses, because a restore admitted with no recency evidence grades a window nobody took, while an absent restore duration passes on a store that never restored.
+- Law: the objective is a value the composition root supplies off its consumption profile row; this page grades a declared window and owns no durability table of its own.
+- Packages: `effect` Schema, JSONSchema, collections, and rails; core `Digest.Key`, `Digest`, and `Fault.Class`.
+- Growth: a provider adds adapter rows over its existing matrix; a new invariant is one `_Check` row; a generated field changes the one projection schema; a new recovery axis is one `Window` column with its absence law in `_exceeding` beside its `Objective` column.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence.
 
 ```typescript signature
-import { ContentKey, Digest, FaultClass } from "@rasm/ts/core"
-import { Array, Effect, Equivalence, HashSet, JSONSchema, Order, Schema, String } from "effect"
+import { Digest, Fault } from "@rasm/ts/core"
+import { Array, DateTime, Duration, Effect, Equivalence, HashSet, JSONSchema, Option, Order, Schema, String } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -360,7 +378,7 @@ const _ContractWire = Schema.Struct({
 
 const _ConformanceWire = Schema.Struct({
   contract: Schema.String,
-  generation: ContentKey,
+  generation: Digest.Key.content,
   canonical: Schema.Uint8ArrayFromBase64,
   jsonSchema: Schema.Uint8ArrayFromBase64,
   artifactKeys: Schema.Array(Schema.String),
@@ -392,8 +410,8 @@ const _sameKey = (self: { readonly key: string }, that: { readonly key: string }
 // `dependency` carries both dependency-key refusals — an edge naming no artifact in the set, and a set whose
 // edges admit no order — because each names the same broken payload and the subjects name which keys broke it.
 // One row per reason: the core kind alone, so retryability, blame, and quarantine stay the core row table's.
-const _backendFamily = FaultClass.family(
-  ["wire", "identity", "capability", "artifact", "dependency", "collision"] as const,
+const _backendFamily = Fault.Class.family(
+  ["wire", "identity", "capability", "artifact", "dependency", "collision", "recovery"] as const,
   {
     wire: { class: "malformed" },
     identity: { class: "breached" },
@@ -401,6 +419,9 @@ const _backendFamily = FaultClass.family(
     artifact: { class: "invalid" },
     dependency: { class: "invalid" },
     collision: { class: "conflicted" },
+    // a store carrying the generation on stale data is recoverable by waiting, never by re-composing:
+    // this class puts the refusal on the retry rail instead of the quarantine one.
+    recovery: { class: "expired" },
   },
 )
 
@@ -408,7 +429,7 @@ class BackendFault extends Schema.TaggedError<BackendFault>()("BackendFault", {
   reason: _backendFamily.schema,
   subjects: Schema.Array(Schema.String),
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _backendFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -443,7 +464,7 @@ declare namespace Backend {
     readonly capabilities: ReadonlyArray<typeof _CapabilityWire.Type>
   }
   type Contract = {
-    readonly id: ContentKey
+    readonly id: Digest.Key<"content">
     readonly wire: typeof _ContractWire.Type
     readonly required: HashSet.HashSet<string>
     readonly artifacts: HashSet.HashSet<string>
@@ -452,10 +473,37 @@ declare namespace Backend {
     readonly contract: Contract
     readonly files: Files
   }
+  // DECLARED durability window a measured one is graded against — how much data a restore may lose and how long
+  // it may take. It arrives as a value the composition root reads off its consumption profile row, so this
+  // page grades an objective and declares none: a durability table here answers for deployments it never sees.
+  type Objective = {
+    readonly rpo: Duration.Duration
+    readonly rto: Duration.Duration
+  }
+  // Each half is optional because each has a real absence a zero forges — a reading that took no frontier, and a
+  // live store that never restored.
+  type Window = {
+    readonly rpo: Option.Option<Duration.Duration>
+    readonly rto: Option.Option<Duration.Duration>
+  }
+  // One reading row rather than a positional tail: an adapter states the catalogue it read AND the stamps it took
+  // in one value, so a provider cannot skip the recovery question by omitting an argument.
+  type Reading<G extends string> = {
+    readonly generation: Digest.Key<"content">
+    readonly report: Capability.Report<G>
+    readonly adapters: ReadonlyArray<Adapter>
+    readonly artifacts: HashSet.HashSet<string>
+    readonly observedAt: DateTime.Utc
+    readonly frontier: Option.Option<DateTime.Utc>
+    readonly restoredIn: Option.Option<Duration.Duration>
+  }
   type Observation = {
-    readonly generation: ContentKey
+    readonly generation: Digest.Key<"content">
     readonly capabilities: HashSet.HashSet<string>
     readonly artifacts: HashSet.HashSet<string>
+    readonly observedAt: DateTime.Utc
+    readonly frontier: Option.Option<DateTime.Utc>
+    readonly restoredIn: Option.Option<Duration.Duration>
   }
   type Generation = Contract & { readonly observed: Observation }
 }
@@ -487,6 +535,41 @@ const _prove = (checks: ReadonlyArray<_Check>): Effect.Effect<void, BackendFault
 const _worst = (over: ReadonlyArray<Backend.RestartClass>): Backend.RestartClass =>
   Array.reduce(over, _RESTART_ORDER[0], (held: Backend.RestartClass, next) =>
     _RESTART_ORDER.indexOf(next) > _RESTART_ORDER.indexOf(held) ? next : held)
+
+// Window derives HERE from the two stamps the observation carries, so no provider hands in a lag it measured
+// against a clock this verdict never saw. The SIGN is the whole discriminant and ZERO sits on the measured side: a
+// frontier stamped at its own reading instant is the freshest store this verdict exists to admit, where a frontier
+// stamped AFTER it is skew rather than recency and owes the unmeasured half. `distanceDurationEither` splits at
+// `> 0` and drops that zero onto its `Left`, so the signed millisecond distance reads directly instead.
+const _recency = (millis: number): Option.Option<Duration.Duration> =>
+  millis >= 0 ? Option.some(Duration.millis(millis)) : Option.none()
+
+const _window = (observed: Backend.Observation): Backend.Window => ({
+  rpo: Option.flatMap(observed.frontier, (seen) => _recency(DateTime.distance(seen, observed.observedAt))),
+  rto: observed.restoredIn,
+})
+
+// Both halves absorb absence OPPOSITELY, and that split is the whole law: a reading carrying no frontier proves
+// no recency and refuses, where admitting it grades a window nobody took, while an absent restore time is a store
+// that never bounced and owes none. Every admitted generation therefore carries a measured recovery point, and the
+// subjects name WHICH half exceeded with the measured and declared millisecond bounds beside it.
+const _exceeding = (window: Backend.Window, objective: Backend.Objective): ReadonlyArray<string> =>
+  Array.appendAll(
+    Option.match(window.rpo, {
+      onNone: (): ReadonlyArray<string> => ["rpo:unmeasured"],
+      onSome: (held) =>
+        Duration.lessThanOrEqualTo(held, objective.rpo)
+          ? []
+          : [`rpo:${Duration.toMillis(held)}>${Duration.toMillis(objective.rpo)}`],
+    }),
+    Option.match(window.rto, {
+      onNone: (): ReadonlyArray<string> => [],
+      onSome: (held) =>
+        Duration.lessThanOrEqualTo(held, objective.rto)
+          ? []
+          : [`rto:${Duration.toMillis(held)}>${Duration.toMillis(objective.rto)}`],
+    }),
+  )
 
 const _wire = <A, I>(
   schema: Schema.Schema<A, I>,
@@ -674,27 +757,27 @@ const Backend = {
   // `versions` keys on the probed EXTENSION name and answers floor evidence alone, so an adapter resolved
   // against it reports every core-seeded grant missing and every extension whose grant name differs from its
   // own. An adapter therefore maps the contract's canonical capability key onto the grant that proves it.
-  observe: <G extends string>(
-    generation: ContentKey,
-    report: Capability.Report<G>,
-    adapters: ReadonlyArray<Backend.Adapter>,
-    observedArtifacts: HashSet.HashSet<string>,
-  ): Backend.Observation => ({
-    generation,
+  observe: <G extends string>(reading: Backend.Reading<G>): Backend.Observation => ({
+    generation: reading.generation,
     capabilities: HashSet.fromIterable(
-      adapters
-        .filter((row) => HashSet.has(report.granted, row.local as Capability.Grant<G>))
+      reading.adapters
+        .filter((row) => HashSet.has(reading.report.granted, row.local as Capability.Grant<G>))
         .map((row) => row.canonical),
     ),
-    artifacts: observedArtifacts,
+    artifacts: reading.artifacts,
+    observedAt: reading.observedAt,
+    frontier: reading.frontier,
+    restoredIn: reading.restoredIn,
   }),
   admit: (
     expected: Backend.Contract,
     observed: Backend.Observation,
+    objective: Backend.Objective,
   ): Effect.Effect<Backend.Generation, BackendFault> =>
     Effect.gen(function* () {
       const missingCapabilities = HashSet.difference(expected.required, observed.capabilities)
       const missingArtifacts = HashSet.difference(expected.artifacts, observed.artifacts)
+      const exceeded = _exceeding(_window(observed), objective)
 
       yield* _prove([
         {
@@ -711,6 +794,13 @@ const Backend = {
           reason: "artifact",
           holds: () => HashSet.size(missingArtifacts) === 0,
           subjects: () => [...missingArtifacts],
+        },
+        // Seated after the realization rows: a store proved to carry neither the artifacts nor the required
+        // capabilities has no window worth grading, so recency is the last proof one verdict rests on.
+        {
+          reason: "recovery",
+          holds: () => exceeded.length === 0,
+          subjects: () => exceeded,
         },
       ])
 

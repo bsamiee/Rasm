@@ -484,9 +484,14 @@ public static class PreviewSurfaces {
 
 ## [05]-[ENCODE_IDENTITY]
 
-- Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec` — including `ColorPolicy`, the one suite gamut-and-transfer row family.
+- Owner: `RenderReceipt`, `PixelIdentity`, `NativeAssetFact`, and `VisualCodec` own encoding evidence.
+- Owner: `ColorPolicy` is the suite gamut-and-transfer row family.
 - Entry: `public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key, Option<SKPicture> record = default)` — IO rail, the optional sealed record the one draw-hash ingress; `public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default)` — the inverse on the same rail, frame index the modality; `public Fin<SKColorF> Resolve(PerceptualColor pigment)` and its `Color` token twin — the one pigment egress every paint reads.
-- Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate — the delegate binds at composition to the kernel `Rasm.Domain` `ContentHash.Of(ReadOnlySpan<byte>) -> UInt128` seed-zero entry (the federation one-hasher; hex encoding stays this boundary's projection), so an AppUi-local `XxHash128` call site is the deleted form; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent; `DrawHash` is the second evidence axis, folding `SKPicture.Serialize` op bytes through the same delegate exactly when the caller hands its sealed record in, so a golden break reads as a rasterizer move or a content move rather than as a bare inequality, and a recordless encode leaves it `None` because an absent attribution beats a fabricated one.
+- Receipt: `FrameHash` identifies encoded artifact bytes through the composition-bound kernel content hash.
+- Receipt: `DrawHash` identifies sealed `SKPicture.Serialize` bytes when a recording exists.
+- Receipt: `Pixels` identifies tight top-left RGBA8 sRGB straight-alpha rows independently of encoding.
+- Receipt: The pixel preimage is UTF-8 version, little-endian int32 width and height, then tight RGBA bytes.
+- Receipt: `ColorSpace` retains encode-row provenance beside normalized pixel identity.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), Rasm (project — the kernel `ContentHash.Of` seed-zero entry, the `RgbProfile` working-space roster every `ColorPolicy` row names, and the `PerceptualColor.OfRgb`/`ToRgb(RgbProfile)` admission-and-egress pair `Resolve` composes), NodaTime, LanguageExt.Core
 - Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair over the kernel `RgbProfile` row it names, so a gamut the kernel roster lacks lands there FIRST; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
 - Boundary: Decode and Encode are the named native-disposal boundary capsules — Decode admits through the `SKCodec.Create` result taxonomy (`Info`-gated allocation, `IncompleteInput` as partial success gated on the incremental arm's own rows-decoded count, the frame arm through `SKCodecOptions.FrameIndex` alone) and never an eager whole-image `SKBitmap.Decode` — `PriorFrame` is a PROMISE that the destination already holds that frame and this buffer is minted per call, so the codec resolves its own required-frame chain and a caller-named prior frame is the deleted form that composites over uninitialized memory, and the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle, and Encode BORROWS the caller's image: it disposes only the projection `Reproject` mints (`Some` arm) and never the pass-through original (`None` arm), so a walkthrough frame encoded per-frame survives to its later clip mux and a thumbnail image stays valid for its display bind; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
@@ -507,21 +512,52 @@ public static class PreviewSurfaces {
   - OpenColorIO configs cross the seam as a profile-byte source the caller resolves, so AppUi consumes the bytes and never embeds an OCIO runtime; device-CMYK print transforms are `Document/export#PRINT_ARM`'s lcmsNET charter, disjoint from this display-referred family.
 
 ```csharp signature
-// Two hashes, two questions. FrameHash is the encoded-pixel identity. DrawHash is the recorded
-// draw-op identity, present exactly when the source sealed an SKPicture, so a golden break that moves
-// pixels while holding draw ops attributes to the rasterizer or the driver and one that moves both is
-// a real content change. A capture that recorded nothing carries None — an unattributed break, never
-// a forged attribution.
+using System.Buffers.Binary;
+using System.Text;
+
+// Three hashes answer distinct questions: FrameHash identifies encoded artifact bytes, DrawHash identifies
+// optional recorded draw ops, and Pixels identifies canonical raster content independently of the codec.
 public sealed record RenderReceipt(
     string Kind,
     string Format,
     string FrameHash,
     Option<string> DrawHash,
+    Option<PixelIdentity> Pixels,
     long Bytes,
     Duration Elapsed,
     CorrelationId Correlation,
     Option<string> Destination,
     string ColorSpace);
+
+public sealed record PixelIdentity(string Version, int Width, int Height, string Hash) {
+    public const string CanonicalVersion = "rgba8-srgb-straight-top-left-v1";
+    private static readonly byte[] VersionBytes = Encoding.UTF8.GetBytes(CanonicalVersion);
+
+    public static Fin<PixelIdentity> Of(VisualRuntime runtime, SKImage image) =>
+        Try.lift(() => {
+            using SKColorSpace srgb = SKColorSpace.CreateSrgb();
+            SKImageInfo info = new SKImageInfo(
+                image.Width, image.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul).WithColorSpace(srgb);
+            using SKBitmap canonical = new(info);
+            using SKPixmap? pixels = canonical.PeekPixels();
+            if (pixels is null
+                || canonical.RowBytes != info.RowBytes
+                || !image.ReadPixels(pixels, 0, 0, SKImageCachingHint.Disallow)) {
+                throw new InvalidOperationException("canonical pixel readback refused");
+            }
+            Span<byte> rgba = canonical.GetPixelSpan();
+            byte[] preimage = GC.AllocateUninitializedArray<byte>(checked(VersionBytes.Length + (2 * sizeof(int)) + rgba.Length));
+            VersionBytes.CopyTo(preimage, 0);
+            int cursor = VersionBytes.Length;
+            BinaryPrimitives.WriteInt32LittleEndian(preimage.AsSpan(cursor, sizeof(int)), info.Width);
+            cursor += sizeof(int);
+            BinaryPrimitives.WriteInt32LittleEndian(preimage.AsSpan(cursor, sizeof(int)), info.Height);
+            cursor += sizeof(int);
+            rgba.CopyTo(preimage.AsSpan(cursor));
+            return new PixelIdentity(
+                CanonicalVersion, info.Width, info.Height, runtime.ContentHash(preimage));
+        }).Run().MapFail(static error => (Error)new VisualFault.EncodeFailed($"pixels/canonical: {error.Message}"));
+}
 
 // The load-identity currency this page OWNS and does not produce. Its one producer is the `Shell/hosts`
 // `NativeAssets.Identity` census, taken inside the mount transaction before attach, and composition seals each
@@ -699,6 +735,7 @@ public static class VisualCodec {
     // second encode surface exists to carry the difference.
     public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key, Option<SKPicture> record = default) =>
         from mark in IO.lift(runtime.Clocks.Mark)
+        from pixels in IO.lift(() => PixelIdentity.Of(runtime, image).ThrowIfFail())
         from bytes in IO.lift(() => {
             Option<SKImage> minted = row.Color.Reproject(image).ThrowIfFail();
             try {
@@ -709,7 +746,9 @@ public static class VisualCodec {
         })
         from artifact in runtime.BlobWrite(key, bytes)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(kind, row.Key, runtime.ContentHash(bytes), DrawOf(runtime, record), bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), row.Color.Key)
+        let receipt = new RenderReceipt(
+            kind, row.Key, runtime.ContentHash(bytes), DrawOf(runtime, record), Some(pixels), bytes.LongLength,
+            elapsed, runtime.Correlation, Optional(artifact), row.Color.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 }
@@ -759,7 +798,9 @@ public static class VisualExport {
         from payload in IO.lift(() => Paged(spec).ThrowIfFail())
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt("document", spec.Format.Key, runtime.ContentHash(payload), None, payload.LongLength, elapsed, runtime.Correlation, Optional(destination), spec.Format.Color.Key)
+        let receipt = new RenderReceipt(
+            "document", spec.Format.Key, runtime.ContentHash(payload), None, None, payload.LongLength,
+            elapsed, runtime.Correlation, Optional(destination), spec.Format.Color.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
@@ -827,7 +868,9 @@ public static class ClipEncoder {
         from payload in IO.lift(() => Encode(row, frames))
         from delivered in ExportDelivery.Deliver(runtime, destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, row.Key, runtime.ContentHash(payload), None, payload.LongLength, elapsed, runtime.Correlation, Optional(delivered), row.Color.Key)
+        let receipt = new RenderReceipt(
+            Kind, row.Key, runtime.ContentHash(payload), None, None, payload.LongLength,
+            elapsed, runtime.Correlation, Optional(delivered), row.Color.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 

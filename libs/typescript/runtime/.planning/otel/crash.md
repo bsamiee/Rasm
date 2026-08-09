@@ -1,6 +1,6 @@
 # [RUNTIME_CRASH]
 
-Crash capture is one total fold from any settled `Cause` to a structured fatal emission: the exception triple and `error.type` land in the capture's attribute band through `FaultCapture.forensic`, and forensic enrichment rides the core-declared fault-enricher contract — the `Cause` seeds a `FaultCapture` already carrying its exception evidence, `FaultEnricher.identity` is the shipped no-interchange pass-through. Capture is infallible by law: a pass-through enrichment and a full ring degrade, never fail, because the crash path is the last place a fault channel may open.
+Crash capture is one total fold from any settled `Cause` to a structured fatal emission: the exception triple and `error.type` land in the capture's attribute band through `Fault.Capture.forensic`, and forensic enrichment rides the core-declared fault-enricher contract — the `Cause` seeds a `Fault.Capture` already carrying its exception evidence, `Fault.Enricher.identity` is the shipped no-interchange pass-through. Capture is infallible by law: a pass-through enrichment and a full ring degrade, never fail, because the crash path is the last place a fault channel may open.
 
 Breadcrumb history attaches as replay evidence redacted at the moment of capture, so raw PII never sits in memory waiting for a crash; the scrub authority is one ambient rule set — `Redaction.Current` — applied at BOTH crash seams: breadcrumbs scrub when recorded, the enriched forensic band scrubs at the fatal emission. Fiber-external failure sources register as a `Layer` whose hook arrives as a runtime-supplied value, keeping this module runtime-neutral while the `./browser`/`./server` subpaths each contribute a one-line hook row. Its module is `runtime/src/otel/crash.ts`.
 
@@ -21,7 +21,7 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 
 ```typescript signature
 import { Array, Cause, Chunk, DateTime, Effect, FiberSet, Layer, Match, Metric, Option, Ref, pipe } from "effect"
-import { type AppIdentity, Convention, FaultCapture, FaultClass, FaultEnricher } from "@rasm/ts/core"
+import { type Identity, Convention, Fault } from "@rasm/ts/core"
 import { Redaction } from "./emit.ts"
 
 declare namespace Crash {
@@ -50,17 +50,10 @@ const _crumb = (
 
 ## [03]-[CAPTURE]
 
-- Owner: the `Crash` service — a Layer factory over the app's `AppIdentity` (`Crash.Default(identity)`), `scoped` construction holding the ring, the ambient scrub rules read once from `Redaction.Current`, and the core enrichment port; `capture` and `note` are the accessors, and `Crash.net` is the class-carried registration static so the whole crash surface travels one import.
-- Law: the enricher is a requirement, never a branch — `FaultEnricher` rides `R` because the core floor ships `FaultEnricher.identity` as the no-interchange pass-through, so an unwired root is a compile error and forensic absence is a root selection; the port is total by signature, so enrichment can never make a crash worse.
-- Law: the capture value is the core `FaultCapture` — `FaultClass.of` over the WHOLE `Cause` tree folds every failure and defect node through the severity lattice to the bounded class, the shaped exception seeds `tag`/`detail`, `identity.label` is the owning `surface`, and `FaultCapture.forensic` writes the exception evidence into the attribute band BEFORE the enricher round-trips the value — so the capture the enricher observes already carries the forensic triple and `error.type`, wire-grade forensics merge into the same band, and the emission spreads that band ONLY through the scrub; a new forensic axis is an `Evidence` field or an enricher band row (`Convention.rasm.crashHop` names the hop key), never an edit here.
 - Law: the fatal forensic band is scrubbed material — exception messages, stack text, and enricher-added rows are the highest-PII-risk attributes the process emits, so the emission passes `capture.attributes` through `Redaction.scrub` with the same ambient rules the breadcrumbs consumed; no crash attribute reaches a log annotation outside the shared fold, and the signal-safety ledger (`emit#REDACTION`) names this seam explicitly.
 - Law: the emission is one declaration — `Effect.logFatal` annotated with the scrubbed enriched band and the replay projection, and `Effect.annotateCurrentSpan` carrying `error.type` so the active span records the failure — the fatal log becomes an OTLP log record on the shared `Resource` through the replaced process logger, and the `Convention.metric.crashCaptured` counter tags by the same bounded class.
-- Law: classification and exception shaping are two reads of one WHOLE `Cause`, and neither squashes it — `FaultClass.of(cause)` folds every failure and defect node through the severity lattice so a parallel cause classifies by dominance, and `Cause.prettyErrors(cause)` reifies every exception the tree carries so the evidence half is as total as the classification half. The head seeds the forensic triple and the tail lands as one `Convention.rasm.crashHop` band row naming the sibling exceptions, so two concurrently-failed fibers emit one fatal record naming both instead of one record whose peer's stack is unrecoverable from the emission. `Cause.squash` survives at exactly one seam — the empty-reification case, where a defect carrying no `Error` folds through the `Match.instanceOf` triage into name/message/stack — and `Cause.isInterruptedOnly` short-circuits because an interrupted fiber is not a crash; flattening to a message string upstream of the projections is the rejected fold.
 - Law: capture is total — its type is `Effect<void>` with no error channel; the enricher is total by contract and the ring read is infallible, so no interior step can open a fault channel on the crash path.
-- Boundary: the core `FaultEnricher`, `FaultCapture`, and `FaultClass` owners carry the enrichment contract; the serving edge's support-capture verb is this owner's standing consumer, reaching `Crash.capture` through app-root composition.
-- Entry: `Crash.capture(cause)`; `Crash.note(label, detail)`; `Crash.net(hook)` merged at the composition root; wiring is `Crash.Default(identity)` under the enricher Layer — the interchange codec's, or `FaultEnricher.identity` — with the root's `Redaction.Current` override governing both scrub seams.
 - Growth: a new evidence axis on the emission is one enricher band row; a new classification is a core row this page inherits.
-- Packages: `effect` (`Array`, `Cause` incl. `prettyErrors`, `Match`, `FiberSet`, `Metric`), `@rasm/ts/core` (`AppIdentity`, `Convention`, `FaultCapture`, `FaultClass`, `FaultEnricher`).
 
 ```typescript signature
 const _captured = Convention.mount(Convention.metric.crashCaptured)
@@ -91,9 +84,9 @@ const _shaped = (
     }))
 
 class Crash extends Effect.Service<Crash>()("runtime/Crash", {
-  scoped: (identity: AppIdentity) =>
+  scoped: (identity: Identity.App) =>
     Effect.gen(function* () {
-      const enricher = yield* FaultEnricher
+      const enricher = yield* Fault.Enricher
       const ring = yield* Ref.make(Chunk.empty<Crash.Breadcrumb>())
       const rules = yield* Redaction.Current
       return {
@@ -104,10 +97,10 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
                 const shaped = _shaped(cause)
                 const at = yield* DateTime.now
                 const capture = yield* enricher.enrich(
-                  new FaultCapture({
+                  new Fault.Capture({
                     at,
                     attributes: {},
-                    class: FaultClass.of(cause),
+                    class: Fault.Class.of(cause),
                     correlation: Option.none(),
                     detail: shaped.note,
                     surface: identity.label,

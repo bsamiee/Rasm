@@ -561,10 +561,10 @@ public sealed partial class CorpusOp {
  // is the decoded delta's own content key, which the mutation's key must reproduce.
  static Fin<CorpusWitness> RunDecodeDelta(CorpusModel model, Op key) {
   using MemoryStream payload = new();
-  ElementWire.Encode(model.Mutation).WriteTo(payload);
+  ElementWire.Encode(model.Mutation, model.Graph.Header).WriteTo(payload);
   payload.Position = 0;
   double tolerance = model.Graph.Header.Tolerance;
-  return ElementWire.DecodeDelta(payload, WireLimits.Default, key).Bind(delta => {
+  return ElementWire.DecodeDelta(payload, model.Graph.Header, WireLimits.Default, key).Bind(delta => {
    ContentAddress artifact = ContentAddress.Of(delta.ToCanonicalBytes(tolerance).Span);
    return artifact == ContentAddress.Of(model.Mutation.ToCanonicalBytes(tolerance).Span)
     ? Witness(model, DecodeDelta, delta.NodeCount + delta.EdgeCount, artifact, key)

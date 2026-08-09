@@ -78,6 +78,9 @@ public static class StoreProfile {
 
 [MUTATION_GRAMMAR]:
 - Law: `RETURNING old.*, new.*` yields the before/after transition pair in one statement — read-before-write round trips are structurally obsolete — and data-modifying CTEs chain the receipt into further relational algebra in the same statement.
+- Law: every CTE reads the statement's ONE snapshot, so a sibling CTE never observes another's write and a guard computed in one CTE cannot gate a write in another; a conditional write states its whole condition inside its own `WHERE`, which the engine re-evaluates against the updated row after a concurrent block clears, and the frozen-guard form passes its own check while overdrawing the value it guarded.
+- Law: per-row re-check is per-ROW, so an N-row conditional write commits each row that passed and no single statement yields all-or-nothing over a vector; the batch's own undo is `SAVEPOINT` plus `ROLLBACK TO SAVEPOINT`, and a `NOT EXISTS` sibling-CTE guard standing in for it is decoration.
+- Law: `FOR UPDATE` refuses the nullable side of an outer join at plan time and locks nothing on an absent key, so an absent-or-present vector locks through `INSERT ... ON CONFLICT DO UPDATE` whose own `WHERE` binds post-wait, never a `LEFT JOIN ... FOR UPDATE`.
 - Law: conflict routing is two rows — `INSERT ... ON CONFLICT DO UPDATE` for row-at-a-time idempotent writes (speculative locks, arbiter-required including partial-unique arbiters, `EXCLUDED` proposed row, cannot raise unique violations) and `MERGE ... RETURNING merge_action()` for set reconciliation against any row source with per-row verdicts and `WHEN NOT MATCHED BY SOURCE` arms; MERGE can raise unique violations under concurrency, so retry policy lives on the MERGE rail alone.
 
 [TWO_DOOR_ROUTING]:

@@ -7,7 +7,7 @@ The one config owner of the process plane: an ordered provider chain answers eve
 - [02]-[STAGE_FAMILY]: the closed source vocabulary and the doppler-injection law; `Provider`.
 - [03]-[CHAIN_FOLD]: the orElse fold, skip-versus-fail construction, the one install site; `Provider`.
 - [04]-[SETTING_OWNER]: the boot-validated runtime contract and the config-family form; `Setting`.
-- [05]-[ADMISSION_ROWS]: the row vocabulary and the six-axis consumption profile the root supplies; `Profile`.
+- [05]-[ADMISSION_ROWS]: the row vocabulary, the six-axis consumption profile the root supplies, and the topology-keyed durability table; `Profile`.
 
 ## [02]-[STAGE_FAMILY]
 
@@ -319,26 +319,31 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.
 - Law: shaped rows keep validation at the seam — a `Schema.Config` row arrives branded and bounded, so no regex check, range guard, or parse survives past the resolve; the branded scalar the row admits is the same refinement the owning Schema field carries — one refinement, two admission sites, zero drift; `Config.string` survives only for a genuinely free-form value.
 - Law: the family form is proven by `Setting` itself — the `SERVE` group carries the vocabulary's every member (literal spread from the `_tiers` anchor, `Schema.Config` branded scalar, defaulted structural port) and the `MAIL` group carries the sealed-secret rows; a sibling contract instantiates the identical form under its own namespace, and a second demonstration service beside the real owner is the duplication this page deletes.
-- Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `tenancy`, `topology`, `lifecycle`, and `isolation` are closed literal unions, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_crossing` is a mapped type over the isolation union so a new axis value fails the object literal at compile time instead of falling through at runtime. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
+- Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `topology`, `lifecycle`, and `isolation` are closed literal unions declared here, `tenancy` reads `Identity.tenancy` because the persistence plane below this stratum answers the same axis, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_crossing` beside `_TOPOLOGY_RECOVERY` are mapped types over the isolation and topology unions so a new axis value fails the object literal at compile time instead of falling through at runtime. `_Objective` is the declared `(rpo, rto)` durability window and `_TOPOLOGY_RECOVERY` the branch's one table over it, `Profile.recovery` resolving a host row's override against the topology default and `Profile.recoveryOf` publishing that resolution to `iac/program/spec`. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
+- Law: both open-axis descriptors answer the consumption coordinates on the row, and the two coordinates no row in either family varies on ride this sentence instead — a host row states no tenancy mechanism because one host instance runs one profile and every tenant boundary inside it belongs to the data plane the profile scopes, and a provider row states no admit member because every provider enters through the declared port Tag the composition root binds, with `supplies` naming which port; `degrade` states the forfeit no capability cell already carries, so a host row reads its surface and lane cells for what they foreclose and a provider row reads the isolation values `_crossing` gates behind its supply.
+- Law: `recovery` is a HOST-family extension column and the provider family forecloses it — a host integration decides where the store lands and therefore what a restore may lose, while a bound port supplies capability and decides no durability window, so a provider row answering one answers by guess; `degrade` cannot carry the pair either, naming forfeits rather than declared targets, and `lifetime` bounds what entered rather than what a failure costs.
+- Law: durability resolves once — a host row's `recovery` overrides its topology's `_TOPOLOGY_RECOVERY` entry and an unhosted row reads the table, so `iac/program/spec` spreads `Profile.recoveryOf` rather than restating windows and the deploy plane threads the same pair the booted process carries; a second table at either plane grades a deployment against a target nobody declared.
+- Law: `recovery` stays off `canonical` and `canonicalJson` — the corpus vector freezes the six axes, so a seventh pair there re-cuts a frozen preimage while the window rides the `host` row the vector already renders by key.
 - Law: deployment shape is data the root states, never a fact the branch infers — an ambient `process.platform` read, a build flag, a bundler condition, and a branch on which product embeds the runtime are the four deleted forms; `Profile.admit` runs inside `Setting`'s own effect, so an unservable axis value fails the boot line beside every `ConfigError` and the graph never half-builds.
-- Law: refusal names the axis on a CLOSED reason axis — `ProfileRefused` carries `axis` and `value` as the coordinates a caller restates, `reason` as the discriminant it dispatches on (`missing`, `uncrossed`, `unserved`), and the crossing verdict as `detail` evidence; `class` projects that roster through one core `FaultClass.family` mint, so the branch taxonomy holds and no rank, retry, or status row stands beside it. A free-string reason is the rejected form — unroutable by `catchTag` and unfoldable by the class lattice — and silent degradation and a narrowed public surface remain the two other failed forms.
-- Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because no guest runtime hosts foreign bytecode here, and the worker pool nearest it gives thread isolation alone.
+- Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because the axis names where THIS branch's own work runs and no packaging compiles it into a guest — an embedded wasm-built engine is a dependency's own implementation, selected by `topology` and realizing no isolation value — and the worker pool nearest it gives thread isolation alone.
 - Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
 - Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
-- Packages: `effect` (`Config`, `Data`, `Effect`, `Option`, `Schema`).
+- Receipt: `Profile.canonical` orders the six axis rows and `Profile.canonicalJson` renders them as the one UTF-8 `canonical-json` preimage the `consumption-profile` corpus contract freezes, so the three branches diff one string rather than three rosters; the render walks the ordered pairs because a serialized object seats property order in the object rather than the roster the vector pins.
+- Packages: `effect` (`Config`, `Data`, `Duration`, `Effect`, `Option`, `Schema`); `@rasm/ts/core` (`Fault`, `Identity`).
 
 ```typescript signature
-import { FaultClass } from '@rasm/ts/core';
+import { Fault, Identity } from '@rasm/ts/core';
 
-const _tenancies = ['none', 'single', 'multi'] as const;
 const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'] as const;
 const _lifecycles = ['caller-owned', 'package-owned'] as const;
 const _isolations = ['in-proc', 'thread', 'process', 'wasm', 'remote'] as const;
 const _axes = ['tenancy', 'topology', 'host', 'lifecycle', 'isolation', 'providers'] as const;
 const _capabilities = ['host-document', 'local-spawn', 'remote-compute', 'store-read', 'store-write', 'telemetry-export'] as const;
+// Who ends what a descriptor row admitted. Both families share the roster because a reader comparing a host row
+// against a provider row compares one coordinate, and a second spelling forks it.
+const _ends = ['package', 'host', 'deploy'] as const;
 
 declare namespace Consumption {
-    type Tenancy = (typeof _tenancies)[number];
     type Topologies = typeof _topologies;
     type Topology = (typeof _topologies)[number];
     type Lifecycle = (typeof _lifecycles)[number];
@@ -346,20 +351,58 @@ declare namespace Consumption {
     type Axis = (typeof _axes)[number];
     type Capability = (typeof _capabilities)[number];
     type Host = Schema.Schema.Type<typeof _Host>;
+    type Objective = Schema.Schema.Type<typeof _Objective>;
     type Provider = Schema.Schema.Type<typeof _Provider>;
 }
 
+// DECLARED durability window: how much data a restore may lose, and how long it may take. It rides the profile row
+// as supplied data, so a package grades against the target its deployment set rather than one it invented.
+// `data`'s `Backend.Objective` is this same pair one stratum below, and the two unify STRUCTURALLY rather than by
+// import, because an S2 folder cannot reach an S3 schema — the grader takes the resolved value with no adapter.
+const _Objective = Schema.Struct({ rpo: Schema.Duration, rto: Schema.Duration });
+
+// Deployment CLASS decides the window, so six topology values answer as three: a desktop shape holds one operator's
+// own store, an attached shape trails a service it does not own, and a fleet shape carries the estate's data. The
+// mapped type is the enforcement — a value added to `_topologies` breaks this literal at compile time, exactly as
+// `_crossing` breaks. This table is the branch's ONE durability source: `iac/program/spec` reads it through
+// `Profile.recoveryOf` so the deploy plane and the process it deploys grade against one window.
+const _TOPOLOGY_RECOVERY: { readonly [K in Consumption.Topology]: Consumption.Objective } = {
+    'in-host': { rpo: Duration.minutes(15), rto: Duration.minutes(60) },
+    sidecar: { rpo: Duration.minutes(5), rto: Duration.minutes(30) },
+    companion: { rpo: Duration.minutes(5), rto: Duration.minutes(30) },
+    service: { rpo: Duration.minutes(1), rto: Duration.minutes(15) },
+    edge: { rpo: Duration.minutes(1), rto: Duration.minutes(15) },
+    cli: { rpo: Duration.minutes(15), rto: Duration.minutes(60) },
+};
+
+// `document` is the foreclosure cell stated as data on every row: a host carrying no document says so here rather
+// than omitting the field, so the fold reading a host row beside its siblings reads one shape.
 const _Host = Schema.Struct({
     key: Schema.NonEmptyString,
     surface: Schema.Literal('embedded', 'windowed', 'offscreen', 'none'),
     lanes: _Extent,
     document: Schema.Boolean,
+    fits: Schema.NonEmptyString,
+    // Where the branch's work lands inside this host — a plug-in command, a page script, a process entry — and how
+    // long it stays there under the owner that ends it.
+    admit: Schema.NonEmptyString,
+    lifetime: Schema.Struct({ bound: Schema.NonEmptyString, owner: Schema.Literal(..._ends) }),
+    // Durability answers at the integration, which decides where the store lands — a plug-in host writes one
+    // operator's local disk, a served root writes the estate's cluster. Every row states its window even where it
+    // agrees with its topology, spelling `_TOPOLOGY_RECOVERY[<topology>]`, so no row answers by omission.
+    recovery: _Objective,
+    degrade: Schema.NonEmptyString,
 });
 
+// `supplies` decides every isolation value this row crosses through `_crossing`, so the crossing verdict is read
+// once at admission and the row carries the forfeit alone.
 const _Provider = Schema.Struct({
     key: Schema.NonEmptyString,
     supplies: Schema.Literal(..._capabilities),
-    reach: Schema.Literal(..._isolations),
+    fits: Schema.NonEmptyString,
+    tenancy: Schema.NonEmptyString,
+    lifetime: Schema.Struct({ bound: Schema.NonEmptyString, owner: Schema.Literal(..._ends) }),
+    degrade: Schema.NonEmptyString,
 });
 
 // Mapped over the isolation union, so adding a value to _isolations breaks this literal at compile
@@ -375,7 +418,7 @@ const _crossing: { readonly [K in Consumption.Isolation]: Consumption.Capability
 // A free-string reason is unroutable and unfoldable, so the refusal grammar closes here: `reason` is the discriminant
 // a caller dispatches on, `axis`/`value` are the coordinates it restates, and the crossing verdict rides `detail` as
 // evidence rather than as the discriminant. `class` projects the roster through one core family mint.
-const _refusal = FaultClass.family(['missing', 'uncrossed', 'unserved'] as const, {
+const _refusal = Fault.Class.family(['missing', 'uncrossed', 'unserved'] as const, {
     missing: { class: 'absent' }, // the stated topology demands a row the profile did not supply
     uncrossed: { class: 'absent' }, // the isolation value crosses only through a capability this deployment never declared
     unserved: { class: 'denied' }, // the isolation value has no serving path at all
@@ -387,7 +430,7 @@ class ProfileRefused extends Schema.TaggedError<ProfileRefused>()('ProfileRefuse
     value: Schema.String,
     detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
 }) {
-    get class(): FaultClass.Kind {
+    get class(): Fault.Class.Kind {
         return _refusal.classOf(this.reason);
     }
     override get message(): string {
@@ -395,8 +438,13 @@ class ProfileRefused extends Schema.TaggedError<ProfileRefused>()('ProfileRefuse
     }
 }
 
+// One cell escaper for the canonical render, and it is the branch's own JSON codec rather than a hand-written quote
+// pass: an axis or descriptor key carrying a quote or a control character renders as an admissible literal instead
+// of splicing the document open. `parseJson` DECODES a literal into a string, so encoding runs the escape.
+const _cell = Schema.encodeSync(Schema.parseJson(Schema.String));
+
 class Profile extends Schema.Class<Profile>('runtime/Profile')({
-    tenancy: Schema.optionalWith(Schema.Literal(..._tenancies), { default: () => 'single' as const }),
+    tenancy: Schema.optionalWith(Identity.tenancy.schema, { default: () => 'single' as const }),
     topology: Schema.optionalWith(Schema.Literal(..._topologies), { default: () => 'service' as const }),
     host: Schema.optionalWith(_Host, { as: 'Option' }),
     lifecycle: Schema.optionalWith(Schema.Literal(..._lifecycles), { default: () => 'package-owned' as const }),
@@ -413,6 +461,26 @@ class Profile extends Schema.Class<Profile>('runtime/Profile')({
 
     get hostKey(): string {
         return Option.match(this.host, { onNone: () => 'none', onSome: (row) => row.key });
+    }
+
+    // Host rows override their topology's window and an unhosted row reads the table, so one resolution serves both
+    // this boot line and the deploy plane, and no runner grades a measured window against a target this process
+    // never carried. `recovery` stays OFF `canonical`: that vector freezes six axes, so a seventh pair re-cuts a
+    // frozen preimage.
+    get recovery(): Consumption.Objective {
+        return Option.match(this.host, { onNone: () => _TOPOLOGY_RECOVERY[this.topology], onSome: (row) => row.recovery });
+    }
+
+    // Peers resolve a topology's declared window without re-declaring the table, the same spread that keeps one
+    // topology spelling branch-wide.
+    static readonly recoveryOf = (topology: Consumption.Topology): Consumption.Objective => _TOPOLOGY_RECOVERY[topology];
+
+    // Roster order under UTF-8 fixes the `canonical-json` PREIMAGE the corpus contract freezes as a vector: three
+    // branches diff ONE string rather than three rosters, and a fixture derives bytes from this member rather than
+    // from a reader's transcription. Serializing an object is deleted, because property order there belongs to the
+    // object and drifts off the roster this vector pins.
+    get canonicalJson(): string {
+        return `{${this.canonical.map(([axis, value]) => `${_cell(axis)}:${_cell(value)}`).join(',')}}`;
     }
 
     // Six rows in roster order under an ordinal provider-key sort: the canonical-json preimage the

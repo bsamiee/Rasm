@@ -12,6 +12,13 @@
 - asset: pure-managed AnyCPU runtime library, no native runtime
 - rail: snapshot-codec
 
+[PACKAGE_SURFACE]: `K4os.Compression.LZ4.Streams`
+- package: `K4os.Compression.LZ4.Streams` (MIT)
+- assembly: `K4os.Compression.LZ4.Streams`
+- namespace: `K4os.Compression.LZ4.Streams`
+- asset: separate distribution over the block codec; the `Stream` adapter half lives here alone
+- rail: snapshot-codec
+
 ## [02]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: block codec, frame, and level (`K4os.Compression.LZ4`)
@@ -100,6 +107,21 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 
 - `TopupAndEncode`: `forceEncode` emits a partial block, `allowCopy` admits the stored form, and the `out` counts report loaded and encoded bytes.
 
+[ENTRYPOINT_SCOPE]: frame adapters (`K4os.Compression.LZ4.Streams`)
+
+`LZ4Stream` is a STATIC class, so both directions are factories over a caller-owned stream rather than constructible types.
+
+| [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `LZ4Stream.Encode(Stream, LZ4EncoderSettings?, bool leaveOpen = false)`          | static  | frame a sink under explicit settings  |
+|  [02]   | `LZ4Stream.Encode(Stream, LZ4Level, int extraMemory = 0, bool leaveOpen = false)` | static  | frame a sink at a level               |
+|  [03]   | `LZ4Stream.Decode(Stream, LZ4DecoderSettings?, bool leaveOpen, bool interactive)` | static  | read a frame under explicit settings  |
+|  [04]   | `LZ4Stream.Decode(Stream, int extraMemory, bool leaveOpen, bool interactive)`     | static  | read a frame at a memory budget       |
+
+- `LZ4EncoderSettings`: `long? ContentLength`, `bool ChainBlocks = true`, `int BlockSize = 65536`, `bool ContentChecksum`, `bool BlockChecksum`, `LZ4Level CompressionLevel`, `int ExtraMemory`. TRAP: `uint? Dictionary` is get-only and hardcoded null, so a dictionary set here governs nothing and a dictionary-bearing profile rides the raw block codec instead.
+- TRAP: `leaveOpen` defaults FALSE on every `LZ4Stream` factory, the INVERSE of `api-zstd`'s adapters, which default it true. Codec families carrying both rows spell the flag on each arm rather than reading either default.
+- `LZ4Level` values are explicit and NON-CONTIGUOUS — `L00_FAST = 0`, the HC band 3 through 9, `L10_OPT`, `L11_OPT`, `L12_MAX` — so a level column carries the enum value and never a positional ordinal.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -119,7 +141,7 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 - Level, frame shape, and both bounds project as receipt data, and the `Crc32`/`XxHash128` integrity tag folds the framed bytes independently, so a codec swap leaves the receipt intact.
 
 [RAIL_LAW]:
-- Package: `K4os.Compression.LZ4`
-- Owns: LZ4 block compression, self-describing framing, and chained streaming for snapshot and blob payloads
+- Package: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Streams`
+- Owns: LZ4 block compression, self-describing framing, `Stream` frame adapters, and chained streaming for snapshot and blob payloads
 - Accept: `LZ4Pickler` frames for standalone payloads; the `LZ4EncoderExtensions` span fold for streamed payloads; `LZ4Codec` raw blocks into `MaximumOutputSize`-bounded buffers; `IBufferWriter<byte>` sinks on both frame legs
 - Reject: a second frame over a payload its serializer already compressed; a raw-block decode with no out-of-band size; a compression tag standing in for an integrity hash; a pointer pump where a span combinator spans the same step

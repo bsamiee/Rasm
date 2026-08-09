@@ -33,17 +33,17 @@
 
 [ENTRYPOINT_SCOPE]: the `DataStore` members `@tus/server` drives, with the finalize and groom reads the rail owns
 
-| [INDEX] | [SURFACE]                                   | [SHAPE]  | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------ | :------- | :----------------------------------------------------- |
-|  [01]   | `new S3Store(Options)`                      | ctor     | one store per staging band beside the server           |
-|  [02]   | `create(Upload) -> Upload`                  | instance | POST — opens the multipart upload, writes `${id}.info` |
-|  [03]   | `write(Readable, string, number) -> number` | instance | PATCH — streams parts, returns the new offset          |
-|  [04]   | `getUpload(string) -> Upload`               | instance | HEAD — offset from `ListParts` progress                |
-|  [05]   | `read(string) -> Readable`                  | instance | the finalize fold's staged byte source                 |
-|  [06]   | `remove(string)`                            | instance | staging removal after re-home                          |
-|  [07]   | `deleteExpired() -> number`                 | instance | expiry sweep, returns the removed count                |
-|  [08]   | `getExpiration() -> number`                 | instance | staging TTL window                                     |
-|  [09]   | `declareUploadLength(string, number)`       | instance | tus `Upload-Defer-Length` — size set after creation    |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :----------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `new S3Store(Options)`                                 | ctor     | one store per staging band beside the server           |
+|  [02]   | `create(Upload) -> Promise<Upload>`                    | instance | POST — opens the multipart upload, writes `${id}.info` |
+|  [03]   | `write(Readable, string, number) -> Promise<number>`   | instance | PATCH — streams parts, returns the new offset          |
+|  [04]   | `getUpload(string) -> Promise<Upload>`                 | instance | HEAD — offset from `ListParts` progress                |
+|  [05]   | `read(string) -> Promise<Readable>`                    | instance | the finalize fold's staged byte source                 |
+|  [06]   | `remove(string) -> Promise<void>`                      | instance | staging removal after re-home                          |
+|  [07]   | `deleteExpired() -> Promise<number>`                   | instance | expiry sweep, returns the removed count                |
+|  [08]   | `getExpiration() -> number`                            | instance | the one SYNCHRONOUS member; staging TTL window         |
+|  [09]   | `declareUploadLength(string, number) -> Promise<void>` | instance | tus `Upload-Defer-Length` — size set after creation    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

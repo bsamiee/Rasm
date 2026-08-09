@@ -18,18 +18,19 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `busy` (a `try` lease found the lock held, class `unavailable` — retryable by the caller's own schedule), `stale` (a CAS lost its race, class `conflicted` — re-read then re-fold, never blind retry), `ledger` (the engine carries no state ledger, class `absent` — the locks row's honest answer to `cas`/`read`/`watch`/`trail`) — so the core budget gate re-drives the transient rows and a lost CAS routes to a re-read.
 - Law: contention and outage never share a reason — a write rejection is `busy` or `stale` only where the engine proves the race, and every other rejection is `dial`; folding both into the contention reason makes a broker outage read as a lost CAS a caller re-reads forever, and makes a dead broker read as a permanently held lock.
 - Law: state is versioned facts — `Accord.Fact` is value plus revision; a caller that writes without a prior fact spells `Option.none()` and gets create-if-absent semantics, so an unguarded overwrite is unspellable through this port.
-- Law: the port is engine-blind and identity-scoped — no member names NATS or the Web Locks API; a per-tenant or per-app lease is a name prefix, so thousands of apps coordinate on one plane without a surface change, and `census(filter)` scopes the same way.
+- Law: the port is engine-blind — no member names NATS or the Web Locks API; a per-app lease is a name prefix and `census(filter)` scopes the same way, so a surface change never follows a new namespace.
+- Law: `_ENGINES` answers the consumption descriptor per engine as data — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — and the cells are where the two engines part: a bucket fences tenants by name prefix under one server clock, an origin's arbiter fences nothing beyond the origin and holds no clock at all, so one value repeated across both marks a row that stopped reading its engine; where an engine cannot express a coordinate its cell records the divergence on `degrade` rather than dropping the column.
 - Entry: `yield* Accord` then the six members; engines land as `Accord.kv(bucket)` / `Accord.locks()` root Layers.
-- Packages: `effect` (`Context`, `Data`, `Option`, `Stream`), `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Context`, `Data`, `Option`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 import { Chunk, Context, Data, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, Schema, type Scope, Stream } from "effect"
 import { type KV, Kvm } from "@nats-io/kv"
 import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault, type Identity } from "@rasm/ts/core"
 import { Broker } from "./pubsub.ts"
 
-const _family = FaultClass.family(["dial", "busy", "stale", "ledger"] as const, {
+const _family = Fault.Class.family(["dial", "busy", "stale", "ledger"] as const, {
   dial: { class: "unavailable" },
   busy: { class: "unavailable" },
   stale: { class: "conflicted" },
@@ -40,7 +41,7 @@ class AccordFault extends Data.TaggedError("AccordFault")<{
   readonly reason: (typeof _family.reasons)[number]
   readonly name: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -51,6 +52,19 @@ class AccordFault extends Data.TaggedError("AccordFault")<{
 declare namespace Accord {
   type Mode = "wait" | "try" | "steal"
   type Role = "leader" | "follower"
+  type Engine = keyof typeof _ENGINES
+  // Both engines answer ONE descriptor as data, and the cells are where they diverge: a server-clocked bucket and a
+  // host-owned arbiter share no lifetime, no isolation, and no ledger. `fits` names the selection sentence, `admit`
+  // construction, `tenancy` the closed axis value the engine realizes, `lifetime` how long a hold survives AND who
+  // ends it, `degrade` the honest forfeit carrying every divergence the closed columns cannot spell. Silence on a
+  // coordinate is what makes a caller guess, so each cell answers even where the answer is a refusal.
+  type Descriptor = {
+    readonly fits: string
+    readonly admit: string
+    readonly tenancy: Identity.Tenancy
+    readonly lifetime: string
+    readonly degrade: string
+  }
   type Seat = _Seat
   type Lease = _Lease
   type Fact = _Fact
@@ -87,6 +101,23 @@ class _Census extends Schema.Class<_Census>("Accord/Census")({
   health: Schema.optionalWith(_Health, { as: "Option" }),
 }) {}
 
+const _ENGINES = {
+  kv: {
+    fits: "<cross-process-claims-needing-server-clocked-expiry-and-a-fencing-token>",
+    admit: "<Accord.kv(bucket)-riding-the-shared-Broker-connection;-this-engine-opens-no-second-dial>",
+    tenancy: "multi",
+    lifetime: "<the-bucket's-own-ttl-ends-a-hold;-a-half-ttl-heartbeat-renews-while-the-holder-lives>",
+    degrade: "<bounded-coordination-state,-never-the-record-of-truth:-history-depth-is-a-bucket-option-that-ages-old-revisions-out,-and-a-name-prefix-is-the-only-tenant-fence-inside-one-bucket>",
+  },
+  locks: {
+    fits: "<cross-tab-exclusion-inside-one-origin's-agent-cluster>",
+    admit: "<Accord.locks()-over-the-host-navigator.locks-arbiter;-no-dial-and-no-configuration>",
+    tenancy: "single",
+    lifetime: "<host-owned-and-expiry-free:-context-teardown-by-the-agent-cluster-is-the-only-release-this-package-can-name>",
+    degrade: "<no-ledger-at-all-—-cas,-read,-watch,-and-trail-fold-`ledger`,-the-receipt-token-is-none-so-no-fenced-write-is-spellable,-census-health-is-none,-and-the-origin-is-an-isolation-no-prefix-widens>",
+  },
+} as const satisfies { readonly [Name: string]: Accord.Descriptor }
+
 class Accord extends Context.Tag("runtime/Accord")<Accord, {
   readonly lease: (name: string, mode?: Accord.Mode) => Effect.Effect<Accord.Lease, AccordFault, Scope.Scope>
   readonly elect: (name: string) => Effect.Effect<Accord.Seat, AccordFault, Scope.Scope>
@@ -101,6 +132,7 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
   static readonly Census = _Census
   static readonly Lease = _Lease
   static readonly Seat = _Seat
+  static readonly engines = _ENGINES
   static readonly kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> => _kv(bucket)
   static readonly locks = (): Layer.Layer<Accord> => _locks()
 }
@@ -115,6 +147,7 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
 - Law: CAS is the write mode — `cas` compiles `Option.none()` to `create` and a held fact to `update(key, next, revision)`; the server rejects a stale revision and the engine folds it to `stale`, so the caller re-reads and re-folds; a blind `put` is not reachable through this engine.
 - Law: reads are facts — `get` folds `null` and tombstone operations (`DEL`, `PURGE`) to `Option.none()`, a live entry to `{ value, revision }`, and a supplied revision pins `get(key, { revision })` to that generation; `watch` and `trail` are one `iterated` bracket over two bucket iterators — the live tail and the recorded history — so the forward feed, the backward feed, and the point read agree on one shape and one teardown; `census` lifts `kv.keys(filter)` the same way and joins `kv.status()`, so a bounded key enumeration and the bucket's own facts land in one read, never a value scan.
 - Law: bucket ensure is Layer construction — `kvm.create(bucket, { ttl, markerTTL })` at engine build from the root's bucket name: `ttl` arms the lease clock, `markerTTL` keeps removals notifying the watch tail; bucket shape never lives beside a call site, and the bucket is bounded coordination state whose history depth is a bucket option, never an audit log.
+- Law: this row's cells in `_ENGINES` are the caller's recovery contract — the bucket `ttl` this engine sets bounds every hold, the server's own clock ends it, and a tenant fence is a name prefix inside one bucket, so recovery reasoning reads the row rather than the holder's own liveness.
 - Boundary: the connection is `pubsub#JETSTREAM_ROW`'s `Broker` — this engine never dials; the ordered watch iterator carries no ack surface, exactly as the fanout ordered lane.
 - Packages: `@nats-io/kv` (`Kvm`, `KV`), `@nats-io/jetstream` (`JetStreamApiCodes`, `JetStreamApiError`), `effect` (`Chunk`, `Duration`, `Effect`, `Layer`, `Random`, `Ref`, `Schedule`, `Stream`), `./pubsub.ts` (`Broker`).
 
@@ -301,7 +334,8 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
 
 [LOCKS_ROW]:
 - Owner: `Accord.locks()` — the browser engine over the origin's own lock arbiter. A lease bridges `navigator.locks.request(name, { mode: "exclusive", ifAvailable, steal }, grant)` to the scope: the grant callback settles a granted `Deferred` and then parks on a release `Deferred` the scope's finalizer resolves, so the platform holds the lock exactly as long as the scope lives and an orphaned hold is unspellable; a `try` miss (the callback receives `null`) folds to `busy`. `elect` is the `try` lease read as a seat — the arbiter's own queue is the succession order, so a follower simply re-elects when its own later request is granted. The receipt carries a tab-minted holder id and `Option.none()` for the token, because the arbiter mints no revision — a fenced write from this row is honestly unspellable.
-- Law: the ledger members answer honestly — `cas`, `read`, `watch`, and `trail` fold to the `ledger` fault because the arbiter holds no state and records no history; `census` answers truthfully from `navigator.locks.query()` — held and pending names filtered by prefix, health `Option.none()` because no bucket exists to be healthy — so the doctor read works on both rows; a browser workload needing shared facts dials the `kv` row over websockets, and a session cell is `browser/persist`'s concern, never this port's.
+- Law: the ledger members answer honestly — `cas`, `read`, `watch`, and `trail` fold to the `ledger` fault because the arbiter holds no state and records no history, exactly as this row's `_ENGINES` `degrade` cell declares; `census` still answers truthfully from `navigator.locks.query()` — held and pending names filtered by prefix, health `Option.none()` because no bucket exists to be healthy — so the doctor read works on both rows.
+- Law: a workload this row's cells refuse dials the other engine — shared facts, a fencing token, or a claim vacating on a declared schedule are the `kv` row's over websockets, and a session cell is `browser/persist`'s concern, never this port's; the arbiter holds a name until the agent cluster tears its context down, so a wedged tab is the honest cost of the expiry-free lifetime.
 - Law: the callback seam is the platform-forced boundary — the grant callback runs `Effect.runPromise` over pure `Deferred` settles only (no capability, no domain logic crosses), the sanctioned bridge spelling. Exemption: the grant callback is the one statement kernel.
 - Boundary: cross-tab exclusion only — the arbiter scopes to the origin's agent cluster; process-plane coordination is the `kv` row's.
 - Packages: `effect` (`Deferred`, `Effect`, `Layer`), the host `navigator.locks` Web API at the sanctioned FFI seam.

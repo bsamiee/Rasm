@@ -26,7 +26,7 @@ import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
 import { Array, Config, Context, Data, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Envelope, Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
 
@@ -81,20 +81,19 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 
 [OPS_FAMILY]:
 - Owner: `Ops.family(sources)` — the lib runbook family built over app-supplied capability sources so the verbs stay composition-free: `doctor` folds the health anchor and the app's check rows, `replay` re-publishes a captured fanout envelope, `inspect` emits the canonical spec artifact — one record, three verbs, every handler rendering through the role and structure rows.
-- Law: `doctor` accumulates, never aborts — the shipped floor probes are the `proc/life#PROBE_ROUTES` report per kind plus the app's `checks` rows (each a named `Effect<string, OpsFault>` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the three independent life reports run concurrently, and the exit is non-zero when any probe failed, which makes the command a CI gate. The engine census reads are check rows, never new verbs — a fanout row folds `Fanout.consumers(topic)` (the durable-consumer census with its reap arm withheld from CI), and a coordination row folds `Accord.census(filter)` whose record answers `names` beside `Option<Accord.Health>`, so a name-list render folds the record rather than assuming a bare list. One reason-discriminated `OpsFault` carries both refusal routes off one core family mint — `probe` classifies `unavailable` (the dependency answered no), `gate` classifies `breached` (this process refusing its own run) — because a primitive, class-less, or literal-asserted error reopens an ungoverned rail that folds to `defect` at the public contribution boundary.
+- Law: `doctor` accumulates, never aborts — the shipped floor probes are the `proc/life#PROBE_ROUTES` report per kind plus the app's `checks` rows (each a named `Effect<string, OpsFault>` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the three independent life reports run concurrently, and the exit is non-zero when any probe failed, which makes the command a CI gate. That partition is refusal against everything else, so an anchor row grading `warn` rides the passing arm carrying its own grade as detail rather than minting a third exit posture. The engine census reads are check rows, never new verbs — a fanout row folds `Fanout.consumers(topic)` (the durable-consumer census with its reap arm withheld from CI), and a coordination row folds `Accord.census(filter)` whose record answers `names` beside `Option<Accord.Health>`, so a name-list render folds the record rather than assuming a bare list. One reason-discriminated `OpsFault` carries both refusal routes off one core family mint — `probe` classifies `unavailable` (the dependency answered no), `gate` classifies `breached` (this process refusing its own run) — because a primitive, class-less, or literal-asserted error reopens an ungoverned rail that folds to `defect` at the public contribution boundary.
 - Law: narrowing never costs the gate its default — `--check` repeats to name probes and an EMPTY roster is the whole surface, so a script and CI pass nothing and are never prompted, while `--pick` opens `Prompt.multiSelect` over the same resolved probe names for an operator narrowing at a terminal; an abort at that prompt is a clean exit through `Verb.main`'s quit fold, not a doctor failure.
 - Law: `replay` re-drives a captured delivery — `Args.fileSchema(Envelope, { format: "json" })` reads, parses, and validates the capture file at the argv boundary in one declaration (the member parses by the declared format then validates the PARSED value, so a `parseJson` wrapper would hand a decoded object to a string decoder) and the handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through `Prompt.select` over the app's declared topic roster, and the mutation gates on `Prompt.confirm` through the same fallback bridge — a `--yes`/`-y` flag pre-answers both for CI, so interactive safety costs scripts nothing.
 - Law: `inspect` emits derivations — the `api#EMIT` artifact to a path or stdout — so the served contract's canonical bytes are one verb away for diffing; the `--out` flag falls back to the `INSPECT_OUT` config row through the bridge, this page's own demonstration of the flag-config law.
 - Law: runbooks are code — a new runbook is one `Command` row in this family with its probe or effect, never a document; the family is `Command.provide`-scoped with its exec Layer by the app when it needs elevated capability.
 - Boundary: process execution mechanics are `proc/exec#COMMAND_SPEC`'s; fanout semantics are `net/pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
-- Packages: `@effect/cli` (`Command`, `Options`, `Args`, `Prompt`); `../proc/life.ts` (`Life`); `../net/pubsub.ts` (`Fanout`, `Envelope`); `effect` (`Effect`, `Option`, `Array`, `Schema`); `@rasm/ts/core` (`FaultClass`); app check rows compose `proc/exec#COMMAND_SPEC`'s `Proc.run` at their own seam.
 
 ```typescript
 // One family, two refusal routes: a probe verdict is the dependency answering no, the verb gate is this process
 // refusing its own run. The class PROJECTS off the roster — asserting a literal beside the reason is the second
-// taxonomy the branch ruling forecloses, and without any column `FaultClass.of` folds both to `defect`, which
+// taxonomy the branch ruling forecloses, and without any column `Fault.Class.of` folds both to `defect`, which
 // reads a failed doctor row as an internal fault.
-const _ops = FaultClass.family(["probe", "gate"] as const, {
+const _ops = Fault.Class.family(["probe", "gate"] as const, {
   probe: { class: "unavailable" },
   gate: { class: "breached" },
 })
@@ -107,7 +106,7 @@ class OpsFault extends Data.TaggedError("OpsFault")<{
   readonly reason: OpsFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _ops.classOf(this.reason)
   }
   override get message(): string {
@@ -184,7 +183,7 @@ const _doctor = (sources: Ops.Sources) =>
           Effect.map((detail) => [probe.name, detail] as const),
           Effect.mapError((fault) => [probe.name, fault.detail] as const),
         ))
-      yield* _out(_verdicts({ passed, failed }))
+      yield* _out(_verdicts({ pass: passed, fail: failed }))
       return yield* Effect.when(
         Effect.fail(new OpsFault({ reason: "gate", detail: `doctor: ${failed.length} refused` })),
         () => failed.length > 0,
@@ -252,59 +251,72 @@ const _roles = {
 
 const _role = (kind: keyof typeof _roles, doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc => Doc.annotate(doc, _roles[kind])
 
+// One reverse index built beside the table: `reAnnotate` visits every annotated node, and re-materializing the
+// roster per visit re-scans it for a lookup the table already holds. Foreign annotations — `@effect/cli`'s own
+// `HelpDoc` markup among them — miss the index and cross unchanged, which is the intended pass-through.
+const _byAnsi: ReadonlyMap<Ansi.Ansi, keyof typeof _roles> = new Map(
+  Array.map(Record.toEntries(_roles), ([kind, ansi]) => [ansi, kind] as const),
+)
+
 const _themed = (palette: Partial<Record<keyof typeof _roles, Ansi.Ansi>>) =>
   (doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc =>
-    Doc.reAnnotate(doc, (held) => {
-      const entry = Array.findFirst(
-        Record.toEntries(_roles),
-        ([, ansi]) => ansi === held,
-      )
-      return Option.match(entry, {
+    Doc.reAnnotate(doc, (held) =>
+      Option.match(Option.fromNullable(_byAnsi.get(held)), {
         onNone: () => held,
-        onSome: ([kind]) => palette[kind] ?? held,
-      })
-    })
+        onSome: (kind) => palette[kind] ?? held,
+      }))
 ```
 
 ## [05]-[STRUCTURE_ROWS]
 
 [STRUCTURE_ROWS]:
-- Owner: the composition rows, each a fold over the printer's own algebra — `kv(pairs)` aligns each value from the current cursor through `Doc.align`; `table(columns, rows)` reads widths from column policy values and applies `Doc.fill`, marks the head `emph`, and stacks with `Doc.vsep`; `seq(items, shape)` renders a delimited collection through `Doc.list`/`Doc.tupled`; `verdicts({ passed, failed })` renders the doctor shape; `banner(title)` is the `emph` section head; `prose(text)` wraps through `Doc.reflow`; `raw(text)` admits pre-formed text through `Doc.string`; and `pretty(schema)` derives a canonical decoded-value renderer through `Pretty.make(schema)`.
+- Owner: the composition rows, each a fold over the printer's own algebra — `kv(pairs)` admits each value through `Doc.string` and hangs it from the current cursor with `Doc.align`, so a multi-line value's continuation lines stay under the value column; `table(columns, rows)` reads widths from column policy values and pads with `Doc.fillBreak`, marks the head `emph`, and stacks with `Doc.vsep`; `seq(items, shape)` selects a `_shapes` row over the printer's own fixed `encloseSep` derivations; `verdicts(report)` folds the `_grades` roster; `banner(title)` is the `emph` section head; `prose(text)` wraps through `Doc.reflow`; `raw(text)` admits pre-formed text through `Doc.string`; and `pretty(schema)` derives a canonical decoded-value renderer through `Pretty.make(schema)`.
 - Law: rows return `AnsiDoc` values, never strings — composition stays open (a verb nests a `table` under a `banner` with `Doc.vsep`) and the fold to text happens once at the seam; a string-returning row re-closes the algebra per call site and is the rejected form.
-- Law: width is policy, not JavaScript string arithmetic — a table's column declarations carry widths, `Doc.fill` pads without truncation, and wide values remain visible instead of corrupting alignment through UTF-16 `.length` guesses.
-- Growth: a new output shape is one row composing the existing algebra; a shape needing a new layout primitive reaches for the printer's own (`align`, `hang`, `encloseSep`) before any local invention.
-- Packages: `@effect/printer` (`Doc`); `effect` (`Array`, `Pretty`).
+- Law: caller text enters through `Doc.string`, never `Doc.text` — `text` is declared newline-free and a value carrying one corrupts the stream it lands in, where `string` splits on `hardLine` and every layout combinator above it keeps working.
+- Law: width is policy, not JavaScript string arithmetic — column declarations carry the widths and `Doc.fillBreak` pads to them, nesting a cell that outgrows its column onto its own line so every following column still starts where its header does; `Doc.fill` pads in one direction only and lets one wide cell shove the rest of the row sideways, and UTF-16 `.length` guesses are the deleted spelling.
+- Growth: a new output shape is one row composing the existing algebra; a third delimiter is one `_shapes` row and a third verdict grade one `_grades` row; a shape needing a new layout primitive reaches for the printer's own (`align`, `hang`, `encloseSep`) before any local invention.
+- Packages: `@effect/printer` (`Doc`); `effect` (`Array`, `Pretty`, `Record`).
 
 ```typescript
 const _kv = (pairs: ReadonlyArray<readonly [string, string]>): AnsiDoc.AnsiDoc =>
   Doc.vsep(Array.map(pairs, ([label, value]) =>
-    Doc.hsep([_role("faint", Doc.text(label)), Doc.align(Doc.text(value))])))
+    Doc.hsep([_role("faint", Doc.string(label)), Doc.align(Doc.string(value))])))
 
 const _table = (
   columns: ReadonlyArray<{ readonly header: string; readonly width: number }>,
   rows: ReadonlyArray<ReadonlyArray<string>>,
 ): AnsiDoc.AnsiDoc => {
   const lined = (cells: ReadonlyArray<string>, mark: (doc: AnsiDoc.AnsiDoc) => AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc =>
-    Doc.hsep(Array.map(columns, (column, index) => Doc.fill(mark(Doc.text(cells[index] ?? "")), column.width)))
+    Doc.hsep(Array.map(columns, (column, index) => Doc.fillBreak(mark(Doc.string(cells[index] ?? "")), column.width)))
   return Doc.vsep([
     lined(Array.map(columns, (column) => column.header), (doc) => _role("emph", doc)),
     ...Array.map(rows, (row) => lined(row, (doc) => doc)),
   ])
 }
 
-const _verdicts = (report: {
-  readonly passed: ReadonlyArray<readonly [string, string]>
-  readonly failed: ReadonlyArray<readonly [string, string]>
-}): AnsiDoc.AnsiDoc =>
-  Doc.vsep([
-    ...Array.map(report.passed, ([name, detail]) =>
-      Doc.hsep([_role("ok", Doc.text("pass")), Doc.text(name), _role("faint", Doc.text(detail))])),
-    ...Array.map(report.failed, ([name, detail]) =>
-      Doc.hsep([_role("fault", Doc.text("fail")), Doc.text(name), Doc.text(detail)])),
-  ])
+// One grade roster carrying the label's role and whether its detail reads muted; the doctor's own partition feeds
+// both buckets, so a third grade joins the render and the report shape from this one row.
+const _grades = {
+  pass: { role: "ok", muted: true },
+  fail: { role: "fault", muted: false },
+} as const satisfies Record<string, { readonly role: keyof typeof _roles; readonly muted: boolean }>
 
-const _seq = (items: ReadonlyArray<string>, shape: "list" | "tuple" = "list"): AnsiDoc.AnsiDoc =>
-  (shape === "list" ? Doc.list : Doc.tupled)(Array.map(items, Doc.text))
+const _verdicts = (
+  report: { readonly [G in keyof typeof _grades]: ReadonlyArray<readonly [string, string]> },
+): AnsiDoc.AnsiDoc =>
+  Doc.vsep(Array.flatMap(Record.toEntries(_grades), ([grade, row]) =>
+    Array.map(report[grade], ([name, detail]) =>
+      Doc.hsep([
+        _role(row.role, Doc.string(grade)),
+        Doc.string(name),
+        row.muted ? _role("faint", Doc.string(detail)) : Doc.string(detail),
+      ]))))
+
+// `list` and `tupled` are the printer's own fixed rows over `encloseSep`, so a third delimiter shape is a row here
+const _shapes = { list: Doc.list, tuple: Doc.tupled } as const satisfies Record<string, typeof Doc.list>
+
+const _seq = (items: ReadonlyArray<string>, shape: keyof typeof _shapes = "list"): AnsiDoc.AnsiDoc =>
+  _shapes[shape](Array.map(items, Doc.string))
 
 const _banner = (title: string): AnsiDoc.AnsiDoc => _role("emph", Doc.text(title))
 
@@ -324,10 +336,10 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 - Owner: the one fold from document to terminal — `_MODES` is the render-policy vocabulary: each mode row CARRIES its fold over the document AND the measured width (`tty` renders escape codes pretty, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form and takes no width because its output is one line), so `Print.text(doc, mode, width)` is one keyed lookup and a new mode is one row whose missing fold fails at the vocabulary declaration, never a conditional arm; `Print.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission); `Print.out(doc)` reads the ambient mode, measures the terminal, and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
 - Law: the seam renders at the terminal's OWN width — `terminal.columns` feeds `PageWidth.AvailablePerLine` through each mode row's `{ lineWidth, ribbonFraction: 1 }` options, so `Print.table`, `Print.prose`'s `Doc.reflow`, and `@effect/cli`'s `HelpDoc` all break against the real viewport instead of the printer's 80-column default; the page's own width-is-policy law then holds for the page itself, not only for its columns.
 - Law: mode is ambient, never a parameter — verbs call `Print.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Print.Mode, "plain")`, and `Print.detected` is the Layer deriving the default from `Terminal.isTTY` so a pipe or a CI runner lands `plain` without any root provision at all; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
-- Law: live redraw is a directive row over the same seam — `Print.sweep(rows)` writes `Ansi.stringify(Ansi.eraseLines(rows))` through the terminal before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs, and the directive short-circuits to a plain newline outside `tty` mode so piped output stays append-only.
-- Law: deeply nested structures compose through `Print.deep` — `Optimize.optimize(doc, FusionDepth.Deep)` fuses associativity while preserving `AnsiDoc`; the ambient mode row still performs the only render, so optimization never opens a second terminal seam.
+- Law: live redraw is a directive row over the same seam — `Print.sweep(rows)` renders the published `AnsiDoc.eraseLines(rows)` document through `Print.text` before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs and zero raw escape strings; the directive annotates `Doc.empty`, so `plain` and `wire` strip it to nothing and piped output stays append-only without a mode branch at this seam.
+- Law: deeply nested structures compose through `Print.deep` — `Optimize.optimize(doc, Optimize.Deep)` fuses associativity while preserving `AnsiDoc`; the ambient mode row still performs the only render, so optimization never opens a second terminal seam.
 - Boundary: `@effect/cli`'s own `HelpDoc` lowers onto this same `AnsiDoc` rail, so parse-error help and verb output share one render seam; the `Terminal` binding is the runtime row's.
-- Packages: `@effect/printer-ansi` (`AnsiDoc`, `Ansi`); `@effect/printer` (`Doc`, `Optimize`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`, `Layer`).
+- Packages: `@effect/printer-ansi` (`AnsiDoc`); `@effect/printer` (`Doc`, `Optimize`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`, `Layer`).
 
 ```typescript
 const _MODES = {
@@ -366,11 +378,13 @@ const _sweep = (rows: number): Effect.Effect<void, PlatformError.PlatformError, 
   Effect.gen(function* () {
     const mode = yield* _Mode
     const terminal = yield* Terminal.Terminal
-    yield* terminal.display(mode === "tty" ? Ansi.stringify(Ansi.eraseLines(rows)) : "\n")
+    const width = yield* terminal.columns
+    // `AnsiDoc.eraseLines` IS the published directive document — `Doc.annotate(Doc.empty, …)` — so the mode row's
+    // own annotation strip erases it outside `tty`, and this seam needs neither a branch nor a raw escape string
+    yield* terminal.display(_text(AnsiDoc.eraseLines(rows), mode, width))
   })
 
-const _deep = (doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc =>
-  Optimize.optimize(doc, Optimize.FusionDepth.Deep)
+const _deep = (doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc => Optimize.optimize(doc, Optimize.Deep)
 
 const Print = {
   Mode: _Mode,

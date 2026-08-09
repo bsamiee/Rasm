@@ -313,7 +313,7 @@ public abstract partial record StoreOp {
 
 public readonly record struct FactView(Guid Key, int Rank);
 
-public static class StoreRail {
+public static class FactRail {
     static readonly Func<StoreContext, int, CancellationToken, Task<int>> HotCount =
         EF.CompileAsyncQuery(static (StoreContext store, int floor, CancellationToken ct) =>
             store.Set<Fact>().Count(f => f.Rank > floor));

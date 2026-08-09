@@ -2,12 +2,12 @@
 
 One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
 
-Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `LayerTopology` is the decode-side admission of the C#-minted layer wire feeding the containment graph, and the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
+Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `organization_graph` folds the C#-minted `rasm.organization.v1` organization document into the containment graph, decoding through the branch's one wire-shape owner at `runtime/transport/shapes#VOCABULARY` and minting no wire struct here; the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
 
 ## [01]-[INDEX]
 
 - [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
-- [03]-[TOPOLOGY]: the `LayerTopology` boundary decoder — wire-carried layer and relation keys folded into the containment node-link source, detached override facts, the identity-to-index map the frame join reads.
+- [03]-[TOPOLOGY]: `organization_graph` containment fold — wire-carried organizational entities and containment edges folded onto the one kernel, `OrganizationIndex` carrying one address-to-index map per key space.
 
 ## [02]-[GRAPH]
 
@@ -41,6 +41,7 @@ from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundar
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.transport.shapes import OrganizationWire
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -67,6 +68,12 @@ type Matrix = npt.NDArray[np.float64]
 type WeightSelector = Callable[[Any], float]
 
 WEIGHT_IDENTITY: Final[WeightSelector] = float
+
+# leiden's objective is a real engine choice, not a call-site literal: under CPM the resolution is a DENSITY
+# threshold and under modularity a SCALE factor, so one number means two things and the row must say which.
+type LeidenObjective = Literal["CPM", "modularity"]
+# edge attribute `Graph.TupleList(weights=True)` writes, and the key every weighted community member reads back.
+_IG_WEIGHT: Final[str] = "weight"
 
 
 class GraphFormat(StrEnum):
@@ -170,9 +177,13 @@ class GraphAlgorithm:
     transitivity: None = case()
     is_planar: None = case()
     layout: LayoutKind = case()
-    leiden: float = case()
-    louvain: float = case()
-    infomap: int = case()
+    # community rows carry the branch `WeightSelector` exactly as every other weighted member does. Without it the
+    # three arms built their graph off a bare edge list, so a weighted network partitioned as if every edge were
+    # unit — the one input community detection exists to read — and neither the objective nor the refinement
+    # iteration count was reachable at all. Each row seats its selector at slot 1, so one projection feeds the build.
+    leiden: "tuple[float, WeightSelector, LeidenObjective, int]" = case()
+    louvain: tuple[float, WeightSelector] = case()
+    infomap: tuple[int, WeightSelector] = case()
 
 
 @tagged_union(frozen=True)
@@ -352,8 +363,12 @@ def _frame(result: GraphResult) -> "pa.Table":  # ruff:ignore[too-many-return-st
                 "target": [v for _, v, _ in rows],
                 "flow": [f for _, _, f in rows],
             })
+        case GraphResult(tag="tree", tree=rows) | GraphResult(tag="matching", matching=rows):
+            # EDGE-keyed exactly as `flows` is: both carry the `(source, target)` pair every edge result joins on, so
+            # refusing them claimed an absent index row while holding the very index the flow arm frames.
+            return pa.Table.from_pydict({"source": [u for u, _ in rows], "target": [v for _, v in rows]})
         case _:
-            raise ValueError(f"{result.tag} carries no index row; only scores/coloring/partition/order/layout/flows key a join table")
+            raise ValueError(f"{result.tag} carries no index row; only scores/coloring/partition/order/layout/tree/matching/flows key a join table")
 
 
 # --- [RUSTWORKX_KERNEL] -----------------------------------------------------------------
@@ -433,7 +448,10 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="articulation"):
             return GraphResult(order=tuple(rx.articulation_points(g)))
         case GraphAlgorithm(tag="bridges"):
-            return GraphResult(matching=tuple(rx.bridges(g)))
+            # `tree` is this union's EDGE-LIST carrier — the transitive reduction, the condensation, and both
+            # spanning trees all land there — so a bridge set lands there too. Reporting it as `matching` named the
+            # receipt's `result` for a pairing the algorithm never computes.
+            return GraphResult(tree=tuple(rx.bridges(g)))
         case GraphAlgorithm(tag="cycle_basis"):
             return GraphResult(paths=tuple(tuple(c) for c in rx.cycle_basis(g, root=algo.cycle_basis)))
         case GraphAlgorithm(tag="condensation"):
@@ -469,7 +487,9 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="layout"):
             return GraphResult(layout=tuple((n, tuple(xy)) for n, xy in RX_LAYOUT[algo.layout](g).items()))
         case GraphAlgorithm(tag="leiden" | "louvain" | "infomap"):
-            return _run_ig(_ig_from(g, kind), algo, kind)
+            # every community row seats its selector at slot 1, so the build reads ONE projection rather than three
+            # arms restating a lookup the case shape already fixes.
+            return _run_ig(_ig_from(g, kind, getattr(algo, algo.tag)[1]), algo, kind)
         case unreachable:
             assert_never(unreachable)
 
@@ -479,13 +499,13 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
 # community rows call methods ON the passed C-core graph, so the table itself links no GPL
 # symbol — the one import site is `_ig_from`, reached only from the `_run_rx` community arm.
 IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.VertexClustering]]]" = Map.of_seq([
-    ("leiden", lambda g, a: g.community_leiden(objective_function="modularity", resolution=a.leiden)),
-    ("louvain", lambda g, a: g.community_multilevel(resolution=a.louvain)),
-    ("infomap", lambda g, a: g.community_infomap(trials=a.infomap)),
+    ("leiden", lambda g, a: g.community_leiden(objective_function=a.leiden[2], resolution=a.leiden[0], weights=_IG_WEIGHT, n_iterations=a.leiden[3])),
+    ("louvain", lambda g, a: g.community_multilevel(resolution=a.louvain[0], weights=_IG_WEIGHT)),
+    ("infomap", lambda g, a: g.community_infomap(trials=a.infomap[0], edge_weights=_IG_WEIGHT)),
 ])
 
 
-def _ig_from(g: RxGraph, kind: GraphKind) -> "igraph.Graph":
+def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Graph":
     # ONE GPL import site, function-local by law — the community split is the only leg that
     # links the igraph C core, so the confinement is structural rather than prose. The leg builds
     # C-core graph builds from the rustworkx edge list (`_as_rx` already coerced any networkx/igraph
@@ -498,8 +518,15 @@ def _ig_from(g: RxGraph, kind: GraphKind) -> "igraph.Graph":
     # vertices so the community partition stays TOTAL over the node set.
     import igraph  # ruff:ignore[import-outside-top-level]
 
-    ig = igraph.Graph.TupleList(g.edge_list(), directed=kind.directed)
-    isolated = [n for n in g.node_indices() if n not in set(ig.vs["name"])]
+    # `weighted_edge_list` carries each edge PAYLOAD, which the branch selector lowers to the float igraph reads
+    # back off `_IG_WEIGHT` — `weights=True` is what makes `TupleList` write that attribute from the third slot.
+    # Building off a bare `edge_list()` discards that payload, so every weighted community run silently partitions a
+    # unit graph. The name set hoists out of the scan, which rebuilt it once per node.
+    ig = igraph.Graph.TupleList(
+        ((u, v, weight(payload)) for u, v, payload in g.weighted_edge_list()), directed=kind.directed, weights=True
+    )
+    named = set(ig.vs["name"])
+    isolated = [n for n in g.node_indices() if n not in named]
     if isolated:
         ig.add_vertices(len(isolated), attributes={"name": isolated})
     return ig
@@ -588,64 +615,55 @@ flowchart TD
 
 ## [03]-[TOPOLOGY]
 
-- Owner: `LayerTopology` — the decode-side admission of the C#-minted layer-topology wire: one `LayerFact` row per layer carrying identity, parent nesting, element membership, and sort order, one `OverrideFact` row per probed per-viewport override, both DETACHED facts and never a host layer handle. `layer_graph` folds the fact rows into the graph plane's node-link source — nodes the layer and member identities, directed edges the nesting and membership relations — returning the `GraphPayload` beside the identity-to-index `Map` a caller keys its queries and the `GraphResult.frame` left-join through.
-- Law: the wire schema and codec MINT in C# beside the `csharp:Rasm.Rhino/Document/layers#TREE_SNAPSHOT` emitter — this decode model mirrors the landed `LayerNode` concept (identity, `Parent` nesting, membership, `SortIndex`, per-detail overrides) and re-proves field-for-field when the corpus schema pin lands at the C# owner; a decoder-side field the pinned schema does not spell is the drift the re-proof deletes. Overrides stay detached data on the decoded value: a per-viewport visibility is display evidence, never a graph edge, so containment analysis reads one topology whichever viewport a consumer audits.
-- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=...))`, membership closure `descendants`, nesting depth the `bfs` order — the existing kernel answers every organizational query with zero new algorithm surface, and the node-keyed frame left-joins layer organization onto the scan plane by `node` exactly as every enrichment does.
-- Growth: a new wire fact family is one `Struct` row on `LayerTopology` and one edge or detached fold in `layer_graph`; a new relation kind is one edge-payload literal; zero new surface.
-- Boundary: decode only — this plane re-mints no wire, holds no host handle, and answers no render/print product query (the face and condition columns stay C#-side evidence); an orphan parent key refuses typed at the fold, mirroring the emitter's own orphan refusal, never a silently dropped edge.
+- Owner: `organization_graph` folds one decoded `OrganizationWire` into the graph plane's node-link source — nodes the organizational addresses and the federation member keys, directed edges the nesting and membership containment — returning the `GraphPayload` beside the `OrganizationIndex` a caller keys its queries and the `GraphResult.frame` left-join through.
+- Law: schema and codec MINT in C# beside `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`, and `runtime/transport/shapes#VOCABULARY` is this branch's ONE wire-shape owner, so no struct mirrors the document here. Names on that wire state the host-free organizational concept, so this fold reads organizational addresses and federation keys and never a host layer handle, table index, or joined path.
+- Law: key SPACES stay separated — `OrganizationIndex.entities` maps content-addressed organizational addresses and `OrganizationIndex.members` federation keys the producing authority issued. One merged map lets an authority-issued key spelling a 32-hex address collide with an entity, silently re-pointing a containment query at the wrong node.
+- Law: content-key spelling lowers exactly once at this decode — the wire carries 16 big-endian bytes and this branch's own key face is lowercase hex, so a consumer joining an address against any peer lowers and never uppercases.
+- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=...))`, membership closure `descendants`, nesting depth the `bfs` order — the existing kernel answers every organizational query with zero new algorithm surface, and the node-keyed frame left-joins organization onto the scan plane by `node` exactly as every enrichment does.
+- Growth: one `ContainmentWire` target arm carries a new containment relation as one edge-payload literal and one dispatch row; a new presentation axis rides the decoded overrides untouched, since presentation evidence enters no edge.
+- Boundary: decode only — this plane re-mints no wire and answers no render or print product query, which stays producer-side evidence. Sibling ordinal rides the decoded entity rows rather than a node payload, because rank orders siblings and carries no edge. Overrides stay detached on the decoded value, so containment analysis reads one topology whichever view a consumer audits.
+- Boundary: containment edges naming an absent container or an absent entity target refuse typed at the fold, mirroring the emitter's own orphan refusal; a member target names a FOREIGN key space and always mints its node, since an unresolvable member is the consuming plane's join miss rather than wire damage.
 
 ```python signature
-class LayerFact(Struct, frozen=True):
-    # one detached layer row off the C# tree snapshot: `layer` and `members` are wire identity KEYS,
-    # `parent` the nesting key (`None` at a root), `sort_index` the sibling order the emitter proved.
-    layer: str
-    name: str
-    parent: str | None = None
-    members: tuple[str, ...] = ()
-    sort_index: int = 0
+class OrganizationIndex(Struct, frozen=True):
+    # one address-to-index map per key space the wire discriminates — never one merged map a foreign key can shadow.
+    entities: Map[str, NodeId]
+    members: Map[str, NodeId]
 
 
-class OverrideFact(Struct, frozen=True):
-    # probed per-viewport override — detached display evidence, never a graph edge.
-    layer: str
-    viewport: str
-    visible: bool
-
-
-class LayerTopology(Struct, frozen=True):
-    facts: tuple[LayerFact, ...]
-    overrides: tuple[OverrideFact, ...] = ()
-
-    @staticmethod
-    def decoded(raw: bytes) -> "RuntimeRail[LayerTopology]":
-        return boundary("graph.topology.decode", lambda: _TOPOLOGY_DECODER.decode(raw))
-
-
-_TOPOLOGY_DECODER: Final = msgspec.json.Decoder(LayerTopology)
-
-# edge payload literals: the relation vocabulary the containment queries and the frame join read.
+# edge payload literals: the containment vocabulary the organizational queries and the frame join read.
 NESTS: Final[str] = "nests"
 MEMBER: Final[str] = "member"
 
 
-def layer_graph(topology: LayerTopology) -> "RuntimeRail[tuple[GraphPayload, Map[str, NodeId]]]":
-    def build() -> "tuple[Any, Map[str, NodeId]]":
-        graph = rx.PyDiGraph(multigraph=False)
-        layers = {fact.layer: graph.add_node(fact.layer) for fact in topology.facts}
-        orphans = tuple(fact.layer for fact in topology.facts if fact.parent is not None and fact.parent not in layers)
-        if orphans:
-            # mirror of the emitter's own orphan refusal: a nesting key outside the fact set is wire damage,
-            # never a droppable edge — the boundary fence rails this into the typed fault.
-            raise ValueError(f"<orphan-parents:{orphans}>")
-        # distinct-first: an element key shared by two layers mints ONE node — a per-occurrence add_node
-        # would strand duplicate nodes behind the last-written index; sorted assignment keeps indices stable.
-        distinct = {key for fact in topology.facts for key in fact.members} - set(layers)
-        members = {key: graph.add_node(key) for key in sorted(distinct)}
-        graph.add_edges_from([(layers[fact.parent], layers[fact.layer], NESTS) for fact in topology.facts if fact.parent is not None])
-        graph.add_edges_from([(layers[fact.layer], members[key], MEMBER) for fact in topology.facts for key in fact.members])
-        return graph, Map.of_seq((*layers.items(), *members.items()))
+def _address(key: bytes) -> str:
+    # wire keys cross as 16 big-endian bytes and this branch faces them lowercase, so the one lowering seats here.
+    return key.hex()
 
-    return boundary("graph.topology.build", build).bind(
+
+def organization_graph(wire: OrganizationWire) -> "RuntimeRail[tuple[GraphPayload, OrganizationIndex]]":
+    def build() -> "tuple[Any, OrganizationIndex]":
+        graph = rx.PyDiGraph(multigraph=False)
+        entities = {_address(entity.key): graph.add_node(_address(entity.key)) for entity in wire.entities}
+        nests = tuple((edge.container, edge.entity) for edge in wire.containment if edge.entity)
+        holds = tuple((edge.container, edge.member) for edge in wire.containment if edge.member)
+        orphans = tuple(
+            _address(container)
+            for container, target in nests + holds
+            if _address(container) not in entities
+        ) + tuple(_address(target) for _, target in nests if _address(target) not in entities)
+        if orphans:
+            # mirror of the emitter's own orphan refusal: a containment key outside the entity set is wire damage,
+            # never a droppable edge — the boundary fence rails this into the typed fault.
+            raise ValueError(f"<orphan-containment:{orphans}>")
+        # distinct-first: a member key two entities both hold mints ONE node — a per-occurrence add_node strands
+        # duplicates behind the last-written index, and sorted assignment keeps indices stable across reads.
+        members = {key: graph.add_node(key) for key in sorted({member for _, member in holds} - set(entities))}
+        graph.add_edges_from([(entities[_address(c)], entities[_address(t)], NESTS) for c, t in nests])
+        graph.add_edges_from([(entities[_address(c)], members[m], MEMBER) for c, m in holds])
+        return graph, OrganizationIndex(entities=Map.of_seq(entities.items()), members=Map.of_seq(members.items()))
+
+    return boundary("graph.organization.build", build).bind(
         lambda built: GraphPayload.of(built[0]).map(lambda payload: (payload, built[1]))
     )
 ```

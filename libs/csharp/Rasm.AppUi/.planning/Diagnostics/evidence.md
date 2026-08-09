@@ -18,7 +18,9 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 - Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Effect | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame | Layout | DispatcherLag | PreCommit under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, effect, asset, live-data, collab-sync, collab-revert, media, quality, gpu-frame, layout, dispatcher-lag, collab-precommit.
 - Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled kernel causal-frame vocabulary and never re-minted here; serialization rides `EvidenceOps.Wire` — the composition-seated MERGED suite options, whose app-root mint folds `AppUiWireContext.Default` in as one merge argument — so the suite mint's converter factories and Option-omission modifier reach every evidence crossing while an off-contract options graph stays structurally impossible; a typed-info read off `AppUiWireContext.Default` bypasses the suite mint and a context instance constructed over the merge rebinds the resolver and drops the modifier (probe-witnessed), so both are the deleted spellings, and the `EvidenceTimelineWire` crossing is provably schema-stable against its TS decode side.
 - Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens, the `Editing/livedata.md` change-audit `ChangeSummary` fold to the LiveData case (adds, updates, removes, refreshes per slot), the `Collab/sync.md` `LiveWire` merge and `TimeTravel` revert sinks to the CollabSync and CollabRevert flattens, the `Document/media.md` mount sink to the Media flatten, the `Shell/solver.md` pass receipt to the Layout flatten, the `Diagnostics/governor.md` verdict and GPU-timeline sinks to the Quality and GpuFrame flattens, and the `Diagnostics/devloop.md` dispatcher-starvation probe and collab pre-commit tap to the DispatcherLag and PreCommit flattens — every fold one `ToEvidence` extension or one `EvidenceOps` factory (`Focus`, `Disposal`, `NativeAsset`, `LiveData`, `Layout`, `DispatcherLag`, `PreCommit` — the delegate-fed cases whose sources carry no receipt record or arrive as composition delegates) bound at composition, so every existing receipt stream folds into one union with zero new emitters. The Layout kind is receipt-only on the fan by declaration — `LayoutSolver.Observe` already writes both layout instruments off the same receipt through the composition-bound projection modality, so a fan arm beside it would double every count.
-- Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form; the envelope's `Tenant` field partitions evidence per tenant from the same threaded `TenantContext`, so a per-tenant evidence view derives from the envelope partition rather than a second tenant field on a case payload.
+- Receipt: `ReceiptEnvelope` HLC is the sole evidence time authority.
+- Receipt: `ReceiptEnvelope.Tenant` partitions evidence without duplicating tenant on case payloads.
+- Receipt: Render keeps artifact `FrameHash`, optional `DrawHash`, and optional canonical `Pixels` distinct.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family — its `[JsonDerivedType]` row carries the kind literal, `Kinds` and every arm-table key derive, and `Probe` fails the composition that forgot the row; zero new surface.
 - Boundary: receipts are process-local and HLC-correlated, never globally shared; this typed union with slot metadata is the absorbing owner. `[JsonDerivedType]` rows carry the ONE kind correspondence — `EvidenceOps.KindOf` projects them, `Kind` reads that projection, `Kinds` publishes it, and `Probe` proves case-versus-row bijection at boot, so `Seal` never reparses its own JSON to rediscover case identity and a second case-to-literal dispatch beside the annotations is the deleted form. That correspondence bounds the PACKAGE KEY, not just this fence: every envelope stamped `AppUiTelemetry.Source.Key` carries a roster kind, because `[04]`'s usage fold decodes each one as an `EvidenceReceipt` and fails the rail on anything else, so a page-local kind const sealed onto the same sink is the form that refuses a tenant's whole chargeback window — a new AppUi fact is a case row here. A fact already derived from sealed receipts seals nothing at all: the dev-loop HUD sample folds the frame receipt and the GPU timeline, both already on the stream, so re-sealing it would double the GPU duration the usage fold accrues. GPU flatten sums only resolved query pairs and reports absent pairs separately; projected durations never enter `MeasuredNanoseconds`.
@@ -50,7 +52,16 @@ public abstract partial record EvidenceReceipt {
     private EvidenceReceipt() { }
     public sealed record Surface(string Host, string Descriptor, double Scale, Instant At, CorrelationId Correlation, string? Handle = null) : EvidenceReceipt;
     public sealed record Focus(string Target, bool Focused) : EvidenceReceipt;
-    public sealed record Render(string Slot, string Format, string FrameHash, string Bytes, Duration Elapsed, string ColorSpace, string? Destination = null) : EvidenceReceipt;
+    public sealed record Render(
+        string Slot,
+        string Format,
+        string FrameHash,
+        Option<string> DrawHash,
+        Option<PixelIdentity> Pixels,
+        string Bytes,
+        Duration Elapsed,
+        string ColorSpace,
+        string? Destination = null) : EvidenceReceipt;
     public sealed record Disposal(string ScreenId, Duration Active, int Disposables) : EvidenceReceipt;
     public sealed record Edit(string Slot, string Surface, string Target, string Editor, string Outcome) : EvidenceReceipt;
     public sealed record Command(CommandReceipt Receipt) : EvidenceReceipt;
@@ -176,7 +187,8 @@ public static class EvidenceOps {
 
     extension(RenderReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Render(
-            receipt.Kind, receipt.Format, receipt.FrameHash, receipt.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture), receipt.Elapsed,
+            receipt.Kind, receipt.Format, receipt.FrameHash, receipt.DrawHash, receipt.Pixels,
+            receipt.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture), receipt.Elapsed,
             receipt.ColorSpace, receipt.Destination.Case as string);
     }
 
@@ -913,7 +925,10 @@ public sealed partial class AppUiFaultBand {
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `EvidenceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire`, `TenantUsageWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
+- Owner: `EvidenceReceiptWire` and `PixelIdentityWire` own evidence payloads and canonical raster identity.
+- Owner: `EvidenceRowWire`, `EvidenceTimelineWire`, and `SkewBandWire` own timeline ordering and uncertainty.
+- Owner: `NativeAssetFactWire` and `TenantUsageWire` own native identity and tenant usage projection.
+- Owner: The command evidence case composes the settled command receipt wire shape.
 - Packages: BCL inbox
 - Growth: one wire member row per new case or usage field and one kind literal per new evidence case; zero new surface.
 - Boundary: shapes transcribe the camelCase strict emission — the kind literals discriminating this union are `EvidenceOps.Kinds`, whose bijection against the case set `EvidenceOps.Probe` proves at boot, so a case added without its discriminator row fails there rather than reaching a decoder that cannot route it; instants and durations cross as text; identity and byte-magnitude columns — handles, frame ordinals, byte totals, and measured nanoseconds — cross as invariant decimal text because their range is unbounded and JavaScript rounds past 2^53, while bounded per-event counts cross as JSON numbers, and the producing projection formats each text column from its own `long`; the usage fold accumulates its own 64-bit columns and therefore declares that same text posture as one `[JsonNumberHandling]` row on `TenantUsage` with its `int` columns opting back to `Strict`, so chargeback arithmetic never round-trips through a string; skew bands cross as instant pairs and timeline rows carry `UncertaintyGroup`, so the dashboard renders server-owned overlap components without recomputing the HLC fold; usage rows cross the tenant as `TenantContext.Entry` — `TenantId.Wire`'s fixed-width 32-hex-digit text, the one VALUE the `rasm.tenant` dimension, every store partition, and every object prefix compare byte-identically — so a decoder rendering it decimal beside the byte columns forks the chargeback key off every join it feeds; an `Option<T>` or nullable slot crosses ABSENT under the `csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW` omission posture the suite mint binds, so the TS face spells it `field?: T` and a `| null` union there declares a token that posture guarantees never appears; reliability policy stays behind this seam entirely — `[03]-[TELEMETRY_SPINE]`'s objective rows and their derived alert specs are process-local and mint no wire shape.
@@ -922,7 +937,7 @@ public sealed partial class AppUiFaultBand {
 type EvidenceReceiptWire =
   | { readonly kind: "surface"; readonly host: string; readonly descriptor: string; readonly scale: number; readonly at: string; readonly correlation: string; readonly handle?: string }
   | { readonly kind: "focus"; readonly target: string; readonly focused: boolean }
-  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly bytes: string; readonly elapsed: string; readonly colorSpace: string; readonly destination?: string }
+  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly drawHash?: string; readonly pixels?: PixelIdentityWire; readonly bytes: string; readonly elapsed: string; readonly colorSpace: string; readonly destination?: string }
   | { readonly kind: "disposal"; readonly screenId: string; readonly active: string; readonly disposables: number }
   | { readonly kind: "edit"; readonly slot: string; readonly surface: string; readonly target: string; readonly editor: string; readonly outcome: string }
   | { readonly kind: "command"; readonly receipt: CommandReceiptWire }
@@ -940,6 +955,13 @@ type EvidenceReceiptWire =
   | { readonly kind: "layout"; readonly panel: string; readonly constraints: number; readonly elapsed: string; readonly fault?: string }
   | { readonly kind: "dispatcher-lag"; readonly boundary: string; readonly elapsed: string }
   | { readonly kind: "collab-precommit"; readonly docKey: string; readonly lamport: number; readonly ops: number; readonly origin: string; readonly message?: string };
+
+interface PixelIdentityWire {
+  readonly version: "rgba8-srgb-straight-top-left-v1";
+  readonly width: number;
+  readonly height: number;
+  readonly hash: string;
+}
 
 interface NativeAssetFactWire {
   readonly library: string;

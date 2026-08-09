@@ -29,12 +29,12 @@ ui/
         ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
         ├── panel.ts           # Wire materializer rendering the shell control vocabularies through the owners
         ├── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
-        └── review.ts          # Model review: BimDiff and IdsAudit joined per GlobalId into board rows and echoes
+        └── review.ts          # Model review: Wire.ModelDiff and Wire.BcfTopic joined per GlobalId into board rows and echoes
 ```
 
 ## [02]-[STRATA]
 
-- S0 `system` — capability floor: `primitive` recipes compose `token`'s `cn` composer; every plane taps the `rasm.ui.<domain>.<point>` fact rail; `cache` holds the content-keyed residency bands the S2 viewer re-warms from.
+- S0 `system` — recipes, interaction, atom, hook, vital, and content-keyed residency form the capability floor.
 - S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`; `table` folds `TableState` on the one store.
 - S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
 - S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
@@ -112,7 +112,7 @@ flowchart LR
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
     Core e12@-->|"[SHAPE]: Residency.Ledger"| Viewer
-    Core e16@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/CommandGate/EvidenceTimeline/RenderReceipt/GeoFeature/PbrGroups"| Viewer
+    Core e16@-->|"[SHAPE]: Wire.ModelDiff/Wire.BcfTopic/Wire.BcfViewpoint/Wire.ControlIntent/Wire.LayoutProgram/Wire.CommandGate/Wire.EvidenceTimeline/Wire.GeoFeature/Wire.PbrGroups"| Viewer
     Runtime e2@-->|"[PORT]: Atom.subscribable"| System
     Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
     Runtime e17@-->|"[PORT]: Vital.Report"| System
@@ -124,11 +124,35 @@ flowchart LR
     Bim e9@-->|"[WIRE]: BcfTopicWire"| Viewer
     Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
     Bim e11@-->|"[WIRE]: ModelDiff"| Viewer
-    Bim e14@-->|"[WIRE]: GeoFeatureWire"| Viewer
-    System e15@-->|"[SHAPE]: Tap.Registry"| Runtime
+    Core e15@-->|"[SHAPE]: Tap.Name/Modality/Handler/Veto/Breach"| System
 ```
 
 ## [04]-[INTERNAL]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: UI interaction spine
+    accDescr: Bound ports feed view and viewer owners; both publish interaction state that renders the product surface.
+    Ports([bound app ports])
+    View[view · table + chart + form + export]
+    Viewer[viewer · scene + geo + review + probe]
+    Interaction[system · atom + act + hook]
+    Render[viewer · rendered evidence]
+    Surface([interactive surface])
+    Ports e1@-->|"supply: data + egress"| View
+    Ports e2@-->|"supply: viewport + assets"| Viewer
+    View e3@-->|"author: intents"| Interaction
+    Viewer e4@-->|"publish: selection + residency"| Interaction
+    Interaction e5@-->|"apply: state transition"| Render
+    Render e6@-->|"present: frame + evidence"| Surface
+```
 
 `system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart, export — each a single owner where variation is rows (columns, commands, field kinds, chart regimes, serializer cells), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
 
@@ -140,7 +164,7 @@ Every state fact binds through the one atom bridge, so a component projects and 
 - GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
 - Every GPU resource is scope-bracketed, so a lost context or torn-down surface releases its allocations through the same bracket that acquired them.
 - Browser composition roots — `GlbViewport` from Depot arrivals, host planes bound into atoms — are app composition, out of scope here.
-- `EXT_meshopt_compression` assets refuse with the `codec-absent` reason wherever a composition omits the served decoder leaf; draco and ktx2 are hard requirements the codec construction resolves.
+- `EXT_meshopt_compression` refuses as `codec-absent` without its decoder; codec construction requires draco and ktx2.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
 - Telemetry leaves through app-composed hook taps; the folder mints no OTel instrument and imports no collector.
 - One bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.

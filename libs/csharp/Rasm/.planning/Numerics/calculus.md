@@ -417,13 +417,13 @@ internal static class FieldNoise {
 
 ## [05]-[SOLAR_EPHEMERIS]
 
-- Owner: `SolarSite` the validated geodetic site; `SunPosition` the apparent azimuth/altitude result with its derived zenith, horizon predicate, and survey-frame direction; `SolarPosition` the NOAA/Meeus closed-form apparent-solar fold — the branch's ONE solar ephemeris, every consumer a projection over it.
+- Owner: `SolarSite` the validated geodetic site; `SunPosition` the apparent azimuth/altitude result with its derived zenith, horizon predicate, and the survey-frame direction bijection `Direction`/`OfDirection`; `SolarPosition` the NOAA/Meeus closed-form apparent-solar fold — the branch's ONE solar ephemeris, every consumer a projection over it.
 - Entry: `At(site, instant)` derives apparent azimuth/altitude — quadratic mean longitude, nutation-corrected ecliptic longitude, the full nested obliquity expression, and elevation-derived pressure-corrected refraction; `SunPath(site, midnight, step, samples)` samples that same total function across a day.
 - Auto: the fold is total and effect-free — closed-form astronomy over finite admitted input carries no `Fin` rail; `SolarSite` gates latitude, longitude, timezone, and elevation once at admission.
 - Receipt: none — pure deterministic functions; sweep evidence is the composing analysis' own.
-- Packages: NodaTime (`Instant`/`Duration`/`NodaConstants` — the clock carrier; a `DateTime`-taking overload is the deleted form), Thinktecture.Runtime.Extensions (`[ComplexValueObject]`), LanguageExt.Core (`Seq`), BCL inbox (`Math`, `System.Numerics.Vector3`).
+- Packages: NodaTime (`Instant`/`Duration`/`NodaConstants` — the clock carrier; a `DateTime`-taking overload is the deleted form), Thinktecture.Runtime.Extensions (`[ComplexValueObject]`), LanguageExt.Core (`Seq`, `Option`), RhinoCommon (`Vector3d` — the kernel's ONE coordinate, `Numerics/atoms#VECTOR_ALGEBRA`'s carrier, whose `IsValid` screens the host unset sentinel a raw finiteness probe admits), BCL inbox (`Math`).
 - Growth: an accuracy refinement (full SPA periodic-term tables over the truncated form) is a body change on the same two entries; a new consumer composes `At`/`SunPath`, never a duplicate almanac; zero new surface.
-- Boundary: consumers project the ANGLES into their own world frame — `Rasm.Compute` `Analysis/daylight` casts shadow rays along `Direction` in the survey frame it spells, `Rasm.Materials` `Appearance/environment#SKY_MODEL` projects azimuth/altitude onto its `+X`-north `WorldDirection`, and `Rasm.AppUi` `Render/pathtrace#LIGHT_RIG` seats the angles on its Sun row — so the frame convention lives at each consuming edge and the almanac states angles alone; the geodetic datum, site CRS, and any reprojection stay the app-root edge's.
+- Boundary: consumers project the ANGLES into their own world frame — `Rasm.Compute` `Analysis/daylight` folds them into its float clash coordinate at one `SurveyRay` narrowing, `Rasm.Materials` `Appearance/environment#SKY_MODEL` projects azimuth/altitude onto its `+X`-north `WorldDirection`, and `Rasm.AppUi` `Render/pathtrace#LIGHT_RIG` seats the angles on its Sun row — so the frame convention lives at each consuming edge and the almanac states angles alone; the geodetic datum, site CRS, and any reprojection stay the app-root edge's. Consumers holding a VECTOR rotate it into the survey frame at their own edge and re-read through `OfDirection` — `Rasm.Rhino` `Render/settings#SUN_ASTRONOMY` folds the host's north bearing and its sun-toward-scene sign there — so the sign and the north datum resolve where the producing frame is still known, never inside this almanac. `Direction`/`OfDirection` close on double throughout and the round trip holds `5.7e-14°` azimuth and `7.4e-13°` altitude across the whole sphere, matching the accuracy the fold is graded against; a single-precision carrier floors that inverse at `3.9e-6°` azimuth and `1.1e-3°` altitude, so a float engine takes the narrowing at ITS edge and the bijection keeps its digits.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -450,13 +450,33 @@ public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg)
     public bool AboveHorizon => AltitudeDeg > 0.0;
 
     // Unit sun direction in the +Y-north/+X-east SURVEY frame — the EPW/scene convention daylight shadow rays
-    // cast toward; a +X-north consumer (the Materials environment frame) projects AzimuthDeg/AltitudeDeg itself.
-    public Vector3 Direction {
+    // cast toward, carried in the kernel's own double coordinate so `OfDirection` inverts it at the accuracy this
+    // fold solves to; a +X-north consumer (the Materials environment frame) projects AzimuthDeg/AltitudeDeg
+    // itself, and a float ray engine narrows at its own edge, where the lost digits are the traversal's.
+    public Vector3d Direction {
         get {
             double alt = AltitudeDeg * Math.PI / 180.0, az = AzimuthDeg * Math.PI / 180.0;
-            return new Vector3(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
+            return new Vector3d(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
         }
     }
+
+    // `Direction` inverted across the same survey frame: a ray already pointing scene-toward-sun re-reads as the
+    // angle pair, so a host publishing a vector converts ONCE here and no consuming edge re-derives `atan2` under
+    // its own sign guess. Absence answers a ray carrying no direction — zero, non-finite, or the host
+    // `RhinoMath.UnsetValue` sentinel whose finite magnitude a bare `double.IsFinite` probe reads as an ordinary
+    // coordinate — because its `0°`/`0°` reading is a due-north horizon sun no consumer distinguishes from a
+    // measured one.
+    public static Option<SunPosition> OfDirection(Vector3d direction) =>
+        direction.Length switch {
+            double length when direction.IsValid && length > 0.0 => Some(OfUnit(direction / length)),
+            _ => None,
+        };
+
+    // Azimuth wraps into `[0, 360)` and altitude clamps the `asin` domain against the round-off a unitized ray
+    // carries at the zenith, where `Z` overshoots one by an ulp and the domain fault reads as a NaN altitude.
+    static SunPosition OfUnit(Vector3d unit) =>
+        new(AzimuthDeg: SolarPosition.Wrap360(Math.Atan2(unit.X, unit.Y) * 180.0 / Math.PI),
+            AltitudeDeg: Math.Asin(Math.Clamp(unit.Z, -1.0, 1.0)) * 180.0 / Math.PI);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -506,7 +526,7 @@ public static class SolarPosition {
             return (at, At(site, at));
         });
 
-    static double Wrap360(double degrees) => Wrap(degrees, 360.0);
+    internal static double Wrap360(double degrees) => Wrap(degrees, 360.0);
     static double Wrap(double value, double period) => value - period * Math.Floor(value / period);
 }
 ```

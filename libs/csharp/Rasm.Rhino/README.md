@@ -141,6 +141,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — existing-target policy transcription onto host option objects; `Exchange/options` `PolicyMap` is the landed seat.
+- `Google.Protobuf` — runtime message surface behind the `rasm.organization.v1` egress at `Document/layers`.
+- `Grpc.Tools` — build-only `<Protobuf>` compile of the corpus-homed organization source; never a runtime surface.
 
 [DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.

@@ -21,10 +21,10 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 - Growth: a new set behavior (invert, filter-to-visible) is one op case and one fold arm.
 
 ```typescript
-import { BcfViewpoint } from "@rasm/ts/core"
+import { Wire } from "@rasm/ts/core"
 import { Data, HashSet, Option, Schema } from "effect"
 
-type GlobalId = typeof BcfViewpoint.GlobalId.Type
+type GlobalId = typeof Wire.BcfViewpoint.GlobalId.Type
 
 declare namespace Selection {
   type Set = HashSet.HashSet<GlobalId>
@@ -39,7 +39,7 @@ declare namespace Selection {
 
 const _Op = Data.taggedEnum<Selection.Op>()
 
-const _decode: (raw: unknown) => Option.Option<GlobalId> = Schema.decodeUnknownOption(BcfViewpoint.GlobalId)
+const _decode: (raw: unknown) => Option.Option<GlobalId> = Schema.decodeUnknownOption(Wire.BcfViewpoint.GlobalId)
 
 const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
   _Op.$match(op, {
@@ -280,7 +280,7 @@ const Selection: Selection.Shape = {
 
 ```typescript
 import type { ModelViewerElement } from "@google/model-viewer"
-import type { BcfTopic, BcfViewpoint } from "@rasm/ts/core"
+import type { Wire } from "@rasm/ts/core"
 import { Option, pipe } from "effect"
 
 // the prefix is the element's own admission rule — a child whose slot name does not start with it is never
@@ -302,8 +302,8 @@ declare namespace Mark {
   type Project = (sited: Mark.Sited) => Option.Option<Mark.Placed>
   type Pin = Mark.Sited & {
     readonly title: string
-    readonly status: BcfTopic["status"]
-    readonly priority: BcfTopic["priority"]
+    readonly status: Wire.BcfTopic["status"]
+    readonly priority: Wire.BcfTopic["priority"]
     readonly placed: Option.Option<Mark.Placed>
   }
   // the embed payload derives off the one imported element type; a second specifier into the package's interior
@@ -319,7 +319,7 @@ declare namespace Mark {
   }
 }
 
-const _target = (camera: BcfViewpoint["camera"]): Mark.World => [
+const _target = (camera: Wire.BcfViewpoint["camera"]): Mark.World => [
   camera.position[0] + camera.direction[0],
   camera.position[1] + camera.direction[1],
   camera.position[2] + camera.direction[2],
@@ -372,7 +372,7 @@ const _ray = (element: ModelViewerElement, pixel: readonly [number, number]): Op
     model: Option.fromNullable(hit.modelIndex),
   }))
 
-const _pin = (topic: BcfTopic, viewpoint: Option.Option<BcfViewpoint>, project: Mark.Project): Option.Option<Mark.Pin> =>
+const _pin = (topic: Wire.BcfTopic, viewpoint: Option.Option<Wire.BcfViewpoint>, project: Mark.Project): Option.Option<Mark.Pin> =>
   Option.map(viewpoint, (held) =>
     pipe(
       { guid: topic.guid, anchor: { target: _target(held.camera), normal: Option.none(), surface: Option.none(), model: Option.none() } },
@@ -401,7 +401,7 @@ declare namespace Restore {
 }
 
 const _restore = (
-  viewpoint: BcfViewpoint,
+  viewpoint: Wire.BcfViewpoint,
   resident: HashSet.HashSet<GlobalId>,
   millis: number,
 ): { readonly intent: Camera.Intent; readonly op: Selection.Op; readonly receipt: Restore.Receipt } =>
@@ -472,11 +472,11 @@ declare namespace Mark {
   type PriorityRow = { readonly icon: LucideIcon; readonly rank: number; readonly escalated: boolean; readonly ring: string }
   // closure runs both directions at each axis: no excess row against the wire, no wire literal without a row, and
   // the tuple's own key set proved against the table — a one-way guard admits the vocabulary that silently loses a case
-  type _Statuses<K extends BcfTopic["status"] = Mark.Status> = K
-  type _StatusGap<K extends Mark.Status = BcfTopic["status"]> = K
+  type _Statuses<K extends Wire.BcfTopic["status"] = Mark.Status> = K
+  type _StatusGap<K extends Mark.Status = Wire.BcfTopic["status"]> = K
   type _StatusRows<T extends Record.ReadonlyRecord<Statuses[number], StatusRow> = typeof _statusRows> = T
-  type _Priorities<K extends BcfTopic["priority"] = Mark.Priority> = K
-  type _PriorityGap<K extends Mark.Priority = BcfTopic["priority"]> = K
+  type _Priorities<K extends Wire.BcfTopic["priority"] = Mark.Priority> = K
+  type _PriorityGap<K extends Mark.Priority = Wire.BcfTopic["priority"]> = K
   type _PriorityRows<T extends Record.ReadonlyRecord<Priorities[number], PriorityRow> = typeof _priorityRows> = T
 }
 
@@ -511,9 +511,9 @@ declare namespace Mark {
     readonly title: string
     readonly status: Mark.Status
     readonly priority: Mark.Priority
-    readonly labels: BcfTopic["labels"]
-    readonly assignee: BcfTopic["assignee"]
-    readonly due: BcfTopic["due"]
+    readonly labels: Wire.BcfTopic["labels"]
+    readonly assignee: Wire.BcfTopic["assignee"]
+    readonly due: Wire.BcfTopic["due"]
     readonly remaining: Option.Option<Either.Either<Duration.Duration, Duration.Duration>> // left overdue by, right due in
     readonly overdue: boolean
     readonly comments: ReadonlyArray<Mark.Comment>
@@ -530,12 +530,12 @@ declare namespace Mark {
   // every key is indexed access off the decoded owner, so the authored surface cannot drift from the wire; an
   // omitted key is unchanged and `Option.none()` in a present key clears the field
   type Amendment = {
-    readonly title?: BcfTopic["title"]
-    readonly status?: BcfTopic["status"]
-    readonly priority?: BcfTopic["priority"]
-    readonly labels?: BcfTopic["labels"]
-    readonly assignee?: BcfTopic["assignee"]
-    readonly due?: BcfTopic["due"]
+    readonly title?: Wire.BcfTopic["title"]
+    readonly status?: Wire.BcfTopic["status"]
+    readonly priority?: Wire.BcfTopic["priority"]
+    readonly labels?: Wire.BcfTopic["labels"]
+    readonly assignee?: Wire.BcfTopic["assignee"]
+    readonly due?: Wire.BcfTopic["due"]
   }
   type Intent = Data.TaggedEnum<{
     Comment: { readonly topic: string; readonly body: string; readonly viewpoint: Option.Option<string> }
@@ -545,9 +545,9 @@ declare namespace Mark {
 
 const _Intent = Data.taggedEnum<Mark.Intent>()
 
-const _byInstant: Order.Order<BcfTopic["comments"][number]> = Order.mapInput(
+const _byInstant: Order.Order<Wire.BcfTopic["comments"][number]> = Order.mapInput(
   DateTime.Order,
-  (note: BcfTopic["comments"][number]) => note.at,
+  (note: Wire.BcfTopic["comments"][number]) => note.at,
 )
 
 const _order: Order.Order<Mark.Row> = Order.combineAll([
@@ -557,7 +557,7 @@ const _order: Order.Order<Mark.Row> = Order.combineAll([
   Order.mapInput(Order.string, (row: Mark.Row) => row.guid),
 ])
 
-const _thread = (topic: BcfTopic, now: DateTime.Utc): ReadonlyArray<Mark.Comment> =>
+const _thread = (topic: Wire.BcfTopic, now: DateTime.Utc): ReadonlyArray<Mark.Comment> =>
   Array.map(Array.sort(topic.comments, _byInstant), (note) => ({
     author: note.author,
     stamp: Format.instant(note.at),
@@ -566,7 +566,7 @@ const _thread = (topic: BcfTopic, now: DateTime.Utc): ReadonlyArray<Mark.Comment
     viewpoint: note.viewpoint,
   }))
 
-const _board = (topics: ReadonlyArray<BcfTopic>, now: DateTime.Utc): ReadonlyArray<Mark.Row> =>
+const _board = (topics: ReadonlyArray<Wire.BcfTopic>, now: DateTime.Utc): ReadonlyArray<Mark.Row> =>
   Array.sort(
     Array.map(topics, (topic) =>
       pipe(

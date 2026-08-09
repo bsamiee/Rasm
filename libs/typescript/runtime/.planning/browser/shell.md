@@ -21,7 +21,7 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 - Packages: `effect` (`Schema`, `Option`).
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { RuntimeCaching, StrategyName } from "workbox-build"
 import { Workbox, type WorkboxLifecycleWaitingEvent } from "workbox-window"
@@ -149,10 +149,8 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 - Law: the `waiting` arm reads the event's own refinement flags — `Waiting.update` holds `isUpdate === true || wasWaitingBeforeRegister === true`, so a first-install wait and a genuine update are distinct facts in the phase cell and `Install.fresh` gates on the flag, never on the bare phase.
 - Law: the apply order is load-bearing — `apply` sets `Reloading` and only then calls `messageSkipWaiting`, so the `controlling` arm observes the intent and a `controllerchange` arriving for any other reason never reloads.
 - Law: `unsupported` short-circuits at construction — a host without `navigator.serviceWorker` yields the service in its inert posture (`Unregistered` forever, `register` answering the typed fault) so every consumer folds capability absence as data.
-- Law: the fault is class-carried — the family rides one core `FaultClass.family` mint and `SwFault.class` projects its frozen row, so budget gates and severity folds read the one branch taxonomy and no local rank column or guard pair exists.
 - Receipt: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
 - Boundary: the refresh affordance is `[6]`'s read; the worker asset, precache manifest, and offline shell are the app build's, emitted through `workbox-build`'s `injectManifest` over the authored SW.
-- Packages: `workbox-window` (`Workbox`, the lifecycle event map, `WorkboxLifecycleWaitingEvent`); `effect` (`Data`, `DateTime`, `Effect`, `Option`, `Record`, `Ref`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 type SwLifecycle = Data.TaggedEnum<{
@@ -166,7 +164,7 @@ type SwLifecycle = Data.TaggedEnum<{
 }>
 const SwLifecycle: Data.TaggedEnum.Constructor<SwLifecycle> = Data.taggedEnum<SwLifecycle>()
 
-const _swFamily = FaultClass.family(["unsupported", "register", "message"] as const, {
+const _swFamily = Fault.Class.family(["unsupported", "register", "message"] as const, {
   unsupported: { class: "absent" },
   register: { class: "unavailable" },
   message: { class: "conflicted" },
@@ -180,7 +178,7 @@ class SwFault extends Data.TaggedError("SwFault")<{
   readonly reason: SwFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _swFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -234,7 +232,6 @@ const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
 [CACHE_ROWS]:
 - Owner: the interior `_STRATEGIES` lookup (the four-grade strategy axis onto `workbox-build`'s `StrategyName`) and the `_lanes` route table — `asset` (hashed static assets: cache-first, long retention), `api` (API reads: network-first with a raced timeout and the SW-side replay queue), `band` (media, tiles, GLB and KTX2 byte bands: stale-while-revalidate under an entry cap with partial-content range service) — each row carrying its URL pattern source, retention, raced timeout, replay-queue name, and range posture; `Sw.caching(mark)` projects the table to `ReadonlyArray<RuntimeCaching>` with every cache name stamped by the build fingerprint, and `Sw.build(spec)` projects the build partial — the offline app-shell route, the network-first HTML race, and the cache identity — the app's `injectManifest` config spreads.
 - Law: `workbox-build` is type-only here — `RuntimeCaching` and `StrategyName` type imports keep the strategy rows one source of truth across the build/runtime seam while the Node-only value surface never enters the bundle; the app build script value-imports these projections and hands them to `injectManifest` beside the authored SW.
-- Law: the fingerprint stamps identity — `mark` derives from the core `AppIdentity` build block at the composition root, so a build bump mints fresh cache names and a stale worker cannot serve mixed generations; the precache side inherits the same identity through `Sw.build`'s `cacheId`.
 - Law: a cache behavior is a row, never a branch — the `sync` column names a replayable lane's SW-side queue, the `range` column arms `rangeRequests` plus its `cacheableResponse` admission for the large byte bands partial-content readers seek into, and the `race` column pairs `networkTimeoutSeconds` with `Sw.build`'s `navigationPreload` so the network-first HTML route races the cache.
 - Law: `Sw.build` never sets `skipWaiting` — the update lands through `[3]`'s apply handshake so a refresh is user intent, never a mid-session takeover; `cleanupOutdatedCaches` and `clientsClaim` stay armed because generation hygiene has no user ceremony.
 - Law: the wasm engine bundles the data wave's browser lanes self-host — the `lane/sqlite` OPFS driver and the `lane/olap` `Olap.wasm` arm — ride the `asset` row's hashed-static posture, so bundle custody is precache identity under the same fingerprint and no engine bundle dials a third-party CDN; whether a lane OPENS is `persist#STORAGE_RESIDENCY`'s verdict, never a cache fact.
@@ -305,6 +302,7 @@ const _build = (spec: { readonly mark: string; readonly shell: string }): {
 - Law: the element is opaque here — the outbox row is `Kv.Value<"outbox">` (minted, band); the producing rail encoded the band and the relay leg decodes it, so this fold never inspects payloads and the wire vocabulary stays with its owner.
 - Law: one queue, two altitudes — failed same-origin fetches replay inside the SW through the `workbox-background-sync` queue the cache rows configure; app-level intents replay here through the window drain; the `Replayed` report is the seam where the SW's drain completion wakes the window's, so the two altitudes converge without sharing storage.
 - Law: the drain is serial and self-quenching — `relay` runs per entry with the fold awaiting each, the refused set gathers through `Effect.partition` (the atomic drain already cleared the store, so the batch re-write is the compensation), a storage fault folds the whole wake to a no-op the next wake redrives, and a wake arriving mid-drain queues behind the running fold rather than starting a second.
+- Law: a wake request reaches neither the enqueue's rail nor the merged stream — `Connect.wake`'s `ConnectFault` is the agent's own refusal, which the next ceiling hit and every redial re-drive, while `false` is a capability the host will never grow, so the two fold apart at one site and `Connect.redials` stays the floor either way; one discard over both strands the re-drivable refusal as permanent absence, and a fault crossing into the merge takes `redials` and the `Replayed` reports down with the registration.
 - Law: the outbox ceiling is pressure, never data loss — reaching the app budget requests the owned background wake and preserves every row; the ceiling never evicts, truncates, or rejects an intent, while the serial drain remains the only remover.
 - Boundary: what the band contains and where `relay` dials is the composing app's selection over `fetch#DIAL_SURFACE`; this cluster owns durability, ordering, and wake fan-in only.
 - Packages: `effect` (`DateTime`, `Effect`, `Ref`, `Stream`); `./boot.ts` (`Boot`, `Connect`); `./persist.ts` (`Kv`).
@@ -350,6 +348,14 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
         ),
         Effect.forkScoped,
       )
+      // One request, two refusals held apart: `false` names a host that will never wake this document, so nothing
+      // re-requests and the outbox rides `Connect.redials` for the session, while a `ConnectFault` is the agent's own
+      // decision that the next ceiling hit and the next redial both re-drive. Neither reaches a caller: the enqueue
+      // keeps its storage rail because the entry is already durable, and the merged drain survives the registration.
+      const _woken: Effect.Effect<void> = Effect.matchEffect(connect.wake("rasm-outbox"), {
+        onFailure: (fault) => Effect.logWarning(`<wake-refused> ${fault.message}`),
+        onSuccess: (armed) => (armed ? Effect.void : Effect.logDebug("<wake-absent> the outbox drains on redials alone")),
+      })
       const counter = yield* Ref.make(0)
       const queue = (band: Uint8Array): Effect.Effect<void, KvFault> =>
         Effect.gen(function* () {
@@ -357,14 +363,14 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
           const turn = yield* Ref.getAndUpdate(counter, (n) => n + 1)
           yield* kv.write("outbox", `${DateTime.toEpochMillis(minted)}:${String(turn).padStart(8, "0")}`, { minted, band })
           const depth = yield* kv.size("outbox")
-          yield* Effect.when(Effect.asVoid(connect.wake("rasm-outbox")), () => depth >= boot.ceilings.outbox)
+          yield* Effect.when(_woken, () => depth >= boot.ceilings.outbox)
         })
       const relayed = <E, R>(relay: (entry: Kv.Value<"outbox">) => Effect.Effect<void, E, R>) =>
         Stream.mergeAll(
           [
             connect.redials,
             Stream.as(Stream.filter(reports, (report) => report._tag === "Replayed"), undefined),
-            Stream.fromEffect(Effect.asVoid(connect.wake("rasm-outbox"))),
+            Stream.fromEffect(_woken),
           ],
           { concurrency: "unbounded" },
         ).pipe(
@@ -420,12 +426,11 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 [INSTALL_OWNER]:
 - Owner: `Install`, one scoped `Effect.Service` over `Sw` — `stance`, the `InstallStance` cell (`Browser`/`Ready`/`Installed`/`Standalone`) published `Subscribable` with its writers interior; `ask`, the install affordance firing the captured prompt and folding the user's choice; `fresh`, the update-available feed derived from the worker's `Waiting` phase gated on its `update` flag; `refresh`, the one update verb delegating to `Sw.apply`.
 - Law: the prompt capture is the module's platform-forced statement seam — `beforeinstallprompt` is nonstandard (absent from `WindowEventMap`, spelled here once as the `_PromptEvent` boundary refinement) and its `preventDefault` runs synchronously inside the native handler or the browser consumes the prompt; the capture bridge therefore attaches its own listener under `Stream.asyncScoped`, deferring and emitting in the same synchronous frame, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_prompts`' first line.
-- Law: the prompt is single-use and the take is atomic — `ask` swaps the slot to `none` in one `modify`, so two racing asks cannot double-fire, then folds `accepted` to `Installed` and `dismissed` back to `Browser`; an `ask` with no captured prompt is the typed `unavailable` fault, never a silent no-op; `InstallFault` rides its own `FaultClass.family` mint beside `[3]`'s, so both of this page's rails project their class from the one core row table.
 - Law: stance is evidence-ordered — the standalone display-mode probe (seeded from `matchMedia`, advanced by its `change` events) and the `appinstalled` event both fold to their stance directly; running standalone is terminal for the session, so no later fold demotes it.
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement AND its `update` flag, so a first-install wait renders nothing, install and update read one truth, and the ui wave binds both through its atom bridge at app composition; this module exposes no second phase cell.
 - Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
 - Boundary: the worker phase and the apply handshake are `[3]`'s; the affordance rendering is the ui wave's through the app-composed port.
-- Packages: `effect` (`Data`, `Effect`, `Option`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Data`, `Effect`, `Option`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 type InstallStance = Data.TaggedEnum<{
@@ -436,7 +441,7 @@ type InstallStance = Data.TaggedEnum<{
 }>
 const InstallStance: Data.TaggedEnum.Constructor<InstallStance> = Data.taggedEnum<InstallStance>()
 
-const _installFamily = FaultClass.family(["unavailable", "ceremony"] as const, {
+const _installFamily = Fault.Class.family(["unavailable", "ceremony"] as const, {
   unavailable: { class: "absent" },
   ceremony: { class: "denied" },
 })
@@ -449,7 +454,7 @@ class InstallFault extends Data.TaggedError("InstallFault")<{
   readonly reason: InstallFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _installFamily.classOf(this.reason)
   }
   override get message(): string {

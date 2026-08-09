@@ -58,19 +58,48 @@
 
 [PUBLIC_TYPE_SCOPE]: configuration — each config is an `IEnumerable<KeyValuePair<string, string>>` the matching builder consumes.
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :---------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `ClientConfig`    | class         | bootstrap, security, SASL, SSL rows             |
-|  [02]   | `ProducerConfig`  | class         | idempotence, transaction, linger, compression   |
-|  [03]   | `ConsumerConfig`  | class         | group, offset reset, auto-commit, isolation     |
-|  [04]   | `Acks`            | enum          | `None`/`Leader`/`All`                           |
-|  [05]   | `AutoOffsetReset` | enum          | `Latest`/`Earliest`/`Error`                     |
-|  [06]   | `CompressionType` | enum          | `None`/`Gzip`/`Snappy`/`Lz4`/`Zstd`             |
-|  [07]   | `IsolationLevel`  | enum          | `ReadUncommitted`/`ReadCommitted`               |
-|  [08]   | `Partitioner`     | enum          | `Random`/`Consistent`/`ConsistentRandom`/murmur |
-|  [09]   | `GroupProtocol`   | enum          | `Classic`/`Consumer` rebalance protocol         |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :---------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `ClientConfig`    | class         | bootstrap, security, SASL, SSL rows              |
+|  [02]   | `ProducerConfig`  | class         | idempotence, transaction, buffering, compression |
+|  [03]   | `ConsumerConfig`  | class         | group, offset reset, auto-commit, poll interval  |
+|  [04]   | `Acks`            | enum          | `None`/`Leader`/`All`                            |
+|  [05]   | `AutoOffsetReset` | enum          | `Latest`/`Earliest`/`Error`                      |
+|  [06]   | `CompressionType` | enum          | `None`/`Gzip`/`Snappy`/`Lz4`/`Zstd`              |
+|  [07]   | `IsolationLevel`  | enum          | `ReadUncommitted`/`ReadCommitted`                |
+|  [08]   | `Partitioner`     | enum          | `Random`/`Consistent`/`ConsistentRandom`/murmur  |
+|  [09]   | `GroupProtocol`   | enum          | `Classic`/`Consumer` rebalance protocol          |
 
 - `[selector vocabularies]`: `SecurityProtocol` `SaslMechanism` `SaslOauthbearerMethod` `SslEndpointIdentificationAlgorithm` `PartitionAssignmentStrategy` `BrokerAddressFamily` `ClientDnsLookup` `MetadataRecoveryStrategy`.
+
+[PUBLIC_TYPE_SCOPE]: `ProducerConfig` declares twenty properties over `ClientConfig`, every one nullable but `DeliveryReportFields`; each maps to the librdkafka key below and unset means the native default, so a claim about buffering, ordering, or ack semantics holds only where its key is written. Producer-side queue depth is the `[BOUND]` coordinate a durable egress leg reads.
+
+| [INDEX] | [PROPERTY]                            | [LIBRDKAFKA_KEY]                          | [CLR_TYPE] |
+| :-----: | :------------------------------------ | :---------------------------------------- | :--------- |
+|  [01]   | `QueueBufferingMaxMessages`           | `queue.buffering.max.messages`            | `int?`     |
+|  [02]   | `QueueBufferingMaxKbytes`             | `queue.buffering.max.kbytes`              | `int?`     |
+|  [03]   | `QueueBufferingBackpressureThreshold` | `queue.buffering.backpressure.threshold`  | `int?`     |
+|  [04]   | `LingerMs`                            | `linger.ms`                               | `double?`  |
+|  [05]   | `BatchNumMessages`                    | `batch.num.messages`                      | `int?`     |
+|  [06]   | `BatchSize`                           | `batch.size`                              | `int?`     |
+|  [07]   | `StickyPartitioningLingerMs`          | `sticky.partitioning.linger.ms`           | `int?`     |
+|  [08]   | `MessageSendMaxRetries`               | `message.send.max.retries`                | `int?`     |
+|  [09]   | `MessageTimeoutMs`                    | `message.timeout.ms`                      | `int?`     |
+|  [10]   | `RequestTimeoutMs`                    | `request.timeout.ms`                      | `int?`     |
+|  [11]   | `EnableIdempotence`                   | `enable.idempotence`                      | `bool?`    |
+|  [12]   | `EnableGaplessGuarantee`              | `enable.gapless.guarantee`                | `bool?`    |
+|  [13]   | `TransactionalId`                     | `transactional.id`                        | `string?`  |
+|  [14]   | `TransactionTimeoutMs`                | `transaction.timeout.ms`                  | `int?`     |
+|  [15]   | `CompressionType`                     | `compression.type`                        | enum?      |
+|  [16]   | `CompressionLevel`                    | `compression.level`                       | `int?`     |
+|  [17]   | `Partitioner`                         | `partitioner`                             | enum?      |
+|  [18]   | `EnableBackgroundPoll`                | `dotnet.producer.enable.background.poll`  | `bool?`    |
+|  [19]   | `EnableDeliveryReports`               | `dotnet.producer.enable.delivery.reports` | `bool?`    |
+|  [20]   | `DeliveryReportFields`                | `dotnet.producer.delivery.report.fields`  | `string`   |
+
+- `LingerMs` alone reads through `GetDouble`, so an `int?` assumption on that one property mistypes the only fractional-millisecond knob the producer carries.
+- `QueueBufferingMaxMessages` and `QueueBufferingMaxKbytes` cap the native produce queue and `QueueBufferingBackpressureThreshold` throttles the internal producer threads ahead of that cap; leaving all three unset means the client's own defaults bound a durable drain, never a value the composing fence declared.
+- `ClientConfig.ThrowIfContainsNonUserConfigurable()` returns `this` and validates nothing, so it never screens a misplaced key.
 
 [PUBLIC_TYPE_SCOPE]: serialization
 
@@ -118,6 +147,10 @@
 
 - `[builder diagnostics]` on either builder: `SetErrorHandler(Error)` `SetLogHandler(LogMessage)` `SetStatisticsHandler(string)` `SetOAuthBearerTokenRefreshHandler(string)`.
 - `[rebalance hooks]` on `ConsumerBuilder`: `SetPartitionsAssignedHandler` `SetPartitionsRevokedHandler` `SetPartitionsLostHandler` `SetOffsetsCommittedHandler` — each takes the `Func<…, IEnumerable<TopicPartitionOffset>>` start-offset override or the `Action<…>` observer form.
+- `SetPartitionsAssignedHandler(Func<IConsumer<TKey, TValue>, List<TopicPartition>, IEnumerable<TopicPartitionOffset>>)` returns the START offsets replacing the committed position; the `Action<IConsumer<TKey, TValue>, List<TopicPartition>>` overload adapts onto that same backing slot, so setting either form twice raises `InvalidOperationException` and one builder binds exactly one assigned handler.
+- `SetPartitionsRevokedHandler`'s `Func` variant sets `RevokedOrLostHandlerIsFunc`, which is incompatible with incremental (cooperative) rebalancing; a cooperative consumer takes the `Action` form and reaches `IncrementalAssign(IEnumerable<TopicPartitionOffset>)`/`IncrementalAssign(IEnumerable<TopicPartition>)` beside the four whole-assignment `Assign` overloads.
+- Assigned and revoked handlers run on the POLL thread inside `Consume`, so their wall time is charged against `ConsumerConfig.MaxPollIntervalMs` (`public int? MaxPollIntervalMs` → `max.poll.interval.ms`), and an exception thrown from one re-raises out of `Consume` rather than failing the rebalance alone.
+- `OffsetsForTimes(IEnumerable<TopicPartitionTimestamp>, TimeSpan)` resolves the whole enumerable in one batched broker exchange, so its cost past a fixed round trip grows only marginally with partition count while an unreachable leader consumes the passed `TimeSpan` in full and then raises `KafkaException` carrying `ErrorCode.Local_TimedOut` — that timeout, never the assignment width, is what a caller budgets against the poll interval, and splitting one call into N multiplies both the round trip and that timeout.
 
 [ENTRYPOINT_SCOPE]: produce, drive, and transaction on `IProducer<TKey, TValue>`
 
@@ -215,7 +248,7 @@
 - `Error.IsRetriable` and `Error.TxnRequiresAbort` are `internal`, so adapter discrimination reads `Error.Code`, `IsFatal`, and `IsBrokerError`, and `KafkaRetriableException` versus `KafkaTxnRequiresAbortException` splits a transient retry from a mandatory `AbortTransaction`.
 - `ProducerConfig.EnableIdempotence` deduplicates broker-side retries and the transaction bracket gives `ReadCommitted` consumers atomic visibility, both scoped to broker records alone; the PostgreSQL outbox cursor advances outside that scope, so content-key consumer dedupe closes the crash window between broker persistence and cursor advance.
 - Kafka consumers disable `EnableAutoCommit` and commit through `StoreOffset` with an explicit `Commit`, so a committed offset never outruns durable downstream apply; `GetWatermarkOffsets`/`QueryWatermarkOffsets` derive lag and `OffsetsForTimes` resolves a replay cursor from a wall-clock `TopicPartitionTimestamp`.
-- A SASL/OAUTHBEARER cluster wires `SetOAuthBearerTokenRefreshHandler` so each librdkafka refresh callback mints a token from the admitted `OpenIddict.Client` and hands it back through `OAuthBearerSetToken`, or reports a mint failure through `OAuthBearerSetTokenFailure`; `SetSaslCredentials` rotates a PLAIN or SCRAM credential without rebuilding the client.
+- `SetOAuthBearerTokenRefreshHandler` wires a SASL/OAUTHBEARER cluster so each librdkafka refresh callback mints a token from the admitted `OpenIddict.Client` and hands it back through `OAuthBearerSetToken`, or reports a mint failure through `OAuthBearerSetTokenFailure`; `SetSaslCredentials` rotates a PLAIN or SCRAM credential without rebuilding the client.
 
 [RAIL_LAW]:
 - Package: `Confluent.Kafka`

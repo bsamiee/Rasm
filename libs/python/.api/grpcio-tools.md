@@ -57,13 +57,13 @@
 - `grpcio`(`.api/grpcio.md`): generation mints the `<Service>Stub`/`<Service>Servicer` binding a `grpc.Channel`/`grpc.aio.Channel` and `add_<Service>Servicer_to_server`; generate AOT into a tracked package for production servers, reserving `grpc.protos`/`grpc.services` dynamic import for prototyping.
 - `protobuf`(`.api/protobuf.md`): the `*_pb2.py` message classes are `protobuf` messages bound to the process's `protobuf` runtime — a descriptor-pool mismatch against that runtime fails at import.
 - `msgspec`/`pydantic`(`.api/msgspec.md`, `.api/pydantic.md`): a `*_pb2` message is the wire shape, not the domain shape — map it onto a `msgspec.Struct`/pydantic model at the servicer boundary against the `--pyi_out` field types; domain code never threads a raw protobuf message.
-- transport build: `build_package_protos(package_root, strict_mode=True)` runs at build into the tracked transport package, minting the AOT `*_pb2_grpc.py` the serve owner registers.
+- `runtime/transport/shapes#REGISTRY_AND_DRIFT` (within-branch owner): the transport build calls `protoc.main` with the corpus include root pinned at `-Itests/contracts` and `--python_out`/`--pyi_out` on the `_pb2` quarantine, minting the AOT `*_pb2.py` the vocabulary rows bind and the `*_pb2_grpc.py` the serve owner registers; the caller raises on a nonzero return. `build_package_protos` cannot serve that build — it generates in place under its own `package_root`, which for a corpus-homed source emits the generated modules into the contract corpus.
 
 [LOCAL_ADMISSION]:
-- AOT generation into a tracked output directory is the admitted path; `build_package_protos(..., strict_mode=True)` at build fails the build on a broken proto.
+- AOT generation into a tracked output directory is the admitted path, and the caller checks `protoc.main`'s return so a broken proto fails the build at the first file.
 
 [RAIL_LAW]:
 - Package: `grpcio-tools`
 - Owns: in-process `protoc` codegen (messages, `.pyi` stubs, gRPC stubs/servicers), well-known proto bundling, setuptools build integration, and the dynamic-stub meta-path hooks
-- Accept: `protoc.main` with explicit `-I` includes and `--pyi_out`, `build_package_protos(..., strict_mode=True)` into a tracked directory, AOT generation for production
+- Accept: `protoc.main` with explicit `-I` includes and `--pyi_out`, its return code checked at the call site, generating AOT into a tracked directory for production
 - Reject: a hand-rolled `protoc` subprocess shell-out, a raw `*_pb2` message threaded into domain code, the dynamic import path on a production serve leg

@@ -1,6 +1,6 @@
 # [UI_CACHE]
 
-The browser residency cache: one content-keyed durable band store standing under scene, chart, and form so a reload re-warms instead of re-fetching. Identity is the kernel `ContentKey` and nothing else — a band is addressed by the digest of the content it carries, so the same key that names a GLB arrival names its cached octets, its acceleration snapshot, and its frame window. Bytes ride the platform `KeyValueStore` Tag as named leaves under one key, a single Schema-coded `Ledger` is the enumerable truth over them, every read-back re-mints each leaf's digest before the bytes leave the module, and a two-phase commit means a torn write leaves a reapable `pending` row rather than a silent corruption. Quota is policy: the composing root supplies the measured budget and the pressure table decides how much a sweep reclaims. This module holds no decoded value — decoded state lives in atoms — and it fetches nothing. The module is `ui/src/system/cache.ts`.
+The browser residency cache keys durable bands by `Digest.Key<"content">`, verifies every leaf, and commits through one enumerable ledger.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ The browser residency cache: one content-keyed durable band store standing under
 ## [02]-[BAND_LEDGER]
 
 [BAND_LEDGER]:
-- Owner: `Cache` — the durable plane over two platform surfaces: octet leaves ride the abstract `KeyValueStore` Tag under the `${band}/${key}/${name}` address, and ONE `Cache.Ledger` — a Schema-coded `HashMap<ContentKey, Cache.Entry>` held at a single well-known key through `KeyValueStore.layerSchema` — is the enumerable truth over them, because the store contract carries `size` and no key enumeration, so a roster the sweep can walk must be a value the store holds rather than a listing it answers.
-- Packages: `@effect/platform` (`KeyValueStore.KeyValueStore` the abstract Tag, `KeyValueStore.layerSchema` publishing the `SchemaStore` pair, `KeyValueStore.prefix` scoping the root, `getUint8Array`/`set`/`remove` the octet members); `effect` (`Array`, `DateTime`, `Effect`, `HashMap`, `Option`, `Order`, `Schema`); `@rasm/ts/core` (`ContentKey`, `Digest`, `FaultClass`).
+- Owner: `Cache` stores octet leaves and one `HashMap<Digest.Key<"content">, Cache.Entry>` ledger through `KeyValueStore`.
+- Packages: `@effect/platform`, `effect`, and `@rasm/ts/core` (`Digest`, `Fault.Class`).
 - Law: the band roster is closed and each row carries its whole policy — `keyed` states whether the addressing key must equal the content's own digest, `remintable` states whether a cold miss can reproduce the bytes, and `rank` orders eviction; a band is one row and a per-band code path is the named defect.
 - Law: `draft` is never swept because it is never remintable — an upload spill is the only copy of bytes the user cannot reproduce, so pressure reclaims every other band to the floor before it touches one, and a band added without answering `remintable` truthfully turns the cache into a data-loss surface.
 - Law: a bundle is named leaves, never a blob — a snapshot whose shape is several buffers (an acceleration tree's roots beside its index) stores one leaf per buffer under one key, exactly as a multi-file served asset rides one digest directory, so reassembly reads the leaf roster the entry carries and this module stays ignorant of what any band's bytes mean.
@@ -24,7 +24,7 @@ The browser residency cache: one content-keyed durable band store standing under
 
 ```typescript
 import { KeyValueStore } from "@effect/platform"
-import { ContentKey, Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/ts/core"
 import { Array, DateTime, Schema } from "effect"
 
 const _bands = ["glb", "bvh", "frame", "draft"] as const
@@ -42,11 +42,11 @@ const _LEDGER = "ledger"
 class Leaf extends Schema.Class<Leaf>("Leaf")({
   name: Schema.NonEmptyString,
   extent: Schema.Int.pipe(Schema.nonNegative()),
-  digest: ContentKey, // this leaf's OWN identity: read-back re-mints and compares against it
+  digest: Digest.Key.content,
 }) {}
 
 class Entry extends Schema.Class<Entry>("Entry")({
-  key: ContentKey,
+  key: Digest.Key.content,
   band: Schema.Literal(..._bands),
   state: Schema.Literal("pending", "resident"), // two-phase commit: a torn write leaves a reapable pending row
   leaves: Schema.NonEmptyArray(Leaf),
@@ -61,7 +61,7 @@ class Entry extends Schema.Class<Entry>("Entry")({
 }
 
 class Ledger extends Schema.Class<Ledger>("Ledger")({
-  entries: Schema.HashMap({ key: ContentKey, value: Entry }),
+  entries: Schema.HashMap({ key: Digest.Key.content, value: Entry }),
 }) {}
 
 // the enumerable roster is a value the store holds, because the store contract answers size and never a key listing
@@ -71,18 +71,16 @@ const _Index = KeyValueStore.layerSchema(Ledger, "ui/CacheLedger")
 ## [03]-[INTEGRITY_GATE]
 
 [INTEGRITY_GATE]:
-- Owner: `CacheFault` — the reason-discriminated refusal over one `FaultClass.family` mint, carrying the band-local `evict` column beside the core kind: `key-mismatch` and `leaf-torn` retire the entry because the bytes on disk are no longer what the ledger promises, while `quota-refused` and `store-refused` leave it alone because the entry is intact and the failure is the store's.
 - Law: every read-back is verified before the bytes leave — each leaf re-mints through `Digest.mint("content", octets)` and compares against the digest the entry recorded, so a truncated write, a partial quota eviction, or a corrupted page reads as a typed refusal rather than as content; trusting a stored byte because the key was found is exactly the failure a content-addressed store exists to make impossible.
 - Law: `keyed` bands prove identity, not just integrity — where the row says the addressing key IS the content's digest, the single leaf must re-mint to that key, so a `glb` band cannot serve one asset's bytes under another's address; an unkeyed band (an acceleration snapshot filed under the geometry's key) proves each leaf against its own recorded digest alone, because its bytes are derived from the keyed content rather than being it.
 - Law: verification failure is self-healing, never fatal — the gate retires the entry and the entry point falls through to the mint, so a corrupted band costs one re-mint and the caller never sees the refusal; the fault reaches a caller only where no mint can reproduce the bytes.
-- Law: the family carries the core kind and nothing else of the taxonomy — rank, blame, and retryability derive from the core `FaultClass` row table, and `evict` is a genuine band-local axis rather than a taxonomy column.
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Array, Effect, Record, Schema } from "effect"
 
 // one row per reason: the core kind the class getter projects, plus the ONE cache-local axis
-const _family = FaultClass.family(
+const _family = Fault.Class.family(
   ["key-mismatch", "leaf-torn", "quota-refused", "store-refused"] as const,
   {
     "key-mismatch": { class: "malformed", evict: true },
@@ -102,11 +100,11 @@ class CacheFault extends Schema.TaggedError<CacheFault>()("CacheFault", {
   detail: Schema.String,
 }) {
   static readonly roster: typeof _family.reasons = _family.reasons
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   get evict(): boolean {
-    return _family.rows[this.reason].evict
+    return _family.at(this.reason).evict
   }
   override get message(): string {
     return `<cache:${this.reason}> ${this.band}: ${this.detail}`
@@ -149,7 +147,7 @@ import { HashMap, Option } from "effect"
 declare namespace Cache {
   type Band = (typeof _bands)[number]
   type Leaves = Record.ReadonlyRecord<string, Uint8Array<ArrayBuffer>>
-  type Bundle = { readonly key: ContentKey; readonly band: Cache.Band; readonly leaves: Cache.Leaves }
+  type Bundle = { readonly key: Digest.Key<"content">; readonly band: Cache.Band; readonly leaves: Cache.Leaves }
   type Vault = KeyValueStore.KeyValueStore | KeyValueStore.SchemaStore<Ledger, never>
   type _Rows<T extends Record<Cache.Band, { readonly keyed: boolean; readonly remintable: boolean; readonly rank: number }> = typeof _BANDS> = T
 }
@@ -196,7 +194,7 @@ const _committed = (entry: Entry, leaves: Cache.Leaves): Effect.Effect<void, Cac
 
 const _minted = <E, R>(
   band: Cache.Band,
-  key: ContentKey,
+  key: Digest.Key<"content">,
   mint: Effect.Effect<Cache.Leaves, E, R>,
 ): Effect.Effect<Cache.Bundle, CacheFault | E, Cache.Vault | R> =>
   Effect.gen(function* () {
@@ -221,7 +219,7 @@ const _read = (entry: Entry): Effect.Effect<Cache.Leaves, CacheFault, Cache.Vaul
 
 const _resident = <E, R>(
   band: Cache.Band,
-  key: ContentKey,
+  key: Digest.Key<"content">,
   mint: Effect.Effect<Cache.Leaves, E, R>,
 ): Effect.Effect<Cache.Bundle, CacheFault | E, Cache.Vault | R> =>
   Effect.flatMap(_ledger, (held) =>
@@ -273,7 +271,7 @@ const _victim: Order.Order<Entry> = Order.combine(
   Order.mapInput(DateTime.Order, (entry: Entry) => entry.at),
 )
 
-const _retire = (key: ContentKey): Effect.Effect<void, CacheFault, Cache.Vault> =>
+const _retire = (key: Digest.Key<"content">): Effect.Effect<void, CacheFault, Cache.Vault> =>
   Effect.gen(function* () {
     const store = yield* KeyValueStore.KeyValueStore
     const index = yield* _Index.tag
@@ -291,7 +289,7 @@ const _retire = (key: ContentKey): Effect.Effect<void, CacheFault, Cache.Vault> 
 
 const _target = (budget: Cache.Budget): number => budget.usage * _PRESSURE[budget.verdict]
 
-const _sweep = (budget: Cache.Budget): Effect.Effect<ReadonlyArray<ContentKey>, CacheFault, Cache.Vault> =>
+const _sweep = (budget: Cache.Budget): Effect.Effect<ReadonlyArray<Digest.Key<"content">>, CacheFault, Cache.Vault> =>
   Effect.flatMap(_ledger, (held) =>
     Effect.forEach(
       Array.reduce(

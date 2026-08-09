@@ -18,6 +18,8 @@
 
 [PUBLIC_TYPE_SCOPE]: cluster, session, configuration (namespace `Cassandra`)
 - ddl: `ISession` runs `ChangeKeyspace`/`CreateKeyspace[IfNotExists]`/`DeleteKeyspace[IfExists]`/`GetMetrics`/`ShutdownAsync`
+- info: `RowSet.Info` is `public virtual ExecutionInfo` the ctor seeds with a fresh instance; `ExecutionInfo` closes at `TriedHosts` `QueriedHost` `Warnings` `IncomingPayload` `QueryTrace` `AchievedConsistency` `IsSchemaInAgreement` `GetQueryTraceAsync()`
+- trap: `AchievedConsistency` defaults to `ConsistencyLevel.Any` on that fresh instance, so a level read without proof of a real execution publishes a coordinator verdict nobody reported; `QueriedHost` computes `TriedHosts[Count-1]`, throwing `NullReferenceException("Tried host is null")` on a null roster and returning null on an empty one; `IsSchemaInAgreement` defaults true
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]          | [CAPABILITY]                                                               |
 | :-----: | :----------------------------- | :--------------------- | :------------------------------------------------------------------------- |
@@ -42,6 +44,10 @@
 |  [06]   | `RowSetMetadata`    | bound-variable metadata | `PreparedStatement.Variables`; prepared column/partition-key layout                  |
 
 [PUBLIC_TYPE_SCOPE]: POCO data access (namespace `Cassandra.Mapping`)
+- options: `CqlQueryOptions` closes at ten — `SetConsistencyLevel` `SetSerialConsistencyLevel` `SetPageSize` `SetPagingState` `SetRetryPolicy` `EnableTracing` `DisableTracing` `DoNotPrepare` `SetTimestamp` `static New()`
+- cql: `Cql` closes at eight — get-only `Statement`/`Arguments`/`ExecutionProfile`, `Cql(string cql, params object[] args)`, `WithOptions(Action<CqlQueryOptions>)`, `WithExecutionProfile(string)`, `static New(string, params object[])`, `static New()`
+- ttl: row expiry rides the typed `int? ttl` PARAMETER on the mapper insert overloads — `CqlGenerator.GenerateInsert<T>` appends `" TTL ?"` and binds the value, so seconds cross as a BOUND parameter and never as inlined statement text
+- trap: neither options nor query builder carries a TTL member or a `SetExecutionProfile`, and `Cassandra.Mapping.Attributes` carries no TTL attribute (`Cassandra.PrimaryKeyAttribute` and `Cassandra.TableNameAttribute` included) — TTL spelled anywhere but that parameter is unrepresentable
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]     | [CAPABILITY]                                                                              |
 | :-----: | :--------------------- | :---------------- | :---------------------------------------------------------------------------------------- |
@@ -68,6 +74,11 @@
 |  [07]   | `Batch`                        | LINQ batch    | `Append(CqlCommand)`, `Execute()`/`ExecuteAsync()` atomic batch         |
 
 [PUBLIC_TYPE_SCOPE]: routing, retry, consistency, encryption (namespace `Cassandra` + `Cassandra.ExecutionProfiles`)
+- singletons: `FallthroughRetryPolicy.Instance` and `NoSpeculativeExecutionPolicy.Instance` are `public static readonly` over private ctors — the one reachable value each; `FallthroughRetryPolicy : IExtendedRetryPolicy` answers `RetryDecision.Rethrow()` on all four hooks
+- wrapping: `IdempotenceAwareRetryPolicy(IRetryPolicy childPolicy)` throws `ArgumentNullException` on a null child, exposes `ChildPolicy`, and gates `OnWriteTimeout`/`OnRequestError` on `stmt.IsIdempotent == true`, rethrowing otherwise
+- profiles: `Builder.WithExecutionProfiles(Action<IExecutionProfileOptions>)`; `IExecutionProfileOptions` closes at `WithProfile(string, Action<IExecutionProfileBuilder>)` + `WithDerivedProfile(string, string, Action<IExecutionProfileBuilder>)`
+- builder: `IExecutionProfileBuilder` closes at six — `WithLoadBalancingPolicy` `WithRetryPolicy(IExtendedRetryPolicy)` `WithSpeculativeExecutionPolicy` `WithConsistencyLevel` `WithSerialConsistencyLevel` `WithReadTimeoutMillis(int)`
+- trap: a profile binds by NAME as a bare `string` — `IStatement` declares no `SetExecutionProfile`, so the name rides `ISession.Execute[Async](IStatement, string)`, `Cql.WithExecutionProfile(string)`, or a mapper overload's `executionProfile` (the mapper chain defaulting it to the literal `"default"`), and an undeclared name throws `ArgumentException` out of `IInternalSession.GetRequestOptions` at the FIRST execute rather than falling back to the cluster default
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]         | [CAPABILITY]                                                              |
 | :-----: | :----------------------------------- | :-------------------- | :------------------------------------------------------------------------ |
@@ -105,6 +116,8 @@
 - schema: live-cluster reflection via `TableMetadata`/`KeyspaceMetadata`/`MaterializedViewMetadata`/`IndexMetadata`/`Metadata`
 - levels: `ConsistencyLevel` = `Any`/`One`/`Two`/`Three`/`Quorum`/`All`/`LocalOne`/`LocalQuorum`/`EachQuorum` (read/write quorum) + `Serial`/`LocalSerial` (LWT)
 - faults: `DriverException` base + `NoHostAvailableException`/`Read`/`WriteTimeoutException`/`UnavailableException`/`OperationTimedOutException`/`InvalidQueryException`/`AlreadyExistsException`
+- availability: `UnavailableException : QueryExecutionException` carries `Consistency`/`RequiredReplicas`/`AliveReplicas` under `(ConsistencyLevel, int required, int alive)`; `WriteTimeoutException : QueryTimeoutException` carries `public string WriteType { get; }` under `(ConsistencyLevel, int received, int required, string writeType)`
+- trap: `WriteType` is a raw `string` (`"BATCH_LOG"` among its values), so a decision on it projects a closed vocabulary once at the boundary rather than scattering string equality across call sites
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]                                                                |
 | :-----: | :--------------------------- | :---------------- | :-------------------------------------------------------------------------- |
@@ -147,6 +160,7 @@
 |  [07]   | `rowSet.PagingState` / `statement.SetPagingState(byte[])`                | property | stateless cursor continuation            |
 
 [ENTRYPOINT_SCOPE]: POCO mapping (`Mapper`) — async-first
+- `InsertIfNotExistsAsync<T>` carries six overloads, every one `Task<AppliedInfo<T>>` and every one closing on an optional `CqlQueryOptions`: `(T)`, `(T, string executionProfile)`, `(T, bool insertNulls)`, `(T, string executionProfile, bool insertNulls)`, `(T, bool insertNulls, int? ttl)`, `(T, string executionProfile, bool insertNulls, int? ttl)`; the sync mirrors return `AppliedInfo<T>` 1:1, and the four-argument profile+nulls+TTL form is the one call carrying all three postures at once.
 
 | [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------------------------------ | :------- | :--------------------------------------- |
@@ -191,9 +205,12 @@
 - `DriverException` folds to a typed `Fin`/`Validation` failure at the session boundary; `NoHostAvailableException`/`OperationTimedOutException`/`WriteTimeoutException`/`UnavailableException` carry the retry-relevant detail, and a thrown driver exception stays inside the boundary.
 - `BatchType.Logged` is the atomic multi-partition batch (writing the batch log first); `Unlogged` is a performance batch with no atomicity guarantee, reserved for same-partition co-located writes.
 - column encryption rides `AesColumnEncryptionPolicy` on the `Builder` for at-rest-sensitive columns; the AES key is KMS-sourced.
+- row expiry rides the mapper insert overload's `int? ttl` parameter — one derivation site converts a policy window to seconds and the driver binds it, so `USING TTL` never enters statement text and a per-call integer literal never enters a call site.
+- execution-profile names bind from the roster the `Builder` declared; an undeclared name fails the first execute by `ArgumentException`, so a call-site-cast string is a deferred crash and a shared closed vocabulary is the admitted form.
+- consistency evidence reads `ExecutionInfo.AchievedConsistency` off an EXECUTED `RowSet` alone — the fresh-instance `Any` default is an unmeasured level, so a receipt with no execution behind it spells absence rather than publishing that default.
 
 [RAIL_LAW]:
 - Package: `ScyllaDBCSharpDriver`
-- Owns: CQL wide-column store access — cluster/session lifecycle, prepared/bound/batch statement execution (sync + async), the `Cassandra.Mapping` POCO mapper, the `Cassandra.Data.Linq` IQueryable, shard/tablet/token-aware routing, the consistency/retry/reconnection/speculative-execution + execution-profile policy surface, `CqlVector<T>` ANN columns, and `IColumnEncryptionPolicy` client-side encryption
-- Accept: a long-lived `Cluster`/`ISession` singleton; prepared `Bind`+`ExecuteAsync` for parameterized queries; the `Mapper`/`Table<T>` mapping layer for domain entities; `ConsistencyLevel`/retry as named execution-profile rows; `BatchType.Logged` for atomic multi-partition writes; `DriverException` folded into `Fin`
-- Reject: inline string-interpolated CQL; a per-request `Cluster`/`ISession`; `Unlogged` batches treated as atomic; routing the relational/columnar-OLAP/dedicated-vector concerns through this driver; a `DriverException` crossing the receipt boundary; domain JSON through the transitive `Newtonsoft.Json`; the netstandard2.0 row API treated as a `Span`/`IAsyncEnumerable` row stream
+- Owns: CQL wide-column store access — cluster/session lifecycle, prepared/bound/batch statement execution (sync + async), the `Cassandra.Mapping` POCO mapper, the `Cassandra.Data.Linq` IQueryable, shard/tablet/token-aware routing, the consistency/retry/reconnection/speculative-execution + execution-profile policy surface, row TTL through the mapper insert parameter, the per-`RowSet` `ExecutionInfo` consistency evidence, `CqlVector<T>` ANN columns, and `IColumnEncryptionPolicy` client-side encryption
+- Accept: a long-lived `Cluster`/`ISession` singleton; prepared `Bind`+`ExecuteAsync` for parameterized queries; the `Mapper`/`Table<T>` mapping layer for domain entities; `ConsistencyLevel`/retry as named execution-profile rows; row expiry through the mapper's `int? ttl` parameter; `AchievedConsistency` read off an executed `RowSet`; `BatchType.Logged` for atomic multi-partition writes; `DriverException` folded into `Fin`
+- Reject: inline string-interpolated CQL; a per-request `Cluster`/`ISession`; `Unlogged` batches treated as atomic; a TTL spelled outside the mapper parameter; an execution-profile name the `Builder` never declared; an `AchievedConsistency` published with no execution behind it or a `QueriedHost` dereferenced unguarded; routing the relational/columnar-OLAP/dedicated-vector concerns through this driver; a `DriverException` crossing the receipt boundary; domain JSON through the transitive `Newtonsoft.Json`; the netstandard2.0 row API treated as a `Span`/`IAsyncEnumerable` row stream

@@ -42,12 +42,12 @@ Every reopen predicate rides the license gate.
 - Geometry-fold abandonment lowers ONE case on both arrangement routes — `RunAbandoned` 2403; `Fault.Cancelled` stays the `Eff`-floor spelling.
 - `FaultCluster` never widens its 4-wide stride — `OfCode` is that arithmetic, so a case whose cluster stride is spent homes in the base stride.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
-- `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer and the profile leg names an `RgbTransfer` row; a sibling egress member forks the quantizer.
-- A kernel law binds only where its compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish because the stated-condition law legislates every direct-`Unicolour` composer.
-- Deriving a colour that must MEET a stated contrast ratio is kernel work, never call-site work — `PerceptualColor.ToneFor` walks the tonal axis in a `ToneSweep` direction to the least extreme rung clearing the ratio and REFUSES where no tone clears it, so a consumer cannot ship the nearest miss as a readable pigment; the recurring move bisects `Tone` against `Contrast` beside a token generator, and re-litigation opens only if a caller needs a non-monotone ordering, which is the same evidence that would earn a comparator argument.
-- `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its place only by adding admission, never by restating the mechanism.
-- `TenantContext.Key` is the one tenancy-discriminant read — every store, GUC, and series key folds that `Option`; a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
-- `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares by buffer coordinates, and an `ImmutableArray<byte>` carrier swap re-types the public residency seam every wrapper composes; reopens only if the witness digest stops rooting on packed content.
+- `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer, and a sibling egress member forks it.
+- Kernel laws bind only where their compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish for exactly that reason.
+- Meeting a stated contrast ratio is kernel work — `PerceptualColor.ToneFor` walks to the least extreme clearing rung and REFUSES where none clears.
+- `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
+- `TenantContext.Key` is the one tenancy-discriminant read — a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
+- `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares coordinates.
 
 ## [03]-[COLLAPSE]
 

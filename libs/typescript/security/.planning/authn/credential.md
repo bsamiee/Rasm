@@ -1,6 +1,6 @@
 # [SECURITY_CREDENTIAL]
 
-One digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, seal it by the material's own entropy posture keyed on a public index, resolve a presented secret by index-scoped candidate scan then constant-time compare. The posture is the idiom's one discriminant — a guessable secret earns the argon2 KDF, a random mint earns the SHA-256 fingerprint compare — so a recovery redemption no longer pays a KDF pass per candidate out of the same bulkhead every login queues on, and the exception that keeps machine keys on the KDF is stated beside the rule rather than scattered. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index decoded through one `Schema.TemplateLiteralParser` owner — so the `findFirst` candidate scan and the seal/probe pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option, `Accepted.timeStep` is the next floor the caller persists, `remaining` projects the seconds left in the current window for the ui prompt, and an `OTPHooks` value threads through `verify` so a Steam-Guard-style alphabet is a value, never a fork. Every credential-verify surface is a brute-force target and every one is throttled: `Otp.verify`/`Otp.redeem` run under a per-subject budget and `ApiKey.resolve` under a per-prefix budget on the store-backed `RateLimiter`, an exhausted budget is the `throttled` fault (class `exhausted`), and every presentation lands on the folder ledger tagged by surface — a refusal on the `credential` reject row, an admission and its wall span on the same kind's twin — so each surface's guess rate reads against its own denominator. Record ids mint through the `Crypto` entropy port; every secret is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws — its rows close at the core `FaultClass.family` seam. `ApiKeyGuard` is the declarative api-key scheme seam the runtime serve wave mounts.
+One digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, seal it by the material's own entropy posture keyed on a public index, resolve a presented secret by index-scoped candidate scan then constant-time compare. The posture is the idiom's one discriminant — a guessable secret earns the argon2 KDF, a random mint earns the SHA-256 fingerprint compare — so a recovery redemption no longer pays a KDF pass per candidate out of the same bulkhead every login queues on, and the exception that keeps machine keys on the KDF is stated beside the rule rather than scattered. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index decoded through one `Schema.TemplateLiteralParser` owner — so the `findFirst` candidate scan and the seal/probe pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option, `Accepted.timeStep` is the next floor the caller persists, `remaining` projects the seconds left in the current window for the ui prompt, and an `OTPHooks` value threads through `verify` so a Steam-Guard-style alphabet is a value, never a fork. Every credential-verify surface is a brute-force target and every one is throttled: `Otp.verify`/`Otp.redeem` run under a per-subject budget and `ApiKey.resolve` under a per-prefix budget on the store-backed `RateLimiter`, an exhausted budget is the `throttled` fault (class `exhausted`), and every presentation lands on the folder ledger tagged by surface — a refusal on the `credential` reject row, an admission and its wall span on the same kind's twin — so each surface's guess rate reads against its own denominator. Record ids mint through the `Crypto` entropy port; every secret is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws — its rows close at the core `Fault.Class.family` seam. `ApiKeyGuard` is the declarative api-key scheme seam the runtime serve wave mounts.
 
 ## [01]-[INDEX]
 
@@ -18,19 +18,18 @@ One digest-at-rest credential owner: second-factor OTP, recovery codes, and mach
 - Law: every mint is `Redacted` from the RNG; the digest is `Redacted` at rest; the plaintext leaves only through the caller's one-time receipt.
 - Growth: a new credential surface (a signed-URL token, a device pairing code) composes `Digest.mint`/`.resolve` with its own index and its own posture — the idiom never forks; a new storage mechanism is one posture row both members inherit.
 - Boundary: `crypt/sign`'s `Crypto` owns the RNG, the argon2 digest, the fingerprint, and the constant-time compare; this owner composes them into the posture-keyed mint/resolve fold every credential surface reads.
-- Packages: `crypt/sign` (`Crypto.token`/`.digest`/`.verify`/`.fingerprint`/`.matches`, `Probe`); `effect` (`Array`, `Effect`, `Option`, `Redacted`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrails, type OTPVerifyFunctionalOptions } from "otplib"
 import type { OTPHooks } from "@otplib/core"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Array, Clock, Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Crypto, Probe, type SignFault } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 
-const _family = FaultClass.family(["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const, {
+const _family = Fault.Class.family(["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const, {
   mint: { class: "defect" },
   verify: { class: "defect" },
   malformed: { class: "malformed" },
@@ -48,7 +47,7 @@ class CredentialFault extends Schema.TaggedError<CredentialFault>()("CredentialF
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {

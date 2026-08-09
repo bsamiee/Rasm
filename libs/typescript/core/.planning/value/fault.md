@@ -1,31 +1,12 @@
 # [CORE_FAULT]
 
-One fault-policy owner serves the branch: `FaultClass` is the severity-ordered class vocabulary every rail inherits — the kind tuple is the single precedence declaration, rows carry the retryability, blame, and quarantine axes, and the dominance lattice ships as lawful `Order`/`Bounded`/`Semigroup` instances derived from tuple position — while `FaultCapture`/`FaultEnricher` carry crash evidence and its enrichment port, `Budget` compiles retry and deadline rows into gate-modal `Schedule` values, and `Degrade` compiles connection-silence policy into probe cadence.
+`Fault` is the sole recovery-policy owner. Nested `Class`, `Capture`, `Enricher`, `Budget`, and `Degrade` share taxonomy without merging their distinct semantics. Module: `core/src/value/fault.ts`.
 
-Taxonomy, evidence, retry, and degradation remain clusters of one recovery-policy module, the temporal policies composing at rail and stream definition seams. Three fault altitudes stay distinct — interchange reconstruction, per-folder `Data.TaggedError` rails, outbound status mapping — and this floor imports none of them. Its module is `core/src/value/fault.ts`; a new fault class is one tuple entry with its row, a new budget one row, a new degradation posture one ladder rung.
+## [01]-[FAULT_OWNER]
 
-## [01]-[INDEX]
-
-- [02]-[CLASS_VOCABULARY]: the ten-class table, classification fold, dominance lattice; `FaultClass`.
-- [03]-[ENRICHER_CONTRACT]: the capture evidence model and the enrichment port; `FaultCapture`, `FaultEnricher`.
-- [04]-[RETRY_BUDGET]: the budget rows and their compiled gate-modal `Schedule` values; `Budget`.
-- [05]-[DEGRADE_LADDER]: the silence-threshold ladder and its parameterized level fold; `Degrade`.
-
-## [02]-[CLASS_VOCABULARY]
-
-- Owner: `FaultClass`, the assembled vocabulary — the interior key tuple is the ONE severity declaration (severity ascends with position, a load-bearing sequence with no parallel restatement), the interior row table carries the behavior axes, the merged hub carries every derived type and the guard pair, and the exported owner assembles rows, `kinds`, `blames`, `schema`, the lattice instances, the fault-family declaration fold, and the operation members under a `typeof`-derived stated annotation.
-- Law: the roster is sized by cross-language routing, never by cause — `absent`, `conflicted`, `invalid`, `malformed`, `denied`, `expired`, `exhausted`, `unavailable`, `breached`, `defect` — and a finer cause is a `reason` row inside the owning folder's fault class, never an eleventh entry minted for one surface.
-- Law: severity is positional — `severity` (`Order.mapInput` over tuple position), `bounded` (the `Bounded` completing the lattice: `compare` with the tuple's own first and last entries), and `join` (`Semigroup.max(severity)`, the lawful join-semilattice a `Merge.struct` field row composes directly) all derive from the tuple, so a tuple reorder IS the severity edit and no rank literal exists to go stale, duplicate, or disagree with iteration order.
-- Law: rows carry three axes — `retryable` (the transient family a budget gate re-drives), `blame` (`caller`/`system`, the accountability split the serving edge's `blame === "caller"` exposure fold and telemetry project), `quarantine` (the evidence-preserving divert: `malformed`/`invalid` continue as `Either.left` into a typed intake wherever the fault feeds a repair report, never a dropped element) — and behavior variation across the branch reads these columns, never a `switch` over class names.
-- Law: blame is anchored like kind — `blames` is the value tuple, `Blame` derives from it, `blame` is the wire-facing literal schema, and `blameOf` projects the classified row's column — so an exhaustive per-blame fold, a blame-keyed dashboard row, and a blame value crossing a config row all read one anchor.
-- Law: classification is total and idempotent — `of` answers identity on a bare kind literal (a consumer handing back an already-classified value gets its fixed point, never a `defect` fold), reads the structural `readonly class: FaultClass.Kind` convention off any value, folds a whole `Cause` tree to its dominant class through the position lattice, and folds all residue to `defect` — so an unclassified foreign throw lands at the correct terminal severity and `Schedule.whileInput(FaultClass.retryable)` gates correctly on faults, kinds, and causes alike.
-- Law: `dominant` discriminates on input shape — a non-empty kind set folds to its representative through `severity` (the fold `Effect.validateAll`-shaped reports feed), and a `Cause` tree folds every failure and defect node through the same lattice to `Option` of the representative, `none` exactly when the tree carries no fault (interruption-only) — so parallel-failure dominance reads the lattice, never a squash ordering.
-- Law: `schema` is the wire-facing literal union derived from the tuple spread — the non-empty overload keeps the exact literal tuple — so a class crossing a wire or a config row decodes against the same anchor the type plane derives from.
-- Law: `family(reasons, rows)` closes a folder fault family once — frozen snapshots of the non-empty reason tuple and every exact-key family row derive the literal schema and `classOf` projection, so caller mutation cannot drift the published reasons, schema, rows, or classification and a tagged fault class carries no local `_Rows`/`_Closed` guard pair or repeated reason switch.
-- Exemption: the snapshot-and-seal body is a marked kernel — `structuredClone` and `Object.freeze` are the platform's own statement-shaped seal calls, the drafts never escape unfrozen, only the sealed record leaves, and the mark rides its first line.
-- Growth: a new class is one tuple entry with its row — every guard, schema, fold, budget gate, and the serving edge's governed `Record<FaultClass.Kind, _>` status record inherit it at compile time; a new axis is one `Row` field with its column on each row; a new folder fault family is one `family` call with its reason tuple and rows.
-- Boundary: the class-to-status outbound mapping is the serving edge's governed record; the floor table stays transport-free.
-- Packages: `effect` (`Schema`, `Order`, `Array`, `Cause`, `Chunk`, `Option`, `Predicate`); `@effect/typeclass` (`Bounded`, `Semigroup`).
+- `Fault.Class` derives classification, severity, blame, quarantine, and family closure from exact ordered vocabularies.
+- `Fault.Budget` compiles retry schedules once; `Fault.Degrade` compiles default and caller-owned silence ladders once.
+- `Fault.Capture` carries schema-admitted evidence; `Fault.Enricher` is the total enrichment port.
 
 ```typescript signature
 import * as Bounded from "@effect/typeclass/Bounded"
@@ -36,10 +17,8 @@ import {
   ATTR_CODE_COLUMN_NUMBER, ATTR_CODE_FILE_PATH, ATTR_CODE_FUNCTION_NAME, ATTR_CODE_LINE_NUMBER,
   ATTR_ERROR_TYPE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, EVENT_EXCEPTION,
 } from "@opentelemetry/semantic-conventions"
-import {
-  Array, Cause, Chunk, Context, Duration, Effect, Layer, Metric, Option, Order, Predicate, Record, Schedule, Schema, type Types,
-} from "effect"
-import { Refined } from "./schema.ts"
+import { Array, Cause, Chunk, Context, Duration, Effect, Layer, Metric, Option, Order, Predicate, Record, Schedule, Schema } from "effect"
+import { Shape } from "./schema.ts"
 
 const _kinds = [
   "absent",
@@ -52,11 +31,9 @@ const _kinds = [
   "unavailable",
   "breached",
   "defect",
-] as const // severity ascends with position: the tuple is the ONE precedence declaration — no rank literal exists to drift from it
+] as const
 
-const _blames = ["caller", "system"] as const
-
-const _rows = {
+const _classRows = {
   absent: { retryable: false, blame: "caller", quarantine: false },
   conflicted: { retryable: true, blame: "caller", quarantine: false },
   invalid: { retryable: false, blame: "caller", quarantine: true },
@@ -68,121 +45,77 @@ const _rows = {
   breached: { retryable: false, blame: "system", quarantine: false },
   defect: { retryable: false, blame: "system", quarantine: false },
 } as const
+const _classes = Shape.vocabulary(_kinds, _classRows)
 
-const _Kind = Schema.Literal(..._kinds)
-const _Blame = Schema.Literal(..._blames)
-const _is = Schema.is(_Kind)
+const _blameKinds = ["caller", "system"] as const
+const _blameRows = { caller: {}, system: {} } as const
+const _blames = Shape.vocabulary(_blameKinds, _blameRows)
 
-const _severity: Order.Order<FaultClass.Kind> = Order.mapInput(Order.number, (kind: FaultClass.Kind) => _kinds.indexOf(kind))
-const _bounded: Bounded.Bounded<FaultClass.Kind> = { compare: _severity, minBound: _kinds[0], maxBound: Array.lastNonEmpty(_kinds) }
-const _join: Semigroup.Semigroup<FaultClass.Kind> = Semigroup.max(_severity)
+type _FaultKind = (typeof _kinds)[number]
+type _ClassRow = (typeof _classRows)[_FaultKind]
+type _Blame = (typeof _blameKinds)[number]
 
-const _probe = (fault: unknown): FaultClass.Kind =>
-  _is(fault) ? fault : Predicate.hasProperty(fault, "class") && _is(fault.class) ? fault.class : "defect"
+const _bounded: Bounded.Bounded<_FaultKind> = {
+  compare: _classes.order,
+  minBound: _kinds[0],
+  maxBound: Array.lastNonEmpty(_kinds),
+}
+const _join: Semigroup.Semigroup<_FaultKind> = Semigroup.max(_classes.order)
 
-const _harvest = (cause: Cause.Cause<unknown>): Option.Option<FaultClass.Kind> =>
+const _probe = (fault: unknown): _FaultKind =>
+  _classes.is(fault)
+    ? fault
+    : Predicate.hasProperty(fault, "class") && _classes.is(fault.class)
+      ? fault.class
+      : "defect"
+
+const _harvest = (cause: Cause.Cause<unknown>): Option.Option<_FaultKind> =>
   Array.match(Chunk.toReadonlyArray(Chunk.map(Chunk.appendAll(Cause.failures(cause), Cause.defects(cause)), _probe)), {
     onEmpty: Option.none,
-    onNonEmpty: (classes) => Option.some(Array.max(classes, _severity)),
+    onNonEmpty: (classes) => Option.some(Array.max(classes, _classes.order)),
   })
 
-const _of = (fault: unknown): FaultClass.Kind =>
+const _of = (fault: unknown): _FaultKind =>
   Cause.isCause(fault) ? Option.getOrElse(_harvest(fault), () => "defect" as const) : _probe(fault)
 
-function _dominant(classes: Array.NonEmptyReadonlyArray<FaultClass.Kind>): FaultClass.Kind
-function _dominant(cause: Cause.Cause<unknown>): Option.Option<FaultClass.Kind>
-function _dominant(
-  input: Array.NonEmptyReadonlyArray<FaultClass.Kind> | Cause.Cause<unknown>,
-): FaultClass.Kind | Option.Option<FaultClass.Kind> {
-  return Cause.isCause(input) ? _harvest(input) : Array.max(input, _severity)
+function _dominant(classes: Array.NonEmptyReadonlyArray<_FaultKind>): _FaultKind
+function _dominant(cause: Cause.Cause<unknown>): Option.Option<_FaultKind>
+function _dominant(input: Array.NonEmptyReadonlyArray<_FaultKind> | Cause.Cause<unknown>): _FaultKind | Option.Option<_FaultKind> {
+  return Cause.isCause(input) ? _harvest(input) : Array.max(input, _classes.order)
 }
 
 const _family = <
   const Reasons extends readonly [string, ...string[]],
-  const Rows extends { readonly [Reason in Reasons[number]]: FaultClass.FamilyRow },
+  const Rows extends { readonly [Reason in Reasons[number]]: { readonly class: _FaultKind } },
 >(
   reasons: Reasons,
-  rows: Rows & { readonly [Key in Exclude<keyof Rows, Reasons[number]>]: never },
+  rows: Shape.ExactRows<Reasons, Rows>,
 ) => {
-  // BOUNDARY ADAPTER: deep-freeze kernel — the platform's own snapshot and seal calls are statement-shaped, the drafts
-  // never escape unfrozen, and only the sealed record leaves
-  const heldReasons = Object.freeze(structuredClone(reasons))
-  const heldRows = structuredClone(rows)
-  Object.values(heldRows).forEach((row) => Object.freeze(row))
-  Object.freeze(heldRows)
+  const vocabulary = Shape.vocabulary(reasons, rows)
   return Object.freeze({
-    reasons: heldReasons,
-    rows: heldRows,
-    schema: Schema.Literal(...heldReasons),
-    classOf: (reason: Reasons[number]): FaultClass.Kind => heldRows[reason].class,
+    reasons: vocabulary.kinds,
+    schema: vocabulary.schema,
+    at: vocabulary.at,
+    classOf: <Reason extends Reasons[number]>(reason: Reason): Rows[Reason]["class"] => vocabulary.at(reason).class,
   })
 }
 
-declare namespace FaultClass {
-  type Kinds = typeof _kinds
-  type Kind = keyof typeof _rows
-  type Blames = typeof _blames
-  type Blame = Blames[number]
-  type Row = { readonly retryable: boolean; readonly blame: Blame; readonly quarantine: boolean }
-  type FamilyRow = { readonly class: Kind }
-  type Contract = { readonly [K in Kinds[number]]: Row }
-  type Shape = Types.Simplify<
-    typeof _rows & {
-      readonly kinds: Kinds
-      readonly blames: Blames
-      readonly schema: typeof _Kind
-      readonly blame: typeof _Blame
-      readonly severity: Order.Order<Kind>
-      readonly bounded: Bounded.Bounded<Kind>
-      readonly join: Semigroup.Semigroup<Kind>
-      readonly family: typeof _family
-      readonly is: (input: unknown) => input is Kind
-      readonly of: (fault: unknown) => Kind
-      readonly blameOf: (fault: unknown) => Blame
-      readonly retryable: (fault: unknown) => boolean
-      readonly dominant: {
-        (classes: Array.NonEmptyReadonlyArray<Kind>): Kind
-        (cause: Cause.Cause<unknown>): Option.Option<Kind>
-      }
-    }
-  >
-  type _Rows<T extends Contract = typeof _rows> = T
-  type _Keys<K extends keyof Contract = Kind> = K
-}
-
-const FaultClass: FaultClass.Shape = {
-  ..._rows,
-  kinds: _kinds,
-  blames: _blames,
-  schema: _Kind,
-  blame: _Blame,
-  severity: _severity,
+const _class = {
+  ..._classes,
+  blame: _blames,
   bounded: _bounded,
   join: _join,
   family: _family,
-  is: _is,
   of: _of,
-  blameOf: (fault) => _rows[_of(fault)].blame,
-  retryable: (fault) => _rows[_of(fault)].retryable,
+  blameOf: (fault: unknown): _Blame => _classes.at(_of(fault)).blame,
+  retryable: (fault: unknown): boolean => _classes.at(_of(fault)).retryable,
   dominant: _dominant,
-}
+} as const
 ```
 
-## [03]-[ENRICHER_CONTRACT]
+## [02]-[CAPTURE_AND_ENRICHMENT]
 
-- Owner: `FaultCapture`, the floor-shaped crash-evidence model — class, fault tag, owning surface, detail, optional `Refined.Guid` correlation, capture instant, and an open OpenTelemetry scalar attribute band — the value the runtime crash owner constructs from a folded `Cause` and every enrichment round-trips; `policy` projects the class row so retryability, blame, and quarantine are recoverable from any capture, `enriched` is the successor constructor merging attribute bands, and `forensic` is the exception-evidence successor writing the well-known crash rows through the typed key vocabulary.
-- Owner: `FaultEnricher`, the enrichment port — one `Context.Tag` whose service is a single endo-arrow `enrich: (capture) => Effect<FaultCapture>` — the interchange codec binds the Layer that reconstructs wire-grade forensics into the attribute band, the runtime crash owner yields the Tag, and the app root wires them; the interchange-owned reconstruction names never appear in this contract, keeping the adopted-verbatim vocabulary on its owning side.
-- Law: forensic evidence has one declared admission and absence regime — `FaultCapture.Evidence` is a Schema-declared field block riding the owner as a static with its type on the merged hub, `stacktrace` and the `frame` block are `Option` admitted by `Schema.optionalWith(..., { as: "Option" })`, and `forensic` folds both through `Option.match` — so `undefined` never reaches the projection body, a loose structural companion type cannot drift beside the class authority, and evidence-field growth exerts compile pressure on the projection.
-- Law: frame attribution rides the stable `code.*` quartet — `forensic` projects the `Option`-admitted `Evidence.frame` block into the function/file/line/column keys, absent where a minified or native stack yields no frame; `ATTR_CODE_STACKTRACE` stays unrowed because `ATTR_EXCEPTION_STACKTRACE` already carries the crash stack on this floor.
-- Law: enrichment is total by signature — the error channel is `never`, so a failing enricher implementation resolves its own faults internally (degrade to the unenriched capture) and crash capture can never be broken by its own forensics.
-- Law: `FaultEnricher.identity` is the shipped no-wire Layer — pass-through enrichment for the archetypes that select no interchange — so every composition root wires the port and absence of an implementation is a selection, never a crash.
-- Law: the attribute band carries the OpenTelemetry scalar algebra — finite `number`, `string`, or `boolean` — so a boolean fact (a wire retryability column, a flag verdict) enters the band AS a boolean and enrichment never stringifies typed evidence; identifier-grade context rides it per occurrence, while bounded metric dimensions derive from `class` and `blame` columns. `exception.escaped` carries zero information on this floor — only escaping faults are captured — so the vocabulary omits the deprecated key.
-- Law: the two type keys carry two truths — `forensic` writes the bounded class column into `ATTR_ERROR_TYPE` (the low-cardinality dimension backends group on) and the free-form runtime exception type into `ATTR_EXCEPTION_TYPE` — so the well-known pair never duplicates one unbounded string; `FaultCapture.Forensic` anchors the `ATTR_EXCEPTION_*`/`ATTR_ERROR_TYPE` vocabulary and `FaultCapture.event` anchors `EVENT_EXCEPTION`, so a misspelled forensic key is a compile error while the band stays open for context beyond the vocabulary, and `observe/convention` still owns attribute-space naming for its own projections.
-- Law: band merging is one instance, never a per-site combine — `getSemigroupUnion(Semigroup.last())` declares the last-write-wins keyed merge once, `Monoid.fromSemigroup` names the empty band as its lawful identity, and `enriched` and `forensic` both project the one instance so enrichment stages fold with no emptiness guard.
-- Law: `FaultCapture.aspect(metric, input)` is the definition-time signal weave — one transformer maps the capture into the metric's admitted update through `Metric.mapInput`, then composes `Effect.withSpan(EVENT_EXCEPTION)` and `Effect.withMetric` around the capture-producing effect, so crash owners instrument their declaration once and every invocation inherits the same span and metric policy without a call-site wrapper.
-- Growth: a new evidence field is one `Evidence` schema field; a new well-known key is one `Forensic` row; a second enrichment stage is a Layer composing the same Tag, never a second port.
-- Boundary: which captures reach the enricher, redaction-at-capture, stack-frame parsing, and OTLP egress encoding are the runtime telemetry owners' policies; reconstruction internals are the interchange codec's; this floor declares the shapes, the key vocabulary, and the seam.
-- Packages: `effect` (`Schema`, `Context`, `Effect`, `Layer`, `Metric`, `Option`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Record`); `@opentelemetry/semantic-conventions` (`ATTR_EXCEPTION_*`, `ATTR_ERROR_TYPE`, `ATTR_CODE_*`, `EVENT_EXCEPTION`); `schema#REFINED_FLOOR` (`Refined.Guid`).
+`Fault.Capture` admits crash evidence and folds well-known OpenTelemetry attributes through one last-write-wins band monoid. `Fault.Enricher` is a total endomorphism with an identity Layer.
 
 ```typescript signature
 const _FORENSIC = {
@@ -198,11 +131,6 @@ const _FORENSIC = {
 
 const _Attribute = Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean)
 
-const _Band: Monoid.Monoid<FaultCapture.Attributes> = Monoid.fromSemigroup(
-  RecordInstances.getSemigroupUnion(Semigroup.last<FaultCapture.Attribute>()), // one keyed merge law: keys union, collisions last-write-wins
-  {},                                                                           // the empty band is the lawful identity, named explicitly — last() alone admits none
-)
-
 const _Frame = Schema.Struct({
   function: Schema.NonEmptyString,
   file: Schema.NonEmptyString,
@@ -217,28 +145,37 @@ const _Evidence = Schema.Struct({
   frame: Schema.optionalWith(_Frame, { as: "Option" }), // the parsed top frame: a minified or native stack lawfully yields none
 })
 
-class FaultCapture extends Schema.Class<FaultCapture>("FaultCapture")({
-  class: _Kind,
+const _Attributes = Schema.Record({ key: Schema.String, value: _Attribute })
+type _AttributeValue = typeof _Attribute.Type
+type _AttributeBand = typeof _Attributes.Type
+
+const _Band: Monoid.Monoid<_AttributeBand> = Monoid.fromSemigroup(
+  RecordInstances.getSemigroupUnion(Semigroup.last<_AttributeValue>()),
+  {},
+)
+
+class _Capture extends Schema.Class<_Capture>("Fault.Capture")({
+  class: _classes.schema,
   tag: Schema.NonEmptyString,
   surface: Schema.NonEmptyString,
   detail: Schema.String,
-  correlation: Schema.optionalWith(Refined.Guid, { as: "Option" }),
+  correlation: Schema.optionalWith(Shape.Refined.Guid, { as: "Option" }),
   at: Schema.DateTimeUtcFromSelf,
-  attributes: Schema.Record({ key: Schema.String, value: _Attribute }),
+  attributes: _Attributes,
 }) {
-  static readonly aspect = <Type, In, Out>(metric: Metric.Metric<Type, In, Out>, input: (capture: FaultCapture) => In) =>
-    <E, R>(self: Effect.Effect<FaultCapture, E, R>) =>
+  static readonly aspect = <Type, In, Out>(metric: Metric.Metric<Type, In, Out>, input: (capture: _Capture) => In) =>
+    <E, R>(self: Effect.Effect<_Capture, E, R>) =>
       self.pipe(Effect.withSpan(EVENT_EXCEPTION), Effect.withMetric(Metric.mapInput(metric, input)))
   static readonly Evidence: typeof _Evidence = _Evidence
   static readonly Forensic: typeof _FORENSIC = _FORENSIC
   static readonly event: typeof EVENT_EXCEPTION = EVENT_EXCEPTION
-  get policy(): FaultClass.Row {
-    return _rows[this.class]
+  get policy(): _ClassRow {
+    return _classes.at(this.class)
   }
-  enriched(added: FaultCapture.Attributes): FaultCapture {
-    return new FaultCapture({ ...this, attributes: _Band.combine(this.attributes, added) })
+  enriched(added: _AttributeBand): _Capture {
+    return new _Capture({ ...this, attributes: _Band.combine(this.attributes, added) })
   }
-  forensic(evidence: FaultCapture.Evidence): FaultCapture {
+  forensic(evidence: typeof _Evidence.Type): _Capture {
     return this.enriched({
       [_FORENSIC.errorType]: this.class, // the bounded dimension: the class column, never a second copy of the free-form type
       [_FORENSIC.message]: evidence.message,
@@ -260,31 +197,16 @@ class FaultCapture extends Schema.Class<FaultCapture>("FaultCapture")({
   }
 }
 
-declare namespace FaultCapture {
-  type Attribute = typeof _Attribute.Type
-  type Attributes = FaultCapture["attributes"]
-  type Evidence = typeof _Evidence.Type
-  type Forensic = (typeof _FORENSIC)[keyof typeof _FORENSIC]
-}
-
-class FaultEnricher extends Context.Tag("@rasm/ts/core/FaultEnricher")<FaultEnricher, {
-  readonly enrich: (capture: FaultCapture) => Effect.Effect<FaultCapture>
+class _Enricher extends Context.Tag("@rasm/ts/core/Fault.Enricher")<_Enricher, {
+  readonly enrich: (capture: _Capture) => Effect.Effect<_Capture>
 }>() {
-  static readonly identity: Layer.Layer<FaultEnricher> = Layer.succeed(FaultEnricher, { enrich: Effect.succeed })
+  static readonly identity: Layer.Layer<_Enricher> = Layer.succeed(_Enricher, { enrich: Effect.succeed })
 }
 ```
 
-## [04]-[RETRY_BUDGET]
+## [03]-[RETRY_BUDGET]
 
-- Owner: `Budget`, the assembled budget vocabulary — the interior key tuple anchors the roster, the row table carries every axis as `Duration` policy values, the merged hub carries derived types and the guard pair, and the exported owner assembles rows, `kinds`, and the `schedule` lookup under a `typeof`-derived stated annotation; the ingress decode ceilings are `schema#INGRESS_CEILING`'s `Ingress` — the two vocabularies never share a concept.
-- Law: five rows ride the floor — `pulse` (interactive point ops: 40ms base, 4 attempts, 2s window), `lease` (infrastructure ops: 250ms base, 6 attempts, 20s window), `bulk` (batch work: 1s base, 8 attempts, 5m window), `feed` (long-lived reconnection: 500ms base, 64 attempts, 2m window, 90s reset), `once` (non-idempotent critical ops: zero attempts, deadline budgets only — the safe envelope for work that must never re-drive yet still names its per-try and whole-call deadlines) — floors a folder policy references by kind; a genuinely novel envelope is a new row, never a per-site literal.
-- Law: every row carries the two deadline budgets the rails layering law consumes — `attempt` composes below the retry transformer (per-try), `total` above it (whole-call) — so the interchange invocation client and runtime work activities read `Budget[kind].attempt`/`.total` and the budget's whole geometry lives in one row.
-- Law: compilation is fixed-form, total, and generative — `exponential(base, factor)` → `jittered` → `resetAfter(reset)` → `intersect(recurs(attempts))` → `upTo(window)` compiles once at module init through one `Record.map` over the row table under a governed mapped annotation, so a new row compiles the moment it lands and no second compiled-key roster exists to maintain; jitter is unconditional (a bare curve synchronizes a fleet into waves), `resetAfter` re-arms base delay after quiet so the next outage never inherits the last one's escalated tail, and the attempt/elapsed bounds stack because a budget names both.
-- Law: the gate is a modality of the one compile — `schedule(kind, gate?)` composes `Schedule.whileInput(gate)` over the shared compiled base with `FaultClass.retryable` as the owner default, so only the transient family re-drives by default, the gate travels with the policy value, and a lane whose transience is already gated at another altitude (`HttpClient.retryTransient`) passes its own gate (`Function.constTrue`) instead of re-spelling the compile chain; a call-site predicate re-deriving retryability is still policy leakage.
-- Law: the schedule input is `unknown` — one policy value serves every fault channel in the branch, and classification, not typing, decides re-drive.
-- Growth: a new budget is one tuple entry with its row — the governed compile record inherits it at compile time; a new axis (a fleet-cost weight, a hedge delay) is one `Row` field consumed by the surfaces that name it.
-- Boundary: which budget a surface selects is that folder's policy row; deadline transformers (`Effect.timeoutFail`) compose at the owning `Effect.fn` seam with the row's durations — the floor ships values, never wrappers.
-- Packages: `effect` (`Duration`, `Schedule`, `Record`, `Predicate`).
+`Fault.Budget` keeps deadline geometry as private rows and compiles every schedule once at module evaluation; `at(kind)` retrieves deadline values and `schedule(kind, gate)` adds the input gate.
 
 ```typescript signature
 const _budgets = ["pulse", "lease", "bulk", "feed", "once"] as const
@@ -328,39 +250,19 @@ const _budgetRows = {
   once: {
     base: Duration.zero,
     factor: 1,
-    attempts: 0, // recurs(0): the compiled schedule never re-drives; the row exists for its deadline budgets
+    attempts: 0,
     window: Duration.zero,
     reset: Duration.zero,
     attempt: Duration.seconds(5),
     total: Duration.seconds(5),
   },
 } as const
+const _budgetVocabulary = Shape.vocabulary(_budgets, _budgetRows)
+type _BudgetKind = (typeof _budgets)[number]
+type _BudgetRow = (typeof _budgetRows)[_BudgetKind]
+type _BudgetSchedule = Schedule.Schedule<[Duration.Duration, number], unknown>
 
-declare namespace Budget {
-  type Kinds = typeof _budgets
-  type Kind = keyof typeof _budgetRows
-  type Row = {
-    readonly base: Duration.Duration
-    readonly factor: number
-    readonly attempts: number
-    readonly window: Duration.Duration
-    readonly reset: Duration.Duration
-    readonly attempt: Duration.Duration
-    readonly total: Duration.Duration
-  }
-  type Contract = { readonly [K in Kinds[number]]: Row }
-  type Gated = Schedule.Schedule<[Duration.Duration, number], unknown>
-  type Shape = Types.Simplify<
-    typeof _budgetRows & {
-      readonly kinds: Kinds
-      readonly schedule: (kind: Kind, gate?: Predicate.Predicate<unknown>) => Gated
-    }
-  >
-  type _Rows<T extends Contract = typeof _budgetRows> = T
-  type _Keys<K extends keyof Contract = Kind> = K
-}
-
-const _compile = (row: Budget.Row): Budget.Gated =>
+const _compileBudget = (row: _BudgetRow): _BudgetSchedule =>
   Schedule.exponential(row.base, row.factor).pipe(
     Schedule.jittered,
     Schedule.resetAfter(row.reset),
@@ -368,25 +270,18 @@ const _compile = (row: Budget.Row): Budget.Gated =>
     Schedule.upTo(row.window),
   )
 
-const _compiled: { readonly [K in Budget.Kind]: Budget.Gated } = Record.map(_budgetRows, _compile) // generative: a new row compiles with zero named arms
+const _schedules: { readonly [Kind in _BudgetKind]: _BudgetSchedule } = Record.map(_budgetRows, _compileBudget)
 
-const Budget: Budget.Shape = {
-  ..._budgetRows,
-  kinds: _budgets,
-  schedule: (kind, gate = FaultClass.retryable) => _compiled[kind].pipe(Schedule.whileInput(gate)),
-}
+const _budget = {
+  ..._budgetVocabulary,
+  schedule: (kind: _BudgetKind, gate: Predicate.Predicate<unknown> = _class.retryable): _BudgetSchedule =>
+    _schedules[kind].pipe(Schedule.whileInput(gate)),
+} as const
 ```
 
-## [05]-[DEGRADE_LADDER]
+## [04]-[DEGRADE_LADDER]
 
-- Owner: `Degrade`, the connection-degradation ladder — an interior level tuple anchoring the closed vocabulary, a row table carrying per-level entry threshold and probe cadence, and the exported owner assembling rows, `levels`, and the `level`/`cadence` folds under a stated annotation.
-- Law: three rungs ride the ladder — `live` (healthy: zero threshold, 30s heartbeat cadence), `lagging` (10s of silence: 5s probe cadence), `severed` (2m of silence: 30s probe cadence) — and `level(silence, ladder?)` derives threshold order from the selected table before choosing the highest entered rung, a silence beneath every threshold folding to that table's least rung, so a caller-composed override remains data and never inherits a hidden module-tuple ordering constraint.
-- Law: the fold is parameterized over its table — the module ladder is the shipped default row set, and a per-surface override is a caller-composed `Contract` handed to the same `level`/`cadence` shape, so threshold edits and rung additions flow through one generated order with no re-derived fold.
-- Law: `cadence(silence, ladder?)` is the one-hop probe read — the rung's `Duration` policy value a consumer hands to `Schedule.spaced` or `Stream.repeatEffectWithSchedule` at its own seam; the ladder prices the probe, the surface owns the loop.
-- Law: the ladder is a reconnection BUDGET, not evidence — event-log sync, live flag feeds, and presence streams fold their silence through it to pick probe cadence; the wire-decoded degradation-level evidence vocabulary is the `state` evidence family's sibling concern and the two never merge.
-- Growth: a new rung is one tuple entry with its row; a per-surface ladder override is a caller-composed `Contract` folded through the same shape.
-- Boundary: what counts as silence — missed heartbeats, an idle socket, a stalled pull — is the consuming surface's measurement; the ladder folds the span it is handed, stays class-free by design, and composes nothing from `[02]`.
-- Packages: `effect` (`Duration`, `Option`, `Array`, `Order`).
+`Fault.Degrade` compiles threshold order once. A caller with different thresholds invokes `compile(rows)` once and reuses the returned `level`/`cadence` policy.
 
 ```typescript signature
 const _levels = ["live", "lagging", "severed"] as const
@@ -395,42 +290,70 @@ const _ladder = {
   lagging: { after: Duration.seconds(10), cadence: Duration.seconds(5) },
   severed: { after: Duration.minutes(2), cadence: Duration.seconds(30) },
 } as const
+type _DegradeKind = (typeof _levels)[number]
+type _DegradeRow = { readonly after: Duration.Duration; readonly cadence: Duration.Duration }
+type _DegradeRows = { readonly [Kind in _DegradeKind]: _DegradeRow }
+type _DegradeVocabulary = Shape.Vocabulary<typeof _levels, _DegradeRows>
 
-declare namespace Degrade {
-  type Levels = typeof _levels
-  type Kind = keyof typeof _ladder
-  type Row = { readonly after: Duration.Duration; readonly cadence: Duration.Duration }
-  type Contract = { readonly [K in Levels[number]]: Row }
-  type Shape = Types.Simplify<
-    typeof _ladder & {
-      readonly levels: Levels
-      readonly level: (silence: Duration.DurationInput, ladder?: Contract) => Kind
-      readonly cadence: (silence: Duration.DurationInput, ladder?: Contract) => Duration.Duration
-    }
-  >
-  type _Rows<T extends Contract = typeof _ladder> = T
-  type _Keys<K extends keyof Contract = Kind> = K
+const _compileDegrade = (vocabulary: _DegradeVocabulary) => {
+  const entry = Order.mapInput(Duration.Order, (kind: _DegradeKind) => vocabulary.at(kind).after)
+  const ordered = Array.sort(vocabulary.kinds, entry)
+  const level = (silence: Duration.DurationInput): _DegradeKind => Option.getOrElse(
+    Array.findLast(ordered, (kind) => Duration.greaterThanOrEqualTo(silence, vocabulary.at(kind).after)),
+    () => Array.min(ordered, entry),
+  )
+  return {
+    ...vocabulary,
+    level,
+    cadence: (silence: Duration.DurationInput): Duration.Duration => vocabulary.at(level(silence)).cadence,
+  } as const
 }
 
-const _entry = (ladder: Degrade.Contract): Order.Order<Degrade.Kind> =>
-  Order.mapInput(Duration.Order, (kind: Degrade.Kind) => ladder[kind].after)
+const _degradeVocabulary: _DegradeVocabulary = Shape.vocabulary(_levels, _ladder)
+const _degradePolicy = _compileDegrade(_degradeVocabulary)
+const _degrade = {
+  ..._degradePolicy,
+  compile: (rows: Shape.ExactRows<typeof _levels, _DegradeRows>) =>
+    _compileDegrade(Shape.vocabulary(_levels, rows)),
+} as const
 
-const _leveled = (silence: Duration.DurationInput, ladder: Degrade.Contract = _ladder): Degrade.Kind =>
-  Option.getOrElse(
-    Array.findLast(Array.sort(_levels, _entry(ladder)), (kind) => Duration.greaterThanOrEqualTo(silence, ladder[kind].after)),
-    () => Array.min(_levels, _entry(ladder)), // below every threshold: the selected table's least rung, never the module tuple's first entry
-  )
+const Fault = {
+  Class: _class,
+  Capture: _Capture,
+  Enricher: _Enricher,
+  Budget: _budget,
+  Degrade: _degrade,
+} as const
 
-const Degrade: Degrade.Shape = {
-  ..._ladder,
-  levels: _levels,
-  level: _leveled,
-  cadence: (silence, ladder = _ladder) => ladder[_leveled(silence, ladder)].cadence,
+declare namespace Fault {
+  export namespace Class {
+    export type Kind = _FaultKind
+    export type Row = _ClassRow
+    export type Blame = _Blame
+  }
+  export type Capture = _Capture
+  export namespace Capture {
+    export type Attribute = _AttributeValue
+    export type Attributes = _AttributeBand
+    export type Evidence = typeof _Evidence.Type
+    export type Forensic = (typeof _FORENSIC)[keyof typeof _FORENSIC]
+  }
+  export type Enricher = _Enricher
+  export namespace Budget {
+    export type Kind = _BudgetKind
+    export type Row = _BudgetRow
+    export type Gated = _BudgetSchedule
+  }
+  export namespace Degrade {
+    export type Kind = _DegradeKind
+    export type Row = _DegradeRow
+    export type Rows = _DegradeRows
+  }
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Budget, Degrade, FaultCapture, FaultClass, FaultEnricher }
+export { Fault }
 ```
 
 ## [06]-[RESEARCH]

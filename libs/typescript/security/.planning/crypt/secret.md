@@ -1,6 +1,6 @@
 # [SECURITY_SECRET]
 
-Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` admits a closed surface set — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.list`/`secrets.names` (the targeted single-secret read, the full-object census a partial refresh diffs against custody, and the name-only enumeration), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with the branch `Budget.schedule("lease")` compile re-driving a transient fault inside the tick under its own class gate and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as a `Material.Source.Held` mint — the host-side trust boundary `crypt/sign`'s `Material.admit` terminates beside the peer-attested `Credential` source, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape over the core `FaultClass.family` seam: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `FaultClass` kind.
+Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` admits a closed surface set — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.list`/`secrets.names` (the targeted single-secret read, the full-object census a partial refresh diffs against custody, and the name-only enumeration), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with the branch `Fault.Budget.schedule("lease")` compile re-driving a transient fault inside the tick under its own class gate and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as a `Material.Source.Held` mint — the host-side trust boundary `crypt/sign`'s `Material.admit` terminates beside the peer-attested `Credential` source, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape over the core `Fault.Class.family` seam: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `Fault.Class` kind.
 
 ## [01]-[INDEX]
 
@@ -11,14 +11,13 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` adm
 ## [02]-[SECRET_FAULT]
 
 [SECRET_FAULT]:
-- Owner: `SecretFault` — the folder fault shape instantiated over the Doppler axis: `credential` (401/403 — the service token is dead), `missing` (404 or an absent name), `rateLimit` (429), `transient` (5xx, network throws, and a per-call deadline), `lease` (lease issue/revoke refused). Rows carry the core `FaultClass` kind; the refresh loop's inner retry and the compiled branch `Budget` schedules gate on `FaultClass.retryable`, so the `rateLimit`/`transient` arms re-drive and the `credential` arm never does.
 - Law: the fold reads `statusCode` off the RFC 9457 `BaseHTTPError` carrier — every status subclass is seed data over one problem-detail shape, and an instance-of ladder over them is the rejected form; a throw without a `statusCode` is `transient`.
 - Growth: a new failure class is one `_reasonOf` status arm and one class row.
-- Packages: `@dopplerhq/node-sdk` (`BaseHTTPError` carrier); `effect` (`Schema`, `Predicate`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `@dopplerhq/node-sdk` (`BaseHTTPError` carrier); `effect` (`Schema`, `Predicate`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
 import DopplerSDK from "@dopplerhq/node-sdk"
-import { Budget, Convention, FaultClass } from "@rasm/ts/core"
+import { Fault, Convention } from "@rasm/ts/core"
 import { Cache, Cause, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, Material } from "./sign.ts"
@@ -46,7 +45,7 @@ const LeaseSpec = Schema.Struct({
 
 type LeaseSpec = typeof LeaseSpec.Type
 
-const _family = FaultClass.family(["credential", "missing", "rateLimit", "transient", "lease"] as const, {
+const _family = Fault.Class.family(["credential", "missing", "rateLimit", "transient", "lease"] as const, {
   credential: { class: "denied" },
   missing: { class: "absent" },
   rateLimit: { class: "exhausted" },
@@ -62,7 +61,7 @@ class SecretFault extends Schema.TaggedError<SecretFault>()("SecretFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -92,7 +91,6 @@ const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
 [LEASED_CUSTODY]:
 - Owner: `LeaseSpec` — the encoded app-custody boundary: `scope` names the isolated custody cell, `keys` is its unique non-empty allowlist, `ttl` encodes as milliseconds and admits only whole seconds of at least one — the remote `ttl_sec`, cache expiry, renewal cadence, and bounded clear all read one exact second count — `renewal` is `rolling | bounded`, and `epoch` is the replacement identity. `Secret` is the `Layer.scoped` custodian holding one client, publishing the current set through a `SubscriptionRef`, renewing or expiring it by posture, and revoking every still-held lease in an `addFinalizer`. `get` reads the current cell; `probe` refreshes one admitted name; `census` refreshes the whole allowlist in one read; `names` enumerates membership alone; `changes` is the rotation feed; `lease` issues one admitted dynamic key and registers its revocable handle; `revoke` retires that handle after remote success; `retire` revokes a superseded service token.
 - Boundary: the app root provides `SECURITY_LEASE_SPEC` as the encoded `LeaseSpec` and `DOPPLER_TOKEN` from one namespace custody cell, then composes `Secret.Default`. The deploy plane realizes each spec as a config containing only `keys`, a read-only service token scoped to that config, and one namespace secret; `scope + epoch` keys replacement, so the new token and cell land before the prior token retires. Security owns the value and renewal semantics; deployment owns the Doppler and Kubernetes resources.
-- Law: two schedules are orthogonal and both explicit — the outer `Schedule.spaced` cadence paces refresh across ticks, and the inner `Effect.retry(Budget.schedule("lease"))` re-drives a transient fault inside the tick under the branch compile's jitter, attempt bound, quiet-reset, elapsed ceiling, and its own `FaultClass.retryable` gate, so a Doppler blip costs milliseconds, never a full stale interval; a tick whose retries exhaust keeps the last good set, and the cadence is this page's policy while the re-drive geometry is the floor's.
 - Law: the download de-dupes — an `effect` `Cache` keyed by `(project, config, scope, epoch)` with a TTL below the refresh cadence collapses concurrent allowlisted reads to one in-flight request; targeted `probe` rejects names outside `LeaseSpec.keys`. Every SDK promise carries the per-call deadline and `_lift` hands `tryPromise`'s interruption-wired `AbortSignal` to its runner — the SDK transport is signal-blind, so the deadline bounds the caller as a typed `transient` while an orphaned read settles harmlessly — and the lease issue rides a shielded `disconnect` window, so a grant landing after its deadline still registers and teardown revokes it, never an orphaned lease.
 - Law: the boot probe (`auth.me`) and the first fetch gate construction under that same `lease` budget — a transient boot blip re-drives, a dead token fails the layer, not the first read; the composition root wraps `Secret.Default` in `Layer.retry` under the branch boot budget.
 - Law: a rotation is observed, never silent — the custody semaphore serializes only the full or targeted compare/set transition, and the `SubscriptionRef.changes` stream serially increments `Convention.instrument.securitySecretRotation`, publishes the `Rotation` fact through `Witness`, and logs the audit line after custody releases. `probe` enters the same revision fold, so consumers observe one ordered rotation stream regardless of refresh grain; a blocked tap cannot stop later custody transitions, and an interrupted tap never rolls custody back.
@@ -101,7 +99,6 @@ const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
 - Law: generated response shapes are claims, never contracts — `SecretsListResponse` types its map as four fixed example key names, so every read on this page decodes the wire through `Schema` and no member is read off the declared shape.
 - Growth: a new fetched secret is a new name in the same response; a new refresh grain is one member on this custodian, never a second custody service.
 - Law: `rolling` refreshes at four-fifths of `ttl`; `bounded` performs no renewal and clears the cell at `ttl`, so a one-shot scope cannot retain material past its lease. Every epoch change replaces the deploy-side token and custody cell regardless of posture.
-- Packages: `@dopplerhq/node-sdk` (`secrets.download`/`get`/`list`/`names`, `dynamicSecrets.issueLease`/`revokeLease`, `auth.me`/`revoke`); `effect` (`Cache`, `Schedule`, `SubscriptionRef`, `Metric`); `@rasm/ts/core` (`Budget`, `Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 const _rotation = Convention.mount(Convention.metric.securitySecretRotation)
@@ -137,8 +134,8 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
       lookup: (_: string) => _download,
     })
     const fetch = deduped.get(`${project}/${config}/${leaseSpec.scope}/${leaseSpec.epoch}`)
-    yield* _lift(() => sdk.auth.me()).pipe(Effect.retry(Budget.schedule("lease")))
-    const cell = yield* SubscriptionRef.make(yield* fetch.pipe(Effect.retry(Budget.schedule("lease"))))
+    yield* _lift(() => sdk.auth.me()).pipe(Effect.retry(Fault.Budget.schedule("lease")))
+    const cell = yield* SubscriptionRef.make(yield* fetch.pipe(Effect.retry(Fault.Budget.schedule("lease"))))
     const rotation = yield* Effect.makeSemaphore(1)
     const _publish = (revise: (prior: SecretSet) => SecretSet): Effect.Effect<void> =>
       rotation.withPermits(1)(
@@ -161,7 +158,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
     yield* Effect.forkScoped(leaseSpec.renewal === "rolling"
       ? Effect.repeat(
           fetch.pipe(
-            Effect.retry(Budget.schedule("lease")),
+            Effect.retry(Fault.Budget.schedule("lease")),
             Effect.flatMap((set) => _publish(() => set)),
             // Discrimination runs INTERRUPT-FIRST: a scope teardown ends this loop cleanly while an exhausted
             // retry is custody that stopped refreshing, and a bare swallow reports the two identically — so a

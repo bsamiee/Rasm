@@ -1,0 +1,199 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://rasm.build/contracts/tolerance-wire/contract.schema.json",
+    "title": "TOLERANCE_WIRE",
+    "$comment": "Producer csharp:Rasm.Fabrication/Spec/tolerance#OWNER_FOLD, the GdtFrameWire implementation of IToleranceEncoder. The crossing is FRAMED BINARY, not JSON: this schema defines the DECODED document each branch validates its own decode against, and the byte layout below is the contract the bytes hold. Encoding law - every count, collection length, option arity, and token byte-length is a u32 little-endian cell; every magnitude is an IEEE-754 binary64 little-endian cell; every digest is 16 big-endian bytes rendered :x32; every token is a u32 byte-length followed by that many UTF-8 bytes, and every admitted token is printable ASCII by its vocabulary's own key grammar. Field order IS the producer's member declaration order on FeatureControl, so a member the owner gains has one lawful wire seat. Byte order - magic GDTF, version, id, source.kind, source.digest, characteristic, scope, zoneKind, widthMm, the kind-discriminated zone tail, modifiers, datums, material, composite. The kind tail is the ONE conditional: unilateral and unequally-disposed carry offsetMm, projected carries heightMm, and bilateral, diameter, spherical, and profile carry nothing - the zone kind alone discriminates, so no arm tag rides beside it to contradict it. An Option frames as a count of 0 or 1 followed by that many elements, the same rule every collection follows.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["version", "id", "source", "characteristic", "scope", "zoneKind", "widthMm", "modifiers", "datums", "material", "composite"],
+    "properties": {
+        "version": {
+            "type": "integer",
+            "const": 1,
+            "description": "Layout generation. A decoder refuses an unequal version rather than reading a shifted field, and a bump re-freezes the fixture."
+        },
+        "id": {
+            "$ref": "#/$defs/digest",
+            "description": "CharacteristicId - the frame's own identity, the join key a consumer carries back to the specification."
+        },
+        "source": {
+            "$ref": "#/$defs/contentKey",
+            "description": "ContentKey of the specification the frame controls. Consumers join on it and re-derive nothing."
+        },
+        "characteristic": { "$ref": "#/$defs/characteristic" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "zoneKind": { "$ref": "#/$defs/zoneKind" },
+        "widthMm": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Tolerance zone width in millimetres, crossing as the exact magnitude. Decimal presentation is the consuming drawing standard's, never the producer's - a pre-rounded string collapses a sub-micron zone onto a drawn zero."
+        },
+        "offsetMm": {
+            "type": "number",
+            "description": "Unilateral or unequally-disposed zone offset in millimetres. Present exactly when zoneKind is unilateral or unequally-disposed."
+        },
+        "heightMm": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Projected zone height in millimetres. Present exactly when zoneKind is projected."
+        },
+        "modifiers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/zoneModifier" },
+            "description": "Zone modifiers in ORDINAL-ASCENDING key order. Order is the wire's, not the producer's set iteration, so one frame encodes to one byte stream on every host."
+        },
+        "datums": {
+            "type": "array",
+            "maxItems": 3,
+            "items": { "$ref": "#/$defs/datumReference" },
+            "description": "Datum references in PRECEDENCE order - position 1 is primary, 2 secondary, 3 tertiary. Position carries precedence whole, so no precedence token rides beside it."
+        },
+        "material": {
+            "$ref": "#/$defs/materialCondition",
+            "description": "Frame-level material condition. rfs is the ISO 1101 default and draws no symbol; the retired circled-S spelling is unreachable from this wire."
+        },
+        "composite": {
+            "type": "array",
+            "maxItems": 1,
+            "items": { "$ref": "#/$defs/compositeSegment" },
+            "description": "The composite lower segment, an Option framed as a 0-or-1 count. Its datum labels are a subset of the upper datums."
+        }
+    },
+    "allOf": [
+        {
+            "$comment": "The kind tail is total: each zone kind admits exactly the second dimension its payload carries, and no other.",
+            "if": { "properties": { "zoneKind": { "enum": ["unilateral", "unequally-disposed"] } }, "required": ["zoneKind"] },
+            "then": { "required": ["offsetMm"], "not": { "required": ["heightMm"] } }
+        },
+        {
+            "if": { "properties": { "zoneKind": { "const": "projected" } }, "required": ["zoneKind"] },
+            "then": { "required": ["heightMm"], "not": { "required": ["offsetMm"] } }
+        },
+        {
+            "if": { "properties": { "zoneKind": { "enum": ["bilateral", "diameter", "spherical", "profile"] } }, "required": ["zoneKind"] },
+            "then": { "not": { "anyOf": [{ "required": ["offsetMm"] }, { "required": ["heightMm"] }] } }
+        }
+    ],
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "$comment": "Seed-zero XxHash128 identity as 16 big-endian wire bytes, rendered at the lowercase :x32 spelling."
+        },
+        "contentKey": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "digest"],
+            "properties": {
+                "kind": { "$ref": "#/$defs/egressKind" },
+                "digest": { "$ref": "#/$defs/digest" }
+            },
+            "$comment": "Producer ContentKey whole - egress kind THEN digest, the order its own canonical form writes. Kind is identity-bearing: two egress families over equal bytes mint equal digests and different keys, so a consumer joining on the digest alone merges two artifacts."
+        },
+        "egressKind": {
+            "type": "string",
+            "$comment": "Producer egress family roster, in declaration order. A frame's source names the family that owns the bytes it controls.",
+            "enum": [
+                "cutprogram",
+                "placement",
+                "remnant",
+                "cli",
+                "threemf",
+                "nc1",
+                "stock-snapshot",
+                "traveler",
+                "quality-record",
+                "flat-pattern",
+                "bend-program",
+                "weld-plan",
+                "scan-vectors",
+                "plan",
+                "digital-product-passport"
+            ]
+        },
+        "characteristic": {
+            "type": "string",
+            "$comment": "The ISO 1101 geometric characteristic roster, in the producer's declaration order. A peer maps each key onto its own ordinal-keyed owner through ONE ingest table; ordinals never cross, so a reordered roster re-maps nothing.",
+            "enum": [
+                "straightness",
+                "flatness",
+                "circularity",
+                "cylindricity",
+                "profile-line",
+                "profile-surface",
+                "parallelism",
+                "perpendicularity",
+                "angularity",
+                "position",
+                "concentricity",
+                "symmetry",
+                "circular-runout",
+                "total-runout"
+            ]
+        },
+        "scope": {
+            "type": "string",
+            "$comment": "The toleranced element the zone applies to. Scope decides how a leader terminates, so a consumer anchoring against it refuses a surface leader on a median-plane control.",
+            "enum": ["surface", "axis", "median-line", "median-plane", "center-point"]
+        },
+        "zoneKind": {
+            "type": "string",
+            "$comment": "The zone kind, carrying its prefix vocabulary and discriminating the byte tail. Keys cross, never the circled and prefixed symbols a consumer's own standard and font resolve.",
+            "enum": ["bilateral", "unilateral", "diameter", "spherical", "profile", "projected", "unequally-disposed"]
+        },
+        "materialCondition": {
+            "type": "string",
+            "$comment": "ISO 2692 material condition. rfs is the default reading and the state that draws no compartment.",
+            "enum": ["rfs", "mmc", "lmc"]
+        },
+        "zoneModifier": {
+            "type": "string",
+            "$comment": "ISO 1101 zone modifiers, in the producer's declaration order. Legality per characteristic and scope is the producer's admission, and a consumer decodes an admitted set rather than re-grading it.",
+            "enum": [
+                "tangent-plane",
+                "free-state",
+                "statistical",
+                "common-zone",
+                "continuous-feature",
+                "all-around",
+                "all-over",
+                "envelope",
+                "independency",
+                "reciprocity",
+                "minimum-circumscribed",
+                "maximum-inscribed",
+                "least-squares",
+                "minimax-tangent"
+            ]
+        },
+        "datumLabel": {
+            "type": "string",
+            "pattern": "^[A-HJ-NPR-Z](-[A-HJ-NPR-Z])?$",
+            "$comment": "One ISO 5459 reference letter, or a common datum as two letters joined by a hyphen. I, O, and Q stay out because each reads as a digit at drawing scale, and both ends compile this one class."
+        },
+        "datumReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "material"],
+            "properties": {
+                "label": { "$ref": "#/$defs/datumLabel" },
+                "material": {
+                    "$ref": "#/$defs/materialCondition",
+                    "$comment": "The datum's OWN material condition, independent of the frame's. Collapsing the two onto one column drops a datum modifier off the drawn frame."
+                }
+            }
+        },
+        "compositeSegment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["widthMm", "modifiers", "datums"],
+            "properties": {
+                "widthMm": { "type": "number", "exclusiveMinimum": 0 },
+                "modifiers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/zoneModifier" } },
+                "datums": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/datumReference" } }
+            },
+            "$comment": "The lower segment of a composite frame - a second row inside the SAME box, so it crosses here rather than as a second frame. It carries no kind of its own: the upper segment's zone kind governs both rows."
+        }
+    }
+}

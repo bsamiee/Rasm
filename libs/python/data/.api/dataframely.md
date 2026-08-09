@@ -24,7 +24,7 @@
 |  [07]   | `FailureInfo`             | failure receipt   | invalid rows, per-rule `counts`, `cooccurrence_counts`       |
 |  [08]   | `Config`                  | config context    | `max_sampling_iterations` / `max_failure_examples` overrides |
 |  [09]   | `DataFrame` / `LazyFrame` | frame alias       | `[S]`-tagged eager and lazy frames                           |
-|  [10]   | `Validation`              | literal alias     | `"allow"`/`"warn"`/`"skip"` parquet-read validation policy   |
+|  [10]   | `Validation`              | literal alias     | `"allow"`/`"forbid"`/`"warn"`/`"skip"` read-time policy      |
 |  [11]   | `DeserializationError`    | error             | serialized schema/collection restore failure                 |
 
 [PUBLIC_TYPE_SCOPE]: typed column catalogue
@@ -70,11 +70,11 @@ Every surface is a `classmethod` on the `Schema` subclass; `cast=True` coerces d
 |  [15]   | `to_pydantic_model(name)`                                 | project to a `pydantic.BaseModel` subclass              |
 
 - `Schema.validate`/`filter`/`is_valid`: `**kwargs` pass to `polars.LazyFrame.collect` — set `engine="streaming"` for out-of-core validation over a lazy frame.
-- Parquet/delta IO stays in the polars owner: read with `polars.read_parquet`/`scan_parquet` then call `Schema.validate` explicitly, write with `polars.DataFrame.write_parquet`/`LazyFrame.sink_parquet`; `read_parquet_metadata_schema(source)` recovers an embedded serialized `Schema` from parquet metadata, and `serialize`/`deserialize_schema` own the contract string.
+- Schema-tier parquet and delta IO stays in the polars owner: read with `polars.read_parquet`/`scan_parquet`/`read_delta`/`scan_delta` then call `Schema.validate` explicitly, write with `polars.DataFrame.write_parquet`/`write_delta`/`LazyFrame.sink_parquet`; the same-named `Schema` classmethods are the deleted form. `read_parquet_metadata_schema(source)` recovers an embedded serialized `Schema` from parquet metadata, and `serialize`/`deserialize_schema` own the contract string.
 
 [ENTRYPOINT_SCOPE]: `Collection` cross-frame integrity
 
-Every surface is a `classmethod` accepting `data: Mapping[str, FrameType]` keyed by member name; member schemas and the collection `@filter` invariants enforce together.
+Each minting surface binds as a `classmethod`, the validating family accepting `data: Mapping[str, FrameType]` keyed by member name so member schemas and the collection `@filter` invariants enforce together; `join`/`collect_all`/`pipe` and the writers bind on a validated instance.
 
 | [INDEX] | [SURFACE]                                                                     | [CAPABILITY]                                           |
 | :-----: | :---------------------------------------------------------------------------- | :----------------------------------------------------- |
@@ -91,9 +91,12 @@ Every surface is a `classmethod` accepting `data: Mapping[str, FrameType]` keyed
 |  [11]   | `serialize() -> str`                                                          | serialize the collection contract                      |
 |  [12]   | `member_schemas() -> dict[str, type[Schema]]`                                 | the member-name-to-schema map                          |
 |  [13]   | `common_primary_key() -> list[str]`                                           | primary key shared across members                      |
+|  [14]   | `write_parquet(directory, **kwargs)` / `sink_parquet(directory, **kwargs)`    | write / stream each member under one directory         |
+|  [15]   | `read_parquet(directory, *, validation="skip", **kwargs) -> Self`             | eager per-member parquet read                          |
+|  [16]   | `scan_parquet(directory, *, validation="skip", **kwargs) -> Self`             | lazy per-member parquet scan                           |
 
 - `Collection.validate`/`filter`: `skip_member_validation=True` runs only the collection `@filter`/relationship invariants and skips per-member schema validation; `**kwargs` pass to `collect`.
-- Per-member parquet IO: `read_parquet` `scan_parquet` `write_parquet` `sink_parquet` key each member to `<member>.parquet` under a directory; a read inspects embedded metadata and re-validates under the `validation` policy — pass `validation="skip"`, or call `validate` explicitly, to read without the implicit re-validation.
+- Per-member parquet IO keys each member to `<member>.parquet` under one directory and writes nothing for an absent optional member; a read binds `validation="skip"` and runs `Collection.validate` on the result, since the metadata-inspecting policies are the deleted form. Collection-tier delta IO stays in the polars owner, each member riding `polars.DataFrame.write_delta`/`read_delta`/`scan_delta`.
 - `CollectionFilterResult` is a 2-field `NamedTuple` — `result` (valid collection) and `failure: dict[str, FailureInfo]` keyed by member — with a `collect_all()` method; `count`/`index` are inherited `tuple` members, not results.
 - `require_relationship_one_to_one` / `require_relationship_one_to_at_least_one` carry `(lhs, rhs, /, on, *, drop_duplicates) -> pl.LazyFrame`, the 1:1 and 1:{1,N} referential-integrity expressions a `@filter` returns.
 - `concat_collection_members(collections, /) -> dict[str, pl.LazyFrame]` concatenates same-typed collections member-wise.
@@ -119,9 +122,14 @@ Every `Column` subtype constructor carries the base policy `nullable`, `primary_
 |  [13]   | `read_parquet_metadata_schema(source)`                         | function  | embedded `Schema` from parquet metadata    |
 |  [14]   | `read_parquet_metadata_collection(source)`                     | function  | embedded `Collection` from member metadata |
 |  [15]   | `random.Generator(seed)`                                       | ctor      | deterministic RNG for `sample`             |
+|  [16]   | `FailureInfo.write_parquet(file, **kwargs)`                    | method    | invalid rows plus per-rule bool columns    |
+|  [17]   | `FailureInfo.write_delta(target, **kwargs)`                    | method    | the same payload to a Delta Lake table     |
+|  [18]   | `FailureInfo.read_parquet(source)` / `scan_parquet(source)`    | factory   | restore a written failure receipt          |
+|  [19]   | `FailureInfo.read_delta(source)` / `scan_delta(source)`        | factory   | restore a Delta-written failure receipt    |
 
 - `Config` exposes `set_max_sampling_iterations(n)`, `set_max_failure_examples(n)`, `restore_defaults()`, and `options`.
 - `FailureInfo.details` adds one `Enum["valid", "invalid", "unknown"]` status column per rule name.
+- `FailureInfo` IO writes the invalid rows beside one boolean column per rule (`False` marking the rule that rejected the row), a wider payload than `invalid` and the one durable receipt format; `**kwargs` pass to the matching `polars` writer, `metadata` admitted as a dict alone.
 - `read_parquet_metadata_schema`/`read_parquet_metadata_collection` return `None` when the source carries no embedded contract; `deserialize_*` return `None` under `strict=False` on an unrecognized payload.
 - `dy.random.Generator(seed=None)` seeds the sampler helpers (`regex_sample`, `date_matches_resolution`, …) that `Schema.sample`/`Collection.sample` consume.
 - `Enum(categories, *, sqlalchemy_use_enum, sqlalchemy_enum_name, …)` projects through `to_sqlalchemy_columns` to a native SQL `Enum` when `sqlalchemy_use_enum=True` (named by `sqlalchemy_enum_name`), else to a text column.
@@ -132,15 +140,15 @@ Every `Column` subtype constructor carries the base policy `nullable`, `primary_
 - Validation folds each `Column`'s inline rules and every `@rule`/`@filter` predicate as `pl.Expr`/`pl.LazyFrame` over the frame, so rule evaluation is Polars expression algebra over the Rust `_native` core, one pass per frame.
 - `validate`/`is_valid`/`filter`/`cast` is one call-row-discriminated family: `validate` raises, `is_valid` returns a bool, `filter` splits into `(valid, FailureInfo)`, `cast` coerces dtypes; `cast` and `eager` are call rows.
 - `Collection` binds annotated `dy.LazyFrame[MemberSchema]` members under a shared primary key; `@filter` methods and `require_relationship_*` build the referential `pl.LazyFrame` each filter returns.
-- `FailureInfo` is the one failure receipt: `invalid` rows, `details`, per-rule `counts`, co-occurrence `cooccurrence_counts`.
-- `serialize`/`deserialize_schema` carry the contract as a string embeddable in parquet metadata; `read_parquet_metadata_schema` recovers it and validation runs explicitly (the `Validation` policy governs `Collection` reads), while the `to_*` family projects the one contract to Polars, PyArrow, SQLAlchemy, and Pydantic.
+- `FailureInfo` is the one failure receipt: `invalid` rows, `details`, per-rule `counts`, co-occurrence `cooccurrence_counts`, and its own parquet/delta IO family persisting the rejected rows beside their per-rule flags.
+- `serialize`/`deserialize_schema` carry the contract as a string embeddable in parquet metadata; `read_parquet_metadata_schema` recovers it and validation runs explicitly, while the `to_*` family projects the one contract to Polars, PyArrow, SQLAlchemy, and Pydantic.
 - Each gate captures schema name, primary key, rule names, valid/invalid counts, per-rule and co-occurrence counts, and serializer kind as its receipt.
 
 [STACKING]:
-- `polars`(`.api/polars.md`): dataframely is the contract layer over polars — `validate`/`filter` consume `pl.DataFrame`/`pl.LazyFrame`, forward `**kwargs` to `polars.LazyFrame.collect` (`engine="streaming"`), and `@rule`/`@filter` return `pl.Expr`/`pl.LazyFrame`; the `DataFrame[S]`/`LazyFrame[S]` outputs are polars frames carrying a schema tag, so transforms and parquet IO (`read_parquet`/`scan_parquet`/`write_parquet`/`sink_parquet`) stay in the polars owner with `Schema.validate` run explicitly on the result.
+- `polars`(`.api/polars.md`): dataframely is the contract layer over polars — `validate`/`filter` consume `pl.DataFrame`/`pl.LazyFrame`, forward `**kwargs` to `polars.LazyFrame.collect` (`engine="streaming"`), and `@rule`/`@filter` return `pl.Expr`/`pl.LazyFrame`; the `DataFrame[S]`/`LazyFrame[S]` outputs are polars frames carrying a schema tag, so transforms and frame IO (`read_parquet`/`scan_parquet`/`write_parquet`/`sink_parquet`/`read_delta`/`scan_delta`/`write_delta`) stay in the polars owner with `Schema.validate`/`Collection.validate` run explicitly on the result, `Collection.write_parquet`/`sink_parquet` and the `FailureInfo` family the two dataframely-owned exceptions.
 - `pyarrow`(`.api/pyarrow.md`) / `arro3-core`(`.api/arro3-core.md`): `to_pyarrow_schema` projects the contract to the wire `pa.Schema`; an Arrow ingest reads into polars, then through `Schema.validate`.
 - `connectorx`(`.api/connectorx.md`) / `daft`(`.api/daft.md`): a partitioned database or lakehouse read egresses a `pl.DataFrame` entering `Schema.validate` at the ingest boundary — one contract for source and consumer.
-- `deltalake`(`.api/deltalake.md`): `deltalake.write_deltalake`/`DeltaTable` and `polars.scan_delta`/`write_delta` own the delta transaction and IO; dataframely validates the resulting `pl.DataFrame`/`LazyFrame` through `Schema.validate`/`Collection.validate` at the ingest boundary.
+- `deltalake`(`.api/deltalake.md`): `deltalake.write_deltalake`/`DeltaTable` and `polars.scan_delta`/`write_delta` own the delta transaction and IO for contract frames; dataframely validates the resulting `pl.DataFrame`/`LazyFrame` through `Schema.validate`/`Collection.validate` at the ingest boundary. `FailureInfo.write_delta`/`read_delta`/`scan_delta` are the one dataframely-owned delta path, taking a path, URI, or live `DeltaTable` and landing the rejected-row receipt beside the table it came from.
 - `pandera`(`.api/pandera.md`) / `pointblank`(`.api/pointblank.md`): one validation concern partitioned by engine — Polars-native declarative contracts and `Collection` integrity here, pandas and multi-backend checks to pandera, column-health grading to pointblank.
 - `pydantic`(`libs/python/.api/pydantic.md`): `to_pydantic_model` projects the contract to a `BaseModel`, so a row-shaped API or config boundary reuses the one definition.
 - data folder: the `contract` page folds `Schema` covenants and `Collection` filters onto one `ContractClaim` through CONTRACT_GATE_FOLD/COVENANT, and the `FailureInfo` receipt stacks into the `profile` grade.
@@ -149,9 +157,10 @@ Every `Column` subtype constructor carries the base policy `nullable`, `primary_
 - Import `import dataframely as dy` at boundary scope; declare one `Schema` per frame contract and one `Collection` per multi-frame integrity set, columns assigned as typed `Column` instances.
 - Fold `filter` failures into the `FailureInfo` receipt for a graded gate instead of re-deriving per-column counts; express referential integrity with `require_relationship_*` returned from a `@filter`.
 - Read and write frames through the polars owner, then run `Schema.validate`/`Collection.validate` explicitly at the boundary; recover an embedded contract with `read_parquet_metadata_schema`/`read_parquet_metadata_collection` and project to a consuming runtime with the `to_*` family, so a downstream reader binds the projected schema rather than re-declaring the column types.
+- Persist a rejection through the `FailureInfo` IO family, the one durable receipt carrying the per-rule flags a re-derived `invalid` write loses.
 
 [RAIL_LAW]:
 - Package: `dataframely`
-- Owns: declarative Polars `Schema`/`Column` contracts with inline and cross-column rules, `Collection` cross-frame integrity over shared primary keys and filters, eager/lazy validate/filter/cast, `FailureInfo` introspection, and schema/collection serialization with metadata recovery over polars-owned parquet/delta IO.
+- Owns: declarative Polars `Schema`/`Column` contracts with inline and cross-column rules, `Collection` cross-frame integrity over shared primary keys and filters, eager/lazy validate/filter/cast, `FailureInfo` introspection and its parquet/delta receipt IO, per-member `Collection` parquet writes, and schema/collection serialization with metadata recovery over otherwise polars-owned frame IO.
 - Accept: dataframe contract declaration and enforcement feeding the CONTRACT_GATE_FOLD/COVENANT gate, with `DataFrame[S]`/`LazyFrame[S]` outputs flowing to the data and persistence owners.
-- Reject: a wrapper-rename of `validate`/`filter`; a per-row assertion loop where `@rule`/`@filter` own the algebra; one validator type per column kind; a hand-stitched anti/semi-join where `require_relationship_*` owns referential integrity; a side-file schema store where `serialize`/`read_parquet_metadata_schema` recover the contract from parquet metadata; re-declared column types the schema already projects.
+- Reject: a wrapper-rename of `validate`/`filter`; a per-row assertion loop where `@rule`/`@filter` own the algebra; one validator type per column kind; a hand-stitched anti/semi-join where `require_relationship_*` owns referential integrity; a side-file schema store where `serialize`/`read_parquet_metadata_schema` recover the contract from parquet metadata; re-declared column types the schema already projects; a `Schema`-tier or `Collection`-tier delta call and a metadata-inspecting `Collection` parquet read, each the deleted form of an explicit polars read plus `validate`.

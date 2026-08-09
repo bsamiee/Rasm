@@ -6,13 +6,13 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 
 - [02]-[DOMAIN_ROWS]: the store-per-domain vocabulary and each domain's value schema; `Kv` (types).
 - [03]-[LANE_SURFACE]: the typed operation family, the codec seam, the atomic drain; `Kv`, `KvFault`.
-- [04]-[STORAGE_RESIDENCY]: the grant, the estimate, the pressure-verdict vocabulary, the file-egress routes; `Opfs`, `Egress`.
+- [04]-[STORAGE_RESIDENCY]: the grant, the estimate, the pressure bands and their admissions, the backing descriptors, the file-egress route rows; `Opfs`, `Egress`.
 - [05]-[OVERLAY_AND_LANE]: the EventLog browser backings, the sync row, the wasm-lane seam law; `Overlay`.
 
 ## [02]-[DOMAIN_ROWS]
 
 [DOMAIN_ROWS]:
-- Owner: the interior `_domains` anchor — one row per persisted concern, each carrying its value schema: `outbox` (the durable replay entries `shell#REPLAY_DRAIN` drains — rows of minted-at plus opaque payload band), `flow` (the single pending redirect record `route#SESSION_PLANE` persists across a full-page departure), `route` (the last-good serialized query string per route key `route#TRAVERSAL_OWNER` restores on cold boot), `cache` (content-keyed byte bands `fetch#DEPOT_SCHEDULER` warms from), `mark` (watermarks — last sync instant, wake posture, boot count).
+- Owner: the interior `_domains` anchor — one row per persisted concern, each carrying its value schema: `outbox` (the durable replay entries `shell#REPLAY_DRAIN` drains — rows of minted-at plus opaque payload band), `flow` (the single pending redirect record `route#SESSION_PLANE` persists across a full-page departure), `route` (the last-good serialized query string per route key `route#TRAVERSAL_OWNER` restores on cold boot), `cache` (content-keyed byte bands `fetch#DEPOT_SCHEDULER` warms from), `mark` (watermarks — last sync instant, wake posture, boot count), `persist` (the `@effect/experimental` persistence tree's already-encoded values beside their expiry stamp).
 - Law: one domain, one named store — every row mints `createStore("rasm-" + domain, domain)` once at service construction (the Layer build, never module load, so importing the module opens nothing), IndexedDB transaction isolation holds per domain, a `clear` on one domain can never evict another, and the store roster is a value; the row guard closes the set and a new persisted concern is exactly one row.
 - Law: the operation family materializes as one lane per row — `_lane(domain, schema)` captures the store and codecs monomorphically, `_lanes` is the mapped-contract record (`{ [D in Domain]: Kv.Lane<D> }`), and the service members are generic indexed dispatch over it, so every per-domain signature correlates cast-free under the handler-record law.
 - Law: the row's schema is the domain's whole type authority — `Kv.Value<D>` derives by indexed access over the row table, so every lane operation is domain-typed with zero call-site type arguments and a value that fails decode on read is `codec` evidence, never a silently trusted blob.
@@ -26,17 +26,19 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 [LANE_SURFACE]:
 - Owner: `Kv`, one `Effect.Service` whose members are domain-generic over the row table — `read(domain, key)` yields `Option<Kv.Value<D>>` with absence as `Option.none`, and `read(domain, keys)` is the batch modality over `getMany`, one transaction answering the whole set positionally; `write(domain, key, value)` encodes then stores, and `write(domain, entries)` is the atomic batch over `setMany` — all entries land or none do, the compensation and hydrate spelling; `mutate(domain, key, step)` runs the read-modify-write inside one IndexedDB transaction with a synchronous `step`, so the transaction never spans an await; `drop(domain, key | keys)` discriminates single from batch on the input shape and deletes atomically; `size(domain)` counts keys without decoding values; `drain(domain)` is the atomic scan-then-clear — a mid-drain crash leaves the whole queue or empties it, never a half-applied tear; `wipe(domain)` resets one store.
 - Law: modality follows the input shape — a string is the point call, an array is the batch call, and the batch rows ride the library's own atomic multi-entry transactions (`getMany`, `setMany`, `delMany`); N point round-trips where one batch transaction answers is the named defect the batch modalities delete.
-- Law: every rejection converts at this seam — `Effect.tryPromise` folds the `DOMException` family into `KvFault` rows (`quota` for exceeded storage, `absent` for a host without `indexedDB`, `io` for the remainder) and decode skew folds to `codec` carrying the parse detail; no raw promise or thrown value escapes, and the family rides one core `FaultClass.family` mint whose frozen rows derive the reason type and the `class` projection together, so budget gates read the one branch taxonomy and no local guard pair or rank column exists beside it.
 - Law: the codec seam is the write and read boundary — `Schema.encode` runs before `set`/`setMany`, `Schema.decodeUnknown` after `get`/`getMany` and the drain, and the `mutate` step operates on decoded values with the encode re-applied inside the same transaction closure; a held value failing decode inside `mutate` folds to absence so the synchronous step overwrites the poisoned cell — read and drain alone surface `codec` evidence — and a consumer never meets a stored representation.
 - Law: `mutate` rides `idb-keyval`'s `update` so concurrent writers serialize inside IndexedDB's own transaction — a `read`-then-`write` pair re-spelling it is the torn-write defect; `drain` runs scan-and-clear inside ONE `readwrite` transaction through the `UseStore` closure and `promisifyRequest`, awaiting the transaction itself before any entry is handed out, so a write racing the drain lands wholly before or wholly after it and a cleared queue is a committed fact.
 - Law: an entry failing decode after a drain is `codec` evidence and cannot re-enter the store — the producing writer is the defect site, and the fault carries the detail forensics need.
-- Entry: the service's seven members are the whole surface; `R` carries nothing — the store handles are construction facts.
+- Law: `mutate` encodes inside the library's transaction callback, which rejects the transaction promise with the updater's throw, so the fault fold guards `ParseError` first — a codec failure never wears the `io` reason a class-dispatching retry re-drives forever.
+- Law: `KvBacking` satisfies `Persistence.BackingPersistence` over the `persist` row, so `PersistedCache`, `PersistedQueue`, and `RequestResolver.persisted` ride IndexedDB instead of the package's Web-Storage route; expiry is a read verdict and `clear` is prefix-scoped to one store.
+- Entry: the service's eight members are the whole surface; `R` carries nothing — the store handles are construction facts.
+- Packages: `@effect/experimental` (`Persistence`); `@rasm/ts/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Data`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Schema`); `idb-keyval`.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
-- Packages: `idb-keyval` (`get`, `getMany`, `set`, `setMany`, `update`, `del`, `delMany`, `clear`, `keys`, `promisifyRequest`, `createStore`); `effect` (`Data`, `Effect`, `Option`, `ParseResult`, `Predicate`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
-import { Data, Effect, Layer, Option, type ParseResult, Predicate, Schema } from "effect"
+import { Persistence } from "@effect/experimental"
+import { Fault } from "@rasm/ts/core"
+import { Array, type Clock, Data, Effect, Layer, Option, ParseResult, Predicate, Schema } from "effect"
 import { clear, createStore, del, delMany, get, getMany, keys, promisifyRequest, set, setMany, update, type UseStore } from "idb-keyval"
 
 const _domains = {
@@ -49,9 +51,13 @@ const _domains = {
   route: Schema.String.pipe(Schema.startsWith("?")), // a last-good query is a non-empty search string; an empty query DROPS the key, so corrupted or vacuous rows refuse at decode
   cache: Schema.Uint8ArrayFromSelf,
   mark: Schema.parseJson(Schema.Struct({ at: Schema.DateTimeUtc, note: Schema.String })),
+  // `persist` backs the persistence tree: values arrive ALREADY encoded by the tree's own result
+  // schema, so `Schema.Unknown` is the honest declaration and structured clone is the only shape law left. `expires`
+  // is the one column the other rows never needed, and it rides here rather than in a parallel expiry ledger.
+  persist: Schema.Struct({ value: Schema.Unknown, expires: Schema.NullOr(Schema.Number) }),
 } as const
 
-const _kvFamily = FaultClass.family(["quota", "absent", "codec", "io"] as const, {
+const _kvFamily = Fault.Class.family(["quota", "absent", "codec", "io"] as const, {
   quota: { class: "exhausted" },
   absent: { class: "absent" },
   codec: { class: "malformed" },
@@ -73,6 +79,7 @@ declare namespace Kv {
     }
     readonly mutate: (key: string, step: (held: Option.Option<Value<D>>) => Value<D>) => Effect.Effect<void, KvFault>
     readonly drop: (keys: string | ReadonlyArray<string>) => Effect.Effect<void, KvFault>
+    readonly index: Effect.Effect<ReadonlyArray<string>, KvFault>
     readonly size: Effect.Effect<number, KvFault>
     readonly drain: Effect.Effect<ReadonlyArray<readonly [string, Value<D>]>, KvFault>
     readonly wipe: Effect.Effect<void, KvFault>
@@ -89,7 +96,7 @@ class KvFault extends Data.TaggedError("KvFault")<{
   readonly domain: Kv.Domain
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _kvFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -97,12 +104,18 @@ class KvFault extends Data.TaggedError("KvFault")<{
   }
 }
 
+// Codec arms FIRST, because `mutate` runs its encode inside the library's own transaction callback: the library
+// catches the updater throw and rejects the transaction promise, so a `ParseError` reaches this fold as an opaque
+// rejection. Without the guard it stamped `io` — class `unavailable` — and every budget gate reading that class
+// re-drove a deterministic encode failure as a retryable transient, forever.
 const _faulted = (domain: Kv.Domain) => (cause: unknown): KvFault =>
-  !("indexedDB" in globalThis)
-    ? new KvFault({ reason: "absent", domain, detail: String(cause) })
-    : cause instanceof DOMException && cause.name === "QuotaExceededError"
-      ? new KvFault({ reason: "quota", domain, detail: cause.message })
-      : new KvFault({ reason: "io", domain, detail: String(cause) })
+  ParseResult.isParseError(cause)
+    ? new KvFault({ reason: "codec", domain, detail: String(cause) })
+    : !("indexedDB" in globalThis)
+      ? new KvFault({ reason: "absent", domain, detail: String(cause) })
+      : cause instanceof DOMException && cause.name === "QuotaExceededError"
+        ? new KvFault({ reason: "quota", domain, detail: cause.message })
+        : new KvFault({ reason: "io", domain, detail: String(cause) })
 
 const _decoded = (domain: Kv.Domain) => (fault: ParseResult.ParseError): KvFault =>
   new KvFault({ reason: "codec", domain, detail: String(fault) })
@@ -136,6 +149,12 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
       : Effect.forEach(input[0], ([key, held]) =>
           Effect.map(Effect.mapError(encode(held), _decoded(domain)), (encoded) => [key, encoded] as [IDBValidKey, unknown]),
         ).pipe(Effect.flatMap((rows) => lift((use) => setMany([...rows], use))))
+  // `index` is the scan `size` already ran privately; publishing it lets a prefix-scoped consumer clear its OWN
+  // partition of a shared domain, which a bare `wipe` cannot express without evicting every other tenant of the row.
+  const index: Effect.Effect<ReadonlyArray<string>, KvFault> = Effect.map(
+    lift((use) => keys(use)),
+    (held) => held.map(String),
+  )
   return {
     read,
     write,
@@ -145,7 +164,8 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
       ),
     drop: (keys: string | ReadonlyArray<string>) =>
       Predicate.isString(keys) ? lift((use) => del(keys, use)) : lift((use) => delMany([...keys], use)),
-    size: Effect.map(lift((use) => keys(use)), (held) => held.length),
+    index,
+    size: Effect.map(index, (held) => held.length),
     drain: lift((use) =>
       use("readwrite", (raw) =>
         promisifyRequest(raw.getAllKeys()).then((keys) =>
@@ -193,6 +213,7 @@ const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => {
     ): Effect.Effect<void, KvFault> => lanes[domain].mutate(key, step),
     drop: (domain: Kv.Domain, keys: string | ReadonlyArray<string>): Effect.Effect<void, KvFault> =>
       lanes[domain].drop(keys),
+    index: (domain: Kv.Domain): Effect.Effect<ReadonlyArray<string>, KvFault> => lanes[domain].index,
     size: (domain: Kv.Domain): Effect.Effect<number, KvFault> => lanes[domain].size,
     drain: <D extends Kv.Domain>(domain: D): Effect.Effect<ReadonlyArray<readonly [string, Kv.Value<D>]>, KvFault> =>
       lanes[domain].drain,
@@ -208,36 +229,153 @@ class Kv extends Effect.Service<Kv>()("runtime/browser/Kv", {
       route: _lane("route", _domains.route),
       cache: _lane("cache", _domains.cache),
       mark: _lane("mark", _domains.mark),
+      persist: _lane("persist", _domains.persist),
     }),
 }) {}
+
+// `BackingPersistence` is a Tag this owner SATISFIES rather than consumes: the package's own portable Layer routes
+// through `KeyValueStore`, whose browser bindings are Web-Storage alone, so `PersistedCache`, `PersistedQueue`, and
+// `RequestResolver.persisted` would each ride a synchronous string store beside the IndexedDB family already here.
+// One domain row plus this projection puts all three on the durable lane at their full published surface.
+const _backed = (kv: Kv, clock: Clock.Clock, storeId: string): Persistence.BackingPersistenceStore => {
+  const at = (key: string): string => `${storeId}/${key}`
+  const raise = (method: string) => (cause: KvFault) => Persistence.PersistenceBackingError.make(method, cause)
+  // Expiry is a READ verdict, never a sweep: a lapsed row answers absence and the next write overwrites it, so no
+  // timer, no eviction fiber, and no second pass over the store exist to drift from the value the row already carries.
+  const live = (row: Option.Option<Kv.Value<"persist">>): Option.Option<unknown> =>
+    Option.map(
+      Option.filter(row, (held) => held.expires === null || held.expires > clock.unsafeCurrentTimeMillis()),
+      (held) => held.value,
+    )
+  return {
+    get: (key) => Effect.map(Effect.mapError(kv.read("persist", at(key)), raise("get")), live),
+    getMany: (keys) =>
+      Effect.map(
+        Effect.mapError(kv.read("persist", Array.map(keys, at)), raise("getMany")),
+        (rows) => Array.map(rows, live) as globalThis.Array<Option.Option<unknown>>,
+      ),
+    set: (key, value, ttl) =>
+      Effect.mapError(
+        kv.write("persist", at(key), { value, expires: Persistence.unsafeTtlToExpires(clock, ttl) }),
+        raise("set"),
+      ),
+    setMany: (entries) =>
+      Effect.mapError(
+        kv.write(
+          "persist",
+          Array.map(entries, ([key, value, ttl]) =>
+            [at(key), { value, expires: Persistence.unsafeTtlToExpires(clock, ttl) }] as const),
+        ),
+        raise("setMany"),
+      ),
+    remove: (key) => Effect.mapError(kv.drop("persist", at(key)), raise("remove")),
+    // Prefix-scoped, because one domain row serves every store the tree mints: a bare `wipe` would evict a sibling
+    // store's rows on any one store's clear, which is the shared-row defect the published `index` exists to close.
+    clear: Effect.mapError(
+      Effect.flatMap(kv.index("persist"), (held) =>
+        kv.drop("persist", Array.filter(held, (key) => key.startsWith(`${storeId}/`)))),
+      raise("clear"),
+    ),
+  }
+}
+
+const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.effect(
+  Persistence.BackingPersistence,
+  Effect.map(Effect.all([Kv, Effect.clock]), ([kv, clock]): Persistence.BackingPersistence => ({
+    [Persistence.BackingPersistenceTypeId]: Persistence.BackingPersistenceTypeId,
+    make: (storeId) => Effect.succeed(_backed(kv, clock, storeId)),
+  })),
+)
 ```
 
 ## [04]-[STORAGE_RESIDENCY]
 
 [STORAGE_RESIDENCY]:
-- Owner: `Opfs`, one `Effect.Service` over the native `StorageManager` — `retained` reads `navigator.storage.persisted()` (already granted), `retain` requests `navigator.storage.persist()` (granted now), and `budget` folds `navigator.storage.estimate()` into the `Opfs.Budget` receipt: usage, quota, headroom, and the verdict drawn from the closed `_BANDS` vocabulary (`ample`/`tight`/`critical` by usage fraction, `opaque` where the host withholds numbers).
-- Law: the native calls are confined — `navigator.storage` is spelled only inside this owner, and a `persist`/`estimate` probe at any consumer is the named ungated-native-call defect; a host without the surface folds to `retained: false` and `opaque`, so capability absence is data.
+- Owner: `Opfs`, one `Effect.Service` over the native `StorageManager` — `retained` reads `navigator.storage.persisted()` (already granted), `retain` requests `navigator.storage.persist()` on the `ResidencyFault` rail (granted now, or the refusal named), and `budget` folds `navigator.storage.estimate()` into the `Opfs.Budget` receipt: usage, quota, headroom, and the verdict drawn from the closed `_BANDS` vocabulary (`ample`/`tight`/`critical` by usage fraction, `opaque` where the host withholds numbers).
+- Law: the native calls are confined — `navigator.storage` is spelled only inside this owner, and a `persist`/`estimate` probe at any consumer is the named ungated-native-call defect; a host without the surface folds to `retained: false` and `opaque`, so a missing measurement stays data.
+- Law: the grant is a VERDICT with three outcomes, never a boolean — `persist()` resolving `false` is the user agent's settled refusal (`declined`, class `denied`), the same call rejecting is a transient (`io`, class `unavailable`), and a host carrying no surface refuses `absent`; the picker law one rung down binds the identical split, and `orElseSucceed` over a bare probe collapses all three into a value no caller re-drives apart.
 - Owner: `Egress` — the file-egress capability VALUE the composition root binds to the ui-declared `Egress` Tag (`view/export`), because ui sits a stratum above and neither package imports the other: `Egress.save(file)` dispatches the one save over the routes the host actually carries, `Egress.share(file)` hands the same file to the host share sheet, `Egress.open(file)` yields the picker's own `WritableStream` for a payload no buffer holds, and `Egress.route` answers the whole carriage record — the save rung plus the share and stream capabilities — without performing anything, so a view renders its affordance off one read instead of probing a native. The root wraps this value member-for-member onto the ui Tag (`deliver(parcel, false)` → `save`, `deliver(parcel, true)` → `share`, `open` → `open`) and maps `EgressFault` onto the ui fault family at the same wrap — `absent` → `egress-absent`, `declined`/`io` → `egress-denied` — because a fault class cannot cross the strata either.
 - Law: the picker surface is declared HERE or nowhere — `showSaveFilePicker` is absent from the pinned `lib.dom` and no ambient shim is installed, so `_SavePicker` is this owner's boundary refinement and the one place the native is spelled; a ui page reaching `globalThis.showSaveFilePicker` is the ungated-native-call defect the Tag exists to foreclose.
 - Law: the route ladder is ordered by fidelity and total — the File System Access picker first (the user names the destination and the bytes stream to a real handle), the anchor download second (a host with a `document` but no picker), and a host carrying neither refuses `absent`, so capability absence is a typed refusal at the call rather than a silent no-op or a narrowed public surface. The share arm rides `navigator.share` gated by `canShare` over the constructed `File`, and the streaming arm rides the picker alone — an anchor needs the whole `Blob`, so a host without the picker refuses `open` as `absent` rather than buffering what the caller declared unbufferable.
 - Law: a dismissed picker is `declined`, never `io` — the native answers an `AbortError` `DOMException` when the user closes the dialog, and folding that to a write failure would drive a retry against a decision the user already made; the same `DOMException` probe the `[03]` seam runs discriminates it.
 - Law: the verdict is the one pressure vocabulary — `fetch#DEPOT_SCHEDULER` byte scheduling, this page's eviction posture, and the sqlite-wasm lane's health gate all dispatch on the verdict rows; a consumer comparing raw byte counts re-derives what the band table already decides, and a denied grant is the signal that every durable band risks eviction under pressure.
 - Receipt: `Opfs.Budget` carries the numbers beside the verdict so telemetry stamps evidence while consumers dispatch on the row.
-- Growth: a new pressure band is one `_BANDS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route (an origin-private-file handle, a share-target hand-off) is one arm on the ladder plus one `Route` literal.
-- Packages: `effect` (`Data`, `Effect`, `Exit`, `Option`, `Predicate`, `Scope`); `@rasm/ts/core` (`FaultClass`).
+- Law: `_BANDS` carries the admissions each band grants (`heavyLane`, `warmDepot`) beside its ceiling, so a consumer reads its posture off the row instead of re-deriving one from a fraction; a band grants admission and decides nothing beyond it.
+- Law: `_BACKINGS` describes each edge store and mints no consumption vocabulary — `proc/config#ADMISSION_ROWS` owns the closed axes and a backing row selects under a supplied `Profile`, so a leaf roster spelled here forks a live owner.
+- Law: `tenancy` carries the MECHANISM a row separates by — the user agent's own origin or tab scoping — because the closed axis selects the row and the cell explains the separation; a `none|single|multi` cell re-mints the roster `core/value/identity#IDENTITY_OWNER` publishes.
+- Law: `lifetime` answers BOTH halves in one cell — how long a row survives AND which party ends it — since a span with no ending party and a party with no span are each half a coordinate; the user agent is that party on every row, which the cell states rather than deferring.
+- Law: `degrade` carries the residual alone — a forfeit `tenancy` or `lifetime` already expresses never rides it a second time, so per-tab scoping buys back the isolation its siblings give up and states nothing further.
+- Growth: a new pressure band is one `_BANDS` row; a new backing is one `_BACKINGS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route is one `_ROUTES` row plus its `_LADDER` seat.
+- Packages: `effect` (`Data`, `Effect`, `Exit`, `Option`, `Predicate`, `Scope`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript
-const _BANDS = { ample: 0.5, tight: 0.85, critical: 1 } as const
+// Bands price DURABILITY ADMISSION, never a byte threshold alone. `ceiling` spans the usage fraction, `heavyLane`
+// answers whether a wasm engine may open its own store beneath the row, and `warmDepot` whether the byte depot may
+// add residency — the two decisions that lived in prose, so every consumer re-derived them from a bare number.
+// Pressure bands read a host's own accounting and grant admission, nothing further: consumption axes belong to
+// `Profile` and row lifetime belongs to the user agent, so neither is answered here and neither is a forfeit.
+const _BANDS = {
+  ample: { ceiling: 0.5, heavyLane: true, warmDepot: true, degrade: "<none>" },
+  tight: { ceiling: 0.85, heavyLane: true, warmDepot: false, degrade: "<depot-residency-refused>" },
+  critical: { ceiling: 1, heavyLane: false, warmDepot: false, degrade: "<eviction-imminent-heavy-lanes-refused>" },
+  // Withheld numbers are a POSTURE, not a missing row: a privacy shield seats beside the measured bands carrying the
+  // critical row's admissions, so a consumer meeting one reads this table rather than carrying a second arm for it.
+  opaque: { ceiling: Number.POSITIVE_INFINITY, heavyLane: false, warmDepot: false, degrade: "<numbers-withheld-critical-assumed>" },
+} as const
+
+// Ranking spans the MEASURED rows alone, so `opaque` seats in the table without entering the fraction ladder.
+const _MEASURED = ["ample", "tight", "critical"] as const
+
+// Backings describe every edge store this branch opens, each answering the descriptor floor whole. `Profile` at
+// `proc/config#ADMISSION_ROWS` owns the closed consumption axes and publishes them branch-wide, so a row SELECTS
+// under a profile and mints no axis vocabulary of its own; `tenancy` therefore carries the MECHANISM a row separates
+// by — the user agent's own scoping — never the `none|single|multi` roster that owner already spells. `lifetime`
+// answers BOTH halves in one cell, because a span with no ending party and a party with no span are each half a
+// coordinate; the user agent is that party on every row here and no cell pretends otherwise.
+// `degrade` closes with the residual alone — a forfeit `tenancy` or `lifetime` expresses never rides here twice.
+const _BACKINGS = {
+  indexeddb: {
+    fits: "durable structured values with transactional batches",
+    admit: "Kv.write",
+    tenancy: "<by-origin-alone:-two-tenants-sharing-one-browser-profile-read-and-write-one-store>",
+    lifetime: "<survives-tab-close-and-restart;-the-user-agent-ends-it-by-evicting-under-quota-pressure>",
+    degrade: ["<none>"],
+  },
+  "local-storage": {
+    fits: "small synchronous identity strings the overlay client reads before its journal opens",
+    admit: "BrowserKeyValueStore.layerLocalStorage",
+    tenancy: "<by-origin-alone:-two-tenants-sharing-one-browser-profile-read-and-write-one-keyspace>",
+    lifetime: "<survives-tab-close-and-restart;-the-user-agent-ends-it-by-evicting-under-quota-pressure>",
+    degrade: ["<strings-only>", "<synchronous-main-thread-read>"],
+  },
+  "session-storage": {
+    fits: "per-tab values that must not outlive the tab",
+    admit: "BrowserKeyValueStore.layerSessionStorage",
+    // Per-tab scoping is a REAL separation mechanism, so this row buys back the isolation its siblings above forfeit
+    // and its `degrade` carries no isolation residual at all.
+    tenancy: "<by-origin-and-tab:-a-second-tab-of-one-tenant-reads-none-of-the-first's-rows>",
+    lifetime: "<ends-at-tab-close;-the-user-agent-ends-it-and-no-restart-carries-a-row-across>",
+    degrade: ["<strings-only>"],
+  },
+} as const
 
 declare namespace Opfs {
-  type Verdict = keyof typeof _BANDS | "opaque"
+  type Verdict = keyof typeof _BANDS
+  type Backing = keyof typeof _BACKINGS
   type Budget = {
     readonly usage: Option.Option<number>
     readonly quota: Option.Option<number>
     readonly headroom: Option.Option<number>
     readonly verdict: Verdict
   }
-  type _Rows<T extends Record<keyof typeof _BANDS, number> = typeof _BANDS> = T
+  type Admission = (typeof _BANDS)[Verdict]
+  type Descriptor = (typeof _BACKINGS)[Backing]
+  type _Rows<
+    T extends Record<Verdict, { readonly ceiling: number; readonly heavyLane: boolean; readonly warmDepot: boolean; readonly degrade: string }> = typeof _BANDS,
+  > = T
+  type _Backings<
+    T extends Record<Backing, { readonly fits: string; readonly admit: string; readonly tenancy: string; readonly lifetime: string; readonly degrade: ReadonlyArray<string> }> = typeof _BACKINGS,
+  > = T
 }
 
 type _StorageHost = Navigator & {
@@ -251,14 +389,48 @@ type _StorageHost = Navigator & {
 const _storage = (): Option.Option<NonNullable<_StorageHost["storage"]>> =>
   Option.fromNullable((globalThis.navigator as _StorageHost).storage)
 
+const _residencyFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
+  absent: { class: "absent" }, // the host carries no `navigator.storage`, so no grant is reachable at all
+  declined: { class: "denied" }, // the user agent REFUSED the grant — a decision, never a transient to re-drive
+  io: { class: "unavailable" },
+})
+
+declare namespace ResidencyFault {
+  type Reason = (typeof _residencyFamily.reasons)[number]
+}
+
+class ResidencyFault extends Data.TaggedError("ResidencyFault")<{
+  readonly reason: ResidencyFault.Reason
+  readonly detail: string
+}> {
+  get class(): Fault.Class.Kind {
+    return _residencyFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<residency:${this.reason}> ${this.detail}`
+  }
+}
+
+// `persist()` RESOLVING false is the user agent's own verdict and grades `declined`; the same call REJECTING is a
+// transient the caller re-drives. Folding both onto one boolean left no caller able to tell a settled refusal from a
+// blip, which is exactly the split the picker law binds one rung down. `tryPromise` keeps the rejection on the typed
+// rail — `promise` grades it `defect`, which every budget silently refuses.
+const _granted = (run: () => Promise<boolean>): Effect.Effect<void, ResidencyFault> =>
+  Effect.flatMap(
+    Effect.tryPromise({
+      try: run,
+      catch: (cause) => new ResidencyFault({ reason: "io", detail: String(cause) }),
+    }),
+    (held) => held ? Effect.void : Effect.fail(new ResidencyFault({ reason: "declined", detail: "<grant-refused>" })),
+  )
+
 const _verdict = (usage: number, quota: number): Opfs.Verdict =>
   quota <= 0
     ? "opaque"
-    : usage / quota < _BANDS.ample
-      ? "ample"
-      : usage / quota < _BANDS.tight
-        ? "tight"
-        : "critical"
+    : Option.getOrElse(
+        Array.findFirst(_MEASURED, (band) => usage / quota < _BANDS[band].ceiling),
+        (): Opfs.Verdict => "critical",
+      )
 
 const _VOID_BUDGET: Opfs.Budget = {
   usage: Option.none(),
@@ -269,13 +441,18 @@ const _VOID_BUDGET: Opfs.Budget = {
 
 class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
   sync: () => ({
+    band: _BANDS,
+    backing: _BACKINGS,
     retained: Option.match(_storage(), {
       onNone: () => Effect.succeed(false),
       onSome: (storage) => Effect.orElseSucceed(Effect.tryPromise(() => storage.persisted()), () => false),
     }),
+    // Hosts with no `navigator.storage` refuse `absent` rather than answering a `false` indistinguishable from a
+    // decision: the read members keep absence as data because a missing number is still a posture, while the GRANT
+    // is a verdict and its three outcomes stay three.
     retain: Option.match(_storage(), {
-      onNone: () => Effect.succeed(false),
-      onSome: (storage) => Effect.orElseSucceed(Effect.tryPromise(() => storage.persist()), () => false),
+      onNone: () => Effect.fail(new ResidencyFault({ reason: "absent", detail: "<navigator.storage>" })),
+      onSome: (storage) => _granted(() => storage.persist()),
     }),
     budget: Option.match(_storage(), {
       onNone: () => Effect.succeed(_VOID_BUDGET),
@@ -325,7 +502,7 @@ type _SavePicker = (options: {
   readonly types: ReadonlyArray<{ readonly description: string; readonly accept: Record<string, ReadonlyArray<string>> }>
 }) => Promise<_SaveHandle>
 
-const _egressFamily = FaultClass.family(["absent", "declined", "io"] as const, {
+const _egressFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
   absent: { class: "absent" }, // no route: neither a picker nor a document to anchor against
   declined: { class: "denied" }, // the user closed the dialog — a decision, never a transient to re-drive
   io: { class: "unavailable" },
@@ -339,7 +516,7 @@ class EgressFault extends Data.TaggedError("EgressFault")<{
   readonly reason: EgressFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _egressFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -348,9 +525,10 @@ class EgressFault extends Data.TaggedError("EgressFault")<{
 }
 
 declare namespace Egress {
-  type Route = "picker" | "anchor" | "absent"
+  type Route = keyof typeof _ROUTES
+  type _Rows<T extends Record<Route, { readonly streams: boolean; readonly degrade: string }> = typeof _ROUTES> = T
   type Carriage = {
-    readonly save: Route
+    readonly save: Route | "absent" // `absent` is the LADDER's exhaustion, never a row: no host carries it as a capability
     readonly share: boolean
     readonly stream: boolean
   }
@@ -440,31 +618,61 @@ const _anchored = (file: Egress.File): Effect.Effect<void, EgressFault> =>
     catch: (cause) => new EgressFault({ reason: "io", detail: String(cause) }),
   })
 
+// Routes are ROWS and the ladder is their order: `available` probes the host, `perform` IS this family's admitting
+// member, `streams` states whether the row hands back a writable, and `degrade` names the forfeit. Both `route` and
+// `save` read this one table, so the affordance a view renders and the path a save takes cannot disagree — the two
+// hand ternaries this replaced were free to drift the moment either grew a rung. TENANCY and LIFETIME carry no
+// column because no row here decides either: egress carries bytes OUT and stores nothing, so its destination owns
+// what lands there and separates by whatever the host filesystem already does. Stating either per row states a
+// guess, and neither absence is a forfeit, so neither reaches `degrade`.
+const _ROUTES = {
+  picker: {
+    fits: "the user names a destination and octets stream to a real handle",
+    available: (): boolean => Option.isSome(_picker()),
+    perform: (file: Egress.File): Effect.Effect<void, EgressFault> =>
+      Option.match(_picker(), {
+        onSome: (pick) => _picked(pick, file),
+        onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+      }),
+    streams: true,
+    degrade: "<needs-user-gesture>",
+  },
+  anchor: {
+    fits: "a host carrying a document but no picker",
+    available: (): boolean => "document" in globalThis,
+    perform: _anchored,
+    streams: false,
+    degrade: "<destination-unchosen-whole-blob-buffered>",
+  },
+} as const
+
+const _LADDER = ["picker", "anchor"] as const
+
+const _routed = (): Option.Option<Egress.Route> => Array.findFirst(_LADDER, (row) => _ROUTES[row].available())
+
 const Egress: {
+  readonly rows: typeof _ROUTES
   readonly route: Effect.Effect<Egress.Carriage>
   readonly save: (file: Egress.File) => Effect.Effect<void, EgressFault>
   readonly share: (file: Egress.File) => Effect.Effect<void, EgressFault>
   readonly open: (file: Egress.File) => Effect.Effect<_SaveWritable, EgressFault, Scope.Scope>
 } = {
-  route: Effect.sync((): Egress.Carriage => {
-    const picker = Option.isSome(_picker())
-    return {
-      save: picker ? "picker" : "document" in globalThis ? "anchor" : "absent",
-      share: Option.isSome(_sharer()),
-      stream: picker,
-    }
-  }),
+  rows: _ROUTES,
+  route: Effect.sync((): Egress.Carriage => ({
+    save: Option.getOrElse(_routed(), (): Egress.Carriage["save"] => "absent"),
+    share: Option.isSome(_sharer()),
+    stream: Option.exists(_routed(), (row) => _ROUTES[row].streams),
+  })),
   save: (file) =>
-    Option.match(_picker(), {
-      onSome: (pick) => _picked(pick, file),
-      onNone: () =>
-        "document" in globalThis
-          ? _anchored(file)
-          : Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+    Option.match(_routed(), {
+      onSome: (row) => _ROUTES[row].perform(file),
+      onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
     }),
   share: _shared,
+  // Streaming reads the same `streams` column `route` publishes, so a host promised a writable always gets one
+  // and a host told otherwise never reaches the picker through a second, independently-spelled probe.
   open: (file) =>
-    Option.match(_picker(), {
+    Option.match(Option.flatMap(Option.filter(_routed(), (row) => _ROUTES[row].streams), () => _picker()), {
       onSome: (pick) => _opened(pick, file),
       onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
     }),
@@ -514,7 +722,7 @@ const Overlay: {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Egress, EgressFault, Kv, KvFault, Opfs, Overlay }
+export { Egress, EgressFault, Kv, KvBacking, KvFault, Opfs, Overlay, ResidencyFault }
 ```
 
 ## [06]-[RESEARCH]

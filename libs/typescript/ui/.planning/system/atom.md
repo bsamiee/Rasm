@@ -62,7 +62,7 @@ const Store: Store.Shape = {
 - Law: the contract is the single source — the fence's shape is the app-side declaration this lib legislates, and a hand-written fetch atom, a string cache key, or a data-fetching library beside the binding is the named defect.
 - Law: invalidation is the typed graph, never a string protocol — a query names `reactivityKeys` and ages by `timeToLive`, a mutation names the keys it dirties, and firing the mutation re-runs every query atom holding a matching key through the `@effect/experimental` `Reactivity` peer; `Atom.withReactivity(keys)` joins any derived atom to the same graph, and `Atom.refresh` is the point invalidation.
 - Law: a streaming rpc's `.query` is a `PullResult` atom — write to advance the page; the pull geometry stays inside the atom, never a hand-rolled cursor cell.
-- Law: binding rails inherit the store runtime's tracer — a query or mutation effect runs under the registry runtime, so its spans and metrics export through the `[2]` bridge seam with no binding-side code; the rpc binding names its span family at the declaration (`spanPrefix` joining the `rasm.ui` vocabulary), the app action wrapping a mutation names its rail (`Effect.withSpan("rasm.ui.form.submit")` in the form trip), and identifier-grade context (`GlobalId`, `ContentKey`) rides log annotations and span attributes, never metric tags.
+- Law: identifier-grade `GlobalId` and `Digest.Key<"content">` context rides spans and logs, never metric attributes.
 - Boundary: the `HttpApi`/`RpcGroup` values are edge contract material the app supplies, so the binding class is an APP-SIDE declaration this page legislates the exact shape of — the fence below is that shape, not a member of this module's export surface.
 
 ```typescript
@@ -112,12 +112,12 @@ const _commit = Rpc.mutation("commit")
 
 ```typescript
 import { AtomRef } from "@effect-atom/atom-react"
-import type { ContentKey } from "@rasm/ts/core"
+import type { Digest } from "@rasm/ts/core"
 import { Array, Duration, Number } from "effect"
 
-declare const _rows: Atom.Atom<ReadonlyArray<{ readonly key: ContentKey; readonly rank: number }>>
+declare const _rows: Atom.Atom<ReadonlyArray<{ readonly key: Digest.Key<"content">; readonly rank: number }>>
 
-const _byKey = Atom.family((key: ContentKey) =>
+const _byKey = Atom.family((key: Digest.Key<"content">) =>
   Atom.map(_rows, (rows) => Array.findFirst(rows, (row) => row.key === key)))
 
 const _crest = Atom.map(_rows, (rows) => Array.reduce(rows, 0, (peak, row) => Number.max(peak, row.rank)))

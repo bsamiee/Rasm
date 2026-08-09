@@ -26,41 +26,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `csharp` Pyroscope span-profile correlation; `python:runtime/observability/profiles.md`; `typescript:runtime/otel/profile.md`; `typescript:iac/operate/observe.md` Pyroscope row; the collector gateway.
 - Arms: an SDK train ships a profiles provider and an OTLP profiles exporter. Python's train proves the whole signal's stage today — `opentelemetry.proto.profiles.v1development.profiles_pb2` and its collector service resolve, while `opentelemetry.sdk` carries `trace`, `metrics`, and `_logs` and no profiles module at all, and neither the HTTP nor the gRPC exporter package publishes a profile exporter beside its trace, metric, and log ones. That `v1development` package segment turning `v1` beside a landed SDK module IS the observable; the swap then executes as row replacement per the `[PROFILE_SWAP]` table.
 
-[LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Shared `LayerTopologyFact` wire rows carry host organization into every `ElementGraph` peer.
-- Capability: `LayerTopologyFact` projects `LayerStamp` identity, `LayerPath` nesting, membership, and per-viewport overrides as detached entity and containment facts, so each runtime answers layer organization without a host handle.
-- Shape: one `tests/contracts/MANIFEST.md` entry owns the schema and the fact identity; each branch projects it through generated local bindings under `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]`.
-- Unlocks: Host-organized element queries, spatial-structure round-tripping, and one organizational producer for the graph's containment axis.
-- Anchors: `Rasm.Rhino` `Document/layers.md` `LayerStamp`/`LayerPath`/`Layers.Ask`; `libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]` beside `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]`; `Rasm.Element/.planning/Projection/projection.md`; `Rasm.Bim/.planning/Projection/semantic.md`.
-- Tension: Detached values cross the wire; host handles remain inside `Rasm.Rhino`, and each peer projects the same canonical fact identity.
-- Ripple: `python:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]`; `typescript:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-
-[DAYLIGHTING_SCENE_DESCRIPTOR]-[QUEUED]: Owned sun astronomy, scene lights, and GLB tessellation compose one daylighting scene descriptor the Python geometry analysis owner consumes for EnergyPlus/OpenStudio-grade solar and daylight studies.
-- Capability: One content-keyed, host-free scene descriptor — sun state (`SunSolver` astronomy), photometric light roster (`LightStamp` rows with `Radiance` power and the `PhotometricWeb` distribution payload), shading geometry as GLB tessellation — emitted by the Rhino-aware capture owner and folded by the Python geometry energy owner into radiation, shading, and daylight-autonomy analyses.
-- Shape: One descriptor emitter on the `Rasm.Rhino` Render/Exchange surface stacking `SunState` + `Objects/lights.md` stamps + the GLB rail over the content-keyed wire; a Python consumer on `python:geometry/energy/simulate.md` driving the machine's `energyplus`/`openstudio` engines through the runtime recipe binding; results return as wire receipts keyed by the same content identity.
-- Unlocks: Closed-loop environmental analysis from the live model — solar exposure, shading studies, daylight metrics — without a host dependency in the analysis runtime, and a reusable scene-descriptor vocabulary for any future physics consumer.
-- Anchors: `Rasm.Rhino` rendering owners; `libs/.planning/ARCHITECTURE.md` `[04]-[GEOMETRY_FLOW]`; the GLB tessellation rail at `tests/contracts/MANIFEST.md` `GLB_BY_KEY`; `python:geometry` host-free analysis.
-- Tension: the descriptor needs one neutral schema; the capture producer and the Python analysis owner bind it independently.
-- Ripple: `python:geometry` `[DAYLIGHTING_SCENE_DESCRIPTOR]`.
-
-[HOST_OPLOG_CRDT_PRODUCER]-[QUEUED]: Committed host transactions become a replayable, mergeable causal op-log — the host end of the shared op-log CRDT wire owner.
-- Capability: Every sealed commit folds into an `OperationId`-keyed causal log, so equal payloads remain distinct operations and cross-runtime sync, collaborative merge, and checkpoint replay become wire operations instead of file exchanges.
-- Shape: `tests/contracts/MANIFEST.md` `CRDT_OP_SET` owns operation identity, canonical ordering, and payload identity; each branch emits and replays through its own named mint.
-- Unlocks: Multi-runtime document sync, collaborative editing groundwork, deterministic replay for testing and audit, and the first live producer for the wire law's op-log owner.
-- Anchors: `Rasm.Rhino` document events; the `CRDT_OP_SET` minters `csharp:Rasm.Persistence/Version/commits#CRDT_ALGEBRA`, `python:runtime/transport/wire#CRDT_STATE`, `typescript:core/state/merge#INSTANCE_ROSTER`.
-- Tension: Distinct from the static archive diff (`Exchange/archive.md` `ArchiveDelta`) — the op-log is causal and live, the diff is structural and at-rest; CRDT merge policy settles commutation and conflict per mutation kind without conflating operation identity with payload identity.
-- Ripple: `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]`.
-
-[GENERATION_RECOVERY_CONTRACT]-[QUEUED]: Backend-generation recovery becomes contract law every branch mints, not a per-branch runbook.
-- Capability: a restored store proves which generation it carries and whether that generation is still admissible, so point-in-time recovery, replica promotion, and a rebuilt embedded store all land on one verdict; the recovery objective each host profile declares gauges the measured window against the contract rather than a branch-local table.
-- Shape: recovery rows on the `BACKEND_CONTRACT` corpus schema with their per-branch mints at the three contract owners, and the measured-window comparison at each branch's recovery owner.
-- Unlocks: a recovered store admits or refuses on evidence in every branch, and a polyglot application restores its merged generation without one branch's runbook standing in for the law.
-- Anchors: `tests/contracts/MANIFEST.md` `BACKEND_CONTRACT` and its three minters `csharp:Rasm.Persistence/Store/schema#IDENTITY`, `python:runtime/execution/admission#BACKEND_CONTRACT`, `typescript:data/lane/capability#CONTRACT`; `csharp:Rasm.Persistence/Version/recovery` PITR choreography; `csharp:Rasm.AppHost/Runtime/profiles` `RecoveryObjective` columns.
-- Tension: recovery evidence is time-shaped where the generation is content-shaped — a store restored to an earlier instant carries a valid generation whose data frontier lags it, so the verdict must separate contract identity from data recency without minting a second generation notion.
-- Ripple: `python:runtime` `[GENERATION_RECOVERY_CONTRACT]`; `typescript:data` `[GENERATION_RECOVERY_CONTRACT]`.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
+[GENERATION_RECOVERY_CONTRACT]-[COMPLETE]: all three branch mints grade one verdict on two proofs with no second identity axis, recovery evidence staying observation-side so canonical bytes and every peer decode are untouched. Skew closed a real divergence — a frontier stamped after its own observation computed a negative lag that passed the C# and Python gauges trivially, and a same-instant frontier refused in TypeScript alone; both rules ride `libs/.planning/RULINGS.md`.
+[HOST_OPLOG_CRDT_PRODUCER]-[COMPLETE]: merge policy settled per mutation kind on one `OpLaw` triple three runtimes spell, surfacing three live defects — replay dedup was content-proven and discarded a second edit of identical bytes, the crdt lane counted genuine `set` conflicts as convergence, and `maintain` admitted a horizon its minter never observed, now `SyncFault.Unobserved`. Registration is the `OPLOG_ENTRY` entry, never a descriptor family.
+[DAYLIGHTING_SCENE_DESCRIPTOR]-[COMPLETE]: both ends built against the pinned schema — `Render/settings#SUN_ASTRONOMY` mints `SceneSun` off the kernel almanac, `Objects/lights#SEED_AND_EDIT` mints `ScenePhotometry`, and `python:geometry/energy/simulate#SIMULATE` decodes into shade meshes, a point-in-time sky, and an authority-ranked roster. Probing settled that no engine on the rail reads an IES web, so it crosses by content key alone.
+[LAYER_TOPOLOGY_GRAPH_FACTS]-[COMPLETE]: landed whole as the `ORGANIZATION_WIRE` entry over `rasm.organization.v1` — producer `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`, decoders `python:data/graph/graph#TOPOLOGY` folding onto the one rustworkx kernel and `typescript:data/read/query#ORGANIZATION_ROWS` beside `read/fold#LANE_SPEC`. `LayerTopologyFact` does not re-enter under any spelling.
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 

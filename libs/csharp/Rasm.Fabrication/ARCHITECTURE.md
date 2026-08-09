@@ -232,7 +232,7 @@ flowchart LR
     Element e2@-->|"[SHAPE]: ElementGraph"| Ingress
     Ingress e14@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Element
     Process e15@<-->|"[SHAPE]: DetailSchema + PropertyCategory"| Element
-    Spec e8@-->|"[WIRE]: IToleranceEncoder bytes"| Artifacts
+    Spec e8@-->|"[WIRE]: GdtFrameWire"| Artifacts
     Telemetry e9@-->|"[RECEIPT]: FabricationFact"| AppHost
     AppHost e10@-->|"[PORT]: TelemetryContributorPort"| Telemetry
     Telemetry e11@-->|"[PORT]: FabricationHooks"| AppHost

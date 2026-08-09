@@ -1,6 +1,6 @@
 # [CROSS_LIBS_TASKLOG]
 
-Open and closed cross-language tasks — the wire seams that span two or more of C# / Python / TypeScript. Per-language and per-folder work lives in the branch and folder `TASKLOG.md`; this node carries only the seam each branch consumes at the boundary, never a re-aggregation of branch work. Each task names its producer and consumer touchpoints in `lang:pkg/page#CLUSTER` notation with the considerations that scope it; a closed task compacts to one or two lines.
+Open and closed cross-language tasks — the wire seams that span two or more of C# / Python / TypeScript. Per-language and per-folder work lives at the branch and folder tiers; this node carries only the seam each branch consumes at the boundary, never a re-aggregation of branch work. Each task names its producer and consumer touchpoints in `lang:pkg/page#CLUSTER` notation with the considerations that scope it; a closed task compacts to one or two lines.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
@@ -28,36 +28,20 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Arms: an estate host repo declares the container placement composing the iac `Lgtm`/`Dev` rows and the published `StackOutputs.otlp` endpoint resolves live. Nothing in `libs/` remains: `typescript:iac/program/spec#SPEC_OWNER` `_Observe` carries `store`, `sampling`, `topology`, `buffer`, and `analytics` as defaulted schema fields, and `StackOutputs` carries its `otlp` plane record beside the `pairs` env flatten, so every coordinate this task depends on is a landed spec value and only the deployment leg is outstanding.
 - Tension: Container placement lands in the estate host repos, never in libs; the iac package stays host-agnostic and the deployment consumes it.
 
-[LAYER_FACT_SCHEMA]-[QUEUED]: Canonical `LayerTopologyFact` schema and codec pin at the producing end.
-- Capability: `[LAYER_TOPOLOGY_GRAPH_FACTS]` decomposes into the schema pin — identity, nesting, membership, and override fields with their typed keys — owned beside the `csharp:Rasm.Rhino/Document/layers#TREE_SNAPSHOT` emitter before any peer decodes.
-- Shape: Schema and codec rows at the C# owner; decode landings stay with the `python:data` `[LAYER_TOPOLOGY_DECODER]` and `typescript:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]` counterpart cards.
-- Unlocks: IDEAS.md [LAYER_TOPOLOGY_GRAPH_FACTS] — the Python and TypeScript decoders build against one pinned schema, host-organized element queries answered without a host handle.
-- Anchors: `[LAYER_TOPOLOGY_GRAPH_FACTS]`; `Layers.Ask` emission; `Rasm.Element` `IElementProjection` fold.
-
-[SCENE_DESCRIPTOR_SCHEMA]-[QUEUED]: Daylighting descriptor schema lands in the shared wire vocabulary.
-- Capability: `[DAYLIGHTING_SCENE_DESCRIPTOR]` decomposes into the descriptor field pin — sun state, photometric roster, GLB shading payload, tessellation-fidelity axis — ruled once before producer or consumer builds.
-- Shape: Descriptor schema rows in the wire vocabulary; producer pins on `csharp:Rasm.Rhino/Render/settings#SUN_ASTRONOMY` and `csharp:Rasm.Rhino/Objects/lights#SEED_AND_EDIT`; consumer pin on `python:geometry/energy/simulate#SIMULATE`.
-- Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — producer and consumer build against a settled descriptor, closing the loop on solar, shading, and daylight studies off the live model.
-- Anchors: `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the geometry-flow law crossing at content identity and the GLB rail.
-
-[TOLERANCE_WIRE_CONTRACT]-[QUEUED]: The tolerance byte wire carries a proof obligation, so the C#-to-Python GD&T crossing stops holding by convention alone.
-- Capability: every cross-branch shape carries a corpus entry naming its producer, its consumer, and the payload class both sides prove against — the Tier-0 law the tolerance seam is the outstanding exception to; a seam whose two ends merely happen to spell the same encoder name proves nothing, and a rename at one end reaches the other only through the entry.
-- Shape: one `tests/contracts/MANIFEST.md` row under the `domain` class, one producer originating the semantic model; producer `csharp:Rasm.Fabrication/Spec/tolerance` `IToleranceEncoder` bytes, consumer `python:artifacts/drawing/dimension` `GdtFrame`.
-- Unlocks: the seam stops being convention-coincidence — the encoder's byte layout and the frame's decode are pinned to one fixture, so either end drifting is a corpus failure rather than a silent GD&T misread on a drawing.
-- Anchors: `csharp:Rasm.Fabrication` and `python:artifacts` seam registries, both now spelling the edge as an `IToleranceEncoder` byte wire; the `domain`-class rows already carrying a `wire-bytes` + `digest` payload.
-
-[OPLOG_ENTRY_SCHEMA]-[QUEUED]: `OperationId` and the op-log entry schema pin at the commit envelope.
-- Capability: `[HOST_OPLOG_CRDT_PRODUCER]` decomposes into the shared identity pin — the `OperationId` `[ComplexValueObject]` with sorted vector-clock encoding — and the entry schema over the sealed-commit facts, ruled before replay or merge lands anywhere.
-- Shape: Identity and entry rows at the C# wire owner; the `csharp:Rasm.Rhino/Document/events#STREAM_OWNER` tap and the `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]` decode consume the pinned schema.
-- Unlocks: IDEAS.md [HOST_OPLOG_CRDT_PRODUCER] — replay, merge, and cross-runtime sync build against one pinned identity, equal payloads staying distinct operations.
-- Anchors: `[HOST_OPLOG_CRDT_PRODUCER]`; `DocumentCommit.Sealed` as the single tap point.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
+[TOLERANCE_WIRE_CONTRACT]-[COMPLETE]: `tests/contracts/tolerance-wire` pins the 210-byte `GdtFrameWire` frame at digest `78030538177c18bdf51d0f317ce6ef88` under a REAL pin. Repaired what the pin exposed — the seam held no bytes at either end, the consumer `GdtFrame` now seats every producer-admitted fact, the datum-label class narrowed to the ISO 5459 alphabet its peer already compiled, and a three-place zone mask that drew a sub-micron tolerance as zero gave way to exact carriage.
+[OPLOG_ENTRY_SCHEMA]-[COMPLETE]: `OperationId` landed at `Version/ledger#CHANGEFEED` as the `(origin, counter)` dot over its pre-mint frontier, its preimage composing the one `VersionVector.WriteTo` hoisted out of `CommitGraph.Preimage` — repairing `CrdtWire.Lift` and the TypeScript `_Clocks` encode, both emitting hash-bucket slot order and forking one causal position's digest per runtime. `OriginStoreId` collapsed into `Id.Origin`.
+[SCENE_DESCRIPTOR_SCHEMA]-[COMPLETE]: landed as the `rasm.scene.v1` source and its frozen snapshot — a descriptor family beat compute-suite rows and a GLB sidecar, since `GLB_BY_KEY` names its own producer and `KHR_lights_punctual` seats neither area lights nor a site. Sun crosses as the sited/authored discriminant with angles solved once on `Rasm.Numerics.SolarPosition`; fidelity crosses declared and the consumer grades it.
+[LAYER_FACT_SCHEMA]-[COMPLETE]: landed as `rasm.organization.v1` beside its frozen snapshot, buf clean, producing end at `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`. Host-free by field — a content-keyed label-chain address replaces host id and table index, the leaf label replaces the joined path, a dense ordinal replaces `SortIndex`, and a oneof key space replaces a relation column. One descriptor source carries one minter, so a new family beat rows in `rasm.element.v1`.
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ELEMENT_DESCRIPTOR_SOURCE]-[COMPLETE]: `tests/contracts/rasm/element/v1/element.proto` transcribes the `WIRE_CODEC` fence whole — every message, no services, `option csharp_namespace = "Rasm.Element.Wire"` — with `element.descriptor.binpb` frozen at the sibling parity flags, `buf lint`/`format`/`breaking` clean, and the python codegen roster widened to its third source.
+
+[PROVEN_FINDING_DRAIN]-[COMPLETE]: drained on one coordinator leg with write authority across `libs/`, `docs/`, `tests/`, and the manifests. Re-proving each finding on its owning rail paid four times over — `upload.abort()` issues no network call, `encodeSharedRef` returns a reused-buffer view, the D1 workers types ARE installed, and `buf` runs from `node_modules/.bin` — and live probes settled a one-process DuckLake catalog, a promise stranded by mid-lease disconnect, and the `\uXXXX` split across the three JSON encoders. Residual rows are the operator-carved forward pool alone.
+[TRANSPORT_CONSUMPTION_GUIDANCE]-[COMPLETE]: every branch now answers the descriptor floor — C# `Version/egress#EGRESS_SINK` already carried all eleven columns over ten engines, python declares no transport family by ruling and `transport/roots#STORE` refuses `tenancy` by name, and typescript landed the rest: `net/pubsub#PORT_SHAPE`, `net/channel`, and `work/deliver` carry the universal five beside `deliver`/`order`/`settle`/`replay`/`bound`/`refuse`, folding away the forked substitutes and the `bound`/retention collision.
 [WIRE_LAW_PARITY]-[COMPLETE]: reopened when the disk audit refuted row-identical transcription — the C# branch failed the namespace, unit-suffix, histogram, and temporality rows, python stamped no scope version, and typescript registered no global propagator; re-closed with every conformance cell repaired at its branch owner and parity proved by the `tests/contracts/` `TELEMETRY_CONVENTION` entry rather than by naming alignment.
 [FLEET_ROW_ARM_MAP]-[COMPLETE]: reopened when three of four `[FLEET_ESCALATION]` arm coordinates named surfaces that did not exist; re-closed against the landed `observe.sampling`/`observe.topology`/`observe.buffer` spec values, so every arm resolves to a named coordinate and re-arming is a spec flip.
 [TENANT_COST_JOIN]-[COMPLETE]: three-pin join landed as the `ARCHITECTURE.md` `[TENANT_COST_JOIN]` row — producer spend family, SDK-side `rasm.tenant` promotion, iac OpenCost read — cap overflow riding exemplar-sampled traces.

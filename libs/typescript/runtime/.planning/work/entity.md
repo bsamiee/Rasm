@@ -1,12 +1,12 @@
 # [RUNTIME_ENTITY]
 
-The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given sharded, per-id, single-writer identity, and this page owns everything that gives it that identity — the `WorkClass` service-class vocabulary every work surface prices itself against, the `Actor` mint that binds a protocol to fenced bounds and durability annotations, the `Mailbox` durable-message port over the data wave's `SqlClient` with the one `ClusterError → FaultClass` bridge, and the `Grid` topology assembly — leaderless sharding over `RunnerStorage` advisory locks, K8s runner health, the runner entry rows, the cluster singleton, and the workflow-engine bridge `flow` runs on. Sharding has no manager election: runners acquire, refresh, and release shard locks against storage, so the topology is a table of peers and a runner death is a lock expiry, never a coordinator failover. `work` composes `MessageStorage` and `SqlClient` as Tags satisfied at the app root from the data wave's `Stores` scopes; no SQL driver import is spellable here. The module ships on the `./server` exports subpath as `runtime/src/work/entity.ts`.
+The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given sharded, per-id, single-writer identity, and this page owns everything that gives it that identity — the `WorkClass` service-class vocabulary every work surface prices itself against, the `Actor` mint that binds a protocol to fenced bounds and durability annotations, the `Mailbox` durable-message port over the data wave's `SqlClient` with the one `ClusterError → Fault.Class` bridge, and the `Grid` topology assembly — leaderless sharding over `RunnerStorage` advisory locks, K8s runner health, the runner entry rows, the cluster singleton, and the workflow-engine bridge `flow` runs on. Sharding has no manager election: runners acquire, refresh, and release shard locks against storage, so the topology is a table of peers and a runner death is a lock expiry, never a coordinator failover. `work` composes `MessageStorage` and `SqlClient` as Tags satisfied at the app root from the data wave's `Stores` scopes; no SQL driver import is spellable here. The module ships on the `./server` exports subpath as `runtime/src/work/entity.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[WORK_CLASS]: the one service-class row table — concurrency, mailbox, idle, budget, attempts, priority; `WorkClass`.
 - [03]-[ACTOR_MINT]: the entity mint: protocol, fenced bounds, durability annotations, client, exposure; `Actor`.
-- [04]-[MAILBOX]: the durable plane's two-store tier rows, dedup receipt, the `ClusterError → FaultClass` bridge; `Mailbox`.
+- [04]-[MAILBOX]: the durable plane's two-store tier rows, dedup receipt, the `ClusterError → Fault.Class` bridge; `Mailbox`.
 - [05]-[GRID]: leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge; `Grid`.
 
 ## [02]-[WORK_CLASS]
@@ -15,10 +15,9 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Owner: `WorkClass`, the assembled service-class vocabulary — the row table carries every axis a work surface reads, and the exported owner derives `kinds` and `schema` from that table under one `typeof`-derived annotation. Three seed rows ride the parameterized family: `interactive` (serialized handling, small mailbox, long residency, `pulse` budget, three attempts, urgency 0), `steady` (bounded parallel handling, mid mailbox, `lease` budget, five attempts, urgency 50), and `bulk` (wide handling, deep mailbox, short residency, `bulk` budget, eight attempts, urgency 100).
 - Law: the row is the collapse point for three formerly parallel tables — entity fenced quotas, queue lane policy, and relay egress pacing all read these columns; a work surface that re-declares a `{ concurrency, retry }` pair beside this table is the named split-brain defect.
 - Law: `concurrency` and `mailbox` are the entity fence — a tenant's actor saturates to `MailboxFull` at its own row's bound without starving a sibling; `idle` prices residency; `budget` names the `core/value/fault#RETRY_BUDGET` row; `attempts` is the durable lane's park ceiling; `urgency` is the integer the claim `ORDER BY` term reads — smaller claims first.
-- Law: `defectRetry` derives from the row's budget — the entity's `defectRetryPolicy` IS `Budget.schedule(row.budget)`, so a defecting handler re-drives under the same geometry as a transient fault and no second retry vocabulary exists.
 - Growth: a new service class is one tuple entry plus one row every fence, lane, and pacing fold inherits at compile time; a new axis (a hedge delay, a spend weight) is one `Row` field consumed by the surfaces that name it.
 - Boundary: which class an actor or job family selects is that declaration's policy field; this table prices classes and never names consumers.
-- Packages: `effect` (`Duration`, `Schema`); `@rasm/ts/core` (`Budget`).
+- Packages: `effect` (`Duration`, `Function`, `Schema`); `@rasm/ts/core` (`Fault.Budget`).
 
 ```typescript
 import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, EntityResource, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
@@ -26,8 +25,8 @@ import { PersistedQueue } from "@effect/experimental"
 import type { HttpApi } from "@effect/platform"
 import { type Rpc, RpcGroup } from "@effect/rpc"
 import { SqlPersistedQueue } from "@effect/sql"
-import { Array, Duration, Effect, Layer, Metric, Option, Schema, Stream, Struct, type Types } from "effect"
-import { Budget, FaultClass, type TenantContext } from "@rasm/ts/core"
+import { Array, Duration, Effect, Function, Layer, Metric, Option, Schema, Stream, Struct, type Types } from "effect"
+import { Fault, type Identity } from "@rasm/ts/core"
 import { Setting } from "../proc/config.ts"
 
 const _classRows = {
@@ -45,7 +44,7 @@ declare namespace WorkClass {
     readonly concurrency: number
     readonly mailbox: number
     readonly idle: Duration.Duration
-    readonly budget: Budget.Kind
+    readonly budget: Fault.Budget.Kind
     readonly attempts: number
     readonly urgency: number
   }
@@ -54,7 +53,7 @@ declare namespace WorkClass {
     typeof _classRows & {
       readonly kinds: Kinds
       readonly schema: Schema.Literal<[...Kinds]>
-      readonly defectRetry: (kind: Kind) => Budget.Gated
+      readonly defectRetry: (kind: Kind) => Fault.Budget.Gated
     }
   >
   type _Rows<T extends Contract = typeof _classRows> = T
@@ -64,7 +63,8 @@ const WorkClass: WorkClass.Shape = {
   ..._classRows,
   kinds: _classes,
   schema: Schema.Literal(..._classes),
-  defectRetry: (kind) => Budget.schedule(_classRows[kind].budget),
+  // this policy grades the raw defect the cluster caught, and no classed shape reaches it, so the default gate refuses every retry
+  defectRetry: (kind) => Fault.Budget.schedule(_classRows[kind].budget, Function.constTrue),
 }
 ```
 
@@ -92,7 +92,7 @@ declare namespace Actor {
     readonly name: Type
     readonly protocol: (annotate: <Current extends Rpcs>(rpc: Current) => Current) => RpcGroup.RpcGroup<Rpcs>
     readonly clazz: WorkClass.Kind
-    readonly tenant: (entityId: string) => TenantContext.Key
+    readonly tenant: (entityId: string) => Identity.Tenant.Key
     readonly ephemeral: ReadonlyArray<Rpcs["_tag"]>
     readonly untraced: ReadonlyArray<Rpcs["_tag"]>
     readonly interrupt: boolean | "client" | "server"
@@ -146,11 +146,9 @@ const Actor = { make: _make, expose: _expose }
 - Owner: `Mailbox` — the durable plane's store composition and its fault fold. Each tier row publishes the two stores the plane draws on: the cluster envelope store (`SqlMessageStorage.layer` on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes, with `Snowflake.layerGenerator` minting the monotonic identity dedup keys on; `MessageStorage.layerMemory` for single-node and spec, `layerNoop` for ephemeral) AND the queue-item store (`PersistedQueue.layer` over `SqlPersistedQueue.layerStore()` on the same `SqlClient`, over `PersistedQueue.layerStoreMemory` on the lighter tiers) — three rows behind one selection at the root.
 - Law: the two stores are disjoint by signature and neither substitutes for the other — `MessageStorage` holds cluster envelopes keyed by `Snowflake` plus Rpc primary key, `PersistedQueueFactory` holds queue items a `DurableQueue.worker` leases and settles, and the `worker` Layer's requirement names the second by type. A tier publishing only the envelope arm leaves every `queue#JOB_FAMILY` worker Layer unsatisfiable at the composition root, which is why the queue store is a column on this row and not a fourth Layer the app must remember.
 - Law: delivery is at-least-once folded to exactly-once effect — `SaveResult.Duplicate`, keyed on `Snowflake` plus the Rpc primary key, re-subscribes a replayed send to the prior result and never re-executes the handler; the sender needs no idempotency wrapper because dedup is the storage contract.
-- Law: the fault bridge is one governed record — every `ClusterError` tag maps to its `FaultClass` kind (`MailboxFull → exhausted`, `AlreadyProcessingMessage → conflicted`, `PersistenceError → unavailable`, `MalformedMessage → malformed`, `EntityNotAssignedToRunner → unavailable`, `RunnerNotRegistered → unavailable`, `RunnerUnavailable → unavailable`) — so cluster faults enter the branch rail with rank, blame, and the retryable column already decided, and `Mailbox.classify` is total over the family. Re-drive reads `FaultClass.retryable` through the caller's `Budget` row; no cluster-specific retry predicate exists.
 - Law: cluster topology is observed through the package's own instruments — `Grid.metrics` reads `ClusterMetrics.entities`, `ClusterMetrics.singletons`, `ClusterMetrics.runners`, `ClusterMetrics.runnersHealthy`, and `ClusterMetrics.shards` as one concurrent snapshot, so runner and shard topology stays aligned with the cluster runtime's registered gauges. Mailbox depth and drain rate belong to the queue and journal owners because `ClusterMetrics` exposes neither; attributing those signals to this package is a phantom contract.
 - Boundary: the journal, outbox, and idempotency-ledger relations belong to the data wave; this port persists cluster envelopes in cluster-owned relations on the same scope, and atomicity with a domain aggregate is the data journal's transaction, reached by enqueuing from inside it — never by threading this storage into a domain write.
 - Growth: a new durability tier is one row on the tier record carrying both store arms; a new cluster fault tag is one bridge row the governed record demands at compile time.
-- Packages: `@effect/cluster` (`SqlMessageStorage`, `MessageStorage`, `Snowflake`, `ClusterError`, `ClusterMetrics`); `@effect/experimental` (`PersistedQueue`); `@effect/sql` (`SqlPersistedQueue`); `effect` (`Layer`, `Metric`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 declare namespace Mailbox {
@@ -177,14 +175,14 @@ const _bridge = {
   EntityNotAssignedToRunner: "unavailable",
   RunnerNotRegistered: "unavailable",
   RunnerUnavailable: "unavailable",
-} as const satisfies Record<ClusterError.ClusterError["_tag"], FaultClass.Kind>
+} as const satisfies Record<ClusterError.ClusterError["_tag"], Fault.Class.Kind>
 
-const _classify = (fault: ClusterError.ClusterError): FaultClass.Kind => _bridge[fault._tag]
+const _classify = (fault: ClusterError.ClusterError): Fault.Class.Kind => _bridge[fault._tag]
 
 const Mailbox = {
   tier: (tier: Mailbox.Tier) => _tiers[tier],
   classify: _classify,
-  retryable: (fault: ClusterError.ClusterError) => FaultClass[_classify(fault)].retryable,
+  retryable: (fault: ClusterError.ClusterError) => Fault.Class.at(_classify(fault)).retryable,
 }
 ```
 

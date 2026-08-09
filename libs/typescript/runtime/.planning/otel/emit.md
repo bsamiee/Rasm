@@ -17,7 +17,6 @@
 
 ## [02]-[POLICY]
 
-- Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity` (whose settled dimensions — instance, namespace, environment — the `Convention.identity` projection stamps on the `Resource`, so no export field re-mints an identity fact), the collector endpoint and sealed headers, the lane, per-signal cadence as `Duration` rows, the head-sampling ratio, the exporter transport bounds, the three structural cap sets under one `caps` group, metric temporality, the base-2 exponential-histogram size, the per-instrument-kind cardinality budget, the diagnostic floor, the server and browser instrumentation groups, the shutdown drain window, and the redaction rules. Transport rows — collector origin, sealed headers, cadence, sampling ratio — home in `Setting.otel` (`proc/config#ADMISSION_ROWS`' described group), so the app root assembles the policy from the boot-validated `Setting` and its own identity value, and no export decision exists outside the one row.
 - Law: the collector secret rides `Redacted` end-to-end — the policy's `headers` values are `Redacted<string>` sealed at config admission and unwrapped at exactly one seam per lane: per export inside the `HeadersFactory` on the SDK rows, per construction on the native rows whose `Headers.Input` slot admits no factory. Either way an exporter credential can never print, and no plaintext record outlives the send.
 - Law: cadence, batch width, sampling ratio, temporality, and the structural limits are policy values with stated defaults — a lane never hardcodes an interval, and tuning a fleet is a config edit; the OTLP signal paths derive from one base URL by the interior `_signal` projection, so a collector move is one field.
 - Law: `caps` groups the three structural cap sets under one name because one concept binds them — how much a hostile or runaway payload may occupy — and each set types off the SDK's own record under `Required`: `BatchSpanProcessorBrowserConfig` for the queue, `SpanLimits` for span structure, `LogRecordLimits` for log-record structure, and `cardinalityLimits` for the per-instrument-kind series budget. `Required` is what forbids a partially-answered cap set, so every knob the pin ships is a policy row by construction and an upstream field addition surfaces as a type error rather than a silently unreachable default; `cardinality` reads the reader's own record whole, whose `default` row already catches every unnamed kind.
@@ -34,7 +33,6 @@
 - Law: `egress` names the non-collector origins this process pushes telemetry to — the Pyroscope backend the root reads off `Setting.otel.profile`, a vendor exporter, a second collector — because the SDK's own export suppression covers the OTLP legs alone and reaches nothing that pushes outside a `LogRecordProcessor`, a `SpanProcessor`, or `internal._export`; `[07]` folds this roster with the collector into one self-exclusion compare, so a new self-egress is a policy value rather than a second bespoke parse.
 - Law: `server.rows` and `browser.rows` close the instrumentation roster against `_SERVER_ROWS`/`_BROWSER_ROWS` for the same silently-ignored-spelling reason `engine.groups` closes against `_GROUPS` — `InstrumentationConfig.enabled` is the zeroth column every other per-row field tunes, so a deployment with no Postgres refuses `PgInstrumentation`'s module patch outright instead of tuning a row it still constructs, and a kiosk build drops interaction spans without dropping its whole condition node.
 - Growth: a new export decision is one policy field consumed by the lane rows; a new backend is a `baseUrl`/`headers` value, never a lane; a new framing or SDK binding is one `_lanes` row; a new instrumentation is one roster entry with its `rows` cell.
-- Packages: `effect` (`Duration`, `Redacted`), `@rasm/ts/core` (`AppIdentity`, `Convention`), `@opentelemetry/sdk-trace-base` + `-metrics` + `-logs` (the cap, cardinality, and `LoggerPattern` records), `@opentelemetry/api` (`DiagLogLevel`), `@opentelemetry/api-logs` (`SeverityNumber`).
 
 ```typescript signature
 import {
@@ -77,7 +75,7 @@ import {
   serviceInstanceIdDetector, type ResourceDetector,
 } from "@opentelemetry/resources"
 import type { EventName, ShouldPreventSpanCreation } from "@opentelemetry/instrumentation-user-interaction"
-import { type AppIdentity, Carrier, Convention, Tap } from "@rasm/ts/core"
+import { type Identity, Carrier, Convention, Tap } from "@rasm/ts/core"
 import { Life } from "../proc/life.ts"
 
 // HostMetrics enables a family only on an exact match and ignores every other entry, so an unrostered spelling
@@ -109,7 +107,7 @@ const _LOGGING: readonly [LoggerPattern] = [{ pattern: "*", config: { minimumSev
 declare namespace Export {
   type Lane = keyof typeof _lanes
   type Policy = {
-    readonly identity: AppIdentity
+    readonly identity: Identity.App
     readonly collector: {
       readonly baseUrl: string
       readonly headers: Readonly<Record<string, Redacted.Redacted<string>>>
@@ -264,13 +262,11 @@ const Redaction: {
 - Law: one `ViewOptions` row vocabulary executes on two seams, because the metric plane splits by producer rather than by reader. Instruments minted on `Hooks.Meter`'s raw `MeterProvider({ readers, resource, sdkMetricsEnabled, views })` reach the SDK's own view engine, which applies selection, attribute processors, aggregation, and `aggregationCardinalityLimit` at instrument-storage time. Effect-minted `rasm.*` metrics reach no `MeterProvider` even while sharing that provider's reader — they enter as an ADDITIONAL producer whose `CollectionResult` the reader concatenates untouched, so the SDK view engine, the reader's aggregation and temporality selectors, and its cardinality selector all sit downstream of nothing for that half. `[05]` therefore folds the identical rows as a collection-time projection over the producer's output; a knob left on the reader alone is a governance row that silently governs nothing, which is the defect this split exists to foreclose.
 - Law: instrumentation rows contribute like every other row and register nowhere here — `[07]`'s condition-fenced node drains the slot into exactly one `registerInstrumentations` call bound to the lane's own providers, so a feature plane adds a library instrumentation without reaching a global API and a second activation call cannot exist per condition.
 - Law: `Hooks.meter(module)` is the one scoped-meter accessor and it spends `Convention.scope(module, version)` WHOLE — `getMeter` takes the `@rasm/ts/<module>` specifier, the emitting build version, and `Convention.wire.schemaUrl` together, so a third-party instrument carries the same versioned single-semconv coordinate every span and log carries instead of a bare name. Module arguments type off the Convention roster, so a free-string scope has no spelling; the version rides `Hooks.Meter` beside the provider because the lane seating that provider is the one surface holding the identity, and a caller passing its own forks the coordinate per import site. Effect's own metrics ride the app `Resource` scope the facade fixes and the producer projection at `[05]` restamps, so these are the branch's two scope sites and both read one mint.
-- Law: `Hooks.Dispatch` executes the core `Tap` vocabulary — `mount` admits a core-validated `Tap.Registry`, installing each subscription into a point-keyed rail scoped by the registry's `AppIdentity.Key` so two apps composing identical point names occupy distinct rails, and `publish(app, point, fact)` is the publisher's one entry returning the veto verdict as data, so the emitting fold consumes refusal as a value and dispatch never re-opens the zero-exporter boundary.
 - Law: dispatch reads the modality table's columns, never names — a `feedback` row joins the pure veto fold (first refusal wins, before any journal write or delivery), a `buffered` row drains the point's retained window at mount then receives live facts, and every non-feedback delivery forks onto an isolated fiber in the engine's scoped `FiberSet`; a subscriber fault folds through `Tap.isolated` into `Breach` evidence landing as an annotated warning on the log rail — never the publisher's failure — and the interruption-only cause folds to none, so a cancelled delivery never reads as breach.
 - Law: the replay journal is a bounded ring — `policy.journal` deep, appended only for points whose modality set admits the buffered column — so replay is a warm-up window, never durable history, and telemetry-as-tap holds by construction: a signal emitter mounts as a `Tap.emitter` subscription like any observer, and an emit call inside a domain fold has no spelling on this plane.
 - Law: the reader slot types `MetricReader`, not the `IMetricReader` interface the raw provider accepts — `Metrics.registerProducer` demands the abstract class, so a contributed reader typed to the interface is a row that seat cannot mount; the narrower type is what makes a per-tenant reader composable on every lane. A contributed reader is constructed before any producer exists, so its Effect plane can only arrive through `setMetricProducer` and `[06]`'s facade keeps `registerProducer` narrowed to exactly that roster, while the lane's own reader takes the governed producer at construction instead.
 - Entry: `Hooks.Default` merges first at the composition root, every `Hooks.contribute` node after it, and `Export.live` last so the drain observes the whole contribution set; `Hooks.Dispatch.Default(journal)` seats the tap engine with its own ring depth beside them, because the replay window is a dispatch decision the export policy never carries.
 - Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one `Rows` slot consumed by the same drain; `add` widens with the slot, never a new verb; a new dispatch modality is a core table row the column reads absorb with zero executor edits.
-- Packages: `effect` (`Chunk`, `Data`, `Effect`, `FiberSet`, `HashMap`, `Layer`, `Ref`), `@opentelemetry/sdk-trace-base` (`SpanProcessor`), `@opentelemetry/sdk-metrics` (`MeterProvider`, `MetricReader`, `ViewOptions`), `@opentelemetry/sdk-logs` (`LogRecordProcessor`), `@opentelemetry/instrumentation` (`Instrumentation`), `@opentelemetry/resources` (`ResourceDetector`), `@opentelemetry/api` (`Meter`), `@rasm/ts/core` (`AppIdentity`, `Convention`, `Tap`).
 
 ```typescript signature
 declare namespace Hooks {
@@ -289,7 +285,7 @@ declare namespace Hooks {
 // this raw metric plane travels whole: [07] binds the provider and [04]'s scope coordinate spends the version
 class _Meter extends Context.Tag("runtime/Hooks/Meter")<_Meter, {
   readonly provider: MeterProvider
-  readonly version: AppIdentity.Version
+  readonly version: Identity.App.Version
 }>() {}
 
 declare namespace Dispatch {
@@ -311,11 +307,11 @@ const _amended = (
 ): Effect.Effect<void> =>
   Ref.update(rails, (held) => HashMap.modifyAt(held, key, (slot) => Option.some(grow(Option.getOrElse(slot, () => _EMPTY_RAIL)))))
 
-const _isolated = <A>(point: Tap.Point<A>, label: string, run: (fact: A) => Effect.Effect<void, unknown>) =>
+const _isolated = <A, E>(point: Tap.Point<A>, label: string, run: (fact: A) => Effect.Effect<void, E>) =>
   // BOUNDARY ADAPTER: erasure seam — the closure mints where A is bound, so the erased rail re-admits only the point's own facts
   (fact: unknown): Effect.Effect<void> =>
     run(fact as A).pipe(
-      Effect.catchAllCause((cause: Cause.Cause<unknown>) =>
+      Effect.catchAllCause((cause: Cause.Cause<E>) =>
         Option.match(Tap.isolated(point.name, label)(cause), {
           onNone: () => Effect.void, // interruption-only cause: a cancelled delivery never reads as breach
           onSome: (breach) =>
@@ -333,16 +329,16 @@ class _Dispatch extends Effect.Service<_Dispatch>()("runtime/Hooks/Dispatch", {
       const rails = yield* Ref.make(HashMap.empty<Data.Data<readonly [string, string]>, Dispatch.Entry>())
       const fibers = yield* FiberSet.make() // scope-bound: every delivery fiber dies with the graph, so a leaked subscriber is unspellable
       const gate = yield* Effect.makeSemaphore(1) // mount replay and live publish share one order; no point lands between warm-up and enrollment
-      const enroll = <A>(app: AppIdentity.Key, label: string, sub: Tap.Subscription<A>): Effect.Effect<void> => {
+      const enroll = <A, E>(app: Identity.App.Key, label: string, sub: Tap.Subscription<A, E>): Effect.Effect<void> => {
         const key = Data.tuple(app as string, sub.point.name as string)
-        const row = Tap[Tap.modality(sub.handler)] // column-driven: feedback selects the veto fold, buffered the window-then-live delivery
+        const row = Tap.Modality.at(Tap.modality(sub.handler))
         const handler = sub.handler
-        return gate.withPermits(1)(handler._tag === "Veto"
+        return gate.withPermits(1)(handler._tag === "veto"
           ? _amended(rails, key, (entry) => ({
               ...entry,
-              vetoes: Chunk.append(entry.vetoes, (fact: unknown) => handler.decide(fact as A)), // BOUNDARY ADAPTER: same erasure seam as the delivery closure
+              vetoes: Chunk.append(entry.vetoes, (fact: unknown) => handler.handle(fact as A)),
             }))
-          : pipe(_isolated(sub.point, label, handler.run), (deliver) =>
+          : pipe(_isolated(sub.point, label, handler.handle), (deliver) =>
               Effect.zipRight(
                 Effect.when(
                   Effect.flatMap(Ref.get(rails), (held) =>
@@ -364,20 +360,22 @@ class _Dispatch extends Effect.Service<_Dispatch>()("runtime/Hooks/Dispatch", {
                 ...held,
                 journal: Chunk.takeRight(Chunk.append(held.journal, fact), policy.journal), // bounded ring: the window is policy, never unbounded history
               })),
-              () => Array.some(point.modalities, (modality) => Tap[modality].buffered), // journal only where the point admits replay
+              () => Array.some(point.modalities, (modality) => Tap.Modality.at(modality).buffered),
             ),
             Effect.forEach(entry.taps, (tap) => FiberSet.run(fibers, tap.deliver(fact)), { discard: true }),
           ),
           Option.none(),
         )
       return {
-        mount: <T extends Record<string, unknown>>(registry: Tap.Registry<T>): Effect.Effect<void> =>
+        mount: <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
+          registry: Tap.Registry<T, E>,
+        ): Effect.Effect<void> =>
           Effect.forEach(
             Record.toEntries(registry.rows),
             ([label, sub]) => enroll(registry.app, label, sub),
             { discard: true },
           ),
-        publish: <A>(app: AppIdentity.Key, point: Tap.Point<A>, fact: A): Effect.Effect<Dispatch.Verdict> =>
+        publish: <A>(app: Identity.App.Key, point: Tap.Point<A>, fact: A): Effect.Effect<Dispatch.Verdict> =>
           gate.withPermits(1)(Effect.flatMap(Ref.get(rails), (held) => {
             const key = Data.tuple(app as string, point.name as string)
             const entry = Option.getOrElse(HashMap.get(held, key), () => _EMPTY_RAIL)

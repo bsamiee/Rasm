@@ -15,14 +15,14 @@ This page DECLARES the dispatch vocabulary the executing strata compose: `Subscr
 
 ## [02]-[DESCRIPTOR_AXIS]
 
-- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
+- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostVector` the per-unit metering algebra every cost, ceiling, and balance rides; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; each cost-unit row carries its metering key and UCUM code; 3 named cadence rows — immediate, interactive, wire — over the same three-threshold carrier a caller composes freely.
 - Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `CommandBody` it compiles to; `Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one complete descriptor snapshot across every surface it names through the `Contributors` fan-in registration, so a peer spanning four surface keys replaces all four in one call and a surface named with no row retires whole.
 - Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; the `Progress` field is the op's progress-report admission and `COMMAND_ALGEBRA` seats it verbatim on the `Spec` progress column, where the executing stratum's `ProgressCell.Mint` reads it as the only leaf-mint gate — a `None` row structurally has no cell for its producer to advance, so an op that reports declares its cadence once at its projection instead of at each dispatch; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; the `rasm.apphost.capability.roster` census projects off the frozen catalog's own surface index at `#DISCOVERY_FOLD` `CapabilityRegistry.Mount`, so `Describe` stays a registration fold carrying no measurement rail outward and a mid-composition snapshot never publishes a partial count.
 - Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
 - Packages: Rasm (kernel `ContentHash.Of`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
-- Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, permission, and progress admission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field; zero new surface.
-- Boundary: the descriptor is the suite's only op-metadata owner — a per-op attribute scatter, a hand-kept command list, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners whose row sets are disjoint — `NonIdempotent` exists only op-side where no dedup key does, `MethodDerived` only hop-side as HTTP-method-derived safety with no op-level meaning — and the `Keyed` row is what carries one meaning on both layers, never one type serving both edges; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
+- Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, permission, and progress admission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field, a new metering operation one `CostVector` member; zero new surface.
+- Boundary: `CostVector` is the one metering algebra — a cost, a scope ceiling, a remaining balance, and a charged receipt vector are four readings of the same per-unit shape, so its subtraction floors each unit at zero and its sufficiency probe answers the offending unit, and a hand-folded per-unit arithmetic at any call site is the deleted form that let one vector read as spend at one end of a seam and as balance at the other; the descriptor is the suite's only op-metadata owner — a per-op attribute scatter, a hand-kept command list, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners whose row sets are disjoint — `NonIdempotent` exists only op-side where no dedup key does, `MethodDerived` only hop-side as HTTP-method-derived safety with no op-level meaning — and the `Keyed` row is what carries one meaning on both layers, never one type serving both edges; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
 
 ```csharp signature
 
@@ -76,14 +76,49 @@ public sealed record SubscriptionPolicy(Duration MinInterval, double MinFraction
 
 public readonly record struct CostVector(HashMap<CostUnit, long> Units) {
     public static readonly CostVector Zero = new(HashMap<CostUnit, long>.Empty);
+
     public CostVector Add(CostVector other) =>
         new(other.Units.Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => existing + kv.Value, kv.Value)));
+
+    // Per-unit floor at zero belongs to the OWNER, never to a caller: remaining balances are non-negative by
+    // construction and every refusal fires ahead of the draw that would cross under, so the clamp is structural
+    // rather than defensive — hand-folding this subtraction at one call site is what let one vector read as
+    // spend on one rail and as balance on the other.
+    public CostVector Subtract(CostVector other) =>
+        new(other.Units.Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => long.Max(existing - kv.Value, 0L), 0L)));
+
     public long Of(CostUnit unit) => Units.Find(unit).IfNone(0L);
+
+    // Sufficiency over the DRAW's units, ordinal-ordered so a multi-unit overshoot names one unit run to run.
+    // Units this vector never carries read zero — exactly what the store's absent ledger row answers, and why
+    // a scope ceiling naming no row for a unit its commands meter refuses that unit on first draw.
+    public Option<(string Unit, long Over)> Shortfall(CostVector draw) =>
+        toSeq(draw.Units.AsIterable().OrderBy(static row => row.Key.Key, StringComparer.Ordinal))
+            .Filter(row => row.Value > Of(row.Key))
+            .Head
+            .Map(row => (row.Key.Key, row.Value - Of(row.Key)));
 }
 
-public sealed record CostModel(CostVector Fixed, Func<CommandArguments, CostVector> Variable) {
-    public static readonly CostModel Free = new(CostVector.Zero, static _ => CostVector.Zero);
-    public CostVector Estimate(CommandArguments arguments) => Fixed.Add(Variable(arguments));
+public sealed record CostModel(CostVector Fixed, Seq<CostModel.VariableCost> Variable) {
+    public sealed record VariableCost(CostUnit Unit, Func<CommandArguments, long> Estimate);
+
+    public static readonly CostModel Free = Constant(CostVector.Zero);
+
+    public static CostModel Constant(CostVector fixedCost) =>
+        new(fixedCost, Seq<VariableCost>());
+
+    public static CostModel Of(CostVector fixedCost, params ReadOnlySpan<VariableCost> variable) =>
+        new(fixedCost, Iterable<VariableCost>.FromSpan(variable).ToSeq());
+
+    public static VariableCost Per(CostUnit unit, Func<CommandArguments, long> estimate) =>
+        new(unit, estimate);
+
+    public FrozenSet<CostUnit> Units =>
+        (toSeq(Fixed.Units.Keys) + Variable.Map(static row => row.Unit)).ToFrozenSet();
+
+    public CostVector Estimate(CommandArguments arguments) =>
+        Variable.Fold(Fixed, (total, row) =>
+            total.Add(new CostVector(HashMap((row.Unit, row.Estimate(arguments))))));
 }
 
 public sealed record PermissionShape(
@@ -168,10 +203,9 @@ public static class TensorProjection {
             op: family.Key,
             effect: EffectClass.Pure,
             idempotency: Idempotency.Idempotent,
-            cost: new CostModel(
-                Fixed: new CostVector(HashMap((CostUnit.Calls, 1L))),
-                Variable: static args => new CostVector(HashMap(
-                    (CostUnit.CpuMillis, args.Payload.GetProperty("elements").GetInt64())))),
+            cost: CostModel.Of(
+                new CostVector(HashMap((CostUnit.Calls, 1L))),
+                CostModel.Per(CostUnit.CpuMillis, static args => args.Payload.GetProperty("elements").GetInt64())),
             permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.Pure, DataClassification.Operational),
             // A tensor draw is one shot over a bounded operand span: it publishes no interior stage, so no cell
             // is minted rather than one minted to sit at Queued until the terminal mark.
@@ -195,10 +229,10 @@ public static class ModelProjection {
             op: model,
             effect: EffectClass.External,
             idempotency: Idempotency.NonIdempotent,
-            cost: new CostModel(
-                Fixed: new CostVector(HashMap((CostUnit.Calls, 1L))),
-                Variable: args => new CostVector(HashMap(
-                    (CostUnit.ModelTokens, (long)tokenizer.CountTokens(args.Payload.GetProperty("prompt").GetString() ?? string.Empty))))),
+            cost: CostModel.Of(
+                new CostVector(HashMap((CostUnit.Calls, 1L))),
+                CostModel.Per(CostUnit.ModelTokens,
+                    args => (long)tokenizer.CountTokens(args.Payload.GetProperty("prompt").GetString() ?? string.Empty))),
             permission: new PermissionShape(FrozenSet.Create(model), EffectClass.External, DataClassification.Operational),
             // The generative lane advances its cell to ProgressPhase.Streaming carrying the running token count,
             // so a model draw that mints no cell strands that producer: the wire cadence is what a token stream
@@ -244,6 +278,7 @@ public readonly record struct DiscoveryResult(
     string Effect,
     string Idempotency,
     CostVector Estimated,
+    Seq<string> Units,
     string ScopeHash);
 
 public sealed class CapabilityRegistry {
@@ -307,6 +342,7 @@ public sealed class CapabilityRegistry {
         rows.Map(static row => new DiscoveryResult(
             row.Id, row.Surface, row.Effect.Key, row.Idempotency.Key,
             row.Cost.Fixed,
+            toSeq(row.Cost.Units.Map(static unit => unit.Key).Order(StringComparer.Ordinal)),
             row.Permission.ScopeHash));
 }
 ```
@@ -540,14 +576,15 @@ flowchart LR
 
 ## [05]-[GRANT_BROKER]
 
-- Owner: `GrantScope` the object-set × op-class × classification × cost-ceiling × time-window scope record; `Consent` `[Union]` the holder's standing disposition, which IS the scope resolution; `Budget` the per-tenant scope-and-spend cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
+- Owner: `GrantScope` the object-set × op-class × classification × cost-ceiling × time-window scope record; `Consent` `[Union]` the holder's standing disposition, which IS the scope resolution; `Budget` the per-tenant scope-and-balance cell; `DistributedBudget` the cross-process fenced-store seam the broker opens, debits, and credits a durable per-tenant balance through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced.
-- Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker folds the holder's `Consent` to a `GrantScope` (a granted or elevated disposition yields its scope, a denied one the `ConsentRequired` refusal, an expired one the `WindowClosed` refusal, so the disposition family is the resolution rather than a vocabulary nothing reads), evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(CapabilityRegistry registry, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation resolves EACH step's own descriptor and runs the identical decision-and-pricing fold priced against the live budget without charging it, so a mixed plan prices every row against the row's own cost model.
-- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost AND the scope `Ceiling` as per-`CostUnit` primitives under the store's VECTOR fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's ceiling check executes INSIDE the one atomic store write and a tenant's cost ceiling is enforced fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate opens, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
+- Law: the metered vector is REMAINING BALANCE per unit on both rails and never cumulative spend — sufficiency is `remaining >= cost`, decided inside the store's atomic vector compare-and-decrement on the fenced rail and against the cell's own vector on the local one, so no ceiling crosses a debit and `CeilingExceeded` names the unit the draw overdraws; spend is the DERIVED reading `Ceiling - Remaining` and is stored nowhere, while `rasm.apphost.grant.spend.<unit>` keeps its producer per command off `CommandReceipt.Charged`; the ceiling's one write-side role is GRANTING a scope's opening balance at `Open`, which makes a scope's ceiling the complete roster of units its commands may meter — a unit the ceiling omits carries a zero balance and refuses on first draw, at the store exactly as here.
+- Entry: `Open(GrantScope scope)` returns `Fin<CostVector>` — the ONE seeding entry, taken by the surface that mints a `Granted` or `Elevated` disposition and by every window renewal: it grants the scope's ceiling onto the ledger through the `Credit` arrow whose `ON CONFLICT` establishes an absent unit row, and seats the cell at the granted balance; `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker folds the holder's `Consent` to a `GrantScope` (a granted or elevated disposition yields its scope, a denied one the `ConsentRequired` refusal, an expired one the `WindowClosed` refusal, so the disposition family is the resolution rather than a vocabulary nothing reads), evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, draws the price from the tenant's remaining balance, and returns the charged vector or the typed denial; `Simulate(CapabilityRegistry registry, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation resolves EACH step's own descriptor and runs the identical decision-and-pricing fold against the live balance without drawing on it, so a mixed plan prices every row against the row's own cost model; `Refund(TenantContext tenant, CostVector charged)` returns `Fin<CostVector>` — the compensating return, folding through the same `Distributed`-bound-or-local split `Charge` takes, resolving no consent and evaluating no ceiling because a scope that closed between the charge and the unwind must never strand the tenant's balance.
+- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never moves the balance, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the draw; sufficiency is ONE predicate over ONE vector, `CostVector.Shortfall` reading the draw against the remaining balance and naming the first offending unit ordinally, so a command inside its call balance but over its bytes-egress balance is denied on bytes-egress and the two near-twin ceiling folds the spend reading demanded are gone; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost vector ALONE under the coordination `BudgetDebit` case's one-field vector fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's sufficiency executes INSIDE the one atomic store write and a tenant's allowance holds fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the generation each fenced write presents is the `BudgetToken` tenant-scoped read (`Token`), the one generation source the `Wire/outbox#DISPATCH_SWEEP` watermark advance also composes rather than minting a second; the AppHost gates sufficiency outside the fenced write ONLY for a `dryRun` pre-flight, which prices off the vector the last fenced write itself ANSWERED and falls back to the `BudgetLoad` read (`Remaining`) only for a tenant this process has not yet written, because a fresh read beside a write that already reported its balance separates neither staleness from concurrency — so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate opens, and a stale-token debit fails `Fenced`; `Open` and `Refund` both ride `Credit` under the `BudgetCredit` vector increment — same unit-keyed primitives, same generation, the sufficiency term dropped and the sign flipped — so an opening grant and a saga unwind add to the balance on the rail the debit took, neither clamps, and return idempotency is the unwind's own rather than the meter's; with no seam bound the broker opens, debits, and credits the per-process `Cell`, whose miss seeds from the resolved ceiling because that cell IS the whole ledger there, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
 - Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`) — no parallel grant receipt.
 - Packages: Rasm (kernel `ContentHash.Of`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column beside one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; cross-process metering is the one `DistributedBudget` seam, never a second meter; zero new surface.
-- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits under the STORE-validated fence — the decoded `Runtime/time#FENCING_TOKEN` carrier presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell and the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
+- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column beside one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already and a new balance operation lands on `CostVector` at `DESCRIPTOR_AXIS`; cross-process metering is the one `DistributedBudget` seam whose `Credit` arrow carries the opening grant and the compensating return alike, never a second meter; zero new surface.
+- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, balance, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's balance independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam opens, debits, and credits under the STORE-validated fence — the `BudgetToken` read presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell and the fenced ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; a refund CAN land a balance above the resolved scope's ceiling and that reading is legal, because the ceiling bounds what an `Open` grants and never what a balance may hold — the one case that produces it is a refund whose scope narrowed after the charge, and returning it whole is what keeps the meter from swallowing budget the tenant spent, while the narrowed scope still refuses every draw its `Covers` fold excludes and its next `Open` grants only the smaller allowance; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable balance so a multi-node identity plane cannot let a tenant exceed its allowance N-fold, and the `Runtime/orchestration#STEP_EXECUTOR` saga unwind is `Refund`'s caller so every compensated step returns its own charged vector to the same ledger; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window and its own `Open`, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so an exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
 
 ```csharp signature
 public sealed record GrantScope(
@@ -585,31 +622,57 @@ public abstract partial record GrantFault : Expected, IValidationError<GrantFaul
     public sealed record Fenced : GrantFault { public Fenced(string detail) : base(detail, FaultBand.Grant.Code(5)) { } }
 }
 
-// Persistence owns the fleet-wide budget behind this decode-only PORT (ONE_FENCED_LEASE_STORE, TenantId
-// RLS): each debit crosses DOWN as per-CostUnit PRIMITIVES — unit STRING key to long amount, the smart-enum
-// mapped at this boundary — riding the store's VECTOR fenced compare-and-decrement
-// (WHERE token >= held AND balance_i >= debit_i FOR EVERY unit i), so every metered unit's ceiling is
-// enforced INSIDE the one atomic store write and two nodes with fresh tokens cannot both overshoot ANY
-// unit. The store-issued token generation flows store->AppHost ONLY (Token reads it, Debit returns the
-// advanced generation); no AppHost type crosses down and the store's rejection decodes at the seam
-// binding as GrantFault.CeilingExceeded (the store's per-unit exhaustion) or GrantFault.Fenced (the
-// store's LeaseFenced). With no seam bound the broker debits the per-process Cell — one backing, never
-// a second meter.
+// Persistence owns the fleet-wide ledger behind this decode-only PORT (ONE_FENCED_LEASE_STORE, TenantId
+// RLS): every crossing is per-CostUnit PRIMITIVES — unit STRING key to long amount, smart-enum mapped at
+// this boundary — and every amount is a REMAINING BALANCE. `Remaining` reads BudgetLoad, `Token` reads
+// BudgetToken, `Debit` rides BudgetDebit's ONE-FIELD vector fenced compare-and-decrement (WHERE token >=
+// held AND balance_i >= debit_i FOR EVERY unit i), so sufficiency is decided INSIDE one atomic store write
+// and no ceiling crosses this seam at all — two nodes with fresh tokens cannot both overshoot ANY unit.
+// `Credit` rides BudgetCredit, that same statement family with the sufficiency term dropped and the sign
+// flipped, and its ON CONFLICT establishes an absent row: granting an opening balance and returning a
+// charge are one write shape, which is why no fifth arrow seeds. Both write arrows answer the store's OWN
+// post-write receipt, advanced generation BESIDE the balance vector, so no caller re-reads what the write
+// already reported: dropping that vector is exactly what forced a second round trip whose difference from
+// that write names neither staleness nor a concurrent writer. Generation flows store->AppHost only, no
+// AppHost type crosses down, and the store's rejection decodes at the seam binding as
+// GrantFault.CeilingExceeded (per-unit exhaustion) or GrantFault.Fenced (the store's LeaseFenced).
 public sealed record DistributedBudget(
-    Func<TenantId, Fin<HashMap<string, long>>> Spent,
-    Func<TenantId, ulong, HashMap<string, long>, HashMap<string, long>, Fin<ulong>> Debit,
+    Func<TenantId, Fin<HashMap<string, long>>> Remaining,
+    Func<TenantId, ulong, HashMap<string, long>, Fin<(ulong Generation, HashMap<string, long> Balances)>> Debit,
+    Func<TenantId, ulong, HashMap<string, long>, Fin<(ulong Generation, HashMap<string, long> Balances)>> Credit,
     Func<TenantId, Fin<ulong>> Token);
 
-// The per-tenant metering cell is a NAMED row, not an inline tuple, because the scope and its running
-// spend travel together through every charge arm and a tuple names neither half at the seam that reads it.
-public sealed record Budget(GrantScope Scope, CostVector Spent);
+// Per-tenant metering cell as a NAMED row, not an inline tuple, because the scope and its running balance
+// travel together through every charge arm and a tuple names neither half at the seam that reads it. ONE
+// vector, ONE polarity, both rails: under a bound seam `Remaining` mirrors the store's last fenced answer
+// and under no seam it IS the meter, so the pre-flight prices off the same slot the live draw advances and
+// BudgetLoad serves only a tenant this process has not yet written. Spend derives and stores nowhere —
+// `rasm.apphost.grant.spend.<unit>` projects per command off CommandReceipt.Charged, so the series keeps
+// its producer without a second stored fact free to drift from this one.
+public sealed record Budget(GrantScope Scope, CostVector Remaining) {
+    public CostVector Spent => Scope.Ceiling.Subtract(Remaining);
+}
 
 public sealed record GrantBroker(
     Atom<HashMap<TenantId, Budget>> Cell,
     Func<TenantContext, Consent> ConsentOf,
     ClockPolicy Clocks,
     Option<DistributedBudget> Distributed = default) {
-    // The consent disposition IS the scope resolution: granted and elevated each yield a scope, denied and
+    // Seeding is the ceiling's ONE write-side role and it happens HERE, where a scope comes into being —
+    // grant, elevation, window renewal — never on a charge. On the fenced rail the credit's own ON CONFLICT
+    // establishes a unit row the ledger lacks, so seeding an absent unit and topping up a present one are one
+    // write; on the local rail the process cell IS the whole ledger, so the seat is the seed. Each open GRANTS
+    // its ceiling rather than assigning the balance to it, which is what makes a renewal a fresh allowance and
+    // a narrowed scope a smaller next grant instead of a clawback against budget already returned.
+    public Fin<CostVector> Open(GrantScope scope) =>
+        Distributed.Match(
+            Some: store => store.Token(scope.Tenant)
+                .Bind(held => store.Credit(scope.Tenant, held, Wire(scope.Ceiling)))
+                .Map(granted => Seat(scope.Tenant, Some(scope), granted.Balances))
+                .Map(_ => scope.Ceiling),
+            None: () => Hold(scope.Tenant, Opened(scope), scope.Ceiling, dryRun: false));
+
+    // Consent disposition IS the scope resolution: granted and elevated each yield a scope, denied and
     // expired each yield the refusal their case already names, so the four rows are total over this one fold
     // and no second consent evaluation exists beside it.
     public Fin<CostVector> Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun) {
@@ -632,56 +695,105 @@ public sealed record GrantBroker(
             Some: descriptor => Admit(descriptor, step.Args, dryRun: true),
             None: () => Fin.Fail<CostVector>(new GrantFault.OutOfScope(step.Id)))));
 
+    // Compensation RETURNS what the forward leg charged, so this entry resolves no consent and evaluates no
+    // ceiling: a scope that closed between the charge and the unwind must never strand a tenant's balance,
+    // and returning budget can refuse nothing an admission would have caught. Neither rail clamps the credit
+    // — return idempotency belongs to the unwind, and a clamp on one rail alone was the asymmetry the two
+    // polarities hid. Split is the charge's own: one bound seam credits the store, none returns to the cell.
+    public Fin<CostVector> Refund(TenantContext tenant, CostVector charged) =>
+        Distributed.Match(
+            Some: store => FencedReturn(store, tenant.TenantId, charged),
+            None: () => LocalReturn(tenant.TenantId, charged));
+
     Fin<CostVector> Charge(TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
         Distributed.Match(
             Some: store => FencedCharge(store, tenant, scope, cost, dryRun),
             None: () => LocalCharge(tenant, scope, cost, dryRun));
 
+    // Cell miss seeds from the RESOLVED ceiling, because on this rail the process cell is the whole ledger
+    // and a tenant no charge has touched opens at its scope's full allowance. Refusal fires ahead of the
+    // draw, so the decrement below can never cross zero and the vector's own floor is a guarantee rather
+    // than a rescue.
     Fin<CostVector> LocalCharge(TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
-        Cell.Value.Find(tenant).Map(static row => row.Spent).IfNone(CostVector.Zero).Add(cost) is var next
-            ? Ceiling(scope, next).Match(
-                Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Unit, cap.Over)),
-                None: () => Hold(tenant, new Budget(scope, next), cost, dryRun))
-            : Fin.Fail<CostVector>(new GrantFault.Text(tenant.ToString()));
+        Cell.Value.Find(tenant).Map(static row => row.Remaining).IfNone(scope.Ceiling) switch {
+            var remaining => remaining.Shortfall(cost).Match(
+                Some: gap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(gap.Unit, gap.Over)),
+                None: () => Hold(tenant, new Budget(scope, remaining.Subtract(cost)), cost, dryRun)),
+        };
 
-    // The one mutation on the local rail sits in its own member, so the decision fold above stays a pure
+    // One mutation on the local rail sits in its own member, so the decision fold above stays a pure
     // expression and a dry run differs from a live charge by exactly this call and nothing else.
     Fin<CostVector> Hold(TenantId tenant, Budget held, CostVector cost, bool dryRun) {
         if (!dryRun) ignore(Cell.Swap(map => map.AddOrUpdate(tenant, _ => held, held)));
         return Fin.Succ(cost);
     }
 
-    // Fleet-wide debit: a dry run prices off the decoded durable spent and gates the ceiling AppHost-side
-    // without touching the store; a live charge delegates the whole per-unit ceiling to the store's atomic
-    // VECTOR fenced compare-and-decrement — the debit and ceiling cross as unit-keyed primitives, the store
-    // rejects the second overshooting node inside the one transaction, and a stale token fails Fenced (the
-    // AppHost-side ceiling check is never the live gate, foreclosing the multi-node TOCTOU).
+    Budget Opened(GrantScope scope) =>
+        Cell.Value.Find(scope.Tenant).Match(
+            Some: row => new Budget(scope, row.Remaining.Add(scope.Ceiling)),
+            None: () => new Budget(scope, scope.Ceiling));
+
+    // Fleet-wide debit: a dry run gates the shortfall AppHost-side off the mirrored balance and writes
+    // nothing; a live charge delegates the whole per-unit sufficiency to the store's atomic vector fenced
+    // compare-and-decrement, whose predicate IS `balance >= amount` — so the debit crosses as the cost
+    // vector alone and the scope's ceiling has nothing to say at this seam. Store-side, the second
+    // overshooting node is rejected inside one transaction and a stale token fails Fenced; this AppHost
+    // gate is never the live one, which is what forecloses the multi-node TOCTOU.
     Fin<CostVector> FencedCharge(DistributedBudget store, TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
         dryRun
-            ? from spent in store.Spent(tenant)
-              from _ceiling in CeilingWire(scope, spent, cost).Match(
-                  Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Unit, cap.Over)),
+            ? from remaining in Remaining(store, tenant)
+              from _gate in remaining.Shortfall(cost).Match(
+                  Some: gap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(gap.Unit, gap.Over)),
                   None: () => Fin.Succ(cost))
               select cost
             : store.Token(tenant)
-                .Bind(held => store.Debit(tenant, held, Wire(cost), Wire(scope.Ceiling)))
+                .Bind(held => store.Debit(tenant, held, Wire(cost)))
+                .Map(debited => Seat(tenant, Some(scope), debited.Balances))
                 .Map(_ => cost);
 
-    // Boundary mapping flattens the smart enum: CostVector becomes unit STRING keys over long amounts.
+    // Fenced return rides the store's OWN generation, so a credit is serialized against a concurrent debit
+    // by the same fence that debit takes and lands on the balance the store holds, never on a vector this
+    // process read before the race. Post-credit balances seat the cell exactly as a debit's do.
+    Fin<CostVector> FencedReturn(DistributedBudget store, TenantId tenant, CostVector charged) =>
+        store.Token(tenant)
+            .Bind(held => store.Credit(tenant, held, Wire(charged)))
+            .Map(credited => Seat(tenant, None, credited.Balances))
+            .Map(_ => charged);
+
+    // Local return ADDS the charge back to the balance it left, the exact inverse of the draw and the same
+    // shape the store's credit takes. Absent row means this process metered nothing to return.
+    Fin<CostVector> LocalReturn(TenantId tenant, CostVector charged) =>
+        Cell.Value.Find(tenant).Match(
+            Some: row => Hold(tenant, row with { Remaining = row.Remaining.Add(charged) }, charged, dryRun: false),
+            None: () => Fin.Fail<CostVector>(new GrantFault.Text(tenant.ToString())));
+
+    // Pre-flight reads the vector the last fenced write ANSWERED and falls back to BudgetLoad only for a
+    // tenant this process has not yet written: a fresh read beside a write that already reported its
+    // balance separates neither staleness from a concurrent writer.
+    Fin<CostVector> Remaining(DistributedBudget store, TenantId tenant) =>
+        Cell.Value.Find(tenant).Match(
+            Some: row => Fin.Succ(row.Remaining),
+            None: () => store.Remaining(tenant).Map(Decode));
+
+    // One seat for all three fenced verbs. Refund carries no scope — it corrects a reading some charge
+    // established — so an unmetered tenant seats nothing rather than minting a row off a scope this call
+    // never resolved.
+    Unit Seat(TenantId tenant, Option<GrantScope> scope, HashMap<string, long> balances) =>
+        ignore(Cell.Swap(map => map.Find(tenant).Match(
+            Some: row => map.AddOrUpdate(tenant, _ => row with { Remaining = Decode(balances) }, row),
+            None: () => scope.Match(
+                Some: resolved => map.Add(tenant, new Budget(resolved, Decode(balances))),
+                None: () => map))));
+
+    // Boundary mapping, both directions at the one edge that crosses: CostVector flattens to unit STRING
+    // keys over long amounts, and a decoded key the CostUnit roster no longer carries drops, because the
+    // ledger outlives a retired unit and this host meters only the roster it holds.
     static HashMap<string, long> Wire(CostVector vector) =>
         vector.Units.AsIterable().Fold(HashMap<string, long>(), static (map, row) => map.Add(row.Key.Key, row.Value));
 
-    static Option<(string Unit, long Over)> Ceiling(GrantScope scope, CostVector next) =>
-        scope.Ceiling.Units.AsIterable()
-            .Filter(cap => next.Of(cap.Key) > cap.Value)
-            .Head
-            .Map(cap => (cap.Key.Key, next.Of(cap.Key) - cap.Value));
-
-    static Option<(string Unit, long Over)> CeilingWire(GrantScope scope, HashMap<string, long> spent, CostVector cost) =>
-        scope.Ceiling.Units.AsIterable()
-            .Filter(cap => spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) > cap.Value)
-            .Head
-            .Map(cap => (cap.Key.Key, spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) - cap.Value));
+    static CostVector Decode(HashMap<string, long> wire) =>
+        new(wire.AsIterable().Fold(HashMap<CostUnit, long>(), static (map, row) =>
+            CostUnit.TryGet(row.Key, out var unit) ? map.Add(unit, row.Value) : map));
 }
 ```
 
@@ -689,12 +801,17 @@ public sealed record GrantBroker(
 
 - Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `tests/contracts/MANIFEST.md` `[02.12]-[CAPABILITY_DESCRIPTOR]`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
 - Cases: 3 targets — csharp, typescript, python — each carrying its command-shape renderer and idiomatic call form.
-- Entry: `Pin(CapabilityRegistry registry, Func<DiscoveryResult, JsonNode> schemaOf, JsonSerializerOptions wire)` returns `DescriptorPin` — the canonical projection of the frozen catalog as one ordinal-ordered fixed-field JSON document beside its content address, so the shape identity every peer grades against has a byte-deriving preimage rather than a name; `Emit(CapabilityRegistry registry, DescriptorPin pin, SdkTarget target)` returns `SdkArtifact` — one fold projects every ordinal-ordered catalog row into a typed command method for the target language, all three targets reading the SAME pinned document, so the command shapes are provably identical across languages and each artifact carries the pin's digest rather than a digest of its own rendering.
-- Auto: each target renders the descriptor's `PermissionShape`, `EffectClass`, and `CostModel.Estimate` as the method's documented contract so a generated SDK method self-describes its effect and cost; the wire payload shape is the `JsonSchemaExporter` schema the descriptor's `CommandArguments` resolves through `SuiteContracts.Schema`, so the TS and Python types derive from the same schema the C# binder reads, never a hand-mirrored shape; the pin canonicalizes before it hashes — rows ordinal-ordered by id, fields in fixed order, cost units ordinal-ordered — so the document is insertion-order-independent and two hosts carrying one catalog address to the same bytes; the codegen reads the pin, so a new descriptor row re-pins and regenerates all three SDKs with no per-language edit.
+- Entry: `DescriptorPin.Of(registry, wire)` mints the fixed-field document and its content address.
+- Entry: `SdkCodegen.Emit(registry, pin, target)` renders one target from the same ordinal catalog and stamped pin digest.
+- Auto: every row embeds the `SuiteContracts.Schema` values for `CommandArguments` input and `CommandReceipt` output.
+- Auto: descriptor rows, cost-unit keys, and fields use ordinal or fixed order before the document is addressed.
+- Auto: `units` is the complete `CostModel.Units` roster, never the keys present in one estimate.
 - Receipt: `DescriptorPin` — the canonical document, its content address, and the pinned row count; `SdkArtifact` — target key, emitted source text, descriptor count, and the PIN's digest, because a digest computed over emitted source addresses the renderer rather than the contract and three targets then disagree on one catalog by construction.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one target row absorbs a new language; a new call form is one renderer column on the row; a new pinned coordinate is one field on the canonical row the pin writes; zero new surface.
-- Boundary: the codegen is the only polyglot SDK owner — a hand-written client in any language is the deleted form, the same deletion the `connect-es` and `schema-derived TS` tooling rows carry at Runtime/ports#TS_PROJECTION; the C# target emits the same `CommandArguments`/`CommandReceipt` shapes the command algebra runs, the TS target binds through the existing `ReceiptEnvelopeWire`, and the Python target binds through the companion seam the suite already owns, so codegen rides the existing wire contracts and mints no fourth wire shape; the emitted source is a build artifact, never a runtime surface, so the codegen runs at SDK-bootstrap and the pinned document stays the single descriptor source for all three branches — the pin is what a peer decodes and grades, so a consumer reconstructing a descriptor shape from a generated client rather than from the pin is the deleted form; the TS schema export the codegen reads is the same `SuiteContracts.Schema`/`JsonSchemaExporter` projection at Runtime/ports#WIRE_LAW, so the descriptor-diff evolution gate is one verdict across the suite — `Rasm.Compute/Runtime/wire#FAULT_PROJECTION` `ContractGuard.AdditiveOnly` gates peer-attach (the discovery `Compatible` delegate), store-open, and this SDK schema export identically, an additive descriptor field admits on every consumer while a breaking field reshape rejects on all three through the one classifier, never a per-surface compatibility check beside it.
+- Boundary: generated targets bind the producer's `CommandArguments` and `CommandReceipt` schemas without a second wire shape.
+- Boundary: peers grade the pin directly; generated source is a build artifact and never a descriptor owner.
+- Boundary: `ContractGuard.AdditiveOnly` classifies the same `SuiteContracts.Schema` export for every consumer.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -714,7 +831,7 @@ public sealed partial class SdkTarget {
         $"public IO<CommandReceipt> {Method(d)}(CommandArguments arguments) => CommandAlgebra.Run(runtime, \"{d.Descriptor}\", arguments);";
 
     static string Typescript(DiscoveryResult d) =>
-        $"{Method(d)}(args: CommandArguments): Promise<ReceiptEnvelopeWire<CapabilityCommandReceiptWire>> {{ return this.run(\"{d.Descriptor}\", args); }}";
+        $"{Method(d)}(args: CommandArguments): Promise<CommandReceipt> {{ return this.run(\"{d.Descriptor}\", args); }}";
 
     static string Python(DiscoveryResult d) =>
         $"def {Method(d)}(self, args: CommandArguments) -> CommandReceipt: return self._run(\"{d.Descriptor}\", args)";
@@ -726,13 +843,15 @@ public sealed record SdkArtifact(SdkTarget Target, string Source, int Descriptor
 
 // The PINNED descriptor set: one canonical JSON document over the frozen catalog carrying, per ordinal-ordered
 // row, the id, surface, effect key, idempotency key, scope key, ordinal-ordered cost units, and the exported
-// argument schema. This document is the frozen preimage the shape digest addresses — without it the digest
+// input and output schemas. This document is the frozen preimage the shape digest addresses — without it the digest
 // names a catalog nothing can re-derive, and a peer holding a mismatching digest learns only that something
 // changed. Canonicalization is the whole contract: fixed field order and ordinal row and unit order make the
 // address independent of registration order, so two hosts carrying one catalog agree on bytes.
 public sealed record DescriptorPin(string Document, string Digest, int Descriptors) {
-    public static DescriptorPin Of(CapabilityRegistry registry, Func<DiscoveryResult, JsonNode> schemaOf, JsonSerializerOptions wire) {
+    public static DescriptorPin Of(CapabilityRegistry registry, JsonSerializerOptions wire) {
         var rows = toSeq(registry.Discover(new DiscoveryQuery.All()).OrderBy(static row => row.Descriptor, StringComparer.Ordinal));
+        var input = SuiteContracts.Schema(wire, typeof(CommandArguments));
+        var output = SuiteContracts.Schema(wire, typeof(CommandReceipt));
         using var bytes = new MemoryStream();
         using (var json = new Utf8JsonWriter(bytes)) {
             json.WriteStartArray();
@@ -745,10 +864,12 @@ public sealed record DescriptorPin(string Document, string Digest, int Descripto
                 json.WriteString("scope", row.ScopeHash);
                 json.WritePropertyName("units");
                 json.WriteStartArray();
-                toSeq(row.Estimated.Units.Keys.Map(static unit => unit.Key).Order(StringComparer.Ordinal)).Iter(json.WriteStringValue);
+                row.Units.Iter(json.WriteStringValue);
                 json.WriteEndArray();
-                json.WritePropertyName("arguments");
-                schemaOf(row).WriteTo(json, wire);
+                json.WritePropertyName("input");
+                input.WriteTo(json, wire);
+                json.WritePropertyName("output");
+                output.WriteTo(json, wire);
                 json.WriteEndObject();
             });
             json.WriteEndArray();
@@ -773,11 +894,13 @@ public static class SdkCodegen {
 
 ## [07]-[TS_PROJECTION]
 
-- Owner: `CapabilityDescriptorWire` the pinned-row projection every `#SDK_CODEGEN` target binds, registered on the `capability-descriptor` seam at `tests/contracts/MANIFEST.md` `[02.12]-[CAPABILITY_DESCRIPTOR]` beside `DescriptorPinWire` its carrying document; `CapabilityCommandReceiptWire` and `DiscoveryResultWire` the dashboard's live catalog and command-envelope shapes; per-record wire payloads ride the existing `ReceiptEnvelopeWire` and bind here as `TPayload`.
-- Entry: the descriptor catalog crosses as the `DiscoveryResultWire[]` the dashboard command palette ingests, the pinned set crosses as the `DescriptorPinWire` document a peer grades its own catalog against, and the command receipt reconstructs through the existing `ReceiptEnvelopeWire<CapabilityCommandReceiptWire>`; the SDK codegen TS target emits methods over these same shapes.
+- Owner: `CapabilityDescriptorWire` projects each canonical pin row, and `DescriptorPinWire` carries the addressed document.
+- Owner: `DiscoveryResultWire` projects live discovery rows.
+- Entry: peers grade `DescriptorPinWire`; generated methods bind its `CommandArguments` input and `CommandReceipt` output schemas.
 - Packages: BCL inbox
-- Growth: one wire-member row per new descriptor or receipt field; the transaction disposition crosses as a literal-discriminated union; zero new surface.
-- Boundary: effect, idempotency, and cost-unit keys cross as their smart-enum string keys; the cost vector crosses as a record of unit-keyed numbers; the transaction disposition reconstructs in TS as a literal-discriminated union on the disposition kind, mirroring the `CommandTxn` union cases; `scopeHash` crosses as the deterministic permission-scope string so the dashboard groups commands by scope without re-deriving the permission shape; the pinned row and the live discovery row are two shapes on purpose — the pin carries the argument schema and ordinal-ordered unit keys a peer needs to re-derive the digest, the discovery row the estimated vector a palette renders, and folding either into the other hands one consumer a document it cannot address and the other a payload it never renders.
+- Growth: one wire-member row per new descriptor or discovery field; zero new surface.
+- Boundary: smart-enum keys cross as strings, and discovery cost vectors cross as unit-keyed numbers.
+- Boundary: the pin row carries canonical input and output schemas; discovery alone carries per-argument estimates.
 
 ```ts signature
 type EffectClassKey = "pure" | "read" | "write" | "external" | "irreversible";
@@ -786,20 +909,13 @@ type CostUnitKey = "cpu-millis" | "wall-millis" | "bytes-egress" | "model-tokens
 
 type CostVectorWire = Readonly<Record<CostUnitKey, number>>;
 
-// Dispatch evidence crosses as the decoded triple the host declares, never an executing stratum's own
-// receipt shape, so the dashboard reads one execution row whatever ran the body.
-interface DispatchReceiptWire {
-  readonly executor: string;
-  readonly selection: string;
-  readonly elapsed: string;
-}
-
 interface DiscoveryResultWire {
   readonly descriptor: string;
   readonly surface: string;
   readonly effect: EffectClassKey;
   readonly idempotency: IdempotencyKey;
   readonly estimated: CostVectorWire;
+  readonly units: readonly CostUnitKey[];
   readonly scopeHash: string;
 }
 
@@ -814,7 +930,8 @@ interface CapabilityDescriptorWire {
   readonly idempotency: IdempotencyKey;
   readonly scope: string;
   readonly units: readonly CostUnitKey[];
-  readonly arguments: unknown;
+  readonly input: unknown;
+  readonly output: unknown;
 }
 
 // The document crosses as the canonical TEXT, not as a re-serialized array: the digest addresses those exact
@@ -826,17 +943,6 @@ interface DescriptorPinWire {
   readonly descriptors: number;
 }
 
-interface CapabilityCommandReceiptWire {
-  readonly descriptor: string;
-  readonly txn:
-    | { readonly kind: "committed"; readonly dispatch: DispatchReceiptWire }
-    | { readonly kind: "rolled-back"; readonly reason: string }
-    | { readonly kind: "compensated"; readonly reason: string; readonly compensation: DispatchReceiptWire }
-    | { readonly kind: "refused"; readonly fault: string };
-  readonly charged: CostVectorWire;
-  readonly elapsed: string;
-  readonly correlation: string;
-}
 ```
 
 ## [08]-[RESEARCH]

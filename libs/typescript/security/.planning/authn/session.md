@@ -1,6 +1,6 @@
 # [SECURITY_SESSION]
 
-Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPair` vocabulary, rotation as a data-carried statechart with reuse detection, the `SessionStore`/`IdentityJournal` ports, the `BearerGuard` middleware seam, and the cookie framing and CSRF double-submit law as the session's egress projection — one owner because token minting and cookie framing are two faces of one session lifecycle. `Token` mints an access JWT through `crypt/sign`'s `Jwt` and an opaque high-entropy refresh through `Crypto`, storing only the refresh's SHA-256 fingerprint — argon2 is for low-entropy credentials; a random refresh needs a fast constant-time compare, never a per-check KDF. Rotation is the security-critical fold and it is a transition family, not an imperative flow: `_step` folds a live session, the current instant, and the constant-time match verdict into the `RotationStep` case — `Rotate`, `Expired`, `Reused` — and `$match` dispatches each arm, so the guard set is data and a new lifecycle rule is a case. `Reused` is the breach arm: it lands the `reuse` row on the folder reject stream, logs at error, and revokes every session of the subject family before the fault surfaces — a replayed rotated token never fails silently, and a refused presented bearer lands the `bearer` row at the guard seam, so the folder's highest-traffic rejection path is counted like every sibling surface. Every `refresh` runs under a store-backed per-`sid` `RateLimiter`, session and subject ids mint through the `Crypto` entropy port so tests inject determinism, and the `${sid}.${secret}` wire frame decodes through one `Schema.TemplateLiteralParser` owner, never a hand split. `Cookie` frames the `TokenPair` through the `@effect/platform` `Cookies` codec — the attribute policy stays in the `CookieSpec` table, serialization and the `__Host-`/`__Secure-` prefix semantics belong to the platform, and the edge folds the returned collection through `Cookies.toSetCookieHeaders` with `Headers.redact` covering the log path. Two `Context.Tag` ports carry identity state out of the folder so a zero-durable-state browser app composes `security` without the data wave; the app root satisfies both with the data journal. Tenancy is the core `TenantContext.Key`; `SessionFault`/`CsrfFault` instantiate the folder fault shape over the core `FaultClass.family` seam.
+Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPair` vocabulary, rotation as a data-carried statechart with reuse detection, the `SessionStore`/`IdentityJournal` ports, the `BearerGuard` middleware seam, and the cookie framing and CSRF double-submit law as the session's egress projection — one owner because token minting and cookie framing are two faces of one session lifecycle. `Token` mints an access JWT through `crypt/sign`'s `Jwt` and an opaque high-entropy refresh through `Crypto`, storing only the refresh's SHA-256 fingerprint — argon2 is for low-entropy credentials; a random refresh needs a fast constant-time compare, never a per-check KDF. Rotation is the security-critical fold and it is a transition family, not an imperative flow: `_step` folds a live session, the current instant, and the constant-time match verdict into the `RotationStep` case — `Rotate`, `Expired`, `Reused` — and `$match` dispatches each arm, so the guard set is data and a new lifecycle rule is a case. `Reused` is the breach arm: it lands the `reuse` row on the folder reject stream, logs at error, and revokes every session of the subject family before the fault surfaces — a replayed rotated token never fails silently, and a refused presented bearer lands the `bearer` row at the guard seam, so the folder's highest-traffic rejection path is counted like every sibling surface. Every `refresh` runs under a store-backed per-`sid` `RateLimiter`, session and subject ids mint through the `Crypto` entropy port so tests inject determinism, and the `${sid}.${secret}` wire frame decodes through one `Schema.TemplateLiteralParser` owner, never a hand split. `Cookie` frames the `TokenPair` through the `@effect/platform` `Cookies` codec — the attribute policy stays in the `CookieSpec` table, serialization and the `__Host-`/`__Secure-` prefix semantics belong to the platform, and the edge folds the returned collection through `Cookies.toSetCookieHeaders` with `Headers.redact` covering the log path. Two `Context.Tag` ports carry identity state out of the folder so a zero-durable-state browser app composes `security` without the data wave; the app root satisfies both with the data journal. Tenancy is the core `Identity.Tenant.Key`; `SessionFault`/`CsrfFault` instantiate the folder fault shape over the core `Fault.Class.family` seam.
 
 ## [01]-[INDEX]
 
@@ -12,16 +12,15 @@ Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPa
 
 [IDENTITY_VOCAB]:
 - Owner: `Subject` is the durable identity (branded `id`, tenant key, verification), `Session` the live session (branded `id`, subject, tenant, scope, window, refresh fingerprint, rotation generation — the tenant rides the session so a rotated access token keeps its tenancy claim), `CredentialRef` the `{ kind, key }` an authn ceremony resolves through, `TokenPair` the mint receipt; `SessionFault` is the folder fault shape; `SessionStore`/`IdentityJournal` are the identity-state ports.
-- Law: each id brand is a field refinement so `Subject["id"]` is the only `SubjectId` spelling; the tenant is the core `TenantContext.Key` brand, never a re-declaration; the ports declare their fault on the `E` channel.
 - Law: a port exists exactly because the wave ledger forbids `security → data` — the data journal satisfies both at the app root (the `security/authn/session → data` [PORT] seam), so a Tag minted to dodge a legal edge is the defect.
 - Growth: a new credential kind is one `CredentialRef.kind` literal; a new session facet is one `Session` field the store persists.
 - Boundary: the authn ceremonies resolve a `CredentialRef` and call `Token.establish`; `access/claim` keys claims by `Subject["id"]`; `crypt/sign` supplies the JWT and crypto primitives.
-- Packages: `effect` (`Schema`, `Context`); `@rasm/ts/core` (`TenantContext`, `FaultClass`).
+- Packages: `effect` (`Schema`, `Context`); `@rasm/ts/core` (`Identity.Tenant`, `Fault.Class`).
 
 ```typescript
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { Cookies, HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
-import { FaultClass, TenantContext } from "@rasm/ts/core"
+import { Fault, Identity } from "@rasm/ts/core"
 import { Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema, Struct } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { AccessClaims, Crypto, Jwt, Probe } from "../crypt/sign.ts"
@@ -30,7 +29,7 @@ import { Reject } from "../crypt/verify.ts"
 const _SubjectId = Schema.UUID.pipe(Schema.brand("SubjectId"))
 const _SessionId = Schema.UUID.pipe(Schema.brand("SessionId"))
 
-const _family = FaultClass.family(["expired", "notFound", "reuse", "mismatch", "throttled", "store"] as const, {
+const _family = Fault.Class.family(["expired", "notFound", "reuse", "mismatch", "throttled", "store"] as const, {
   expired: { class: "expired" },
   notFound: { class: "absent" },
   reuse: { class: "breached" },
@@ -45,7 +44,7 @@ declare namespace SessionFault {
 
 class Subject extends Schema.Class<Subject>("Subject")({
   id: _SubjectId,
-  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
+  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   verified: Schema.Boolean,
 }) {}
 
@@ -57,7 +56,7 @@ class CredentialRef extends Schema.Class<CredentialRef>("CredentialRef")({
 class Session extends Schema.Class<Session>("Session")({
   id: _SessionId,
   subject: _SubjectId,
-  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
+  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   scope: Schema.Array(Schema.NonEmptyString),
   issuedAt: Schema.DateTimeUtc,
   expiresAt: Schema.DateTimeUtc,
@@ -75,7 +74,7 @@ class SessionFault extends Schema.TaggedError<SessionFault>()("SessionFault", {
   reason: _family.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
@@ -270,7 +269,7 @@ const _CSRF_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 
 const _EMPTY_VALUE = Redacted.make("")
 
-const _csrfFamily = FaultClass.family(["absent", "mismatch"] as const, {
+const _csrfFamily = Fault.Class.family(["absent", "mismatch"] as const, {
   absent: { class: "denied" },
   mismatch: { class: "denied" },
 })
@@ -287,7 +286,7 @@ declare namespace CsrfFault {
 class CsrfFault extends Schema.TaggedError<CsrfFault>()("CsrfFault", {
   reason: _csrfFamily.schema,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _csrfFamily.classOf(this.reason)
   }
   override get message(): string {

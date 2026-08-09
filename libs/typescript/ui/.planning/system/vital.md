@@ -15,7 +15,6 @@ Core Web Vitals are not measured here. `runtime:otel/vital` owns every CWV captu
 
 [EVIDENCE_RAIL]:
 - Owner: the `rasm.ui.vital.row` contribution and `_publisher` — the replay point every evidence lane on this page publishes onto, and the one scope-owned forked publish `FiberSet.makeRuntime` binds to the composing lifecycle: scope close interrupts in-flight publications and a post-close callback publish interrupts on arrival instead of reaching the registry, so no callback publication outlives or retains its registry composition.
-- Law: rows are probe rows — `label`/`value`/`unit` derives from `Claim` itself and every timing measure carries `"ms"`, so evidence from this floor joins the claim board and the chart cohort as ordinary rows with zero shape adaptation.
 - Law: the point carries evidence in both directions — this floor and `viewer/probe` publish local rows, and the app bridge republishes the runtime plane's graded vital rows onto the same replay window, so a board mounted mid-session reads web vitals and local evidence from one retained source without this package importing the runtime plane.
 - Law: the grade vocabulary is `runtime:otel/vital`'s, spelled here field-for-field for presentation alone — `_tone` keys the three grades every vital surface renders through, and a cutoff table or rating fold beside them is the forked-semantics defect this floor exists without.
 - Law: the tone column is a KEY onto `system/token#TONE_VOCABULARY`'s closed roster, never a color and never a local union — the row names the semantic and the token authority owns every hue, slot, and contrast gate, so restyling every graded surface is one row edit there.
@@ -29,12 +28,11 @@ Core Web Vitals are not measured here. `runtime:otel/vital` owns every CWV captu
 - Boundary: this floor's own rows stay display and hook-rail evidence — the telemetry owner already grades the jank ceiling from its `longtask` row and the interaction headline from `web-vitals`, so a second carrier kind for either fact mints a rival series two boards then disagree about; this package imports no collector and mints no instrument.
 
 ```typescript signature
-import type { Claim } from "@rasm/ts/core"
 import { Array, Chunk, Effect, FiberSet, HashMap, Number, Option, Record, Schema, type Scope, pipe } from "effect"
 import { Hook } from "./hook.ts"
 import type { Theme } from "./token.ts"
 
-type Row = Claim["metrics"][number]
+type Row = { readonly label: string; readonly unit: string; readonly value: number }
 
 declare module "./hook.ts" {
   interface Points {

@@ -13,10 +13,13 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 
 [RUNTIME_ROWS]:
 - Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge), `context` (the aggregate platform binding), `client`, `serve`, `worker`, `runner`, `cluster`, `socket` (`NodeSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor` satisfying the abstract `Socket.WebSocketConstructor` Tag), `nats` (the `@nats-io/transport-node` native TCP/TLS `connect` both server rows share — the broker engine consumes this binding as its dial, so the browser lane's `wsconnect` and the server lanes' TCP dial are one root selection, never an engine fork), and `kv`; the row is the only site that names a binding package, and every consumer yields the abstract Tag.
-- Law: the row guard closes the member set at the contract's own Layer bounds — `_Rows` proves every row carries the full `Core` complement and that `context` provides the aggregate platform Tags, `client` an `HttpClient`, `serve` an `HttpServer`, `worker` a spawn-factory pool binding, `runner` a `PlatformRunner`, and `kv` a `KeyValueStore`, so a new runtime missing a member and a mis-wired binding are both compile errors at this declaration; the guard states each factory member at its common supertype (`worker`'s spawn parameter and `cluster`'s options are row-specific, so the guard proves presence and Layer shape) while row-specific extras (dispatcher tuning, serve options, cluster storage rows) stay precisely typed by inference because consumers index the table, never the guard, and the table itself is the kind set — no parallel contract restates it.
+- Law: serve residency is row data, never a caller assumption — `Bind` is the tagged residency family (`tcp`, `unix`, `tls`), each row's `residency` column names what it admits and answers an ops read of the same, and its `serve` takes only those binds, so a secure listener asked of a row that cannot honour it fails at the call rather than inside a platform option record; both rows answer all three while `Core` holds the floor at the two, because a floor raised to what every present row happens to reach refuses the first row that binds less.
+- Law: the node row serves TLS through `node:https` — `@types/node` merges an `interface Server extends http.Server<Request, Response>` onto the `class Server extends tls.Server`, so an `https.Server` IS the `Http.Server` parameter `NodeHttpServer.layer` demands and the secure listener needs no second binding; the constructor differs alone, so the row selects it on the bind's own tag and hands the same `Net.ListenOptions` projection to both.
+- Law: SPIKE — the binding table stays `node | bun`, and the deterministic floor is that pair with `_Rows` proving the full `Core` complement on each. No published `@effect/platform-*` package completes a third row: `platform-browser` binds `main`, `client`, `worker`, `runner`, `socket`, and `kv` yet publishes no aggregate `context` and no cluster binding, `platform-node-shared` is the interior both server rows compose rather than a host, `platform-deno` ships on the next major's prerelease line alone, and no workerd or Cloudflare binding exists. This table therefore leaves a fetch host unrepresentable rather than half-modelled as a listener-free residency, because `Bind` names what a row LISTENS on and a host with no listener carries no bind to name; a third row admits when one package answers `context` and `cluster` beside the members browser already binds.
+- Law: the row guard closes the member set at the contract's own Layer bounds — `_Rows` proves every row carries the full `Core` complement and that `context` provides the aggregate platform Tags, `client` an `HttpClient`, `serve` an `HttpServer` beside the `HttpPlatform` and `Etag.Generator` every asset route spends, `worker` a spawn-factory pool binding, `runner` a `PlatformRunner`, and `kv` a `KeyValueStore`, so a new runtime missing a member and a mis-wired binding are both compile errors at this declaration; the guard states each factory member at its common supertype (`worker`'s spawn parameter and `cluster`'s options are row-specific, so the guard proves presence and Layer shape) while row-specific extras (dispatcher tuning, serve options, cluster storage rows) stay precisely typed by inference because consumers index the table, never the guard, and the table itself is the kind set — no parallel contract restates it.
 - Law: the cluster row is the same altitude as every binding — `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient` beside it) and the `BunClusterSocket.layer` peer are selected at the app root through the row exactly like `serve`, with `NodeClusterHttp.layer` / `BunClusterHttp.layer` as the HTTP-transport alternates the root may pin instead — the frozen `@effect/cluster-node` family stays unadmitted; the work owners type against the `MessageStorage`/`Sharding` Tags and never import a binding, so runner transport is root data.
 - Law: undici dispatcher tuning is row-interior — connection ceilings, proxy posture, and TLS pin through `NodeHttpClient.dispatcherLayer`/`dispatcherLayerGlobal`/`makeDispatcher` beneath the node row's `client`; the egress policy composed over any client is `net/client#LANE_ROWS`'s and never forks per runtime.
-- Boundary: this module imports `node:http` for the serve row — the sanctioned FFI seam; a `node:*` or binding-package import anywhere else in the branch outside a row module is the defect the architecture audit catches.
+- Boundary: this module imports `node:http` and `node:https` for the serve row — the sanctioned FFI seam; a `node:*` or binding-package import anywhere else in the branch outside a row module is the defect the architecture audit catches.
 - Entry: `Runtime.node` / `Runtime.bun`, read by the boot module only.
 - Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`), `@nats-io/transport-node` (`connect`).
 
@@ -24,8 +27,10 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 import { FetchHttpClient } from '@effect/platform';
 import type {
     CommandExecutor,
+    Etag,
     FileSystem,
     HttpClient,
+    HttpPlatform,
     HttpServer,
     KeyValueStore,
     Path,
@@ -58,14 +63,42 @@ import {
 } from '@effect/platform-bun';
 import { connect, type NatsConnection, type NodeConnectionOptions } from '@nats-io/transport-node';
 import type { Layer } from 'effect';
-import { createServer } from 'node:http';
+import { createServer as createHttpServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+
+// Residency is what a serve row BINDS to, and the forms are not interchangeable: a TCP listener takes a port, a unix
+// listener takes a filesystem path, and a secure listener carries key material beside either. One `port` field
+// expressed the first alone, so every consumer reading it assumed a case its row never stated.
+const _RESIDENCIES = ['tcp', 'unix', 'tls'] as const;
+
+// `Net.ListenOptions` carries `port`, `host`, and `path` on ONE optional-field record, so the node projection is the
+// residency read straight onto it and needs no second spelling of the same three facts. A secure bind listens on the
+// same coordinates as a plain one — its key material rides the CONSTRUCTOR below, never the listen record.
+const _listen = (bind: Runtime.Bind): { readonly port?: number; readonly host?: string; readonly path?: string } =>
+    bind.kind === 'unix' ? { path: bind.path } : { port: bind.port, host: bind.host };
+
+// Bun spells the same three residencies under its own option names — `unix` rather than `path`, `tls` rather than a
+// secure server constructor — so the projection lands here at the row that owns the binding, never at a caller.
+const _served = (bind: Runtime.Bind): Bun.ServeOptions | Bun.TLSServeOptions | Bun.UnixServeOptions =>
+    bind.kind === 'unix'
+        ? { unix: bind.path }
+        : bind.kind === 'tls'
+          ? { port: bind.port, hostname: bind.host, tls: { cert: bind.cert, key: bind.key } }
+          : { port: bind.port, hostname: bind.host };
 
 const Runtime = {
     node: {
         main: NodeRuntime.runMain,
         context: NodeContext.layer,
         client: NodeHttpClient.layerUndici,
-        serve: (bind: Runtime.Bind) => NodeHttpServer.layer(() => createServer(), bind),
+        residency: ['tcp', 'unix', 'tls'] as const,
+        // one layer, two constructors: `https.Server` merges the whole `http.Server` interface, so the secure
+        // listener satisfies the same parameter and only its key material picks a different factory
+        serve: (bind: Runtime.Bind) =>
+            NodeHttpServer.layer(
+                bind.kind === 'tls' ? () => createHttpsServer({ cert: bind.cert, key: bind.key }) : () => createHttpServer(),
+                _listen(bind),
+            ),
         worker: NodeWorker.layer,
         runner: NodeWorkerRunner.layer,
         cluster: NodeClusterSocket.layer,
@@ -77,7 +110,8 @@ const Runtime = {
         main: BunRuntime.runMain,
         context: BunContext.layer,
         client: FetchHttpClient.layer,
-        serve: (bind: Runtime.Bind) => BunHttpServer.layer(bind),
+        residency: ['tcp', 'unix', 'tls'] as const,
+        serve: (bind: Runtime.Bind) => BunHttpServer.layer(_served(bind)),
         worker: BunWorker.layer,
         runner: BunWorkerRunner.layer,
         cluster: BunClusterSocket.layer,
@@ -88,14 +122,29 @@ const Runtime = {
 } as const;
 
 declare namespace Runtime {
-    type Bind = { readonly port: number };
+    type Residency = (typeof _RESIDENCIES)[number];
+    // Parameterized by the residencies a row admits, so a row's own `serve` REFUSES a bind it cannot honour at the
+    // call, rather than accepting one shape and discovering the missing field inside a platform option record.
+    type Bind<K extends Residency = Residency> = Extract<
+        | { readonly kind: 'tcp'; readonly port: number; readonly host?: string }
+        | { readonly kind: 'unix'; readonly path: string }
+        | { readonly kind: 'tls'; readonly port: number; readonly host?: string; readonly cert: string; readonly key: string },
+        { readonly kind: K }
+    >;
     type Kind = keyof typeof Runtime;
     type Main = typeof NodeRuntime.runMain;
     type Core = {
         readonly main: Main;
         readonly context: Layer.Layer<CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path | Terminal.Terminal | Worker.WorkerManager>;
         readonly client: Layer.Layer<HttpClient.HttpClient>;
-        readonly serve: (bind: Bind) => Layer.Layer<HttpServer.HttpServer, unknown>;
+        // What a row admits, stated by the row and read at runtime by an ops surface reporting the host's listeners.
+        readonly residency: ReadonlyArray<Residency>;
+        // `Core` holds the residency FLOOR at the two every binding has always answered: a row reaching more states it on
+        // `residency` and stays assignable because a function taking more binds satisfies one taking fewer, while a
+        // floor raised to what the present rows happen to reach refuses the first row that binds less. Both bindings
+        // publish `HttpPlatform` and `Etag.Generator` beside the server, so the file-send and validator capabilities
+        // every asset route already spends are PROVEN at this declaration instead of assumed per request.
+        readonly serve: (bind: Bind<'tcp' | 'unix'>) => Layer.Layer<HttpServer.HttpServer | HttpPlatform.HttpPlatform | Etag.Generator, unknown>;
         readonly worker: (spawn: (id: number) => never) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>;
         readonly runner: Layer.Layer<WorkerRunner.PlatformRunner>;
         readonly cluster: typeof NodeClusterSocket.layer | typeof BunClusterSocket.layer;
@@ -135,24 +184,22 @@ const _halted = (): Promise<void> => _host.dispose();
 [COMMAND_SPEC]:
 - Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"receipt" | "text" | "lines" | "stream"`, defaulted `"receipt"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (the closed stdin family folded through `Command.feed`/`Command.stdin`), defaulted `shell` (`Command.runInShell`), defaulted `stderr` (the capture posture folded through `Command.stderr`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"receipt"` yields the `Proc.Receipt` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
 - Law: the class is the admission seam and the constructor — raw spec material (an ops verb's arguments, a config-declared job) decodes once through `Schema.decodeUnknown(Proc.Spec)`, trusted interior construction rides `new Proc.Spec({ command })` running the same filters, and the executor consumes only admitted values: capture is a total literal read, absence is `Option`, and no execution arm re-validates or branches on `undefined`; `Proc.Receipt` is the same authority on the result side, so an ops surface encodes receipts through the derived wire twin with zero hand serialization.
-- Law: the fault surface is two families sized by routing — the platform's own `PlatformError` carries spawn and I/O failure untouched (re-wrapping a tagged family is ceremony), and `ExecFault` mints exactly the two causes the platform cannot: `exit` (a settled code refusing `demand`, carrying that code and the child's own stderr text as evidence) and `budget` (the expiry `Effect.timeoutFail` mints, carrying neither because its child reached no exit and its drain died with the fiber). The reason roster and its class column come from ONE core `FaultClass.family` mint, so `class` is a getter projecting `classOf(reason)` rather than a field an instance could contradict — `budget` folds to `expired` (retryable, system-blamed), `exit` to `invalid` (terminal, caller-blamed) — and no local rank, retry, or status row stands beside it because the core kind already carries all three.
 - Law: the diagnostic is captured, never discarded — `_settled` takes the live `Process` handle instead of `Command.exitCode` and drains `child.stderr` CONCURRENTLY with the exit wait, because a child that fills its stderr pipe while the parent waits on exit deadlocks. `spec.stderr` is the two-arm posture over that: `capture` folds the drained text into `ExecFault.detail`, and `inherit` hands the stream to the parent's own stderr through `Command.stderr("inherit")` — the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait.
 - Law: `feed` is the platform's whole stdin vocabulary as a closed tagged family, never a text field — `Text` keeps the UTF-8 encode `Command.feed` owns, `Inherit` hands the child the parent's own stdin, and `Bytes` folds a live `Stream` through `Command.stdin` so a piped archive or a generated payload feeds a child the text arm cannot express; the stream arm declares `FromSelf` against the carrier's own `Stream.StreamTypeId`, so a process-bound value is admitted by nominal identity and never pretends to serialize.
 - Law: teardown is interruption — the budget interrupt, a parent scope closing, and a race loss all release the child through the executor's own bracket; a hand `kill`, a PID ledger, and a signal listener beside the rail are rejected, and escalation policy (grace then hard) is the budget value itself.
 - Law: `demand` rides the receipt modality only — text, lines, and stream captures are byte lanes whose consumer owns interpretation; `budget` rides the settled modalities only — receipt, text, and lines captures are bounded whole, while the live stream and the open handle outlive any spec deadline by nature. Receipt elapsed time derives from `Clock.currentTimeNanos`, so wall-clock adjustment cannot produce a negative or inflated process duration.
 - Boundary: `CommandExecutor` arrives from the runtime row's `context`; stdio bridges (`NodeStream.stdin`, `NodeSink.stdout`) are row-tier members an ops verb composes at its own seam, never re-exported here.
 - Entry: `Proc.run(spec)`; `Proc.open(spec)` under `Scope`; the executor requirement rides `R` to the root.
-- Packages: `@effect/platform` (`Command` incl. `start`/`stdin`/`stderr`, `CommandExecutor.Process`), `effect` (`Clock`, `Duration`, `Effect`, `Match`, `Option`, `Predicate`, `Schema`, `Stream`), `@rasm/ts/core` (`FaultClass.family`).
 
 ```typescript signature
 import { Command, type CommandExecutor, type PlatformError } from '@effect/platform';
 import { Array, Clock, DateTime, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
-import { Claim, FaultClass } from '@rasm/ts/core';
+import { Board, Fault } from '@rasm/ts/core';
 
 // One core family mint owns the reason roster and its class column, so `class` is a projection of `reason` rather
 // than a second field an instance can contradict, and the branch taxonomy stays unforked: no local rank, retry, or
-// status row stands beside it — `FaultClass` already carries all three off the kind.
-const _exec = FaultClass.family(['budget', 'exit'] as const, {
+// status row stands beside it — `Fault.Class` already carries all three off the kind.
+const _exec = Fault.Class.family(['budget', 'exit'] as const, {
     budget: { class: 'expired' }, // system-blamed and retryable: the core budget gate re-drives it
     exit: { class: 'invalid' }, // caller-blamed and terminal: a refused demand is not a transient
 });
@@ -165,7 +212,7 @@ class ExecFault extends Schema.TaggedError<ExecFault>()('ExecFault', {
     // never reached an exit and whose stderr drain the interrupt cancelled
     detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
 }) {
-    get class(): FaultClass.Kind {
+    get class(): Fault.Class.Kind {
         return _exec.classOf(this.reason);
     }
     override get message(): string {
@@ -309,39 +356,38 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 ## [05]-[MEASURED_RUN]
 
 [MEASURED_RUN]:
-- Owner: `Trial` — the in-product benchmark owner minting the core wire claim directly: `Trial.Spec` owns suite, label, modality, and positive warmup and iteration rows; `Trial.run(host, spec, body)` brackets the declared iterations at `Proc.Receipt`-grade timing (`Clock.currentTimeNanos` around every sample, so wall-clock adjustment cannot skew a duration) and folds the sample set through one quantile kernel into the imported `Claim` authority.
-- Law: the claim shape has one owner — `Trial.Claim` is core `Claim`, not a runtime twin; its `Host`, `Band`, metric modality, raw samples, measured rungs, and mint instant therefore cross `BenchmarkClaimWire` without a projection or parallel schema, and the quantile kernel writes exactly the rungs it computed so a grader never reads a fabricated statistic. `Trial.Host` is required input from the selected runtime row, so Node and Bun report the core fingerprint fields and this owner reads no ambient process globals.
 - Law: warmup is discarded by construction — the bracket runs `spec.warmup` unrecorded iterations before the first sample, so cold-path jit noise never enters a quantile; the quantile kernel sorts once and reads rank positions, a marked measured kernel.
-- Law: bodies execute on the calling fiber and must be trusted non-blocking effects. Blocking kernels sit outside this API and enter through the worker plane's `Bench` protocol before a caller measures that round-trip as the body.
 - Boundary: the tests tier owns corpus benchmarking — this owner mints in-product claims on live workloads, and the two never share a harness; claim board join and rendering are the ui viewer probe's.
 - Entry: `Trial.run(host, spec, body)`.
 - Growth: a new measured case is one `Trial.Spec`; GC, heap, and hardware-counter enrichment stays absent by ownership, since those bands ride a sampling engine's own registration surface while this owner brackets a caller's effect on the calling fiber, and the corpus lane already owns that harness.
-- Packages: `effect` (`Clock`, `DateTime`, `Effect`, `Option`, `Schema`), `@rasm/ts/core` (`Claim`).
 
 ```typescript signature
 class TrialSpec extends Schema.Class<TrialSpec>('Trial/Spec')({
     suite: Schema.NonEmptyString,
     label: Schema.NonEmptyString,
-    kind: Schema.Literal('fn', 'iter', 'yield'),
+    modality: Schema.Literal('fn', 'iter', 'yield'),
     warmup: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 16 }),
     iterations: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 256 }),
 }) {}
 
-const _band = (samples: ReadonlyArray<number>): typeof Claim.Band.Type => {
+const _band = (samples: ReadonlyArray<number>): typeof Board.Claim.Band.Type => {
     // BOUNDARY ADAPTER: measured quantile kernel — one sort, rank reads, the draft dies at the return
     const sorted = [...samples].sort((a, b) => a - b);
     const rank = (q: number): number => sorted[Math.max(0, Math.ceil(q * sorted.length) - 1)]!;
     return {
-        ticks: sorted.length,
-        samples,
-        min: sorted[0]!,
-        max: sorted[sorted.length - 1]!,
-        avg: sorted.reduce((total, held) => total + held, 0) / sorted.length,
-        p25: rank(0.25),
-        p50: rank(0.5),
-        p75: rank(0.75),
-        p99: rank(0.99),
-        p999: rank(0.999),
+        sampleCount: sorted.length,
+        rungs: {
+            min: sorted[0]!,
+            max: sorted[sorted.length - 1]!,
+            avg: sorted.reduce((total, held) => total + held, 0) / sorted.length,
+            p25: rank(0.25),
+            p50: rank(0.5),
+            p75: rank(0.75),
+            p99: rank(0.99),
+            p999: rank(0.999),
+        },
+        ticks: Option.some(sorted.length),
+        samples: Option.some(samples),
         gc: Option.none(),
         heap: Option.none(),
         counters: Option.none(),
@@ -349,10 +395,10 @@ const _band = (samples: ReadonlyArray<number>): typeof Claim.Band.Type => {
 };
 
 const _bracketed = <A, E, R>(
-    host: typeof Claim.Host.Type,
+    host: typeof Board.Claim.Host.Type,
     spec: TrialSpec,
     body: Effect.Effect<A, E, R>,
-): Effect.Effect<Claim, E, R> =>
+): Effect.Effect<Board.Claim, E, R> =>
     Effect.gen(function* () {
         yield* Effect.forEach(Array.range(1, spec.warmup), () => body, { concurrency: 1, discard: true });
         const samples = yield* Effect.forEach(Array.range(1, spec.iterations), () =>
@@ -365,15 +411,25 @@ const _bracketed = <A, E, R>(
             { concurrency: 1 },
         );
         const minted = yield* DateTime.now;
-        return new Claim({
+        return new Board.Claim({
             suite: spec.suite,
-            metrics: [{ label: spec.label, unit: 'ns', kind: spec.kind, band: _band(samples) }],
+            metrics: [{
+                label: spec.label,
+                unit: 'ns',
+                modality: spec.modality,
+                polarity: 'minimize',
+                subject: { subject: 'probe' },
+                band: _band(samples),
+                warmups: Option.some(spec.warmup),
+                allocatedBytes: Option.none(),
+                operations: Option.none(),
+            }],
             host,
             minted,
         });
     });
 
-const Trial = { Claim, Host: Claim.Host, Spec: TrialSpec, run: _bracketed } as const;
+const Trial = { Spec: TrialSpec, run: _bracketed } as const;
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -53,7 +53,7 @@
 |  [05]   | `Upload`                       | list element   | dangling multipart `Key`/`UploadId`/`Initiated` |
 |  [06]   | `CopyConditions`               | conditions     | server-side copy precondition seal              |
 |  [07]   | `DeletedObject`                | bulk result    | per-object success of a batched delete          |
-|  [08]   | `DeleteError`                  | bulk result    | per-object failure of a batched delete          |
+|  [08]   | `Minio.Exceptions.DeleteError` | bulk result    | `: ErrorResponse`, declaring no members itself  |
 |  [09]   | `ProgressReport`               | progress       | `Percentage`/`TotalBytesTransferred` callback   |
 |  [10]   | `IServerSideEncryption`        | interface      | SSE stance stamped onto a request               |
 |  [11]   | `ObjectRetentionConfiguration` | WORM           | retention mode with retain-until date           |
@@ -63,6 +63,8 @@
 |  [15]   | `PostPolicy`                   | presign policy | browser-direct upload form conditions           |
 |  [16]   | `MinioNotificationRaw`         | notification   | raw event payload on the change feed            |
 |  [17]   | `ResponseResult`               | transport      | raw response the handler seams inspect          |
+|  [18]   | `Minio.DataModel.ILM.Transition` | ILM rule part | `: Duration`; free-string `StorageClass`       |
+|  [19]   | `Minio.DataModel.ILM.Duration` | ILM base       | `ExpiryDate` string with `double? Days`         |
 
 [BUCKET_CONFIGS]: `BucketNotification` `LifecycleConfiguration` `ObjectLockConfiguration` `ReplicationConfiguration` `ServerSideEncryptionConfiguration` `VersioningConfiguration`
 [SSE_MODES]: `SSEC` `SSECopy` `SSEKMS` `SSES3`
@@ -161,6 +163,13 @@
 
 Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTags(IDictionary)` and `Tagging.GetBucketTags(IDictionary)` mint the set every `WithTagging` takes.
 
+- STRUCTURAL NEGATIVE, presigned DELETE: exactly three presign shapes exist — `PresignedGetObjectArgs`, `PresignedPutObjectArgs`, `PresignedPostPolicyArgs` — across the whole 24-member `IObjectOperations` and 28-member `IBucketOperations` surface and the client itself. `PresignedGetObjectAsync` and `PresignedPutObjectAsync` take NO `CancellationToken`. Presigned DELETE against this endpoint mints through an S3-protocol signer dialed at the same address, never here.
+- STRUCTURAL NEGATIVE, storage class: `CopyObjectArgs.WithStorageClass` is `internal` and the builders are the only ingress, so no public path stamps `x-amz-storage-class` on a copy; `CopySourceObjectArgs` declares one setter, `WithCopyConditions`. No type carries a tier, restore, or archive vocabulary; `ObjectStat.ArchiveStatus` is a bare `string`, and `Transition.StorageClass` is a free string a deployment names, not a roster a consumer spells.
+- STRUCTURAL NEGATIVE, read checksum: no `With*` setter anywhere in the args algebra takes a checksum, and the only returned digests beyond `ETag` are the six on `CompleteMultipartUploadResult`. `Content-Md5` is computed by the SDK and never accepted from a caller, so read-path integrity is the SDK's own transport check alone.
+- TRAP: `RemoveObjectsArgs.BuildRequest` always emits the quiet flag, so `RemoveObjectsAsync` returns ONLY refusals and never a deleted list — a page's success count derives from the page handed in. Its `ObjectNames`/`ObjectNamesVersions` backing members are `internal`, so `WithObjects`/`WithObjectAndVersions`/`WithObjectsVersions` are the only ingress, and its base is `ObjectArgs<T>`, skipping the encryption, version, conditional, and write tiers entirely.
+- TRAP: `WithHeaders` declares once on `BucketArgs<T>`; headers outside the supported roster (`cache-control`, `content-encoding`, `content-type`, `x-amz-acl`, `content-disposition`, `x-minio-extract`) and the SSE set are LOWER-CASED and re-prefixed `x-amz-meta-`, so a user-metadata key states itself lower-case and reads back through `ObjectStat.MetaData`.
+- TRAP: `ObjectStat`'s constructor is private and `FromResponseHeaders` is the only construction path; its `ReplicationStatus` has no setter and is permanently null.
+
 [MAKE_BUCKET_ARGS]: `WithLocation` `WithObjectLock`
 [LIST_OBJECTS_ARGS]: `WithPrefix` `WithRecursive` `WithVersions` `WithIncludeUserMetadata` `WithListObjectsV1`
 [PUT_OBJECT_ARGS]: `WithStreamData` `WithFileName` `WithObjectSize` `WithProgress`
@@ -195,7 +204,7 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 - `ObjectStat.ETag` with `ObjectStat.MetaData` carries the stored identity evidence, so a reader binds an object back to its content key without re-reading the bytes.
 
 [STACKING]:
-- `api-objectstore`(`.api/api-objectstore.md`): peer provider row on the same `ObjectClient` union and `BlobRemote` placement contract, supplying the put, head, list, and delete legs, the `GetObjectArgs.WithOffsetAndLength` range read, and the write-once seal the cloud SDK rows supply through `IfNoneMatch`.
+- `api-objectstore`(`.api/api-objectstore.md`): peer provider row on the same `ObjectClient` union and `BlobRemote` placement contract, supplying the put, head, list, delete, and page-erase legs, the `GetObjectArgs.WithOffsetAndLength` range read, and the write-once seal the cloud SDK rows supply through `IfNoneMatch`. Its `AWSSDK.S3` presigner also serves this endpoint: `AmazonS3Config.ForcePathStyle` with the inherited `ServiceURL` reaches an S3-protocol cluster, so one signer covers every verb this client cannot mint.
 - `api-fastcdc`(`.api/api-fastcdc.md`): `FastCdc.GetChunks()` cut boundaries pack into `PutObjectArgs` multipart parts, so an upload window spans whole content-defined chunks and a re-upload skips the chunks the index already holds.
 - `api-parquetsharp`(`.api/api-parquetsharp.md`): a `ParquetFileWriter` managed-`Stream` sink writes straight into an upload stream, and `SelectObjectContentAsync` with `ParquetInputOptions` then pushes the predicate into the store, reading the stored object in place instead of a full GET.
 - `api-rocksdb`(`.api/api-rocksdb.md`): checkpoint and SST exports land as objects on this lane, and the symmetric bulk-restore reads them back through a range or full read.

@@ -13,7 +13,6 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 ## [02]-[TARGETING_RULES]
 
 [TARGETING_RULES]:
-- Owner: `Rollout` — the targeting owner. `Rollout.Rule` is one `Schema.Union` of tagged cases: `On`/`Off` (static arms), `Fraction` (salted percentage gate), `Segment` (axis membership over the subject's dimensions — the axes are the `AppIdentity` span plus free attributes), `Window` (a UTC validity interval), `Split` (weighted variant arms over the same salted bucket), and the composites `AllOf`/`AnyOf`/`Not` closing self-reference through `Schema.suspend`; rules are wire values the remote provider ships, so a new targeting dimension is one case row plus one fold arm, breaking every dispatch loudly.
 - Law: `decide` is total — every rule folds to an `Outcome` (`on`, `variant: Option`, `reason`), and the reason rows are the OpenFeature `StandardResolutionReasons` spellings anchored once as the `_REASONS` tuple; `Verdict` and the provider project these and never re-declare them.
 - Law: determinism is parameterization — `decide(rule, probe)` reads the wall clock and the bucket from the `probe` value (`at: DateTime.Utc`, `bucket: (salt) => number`), so evaluation is a pure fold provable by replay; an ambient clock or hash read inside the fold is the named defect.
 - Law: bucket parity is a delegation fact — the bucket function is the low 32 bits of the kernel `XxHash128` seed-zero mint over `salt:subjectKey`, modulo 100; `core/value/contentKey` owns the mint, this page owns only the projection, and the C# evaluator lands identical buckets because the mint already holds cross-language parity.
@@ -314,7 +313,6 @@ declare namespace Verdict {
 - Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never mounts a second `Flags.Default` beneath itself.
 - Entry: `Flags.Default(digest, mode)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph.
 - Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
-- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`, the four `ProviderEvents` server rows), `@effect/platform` (`KeyValueStore.forSchema`), `effect` (`Cache`, `Cause`, `Data`, `Effect`, `Exit`, `Function`, `HashMap`, `Layer`, `Match`, `Option`, `Predicate`, `Record`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/core` (`Budget`, `Convention`), `@rasm/ts/security` (`FlagGate`).
 
 ```typescript signature
 import {
@@ -333,7 +331,7 @@ import { KeyValueStore } from '@effect/platform';
 import {
     Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Option, Predicate, Record, Runtime, Schedule, Schema, Stream, SubscriptionRef,
 } from 'effect';
-import { Budget, Convention } from '@rasm/ts/core';
+import { Convention, Fault } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';
@@ -489,7 +487,7 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                     // elapsed-ceilinged, reset after quiet — then phases into the steady cadence, so a transient blip
                     // backs off against a fleet-decorrelated curve while a long outage keeps re-opening forever;
                     // a bare `spaced` pace re-derives the compile and synchronizes every replica onto one instant
-                    Effect.retry(Schedule.andThen(Budget.schedule('feed', Function.constTrue), pace)),
+                    Effect.retry(Schedule.andThen(Fault.Budget.schedule('feed', Function.constTrue), pace)),
                     Effect.forkScoped,
                 );
 

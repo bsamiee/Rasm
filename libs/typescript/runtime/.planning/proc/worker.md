@@ -13,23 +13,23 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 [PROTOCOL_FAMILY]:
 - Owner: the closed protocol union — each request a `Schema.TaggedRequest` class carrying payload, success, and failure schemas in one declaration; the union value is the one artifact both sides compile against, so a request the pool sends that the runner cannot answer is a compile error at the handler record, never a runtime miss.
 - Law: zero-copy crossings are declared at the schema — `Transferable.Uint8Array` for byte payloads, `Transferable.MessagePort` for channel handoff, `Transferable.schema(shape, project)` for a composite whose transfer list projects from its own fields — so the marshal plan is recoverable from the message declaration and no call site carries a transferable list.
-- Law: failure crosses as the request's failure schema — the caller receives the same tagged class the handler failed with, so budget gates and routing dispatch on the reconstructed value; a stringified error crossing the seam destroys the discriminant and is the named defect. What crosses is the REASON alone: `class` is a getter projecting one core `FaultClass.family` mint, so the far side reconstructs it rather than trusting it, and a handler cannot fail for one reason while stamping a contradicting class — as constructor data it could, and the caller's budget gate would honour the stamp over the cause.
+- Law: `Transferable.ImageData` stays unrostered HERE and only here — the row crosses a DOM type this pool's node and bun members never construct, so `browser/fetch#WIRE_PROTOCOL`'s `Imprint` request owns the pixel crossing whole, taking the plane and answering encoded octets off an `OffscreenCanvas` no node or bun member holds; a row minted on this seam would be unspellable on the platform it ships to, so the omission is a decided split, never a gap in the `Transferable` roster this page otherwise carries whole.
 - Law: request statics carry the call surface — each class owns its call static composing the pool Tag (`Render.rendered`, `Drop.announced`), so a consumer imports the request and reaches the whole seam; the stated union on the static is the marshal truth: domain fault, wire decode, worker transport.
 - Law: `Render` is the CPU-bound document offload row — an encoded render plan crosses zero-copy, the produced bytes cross back zero-copy, and `work/report#SPEC_FOLD` dials `Render.rendered` above its off-thread ceiling; the plan codec is the report owner's, so this row carries octets and a `kind` discriminant, never a document shape.
 - Law: `Drop` is the memo-epoch invalidation fan — the host broadcasts the rotated epoch and every member drops the worker-held memos it stamped under an older one, so a config or ruleset flip propagates to every thread without a per-member registry; the roster carries only rows with a named branch consumer, and the streaming modality (`execute` over a `Stream`-answering handler) is documented law whose first row lands with its consumer, never a placeholder class.
 - Growth: a new off-thread capability is one request class plus one union row plus one handler row — every consumer stays untouched, the missing handler breaks loudly.
-- Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/ts/core` (`FaultClass`).
+- Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
 import { Transferable, Worker, type WorkerError, WorkerRunner } from '@effect/platform';
 import { Context, Effect, Layer, type ParseResult, Schema } from 'effect';
-import { FaultClass } from '@rasm/ts/core';
+import { Fault } from '@rasm/ts/core';
 
 // `class` DERIVES from `reason` through one core family mint, so the two can never disagree. As constructor data it
 // was forgeable across the thread seam — a handler could fail `starved` while stamping `invalid`, and the caller's
 // budget gate would honour the stamp; `reason` alone crosses the wire and the getter reconstructs the class on the
 // far side, so the seam carries less and proves more.
-const _bench = FaultClass.family(['refused', 'starved'] as const, {
+const _bench = Fault.Class.family(['refused', 'starved'] as const, {
     refused: { class: 'invalid' }, // the handler rejected the payload: caller-blamed and terminal
     starved: { class: 'exhausted' }, // the member ran out of headroom: system-blamed and retryable
 });
@@ -37,7 +37,7 @@ const _bench = FaultClass.family(['refused', 'starved'] as const, {
 class BenchFault extends Schema.TaggedError<BenchFault>()('BenchFault', {
     reason: _bench.schema,
 }) {
-    get class(): FaultClass.Kind {
+    get class(): Fault.Class.Kind {
         return _bench.classOf(this.reason);
     }
     override get message(): string {

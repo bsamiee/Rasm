@@ -51,34 +51,36 @@
 
 [ENTRYPOINT_SCOPE]: block operations
 
-| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------ | :------- | :--------------------------------- |
-|  [01]   | `DataflowBlock.Post(ITargetBlock<T>, T)`                | static   | offers a message without blocking  |
-|  [02]   | `DataflowBlock.SendAsync(ITargetBlock<T>, T)`           | static   | awaits backpressure when full      |
-|  [03]   | `ISourceBlock<T>.LinkTo(target, DataflowLinkOptions)`   | instance | wires a source into a target       |
-|  [04]   | `IDataflowBlock.Complete()`                             | instance | signals end of input               |
-|  [05]   | `IDataflowBlock.Completion`                             | property | drain and fault task to await      |
-|  [06]   | `IDataflowBlock.Fault(Exception)`                       | instance | faults the block                   |
-|  [07]   | `IReceivableSourceBlock<T>.TryReceive(out T)`           | instance | pulls one available message        |
-|  [08]   | `IReceivableSourceBlock<T>.TryReceiveAll(out IList<T>)` | instance | drains available messages          |
-|  [09]   | `DataflowBlock.OutputAvailableAsync(ISourceBlock<T>)`   | static   | awaits source readiness            |
-|  [10]   | `BatchBlock<T>.TriggerBatch()`                          | instance | forces a partial batch             |
-|  [11]   | `DataflowBlock.Encapsulate(target, source)`             | static   | wraps a block pair as a propagator |
-|  [12]   | `JoinBlock<T1,T2>.Target1`                              | property | feeds the first join arm           |
-|  [13]   | `JoinBlock<T1,T2>.Target2`                              | property | feeds the second join arm          |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `DataflowBlock.Post(ITargetBlock<T>, T) -> bool`            | static   | offers a message without blocking  |
+|  [02]   | `DataflowBlock.SendAsync(ITargetBlock<T>, T) -> Task<bool>` | static   | awaits backpressure when full      |
+|  [03]   | `ISourceBlock<T>.LinkTo(target, DataflowLinkOptions)`       | instance | wires a source into a target       |
+|  [04]   | `IDataflowBlock.Complete()`                                 | instance | signals end of input               |
+|  [05]   | `IDataflowBlock.Completion`                                 | property | drain and fault task to await      |
+|  [06]   | `IDataflowBlock.Fault(Exception)`                           | instance | faults the block                   |
+|  [07]   | `IReceivableSourceBlock<T>.TryReceive(out T)`               | instance | pulls one available message        |
+|  [08]   | `IReceivableSourceBlock<T>.TryReceiveAll(out IList<T>)`     | instance | drains available messages          |
+|  [09]   | `DataflowBlock.OutputAvailableAsync(ISourceBlock<T>)`       | static   | awaits source readiness            |
+|  [10]   | `BatchBlock<T>.TriggerBatch()`                              | instance | forces a partial batch             |
+|  [11]   | `DataflowBlock.Encapsulate(target, source)`                 | static   | wraps a block pair as a propagator |
+|  [12]   | `JoinBlock<T1,T2>.Target1`                                  | property | feeds the first join arm           |
+|  [13]   | `JoinBlock<T1,T2>.Target2`                                  | property | feeds the second join arm          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every block is `ITargetBlock<T>`, `ISourceBlock<T>`, or both through `IPropagatorBlock<TInput,TOutput>`; `LinkTo` wires a source into a target.
 - Bounded blocks back-pressure at `BoundedCapacity`: `SendAsync` awaits a slot, `Post` refuses when full, `Unbounded = -1` opts out.
+- Both offer verbs answer their refusal as a RETURNED value — `Post` a `false`, `SendAsync` a `Task<bool>` completing `false` on a declining or completed target — so a discarded return is unreceipted loss.
+- `BroadcastBlock<T>` bounds its own INPUT alone: a bounded target that declines an offer is overwritten by the next value rather than queued, and the block reports that decline to no source, so a fan-out row's per-target loss is unobservable at the offer and accounts by conservation at the two ends instead.
 - Completion flows down a link only under `DataflowLinkOptions.PropagateCompletion`; `Completion` faults when the block faults.
 - Each message offer resolves to `DataflowMessageStatus` under a `DataflowMessageHeader` identity; a source reservation runs reserve, consume, release.
 - `NullTarget<T>` absorbs and discards a message; `AsObservable` and `AsObserver` bridge a block to Rx.
 
 [STACKING]:
 - `Runtime/resources.md`: `DrainQueue<T>.Network(DrainSpec, ITargetBlock<T> Intake, IDataflowBlock Tail)` wraps every completion-propagating block graph, and `DrainSurface.Broadcast`/`.Join`/`.Coalesce` mint `BroadcastBlock`/`JoinBlock`/`BatchedJoinBlock` while `.NetworkOptions`/`.BroadcastOptions`/`.GroupingOptions`/`.LinkOptions` project each `DrainSpec` row onto its options record; the `Pipe` case rides `Channel<T>` instead.
-- `Wire/topics.md`: `Topic<T>` and `Subscription` compose the `Runtime/resources` `DrainSurface` builders — `BroadcastBlock` topic fan, bounded `BufferBlock` into `ActionBlock` subscription, `JoinBlock` correlate, `BatchedJoinBlock` coalesce — never a raw block.
+- `Wire/topics.md`: `Topic` and `Subscription` compose the `Runtime/resources` `DrainSurface` builders — `BroadcastBlock` topic fan, one bounded `ActionBlock` as both subscription intake and consumer, `JoinBlock` correlate, `BatchedJoinBlock` coalesce — never a raw block.
 
 [LOCAL_ADMISSION]:
 - Background work enters bounded blocks; drain awaits `Completion` and faults the AppHost receipt rail on block failure.

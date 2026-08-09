@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[ARM_VOCABULARY]: the closed arm tuple and derived identity union; `StackSpec`.
-- [03]-[SPEC_OWNER]: the app-supplied value: coordinates, profile, tenancy, defaults; `StackSpec`.
+- [03]-[SPEC_OWNER]: the app-supplied value: coordinates, profile, separation, defaults; `StackSpec`.
 - [04]-[TIER_BASE]: the abstract component owner: token scope, option fold, seal, privilege anchor, roster; `Tier`.
 - [05]-[OUTPUT_PLANES]: the decoded exit, the secret gate, the channel-flatten owner, the env-key catalogs; `StackOutputs`.
 
@@ -22,30 +22,30 @@
 ## [03]-[SPEC_OWNER]
 
 [SPEC_OWNER]:
-- Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for cloud arms, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
 - Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
-- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
-- Law: `topology` is the deployment-shape axis a composition root supplies, not a fact a package infers — `proc/config#ADMISSION_ROWS` owns the closed roster and `ConsumptionProfile.topologies` spreads that one spelling into this schema, `service` is the deploy plane's own default, and a tier serving a proper subset refuses the rest at admission with typed evidence naming the axis and the rejected value; `operate/converge.md` is the first such refusal, `_SERVED` its subset.
+- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `separation` carries the tenant-boundary posture the cluster realizes — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas; `objective` alone is a getter rather than a field, because the durability window follows from `topology` and a defaulted second declaration of it forks the pair the runner grades against.
+- Law: `topology` is the deployment-shape axis a composition root supplies, not a fact a package infers — `proc/config#ADMISSION_ROWS` owns the closed roster and `ConsumptionProfile.topologies` spreads that one spelling into this schema, `service` is the deploy plane's own default, and a tier serving a proper subset refuses the rest at admission with typed evidence naming the axis and the rejected value; `operate/converge.md` is the first such refusal, `_SERVED` its subset; the same owner supplies the topology-keyed durability window through `ConsumptionProfile.recoveryOf`, so `objective` reads one branch table and this schema restates no window of its own.
+- Law: `_Profile` is a `Schema.Class` for exactly one reason — a derived `objective` needs a body, and `Schema.Struct` carries none; the class seats `topology` beside that getter, which is what makes `StackSpec.Profile` satisfy `operate/converge` `Converge.Profile` structurally instead of by an adapter the deploy program hand-builds.
 - Law: `data` sizes its own cluster — `instances` and `storage` bound the estate and `requests`/`limits` bound each instance, because a cluster stating no resource block schedules BestEffort and the estate's only stateful workload is then the first pod the kubelet evicts under node pressure; both faces spell one quantity pair so a Guaranteed posture is a caller setting them equal rather than a second axis.
 - Law: `data.pooling` is a capability input, not a chart knob — the mode selects the PgBouncer posture AND the primitive set that posture voids, `session` is the default because it voids none, `data.primitives` names the pooled-bind primitives the app composes, `kube/data.md` refuses the intersection at admission, and the realized mode publishes on the `data` plane so the runtime capability rail gates on deployment truth instead of assuming a session.
 - Law: a wire literal carries a refined brand, never a bare string — `_Quantity` holds the Kubernetes resource-quantity grammar every storage and sizing field spells, `_Cron` holds the six-field seconds-leading dialect the CNPG schedule consumes, and `_Window` holds the retention duration every store row's `retain` projection reads; a value failing its grammar fails at decode, where the coordinate is still loggable, never inside a chart the operator already accepted.
 - Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, `observe.ingest` the pg-server metrics arm, `observe.costs` the OpenCost pricing row, and `observe.ebpf` the privileged zero-code instrumentation row — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
 - Law: every fleet escalation resolves to one `_Escalation` value, so arming one is a coordinate flip and never a tier re-design — `observe.sampling` names the traces-pipeline decision tier (`head` rides the SDK parent ratios, `tail` mounts the gateway's already-defined `tail_sampling` processor), `observe.topology` names the collector deployment shape (`gateway` is the one deployment every workload dials, `agent` adds the daemonset tier exporting Arrow onto that same door), and `observe.buffer` names the durability carrier (`file` is the gateway's own disk queue, `broker` adds the paired kafka legs that survive the gateway itself); each value is the arm coordinate its `libs/.planning/ARCHITECTURE.md` `[FLEET_ESCALATION]` row names, and a row whose coordinate no value spells is an escalation nothing can arm.
-- Law: an escalation carrying no coordinate is unrepresentable — `_Escalation.buffer` discriminates on `mode` and the broker arm carries its own `brokers` roster, exactly as `_Tenancy` carries the tenant slugs its escalated arms cannot run without, so selecting a broker leg against an absent broker estate fails at decode rather than rendering a pipeline that connects to nothing.
+- Law: an escalation carrying no coordinate is unrepresentable — `_Escalation.buffer` discriminates on `mode` and the broker arm carries its own `brokers` roster, exactly as `_Separation` carries the tenant slugs its escalated arms cannot run without, so selecting a broker leg against an absent broker estate fails at decode rather than rendering a pipeline that connects to nothing.
 - Law: `observe.topology` names the COLLECTOR shape and `profile.topology` the CONSUMPTION shape — the two axes share a noun and nothing else, so a gateway estate serving `edge` consumers and an agent estate serving `service` consumers are both ordinary, and folding one onto the other re-mints a deployment assumption the consumption roster exists to delete.
 - Law: `observe.analytics` selects the durable residence family (`none` refuses evidence residence outright, `lake` is the default cold tail on the object plane the stack already carries, `clickhouse` is the interactive wide-event residence, `both` runs the pair) — residence selection is the one coordinate deciding whether telemetry survives its metrics retention window, so `none` states an accepted evidence loss rather than an unmade decision.
-- Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant with its own custody envelope), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
+- Law: the tenant boundary is data, never code paths — `separation.mode` selects the control-plane boundary (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant; `vcluster` = virtual-control-plane-per-tenant), `separation.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant with its own custody envelope), and `separation.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; an escalation is a spec delta interpreted by the owning tiers, never a second program body.
 - Law: tenant GOVERNANCE is spec data the `kube/tenant.md` `_MODES` fold reads — `quota` bounds the namespaces a tenant claims (floored at one by the Capsule CRD, ceilinged by this estate), `ownerGroup` is the SUFFIX the owning group's name carries so the fold composes `${tenant}-${ownerGroup}` from one edit site, and `registries` and `ingressClasses` name the pull sources and classes a tenant may claim with an empty roster meaning unrestricted; every column is defaulted, so a standard escalation states none and the defaults reproduce the posture the retired literals bound, and a governance value living as a literal inside an isolation-mode row is estate policy wearing a module constant's clothes — the defect this axis deletes.
-- Law: an escalation with no tenant is unrepresentable — `_Tenancy` is a union discriminated on `mode`, the `single` arm carrying neither `pgTier` nor `tenants` and each escalated arm carrying `pgTier` and the governance columns beside a `NonEmptyArray` of slugs, so a data-plane tier paired with an empty tenant roster fails at decode instead of realizing zero tenant databases in silence, and a governance coordinate is unspellable on the mode that governs nothing; the `pgTier` getter projects the shared tier for `single`, giving every consumer one total read.
+- Law: an escalation with no tenant is unrepresentable — `_Separation` is a union discriminated on `mode`, the `single` arm carrying neither `pgTier` nor `tenants` and each escalated arm carrying `pgTier` and the governance columns beside a `NonEmptyArray` of slugs, so a data-plane tier paired with an empty tenant roster fails at decode instead of realizing zero tenant databases in silence, and a governance coordinate is unspellable on the mode that governs nothing; the `pgTier` getter projects the shared tier for `single`, giving every consumer one total read.
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a cloud arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
-- Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new tenancy tier is one literal with its interpreting row in the owning tier and a new governance axis one `_Governance` field the same tier reads; a new consumption axis is one roster the runtime admission owner mints with one `_Profile` field spreading it.
+- Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new separation tier is one literal with its interpreting row in the owning tier and a new governance axis one `_Governance` field the same tier reads; a new consumption axis is one roster the runtime admission owner mints with one `_Profile` field spreading it.
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`AppIdentity`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
+- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Identity.App`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
 
 ```typescript signature
-import { AppIdentity } from "@rasm/ts/core"
+import { Identity } from "@rasm/ts/core"
 import { type Consumption, Profile as ConsumptionProfile } from "@rasm/ts/runtime"
 import { Schema } from "effect"
 
@@ -134,7 +134,9 @@ const _Isolated = Schema.Struct({
   ..._Governance.fields,
 })
 
-const _Tenancy = Schema.Union(
+// How the control plane separates tenants, which is a Kubernetes boundary posture rather than the consumption
+// tenancy axis: the two share no vocabulary, and `_Profile.topology` is where this spec spells a consumption axis.
+const _Separation = Schema.Union(
   Schema.Struct({ mode: Schema.Literal("single") }),
   Schema.Struct({ mode: Schema.Literal("namespace"), ..._Isolated.fields }),
   Schema.Struct({ mode: Schema.Literal("vcluster"), ..._Isolated.fields }),
@@ -167,7 +169,13 @@ const _Observe = Schema.Struct({
   buffer: Schema.optionalWith(_Escalation.buffer, { default: () => ({ mode: "file" as const }) }),
 })
 
-const _Profile = Schema.Struct({
+// `objective` DERIVES and stores nothing: an operator declares topology, and the durability window follows from it
+// through the one `proc/config#ADMISSION_ROWS` table, so this plane and the process it deploys grade against one
+// pair. Storing it forks that answer the moment an operator moves topology and leaves the window defaulted.
+// Deriving also makes `StackSpec.Profile` satisfy `operate/converge` `Converge.Profile` structurally, so that tier
+// takes a profile row rather than a `StackSpec` and any composition root outside this estate converges identically
+// off the same two members.
+class _Profile extends Schema.Class<_Profile>("StackSpec.Profile")({
   scale: Schema.optionalWith(Schema.Literal("dev", "standard", "fleet"), { default: () => "standard" as const }),
   topology: Schema.optionalWith(Schema.Literal(...ConsumptionProfile.topologies), { default: () => "service" as const }),
   compute: Schema.optionalWith(Schema.Literal("serverless", "cluster"), { default: () => "serverless" as const }),
@@ -177,12 +185,16 @@ const _Profile = Schema.Struct({
   data: Schema.optionalWith(_Data, { default: () => _Data.make({}) }),
   fanout: Schema.optionalWith(_Fanout, { default: () => _Fanout.make({}) }),
   observe: Schema.optionalWith(_Observe, { default: () => _Observe.make({}) }),
-  tenancy: Schema.optionalWith(_Tenancy, { default: () => ({ mode: "single" as const }) }),
-})
+  separation: Schema.optionalWith(_Separation, { default: () => ({ mode: "single" as const }) }),
+}) {
+  get objective(): Consumption.Objective {
+    return ConsumptionProfile.recoveryOf(this.topology)
+  }
+}
 
 class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   name: _Name,
-  app: AppIdentity.fields.app,
+  app: Identity.App.fields.app,
   target: Schema.Literal(..._arms),
   backend: Schema.optionalWith(Schema.Literal("self-managed", "cloud"), { default: () => "self-managed" as const }),
   region: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
@@ -202,12 +214,12 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
     return this.backend === "cloud"
   }
   get tenants(): ReadonlyArray<StackSpec.Slug> {
-    return this.profile.tenancy.mode === "single" ? [] : this.profile.tenancy.tenants
+    return this.profile.separation.mode === "single" ? [] : this.profile.separation.tenants
   }
   // `single` carries no tier field, so this projection seats the shared tier and every data-plane
   // consumer reads one total value instead of re-deriving the mode-to-tier correspondence.
   get pgTier(): StackSpec.PgTier {
-    return this.profile.tenancy.mode === "single" ? "shared-rls" : this.profile.tenancy.pgTier
+    return this.profile.separation.mode === "single" ? "shared-rls" : this.profile.separation.pgTier
   }
 }
 
@@ -224,8 +236,8 @@ declare namespace StackSpec {
   type Pooling = Data["pooling"]
   type Observe = typeof _Observe.Type
   type Residence = Observe["analytics"]
-  type Profile = typeof _Profile.Type
-  type Tenancy = typeof _Tenancy.Type
+  type Profile = InstanceType<typeof _Profile>
+  type Separation = typeof _Separation.Type
   type Governance = typeof _Governance.Type
   type PgTier = (typeof _Isolated.Type)["pgTier"]
   type _Keys<K extends Arm = (typeof _arms)[number]> = K

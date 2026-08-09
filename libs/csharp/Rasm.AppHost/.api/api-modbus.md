@@ -88,6 +88,23 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 - `WriteSingleRegisterAsync` also carries `ushort` and `byte[]` overloads mirroring its synchronous family; the `short` form is function 06, distinct from a one-element function-16 block.
 - `ReadCoilsAsync`/`ReadDiscreteInputsAsync` return one bit per point packed into bytes low-bit-first, so a single-point window reads the low bit of the first byte; input registers and discrete inputs are read-only by protocol and expose no write member.
 
+[ENTRYPOINT_SCOPE]: fault surface
+
+`ModbusException : Exception` carries `public ModbusExceptionCode ExceptionCode { get; }`, raised by `internal void ModbusClient.ProcessError(ModbusFunctionCode, ModbusExceptionCode)` as a pure table dispatch. Every write member returns a bare `Task` or `void`, so this exception is the only carrier a refusal reaches a caller through. `ModbusExceptionCode` derives `byte`.
+
+| [INDEX] | [MEMBER]                             | [VALUE] | [MEANING]                                   |
+| :-----: | :----------------------------------- | :-----: | :------------------------------------------ |
+|  [01]   | `OK`                                 |    0    | no protocol fault                           |
+|  [02]   | `IllegalFunction`                    |    1    | function code unsupported by the server     |
+|  [03]   | `IllegalDataAddress`                 |    2    | address window outside the server map       |
+|  [04]   | `IllegalDataValue`                   |    3    | value outside the register's admitted range |
+|  [05]   | `ServerDeviceFailure`                |    4    | unrecoverable server-side fault             |
+|  [06]   | `Acknowledge`                        |    5    | request accepted, completion deferred       |
+|  [07]   | `ServerDeviceBusy`                   |    6    | request declined, re-offer admitted         |
+|  [08]   | `MemoryParityError`                  |    8    | parity fault reading extended memory        |
+|  [09]   | `GatewayPathUnavailable`             |   10    | gateway cannot route to the target          |
+|  [10]   | `GatewayTargetDeviceFailedToRespond` |   11    | gateway routed, the target stayed silent    |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -97,6 +114,8 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 - `unitIdentifier` is the slave address and the address window (`startingAddress`, `count`) is binding-spec policy data, never a parallel poller.
 - one `ModbusClient` register and coil surface serves the TCP, RTU, and RTU-over-TCP transports alike.
 - `ModbusException` carrying a `ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior.
+- TRAP: the message-only `ModbusException(string)` constructor emits `ldc.i4.1; sub; conv.u1` over a zero backing field, so a TRANSPORT-level fault — an invalid protocol identifier, an invalid response function code — carries `ExceptionCode = (ModbusExceptionCode)255`, an unnamed sentinel meaning "not a protocol code". Reading `ExceptionCode` without that guard mis-routes a framing fault as a device refusal.
+- TRAP: `Acknowledge` (5) and `ServerDeviceBusy` (6) are DEFERRED-ACCEPTANCE codes, not refusals, so folding them into a rejection arm loses the re-offer class the server asked for.
 
 [STACKING]:
 - `System.IO.Ports`(`.api/api-serialport.md`): `ModbusRtuClient` binds a `SerialPort` line for RTU/ASCII fieldbus, its `Parity`/`StopBits`/`Handshake` line policy carried by that owner.

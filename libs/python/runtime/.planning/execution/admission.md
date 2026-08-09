@@ -14,9 +14,11 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 
 - Owner: `RuntimeContext` is the one caller-supplied context discriminating deployment shape, correlation, deadline, and classification, carrying the inbound `causal` frame as `Option[CausalFrame]` — `Nothing` locally minted, `Some(frame)` the host stamp — and the inbound header map as `carrier`. `ConsumptionProfile` carries the six-axis row `tenancy`, `topology`, `host`, `lifecycle`, `isolation`, `providers`; `RuntimeProfile` names the presets this branch supplies over that roster and `PROFILE_ROW` expands each to its axis tuple, so a preset is a name for a row and never a discriminant a fold switches on. `Classification` closes the sensitivity band every projection carries, and `RecoveryObjective` the declared `(rpo, rto)` durability window `TOPOLOGY_RECOVERY` supplies per deployment shape.
 - Cases: `tenancy` = none | single | multi; `topology` = in-host | sidecar | companion | service | edge | cli; `lifecycle` = caller-owned | package-owned; `isolation` = in-proc | thread | process | wasm | remote; `classification` = internal | restricted | public; `host` and `providers` carry `HostRow` and `ProviderRow` descriptors this branch supplies through `HOST_ROWS` and `PROVIDER_ROWS`; a refused axis rides the fault union's `config` case keyed `profile.<axis>`, so the boot fold that admits a row composes it through the same rail every other step returns through.
+- Law: `HostRow` and `ProviderRow` answer the estate consumption-descriptor floor — `fits`, `admit`, `lifetime`, and a `degrade` DERIVED off the capability columns beside a stated `concedes` — and refuse the two coordinates neither family decides: a descriptor separates no tenant, since the profile's own closed `tenancy` axis does, and the closed `isolation` roster stays Tier-0's, since `ISOLATION_FEATURE` crosses each value with the feature a row `supplies` so `admit` refuses an unserved value on the `isolation` axis by name where a per-row `reach` column re-minted that roster once per port.
 - Law: adoption is the conformance — an inbound `traceparent` continues its trace id and parents its span id, and a fresh 16-byte root mints only where extraction yields no valid parent, so the Python leg never fractures a distributed trace. `Hlc` and the W3C context ride one carrier as two disjoint reads: the packed cell projects as the `rasm.hlc` span attribute, and the identity slots take propagator output alone.
 - Entry: `ConsumptionProfile.admit` is the one axis gate returning `RuntimeRail[ConsumptionProfile]`, and `seated` is its construction face — `PROFILE_ROW` folds every preset through it at import and `RuntimeContext.admit` folds a hand-supplied row through it at boot, so the gate has a producer on both paths rather than an obligation a composition root can skip. `Deadline.seconds` is the one `float` the `execution/lanes#LANE` `LanePolicy.deadline` reads — never a re-derived `total_seconds()` at the lane seam. `Correlation.seed` is the one inbound-context owner: it adopts the extracted W3C parent whole under the disjoint `TraceId`/`SpanId` domains its two mint sites size, and `attribute` folds the carried frame through `CausalFrame.attributes("packed")` rather than re-spelling the `(rasm.tenant, rasm.hlc)` columns, so the result is admissible to `Span.set_attributes` directly.
 - Auto: `ProfilePolicy.of` folds every behavior column out of axis values — `lifecycle` decides eager import, `lifecycle` beside the host descriptor's `scratch` column decides scratch writability, and the host descriptor's `lanes` and `recovery` columns override `TOPOLOGY_LANES` and `TOPOLOGY_RECOVERY` for capacity and durability — so no column keys on a preset name and a caller never re-derives a flag. `emit_otel` is a fold over the carried `FeatureGate` rather than a stored column, so the bound telemetry provider and the killswitch revoking it answer as one availability read.
+- Receipt: `ConsumptionProfile.canonical()` orders the six axis rows and `canonical_json()` renders them as the one UTF-8 `canonical-json` preimage the `consumption-profile` corpus contract freezes, so the three branches diff one string rather than three rosters; the render walks the ordered pairs because a serialized mapping seats property order in the collection rather than the roster the vector pins.
 - Growth: a new context field is one `RuntimeContext` column; a new host integration is one `HOST_ROWS` descriptor and a new bound port one `PROVIDER_ROWS` descriptor; a new feature is one `Feature` case supplied by a provider row; a new killswitch is one `Killswitch` case with one `KILLSWITCH_FEATURE` disabling edge — never a parallel boolean knob; a new sensitivity band is one `Classification` member reaching the projection unedited; a new durability preset is one `TOPOLOGY_RECOVERY` row or one `HostRow.recovery` value, never a second DR taxonomy; a new attribute dimension is one entry in the `attribute` projection; a new propagated wire format is one row at the telemetry install's composite, reaching `seed` with no edit here.
 - Boundary: no environment probing, host discovery, service-root construction, or global mutable context lives here — deployment shape arrives as one supplied row and this package infers none of it; axis values stay data, so a compile-time assumption, an ambient global, an environment flag, and a fold branching on which product hosts the package are the four deleted forms; `ConsumptionProfile.admit` refuses an unservable axis value onto the fault union's `config` case whose subject names the axis, so silent degradation and a narrowed public surface never happen and no sibling refusal type stands beside the one union every package returns through; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; killswitches ride `RuntimeContext.killswitches` as caller-supplied operational state, never a profile column, so revoking a feature never re-cuts deployment shape; `RecoveryObjective` is DECLARED here and measured nowhere on this cluster — `[03]-[BACKEND_CONTRACT]` grades an observed window against the row a caller threads it, so a target and a reading never share a struct; `CausalFrame`/`Hlc`/`Tenant` stay the `evidence/clock#CLOCK` owner's records; propagator registration stays the `observability/telemetry#TELEMETRY` install's, this owner reading the global it publishes; each branch spells the roster in its own types, so a peer branch's descriptor rows are never mirrored here row-for-row.
 
@@ -38,6 +40,7 @@ from enum import StrEnum
 from secrets import token_bytes
 from typing import Final, NewType, Self
 
+import msgspec
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Map
 from msgspec import Struct, ValidationError, field
@@ -204,35 +207,151 @@ TOPOLOGY_RECOVERY: Final[Map[Topology, RecoveryObjective]] = Map.of_seq([
 
 
 class HostRow(Struct, frozen=True):
+    # one host integration's whole capability in columns, and the mechanical ones never state what a SELECTING reader
+    # needs: `fits` which host this row IS, `admit` the entry that puts work in, `lifetime` who ends what entered, and
+    # a `degrade` derived off the capability columns. `admit` is per row because a host's entry is its own — an
+    # embedded library takes work on the caller's call, a harness takes it per proof beside the scratch root it opens.
+    # Tenancy is NOT a column here and never becomes one: a host separates no tenant, the profile's own closed
+    # `tenancy` axis does, and a host answering tenancy answers it by guess for every deployment the host carries.
     key: str
     lanes: int
     recovery: RecoveryObjective
     scratch: bool
     document: bool
+    fits: str
+    admit: str
+    lifetime: str
+    # concessions no capability column expresses; the derived half rides `degrade` below.
+    concedes: tuple[str, ...] = ()
+
+    @property
+    def degrade(self) -> tuple[str, ...]:
+        # DERIVED first and stated second: a false capability column IS the capability this host gives up, so flipping
+        # one re-states the degradation with zero row edits, and only what no column expresses is spelled by hand.
+        # That split is the sibling `transport/roots#STORE` `StoreBackend` rows' own, so one reading serves both.
+        return (
+            *(() if self.scratch else ("no writable scratch root — every spill, cache, and staged artifact stays in memory or refuses by name",)),
+            *(() if self.document else ("no host document surface — an owner needing one refuses rather than opening a document of its own",)),
+            *self.concedes,
+        )
 
 
 class ProviderRow(Struct, frozen=True, gc=False):
+    # one bound port's whole capability in columns, `supplies` the feature it carries and `fits`/`admit`/`lifetime`
+    # what a selecting reader needs of it. TWO coordinates are refused on purpose. Tenancy is not a column: a port
+    # separates no tenant, the profile's closed `tenancy` axis does. Isolation is not one either — the closed axis is
+    # Tier-0's roster and a `reach` column re-minted it once per row, while `ISOLATION_FEATURE` already crosses each
+    # value with the feature a row `supplies`, so `ConsumptionProfile.admit` refuses an unserved value on the
+    # `isolation` axis by name and carries the crossing constraint as typed evidence rather than as a column.
     key: str
     supplies: Feature
-    reach: Isolation
+    fits: str
+    admit: str
+    lifetime: str
+    # concessions no capability column expresses; the derived half rides `degrade` below.
+    concedes: tuple[str, ...] = ()
+
+    @property
+    def degrade(self) -> tuple[str, ...]:
+        # DERIVED off `supplies` against the two tables keying on it: one port carries exactly one feature, so every
+        # crossing that feature gates reads back as a capability the profiles leaving this row unbound forfeit, and a
+        # killswitch over it reads exactly as an unbound port. Only what no column expresses is spelled by hand.
+        return (
+            *(
+                f"an `{isolation}` crossing refuses at `profile.{ProfileAxis.ISOLATION}` in every profile leaving this row unbound"
+                for isolation, needed in ISOLATION_FEATURE.items()
+                if needed == Some(self.supplies)
+            ),
+            *(
+                f"`{switch}` revokes `{self.supplies}`, so a tripped switch reads exactly as an unbound port"
+                for switch, feature in KILLSWITCH_FEATURE.items()
+                if feature is self.supplies
+            ),
+            *self.concedes,
+        )
 
 
 # Rows this branch supplies for the two OPEN axes. An application embedding the estate inside its own
 # process mints its own descriptor against the same shape; nothing here is a set a fold may close over.
 HOST_ROWS: Final[Map[str, HostRow]] = Map.of_seq([
-    ("embedded", HostRow(key="embedded", lanes=4, recovery=TOPOLOGY_RECOVERY[Topology.IN_HOST], scratch=False, document=False)),
-    # the harness window is zero by CONSTRUCTION and not by measurement: its store is rebuilt whole per run, so there is
-    # no data a restore could lose and no restore to time — the one row where zero states a structural target.
-    ("test-harness", HostRow(key="test-harness", lanes=2, recovery=RecoveryObjective(rpo=Ticks(0), rto=Ticks(0)), scratch=True, document=False)),
+    (
+        "embedded",
+        HostRow(
+            key="embedded", lanes=4, recovery=TOPOLOGY_RECOVERY[Topology.IN_HOST], scratch=False, document=False,
+            fits="an application embedding this branch inside its own process and keeping the lifecycle",
+            admit="work enters on the embedding application's own call and rides the four-lane pool `lanes` sizes",
+            lifetime="every lane and handle lives exactly as long as the embedding process, and the CALLER ends them — a caller-owned lifecycle makes teardown the host's call, never this branch's",
+        ),
+    ),
+    (
+        "test-harness",
+        HostRow(
+            key="test-harness", lanes=2, recovery=RecoveryObjective(rpo=Ticks(0), rto=Ticks(0)), scratch=True, document=False,
+            fits="the proof estate's per-run host, whose store is rebuilt whole rather than carried between runs",
+            admit="work enters per proof through the two-lane pool, and fixture bytes through the scratch root `scratch` opens",
+            lifetime="everything lives exactly one run and the harness ends it by rebuilding the store whole, so nothing survives into a second proof",
+            concedes=("zero recovery is STRUCTURAL rather than measured: a store rebuilt whole per run loses no data a restore could take back and times no restore",),
+        ),
+    ),
 ])
 
 PROVIDER_ROWS: Final[Map[str, ProviderRow]] = Map.of_seq([
-    ("secret-manager", ProviderRow(key="secret-manager", supplies=Feature.SECRET_MANAGER, reach=Isolation.REMOTE)),
-    ("keystore", ProviderRow(key="keystore", supplies=Feature.KEYSTORE_PROBE, reach=Isolation.IN_PROC)),
-    ("egress", ProviderRow(key="egress", supplies=Feature.OUTBOUND_TRANSPORT, reach=Isolation.REMOTE)),
-    ("otlp-collector", ProviderRow(key="otlp-collector", supplies=Feature.TELEMETRY_EXPORT, reach=Isolation.REMOTE)),
-    ("process-pool", ProviderRow(key="process-pool", supplies=Feature.LOCAL_SPAWN, reach=Isolation.PROCESS)),
-    ("wasm-sandbox", ProviderRow(key="wasm-sandbox", supplies=Feature.WASM_GUEST, reach=Isolation.WASM)),
+    (
+        "secret-manager",
+        ProviderRow(
+            key="secret-manager", supplies=Feature.SECRET_MANAGER,
+            fits="a deployment whose secret material lives in an external manager rather than in the process image",
+            admit="the composition root binds the manager port and material enters on a resolve call, never at import",
+            lifetime="material lives for the lease the manager grants and this branch caches none of it, so the manager alone expires it",
+        ),
+    ),
+    (
+        "keystore",
+        ProviderRow(
+            key="keystore", supplies=Feature.KEYSTORE_PROBE,
+            fits="a host carrying an OS keystore this process may probe for a key the host already holds",
+            admit="the composition root binds the probe and a key handle enters on the probing call inside this process",
+            lifetime="a handle lives for the probing call and nothing outlives that frame; the operating system's own keystore ends the key behind it",
+            concedes=("probe-only: this branch reads what the host already holds and mints, rotates, and stores nothing",),
+        ),
+    ),
+    (
+        "egress",
+        ProviderRow(
+            key="egress", supplies=Feature.OUTBOUND_TRANSPORT,
+            fits="a deployment reaching a network peer at all, which is why every profile past in-proc binds it",
+            admit="the composition root binds the outbound transport and a request enters through that transport's own pool",
+            lifetime="a connection lives for the pool's idle window and a request for its deadline; the transport resource closes both and process exit ends the pool",
+        ),
+    ),
+    (
+        "otlp-collector",
+        ProviderRow(
+            key="otlp-collector", supplies=Feature.TELEMETRY_EXPORT,
+            fits="a deployment exporting spans, metrics, and logs to a collector rather than dropping them at the process edge",
+            admit="the composition root binds the exporter and a signal enters through the telemetry install's batch processor",
+            lifetime="a batched signal lives to the processor's next flush; the telemetry install's shutdown drains the last batch",
+        ),
+    ),
+    (
+        "process-pool",
+        ProviderRow(
+            key="process-pool", supplies=Feature.LOCAL_SPAWN,
+            fits="a host permitting this branch to spawn operating-system processes of its own",
+            admit="the composition root binds the spawner and a work item enters on the crossing that submits it",
+            lifetime="a worker lives for the pool the crossing opened; the lane owner ends it at that crossing's close and orphans none across a boot",
+        ),
+    ),
+    (
+        "wasm-sandbox",
+        ProviderRow(
+            key="wasm-sandbox", supplies=Feature.WASM_GUEST,
+            fits="a deployment running third-party or untrusted code inside a guest rather than in this process's own address space",
+            admit="the composition root binds the guest runtime and a module, with every call into it, enters through that runtime",
+            lifetime="an instance lives for the call that entered it and the guest runtime tears it down at return, holding nothing across calls",
+            concedes=("a guest reaches the host through bound ports alone, so a module wanting a filesystem or a socket refuses rather than borrowing this process's own",),
+        ),
+    ),
 ])
 
 
@@ -295,6 +414,19 @@ class ConsumptionProfile(Struct, frozen=True):
             (ProfileAxis.ISOLATION, self.isolation),
             (ProfileAxis.PROVIDERS, ",".join(sorted(row.key for row in self.providers))),
         )
+
+    def canonical_json(self) -> str:
+        # Roster order under UTF-8 fixes the `canonical-json` PREIMAGE the corpus contract freezes as a vector: three
+        # branches diff ONE string rather than three rosters, and a fixture derives bytes from this member rather
+        # than from a reader's transcription. Serializing a mapping is deleted, because property order there belongs
+        # to the collection and drifts off the roster this vector pins. Each cell escapes through `msgspec`, so an
+        # axis or descriptor key carrying a quote or a control character renders as an admissible literal instead
+        # of splicing the document open.
+        cells = ",".join(
+            f"{msgspec.json.encode(axis).decode()}:{msgspec.json.encode(value).decode()}"
+            for axis, value in self.canonical()
+        )
+        return f"{{{cells}}}"
 
 
 # every preset folds through `seated` at IMPORT, so a row whose axes stop satisfying their own gate — a provider
@@ -508,7 +640,7 @@ class RuntimeContext(Struct, frozen=True):
 - Law: `_closed` proves the `depends_on` graph closed and acyclic at the funnel every path reaches — dangling keys report before cycles because the sorter seats an unknown predecessor as a leaf, and `graphlib`'s `CycleError` names the ring in order — so a sort a path can skip never carries the proof and no chain depth reaches a recursion ceiling.
 - Law: contributions union by key under that same order and refuse any key two claimants spell differently, artifact and capability rows alike, on the WHOLE row rather than the content cell — first-wins and last-wins each mint a generation no claimant composed; each contribution decodes on its own rail under `ACCUMULATE`, so a malformed claimant names itself by ordinal.
 - Law: `_FACTS` rows prove corpus, generation, key-set, derived-required, realization, and recovery invariants under `Disposition.ACCUMULATE`, so a refusal reports every failed invariant with its reason and the exact subjects that failed it.
-- Law: contract identity and data recency are two proofs on one verdict, never two generations — `generation-drift` proves the store carries the composed contract off the existing digest, and `recovery-window-exceeded` proves the data behind it is recent enough for the window the deployment declared. `RecoveryWindow` derives from the observation's own stamps so no provider hands in a lag it computed against a clock this owner never saw, and its two halves absorb absence oppositely: an unmeasured `rpo` REFUSES, because a restore admitted with no recency evidence grades a window nobody took, while an absent `rto` passes, a store that never restored owing no bounce time.
+- Law: contract identity and data recency are two proofs on one verdict, never two generations — `generation-drift` proves the store carries the composed contract off the existing digest, and `recovery-window-exceeded` proves the data behind it is recent enough for the window the deployment declared. `RecoveryWindow` derives from the observation's own stamps so no provider hands in a lag it computed against a clock this owner never saw — a frontier stamped after the reading is skew and drops to unmeasured — and its two halves absorb absence oppositely: an unmeasured `rpo` REFUSES, because a restore admitted with no recency evidence grades a window nobody took, while an absent `rto` passes, a store that never restored owing no bounce time.
 - Packages: `msgspec`, `xxhash`, `expression`, the stdlib `graphlib` dependency sorter, and the shared runtime fault rail.
 - Growth: a contract field changes the one wire shape; a local provider adds one observation adapter; a new invariant is one `_FACTS` row; a new failure rank is one `FailureRank` member with one `absorbs` arm; a new disruption class is one `RestartClass` member seated at its rank; a new recovery axis is one `RecoveryWindow` column with its own absence law in `exceeding` and its matching `RecoveryObjective` column.
 - Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider migration execution and journal identity stay outside this owner; recovery evidence stays OBSERVATION-side and never enters `SchemaContractWire`/`CapabilityWire`, so the canonical bytes, the generation digest, and every peer's decode of them are untouched by it.
@@ -652,9 +784,14 @@ class BackendObservation(Struct, frozen=True):
 
     @property
     def window(self) -> RecoveryWindow:
-        # the lag derives HERE from the two stamps this observation carries, so a provider never hands in a window it
-        # computed against a clock the verdict never saw.
-        return RecoveryWindow(rpo=self.frontier.map(lambda seen: Ticks(self.observed_at - seen)), rto=self.restored_in)
+        # lag derives HERE from the two stamps this observation carries, so a provider never hands in a window it
+        # computed against a clock the verdict never saw. Skew inverts that pair: a frontier stamped AFTER the
+        # reading drops its negative lag to unmeasured and refuses on `rpo:unmeasured`, rather than grading as
+        # freshest — one absence a fabricated zero and a signed lag both forge.
+        return RecoveryWindow(
+            rpo=self.frontier.map(lambda seen: Ticks(self.observed_at - seen)).filter(lambda lag: lag >= 0),
+            rto=self.restored_in,
+        )
 
 
 class ArtifactSource(Struct, frozen=True):
@@ -981,7 +1118,7 @@ _FACTS: Final[Block[ContractFact]] = Block.of_seq([
 - Auto: the ladder fold drops every row the carried `FeatureGate` refuses, so a session that cannot answer a keychain prompt never triggers one and a killswitched deployment dials no vault. The declared-field twins are the branch-catalogued `GoogleSecretManagerSettingsSource` and `AzureKeyVaultSettingsSource` — deployment-added rows on this same source chain, serving model fields the chain resolves at construction where `SecretBoundary` serves the per-service `(service, username)` credentials no construction-time source can address.
 - Growth: a new setting is one typed field on the model; a new source origin is one row on the `settings_customise_sources` tuple; a new secret BACKEND is one `CloudVault` arm, one `VaultTag` member, one `read` case, and one `vault()` arm with zero ladder edits, while a new resolution TIER is one `SecretTier` member with one `SECRET_LADDER` row carrying its `Option[Feature]` gate and one `_read` arm; a tier needing a retry policy the others do not share re-lands `TierRow`'s retry column with two distinct values, never one repeated; a new output shape one `SecretShape` member, one overload, and one fold-tail arm.
 - Law: `SecretTier` names the rung and `CloudVault` names the backend serving it — the deployment supplies one `providers`-axis row, so the resolver holds no provider default and an unnamed backend folds the rung out instead of assuming one. Each backend owns its own read, so the arm carrying a coordinate set is the arm dialling it and a probe builds exactly one client, INSIDE the read and released on the way out: a memoized client binds credential-carrying state to no composition, which is the handle the branch's per-composition custody law forbids, and boot-only resolution makes the per-read construction free.
-- Law: the ladder is ONE synchronous union crossing on `anyio.to_thread.run_sync` under `_PROBE_BAND`, and the native-async pivot is REFUSED while any admitted backend ships no `aio` twin — `hvac` ships none, so an async union strands the Vault read inside it and every arm escapes the limiter that exists to cap concurrent boot resolves; the pivot buys one saved thread hop and forfeits both. It reopens when every admitted backend carries an async client AND the band moves with them.
+- Law: the ladder is ONE synchronous union crossing on `anyio.to_thread.run_sync` under `_PROBE_BAND`, and GCP and Azure publish an `aio` twin where `hvac` publishes none.
 - Law: one `SecretRequest.name` spelling serves every backend under the narrowest alphabet any of them admits and refuses outside it, and each arm's miss-vs-fault split is its provider's own 404 case — so a walk to the next rung and a refusal never collapse into one answer, and a transport digest mismatch names itself as `IntegrityError` rather than as the bare `OSError` a mount read shares.
 - Boundary: no code here reads `os.environ` after admission, and no admitted client is left to reach one for a credential — GCP and Azure resolve ambient workload identity inside their own construction as their catalogues rule, while the Vault token is admitted material precisely because `hvac.Client` at `token=None` falls back to `VAULT_TOKEN` and then `~/.vault-token`. Keystore and cloud tiers read credentials for the OUTBOUND transport legs only — the companion UDS serve leg reads no keyring, peer identity being the kernel accept-time credential (`transport/serve#SERVE`).
 
@@ -1356,10 +1493,7 @@ class SecretBoundary(Struct, frozen=True):
         # ONE `guarded` envelope over every rung rather than one per arm — the blocking read offloads to the anyio worker
         # pool under this tier's own limiter, a transient retries under the shared `RetryClass.SECRET` policy inside one
         # span, and the terminal raise lifts once — so a fourth rung is a `_read` arm rather than a fourth transcription
-        # of the envelope, and a bare `boundary` failing on the first transient is unrepresentable. The union stays
-        # SYNCHRONOUS whole and crosses on `anyio.to_thread.run_sync`: GCP and Azure each publish an `aio` twin and
-        # `hvac` publishes none, so a native-async pivot strands the Vault read inside an async union AND lifts every arm
-        # out of the `_PROBE_BAND` bound that exists to cap concurrent boot resolves.
+        # of the envelope, and a bare `boundary` failing on the first transient is unrepresentable.
         match self._read(row, request):
             case Option(tag="some", some=read):
                 return await guarded(RetryClass.SECRET, anyio.to_thread.run_sync, read, subject="secret", limiter=_PROBE_BAND)

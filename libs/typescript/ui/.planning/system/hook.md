@@ -36,9 +36,13 @@ interface Points {
 }
 
 declare namespace Hook {
-  type Modality = "veto" | "observe" | "replay"
+  type Modality = Tap.Modality
   type Point = keyof Points
+  type Name<P extends Point = Point> = P & Tap.Name
   type Payload<P extends Point> = Points[P]["payload"]
+  type Handler<P extends Point, E = Tap.Fault> = Points[P]["modality"] extends infer M extends Tap.Modality
+    ? Extract<Tap.Handler<Payload<P>, E>, { readonly _tag: M }>
+    : never
   type _Rows<T extends Record<`rasm.ui.${string}.${string}`, { readonly modality: Hook.Modality; readonly payload: unknown }> = Points> = T // merged-whole guard: a malformed or foreign-named contribution fails here
 }
 ```
@@ -47,25 +51,20 @@ declare namespace Hook {
 
 [RAIL_CHANNELS]:
 - Owner: `Hook.registry(rows)` — the per-app mint: one scoped construction builds a channel per contributed point from its runtime row (`modality`, `depth`, optional adopted `source`, and a veto-row `consult` predicate), the fault channel beside them, and the veto gate cells; the registry dies with the composition scope, so channels, pumps, and taps release together and a second app mints its own value.
-- Packages: `effect` (`Chunk`, `Effect`, `HashMap`, `Option`, `PubSub`, `Ref`, `Stream`).
+- Packages: `effect` (`Chunk`, `Effect`, `HashMap`, `Option`, `PubSub`, `Ref`, `Stream`); `@rasm/ts/core` (`Tap`).
 - Law: modality selects the channel policy — `observe` and `veto` rows mint `PubSub.bounded(depth)`, while `replay` rows mint `PubSub.sliding({ capacity: depth, replay: depth })` so a late subscriber (a history capture, a probe board mounted mid-session) receives the retained window before live delivery; depth is the row's policy value, never a per-tap knob. A veto row's `consult` predicate selects the pre-commit payloads arbiters may refuse, so settled facts on the same point always fan.
 - Law: an owner that already publishes is adopted, never re-published — a row carrying `source` gets one scoped pump fiber draining the owner's stream into the row channel, so mark's retained `Selection.echoes` and scene's settled residency fact queue keep their single publish path and the registry is one more consumer under the owners' own laws.
 - Law: the runtime rows record is annotation-governed — `Hook.Rows` demands one runtime row per contributed point, so a plane that contributes a type row and forgets its composition row breaks the app root loudly at the registry mint.
 - Boundary: registration placement is the composition root's — this module exports the mint and never calls it; per-app scoping is the direct consequence of the mint living inside the app scope.
 
 ```typescript
-import { Chunk, Effect, HashMap, Option, PubSub, Ref, type Scope, Stream } from "effect"
-
-const _MODALITY = {
-  veto: { consulted: true, replayed: false },
-  observe: { consulted: false, replayed: false },
-  replay: { consulted: false, replayed: true },
-} as const
+import { Tap } from "@rasm/ts/core"
+import { Chunk, Effect, HashMap, Option, PubSub, Ref, Schema, type Scope, Stream } from "effect"
 
 declare namespace Hook {
   type Arbiter = {
     readonly token: symbol
-    readonly gate: (payload: unknown) => Effect.Effect<boolean>
+    readonly gate: (payload: unknown) => Option.Option<Tap.Veto>
   }
   type Row<P extends Hook.Point> = P extends Hook.Point ? {
     readonly depth: number
@@ -75,25 +74,24 @@ declare namespace Hook {
     : { readonly modality: Points[P]["modality"] }) : never
   type Rows = { readonly [P in Hook.Point]: Hook.Row<P> } // one runtime row per contributed point: a missing row fails the mint at compile time
   type VetoPoint = { readonly [P in Hook.Point]: Points[P]["modality"] extends "veto" ? P : never }[Hook.Point]
-  type Gate<P extends Hook.VetoPoint> = (payload: Hook.Payload<P>) => Effect.Effect<boolean>
   type Registry = {
     readonly channels: HashMap.HashMap<Hook.Point, PubSub.PubSub<unknown>>
     readonly gates: HashMap.HashMap<Hook.Point, Ref.Ref<Chunk.Chunk<Hook.Arbiter>>>
     readonly consults: HashMap.HashMap<Hook.Point, (payload: unknown) => boolean>
-    readonly faults: PubSub.PubSub<HookFault>
+    readonly faults: PubSub.PubSub<Tap.Breach>
   }
 }
 
 const _FAULTS = { depth: 64 } as const
 
 const _channel = (row: { readonly modality: Hook.Modality; readonly depth: number }): Effect.Effect<PubSub.PubSub<unknown>> =>
-  _MODALITY[row.modality].replayed
+  Tap.Modality.at(row.modality).buffered
     ? PubSub.sliding({ capacity: row.depth, replay: row.depth })
     : PubSub.bounded(row.depth)
 
 const _registry = (rows: Hook.Rows): Effect.Effect<Hook.Registry, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const faults = yield* PubSub.bounded<HookFault>(_FAULTS.depth)
+    const faults = yield* PubSub.bounded<Tap.Breach>(_FAULTS.depth)
     const entries = Object.entries(rows) as ReadonlyArray<readonly [Hook.Point, Hook.Row<Hook.Point>]> // BOUNDARY ADAPTER: the mapped record erases to entry pairs once at the mint
     const channels = HashMap.fromIterable(
       yield* Effect.forEach(entries, ([point, row]) => Effect.map(_channel(row), (hub) => [point, hub] as const)),
@@ -119,13 +117,12 @@ const _registry = (rows: Hook.Rows): Effect.Effect<Hook.Registry, never, Scope.S
 ## [04]-[FACT_PUBLISH]
 
 [FACT_PUBLISH]:
-- Owner: `Hook.publish(registry, point, payload)` — the one polymorphic publish: the payload type follows the point (`Hook.Payload<P>`), the veto fold runs first where the veto row's `consult` predicate admits the payload to arbitration, and the returned verdict is `true` on admission; non-consulted payloads always admit, so only a pre-commit publisher reads the verdict, and a refused publish emits nothing into the channel.
-- Law: veto arbiters are registered gates, never inline predicates — `Hook.arbiter(registry, point, gate)` appends one tokenized registration under the composition scope and removes exactly that token on release, so repeated acquisition of the same stable gate remains independently leased. Publish folds every gate and any `false` refuses, so the pre-flight decision is recoverable from the registered gate set, not from publisher-side branching.
-- Law: the publisher folds refusal into its own plane — a refused `rasm.ui.form.submit` lands in the form error sink exactly like a validation failure; the registry carries no refusal channel because refusal is the publisher's evidence, not a rail fact.
-- Law: publish is bounded — channel capacity is the row's depth; `observe` and `veto` publishers suspend at saturation, while `replay` replaces the oldest retained fact under its declared window. `PubSub.publish` reports delivery, not arbitration, so `Hook.publish` discards that transport boolean and returns the independently settled veto verdict.
+- Owner: `Hook.publish` returns `Option<Tap.Veto>`; absence admits and a veto suppresses channel delivery.
+- Law: publishers fold veto evidence into their own fault rail; the registry carries no parallel refusal channel.
+- Law: row depth bounds delivery, replay replaces the oldest retained fact, and transport booleans never substitute for veto evidence.
 
 ```typescript
-const _publishRaw = (registry: Hook.Registry, point: Hook.Point, payload: unknown): Effect.Effect<boolean> =>
+const _publishRaw = (registry: Hook.Registry, point: Hook.Point, payload: unknown): Effect.Effect<Option.Option<Tap.Veto>> =>
   Effect.gen(function* () {
     const consulted = Option.match(HashMap.get(registry.consults, point), { onNone: () => false, onSome: (select) => select(payload) })
     const gates = consulted
@@ -134,27 +131,34 @@ const _publishRaw = (registry: Hook.Registry, point: Hook.Point, payload: unknow
           onSome: Ref.get,
         })
       : Chunk.empty<Hook.Arbiter>()
-    const verdicts = yield* Effect.forEach(gates, (registration) => registration.gate(payload))
-    const admitted = Chunk.every(Chunk.fromIterable(verdicts), (verdict) => verdict)
-    return yield* admitted
+    const veto = Chunk.reduce(
+      gates,
+      Option.none<Tap.Veto>(),
+      (held, registration) => Option.orElse(held, () => registration.gate(payload)),
+    )
+    return yield* Option.isNone(veto)
       ? Option.match(HashMap.get(registry.channels, point), {
-          onNone: () => Effect.succeed(true),
-          onSome: (hub) => Effect.as(PubSub.publish(hub, payload), true),
+          onNone: () => Effect.succeed(veto),
+          onSome: (hub) => Effect.as(PubSub.publish(hub, payload), veto),
         })
-      : Effect.succeed(false)
+      : Effect.succeed(veto)
   })
 
-const _publish = <P extends Hook.Point>(registry: Hook.Registry, point: P, payload: Hook.Payload<P>): Effect.Effect<boolean> =>
+const _publish = <P extends Hook.Point>(registry: Hook.Registry, point: P, payload: Hook.Payload<P>): Effect.Effect<Option.Option<Tap.Veto>> =>
   _publishRaw(registry, point, payload)
 
-const _arbiter = <P extends Hook.VetoPoint>(registry: Hook.Registry, point: P, gate: Hook.Gate<P>): Effect.Effect<void, never, Scope.Scope> =>
+const _veto = <P extends Hook.VetoPoint>(
+  registry: Hook.Registry,
+  point: P,
+  handler: Extract<Hook.Handler<P>, { readonly _tag: "veto" }>,
+): Effect.Effect<void, never, Scope.Scope> =>
   Option.match(HashMap.get(registry.gates, point), {
     onNone: () => Effect.void,
     onSome: (cell) =>
       Effect.acquireRelease(
         Effect.sync((): Hook.Arbiter => ({
           token: Symbol(point),
-          gate: gate as (payload: unknown) => Effect.Effect<boolean>,
+          gate: handler.handle as (payload: unknown) => Option.Option<Tap.Veto>,
         })).pipe(Effect.tap((registration) => Ref.update(cell, Chunk.append(registration)))),
         (registration) => Ref.update(cell, Chunk.filter((held) => held.token !== registration.token)),
       ).pipe(Effect.asVoid),
@@ -164,40 +168,17 @@ const _arbiter = <P extends Hook.VetoPoint>(registry: Hook.Registry, point: P, g
 ## [05]-[TAP_ISOLATION]
 
 [TAP_ISOLATION]:
-- Owner: `Hook.tap(registry, point, label, handler)` — the scoped tap: one forked drain per tap consumes the row channel, runs the handler per fact, and folds any handler cause into a `HookFault` row on the registry's fault channel; the drain survives its own faults, the publishing owner never observes them, and the tap fiber dies with the composition scope.
-- Packages: `effect` (`Cause`, `PubSub`, `Schema`, `Stream`); `@rasm/ts/core` (`FaultClass`).
-- Law: a tap fault is evidence, never propagation — `HookFault` carries the point, the tap label, and the pretty-printed cause; the fault channel is itself tappable (the probe board renders tap health as evidence rows), and a fault that must gate anything is a veto arbiter, not an observe tap.
-- Law: the fault is single-shape, so it states its one core `FaultClass` kind directly — `defect`: a subscriber's own torn handler, system-blamed and never re-driven — and carries no taxonomy column, so severity and blame derive from the core row table. Its point field admits through a declared guard over the row-key pattern because the point keyspace is open by module augmentation, never a closed literal roster.
+- Packages: `effect` (`Cause`, `PubSub`, `Schema`, `Stream`); `@rasm/ts/core` (`Tap`).
 - Law: telemetry is a tap — the app OTel bridge subscribes points and maps facts onto the branch observe combinators at the app plane; this library imports zero collector and mints zero instrument, so browser traces join the estate fabric the moment an app composes the bridge over the same rows probe already renders.
 - Law: replay taps read history from the rail — a history capture or a probe board attaching mid-session receives the replay window before live facts, so evidence and undo lanes share one source of truth with live consumers and no owner replays state on demand.
 - Boundary: the atom bridge (`system/atom#LIVE_BRIDGE`) binds any row a component must render — `Stream.fromPubSub` through `Atom.pull`, or an app-held `Subscribable` — and the component never subscribes a channel directly.
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
-import { Cause, Schema } from "effect"
-
-const _Point: Schema.Schema<Hook.Point> = Schema.declare(
-  (input: unknown): input is Hook.Point => typeof input === "string" && /^rasm\.ui\.[^.]+\.[^.]+$/.test(input),
-)
-
-class HookFault extends Schema.TaggedError<HookFault>()("HookFault", {
-  point: _Point,
-  tap: Schema.String,
-  detail: Schema.String,
-}) {
-  get class(): FaultClass.Kind {
-    return "defect"
-  }
-  override get message(): string {
-    return `<hook:${this.point}> ${this.tap}: ${this.detail}`
-  }
-}
-
-const _tap = <P extends Hook.Point, E>(
+const _observed = <P extends Hook.Point, E>(
   registry: Hook.Registry,
   point: P,
   label: string,
-  handler: (payload: Hook.Payload<P>) => Effect.Effect<void, E>,
+  handler: Exclude<Hook.Handler<P, E>, { readonly _tag: "veto" }>,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Option.match(HashMap.get(registry.channels, point), {
     onNone: () => Effect.void,
@@ -205,38 +186,47 @@ const _tap = <P extends Hook.Point, E>(
       Effect.asVoid(
         Effect.forkScoped(
           Stream.runForEach(Stream.fromPubSub(hub), (payload) =>
-            handler(payload as Hook.Payload<P>).pipe(
+            handler.handle(payload as Hook.Payload<P>).pipe(
               // BOUNDARY ADAPTER: the keyed channel proves the payload's point
               Effect.catchAllCause((cause) =>
-                Effect.asVoid(PubSub.publish(registry.faults, new HookFault({ point, tap: label, detail: Cause.pretty(cause) })))),
+                Option.match(Tap.isolated(Schema.decodeSync(Tap.schema)(point), label)(cause), {
+                  onNone: () => Effect.void,
+                  onSome: (breach) => Effect.asVoid(PubSub.publish(registry.faults, breach)),
+                })),
             )),
         ),
       ),
   })
 
+const _subscribe = <P extends Hook.Point, E>(
+  registry: Hook.Registry,
+  point: P,
+  label: string,
+  handler: Hook.Handler<P, E>,
+): Effect.Effect<void, never, Scope.Scope> =>
+  handler._tag === "veto"
+    ? _veto(registry, point as Hook.VetoPoint, handler as Extract<Hook.Handler<Hook.VetoPoint>, { readonly _tag: "veto" }>)
+    : _observed(registry, point, label, handler)
+
 declare namespace Hook {
   type Shape = {
-    readonly modality: typeof _MODALITY
     readonly registry: typeof _registry
     readonly publish: typeof _publish
-    readonly arbiter: typeof _arbiter
-    readonly tap: typeof _tap
-    readonly faults: (registry: Hook.Registry) => Stream.Stream<HookFault>
+    readonly subscribe: typeof _subscribe
+    readonly faults: (registry: Hook.Registry) => Stream.Stream<Tap.Breach>
   }
 }
 
 const Hook: Hook.Shape = {
-  modality: _MODALITY,
   registry: _registry,
   publish: _publish,
-  arbiter: _arbiter,
-  tap: _tap,
+  subscribe: _subscribe,
   faults: (registry) => Stream.fromPubSub(registry.faults),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Hook, HookFault }
+export { Hook }
 export type { Points }
 ```
 

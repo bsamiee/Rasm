@@ -124,6 +124,8 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 |  [10]   | `DecompressionStream.ReadAsync(Memory<byte>, CancellationToken) -> ValueTask<int>` | instance | async block read                    |
 
 - `CompressionStream`/`DecompressionStream`: each adapter re-exposes `SetParameter`, `GetParameter`, and `LoadDictionary` against its own context.
+- TRAP: `leaveOpen` defaults TRUE on both adapters, the INVERSE of the BCL convention and of `api-lz4`'s `LZ4Stream` twins, which default it false. Frame walks writing many adapters into one shared sink therefore behave oppositely across the two codec rows unless both arms spell the flag, so a codec family carrying both states it rather than reading either default.
+- `CompressionStream.CanRead` is false, `CanSeek` is false, `CanWrite` is true — the adapter is write-only and a caller sizing a destination reads `Compressor.GetCompressBound` rather than seeking the sink.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

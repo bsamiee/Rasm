@@ -21,7 +21,7 @@
 |  [02]   | `RootStreamBuilder<T>`          | class          | input handle — `sendData(collection)` is the sole push; no version coordinate   |
 |  [03]   | `StreamBuilder<T>`              | class          | pipeline node (`IStreamBuilder`); 1..20-arity `pipe(...)` over `PipedOperator`s |
 |  [04]   | `MultiSet<T>` (`MultiSetArray`) | class          | elementwise `map`/`filter`/`negate`/`concat`/`consolidate`/`extend`/`getInner`  |
-|  [05]   | `Index<K, V>`                   | class          | in-memory keyed trace — `get`/`getMultiplicity`/`join`; no `reconstructAt`      |
+|  [05]   | `Index<K, V>`                   | class          | public standalone keyed collection; never operator-internal state               |
 |  [06]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias    | the keyed-record shape the keyed operators require                              |
 |  [07]   | `PipedOperator<I, O>`           | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape     |
 
@@ -69,13 +69,13 @@ Every operator is one `PipedOperator<I, O>` composed by `pipe`; the roster is se
 
 [STACK: `reduce`/`groupBy` + `@effect/typeclass` (`.api/effect-typeclass.md`)] — the keyed fold applies a lawful `Semigroup` incrementally: `state/merge` declares the merge `Semigroup`, `state/fold` applies it through `reduce`, so the reducer law and the merge law are one.
 
-[STACK: `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`) durable counterpart] — `state/fold` binds one algebra at two altitudes: d2mini folds in memory (`sendData(collection)`, no time coordinate), d2ts folds durably (`sendData(version, collection)`, `Index.reconstructAt`, `./sqlite`).
+[STACK: `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`) versioned counterpart] — d2mini has no time coordinate; d2ts adds partial-order versions and frontiers. Both root graphs remain in-process.
 
 [STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — an `output(fn)` sink drives a `SubscriptionRef`, so `state/fold` exposes the in-memory fold as an `effect` `Subscribable` re-fired each `run()`; `serve/live` serves that presence view, and `orderByWithFractionalIndex` keeps its live-list order incremental as rows churn.
 
 ## [04]-[RAIL_LAW]
 
-- Owns: minimal time-free incremental dataflow — a graph of `PipedOperator`s over signed `MultiSet` deltas with no version, the keyed folds, the fractional-index ordered lane, and the in-memory `Index` join; the browser-safe altitude of `state/fold`.
+- Owns: time-free incremental dataflow, keyed folds, fractional ordering, and a public standalone `Index` usable as an output-sink mirror.
 - Accept: `sendData(delta)` of signed multisets, `pipe(...)` composition of the operator roster, `reduce`/`groupBy` as incremental `@effect/typeclass` `Semigroup` application, `output(fn)` driving a `Subscribable`, and `topKWithFractionalIndex`/`orderByWithFractionalIndex` for ordered views.
-- Reject: reaching for a `Version`, `Antichain`, frontier, `reconstructAt`, or durable trace here — that is the d2ts altitude; a full-collection re-sort where `topKWithFractionalIndex` maintains order; citing `loadBTree`/`*BTree` operators as importable, since the `.`-only barrel omits their files and no subpath exists; a second in-memory fold implementation beside this one.
-- Boundary: no time coordinate means no time-travel, retention frontier, or replication — those are d2ts capabilities. `min`/`max` exist only as `groupBy` aggregates, and `distinct` rejects negative multiplicity, so retraction folds route through `reduce`/`consolidate`. Every reachable surface drains synchronously.
+- Reject: treating public `Index` as an operator's internal trace, reaching for version/frontier APIs, full re-sorts beside fractional ordering, citing barrel-inaccessible B-tree files, or adding a second fold engine.
+- Boundary: no time coordinate means no time travel or frontier. `min`/`max` are group aggregates, `distinct` rejects negative multiplicity, and every reachable surface drains synchronously.

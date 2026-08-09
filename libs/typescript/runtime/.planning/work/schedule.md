@@ -15,11 +15,12 @@ Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cr
 - Law: an app declares its closed cadence table in this shape and hands it to one mint — schedule policy is root data, a `ClusterCron.make` call outside the fold is unspellable, and a new scheduled job is one row.
 - Law: anchor and catch-up are orthogonal columns — a `"previous"`-anchored row has no missed-tick set by construction (its successor derives from completion), so its `catchUp` is structurally `"skip"`; the row type encodes this with a discriminated pair rather than documenting it.
 - Growth: a new recurrence concern (a jitter band, a blackout calendar) is one row column both engines read; a one-shot delayed job is not a cadence — it is a `flow#SIGNAL_GATE` pause or a `DeliverAt` payload on the actor plane.
-- Packages: `effect` (`Cron`, `Duration`); `./entity.ts` (`WorkClass`).
+- Packages: `effect` (`Cron`, `Duration`); `@rasm/ts/core` (`Identity.Tenancy` — the tenancy axis the engine descriptor states); `./entity.ts` (`WorkClass`).
 
 ```typescript
 import { ClusterCron } from "@effect/cluster"
 import { Array, Cron, DateTime, Duration, Effect, Iterable, Layer, Option, Record, Schedule, Schema, Stream } from "effect"
+import { Identity } from "@rasm/ts/core"
 import { Fact } from "@rasm/ts/data"
 import { WorkClass } from "./entity.ts"
 import { Step } from "./flow.ts"
@@ -40,6 +41,16 @@ declare namespace Cadence {
   type Backlog = { readonly ticks: ReadonlyArray<DateTime.Utc>; readonly truncated: boolean }
   type Row = Policy & { readonly name: string }
   type Table = { readonly [name: string]: Policy }
+  // Engine rows answer the consumption descriptor as data, so a root selects on a written guarantee rather than on
+  // folklore: `lifetime` names WHO ends an occurrence, which is exactly what separates the two engines' promises.
+  type Descriptor = {
+    readonly fits: string
+    readonly admit: string
+    readonly tenancy: Identity.Tenancy
+    readonly lifetime: string
+    readonly degrade: string
+  }
+  type Engine = keyof typeof _engines
 }
 
 const Backfill = Schema.Int.pipe(Schema.positive(), Schema.brand("CadenceBackfill"))
@@ -151,6 +162,8 @@ const _cluster = <R, R2>(
 - Owner: `Cadence.host(table, run, marks)` — the in-process engine over identical rows and the SAME `_fired` pass: each row performs one boot recovery through `_caughtUp`, then advances a `Schedule.driver(Schedule.cron(row.cron))` before every `_fired` pass under a scoped daemon fiber. Advancing the driver first is load-bearing because `Effect.repeat(effect, schedule)` executes `effect` once before consulting the schedule, so the unadvanced driver mints an off-calendar current tick at boot. Every scheduled tick carries the same `Step.run` geometry against the `WorkflowEngine` Tag — an engineless process satisfies it with `WorkflowEngine.layerMemory`, so no bare-body second execution shape exists. Two consumers select this row: the single-node process whose grid runs the local entry, and the data wave's maintenance jobs whose in-database cron grant is refused — the grooming and rebuild schedules degrade to host execution through this fold without touching their row shapes.
 - Law: the fallback is honest about its guarantees — host cadence is at-most-once-per-process (a dead process misses ticks until restart, and the boot pass replays them through the catch-up prefix where a durable mark exists); a consumer whose ticks may never be lost belongs on the cluster row, and the table's engine selection is the root's deployment fact.
 - Law: one engine per row per process — the root selects `cluster` or `host` for the whole table; a row running on both engines double-fires and the selection type makes that unspellable.
+- Law: `Cadence.engines` states each engine's descriptor as data — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — so a root selects on a written guarantee, and the `lifetime` column names WHO ends an occurrence rather than only how long it lives.
+- Law: a cadence row decides no tenancy — recurrence is its whole concern, and the tick body carries whatever scope its own plane declares, so `tenancy` reads `none` at the engine rather than a value this plane never realizes.
 - Growth: a third engine (an edge scheduler, a test-clock driver) is one more fold over the same table and the same `_fired` pass; specs drive `host` under `TestClock` with no cluster.
 - Packages: `effect` (`Schedule`, `Layer`); `@effect/workflow` (`WorkflowEngine.layerMemory` — the engineless host's step substrate, selected at the root).
 
@@ -175,9 +188,33 @@ const _host = <R, R2>(
       })), { discard: true }),
   )
 
+// Engine selection is DATA the root reads, not folklore it carries: both engines mint the SAME `_fired` pass over the
+// same cadence rows, so their divergence is descriptor columns — `fits` the selection sentence, `admit` the entry that
+// starts a row, `tenancy` the closed axis value each realizes, `lifetime` who ends an occurrence, `degrade` the honest
+// forfeit. Naming the ENDER is the point: an engine's guarantee is exactly who can end a tick before its step exits.
+const _engines = {
+  cluster: {
+    fits: "<ticks-a-consumer-cannot-afford-to-lose-across-runner-rebalance>",
+    admit: "<one-ClusterCron-singleton-per-row-on-the-sharding-substrate>",
+    tenancy: "none",
+    lifetime: "<occurrence-ends-at-its-instant-keyed-step-exit,-ended-by-the-engine-that-fired-it>",
+    degrade: "<none>",
+  },
+  host: {
+    fits: "<single-node-processes-and-scopes-whose-in-database-cron-grant-is-refused>",
+    admit: "<one-scoped-daemon-fiber-per-row-advancing-a-cron-schedule-driver>",
+    tenancy: "none",
+    lifetime: "<occurrence-ends-at-its-step-exit,-ended-by-the-PROCESS-when-it-dies-before-firing>",
+    degrade: "<at-most-once-per-process:-a-dead-process-fires-nothing-until-boot-replays-inside-the-misfire-window>",
+  },
+} as const satisfies { readonly [Name: string]: Cadence.Descriptor }
+
+// Cadence rows carry recurrence alone: WHO runs a tick and WHAT that costs are the tick body's, so a row states no
+// tenancy of its own and the body it names carries whatever scope its own plane declares.
 const Cadence = {
   Backfill,
   rows: _rows,
+  engines: _engines,
   cluster: _cluster,
   host: _host,
 }

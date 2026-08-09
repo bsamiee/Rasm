@@ -13,7 +13,7 @@
 - Owner: `Converge.admit` is the one entry — it proves the served topology, folds the backend input to one projection, and constructs the tier; IaC never re-decodes or re-hashes generated artifacts.
 - Cases: the input discriminates on shape — one `Backend.Projection` realizes directly, an array of branch contributions folds through `Backend.merge` first, so a single-language and a three-language application enter identically.
 - Law: `service` and `edge` are the topology values this tier serves out of the closed roster `program/spec.md` owns; an in-host, sidecar, companion, or cli composition carries no cluster to converge against and refuses at admission with `ConvergeRefused` naming the axis and the rejected value.
-- Law: the topology arrives as one caller-supplied row, so a `StackSpec.Profile` satisfies it structurally and a composition root outside this estate supplies its own — the tier reads deployment shape and infers none.
+- Law: deployment shape arrives as one caller-supplied row carrying `topology` beside the `objective` it declares, which `StackSpec.Profile` satisfies structurally off `program/spec`'s derived getter, so a composition root outside this estate supplies its own pair — this tier reads deployment shape and infers none.
 - Law: one immutable ConfigMap carries `contract.json`, `contract.schema.json`, and `contract.conformance.json`.
 - Law: caller-owned provider resources arrive as one readiness dependency and environment coordinates.
 - Law: one image and command own every phase; the phase table carries only argument vectors.
@@ -23,7 +23,7 @@
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Backend, BackendFault } from "@rasm/ts/data"
-import { Array, Data, Effect, Encoding, Record } from "effect"
+import { Array, Data, Duration, Effect, Encoding, Record } from "effect"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -35,6 +35,10 @@ const _PROOF = "prove" satisfies Converge.Phase
 const _GENERATION = "RASM_BACKEND_GENERATION"
 const _CONTRACT_ROOT = "RASM_BACKEND_CONTRACT_ROOT"
 const _FENCE = "RASM_BACKEND_DEPLOYMENT_FENCE"
+// Recovery OBJECTIVE crosses as data the deploy plane supplies, never a runner default: `Backend.admit`
+// grades the measured window against it, so a runner inventing one grades against a target nobody set.
+const _RPO = "RASM_BACKEND_RPO_MILLIS"
+const _RTO = "RASM_BACKEND_RTO_MILLIS"
 // Convergence realizes onto a cluster, so the deploy plane serves the two topology values that
 // carry one; the roster stays whole in the type so a rejected value is representable in the fault.
 const _SERVED: ReadonlySet<Converge.Topology> = new Set(["service", "edge"])
@@ -42,7 +46,12 @@ const _SERVED: ReadonlySet<Converge.Topology> = new Set(["service", "edge"])
 declare namespace Converge {
   type Phase = (typeof _PHASES)[number]
   type Topology = StackSpec.Topology
-  type Profile = { readonly topology: Topology }
+  // Two members, structurally satisfied rather than imported: `StackSpec.Profile` carries `topology` as a field and
+  // `objective` as the getter resolving `runtime/proc/config`'s topology table, so a `StackSpec` deployment passes
+  // its profile row straight in while a foreign composition root states the same pair. Naming `StackSpec.Profile`
+  // here instead would bind this tier to one spec shape, and `Backend.Objective` keeps the grader's own spelling
+  // on the member `Backend.admit` reads.
+  type Profile = { readonly topology: Topology; readonly objective: Backend.Objective }
   type Runner = {
     readonly image: pulumi.Input<string>
     readonly command: ReadonlyArray<string>
@@ -114,7 +123,7 @@ const _projected = (
 - Owner: `_runner` lowers one phase row into a single-attempt Job mounted against the immutable generated files.
 - Law: provider-native owners create an empty target and apply their framework artifacts.
 - Law: canonical journals, event stores, objects, or typed copy projections populate the target.
-- Law: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit`.
+- Law: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit` grades it against the objective this fold supplies — the deploy plane owns the recovery target, so the runner measures a window and never sets the bar it is judged against.
 - Law: `backoffLimit: 0` and `activeDeadlineSeconds` preserve one terminal observation per deployment attempt.
 - Law: a runner pod carries `Tier.harden` like every other pod this estate declares — the phases hold the target's own libpq credentials and author every relation the application then binds, so the one pod family with DDL authority is the last that may run root-capable on a writable root filesystem; the anchor's scratch pair is what keeps the read-only root survivable for the runner's own temp writes.
 - Auto: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
@@ -172,6 +181,8 @@ const _runner = (
               { name: _GENERATION, value: projection.contract.id },
               { name: _CONTRACT_ROOT, value: args.runner.contractRoot },
               { name: _FENCE, value: args.publication.fence },
+              { name: _RPO, value: `${Duration.toMillis(args.profile.objective.rpo)}` },
+              { name: _RTO, value: `${Duration.toMillis(args.profile.objective.rto)}` },
             ],
             securityContext: Tier.harden.container,
             volumeMounts: [

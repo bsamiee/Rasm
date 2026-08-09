@@ -16,7 +16,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [05]-[LEDGER](.planning/Version/ledger.md): Op-log changefeed, HLC clock, and CRDT merge dispatch over the sync transports.
 - [06]-[COMMITS](.planning/Version/commits.md): Content-addressed commit-DAG and convergent CRDT algebra.
 - [07]-[TIMETRAVEL](.planning/Version/timetravel.md): AS-OF reconstruct, diff, blame, and bisect fold over the changefeed prefix.
-- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and RFC 6902 patch egress.
+- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and base-addressed RFC 6902 edit egress.
 - [09]-[PROVENANCE](.planning/Version/provenance.md): W3C-PROV causal DAG and attested tamper-evidence ledger.
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
@@ -56,6 +56,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - `Npgsql.NetTopologySuite`
+- `Npgsql.NodaTime` — ADO temporal codec the raw lanes need, since the EF plugin places codecs only on mapped connections.
 - `Npgsql.OpenTelemetry`
 - `OpenTelemetry.Instrumentation.EntityFrameworkCore` — trace-only ORM-layer command spans complementing the ADO-layer `Npgsql.OpenTelemetry` spans.
 - `EFCore.NamingConventions`
@@ -100,6 +101,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [COLUMNAR_AND_CODECS]: In-process columnar analytics stack and the serialization, interchange, and compression codec belt.
 - `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge.
 - `Apache.Arrow.Flight`
+- `Apache.Arrow.Flight.AspNetCore` — binds a `FlightServer` subclass onto an ASP.NET Core gRPC endpoint; sole holder of the server-adapter grant.
 - `Apache.Arrow.Flight.Sql` — Flight SQL dialect over the Flight transport; `FlightSqlClient` verbs and the `FlightSqlServer` served-node base.
 - `Apache.Arrow.Adbc`
 - `Apache.Arrow.Adbc.Drivers.Apache` — pure-managed Thrift+Arrow ADBC over Hive, Impala, and Spark.
@@ -120,6 +122,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `ZstdSharp.Port` — standalone Zstandard snapshot and blob compression.
 - `JsonSchema.Net` — JSON Schema 2020-12 evaluator; the in-process `pg_jsonschema` fallback.
 - `K4os.Compression.LZ4`
+- `K4os.Compression.LZ4.Streams` — separate distribution carrying the `Stream` frame adapters the object-plane codec row composes.
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack.
 - `Sep`
 
@@ -134,6 +137,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Confluent.SchemaRegistry.Serdes.Avro`
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`.
 - `Confluent.SchemaRegistry.Serdes.Json`
+- `AMQPNetLite.Core` — `AMQP 1.0` protocol transport beneath the CloudEvents binding: connection, session, links, framing.
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg.
 - `CloudNative.CloudEvents.Kafka` — binary-mode `ce_` header binding onto `Confluent.Kafka`; backs `EgressSink.Kafka`.
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`.
@@ -143,6 +147,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `AWSSDK.S3`
 - `OpenTelemetry.Instrumentation.AWS` — one root registration spanning the S3 and KMS legs through the shared `AWSSDK.Core` pipeline.
 - `Azure.Storage.Blobs`
+- `Azure.Storage.Blobs.Batch` — separate distribution carrying the blob batch client the object plane's page-at-a-time erase folds.
 - `Google.Cloud.Storage.V1`
 - `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane.
 - `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink.
@@ -178,7 +183,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [GEOMETRY_INTERCHANGE]:
 - `Speckle.Sdk` — the send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
 - `Speckle.Objects` — the `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
-- `Unofficial.laszip.netstandard` — one LAS/LAZ engine for two consumers: Bim decodes for scan-to-BIM, this folder for chunked residence and `.lax` windowed reads.
+- `Unofficial.laszip.netstandard` — one LAS/LAZ engine behind chunked residence and `.lax` windowed reads.
 
 [ENERGY_SIMULATION]:
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.

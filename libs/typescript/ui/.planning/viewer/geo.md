@@ -17,10 +17,8 @@ The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL c
 
 [SURFACE]:
 - Owner: `Geo.surface` — one scoped acquisition: `new MapLibreMap(options)` over the app-provided container, `new MapboxOverlay({ interleaved: true })` added through `map.addControl` (deck registers a `CustomLayerInterface` per layer into the shared context and depth buffer, so 3D deck geometry occludes against basemap layers); release removes the control — deck's full teardown rides the `IControl.onRemove` hook — then `map.remove()`: one context, one camera, one teardown order.
-- Packages: `maplibre-gl` (`Map` as `MapLibreMap`, `MapOptions`, the `addSource`/`addControl`/`removeControl` rails, `setTerrain`/`setSky`/`setLight`/`setProjection`, the `NavigationControl`/`ScaleControl`/`GeolocateControl`/`TerrainControl`/`GlobeControl` classes with `IControl`/`ControlPosition`/`Unit`, and the re-exported `SkySpecification`/`LightSpecification`/`TerrainSpecification` data); `@deck.gl/mapbox` (`MapboxOverlay`); `effect` (`Context`, `Data`, `DateTime`, `Effect.acquireRelease`, `Option`, `Schema`, `Stream`); `@rasm/ts/core` (`FaultClass`).
 - Law: relief, sky, and globe are scene-config rows on the one map — a `raster-dem` source through the `addSource` rail feeds `setTerrain({ source, exaggeration })`, `setSky` and `setLight` take `*Specification` data, and `setProjection({ type: "globe" })` swaps the projection without touching a layer; each row is a live re-config, never a map rebuild.
 - Law: chrome is a CLOSED family over one `addControl(control, position)` rail — `Geo.chrome` folds `Chrome.Rail` cases (`Navigate`, `Scale`, `Locate`, `Relief`, `Globe`) into their shipped classes and adds each at its row's `ControlPosition`, exactly as the overlay joins; the arms carry their own construction options because the shipped classes disagree on arity (`NavigationControl`/`ScaleControl` take an optional bag, `GeolocateControl`/`TerrainControl` a required one, `GlobeControl` none), so the discriminant is what keeps the rail uniform. A hand-built DOM widget over a shipped row is the named defect, and the add is `Effect.acquireRelease` because a control outliving its surface's scope holds a DOM node and an event subscription the map's own teardown never reaches.
-- Law: position capability is a typed port beside the DOM control — this module declares the `Position` Tag (`watch` as a coordinate stream, gated by the `Grant` permission port) and the browser composition satisfies both from the platform geolocation/permissions layers; `GeolocateControl` stays the map-chrome affordance while the port feeds the camera-follow atom and any effect-rail consumer, and a `navigator.geolocation` read in a row is the named defect. `PositionFault` closes its three reasons through the core `FaultClass.family` seam — `denied` on a refused permission, `unavailable` on a fixless device, `timeout` on an elapsed acquisition deadline — and the `class` getter projects the kind, so severity, blame, and retryability derive from the core row table and no local rank or retry column exists.
 - Law: `Geo.Fix` carries the WHOLE platform coordinate, never a two-field slice — `lnglat` is the pair the camera vocabulary already speaks, `accuracy` is total, and `altitude`/`altitudeAccuracy`/`heading`/`speed` are `Option` because the platform reports each as absent on a device that cannot measure it, while `at` is the fix instant a survey trace joins on; a port narrower than the satisfying value forces the composition to author the lossy projection, and altitude with heading is exactly what a camera-follow atom folding `Camera.Intent.LookAt` reads.
 - Law: `Grant.query` is generic in the platform's own name axis — `<Name extends PermissionName>` returning the whole status record minus the re-narrowed `name`, so its `state` is the live verdict rather than a flattened literal and a new capability grant (the OPFS residency budget, an AR arm's camera) is a call site instead of a page edit; a hand-listed name union re-narrows what the platform already closes and re-forks on every addition.
 - Law: `Grant.changes` is the port's second modality and revocation is a live fact — the platform status record extends `EventTarget` and fires `change` on the same object `query` returned, so a viewer row gates on the current verdict rather than the one it read at mount; the ui-declared port carries the stream and the substrate satisfies it at the app root by lifting those events, because the platform ships the observable status and the query alone strands every revoke. Only `state` moves on a change, so the stream carries `PermissionState` and takes the name un-parameterized — a type argument the return never mentions is an unwitnessed generic.
@@ -31,7 +29,7 @@ The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL c
 
 ```typescript
 import { MapboxOverlay } from "@deck.gl/mapbox"
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 import { Array, Context, Data, type DateTime, Effect, type Option, Schema, type Scope, type Stream } from "effect"
 import {
   GeolocateControl, GlobeControl, Map as MapLibreMap, NavigationControl, ScaleControl, TerrainControl,
@@ -59,7 +57,7 @@ declare namespace Grant {
   type Status<Name extends PermissionName> = Omit<PermissionStatus, "name"> & { readonly name: Name }
 }
 
-const _positionFamily = FaultClass.family(
+const _positionFamily = Fault.Class.family(
   ["denied", "unavailable", "timeout"] as const,
   {
     denied: { class: "denied" },
@@ -71,7 +69,7 @@ const _positionFamily = FaultClass.family(
 class PositionFault extends Schema.TaggedError<PositionFault>()("PositionFault", {
   reason: _positionFamily.schema,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _positionFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -260,19 +258,19 @@ const Clock: Clock.Shape = {
 
 [CAMERA]:
 - Owner: `Camera` — the camera vocabulary spanning every backend: `Camera.State` (center `[lng, lat]`, `zoom`, `bearing`, `pitch` — the shape both the maplibre getters and deck's `MapViewState` speak), the intent family `Camera.Intent` as a closed `Data.taggedEnum` (`JumpTo` instant, `EaseTo` animated, `FlyTo` curved, `FitBounds` extent-driven, `LookAt` eye/target — the 3D viewpoint carriage `mark`'s restore mints), and the fold pair: `Camera.drive(map, intent)` dispatches onto the maplibre `Camera` verbs, `Camera.settled(map)` reads the getters into a `State` — the `moveend` subscription writes it to the atom so the store always holds the authority's last settled truth.
-- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, the getters); `@rasm/ts/core` (`GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
+- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, the getters); `@rasm/ts/core` (`Wire.GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
 - Boundary: the camera atom rides `system/atom#STORE_ROOT` and the gesture that mints an intent is `system/act#CONTINUOUS_OWNER`'s; this page owns the vocabulary and the folds, never the binding or the recognizer.
 - Law: one authority per surface — under `MapboxOverlay` the map owns pan/zoom/pitch and deck's view state syncs automatically; hand-syncing deck's camera under an overlay is the named defect; a map-less free `Deck` drives `viewState` from the same atom.
 - Law: intents are the only write path — a gesture (`system/act#CONTINUOUS_OWNER`), a viewpoint restore, and a fit-to-selection all mint `Camera.Intent` values on every surface class; nothing calls a map verb outside `Camera.drive`, so camera motion is replayable and undo is `system/atom#HISTORY_FOLD` over the camera atom by construction.
 - Law: the gesture owner is an intent PRODUCER because this page supplies both halves of its read/write pair — the floor's `Gesture.useCanvas` takes `read: () => <the three gesture axes off Camera.settled>` and `emit: (reading) => Camera.gestured({ ...held, ...reading })`, so the recognizer speaks only its own three-axis `Gesture.Reading` while `pitch` and every other geo-owned axis rides through the settled state untouched, and `Camera.gestured` folds the merged `State` into `JumpTo` because a continuous drag or pinch is already at its destination and an eased arm would fight the pointer; the intent family and the camera shape stay this page's, so a gesture, a restore, and a control intent all reach `Camera.drive` through the same closed family and the replay journal cannot tell them apart.
-- Law: intent payloads speak canonical shapes only — `FitBounds` carries the `GeoFeature.Extent` quadruple, never a maplibre bounds dialect; the maplibre arm alone respells the readonly quadruple into the map's mutable bounds at the drive boundary — the one boundary adaptation this fold carries.
+- Law: intent payloads speak canonical shapes only — `FitBounds` carries the `Wire.GeoFeature.Extent` quadruple, never a maplibre bounds dialect; the maplibre arm alone respells the readonly quadruple into the map's mutable bounds at the drive boundary — the one boundary adaptation this fold carries.
 - Law: `LookAt` grounds on the map through the map's own solve — `calculateCameraOptionsFromTo(eye, eyeAltitude, target, targetAltitude)` derives center, zoom, bearing, AND pitch in the map's camera model, the camera landing at the eye because zoom derives from the eye→target distance against metre altitudes; the arm spreads the solved options into `easeTo`, and a hand tangent-plane fold beside this member is the named reimplementation defect.
 - Law: backend adapters translate, never own — the three arm folds control state into the atom on the `change` dispatch of the ONE control class the surface earns (`OrbitControls` for object inspection, `ArcballControls` for trackball-precision review, `MapControls` for plan-view pan-first navigation — one row each, `controls.target` follows a `LookAt` so orbit resumes around the looked-at point, position sets from `eye` through `Object3D.lookAt`); the model-viewer arm reads `getCameraOrbit()`/`getCameraTarget()` on `camera-change`, writes `cameraOrbit`/`cameraTarget`, and `jumpCameraToGoal()` settles — the element's own interpolation is respected, never fought per frame. Policy (bounds clamps, zoom limits) lives in the intent fold once, so every backend inherits it; `center` carries scene coordinates on non-geo surfaces under the same `State` shape.
 - Law: the settled state publishes for cross-app taps — the camera atom is the one truth, and a non-atom consumer (a wire egress, a sibling app's probe) observes it through `Atom.toStream(camera)` — never a second `moveend` subscription and never a mirrored cell; per-app soundness holds because each app's registry scopes its own camera stream.
 - Growth: a new motion kind (an orbit-around) is one intent case plus one dispatch arm per backend — consumers break loudly at the missing arm; a new control temperament is one adapter row, never a fourth camera vocabulary.
 
 ```typescript
-import type { GeoFeature } from "@rasm/ts/core"
+import type { Wire } from "@rasm/ts/core"
 import { Data, pipe } from "effect"
 import type { Map as MapLibreMap } from "maplibre-gl"
 
@@ -288,7 +286,7 @@ declare namespace Camera {
     JumpTo: { readonly state: Partial<Camera.State> }
     EaseTo: { readonly state: Partial<Camera.State>; readonly millis: number }
     FlyTo: { readonly state: Partial<Camera.State>; readonly speed: number }
-    FitBounds: { readonly bounds: GeoFeature.Extent; readonly padding: number }
+    FitBounds: { readonly bounds: Wire.GeoFeature.Extent; readonly padding: number }
     LookAt: { readonly eye: Camera.Eye; readonly target: Camera.Eye; readonly millis: number }
   }>
 }
@@ -392,12 +390,10 @@ const Camera: Camera.Shape = {
 [LAYER_ROWS]:
 - Owner: `Geo.push` — the one imperative sink: the layer tree is an atom-derived `LayersList`, the compositing passes are an atom-derived effect array (deck layer and effect instances are alike declarative descriptors), and every change lands as ONE `overlay.setProps({ layers, effects })`; the overlay diffs and touches only what changed. Both arrays cross the same seam because both are pure values the fold mints — a second sink for the screen-space plane would diff against a different prior-prop snapshot and drop frames the layer sink kept. Two memoization planes stay orthogonal: react-compiler memoizes the tree, deck's `updateTriggers` memoizes GPU attributes — an accessor closing over an atom value names its `updateTriggers` key.
 - Law: the effect array's element type derives from the sink itself — reading it off `setProps`' own parameter keeps the screen-space vocabulary honest against the pinned overlay and needs no second import of a deck type this page would otherwise alias against `effect`'s own `Effect`.
-- Packages: `@deck.gl/layers` (`GeoJsonLayer`, `BitmapLayer`, `PointCloudLayer`); `@deck.gl/geo-layers` (the tiling engine, `Tile3DLayer`, the cell family, `TripsLayer`, `_WMSLayer`); `@loaders.gl/3d-tiles` (`Tiles3DLoader`, `CesiumIonLoader`, `Tiles3DArchiveFileLoader`, `TILE3D_TYPE`); `@loaders.gl/las` (`LASLoader`, `LAZRsLoader`, `LASArrowLoader`); `@loaders.gl/core` (`load`, `Loader`, `FetchError`); `@geoarrow/deck.gl-geoarrow` (`GeoArrowPolygonLayer`, `initEarcutPool`); `apache-arrow` (`tableFromIPC`, `Table`, `RecordBatch`); `@rasm/ts/core` (`GeoFeature`, `FaultClass`); `effect` (`Array`, `Cache`, `Data`, `Effect`, `Match`, `Schema`, `pipe`).
-- Law: the IPC decode seam is explicit and owned here — a columnar frame enters as `tableFromIPC(bytes)` behind `Geo.decoded`, heavy frames decode off-thread on the runtime worker pool with the `Table` transferred back, and a malformed frame is a `GeoFault` on the rail, never a bare throw; downstream code holds `Table`/`RecordBatch` values only. The family's reasons close through the core `FaultClass.family` seam — `frame-refused` classifying `malformed`, `crs-unresolved` and `style-unbound` `absent`, `tile-unreachable` `unavailable` — and the `class` getter projects the kind, so severity, blame, and retryability derive from the core row table and no local rank or retry column exists.
 - Law: transport truth and payload truth are separate reasons — a tile, tileset, or scan the transport cannot deliver is `tile-unreachable`, retryable and system-blamed, so the resilient lookup's own `Schedule` re-drives it off the class column; a payload that arrived and would not decode is `frame-refused`, caller-blamed and quarantined, so a retry re-fetches identical bytes and the schedule must not touch it. One overloaded reason forces every fetch failure to answer the decode's non-retryable policy.
 - Law: columnar geometry rides the GeoArrow fan — `data` per GeoArrow layer is ONE `RecordBatch`, so a chunked `Table` fans through `Table.batches` into per-batch layers; `initEarcutPool` hoists ONE pool shared by every polygon layer via `earcutWorkerPool`; picking returns the zero-copy row proxy `mark` resolves to `GlobalId`. Decoded GeoJSON features render through `GeoJsonLayer` — `pointType` and the fill/stroke/3D accessor sub-groups fan one feature stream to the whole mark vocabulary.
 - Law: the decoded `Table` is a multi-surface bus — the SAME frame `Geo.decoded` mints feeds the GeoArrow layers here, the pivot engine, and the aligned-series projection at `view/chart#REGIME_LAW`; a second IPC decode of one frame is the named defect.
-- Law: tile streaming is one engine with payload rows — `TileLayer.getTileData({ index, signal })` speaks the wire `GeoFeature.Tile` coordinate, the fetch rides the app's authed transport honoring the abort signal, and `renderSubLayers` projects each tile into ordinary rows bounded by the tile header's `boundingBox` (a proven `[[west,south],[east,north]]` pair — the marked adapter asserts the tuple); `MVTLayer` is the vector specialization (`binary: true`, cross-tile highlight by `uniqueIdProperty`), `TerrainLayer` reconstructs relief from an `elevationDecoder` row, `Tile3DLayer` streams 3D-tile hierarchies rendering mesh content through `scene#INSTANCED_ROWS`' pair, `PointCloudLayer` renders LAS scans, and `_WMSLayer` binds OGC image services — payload rows on one engine, never a second tiling machine; cache and throttle (`maxCacheByteSize`, `maxRequests`, `refinementStrategy`) are policy values.
+- Law: tile streaming is one engine with payload rows — `TileLayer.getTileData({ index, signal })` speaks the wire `Wire.GeoFeature.Tile` coordinate, the fetch rides the app's authed transport honoring the abort signal, and `renderSubLayers` projects each tile into ordinary rows bounded by the tile header's `boundingBox` (a proven `[[west,south],[east,north]]` pair — the marked adapter asserts the tuple); `MVTLayer` is the vector specialization (`binary: true`, cross-tile highlight by `uniqueIdProperty`), `TerrainLayer` reconstructs relief from an `elevationDecoder` row, `Tile3DLayer` streams 3D-tile hierarchies rendering mesh content through `scene#INSTANCED_ROWS`' pair, `PointCloudLayer` renders LAS scans, and `_WMSLayer` binds OGC image services — payload rows on one engine, never a second tiling machine; cache and throttle (`maxCacheByteSize`, `maxRequests`, `refinementStrategy`) are policy values.
 - Law: tile fetches ride a resilient TTL cache above deck's byte cache — `Cache.make({ capacity, timeToLive, lookup })` fronts the authed transport so a pan-return re-renders from the decoded cache instead of re-fetching, retry/backoff policy composes on the lookup rail as one `Schedule` value, and deck's `maxCacheByteSize` remains the GPU-side budget — two caches, two altitudes, one lookup path; cache keys cross as `Data.struct` values so lookup identity is structural — a plain tile literal hashes referentially and turns the cache into a permanent miss.
 - Law: the 3D-tile transport is a closed discriminant, never a knob — `_tiles3d`'s `transport` selects `Tiles3DLoader` for an open tileset href, `CesiumIonLoader` for an Ion asset (whose token rides the loader's OWN `cesium-ion` option bag, the asset identity staying in the href), and the `Tiles3DArchiveFileLoader`-then-`Tiles3DLoader` pair for a `.3tz` archive (the archive loader unwraps one member to bytes at its `3d-tiles-archive` `path` and the tileset loader parses them, so the archive case is two loaders on one row, never a second layer).
 - Law: loaders arrive through the layer's `loaders` prop, never a host registry — `registerLoaders` mutates a process-global roster this library shares with every other owner on the page and ships deprecated in the pinned release, so a reusable surface passes its descriptor list per layer; the deprecated singular `loader` prop is likewise never spelled.
@@ -408,7 +404,7 @@ const Camera: Camera.Shape = {
 - Law: the scan's Arrow egress is a SECOND envelope, not the bus frame — `LASArrowLoader.parse` answers the loaders.gl `ArrowTable` the loader declares as its `dataType`, which is not the `apache-arrow` `Table` `Geo.decoded` mints, so the row states the loader's own return and the projection onto the bus is the page's one open member rather than an asserted identity; the loader's spread-inherited `parseSync` is never spelled, because it returns the mesh shape its name does not promise, and `parse` itself takes no option bag — the `las` rows reach it through `load`, never a second argument.
 - Law: the tile-content vocabulary is a bounded row table, never a render branch this page owns — `TILE3D_TYPE` discriminates a decoded payload across composite, point-cloud, batched, instanced, geometry, vector, and glTF, and each row names which peer surfaces it: the batched and instanced rows hand off at `scene#INSTANCED_ROWS`, the point-cloud row lands on the same binary attribute seam the LAS scan takes, and the composite row is a container whose members re-enter the table. Deck's own traversal picks the sublayer; this table is what `onTileLoad` reads to route evidence and appearance, so a hand-written render switch beside it restates the tileset engine.
 - Law: motion is an animated row reading the ONE clock — `TripsLayer` binds `getTimestamps` against `currentTime` taken from `Clock.Frame.now` (`[03]-[FRAME_CLOCK]`) with `_animate` set on the overlay; `trailLength`/`fadeTrail` are the decay policy, and `scene#INSTANCED_ROWS`' `_animations` reads the same frame — one time coordinate across every animated surface, so a construction-sequence scrub moves trips and mixers together.
-- Law: layer assembly admits through `Planar.admit` (`[08]`) — a `geographic` collection feeds a layer directly, a `projected` one crosses `toWgs84` exactly once at that boundary, and an SRID `GeoFeature.Crs.of` cannot resolve refuses `crs-unresolved` so the layer renders nothing and the refusal surfaces as evidence; per-feature projection inside an accessor is the named defect because an accessor re-runs the crossing every draw.
+- Law: layer assembly admits through `Planar.admit` (`[08]`) — a `geographic` collection feeds a layer directly, a `projected` one crosses `toWgs84` exactly once at that boundary, and an SRID `Wire.GeoFeature.Crs.of` cannot resolve refuses `crs-unresolved` so the layer renders nothing and the refusal surfaces as evidence; per-feature projection inside an accessor is the named defect because an accessor re-runs the crossing every draw.
 - Growth: a new payload format is one `getTileData`/`renderSubLayers` pair; a new 3D-tile transport is one discriminant case with its loader list; a new grid is one cell-table row; a new mark shape is one accessor sub-group on the owning row.
 
 ```typescript
@@ -422,12 +418,12 @@ import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geo
 import { CesiumIonLoader, TILE3D_TYPE, Tiles3DArchiveFileLoader, Tiles3DLoader } from "@loaders.gl/3d-tiles"
 import { FetchError, type Loader, load } from "@loaders.gl/core"
 import { LASArrowLoader, LASLoader, LAZRsLoader } from "@loaders.gl/las"
-import { FaultClass, type GeoFeature } from "@rasm/ts/core"
+import { Fault, type Wire } from "@rasm/ts/core"
 import { tableFromIPC, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Cache, Data, type Duration, Effect, Match, pipe, type Schedule, Schema } from "effect"
 import type { FeatureCollection } from "geojson"
 
-const _geoFamily = FaultClass.family(
+const _geoFamily = Fault.Class.family(
   ["frame-refused", "crs-unresolved", "style-unbound", "tile-unreachable"] as const,
   {
     "frame-refused": { class: "malformed" }, // arrived and would not decode: caller-blamed, quarantined, never re-driven
@@ -443,7 +439,7 @@ class GeoFault extends Schema.TaggedError<GeoFault>()("GeoFault", {
   reason: _geoFamily.schema,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _geoFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -485,13 +481,13 @@ const _arrowFan = (id: string, table: Table, pool: _EarcutPool): LayersList =>
     }))
 
 const _tileCache = (
-  fetched: (tile: GeoFeature.Tile, signal?: AbortSignal) => Promise<ImageBitmap>,
+  fetched: (tile: Wire.GeoFeature.Tile, signal?: AbortSignal) => Promise<ImageBitmap>,
   policy: { readonly capacity: number; readonly ttl: Duration.DurationInput; readonly retry: Schedule.Schedule<unknown, GeoFault> },
-): Effect.Effect<Cache.Cache<GeoFeature.Tile, ImageBitmap, GeoFault>> =>
+): Effect.Effect<Cache.Cache<Wire.GeoFeature.Tile, ImageBitmap, GeoFault>> =>
   Cache.make({
     capacity: policy.capacity,
     timeToLive: policy.ttl,
-    lookup: (tile: GeoFeature.Tile) =>
+    lookup: (tile: Wire.GeoFeature.Tile) =>
       Effect.tryPromise({
         try: (signal) => fetched(tile, signal),
         catch: (defect) => new GeoFault({ reason: "tile-unreachable", detail: String(defect) }), // the fetch leg is transport truth: retryable and system-blamed, so the schedule re-drives it
@@ -500,7 +496,7 @@ const _tileCache = (
 
 const _rasterTiles = (
   id: string,
-  cache: Cache.Cache<GeoFeature.Tile, ImageBitmap, GeoFault>,
+  cache: Cache.Cache<Wire.GeoFeature.Tile, ImageBitmap, GeoFault>,
   run: <A>(effect: Effect.Effect<A, GeoFault>) => Promise<A>,
 ): TileLayer<ImageBitmap> =>
   new TileLayer<ImageBitmap>({
@@ -708,12 +704,12 @@ const _depth = <Pass extends Screen.Pass & { readonly props: Screen.Depth }>(
 
 [PLANAR_OPS]:
 - Owner: `Geo.planar` — the turf algebra as bounded op-row tables plus the ops whose own signatures are the contract: `relation` is the DE-9IM predicate matrix (seven uniform `(a, b) => boolean` rows mirroring the NetTopologySuite relationship set), `overlay` is the boolean-overlay triple, `project` is the WGS84↔Mercator pair, and `derive`/`gauge` are the geometry-to-geometry and geometry-to-scalar ops each carrying its own option row. Every member is a pure synchronous turf function; the algebra holds no state, no effect, and no DOM.
-- Packages: `@turf/turf` (`union`, `intersect`, `difference`, `buffer`, `simplify`, `convex`, `dissolve`, `bboxClip`, `mask`, `area`, `length`, `convertArea`, `centroid`, `truncate`, the `boolean*` predicate set, `coordEach`/`geomEach`/`featureEach` traversal, `getCoord`/`getGeom`/`getType` accessors, `toMercator`, `toWgs84`, the `AllGeoJSON`/`Units`/`AreaUnits` vocabularies); `@types/geojson` (the `Feature`/`FeatureCollection`/`Polygon`/`Geometry` value types turf itself imports); `@rasm/ts/core` (`GeoFeature.Crs` — the SRID row table the admission resolves against); `effect` (`Effect`, `Option`).
+- Packages: `@turf/turf` (`union`, `intersect`, `difference`, `buffer`, `simplify`, `convex`, `dissolve`, `bboxClip`, `mask`, `area`, `length`, `convertArea`, `centroid`, `truncate`, the `boolean*` predicate set, `coordEach`/`geomEach`/`featureEach` traversal, `getCoord`/`getGeom`/`getType` accessors, `toMercator`, `toWgs84`, the `AllGeoJSON`/`Units`/`AreaUnits` vocabularies); `@types/geojson` (the `Feature`/`FeatureCollection`/`Polygon`/`Geometry` value types turf itself imports); `@rasm/ts/core` (`Wire.GeoFeature.Crs` — the SRID row table the admission resolves against); `effect` (`Effect`, `Option`).
 - Law: the overlay arms take ONE collection, never two features — the pinned release moved `union`/`intersect` onto a `FeatureCollection<Polygon | MultiPolygon>` input answering one feature or `null`, so the call shape is the collection and a two-argument sibling has no spelling; `difference` takes the same collection and the empty result is `null`, a real answer the caller folds rather than an error.
 - Law: turf is the planar compute peer, render surfaces are the sink — derived polygons feed a `GeoJsonLayer` row or a `GeoJSONSource.setData`, and the hit-test rows (`booleanPointInPolygon`, `geojsonRbush`) are `mark`'s consumption of this same algebra under its own selection law.
 - Law: planar ONLY — turf never re-derives a spatial relation the C# side owns as authority; the two meet at the WKB/GeoJSON wire behind `WkbParser`, and a relation computed on both sides that diverges is the cross-language drift defect.
 - Law: the mercator crossing is a row on this owner, not a formula anywhere — `toMercator`/`toWgs84` convert whole geometries at the boundary where planar compute meets the geographic camera, so a hand-rolled projection constant is the named defect.
-- Law: `Planar.admit` IS the `[06]` assembly law's realization and the ONE raiser `crs-unresolved` has — it resolves the wire SRID through the core `GeoFeature.Crs.of` row table, passes a `geographic` collection through untouched, crosses a `projected` one exactly once through `toWgs84`, and refuses an SRID the table cannot resolve; the crossing happens at this boundary and never inside a layer accessor, which would re-project every feature per draw.
+- Law: `Planar.admit` IS the `[06]` assembly law's realization and the ONE raiser `crs-unresolved` has — it resolves the wire SRID through the core `Wire.GeoFeature.Crs.of` row table, passes a `geographic` collection through untouched, crosses a `projected` one exactly once through `toWgs84`, and refuses an SRID the table cannot resolve; the crossing happens at this boundary and never inside a layer accessor, which would re-project every feature per draw.
 - Law: traversal rides the substrate — `coordEach`/`geomEach`/`featureEach` folds and the `getCoord`/`getGeom` accessors replace every hand coordinate loop, so a coordinate walk this owner does not already carry is a substrate call and never a `for` over `coordinates`.
 - Law: measurement egress is ONE unit policy, never a per-call option — `Planar.measure` answers area and span together under the `_MEASURE` row, because `area` is fixed at square metres by the package while `length` takes `{ units }`, so the two axes would otherwise disagree per site; `convertArea` is the area crossing, `{ units }` the span's, and a `lengthKm`/`lengthMi` sibling is the suffix family the bounded option deletes.
 - Law: `truncate` is the re-encode gate — coordinate precision trims once before a derived feature crosses back to a wire or a source, so a buffer's float tail never inflates a payload nor forks a content key against the same geometry rounded elsewhere.
@@ -726,7 +722,7 @@ import {
   coordEach, difference, dissolve, featureEach, geomEach, getCoord, getGeom, getType, intersect, length, mask,
   simplify, toMercator, toWgs84, truncate, union, type Units,
 } from "@turf/turf"
-import { GeoFeature } from "@rasm/ts/core"
+import { Wire } from "@rasm/ts/core"
 import { Effect, Option } from "effect"
 import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from "geojson"
 
@@ -779,7 +775,7 @@ const _measured = (geojson: Feature | FeatureCollection): { readonly area: numbe
 // core row table, a projected collection crosses to WGS84 exactly once here, and an unresolvable SRID refuses —
 // re-projecting inside a layer accessor would re-run this crossing per feature per draw
 const _admitted = <T extends AllGeoJSON>(geojson: T, srid: number): Effect.Effect<T, GeoFault> =>
-  Option.match(GeoFeature.Crs.of(srid), {
+  Option.match(Wire.GeoFeature.Crs.of(srid), {
     onNone: () => Effect.fail(new GeoFault({ reason: "crs-unresolved", detail: `<srid:${srid}>` })),
     onSome: (crs) => Effect.succeed(crs.kind === "projected" ? toWgs84(geojson) : geojson),
   })

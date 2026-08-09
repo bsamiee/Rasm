@@ -147,7 +147,7 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 import type { PulumiFn } from "@pulumi/pulumi/automation"
 import type { Backend, BackendFault } from "@rasm/ts/data"
 import { Array, Config, Effect, Option, Redacted } from "effect"
-import type { Alert, DashboardModel, Slo } from "@rasm/ts/core"
+import type { Board, Reliability } from "@rasm/ts/core"
 import type { DataRefused, Postgres } from "../kube/data.ts"
 import { Traffic } from "../kube/traffic.ts"
 import type { Converge, ConvergeRefused } from "../operate/converge.ts"
@@ -219,9 +219,9 @@ declare namespace Dispatch {
       // re-spells a filename the viewer resolves by name and an unshipped decoder is an omitted key
       readonly decoders?: Source.Distribution["decoders"]
     }
-    readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
-    readonly alerts: ReadonlyArray<Alert.Spec>
-    readonly objectives: ReadonlyArray<Slo.Objective>
+    readonly boards: ReadonlyArray<typeof Board.DashboardModel.Encoded>
+    readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
+    readonly objectives: ReadonlyArray<Reliability.Objective>
     readonly contacts: Partial<Record<"page" | "ticket", {
       readonly webhook: string
       readonly quiet?: ReadonlyArray<{ readonly days: ReadonlyArray<string>; readonly start: string; readonly end: string }>
@@ -532,7 +532,7 @@ const _estate = (
     // tenant read identities ride the same custody as the automation token
     Array.map(Record.toEntries(boards.viewers), ([tenant, key]) =>
       secrets.store(`GRAFANA_VIEWER_${tenant.toUpperCase()}`, key))
-    if (spec.profile.tenancy.mode !== "single") {
+    if (spec.profile.separation.mode !== "single") {
       new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
     }
     // the unleased custody CELL, not the Kubernetes Secret behind it: `Workload.rows` stamps its variable rows

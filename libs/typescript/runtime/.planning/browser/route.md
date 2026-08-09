@@ -131,14 +131,12 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 - Law: the listener is the module's platform-forced statement seam — `Effect.acquireRelease` owns the exact native listener identity, and its synchronous callback resolves the match and calls `event.intercept` before returning from dispatch; only the intercepted `handler` crosses through `Runtime.runPromise`. The implementer carries the `// BOUNDARY ADAPTER` mark on the navigate listener's first line. `window.navigation` is absent from the DOM lib; `_Navigation`/`_NavigateEvent` are the boundary refinements pinned here once.
 - Law: `fallback` is restricted to `Router.StaticKey<Rows>` because fallback construction has no segment evidence; a parameterized row cannot become the unmatched destination. `go` accepts one tagged `Router.Travel` carrier, so push versus replacement is an explicit input case rather than an optional history knob with a hidden default.
 - Law: last-good query continuity rides `persist#DOMAIN_ROWS`'s `route` domain as write-or-drop — a commit with a non-empty search persists it under the row key, an empty search DROPS the key (an explicit clear is a decision, not a memory), and the persist leg's fault logs without blocking the commit; at construction, an entry arriving with an empty query whose key holds a last-good replays it through one `replace` navigation, a poisoned row folding to a cold start — an explicit URL always wins, restoration never overrides it.
-- Law: hosts without the Navigation API fail the layer at construction with the class-carried `unsupported` fault — routing degrades loudly at the wiring proof, never silently to a dead SPA; the reason and its class ride one core `FaultClass.family` mint, so even a one-reason family derives its projection rather than asserting a class literal.
 - Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; with `[2]`'s segment-capture assertion, the pinned boundary refinements, and the listener's event pin these are the module's only assertion sites, and the cast algebra stays one-directional.
 - Receipt: the Tag's `Shape` annotation is the whole consumer contract — cells, `href`, `go`, `back`, `forward` — readable without the body; the ui wave binds the cells through its atom bridge at app composition.
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are the ui wave's composition over the commit, never authored here.
-- Packages: `effect` (`Context`, `Data`, `Effect`, `Layer`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `./persist.ts` (`Kv`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
 type _NavigateEvent = Event & {
   readonly canIntercept: boolean
@@ -158,7 +156,7 @@ type _Navigation = EventTarget & {
   readonly forward: () => void
 }
 
-const _routeFamily = FaultClass.family(["unsupported"] as const, { unsupported: { class: "absent" } })
+const _routeFamily = Fault.Class.family(["unsupported"] as const, { unsupported: { class: "absent" } })
 
 declare namespace RouteFault {
   type Reason = (typeof _routeFamily.reasons)[number]
@@ -168,7 +166,7 @@ class RouteFault extends Data.TaggedError("RouteFault")<{
   readonly reason: RouteFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _routeFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -286,8 +284,9 @@ const Router: {
 ## [04]-[SESSION_PLANE]
 
 [SESSION_PLANE]:
-- Owner: `SessionStatus`, one process-local `Data.taggedEnum` — `Anonymous`, `Authenticating`, `Authenticated { subject, expiresAt }`, `Expired` — constructed only through its generated constructors so every guard and affordance dispatch rides `$match`/`$is`; and `Vault`, one scoped `Effect.Service` built through `Vault.Default(spec)` — `status` (the one cell, published `Subscribable`), the transitions (`established`/`authenticating`/`cleared` — local transitions publish to the cross-tab channel, foreign folds never re-publish, so the channel cannot echo), `csrf` (the double-submit header pair read from the readable cookie under `security/authn/session`'s `CookieSpec.csrf` name, `Option`-carried), `posture` (`"include"` — the credentials row `fetch#DIAL_SURFACE` stamps on every dial), and the redirect continuity — `depart(plan)` persists the pending flow into `persist#DOMAIN_ROWS`'s `flow` domain then commits the full-page navigation, `land(url, exchange)` re-reads the flow single-use, guards replay, lapse, and the state echo, extracts the callback code, hands `{ code, state }` to the app-supplied exchange leg, and folds the fresh session into the cell.
+- Owner: `SessionStatus`, one process-local `Data.taggedEnum` — `Anonymous`, `Authenticating`, `Authenticated { subject, expiresAt }`, `Expired` — constructed only through its generated constructors so every guard and affordance dispatch rides `$match`/`$is`; and `Vault`, one scoped `Effect.Service` built through `Vault.Default(spec)` — `status` (the one cell, published `Subscribable`), the transitions (`established`/`authenticating`/`cleared` — local transitions publish to the cross-tab channel, foreign folds never re-publish, so the channel cannot echo), `csrf` (the double-submit header pair read from the readable cookie under `security/authn/session`'s `CookieSpec.csrf` name, `Option`-carried), `posture` (`"include"` — the credentials row `fetch#DIAL_SURFACE`'s `_stamped` hands the platform's XHR factory Tag on every dial), and the redirect continuity — `depart(plan)` persists the pending flow into `persist#DOMAIN_ROWS`'s `flow` domain then commits the full-page navigation, `land(url, exchange)` re-reads the flow single-use, guards replay, lapse, and the state echo, extracts the callback code, hands `{ code, state }` to the app-supplied exchange leg, and folds the fresh session into the cell.
 - Law: `Authenticated` carries evidence, not secrets — `subject` is a display-grade identity string and `expiresAt` the refresh watermark; the credential itself never exists in this vocabulary because the cookie residency law keeps it out of script reach entirely, and a token string in Web Storage or a readable session cookie is the named residency defect.
+- Law: `include` is the posture's whole vocabulary — `BrowserHttpClient.layerXMLHttpRequest` constructs a bare `XMLHttpRequest` whose `withCredentials` reads false, so an unstamped cross-origin dial drops the session cookie this plane issued, and `omit` has no spelling on that transport because XHR carries same-origin cookies unconditionally; the stamp therefore rides the XHR factory Tag `fetch#DIAL_SURFACE`'s `_stamped` binds into every dial's context, never a request header.
 - Law: cold boot reconstructs, never guesses — the cell seeds `Authenticating` and the construction forks ONE `spec.refresh` probe (the edge round-trip is the only reader of the HttpOnly cookie), whose fold settles `Authenticated` or `Anonymous`; a guard therefore observes a settled phase or waits out the in-flight one, and an `Anonymous` seed that hides a live cookie session is unspellable.
 - Law: the refresh arm is supersede-keyed — one `FiberHandle` holds at most one sleeper; each `Authenticated` transition re-arms it to wake at `expiresAt` minus the lead, run `spec.refresh` (the edge round-trip that re-establishes the cookie session), and fold the outcome (`some` re-establishes, `none` expires); any other phase replaces the sleeper with `Effect.void`, so a signed-out tab holds no timer and two sleepers cannot race; a refresh success publishes the fresh expiry to the channel, so sibling tabs fold forward and re-arm to the later watermark — the first refresher wins and the others move their timers instead of re-dialing.
 - Law: cross-tab truth is one `BroadcastChannel` held `Effect.acquireRelease` — a decoded `Established` folds the foreign fact into the local cell, `Cleared` signs every tab out at once, and an undecodable message is dropped because a foreign tab's garbage is not this rail's fault; `Expired` and `Authenticating` are local phases that never cross the channel, because a foreign tab observing them acts on another tab's transient.
@@ -298,7 +297,6 @@ const Router: {
 - Receipt: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
 - Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one reason on the `FlowFault` family mint, which derives the type and the class projection together.
 - Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
-- Packages: `@rasm/ts/security` (`CookieSpec`); `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Encoding`, `FiberHandle`, `Option`, `Order`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `./persist.ts` (`Kv`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 import { CookieSpec } from "@rasm/ts/security"
@@ -320,7 +318,7 @@ type SessionStatus = Data.TaggedEnum<{
 }>
 const SessionStatus: Data.TaggedEnum.Constructor<SessionStatus> = Data.taggedEnum<SessionStatus>()
 
-const _flowFamily = FaultClass.family(["replay", "lapsed", "malformed"] as const, {
+const _flowFamily = Fault.Class.family(["replay", "lapsed", "malformed"] as const, {
   replay: { class: "conflicted" },
   lapsed: { class: "expired" },
   malformed: { class: "malformed" },
@@ -334,7 +332,7 @@ class FlowFault extends Data.TaggedError("FlowFault")<{
   readonly reason: FlowFault.Reason
   readonly detail: string
 }> {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _flowFamily.classOf(this.reason)
   }
   override get message(): string {
@@ -506,17 +504,17 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
 - Law: the chain is ordered and first-refusal-wins — departure confirm (only when the departing row carries `leave` AND dirty work is held), then session, then flag, then command; the chain is one `Effect.reduce` over the four arm effects — an arm runs only while the held verdict is `Proceed`, so the first refusal short-circuits, the fold is total, and a new gate is one arm value in the list, never a branch.
 - Law: `Authenticating` is waited out, never guessed — the session arm suspends on `Vault.status`'s change feed until a settled phase arrives or the `settle` budget lapses, and a lapse folds as `Expired` (divert), so a slow ceremony renders the router's pending affordance instead of a wrong verdict.
 - Law: absence admits — a missing `Confirm` port proceeds (the native `beforeunload` arm still covers tab close), an absent flag leg admits, absent availability evidence admits, and only a `Withheld` verdict refuses (`Gated` proceeds — page-level affordances own gated rendering); the guard degrades open on missing evidence and shut on explicit refusal.
-- Law: the command arm folds the core lattice — `Availability.admits(snapshot, command)` answers total over the level fallbacks, so a command absent from the snapshot's map still lands a verdict and the guard never re-derives posture the lattice already decides.
+- Law: the command arm folds the core lattice — `Evidence.Availability.admits(snapshot, command)` answers total over the level fallbacks, so a command absent from the snapshot's map still lands a verdict and the guard never re-derives posture the lattice already decides.
 - Law: the `beforeunload` arm and its synchronous registry read are the module's platform-forced statement seam — the native handler decides within its dispatch, so it reads the dirty cell through the captured runtime's sync run (the sanctioned callback-seam spelling) and prevents default only while work is held; the implementer carries the `// BOUNDARY ADAPTER` mark on the `beforeunload` bracket's first line.
 - Law: policy is data on the route row — `[2]`'s `Row.policy` carries this value, the app's admission wiring reads the departing and arriving rows, and no parallel policy registry exists; gate targets are hrefs minted by the router, so a divert target is typed at its mint site and the guard never assembles URLs.
 - Receipt: `resolve`'s annotation states the whole read surface — `Router.Admission` out, no fault channel, requirement-free by construction.
 - Entry: the app's composition maps the router's endpoint pair onto its rows — `(from, to) => guard.resolve(Option.some(rows[from.key].policy), rows[to.key].policy)` — one line in `main.ts`, zero lib coupling between the two clusters.
 - Growth: a tenant gate, a capability gate, or a quota gate is one `Option` field plus one chain arm.
 - Boundary: what a flag verdict means is its serving surface's law; what availability means is `core/state/evidence`'s lattice; the confirm ceremony renders behind the ui-satisfied `Confirm` Tag; this cluster owns only the fold order.
-- Packages: `effect` (`Context`, `Duration`, `Effect`, `HashSet`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Availability`); `./boot.ts` (`Boot`).
+- Packages: `effect` (`Context`, `Duration`, `Effect`, `HashSet`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Evidence.Availability`); `./boot.ts` (`Boot`).
 
 ```typescript
-import { Availability } from "@rasm/ts/core"
+import { Evidence } from "@rasm/ts/core"
 import { HashSet, type Scope } from "effect"
 
 declare namespace Guard {
@@ -524,11 +522,11 @@ declare namespace Guard {
   type Policy = {
     readonly session: Option.Option<{ readonly to: string }>
     readonly flag: Option.Option<{ readonly name: string; readonly to: string }>
-    readonly command: Option.Option<Availability.Command>
+    readonly command: Option.Option<Evidence.Availability.Command>
     readonly leave: Option.Option<Prompt>
   }
   type Spec = {
-    readonly availability: Effect.Effect<Option.Option<Availability>>
+    readonly availability: Effect.Effect<Option.Option<Evidence.Availability>>
     readonly flag: Option.Option<(name: string) => Effect.Effect<boolean>>
   }
 }
@@ -609,7 +607,7 @@ class Guard extends Effect.Service<Guard>()("runtime/browser/Guard", {
               Option.match(evidence, {
                 onNone: () => Router.Admission.Proceed(),
                 onSome: (snapshot) =>
-                  Availability.admits(snapshot, command)._tag === "Withheld"
+                  Evidence.Availability.admits(snapshot, command)._tag === "Withheld"
                     ? Router.Admission.Refuse()
                     : Router.Admission.Proceed(),
               }),

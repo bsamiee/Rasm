@@ -1,0 +1,30 @@
+# The estate proto gate. One module — `tests/contracts`, the neutral corpus no language tree owns — so a proto path
+# reads `rasm/<family>/v1/<family>.proto` from the corpus root and a `rasm.<family>.v1` package lands in the directory
+# that spells it. buf owns lint and breaking alone; each branch build owns its own codegen, and no `buf.gen.yaml`
+# exists (see tests/contracts/.api/bufbuild-buf.md `[04]-[IMPLEMENTATION_LAW]`).
+version: v2
+modules:
+  - path: tests/contracts
+lint:
+  # STANDARD over BASIC/MINIMAL: the package-layout, enum, field, and service rules all bind here, and the two rules
+  # the estate's own ruled vocabulary displaces are named below rather than dropped by lowering the category.
+  use:
+    - STANDARD
+  except:
+    # csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY rules the wire spelling: a message reads <Verb>Request inbound
+    # and <Verb>Response/<Verb>Reply/<Verb>Receipt outbound off the DOMAIN shape it transcribes, and a streaming chunk
+    # is named for the payload it carries. These two rules derive both names from the rpc instead, and two of their
+    # demands are unsatisfiable against types the suite deliberately shares.
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+  ignore_only:
+    # ControlService.ReloadOptions and .DispatchPatch answer one ReloadOutcome transition, so one ReloadReply carries
+    # both routes and its `trigger` column separates them; ArtifactSyncService.Sync frames both directions of one bidi
+    # byte seam with one ArtifactFrame. Splitting either mints a duplicate shape carrying no new wire fact.
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - tests/contracts/rasm/compute/v1/compute.proto
+breaking:
+  # FILE over PACKAGE/WIRE/WIRE_JSON: the corpus freezes a per-source FileDescriptorSet baseline, so the gate compares
+  # one file against one snapshot and a deleted message or renamed field fails at the source that owns it.
+  use:
+    - FILE

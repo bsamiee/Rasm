@@ -19,7 +19,7 @@ data/
     │   ├── evolve.ts     # Read-time upcasting: per-tag version chains, snapshot as a projection
     │   ├── fact.ts       # Durable fact journal: audit and metering as one buffered family
     │   └── retain.ts     # Retention classes, crypto-shredding, and DSAR portability folds
-    ├── object/           # Content-addressed object plane over the one ContentKey
+    ├── object/           # Content-addressed object plane over one Digest.Key
     │   ├── store.ts      # S3-conditional content-addressed object store
     │   ├── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
     │   ├── file.ts       # Filesystem plane: gated content-addressed intake and the derivative spine
@@ -36,7 +36,7 @@ data/
 ## [02]-[STRATA]
 
 - S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
-- S1 `lane/tenant` — pins the tenancy write path over `Capability` and `Pg`.
+- S1 `lane/tenant` — pins the tenancy write path over `Capability` and `Pg`, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
 - S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction; `retain` ages and `fact` meters inside the stratum.
 - S2 `append` mints the CloudEvents relay envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
@@ -78,6 +78,7 @@ flowchart TB
     end
     Tenant e1@-->|"[IMPORT]: Capability"| Capability
     Tenant e2@-->|"[IMPORT]: Pg"| Postgres
+    Tenant e19@-->|"[IMPORT]: Live"| Live
     Journal e3@-->|"[IMPORT]: Tenancy"| Tenant
     Journal e4@-->|"[IMPORT]: Upcast"| Evolve
     Journal e5@-->|"[IMPORT]: Live"| Live
@@ -109,7 +110,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package seam registry
-    accDescr: Data owners exchanging content keys, tenancy, custody, reactive shapes, and the analytics-residence door with the core, security, runtime, and iac peers.
+    accDescr: Data exchanges custody, tenancy, hook, backend, and Board.Query contracts with branch peers and Rasm.Persistence.
     subgraph data[DATA]
         Fold[Projection fold]
         Store[Object store]
@@ -132,9 +133,10 @@ flowchart LR
     Runtime{{runtime}}
     Iac{{iac}}
     Persistence[(Rasm.Persistence)]
+    Rhino[(Rasm.Rhino)]
     Core e1@-->|"[SHAPE]: Fold.Plan"| Fold
-    Core e2@-->|"[CONTENT_KEY]: ContentKey"| Store
-    Core e3@-->|"[SHAPE]: TenantContext"| Tenant
+    Core e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Store
+    Core e3@-->|"[SHAPE]: Identity.Tenant"| Tenant
     Tenant e4@-->|"[PORT]: SessionStore"| Security
     Security e5@-->|"[BOUNDARY]: TenantScope"| Tenant
     Security e6@-->|"[SHAPE]: SealedEnvelope"| Retain
@@ -161,15 +163,42 @@ flowchart LR
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
     Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
     Append e29@-->|"[PORT]: AuditJournal"| Security
-    Core e30@-->|"[SHAPE]: Query.Residence"| Olap
+    Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
     Core e32@-->|"[SHAPE]: Hops"| Olap
-    Olap e31@-->|"[SHAPE]: Query.Target"| Core
-    Core e33@-->|"[PROJECTION]: DashboardModel.Signal"| Olap
+    Olap e31@-->|"[SHAPE]: Board.Query.Target"| Core
+    Core e33@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Olap
     Iac e34@-->|"[PORT]: analytics residence"| Olap
     Core e35@-->|"[SHAPE]: Convention"| Asset
+    Rhino e36@-->|"[WIRE]: OrganizationWire"| Fold
+    Core e36@-->|"[SHAPE]: Carrier.Context/Identity.Tenant"| Append
 ```
 
 ## [04]-[INTERNAL]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data custody spine
+    accDescr: Ingress commits to the journal, anchors object custody, folds reads, and materializes analytics residence.
+    Ingress([admitted events + octets])
+    Journal[(journal · record of truth)]
+    Object[(object · content plane)]
+    Read[read · projection folds]
+    Residence[(lane/olap · analytics residence)]
+    Query([Board.Query.Target])
+    Ingress e1@-->|"commit: event + receipt"| Journal
+    Journal e2@-->|"anchor: content custody"| Object
+    Journal e3@-->|"replay: event"| Read
+    Object e4@-->|"resolve: Digest.Key"| Read
+    Read e5@-->|"materialize: derived rows"| Residence
+    Residence e6@-->|"serve: query target"| Query
+```
 
 `lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth — `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold.
 

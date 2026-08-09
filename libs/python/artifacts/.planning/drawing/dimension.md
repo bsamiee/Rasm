@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_DRAWING_DIMENSION]
 
-`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame` admits the `csharp:Rasm.Fabrication -> Drawing [WIRE]: IToleranceEncoder bytes` seam without a parallel tolerance owner.
+`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the `csharp:Rasm.Fabrication -> Drawing [WIRE]: GdtFrameWire` seam alone, seating every fact its `tests/contracts/tolerance-wire` pin spells — no parallel tolerance owner, no producer-admitted field this frame drops.
 
 Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native path (`DXF` the `Drawing.write` blob, `SVG` the `SVGBackend`, `PDF` the `PyMuPdfBackend`) LEADS with `add_*_dim().render()` and the ISO tolerance as native DIM-variables (`dimtol`/`dimtp`/`dimtm`, `dimlim`, `MTextEditor.stack` for the stacked deviation), while the `LAYERED` path DECOMPOSES each dimension into named editable `graphic/layer#LAYER` `LayerNode` rows at full semantic parity — the extension/dimension-line geometry from `ezdxf.math.Construction*` anchor math (never hand-rolled trig) authored as `drawsvg` elements (never hand-formatted `<path d>` strings), per-case ISO 129-1 terminators anchored where the case actually terminates (arc ends tangent to the measured arc, one leader arrow on a radial, a datum triangle on a datum feature), the true measured value for EVERY case including the angular degrees and the `⌢`-prefixed arc length, the ISO 3098 measurement text outlined through `ziafont` (`typography/shape#SHAPE` owns the shaped run), and every `DimTol` mode typeset through the `typography/math#MATH` `Formula` owner seated through `seat` — `\pm` symmetric, stacked deviation, stacked limits, boxed basic — all penned by the discipline sRGB `Standard.rgb` resolves. `kiwisolver` `Solver` + `strength` bands solve the dimension-line offset STACK a fixed offset gets wrong. Rendering offloads through the owner's `lane: LanePolicy` instance seam onto the runtime thread lane, and the owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` case (or reused `ArtifactReceipt.Pdf` on the `PDF` backend) and one `core/plan#PLAN` `ArtifactWork` node — minting no IFC (`csharp:Rasm.Bim`) and computing no sheet placement, the dimensioned SVG/PDF bytes feeding `composition/sheet#SHEET`'s `FigurePlacement` as a bytes seam.
 
@@ -10,17 +10,21 @@ Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native p
 
 ## [02]-[DIMENSION]
 
-- Owner: `Dimension` holds `ops`, the resolved `drawing/standard#STANDARD` `Standard`, the `DimTarget` value, and the `lane: LanePolicy` execution policy, discriminating over the closed `DimOp` whose every case carries ONLY its own geometry plus the `DimStyleFamily`/`DimTol` facet slots — never a per-dimension `LinearDim`/`RadialDim` class family, never a monolithic bag whose angular/radial fields are dead for most cases. `DimTol` is the closed dimensional-tolerance vocabulary (`Auto`/`Custom`/`Symmetric`/`Deviation`/`Limits`/`Basic`) every case's second facet carries, and `GdtFrame` — `GdtChar` characteristic, zone value with the `⌀` cylindrical flag, `GdtModifier` material condition, datum letters — is the geometric-tolerance sibling the `Fcf` case carries whole; together they are where the `Fabrication -> Drawing` tolerance wire admits. `DimTarget` keys the `_ENGINES` dual-lowering table (`DXF`/`SVG`/`PDF` sharing the `_native` arm through `_BACKENDS`, `LAYERED` the `_layered` arm), so a new egress is one row.
+- Owner: `Dimension` holds `ops`, the resolved `drawing/standard#STANDARD` `Standard`, the `DimTarget` value, and the `lane: LanePolicy` execution policy, discriminating over the closed `DimOp` whose every case carries ONLY its own geometry plus the `DimStyleFamily`/`DimTol` facet slots — never a per-dimension `LinearDim`/`RadialDim` class family, never a monolithic bag whose angular/radial fields are dead for most cases. `DimTol` is the closed dimensional-tolerance vocabulary (`Auto`/`Custom`/`Symmetric`/`Deviation`/`Limits`/`Basic`) every case's second facet carries, and `GdtFrame` — `GdtChar` characteristic, `GdtScope` toleranced element, `GdtZone` kind with its own second dimension, exact zone magnitude, `GdtModifier` material condition, `GdtZoneModifier` set, `GdtDatum` references each carrying its OWN material condition, and the `GdtSegment` composite lower row — is the geometric-tolerance sibling the `Fcf` case carries whole; together they are where the `Fabrication -> Drawing` tolerance wire admits. `DimTarget` keys the `_ENGINES` dual-lowering table (`DXF`/`SVG`/`PDF` sharing the `_native` arm through `_BACKENDS`, `LAYERED` the `_layered` arm), so a new egress is one row.
 - Cases: each dimensional `DimOp` case ends in the `(DimStyleFamily, DimTol)` facet pair and lowers onto its verified `ezdxf` builder (`add_linear_dim`/`add_aligned_dim`/`add_angular_dim_2l`/`_3p`/`_cra`/`add_radius_dim`/`add_diameter_dim`/`add_ordinate_x_dim`/`_y_dim`/`add_arc_dim_3p`/`_cra`/the self-rendering `add_multi_point_linear_dim` chain, `Baseline` a fold of `add_linear_dim` stepping by DIMDLI), matched by one total `match` in `_lower` — the `Angular3P`/`Arc3P` and `AngularCRA`/`ArcCRA` payload shapes coincide but each lowers onto a distinct builder. `OrdinateAxis` routes `add_ordinate_x_dim`/`_y_dim`. `Fcf` and `DatumFeature` lower onto `add_leader` plus the `TOLERANCE` entity whose `content` `_gdt_content` derives from the frame value.
 - Entry: `Dimension.over` normalizes `DimOp | Iterable[DimOp]` by a structural `match` at the head — never a `batch` knob. `emit` returns `ArtifactWork` beside the `layered()` `RuntimeRail[LayerPlan]` projection; both execution paths ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`, whose returned rail composes directly. `_native` seeds `Standard`, solves the offset stack, lowers every `DimOp`, and egresses through the target `DimBackend`; `_layered` decomposes each dimension into named rows over `ezdxf.math`, `drawsvg`, `ziafont`, and the `typography/math#MATH` `Formula` owner, with `aec=Some(_DIMS)` deriving ISO 13567 names downstream.
 - Auto: `_facets` projects each case's `(family, tol)` once through one total or-pattern; `over = dict(standard.dimstyle(family)) | _tol_over(tol)` scales the DIM-variables by the ISO 5455 factor so a `1:50` dimension draws its 2.5 mm text at paper scale with zero per-arm literal. Each `DimTol` mode lowers onto its native mechanism — `Symmetric` onto `dimtol`, `Deviation` onto an `MTextEditor.stack` stacked fraction, `Limits` onto `dimlim`, `Basic` onto a negative-`dimgap` boxed value — never a hand-formatted `± ` string, and the `LAYERED` tolerance layer typesets ALL FOUR through `_tol_latex`, so no admitted tolerance is silently absent on either arm. `_stack` threads one `kiwisolver.Solver`: a `required` anchor, `required` min-separation ≥ DIMDLI, and a custom `strength.create(0,1,0,4)` equal-gap band above plain `weak`; `Constraint.violated()` reads which soft gaps the solve sacrificed, and a dense chain that collapses the distribution falls back to deterministic fixed DIMDLI stepping. `LAYERED`'s `_construction` DECOMPOSES a curved dimension to the actual `ConstructionArc`/`ConstructionCircle` it MEASURES (`.flattening(_SAGITTA)`) and an ordinate to its axis dogleg; `_measurement` reads the true value per case — length, `R`/`⌀`, the angular degrees off the construction geometry, the `⌢` arc length — and `_terminator_anchors` places each mark where its case terminates with the tangent the mark aligns to. Text and tolerance runs are MEASURED via `getsize()`/`getyofst()` so the text floats above the dimension line and the tolerance clears the value, the annotation font falls to the bundled `ziafont` face when the profile names an `.shx` CAD font no sfnt reader parses, and `_PRECISION` pins the emitted `d`-floats so the content key stays deterministic.
-- Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one `GdtChar` member plus one `_GDT_GLYPH` row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
+- Wire: `GdtFrame.decode` reads the producer's framed binary and refuses onto `Result` — magic before any length cell, so a foreign buffer refuses at byte 0; the zone kind alone discriminates the second dimension; a collection and an `Option` alike frame as a count then that many elements; and `sealed` refuses trailing bytes, since a decode reading less than the producer wrote is drift, never slack.
+- Wire: `GdtScope`, `GdtZone`, and `GdtZoneModifier` spell the producer key as their own value, so the enum constructor IS the `[WIRE_TOKEN]` ingest table; `GdtChar` and `GdtModifier` keep DXF gdt-font codes the `TOLERANCE` entity embeds and land through `_CHAR_INGEST` and `_MATERIAL_INGEST`.
+- Law: decimal presentation is THIS standard's DIMDEC and never a producer-side rounding — `_gdt_magnitude` falls to shortest-round-trip on a zone the drawing's own precision rounds away, since a drawn zero reads as perfect form.
+- Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one `GdtChar` member plus one `_GDT_GLYPH` and one `_CHAR_INGEST` row; a new zone kind, scope, or zone modifier is one enum member and its glyph row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
 - Boundary: no IFC, sheet-placement, or annotation-leader logic — `csharp:Rasm.Bim`, `composition/sheet#SHEET`, `drawing/annotate#ANNOTATE`. `ezdxf` owns the ISO 129-1 dimension entity, the `TOLERANCE` entity, and the render; `drawing/standard#STANDARD` the DIM-variable derivation and discipline pen; `graphic/vector/region#REGION` the landed `outline`/`boolean` the tapered-terminator premium composes; `ziafont` the ISO 3098 text outline; `typography/math#MATH` the tolerance math; `kiwisolver` the offset solve; `graphic/layer#LAYER` the layer vocabulary; `composition/sheet#SHEET` the placement; identity minting is the runtime's.
 - Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render, `bbox.extents`); `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default; `core/receipt#RECEIPT` `ArtifactReceipt.Drawing`/`Pdf`. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`LayerName` lowering onto the `ezdxf` tables.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
+import struct
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from itertools import accumulate, pairwise
@@ -79,6 +83,7 @@ type DimTag = Literal[
 type TolTag = Literal["auto", "custom", "symmetric", "deviation", "limits", "basic"]
 type MarkKind = Literal["arrow", "open", "oblique", "dot", "origin", "none", "datum"]
 type DimArm = Callable[["Dimension"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]  # the target-keyed lowering arm
+type GdtRow = tuple[str, float, "GdtModifier", "tuple[GdtZoneModifier, ...]", "tuple[GdtDatum, ...]"]  # one frame row
 
 
 class DimTarget(StrEnum):  # the dual-lowering egress — a new target is one `_ENGINES` row, never a subtype
@@ -115,10 +120,54 @@ class GdtChar(StrEnum):  # ISO 1101 geometric characteristics — value is the D
 
 
 class GdtModifier(StrEnum):  # ISO 2692 material-condition modifiers — DXF gdt-font codes
-    NONE = ""
+    NONE = ""  # regardless of feature size, the ISO 1101 default reading, drawing no compartment symbol
     MMC = "m"
     LMC = "l"
-    RFS = "s"
+
+
+class GdtScope(StrEnum):  # the toleranced element a zone applies to — decides how the leader terminates
+    SURFACE = "surface"
+    AXIS = "axis"
+    MEDIAN_LINE = "median-line"
+    MEDIAN_PLANE = "median-plane"
+    CENTER_POINT = "center-point"
+
+
+# Zone kinds and zone modifiers carry the WIRE key as their value and reach their drawn spelling through a table:
+# three zone kinds draw no prefix at all, so a glyph-valued member would alias them onto one enum row.
+class GdtZone(StrEnum):  # ISO 1101 zone kinds — the prefix rides `_ZONE_PREFIX`, the second dimension `GdtFrame.second`
+    BILATERAL = "bilateral"
+    UNILATERAL = "unilateral"
+    DIAMETER = "diameter"
+    SPHERICAL = "spherical"
+    PROFILE = "profile"
+    PROJECTED = "projected"
+    UNEQUALLY_DISPOSED = "unequally-disposed"
+
+    @property
+    def prefix(self) -> str:
+        return _ZONE_PREFIX[self]
+
+
+class GdtZoneModifier(StrEnum):  # ISO 1101 zone modifiers — the compartment glyph rides `_ZONE_MOD_GLYPH`
+    TANGENT_PLANE = "tangent-plane"
+    FREE_STATE = "free-state"
+    STATISTICAL = "statistical"
+    COMMON_ZONE = "common-zone"
+    CONTINUOUS_FEATURE = "continuous-feature"
+    ALL_AROUND = "all-around"
+    ALL_OVER = "all-over"
+    ENVELOPE = "envelope"
+    INDEPENDENCY = "independency"
+    RECIPROCITY = "reciprocity"
+    MINIMUM_CIRCUMSCRIBED = "minimum-circumscribed"
+    MAXIMUM_INSCRIBED = "maximum-inscribed"
+    LEAST_SQUARES = "least-squares"
+    MINIMAX_TANGENT = "minimax-tangent"
+
+    @property
+    def glyph(self) -> str:
+        return _ZONE_MOD_GLYPH[self]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -127,6 +176,8 @@ _SAGITTA: Final[float] = 0.05  # LAYERED arc/circle flattening tolerance (mm) �
 _ARC_SPAN: Final[float] = 30.0  # reference-arc half-span (deg) a radial dimension draws around its leader angle
 _DIMS: Final[LayerName] = LayerName.of(Discipline.GENERAL, "DIMS")  # the one ISO 13567 layer every dimension row derives from
 _DATUM_LETTERS: Final[frozenset[str]] = frozenset("ABCDEFGHJKLMNPRSTUVWXYZ")  # ISO 5459 reference letters — I, O, Q excluded as digit-confusable
+_LAYOUT: Final[int] = 1  # frame-wire layout generation — an unequal cell refuses rather than reading a shifted field
+_SECOND_DIMENSION: Final[frozenset["GdtZone"]] = frozenset({GdtZone.UNILATERAL, GdtZone.UNEQUALLY_DISPOSED, GdtZone.PROJECTED})
 
 
 def _canonized(raw: object) -> object:
@@ -154,28 +205,150 @@ class DimTol:
     basic: float = case()  # a boxed theoretically-exact value -> negative dimgap
 
 
-def _admit_datums(datums: tuple[str, ...], /) -> None:
-    # datum-chain admission both GD&T constructors share: at most primary/secondary/tertiary references, each one
-    # single ISO 5459 letter, so a malformed chain rails at mint, never inside a lowering arm.
-    if len(datums) > 3 or any(letter not in _DATUM_LETTERS for letter in datums):
-        raise ValueError(f"datum chain is 0-3 single ISO 5459 letters: {datums!r}")
+def _admit_label(label: str, /) -> str:
+    # ISO 5459 spelling both ends compile: one reference letter, or a common datum as two DISTINCT letters joined by a
+    # hyphen. A class either end widens alone turns a producer-admitted frame into a consumer refusal.
+    letters = label.split("-")
+    if not 1 <= len(letters) <= 2 or any(letter not in _DATUM_LETTERS for letter in letters) or len(set(letters)) != len(letters):
+        raise ValueError(f"datum label is one ISO 5459 letter, or two distinct letters hyphen-joined: {label!r}")
+    return label
+
+
+class GdtDatum(Struct, frozen=True):
+    # one datum reference — its OWN material condition, never the frame's: folding the two drops a datum modifier
+    # off the drawn box, and precedence rides POSITION in `GdtFrame.datums` rather than a field that contradicts it.
+    letter: str
+    modifier: GdtModifier = GdtModifier.NONE
+
+    def __post_init__(self) -> None:
+        _admit_label(self.letter)
+
+
+class GdtSegment(Struct, frozen=True):
+    # composite lower segment — a SECOND ROW inside the same box, carrying no kind of its own because its upper
+    # segment's zone governs both rows; datum letters here refine the upper system and never introduce a new one.
+    tolerance: float
+    modifiers: tuple[GdtZoneModifier, ...] = ()
+    datums: tuple[GdtDatum, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.tolerance > 0.0 or not 1 <= len(self.datums) <= 3:
+            raise ValueError(f"composite segment is a positive zone over 1-3 datums: {self.tolerance!r} {self.datums!r}")
+
+
+class GdtOrigin(Struct, frozen=True):
+    # producer identity a DECODED frame carries — the characteristic id and the kind-tagged specification key, whole.
+    # Kind rides beside the digest because two egress families mint equal digests over equal bytes, so a digest-only
+    # join merges two specifications; a locally authored frame carries no origin at all.
+    characteristic_id: str
+    source_kind: str
+    source_digest: str
 
 
 class GdtFrame(Struct, frozen=True):
-    # one ISO 1101 feature-control frame — the admission target of the Fabrication `IToleranceEncoder` bytes wire.
+    # one ISO 1101 feature-control frame — admission target of the Fabrication `GdtFrameWire` bytes wire, and it
+    # carries every fact that wire spells: a field the decode cannot seat is a fact dropped onto the drawing.
     characteristic: GdtChar
-    tolerance: str  # zone value, e.g. "0.1"
-    diameter: bool = False  # ⌀ cylindrical-zone prefix
+    tolerance: float  # zone magnitude in millimetres, exact — decimal presentation is this drawing standard's
+    zone: GdtZone = GdtZone.BILATERAL
+    scope: GdtScope = GdtScope.SURFACE
     modifier: GdtModifier = GdtModifier.NONE
-    datums: tuple[str, ...] = ()  # primary/secondary/tertiary datum letters
+    modifiers: tuple[GdtZoneModifier, ...] = ()
+    datums: tuple[GdtDatum, ...] = ()  # primary/secondary/tertiary, IN precedence order
+    second: Option[float] = Nothing  # the kind-borne second dimension — projected height or unilateral offset
+    composite: Option[GdtSegment] = Nothing
+    origin: Option[GdtOrigin] = Nothing
 
     def __post_init__(self) -> None:
-        # ISO 1101 admission at mint: the zone value is a parseable positive decimal magnitude and the datum chain
-        # admits through the shared validator — the ⌀ prefix and material modifier ride their own typed fields.
-        zone = self.tolerance
-        if not zone or zone.count(".") > 1 or not zone.replace(".", "", 1).isdigit() or float(zone) <= 0.0:
-            raise ValueError(f"gdt zone value is a positive decimal: {zone!r}")
-        _admit_datums(self.datums)
+        # ISO 1101 admission at mint: a positive zone magnitude, at most three datum references distinct by letter,
+        # and a second dimension present exactly when its zone kind carries one — prefix, material condition, and
+        # zone modifiers ride their own typed fields, so no arm re-parses a joined compartment string.
+        if not self.tolerance > 0.0:
+            raise ValueError(f"gdt zone value is a positive magnitude: {self.tolerance!r}")
+        letters = tuple(datum.letter for datum in self.datums)
+        if len(self.datums) > 3 or len(set(letters)) != len(letters):
+            raise ValueError(f"datum chain is 0-3 references distinct by letter: {letters!r}")
+        if (self.zone in _SECOND_DIMENSION) != (self.second is not Nothing):
+            raise ValueError(f"zone kind and second dimension disagree: {self.zone!r} {self.second!r}")
+
+    @staticmethod
+    def decode(raw: bytes, /) -> Result["GdtFrame", str]:
+        # ONE reader of the Fabrication byte wire. Every vocabulary crosses as the producer's KEY and lands through
+        # its own ingest table, so a roster reordered at either end re-maps nothing; magic reads before any length
+        # cell, so a foreign buffer refuses at byte 0 rather than sizing an allocation from a field that is no length.
+        try:
+            return Result.Ok(_decode_frame(_Reader(raw)))
+        except (ValueError, KeyError, IndexError, struct.error) as fault:
+            return Result.Error(f"gdt frame wire refused: {fault}")
+
+
+# --- [WIRE_DECODE]
+
+class _Reader:
+    # cursor over the frame wire: every count, collection length, option arity, and token byte-length is one u32-LE
+    # cell, every magnitude one binary64-LE cell, and every digest 16 BIG-endian bytes — the one byte-order split.
+    __slots__ = ("_at", "_raw")
+
+    def __init__(self, raw: bytes, /) -> None:
+        self._raw, self._at = raw, 0
+
+    def take(self, width: int, /) -> bytes:
+        cell, self._at = self._raw[self._at : self._at + width], self._at + width
+        if len(cell) != width:
+            raise ValueError(f"wire ends mid-cell at offset {self._at - width}")
+        return cell
+
+    def count(self) -> int:
+        return int.from_bytes(self.take(4), "little")
+
+    def magnitude(self) -> float:
+        return struct.unpack("<d", self.take(8))[0]
+
+    def digest(self) -> str:
+        return self.take(16).hex()
+
+    def token(self) -> str:
+        return self.take(self.count()).decode("utf-8")
+
+    def rows[T](self, row: "Callable[[_Reader], T]", /) -> tuple[T, ...]:
+        # ONE framing law read back — a collection and an Option alike are a count then that many elements.
+        return tuple(row(self) for _ in range(self.count()))
+
+    def sealed(self) -> None:
+        # a decode leaving bytes behind read a shorter frame than the producer wrote, which is drift, never slack.
+        if self._at != len(self._raw):
+            raise ValueError(f"{len(self._raw) - self._at} trailing bytes past the frame")
+
+
+def _decode_datum(reader: _Reader, /) -> GdtDatum:
+    return GdtDatum(_admit_label(reader.token()), _MATERIAL_INGEST[reader.token()])
+
+
+def _decode_modifier(reader: _Reader, /) -> GdtZoneModifier:
+    return GdtZoneModifier(reader.token())
+
+
+def _decode_segment(reader: _Reader, /) -> GdtSegment:
+    return GdtSegment(reader.magnitude(), reader.rows(_decode_modifier), reader.rows(_decode_datum))
+
+
+def _decode_frame(reader: _Reader, /) -> GdtFrame:
+    # field order IS the producer's member declaration order, and the zone kind ALONE discriminates the second
+    # dimension, so the tail reads off the kind token already in hand and no arm tag rides beside it to contradict it.
+    if reader.take(4) != b"GDTF" or reader.count() != _LAYOUT:
+        raise ValueError("buffer is not a frame wire of this layout")
+    origin = GdtOrigin(reader.digest(), reader.token(), reader.digest())
+    characteristic, scope = _CHAR_INGEST[reader.token()], GdtScope(reader.token())
+    zone, tolerance = GdtZone(reader.token()), reader.magnitude()
+    second = Some(reader.magnitude()) if zone in _SECOND_DIMENSION else Nothing
+    modifiers, datums = reader.rows(_decode_modifier), reader.rows(_decode_datum)
+    material = _MATERIAL_INGEST[reader.token()]
+    segments = reader.rows(_decode_segment)
+    reader.sealed()
+    return GdtFrame(
+        characteristic, tolerance, zone, scope, material, modifiers, datums, second,
+        Some(segments[0]) if segments else Nothing, Some(origin)
+    )
 
 
 class DimBackend(Struct, frozen=True):
@@ -279,7 +452,7 @@ class DimOp:
 
     @staticmethod
     def DatumFeature(anchor: Point, insert: Point, letter: str, family: DimStyleFamily) -> "DimOp":
-        _admit_datums((letter,))  # exactly one ISO 5459 reference letter labels a datum-feature symbol
+        _admit_label(letter)  # the ISO 5459 spelling, the one class the frame wire and this symbol both compile
         return DimOp(datum_feature=(anchor, insert, letter, family, DimTol(auto=None)))
 
 
@@ -379,14 +552,32 @@ def _dim_text(tol: DimTol, /) -> str:
             assert_never(unreachable)
 
 
-def _gdt_content(frame: GdtFrame, /) -> str:
-    # TOLERANCE entity content grammar: {\Fgdt;<char>} symbol cell, %%v compartment separators, ⌀/modifier as gdt codes.
-    zone = (
-        ("{\\Fgdt;n}" if frame.diameter else "")
-        + frame.tolerance
-        + (f"{{\\Fgdt;{frame.modifier.value}}}" if frame.modifier is not GdtModifier.NONE else "")
+def _gdt_datum(datum: GdtDatum, /) -> str:
+    # a datum cell carries its OWN material condition, so a datum at MMC keeps its modifier on the drawn frame.
+    return datum.letter + (f"{{\\Fgdt;{datum.modifier.value}}}" if datum.modifier is not GdtModifier.NONE else "")
+
+
+def _gdt_rows(frame: GdtFrame, /) -> tuple[GdtRow, ...]:
+    # upper segment and composite lower segment project onto ONE row shape, so every GD&T render folds one sequence
+    # and no arm can forget the lower row; the upper segment's zone kind governs both, so no row carries a kind.
+    return (
+        (frame.characteristic.value, frame.tolerance, frame.modifier, frame.modifiers, frame.datums),
+        *(("", segment.tolerance, GdtModifier.NONE, segment.modifiers, segment.datums) for segment in frame.composite.to_list()),
     )
-    return "%%v".join((f"{{\\Fgdt;{frame.characteristic.value}}}", zone, *frame.datums))
+
+
+def _gdt_content(frame: GdtFrame, places: int, /) -> str:
+    # TOLERANCE entity content grammar: {\Fgdt;<char>} symbol cell, %%v compartment separators, ⌀ and material
+    # condition as gdt codes, and the composite lower segment as the `^J` SECOND LINE the entity already spells — a
+    # second entity beside it would draw two boxes where ISO 1101 draws one.
+    return "^J".join(
+        "%%v".join((
+            f"{{\\Fgdt;{symbol}}}" if symbol else "",
+            _gdt_zone(frame.zone, magnitude, material, modifiers, places),
+            *(_gdt_datum(datum) for datum in datums),
+        ))
+        for symbol, magnitude, material, modifiers, datums in _gdt_rows(frame)
+    )
 
 
 def _shifted(base: Point, p1: Point, p2: Point, offset: Option[float], /) -> Point:
@@ -470,7 +661,9 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[floa
                 ).render()
         case DimOp(tag="fcf", fcf=(anchor, insert, frame, _family, _tol)):
             msp.add_leader([anchor, insert], dimstyle=style, override=over)
-            msp.new_entity("TOLERANCE", dxfattribs={"content": _gdt_content(frame), "insert": insert, "dimstyle": style})
+            msp.new_entity(
+                "TOLERANCE", dxfattribs={"content": _gdt_content(frame, _places(over)), "insert": insert, "dimstyle": style}
+            )
         case DimOp(tag="datum_feature", datum_feature=(anchor, insert, letter, _family, _tol)):
             msp.add_leader([anchor, insert], dimstyle=style, override={**over, "dimldrblk": "DATUMFILLED"})
             msp.new_entity("TOLERANCE", dxfattribs={"content": letter, "insert": insert, "dimstyle": style})
@@ -640,27 +833,58 @@ def _scene_points(op: DimOp, /) -> tuple[Point, ...]:
             assert_never(unreachable)
 
 
-def _gdt_zone(frame: GdtFrame, /) -> str:
-    # the one zone-compartment spelling — ⌀ prefix, magnitude, material-condition glyph — every GD&T consumer reads.
-    return ("⌀" if frame.diameter else "") + frame.tolerance + _MOD_GLYPH[frame.modifier]
+def _places(over: Override, /) -> int:
+    # decimal presentation is THIS standard's DIMDEC, never a producer-side rounding riding in on the wire.
+    return int(over.get("dimdec", 2))
+
+
+def _gdt_magnitude(magnitude: float, places: int, /) -> str:
+    # DIMDEC sets presentation and presentation never destroys the value: a zone that rounds away at the drawing's own
+    # precision renders shortest-round-trip instead, since a drawn zero reads as perfect form rather than as a zone.
+    rounded = f"{magnitude:.{places}f}"
+    return rounded if float(rounded) > 0.0 else f"{magnitude:g}"
+
+
+def _gdt_zone(zone: GdtZone, magnitude: float, material: GdtModifier, modifiers: tuple[GdtZoneModifier, ...], places: int, /) -> str:
+    # one zone-compartment spelling every GD&T consumer reads — kind prefix, magnitude, material-condition glyph,
+    # then zone modifiers in wire order, each a typed field rather than a substring anyone re-parses.
+    return zone.prefix + _gdt_magnitude(magnitude, places) + _MOD_GLYPH[material] + "".join(modifier.glyph for modifier in modifiers)
+
+
+def _gdt_texts(frame: GdtFrame, row: GdtRow, places: int, /) -> tuple[str, ...]:
+    # LAYERED twin of `_gdt_content`'s compartments — outlined glyphs where the entity spells gdt-font codes.
+    symbol, magnitude, material, modifiers, datums = row
+    return (
+        frame.characteristic.glyph if symbol else "",
+        _gdt_zone(frame.zone, magnitude, material, modifiers, places),
+        *(datum.letter + _MOD_GLYPH[datum.modifier] for datum in datums),
+    )
+
+
+def _gdt_widths(texts: tuple[str, ...], cell: float, /) -> tuple[float, ...]:
+    # a compartment is one cell wide unless its text outgrows it, so a long zone or a modifier-bearing datum widens
+    # its own box instead of overflowing a fixed one.
+    return tuple(max(len(text) * cell * 0.35, cell) for text in texts)
 
 
 def _gdt_cells(op: DimOp, over: Override, /) -> tuple[tuple[str, Box], ...]:
     # one ISO 1101 compartment derivation both the construction outlines and the per-cell text seats read: each cell
-    # is (content, box) off a single edge fold, so a compartment gains its frame and its centred text from one row
-    # and a non-GD&T case yields no cells.
+    # is (content, box) off a single edge fold, so a compartment gains its frame and its centred text from one row, a
+    # composite frame STACKS its lower segment beneath the upper one, and a non-GD&T case yields no cells.
     cell = float(over.get("dimtxt", 2.5)) * 2.0
     match op:
         case DimOp(tag="fcf", fcf=(_anchor, insert, frame, *_)):
-            zone = _gdt_zone(frame)
-            texts = (frame.characteristic.glyph, zone, *frame.datums)
-            widths = (cell, max(len(zone) * cell * 0.35, cell), *(cell,) * len(frame.datums))
+            rows = tuple(_gdt_texts(frame, row, _places(over)) for row in _gdt_rows(frame))
         case DimOp(tag="datum_feature", datum_feature=(_anchor, insert, letter, *_)):
-            texts, widths = (letter,), (cell,)
+            rows = ((letter,),)
         case _:
             return ()
     x0, y0 = insert
-    return tuple((text, (x0 + lo, y0, x0 + hi, y0 + cell)) for text, (lo, hi) in zip(texts, pairwise(accumulate(widths, initial=0.0)), strict=True))
+    return tuple(
+        (text, (x0 + lo, y0 - rank * cell, x0 + hi, y0 + cell - rank * cell))
+        for rank, texts in enumerate(rows)
+        for text, (lo, hi) in zip(texts, pairwise(accumulate(_gdt_widths(texts, cell), initial=0.0)), strict=True)
+    )
 
 
 def _text_anchor(op: DimOp, /) -> Point:
@@ -771,7 +995,9 @@ def _measurement(op: DimOp, /) -> str:
         case DimOp(tag="arccra", arccra=(_center, radius, start, end, *_)):
             return f"⌢{radius * float(np.deg2rad((end - start) % 360.0)):.1f}"
         case DimOp(tag="fcf", fcf=(_anchor, _insert, frame, *_)):
-            return " ".join((frame.characteristic.glyph, _gdt_zone(frame), *frame.datums))
+            # every row of the frame reads as ONE run here — a composite lower segment dropped from the measured
+            # value reports a looser tolerance than the frame specifies.
+            return "  ".join(" ".join(_gdt_texts(frame, row, _PRECISION)).strip() for row in _gdt_rows(frame))
         case DimOp(tag="datum_feature", datum_feature=(_anchor, _insert, letter, *_)):
             return letter
         case DimOp(tag="ordinate", ordinate=(feature, _leader, axis, origin, *_)):
@@ -1094,7 +1320,57 @@ _MOD_GLYPH: Final[Map[GdtModifier, str]] = Map.of_seq([
     (GdtModifier.NONE, ""),
     (GdtModifier.MMC, "Ⓜ"),
     (GdtModifier.LMC, "Ⓛ"),
-    (GdtModifier.RFS, "Ⓢ"),
+])
+_ZONE_PREFIX: Final[Map[GdtZone, str]] = Map.of_seq([
+    (GdtZone.BILATERAL, ""),
+    (GdtZone.UNILATERAL, ""),
+    (GdtZone.DIAMETER, "⌀"),
+    (GdtZone.SPHERICAL, "S⌀"),
+    (GdtZone.PROFILE, ""),
+    (GdtZone.PROJECTED, "Ⓟ"),
+    (GdtZone.UNEQUALLY_DISPOSED, "UZ"),
+])
+_ZONE_MOD_GLYPH: Final[Map[GdtZoneModifier, str]] = Map.of_seq([
+    (GdtZoneModifier.TANGENT_PLANE, "Ⓣ"),
+    (GdtZoneModifier.FREE_STATE, "Ⓕ"),
+    (GdtZoneModifier.STATISTICAL, "〈ST〉"),
+    (GdtZoneModifier.COMMON_ZONE, "CZ"),
+    (GdtZoneModifier.CONTINUOUS_FEATURE, "〈CF〉"),
+    (GdtZoneModifier.ALL_AROUND, "○"),
+    (GdtZoneModifier.ALL_OVER, "◎"),
+    (GdtZoneModifier.ENVELOPE, "Ⓔ"),
+    (GdtZoneModifier.INDEPENDENCY, "Ⓘ"),
+    (GdtZoneModifier.RECIPROCITY, "Ⓡ"),
+    (GdtZoneModifier.MINIMUM_CIRCUMSCRIBED, "Ⓒ"),
+    (GdtZoneModifier.MAXIMUM_INSCRIBED, "Ⓧ"),
+    (GdtZoneModifier.LEAST_SQUARES, "Ⓖ"),
+    (GdtZoneModifier.MINIMAX_TANGENT, "Ⓝ"),
+])
+# Two ingest tables the `[WIRE_TOKEN]` law demands: a producer key lands on this branch's own keyed owner, and a
+# roster reordered at either end re-maps nothing. `GdtScope`, `GdtZone`, and `GdtZoneModifier` need none — each spells
+# its producer key as its own value, so the enum constructor IS that one table and an unrostered key refuses there.
+_CHAR_INGEST: Final[Map[str, GdtChar]] = Map.of_seq([
+    ("straightness", GdtChar.STRAIGHTNESS),
+    ("flatness", GdtChar.FLATNESS),
+    ("circularity", GdtChar.CIRCULARITY),
+    ("cylindricity", GdtChar.CYLINDRICITY),
+    ("profile-line", GdtChar.PROFILE_LINE),
+    ("profile-surface", GdtChar.PROFILE_SURFACE),
+    ("parallelism", GdtChar.PARALLELISM),
+    ("perpendicularity", GdtChar.PERPENDICULARITY),
+    ("angularity", GdtChar.ANGULARITY),
+    ("position", GdtChar.POSITION),
+    ("concentricity", GdtChar.CONCENTRICITY),
+    ("symmetry", GdtChar.SYMMETRY),
+    ("circular-runout", GdtChar.CIRCULAR_RUNOUT),
+    ("total-runout", GdtChar.TOTAL_RUNOUT),
+])
+# `rfs` lands on NONE: regardless of feature size is the ISO 1101 default reading and draws no compartment symbol, so
+# no member holds the retired circled-S spelling and no producer path reaches one.
+_MATERIAL_INGEST: Final[Map[str, GdtModifier]] = Map.of_seq([
+    ("rfs", GdtModifier.NONE),
+    ("mmc", GdtModifier.MMC),
+    ("lmc", GdtModifier.LMC),
 ])
 
 
@@ -1177,7 +1453,10 @@ _ENGINES: frozendict[DimTarget, DimArm] = frozendict({
 })
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-__all__ = ["Dimension", "DimOp", "DimTarget", "DimTol", "GdtChar", "GdtFrame", "GdtModifier", "OrdinateAxis"]
+__all__ = [
+    "DimOp", "DimTarget", "DimTol", "Dimension", "GdtChar", "GdtDatum", "GdtFrame", "GdtModifier", "GdtOrigin",
+    "GdtScope", "GdtSegment", "GdtZone", "GdtZoneModifier", "OrdinateAxis",
+]
 ```
 
 ## [03]-[RESEARCH]

@@ -7,7 +7,7 @@
 - [02]-[FAMILY]: `EventFamily` binds host callbacks, cadence, and projection as data.
 - [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
 - [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
-- [05]-[STREAM_OWNER]: `DocumentStream` and `Watch` own admission, attachment, delivery, and release.
+- [05]-[STREAM_OWNER]: `DocumentStream`, `Watch`, and `CommitSink` own admission, attachment, delivery, the sealed-commit tap, and release.
 - [06]-[HOOK_REGISTRY]: `RhinoPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
 - [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
@@ -502,6 +502,7 @@ public sealed partial class EventFamily {
 - Law: an absent active document remains a typed transition; `TransformStarted` and `TransformEnded` both carry the host `TransformEventId`, so a consumer joins the bracket on that id without retaining either callback's arrays.
 - Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
 - Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
+- Law: `EventPayload.Sealed` carries one commit record's mutation roster as `SealedMutation` rows over the SAME `TableKind`/`ComponentTransition` vocabulary the `Component` case already spells, so a consumer folds both through one axis and the sealed case mints no parallel transition family.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -654,7 +655,16 @@ public abstract partial record EventPayload {
     }
     public sealed record Panel(Guid PanelId, PanelState State) : EventPayload;
     public sealed record Files(Seq<FileEdge> Edges, long Overflow) : EventPayload;
+    // What one sealed commit record mutated, in HOST vocabulary alone. No causal identity and no clock: this boundary
+    // holds no store origin slot and no observed frontier, so an operation id minted here is a coordinate two hosts
+    // collide on — the store owning the origin mints it at the seam and maps these rows onto its own lanes. `Serial`
+    // is the host's undo coordinate and stays host-local evidence, because no peer replays another host's undo stack.
+    public sealed record Sealed(string Record, uint Serial, Seq<SealedMutation> Mutations) : EventPayload {
+        public override Seq<Guid> ObjectIds => Mutations.Map(static mutation => mutation.Id).Distinct();
+    }
 }
+
+public readonly record struct SealedMutation(TableKind Kind, Guid Id, ComponentTransition Transition);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 internal readonly record struct EventEnvelope(Option<DocKey> Key, EventPayload Payload);
@@ -664,6 +674,35 @@ public abstract partial record EventOrigin {
     private EventOrigin() { }
     public sealed record Host(EventFamily Family) : EventOrigin;
     public sealed record File(string WatchedPath) : EventOrigin;
+    public sealed record Commit(string Record) : EventOrigin;
+}
+
+// One process-static commit-tap registry, fanned by the `Document/tables#COMMIT_ENVELOPE` railed `project` slot.
+// Registration IS the `Observation.Commit` attachment, so a closing watch detaches its tap under the same symmetric
+// release law every host family obeys; a per-folder sink beside this one publishes some commits and not others.
+public delegate Fin<Unit> CommitTap(DocKey Document, string Record, uint Serial, Seq<SealedMutation> Mutations);
+
+public static class CommitSink {
+    private static readonly Lock gate = new();
+    private static Seq<CommitTap> taps = Seq<CommitTap>();
+
+    internal static void Add(CommitTap tap) { lock (gate) { taps = taps.Add(value: tap); } }
+    internal static void Remove(CommitTap tap) { lock (gate) { taps = taps.Filter(held => !ReferenceEquals(objA: held, objB: tap)); } }
+
+    // Composed as the envelope's `project` continuation, so it runs INSIDE the undo bracket after the serial stamp:
+    // one refusing tap fails the publication and the sealed record rolls back, which is exactly why the fan runs
+    // there rather than beside the envelope, where it would publish a record the seal then discarded.
+    public static Func<TReceipt, Fin<TReceipt>> Sealing<TReceipt>(
+        DocKey document, string record, Func<TReceipt, (uint Serial, Seq<SealedMutation> Mutations)> read) =>
+        receipt => {
+            (uint serial, Seq<SealedMutation> mutations) = read(arg: receipt);
+            return Snapshot()
+                .Traverse(tap => tap(document, record, serial, mutations))
+                .As()
+                .Map(_ => receipt);
+        };
+
+    private static Seq<CommitTap> Snapshot() { lock (gate) { return taps; } }
 }
 
 public readonly record struct DocEvent(EventOrigin Origin, Option<DocKey> Key, EventPayload Payload) {
@@ -885,8 +924,10 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 
 ## [05]-[STREAM_OWNER]
 
-- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting.
+- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting; `CommitSink` owns the process-static sealed-commit tap registry and the `Sealing` projection the commit envelope composes.
 - Law: every source, delivery, policy, and source-specific value admits before the first attachment; sequential attachment rolls back the accumulated prefix on failure.
+- Law: sealed-commit facts enter through `CommitSink.Sealing`, composed as the `Document/tables#COMMIT_ENVELOPE` railed `project` continuation, so publication runs inside the undo bracket after the serial stamp and a tap refusing the change rolls the record back; a tap spelled beside the envelope publishes a record the seal then discards. `Observation.Commit` admits `Delivery.Inline` alone, because a deferred or paced arm returns success before any subscriber saw the fact and forfeits exactly that rollback.
+- Law: sealed facts cross in HOST vocabulary — `TableKind`, component identity, `ComponentTransition`, and the undo serial — carrying no operation identity, no clock, and no lane. This boundary references `Rasm` alone, holds no store origin slot and no observed frontier, and an identity minted here is a coordinate two hosts collide on; the store owning the origin mints it at the seam and maps these rows onto its own lanes. Serials stay host-local evidence, since no peer replays another host's undo stack.
 - Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
 - Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.
 - Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
@@ -917,6 +958,12 @@ public abstract partial record Observation {
         string Path,
         TimeSpan Debounce,
         TimeProvider Clock,
+        Delivery Delivery,
+        ReceiptPolicy Receipts) : Observation;
+    // Sealed-commit source: attachment registers a `CommitTap` rather than a host callback, since the fact this
+    // source carries is minted by the boundary's own commit envelope and no RhinoCommon event reports it.
+    public sealed record Commit(
+        EventScope Scope,
         Delivery Delivery,
         ReceiptPolicy Receipts) : Observation;
 }
@@ -1096,7 +1143,35 @@ public static class DocumentStream {
         return op.Need(request).Bind(active => active.Switch(
             op,
             host: static (key, observation) => ObserveHost(request: observation, key: key),
-            file: static (key, observation) => ObserveFile(request: observation, key: key)));
+            file: static (key, observation) => ObserveFile(request: observation, key: key),
+            commit: static (key, observation) => ObserveCommit(request: observation, key: key)));
+    }
+
+    // Commit observation admits `Inline` delivery alone: the tap runs inside the undo bracket, so a deferred or paced
+    // arm returns success before any subscriber saw the fact and the bracket's rollback guarantee then means nothing.
+    private static Fin<Watch> ObserveCommit(Observation.Commit request, Op key) =>
+        from scope in key.Need(request.Scope)
+        from delivery in key.Need(request.Delivery)
+        from _ in guard(delivery is Delivery.Inline, key.Unsupported(geometryType: typeof(Observation.Commit), outputType: typeof(Delivery))).ToFin()
+        from watch in Mount(
+            delivery: delivery,
+            policy: request.Receipts,
+            attach: (emission, _) => AttachCommit(scope: scope, emission: emission),
+            key: key)
+        select watch;
+
+    // Attachment is registration into `CommitSink`, the symmetric pair `Subscription.Attach` releases on close. The
+    // scope filter reads the closed `EventScope` union rather than a nullable key, so an any-document watch and a
+    // per-document watch differ by ROW and never by a null test the fan would have to repeat.
+    private static Fin<Subscription> AttachCommit(EventScope scope, Emission emission) {
+        CommitTap handler = (document, record, serial, mutations) =>
+            scope.Switch(document, document: static (key, arm) => arm.Key == key, anyDocument: static (_, _) => true)
+                ? emission.Emit(fact: new DocEvent(
+                    Origin: new EventOrigin.Commit(Record: record),
+                    Key: Some(document),
+                    Payload: new EventPayload.Sealed(Record: record, Serial: serial, Mutations: mutations)))
+                : Fin.Succ(value: unit);
+        return Subscription.Attach(subscribe: CommitSink.Add, unsubscribe: CommitSink.Remove, handler: handler);
     }
 
     private static Fin<Watch> ObserveHost(Observation.Host request, Op key) =>

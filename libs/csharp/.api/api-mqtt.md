@@ -66,6 +66,10 @@ Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.P
 |  [07]   | `MqttClientConnectedEventArgs`            | class         | connected connect-result carry     |
 |  [08]   | `MqttClientDisconnectedEventArgs`         | class         | disconnect reason and exception    |
 |  [09]   | `MqttClientConnectingEventArgs`           | class         | options at connect attempt         |
+|  [10]   | `MqttClientUnsubscribeResultItem`         | class         | per-topic UNSUBACK reason code     |
+|  [11]   | `MqttClientPublishResultFactory`          | class         | PUBACK fold to a publish result    |
+|  [12]   | `MqttClientSubscribeResultFactory`        | class         | SUBACK fold to per-filter items    |
+|  [13]   | `MqttClientUnsubscribeResultFactory`      | class         | UNSUBACK fold to per-topic items   |
 
 [PUBLIC_TYPE_SCOPE]: protocol enums
 
@@ -97,18 +101,20 @@ Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.P
 
 [ENTRYPOINT_SCOPE]: `IMqttClient` operations and events
 
-| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                  |
-| :-----: | :------------------------------------- | :------- | :---------------------------- |
-|  [01]   | `ConnectAsync(options, ct)`            | instance | `MqttClientConnectResult`     |
-|  [02]   | `DisconnectAsync(options, ct)`         | instance | graceful DISCONNECT           |
-|  [03]   | `PingAsync(ct)`                        | instance | PINGREQ keep-alive            |
-|  [04]   | `PublishAsync(message, ct)`            | instance | `MqttClientPublishResult`     |
-|  [05]   | `SubscribeAsync(options, ct)`          | instance | `MqttClientSubscribeResult`   |
-|  [06]   | `UnsubscribeAsync(options, ct)`        | instance | `MqttClientUnsubscribeResult` |
-|  [07]   | `ApplicationMessageReceivedAsync`      | event    | `+=` binds, `-=` detaches     |
-|  [08]   | `ConnectedAsync` / `DisconnectedAsync` | event    | session lifecycle handlers    |
-|  [09]   | `ConnectingAsync`                      | event    | pre-connect handler           |
-|  [10]   | `IsConnected` / `Options`              | property | connection state and options  |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :------------------------------------------------------ | :------- | :---------------------------- |
+|  [01]   | `ConnectAsync(options, ct)`                             | instance | `MqttClientConnectResult`     |
+|  [02]   | `DisconnectAsync(options, ct)`                          | instance | graceful DISCONNECT           |
+|  [03]   | `PingAsync(ct)`                                         | instance | PINGREQ keep-alive            |
+|  [04]   | `PublishAsync(message, ct)`                             | instance | `MqttClientPublishResult`     |
+|  [05]   | `SubscribeAsync(options, ct)`                           | instance | `MqttClientSubscribeResult`   |
+|  [06]   | `UnsubscribeAsync(options, ct)`                         | instance | `MqttClientUnsubscribeResult` |
+|  [07]   | `SendEnhancedAuthenticationExchangeDataAsync(data, ct)` | instance | v5 auth-exchange continuation |
+|  [08]   | `ApplicationMessageReceivedAsync`                       | event    | `+=` binds, `-=` detaches     |
+|  [09]   | `ConnectedAsync` / `DisconnectedAsync`                  | event    | session lifecycle handlers    |
+|  [10]   | `ConnectingAsync`                                       | event    | pre-connect handler           |
+|  [11]   | `InspectPacketAsync`                                    | event    | raw packet inspection hook    |
+|  [12]   | `IsConnected` / `Options`                               | property | connection state and options  |
 
 [ENTRYPOINT_SCOPE]: `MqttClientExtensions` convenience operations
 
@@ -211,7 +217,66 @@ Receive reads the entry buffer, never the string property: `MqttUserProperty.Val
 |  [04]   | `WithRetainHandling(value)` | instance | retain-handling mode    |
 |  [05]   | `Build()`                   | instance | `MqttTopicFilter` value |
 
-## [04]-[IMPLEMENTATION_LAW]
+[ENTRYPOINT_SCOPE]: result value shapes
+
+`MqttClientPublishResult` is a `public sealed class` whose `IsSuccess` computes off `ReasonCode`, never a stored flag. Subscribe and unsubscribe results carry one item per requested filter, and the item — not the result — holds the per-filter verdict.
+
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------ | :------- | :-------------------------------------- |
+|  [01]   | `MqttClientPublishResult.IsSuccess -> bool`                   | property | `Success` or `NoMatchingSubscribers`    |
+|  [02]   | `MqttClientPublishResult.ReasonCode`                          | property | `MqttClientPublishReasonCode` verdict   |
+|  [03]   | `MqttClientPublishResult.PacketIdentifier -> ushort?`         | property | null under QoS 0                        |
+|  [04]   | `MqttClientPublishResult.ReasonString -> string`              | property | broker diagnostic text                  |
+|  [05]   | `MqttClientPublishResult.UserProperties`                      | property | `IReadOnlyCollection<MqttUserProperty>` |
+|  [06]   | `MqttClientSubscribeResult.Items`                             | property | one item per topic filter               |
+|  [07]   | `MqttClientSubscribeResult.PacketIdentifier -> ushort`        | property | SUBACK packet id                        |
+|  [08]   | `MqttClientSubscribeResult.ReasonString` / `.UserProperties`  | property | v5 SUBACK diagnostics, get-only         |
+|  [09]   | `MqttClientSubscribeResultItem.ResultCode`                    | property | `MqttClientSubscribeResultCode`         |
+|  [10]   | `MqttClientSubscribeResultItem.TopicFilter`                   | property | `MqttTopicFilter` the item answers      |
+|  [11]   | `MqttClientUnsubscribeResult.Items`                           | property | one item per unsubscribed topic         |
+|  [12]   | `MqttClientUnsubscribeResult.UserProperties`                  | property | settable, unlike the subscribe twin     |
+|  [13]   | `MqttClientUnsubscribeResultItem.ResultCode`                  | property | `MqttClientUnsubscribeResultCode`       |
+|  [14]   | `MqttClientUnsubscribeResultItem.TopicFilter -> string`       | property | the topic string the item answers       |
+
+[ENTRYPOINT_SCOPE]: reason-code rosters
+
+Five reason-code enums share one MQTT v5 code space, so a lane column marks membership per enum: `[PUBLISH]` is `MqttClientPublishReasonCode`, `[SUBSCRIBE]` `MqttClientSubscribeResultCode`, `[UNSUBSCRIBE]` `MqttClientUnsubscribeResultCode`, `[CONNECT]` `MqttClientConnectResultCode`, `[RECEIVED]` `MqttApplicationMessageReceivedReasonCode`. Value `0` spells `Success` on four lanes and `GrantedQoS0` on the subscribe lane, and every value at `128` or above is a refusal.
+
+| [INDEX] | [VALUE] | [MEMBER]                              | [PUBLISH] | [SUBSCRIBE] | [UNSUBSCRIBE] | [CONNECT] | [RECEIVED] |
+| :-----: | :-----: | :------------------------------------ | :-------: | :---------: | :-----------: | :-------: | :--------: |
+|  [01]   |    0    | `Success`                             |    [X]    |             |      [X]      |    [X]    |    [X]     |
+|  [02]   |    0    | `GrantedQoS0`                         |           |     [X]     |               |           |            |
+|  [03]   |    1    | `GrantedQoS1`                         |           |     [X]     |               |           |            |
+|  [04]   |    2    | `GrantedQoS2`                         |           |     [X]     |               |           |            |
+|  [05]   |   16    | `NoMatchingSubscribers`               |    [X]    |             |               |           |    [X]     |
+|  [06]   |   17    | `NoSubscriptionExisted`               |           |             |      [X]      |           |            |
+|  [07]   |   128   | `UnspecifiedError`                    |    [X]    |     [X]     |      [X]      |    [X]    |    [X]     |
+|  [08]   |   129   | `MalformedPacket`                     |           |             |               |    [X]    |            |
+|  [09]   |   130   | `ProtocolError`                       |           |             |               |    [X]    |            |
+|  [10]   |   131   | `ImplementationSpecificError`         |    [X]    |     [X]     |      [X]      |    [X]    |    [X]     |
+|  [11]   |   132   | `UnsupportedProtocolVersion`          |           |             |               |    [X]    |            |
+|  [12]   |   133   | `ClientIdentifierNotValid`            |           |             |               |    [X]    |            |
+|  [13]   |   134   | `BadUserNameOrPassword`               |           |             |               |    [X]    |            |
+|  [14]   |   135   | `NotAuthorized`                       |    [X]    |     [X]     |      [X]      |    [X]    |    [X]     |
+|  [15]   |   136   | `ServerUnavailable`                   |           |             |               |    [X]    |            |
+|  [16]   |   137   | `ServerBusy`                          |           |             |               |    [X]    |            |
+|  [17]   |   138   | `Banned`                              |           |             |               |    [X]    |            |
+|  [18]   |   140   | `BadAuthenticationMethod`             |           |             |               |    [X]    |            |
+|  [19]   |   143   | `TopicFilterInvalid`                  |           |     [X]     |      [X]      |           |            |
+|  [20]   |   144   | `TopicNameInvalid`                    |    [X]    |             |               |    [X]    |    [X]     |
+|  [21]   |   145   | `PacketIdentifierInUse`               |    [X]    |     [X]     |      [X]      |    [X]    |    [X]     |
+|  [22]   |   146   | `PacketIdentifierNotFound`            |           |             |               |           |    [X]     |
+|  [23]   |   149   | `PacketTooLarge`                      |           |             |               |    [X]    |            |
+|  [24]   |   151   | `QuotaExceeded`                       |    [X]    |     [X]     |      [X]      |    [X]    |    [X]     |
+|  [25]   |   153   | `PayloadFormatInvalid`                |    [X]    |             |               |    [X]    |    [X]     |
+|  [26]   |   154   | `RetainNotSupported`                  |           |             |               |    [X]    |            |
+|  [27]   |   155   | `QoSNotSupported`                     |           |             |               |    [X]    |            |
+|  [28]   |   156   | `UseAnotherServer`                    |           |             |               |    [X]    |            |
+|  [29]   |   157   | `ServerMoved`                         |           |             |               |    [X]    |            |
+|  [30]   |   158   | `SharedSubscriptionsNotSupported`     |           |     [X]     |               |           |            |
+|  [31]   |   159   | `ConnectionRateExceeded`              |           |             |               |    [X]    |            |
+|  [32]   |   161   | `SubscriptionIdentifiersNotSupported` |           |     [X]     |               |           |            |
+|  [33]   |   162   | `WildcardSubscriptionsNotSupported`   |           |     [X]     |               |           |            |
 
 [TOPOLOGY]:
 - `MqttClientFactory` is the single construction root for clients and builders, injecting `IMqttNetLogger` and `IMqttClientAdapterFactory`, and `CreateMqttClient()` mints a distinct `IMqttClient` per call, so one leg owns one connection and disposes it with the leg.
@@ -223,7 +288,11 @@ Receive reads the entry buffer, never the string property: `MqttUserProperty.Val
 - `WithCleanStart(false)` under a non-zero `WithSessionExpiryInterval` holds in-flight QoS-1 state at the broker across a reconnect, and `MqttClientConnectResult.IsSessionPresent` reports whether it did.
 - Builders are mutable fluent accumulators: every `With*` returns `this` and `Build()` materializes the immutable value.
 - `MqttApplicationMessageBuilder.Build()` throws `MqttProtocolViolationException` when neither topic nor topic alias is set; `MqttTopicFilterBuilder.Build()` throws it on an empty topic; `WithSubscriptionIdentifier(0)` throws it on the subscribe builder, so an identifier is either omitted or non-zero at the composing row.
-- Results carry MQTT reason codes, never exceptions: `MqttClientPublishResult.IsSuccess` is true for `Success` and `NoMatchingSubscribers`, `MqttClientConnectResult.ResultCode` is `MqttClientConnectResultCode` with `Success = 0` and every error code an MQTT v5 reason code (`128`+), and `MqttClientSubscribeResult.Items` carries one `MqttClientSubscribeResultItem` per filter with a granted-or-error code.
+- Results carry MQTT reason codes, never exceptions: `PublishAsync` throws for LOCAL faults alone — a tripped token, an invalid topic, a disposed or unconnected client, a feature `ValidateFeatures` refuses — because `MqttClientPublishResultFactory.Create` casts the PUBACK reason straight through, and `ConnectAsync` likewise RETURNS a failed `MqttClientConnectResult` rather than throwing.
+- QoS 0 answers a static success result carrying a null `PacketIdentifier`; QoS 2 folds PUBREC beside PUBCOMP, mapping a `PacketIdentifierNotFound` PUBCOMP to `UnspecifiedError` and a null packet pair to `ImplementationSpecificError`.
+- `MqttClientSubscribeResultFactory` and `MqttClientUnsubscribeResultFactory` throw `MqttProtocolViolationException` ONLY where the SUBACK/UNSUBACK reason-code count mismatches the requested filter count; every per-filter verdict rides its returned item.
+- `MqttClientOptions` defaults the composing row inherits: `ProtocolVersion = V500`, `RequestProblemInformation = true` so `ReasonString` arrives, `ValidateFeatures = true`, `Timeout` 100 s, `KeepAlivePeriod` 15 s, `CleanSession = true`.
+- TRAP: `MqttClientPublishResult.IsSuccess` is TRUE for `NoMatchingSubscribers`, so a publish that reached NO subscriber reads as success. Any fence proving delivery to at least one subscriber branches on `ReasonCode`, never on `IsSuccess`.
 - `ApplicationMessageReceivedAsync` runs its handler on the client's own receive loop, so a handler that blocks stalls every later delivery on that session — a consumer bridges onto its own queue and returns.
 - `AutoAcknowledge` defaults TRUE and acks BEFORE the handler's outcome is known, so a consumer shedding a delivery under that default acks a message it dropped; FALSE with `AcknowledgeAsync` on the accepted path alone leaves a shed QoS 1/2 delivery for redelivery, and `ProcessingFailed` suppresses the packet outright.
 - `MqttUserProperty.Value` and the `(string, string)` ctor are `[Obsolete]` at the admitted pin — `ValueBuffer` beside `ReadValueAsString()` is the live read, and that extension answers `string.Empty` rather than null for an empty buffer.

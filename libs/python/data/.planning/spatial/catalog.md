@@ -666,7 +666,7 @@ from msgspec import Struct, structs
 
 from rasm.data.gridded.virtual import FieldVirtual, ManifestWrite, VirtualReceipt, VirtualReference, VersionOp
 from rasm.data.spatial.geospatial import RasterGeoClaim, Resampling
-from rasm.data.tabular.egress import ObjectEgress
+from rasm.data.tabular.egress import EgressReceipt, ObjectEgress
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.lanes import on_thread
@@ -743,7 +743,12 @@ class AssetFold(Struct, frozen=True):
         # each asset href becomes a credential-bearing REF stamped with the signing estate's own provider: the byte
         # reads authenticate and refresh through the same custody that signed discovery, and every downstream
         # consumer (egress lane, manifest registry) reads that one column instead of taking a provider beside a ref.
-        sources = tuple(ResourceRef.admit(href, _SOURCE_OWNER, self.signing.credentials) for _, href in _raster_hrefs(self.discovery.collection))
+        # hrefs and refs are TWO values one name conflated: the byte-window arm addresses the store by href STRING
+        # (`GetRange` takes a path, `windows` keys by href, and both content preimages spell it), while the manifest
+        # arm needs the credential-bearing coordinate. Folding them onto one tuple left every window lookup missing,
+        # so the egress fan offered zero reads and keyed an empty preimage, and the cube preimage joined structs.
+        hrefs = tuple(href for _, href in _raster_hrefs(self.discovery.collection))
+        sources = tuple(ResourceRef.admit(href, _SOURCE_OWNER, self.signing.credentials) for href in hrefs)
         match target:
             case FoldTarget(tag="egress", egress=(ref, windows)):
                 # one owner per fold over the signing's own provider: the byte reads authenticate and refresh through
@@ -751,14 +756,14 @@ class AssetFold(Struct, frozen=True):
                 # provider stamps onto the residence COORDINATE — the lane takes no `credential_provider=` beside its
                 # ref, because a lane credentialed apart from its residence is two resolutions one memo key cannot serve.
                 egress = ObjectEgress.of(structs.replace(ref, credentials=self.signing.credentials))
-                windowed = tuple((href, w) for href in sources if (w := windows.get(href)) is not None)
+                windowed = tuple((href, w) for href in hrefs if (w := windows.get(href)) is not None)
                 # byte windows ride the egress owner's awaitable leg as independent reads — a sequential await pays the
                 # store's latency once per window — fanned inside one task group under the run-scoped window band;
                 # each child rails its own outcome so the group exits clean, the handle order preserves the windowed
                 # order, and `traversed(by=ABORT)` still aborts the fold on the first failed read.
                 band = _window_band()
 
-                async def ranged(href: str, start: int, end: int) -> "RuntimeRail[object]":
+                async def ranged(href: str, start: int, end: int) -> "RuntimeRail[EgressReceipt]":
                     async with band:
                         return await egress.run_async(StoreOp.GetRange(href, start, end), path=href)
 
@@ -789,7 +794,7 @@ class AssetFold(Struct, frozen=True):
                 outcome_rail = await on_thread(VirtualReference(sources=sources, ref=ref).apply, VersionOp(aggregate=(manifest, {}, None)))
                 return outcome_rail.bind(
                     lambda outcome: (
-                        self._rekey("cube", f"{concat_dim}|{'|'.join(sources)}".encode(), outcome.chunk_refs)
+                        self._rekey("cube", f"{concat_dim}|{'|'.join(hrefs)}".encode(), outcome.chunk_refs)
                         if isinstance(outcome, VirtualReceipt)
                         else Error(BoundaryFault(boundary=("stac.assets.cube", "VersionOp aggregate yielded no VirtualReceipt")))
                     )

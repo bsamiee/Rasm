@@ -11,20 +11,12 @@ The actor-presence CRDT: the wire-carried op family — `Join` carrying the type
 ## [02]-[OP_FAMILY]
 
 [OP_FAMILY]:
-- Owner: `Presence.Op` — the wire-carried op family (`Join` with the typed profile and device row, `Beat` heartbeats carrying an optional connection-quality sample, `Move` carrying the ephemeral-axes patch, `Leave` departures), each a tagged struct stamped with `Hlc` and tenant; the interchange codec decodes client frames INTO this family at its own seam, and interior construction composes already-branded parts.
-- Law: the actor brand is interior — `ActorId` reaches consumers only as `Presence.Actor`, one spelling for roster keys and op fields; a session or replica identity is `causal`'s `Vector.Replica`, a distinct concept that never unifies with the actor axis; `SurfaceId` is the one view-surface spelling cursor, view, and focus share.
-- Law: the profile is typed evidence, never an erased bag — `name`, an optional `hue` render hint, an optional content-addressed `avatar` artifact key — so a roster renders from fields policy reads and no `HashMap<string, string>` escape hatch exists on the wire.
-- Law: the ephemeral-axis roster is one anchor — `_AXES` maps each axis name to its value schema, and every axis surface derives from it: the `Move` patch fields are the anchor's rows lifted through `Schema.optionalWith(axis, { as: "Option" })`, the state product's `Worn` rows and the lift's dressing walk the same keys, and the derived mapped annotations keep each projection per-key precise — an axis present at the anchor cannot be absent from any projection, and a parallel axis list anywhere is the deleted spelling.
-- Law: `Move` is the one ephemeral op — every axis is an `Option`-carried patch field (`cursor`, `selection`, `view`, `focus`, `input` — the `_AXES` key set) and any subset travels in one frame, so a client coalesces pointer, selection, and camera churn into single ops and the family never grows an op case per axis; `selection` is the actor's whole selected `HashSet` of `ContentKey`s — the latest statement replaces, never accretes, because a selection is a register of a set, not a set CRDT.
-- Law: admission and dispatch remain two projections of one family — `_Op` is the sole wire `Schema.Union`, and `_OpCase = Data.taggedEnum<Presence.Op>()` derives exhaustive `$match` dispatch from its decoded type without minting a second case roster or a parallel process-local shape.
-- Growth: a new ephemeral axis is one `_AXES` row — patch admission, state merge, and op lift derive it; a new join-time fact is one `Join` field; the op roster itself is closed at these four lifecycle cases.
-- Packages: `effect` (`Schema`, `Data`, `Duration`, `HashMap`, `HashSet`, `Option`, `Order`, `Record`); `../value/clock.ts` (`Hlc`); `../value/contentKey.ts` (`ContentKey`); `../value/identity.ts` (`TenantContext`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
 
 ```typescript signature
-import { Data, type Duration, HashMap, HashSet, Option, Order, pipe, Record, Schema, type Types } from "effect"
-import { Hlc } from "../value/clock.ts"
-import { ContentKey } from "../value/contentKey.ts"
-import { TenantContext } from "../value/identity.ts"
+import { Array, Data, Duration, Equal, HashMap, HashSet, Option, Order, pipe, Record, Schema, type Types } from "effect"
+import { Clock } from "../value/clock.ts"
+import { Digest } from "../value/contentKey.ts"
+import { Identity } from "../value/identity.ts"
 import { Fold } from "./fold.ts"
 import { Merge } from "./merge.ts"
 
@@ -38,41 +30,89 @@ const _INPUTS = ["idle", "pointing", "typing"] as const
 const _Profile = Schema.Struct({
   name: Schema.NonEmptyString,
   hue: Schema.optionalWith(Schema.Int.pipe(Schema.between(0, 360)), { as: "Option" }),
-  avatar: Schema.optionalWith(ContentKey, { as: "Option" }),
+  avatar: Schema.optionalWith(Digest.Key.content, { as: "Option" }),
 })
 
-const _Point = Schema.Struct({
+const _Point2 = Schema.TaggedStruct("Sheet", {
   surface: _Surface,
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.optionalWith(Schema.Number, { as: "Option" }), // One point shape omits `z` on a sheet and carries `z` in a scene.
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
 })
 
-const _View = Schema.Struct({
+const _Point3 = Schema.TaggedStruct("Scene", {
   surface: _Surface,
-  x: Schema.Number,
-  y: Schema.Number,
-  zoom: Schema.Number.pipe(Schema.positive()),
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
+  z: Schema.Number.pipe(Schema.finite()),
 })
+const _Point = Schema.Union(_Point2, _Point3)
+
+const _View2 = Schema.TaggedStruct("Sheet", {
+  surface: _Surface,
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
+  zoom: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+})
+
+const _Vector3 = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
+  z: Schema.Number.pipe(Schema.finite()),
+})
+const _PosePolicy = Schema.Struct({
+  normalizationTolerance: Schema.Number.pipe(Schema.positive(), Schema.finite()),
+})
+const _POSE_POLICY = Schema.decodeSync(_PosePolicy)({ normalizationTolerance: 1e-6 })
+const _Orientation = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
+  z: Schema.Number.pipe(Schema.finite()),
+  w: Schema.Number.pipe(Schema.finite()),
+}).pipe(Schema.filter((orientation) => {
+  const norm = Math.hypot(orientation.x, orientation.y, orientation.z, orientation.w)
+  return Math.abs(norm - 1) <= _POSE_POLICY.normalizationTolerance
+}))
+const _Perspective = Schema.TaggedStruct("Perspective", {
+  verticalFov: Schema.Number.pipe(Schema.finite(), Schema.between(Number.EPSILON, Math.PI - Number.EPSILON)),
+  near: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  far: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+}).pipe(Schema.filter((projection) => projection.near < projection.far))
+const _Orthographic = Schema.TaggedStruct("Orthographic", {
+  height: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  near: Schema.Number.pipe(Schema.finite()),
+  far: Schema.Number.pipe(Schema.finite()),
+}).pipe(Schema.filter((projection) => projection.near < projection.far))
+const _Projection = Schema.Union(_Perspective, _Orthographic)
+const _Frame = Schema.NonEmptyString.pipe(Schema.brand("PresenceFrame"))
+const _PoseBase = { position: _Vector3, orientation: _Orientation, projection: _Projection, frame: _Frame } as const
+const _Pose = Schema.Union(
+  Schema.TaggedStruct("Model", _PoseBase),
+  Schema.TaggedStruct("Headset", _PoseBase),
+)
+const _View3 = Schema.TaggedStruct("Scene", {
+  surface: _Surface,
+  pose: _Pose,
+})
+const _View = Schema.Union(_View2, _View3)
 
 const _Join = Schema.TaggedStruct("Join", {
   actor: _Actor,
-  at: Hlc,
-  tenant: TenantContext,
+  at: Clock.Hlc,
+  tenant: Identity.Tenant,
   profile: _Profile,
   device: Schema.Literal(..._DEVICES),
 })
 
 const _Beat = Schema.TaggedStruct("Beat", {
   actor: _Actor,
-  at: Hlc,
-  tenant: TenantContext,
+  at: Clock.Hlc,
+  tenant: Identity.Tenant,
   quality: Schema.optionalWith(Schema.Literal(..._GRADES), { as: "Option" }),
 })
 
 const _AXES = {
   cursor: _Point,
-  selection: Schema.HashSet(ContentKey),
+  selection: Schema.HashSet(Digest.Key.content),
   view: _View,
   focus: _Surface,
   input: Schema.Literal(..._INPUTS),
@@ -86,80 +126,142 @@ const _patch: { readonly [K in _Axis]: Schema.optionalWith<_Axes[K], { as: "Opti
 
 const _Move = Schema.TaggedStruct("Move", {
   actor: _Actor,
-  at: Hlc,
-  tenant: TenantContext,
+  at: Clock.Hlc,
+  tenant: Identity.Tenant,
   ..._patch,
-})
+}).pipe(Schema.filter((move) => Record.some(_AXES, (_axis, key) => Option.isSome(move[key]))))
 
 const _Leave = Schema.TaggedStruct("Leave", {
   actor: _Actor,
-  at: Hlc,
-  tenant: TenantContext,
+  at: Clock.Hlc,
+  tenant: Identity.Tenant,
 })
 
 const _Op: Schema.Union<[typeof _Join, typeof _Beat, typeof _Move, typeof _Leave]> = Schema.Union(_Join, _Beat, _Move, _Leave)
 
 const _OpCase = Data.taggedEnum<Presence.Op>()
+
+const _none = Fold.cell(["none"])
+const _optional = <A>(value: Option.Option<A>, cell: (held: A) => Fold.Cell): Fold.Cell =>
+  Option.match(value, { onNone: () => _none, onSome: (held) => Fold.cell(["some", cell(held)]) })
+const _pointCell = (point: Presence.Point): Fold.Cell =>
+  point._tag === "Sheet"
+    ? Fold.cell([point._tag, point.surface, point.x, point.y])
+    : Fold.cell([point._tag, point.surface, point.x, point.y, point.z])
+const _vectorCell = (vector: Schema.Schema.Type<typeof _Vector3>): Fold.Cell => Fold.cell([vector.x, vector.y, vector.z])
+const _orientationCell = (orientation: Schema.Schema.Type<typeof _Orientation>): Fold.Cell =>
+  Fold.cell([orientation.x, orientation.y, orientation.z, orientation.w])
+const _projectionCell = (projection: Schema.Schema.Type<typeof _Projection>): Fold.Cell =>
+  projection._tag === "Perspective"
+    ? Fold.cell([projection._tag, projection.verticalFov, projection.near, projection.far])
+    : Fold.cell([projection._tag, projection.height, projection.near, projection.far])
+const _poseCell = (pose: Presence.Pose): Fold.Cell => Fold.cell([
+  pose._tag,
+  pose.frame,
+  _vectorCell(pose.position),
+  _orientationCell(pose.orientation),
+  _projectionCell(pose.projection),
+])
+const _viewCell = (view: Presence.View): Fold.Cell =>
+  view._tag === "Sheet"
+    ? Fold.cell([view._tag, view.surface, view.x, view.y, view.zoom])
+    : Fold.cell([view._tag, view.surface, _poseCell(view.pose)])
+const _profileCell = (profile: Presence.Profile): Fold.Cell => Fold.cell([
+  profile.name,
+  _optional(profile.hue, (hue) => Fold.cell([hue])),
+  _optional(profile.avatar, (avatar) => Fold.cell([avatar])),
+])
+const _opCell: (op: Presence.Op) => Fold.Cell = _OpCase.$match({
+  Join: (op) => Fold.cell([
+    op._tag, op.tenant.scope, op.actor, op.at.physical, op.at.logical, _profileCell(op.profile), op.device,
+  ]),
+  Beat: (op) => Fold.cell([
+    op._tag, op.tenant.scope, op.actor, op.at.physical, op.at.logical,
+    _optional(op.quality, (quality) => Fold.cell([quality])),
+  ]),
+  Move: (op) => Fold.cell([
+    op._tag,
+    op.tenant.scope,
+    op.actor,
+    op.at.physical,
+    op.at.logical,
+    _optional(op.cursor, _pointCell),
+    _optional(op.selection, (selection) =>
+      Fold.cell(["selection", ...Array.sort(Array.fromIterable(selection), Order.string)])),
+    _optional(op.view, _viewCell),
+    _optional(op.focus, (focus) => Fold.cell([focus])),
+    _optional(op.input, (input) => Fold.cell([input])),
+  ]),
+  Leave: (op) => Fold.cell([op._tag, op.tenant.scope, op.actor, op.at.physical, op.at.logical]),
+})
 ```
 
 ## [03]-[STATE_PRODUCT]
 
 [STATE_PRODUCT]:
-- Owner: `Presence.state` — the per-actor `Merge.struct` product: the durable stamps (`joined` min, `last` max, `gone` optional max), one `Worn` row apiece for the op-sourced facts `face`, `device`, and `quality`, and the ephemeral rows GENERATED over the `_AXES` anchor — every axis one `_worn` application (`Merge.optional` over `Merge.max` on the worn stamp) minted by one `Record.map` walk, so the eleven-row product's posture derives as the conjunction, the whole instance is convergence-legal by construction, and the ephemeral roster is seed data the state type, the instance, and the lift all read from one declaration; `Presence.plan` keys by actor, so the presence table is one more replay-maintained fold.
-- Law: `Worn<A>` is the one stamped-LWW carrier — a value paired with the `Hlc` that justified it, merged by stamp so an axis cannot drift from its clock; every op contributes `Option.none` on axes it does not speak (the lawful identity under the optional lift), so a `Beat` can never bury a profile, a cursor patch can never bury a selection, and the latest statement per axis survives any delivery order.
-- Law: `Leave` is evidence, not deletion — the `gone` stamp coexists with later `Beat`s (a rejoin outruns a stale leave by stamp comparison at read time), so out-of-order delivery cannot resurrect or bury an actor incorrectly.
-- Law: batch-atomic roster application — a multi-actor op batch that must land all-or-nothing rides `merge#MERGE_CELLS`'s `Merge.cell(Presence.state)`, the same instance in a transactional table; the fold handles stay the live-view altitude and neither re-declares the other.
-- Law: presence declares itself ephemeral — no log plane backs this product, so a lost replica reconstitutes its roster from live beats alone and nothing here survives a cold start or answers an as-of read.
-- Exemption: `_patch`, `_ephemeral`, `_blank`, and `_dressed` are the reverse-mapped projection kernel — the checker cannot correlate per-key axis rows through `Record.map`, so the scoped assertions live in these four interior projections and nowhere else in the module, the same seam `merge#INSTANCE_ROSTER` marks on `_mapped`.
-- Growth: a new ephemeral axis is one `_AXES` row — the patch schema, state type, product instance, blank state, lift, plan, and every read absorb it untouched.
 
 ```typescript signature
 declare namespace Presence {
-  type Actor = typeof _Actor.Type
-  type Surface = typeof _Surface.Type
-  type Op = typeof _Op.Type
+  type Actor = Schema.Schema.Type<typeof _Actor>
+  type Surface = Schema.Schema.Type<typeof _Surface>
+  type Key = readonly [Identity.Tenant.Scope, Actor]
+  type Op = Schema.Schema.Type<typeof _Op>
   type Device = (typeof _DEVICES)[number]
   type Grade = (typeof _GRADES)[number]
   type Input = (typeof _INPUTS)[number]
-  type Profile = typeof _Profile.Type
-  type Point = typeof _Point.Type
-  type View = typeof _View.Type
-  type Worn<A> = { readonly value: A; readonly at: Hlc }
+  type Profile = Schema.Schema.Type<typeof _Profile>
+  type Point = Schema.Schema.Type<typeof _Point>
+  type Pose = Schema.Schema.Type<typeof _Pose>
+  type View = Schema.Schema.Type<typeof _View>
+  type Worn<A> = { readonly value: A; readonly at: Clock.Hlc; readonly tie: string }
   type State = Types.Simplify<
     & {
-      readonly joined: Hlc
+      readonly joined: Option.Option<Clock.Hlc>
       readonly face: Option.Option<Worn<Profile>>
       readonly device: Option.Option<Worn<Device>>
       readonly quality: Option.Option<Worn<Grade>>
-      readonly last: Hlc
-      readonly gone: Option.Option<Hlc>
+      readonly last: Clock.Hlc
+      readonly gone: Option.Option<Clock.Hlc>
     }
     & { readonly [K in _Axis]: Option.Option<Worn<Schema.Schema.Type<_Axes[K]>>> }
   >
   type Status = (typeof _STATUS)[number]
-  type Lease = { readonly idle: Duration.Duration; readonly gone: Duration.Duration }
+  type Lease = _Lease
   type Shape = {
     readonly Op: typeof _Op
     readonly state: Merge.Instance<State>
-    readonly plan: Fold.Plan<Op, Actor, State>
-    readonly status: (state: State, horizon: Hlc, lease: Lease) => Status
+    readonly plan: Fold.Plan<Op, Key, State>
+    readonly Lease: typeof _Lease
+    readonly status: (state: State, horizon: Clock.Hlc, lease: Lease) => Status
     readonly roster: (
-      table: Fold.Table<Actor, State>,
-      horizon: Hlc,
+      table: Fold.Table<Key, State>,
+      horizon: Clock.Hlc,
       lease: Lease,
-    ) => HashMap.HashMap<Actor, Status>
+    ) => HashMap.HashMap<Key, Status>
     readonly crowd: (
-      table: Fold.Table<Actor, State>,
-      horizon: Hlc,
+      table: Fold.Table<Key, State>,
+      horizon: Clock.Hlc,
       lease: Lease,
-    ) => HashMap.HashMap<Surface, HashSet.HashSet<Actor>>
+    ) => HashMap.HashMap<Surface, HashSet.HashSet<Key>>
   }
 }
 
 const _STATUS = ["live", "idle", "gone"] as const
 
+const _LeaseDuration = Schema.DurationFromSelf.pipe(
+  Schema.filter((duration) => Duration.isFinite(duration) && Duration.greaterThan(duration, Duration.zero)),
+)
+class _Lease extends Schema.Class<_Lease>("Presence.Lease")(
+  Schema.Struct({ idle: _LeaseDuration, gone: _LeaseDuration }).pipe(
+    Schema.filter((lease) => Duration.lessThan(lease.idle, lease.gone)),
+  ),
+) {}
+
 const _byWorn = <A>(): Order.Order<Presence.Worn<A>> =>
-  Order.mapInput(Hlc.Order, (worn: Presence.Worn<A>) => worn.at)
+  Order.combine(
+    Order.mapInput(Clock.Hlc.Order, (worn: Presence.Worn<A>) => worn.at),
+    Order.mapInput(Order.string, (worn: Presence.Worn<A>) => worn.tie),
+  )
 
 const _worn = <A>(): Merge.Instance<Option.Option<Presence.Worn<A>>> => Merge.optional(Merge.max(_byWorn<A>()))
 
@@ -173,19 +275,23 @@ const _blank: { readonly [K in _Axis]: Option.Option<never> } = Record.map(_AXES
 }
 
 const _state: Merge.Instance<Presence.State> = Merge.struct({
-  joined: Merge.min(Hlc.Order),
+  joined: Merge.optional(Merge.min(Clock.Hlc.Order)),
   face: _worn<Presence.Profile>(),
   device: _worn<Presence.Device>(),
   quality: _worn<Presence.Grade>(),
   ..._ephemeral,
-  last: Merge.max(Hlc.Order),
-  gone: Merge.optional(Merge.max(Hlc.Order)),
+  last: Merge.max(Clock.Hlc.Order),
+  gone: Merge.optional(Merge.max(Clock.Hlc.Order)),
 })
 
-const _dress = <A>(at: Hlc) => (value: A): Presence.Worn<A> => ({ value, at })
+const _dress = <A>(at: Clock.Hlc, tie: string) => (value: A): Presence.Worn<A> => ({
+  value,
+  at,
+  tie,
+})
 
-const _silent = (at: Hlc): Presence.State => ({
-  joined: at,
+const _silent = (at: Clock.Hlc): Presence.State => ({
+  joined: Option.none(),
   face: Option.none(),
   device: Option.none(),
   quality: Option.none(),
@@ -195,17 +301,18 @@ const _silent = (at: Hlc): Presence.State => ({
 })
 
 const _dressed = (op: Schema.Schema.Type<typeof _Move>): Pick<Presence.State, _Axis> =>
-  Record.map(_AXES, (_axis, key) => Option.map(op[key], _dress(op.at))) as Pick<Presence.State, _Axis>
+  Record.map(_AXES, (_axis, key) => Option.map(op[key], _dress(op.at, _opCell(op)))) as Pick<Presence.State, _Axis>
 
 const _lifted: (op: Presence.Op) => Presence.State = _OpCase.$match({
   Join: (op) => ({
     ..._silent(op.at),
-    face: Option.some(_dress<Presence.Profile>(op.at)(op.profile)),
-    device: Option.some(_dress<Presence.Device>(op.at)(op.device)),
+    joined: Option.some(op.at),
+    face: Option.some(_dress(op.at, _opCell(op))(op.profile)),
+    device: Option.some(_dress(op.at, _opCell(op))(op.device)),
   }),
   Beat: (op) => ({
     ..._silent(op.at),
-    quality: Option.map(op.quality, _dress<Presence.Grade>(op.at)),
+    quality: Option.map(op.quality, _dress(op.at, _opCell(op))),
   }),
   Move: (op) => ({
     ..._silent(op.at),
@@ -221,22 +328,17 @@ const _lifted: (op: Presence.Op) => Presence.State = _OpCase.$match({
 ## [04]-[ROSTER_READS]
 
 [ROSTER_READS]:
-- Owner: the read family — `status` folds one actor's state against a horizon and a `Lease` policy row (`idle` and `gone` windows as `Duration` values); `roster` maps the verdict across the folded table; `crowd` groups the non-`gone` actors by their sighting surface, the per-surface census a view header binds without walking raw states.
-- Law: status is three-valued and read-time — `gone` when a leave stamp is at or after the last activity AND the horizon has outrun it by the lease's gone window (the departure grace that absorbs in-flight beats), `idle` when the horizon outruns the last stamp by the idle window, `live` otherwise — the ephemeral axes never enter the verdict, so liveness stays a stamp question; expiry never mutates state: a sweep is the consumer re-reading with a fresh horizon, so no timer fiber lives in this module; distances measure through `Hlc.delta`, never a millisecond re-derivation.
-- Law: the sighting surface reads cursor-first, focus-fallback — an actor pointing on a sheet counts there even while a panel holds keyboard focus, and an actor with neither axis worn is unsighted and absent from every census row.
-- Law: the ordered roster board — actors ranked by recency or name for a live list — is `fold#MEMORY_LANE`'s `Replay.ordered` over `Presence.plan` with an `Order` on the state, never a re-sort of the roster projection.
-- Boundary: a serving edge forwards decoded ops and serves rosters; heartbeat cadence and socket lifecycle are its policy — this module owns only the fold and its verdicts.
 
 ```typescript signature
-const _noEarlier = Order.greaterThanOrEqualTo(Hlc.Order)
+const _noEarlier = Order.greaterThanOrEqualTo(Clock.Hlc.Order)
 
-const _idled = (state: Presence.State, horizon: Hlc, lease: Presence.Lease): Presence.Status =>
-  horizon.physical - state.last.physical > Hlc.delta(lease.idle) ? "idle" : "live"
+const _idled = (state: Presence.State, horizon: Clock.Hlc, lease: Presence.Lease): Presence.Status =>
+  horizon.physical - state.last.physical > Clock.Hlc.delta(lease.idle) ? "idle" : "live"
 
-const _status = (state: Presence.State, horizon: Hlc, lease: Presence.Lease): Presence.Status =>
+const _status = (state: Presence.State, horizon: Clock.Hlc, lease: Presence.Lease): Presence.Status =>
   Option.match(state.gone, {
     onSome: (gone) =>
-      _noEarlier(gone, state.last) && horizon.physical - gone.physical > Hlc.delta(lease.gone)
+      _noEarlier(gone, state.last) && horizon.physical - gone.physical > Clock.Hlc.delta(lease.gone)
         ? "gone"
         : _idled(state, horizon, lease),
     onNone: () => _idled(state, horizon, lease),
@@ -250,24 +352,28 @@ const _sighted = (state: Presence.State): Option.Option<Presence.Surface> =>
 
 const Presence: Presence.Shape = {
   Op: _Op,
+  Lease: _Lease,
   state: _state,
-  plan: Fold.plan({
+  plan: {
     name: "state/presence",
-    key: (op) => op.actor,
+    key: (op) => Data.tuple(op.tenant.scope, op.actor),
+    cell: ([tenant, actor]) => Fold.cell([tenant, actor]),
+    keyAlike: Equal.equivalence(),
     lift: _lifted,
     merge: _state,
-  }),
+    identity: Option.some(_opCell),
+  },
   status: _status,
   roster: (table, horizon, lease) => HashMap.map(table, (state) => _status(state, horizon, lease)),
   crowd: (table, horizon, lease) =>
-    HashMap.reduce(table, HashMap.empty<Presence.Surface, HashSet.HashSet<Presence.Actor>>(), (acc, state, actor) =>
+    HashMap.reduce(table, HashMap.empty<Presence.Surface, HashSet.HashSet<Presence.Key>>(), (acc, state, key) =>
       _status(state, horizon, lease) === "gone"
         ? acc
         : Option.match(_sighted(state), {
             onNone: () => acc,
             onSome: (surface) =>
               HashMap.modifyAt(acc, surface, (slot) =>
-                Option.some(HashSet.add(Option.getOrElse(slot, () => HashSet.empty<Presence.Actor>()), actor))),
+                Option.some(HashSet.add(Option.getOrElse(slot, () => HashSet.empty<Presence.Key>()), key))),
           })),
 }
 

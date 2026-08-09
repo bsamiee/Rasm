@@ -1,6 +1,6 @@
 # [RUNTIME_TOOL]
 
-The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes — with one hint-admission constructor both the local annotation band and the remote MCP hint band fold through, so the fail-closed default is a single spelling — the `Arsenal` ledger types the four provider packages that expose provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, every result re-parsed through the native `McpSchema` classes, hints graded onto `Safety` — the `./server` subpath has no import site). That lane is bidirectional and bounded: the session enumerates resources before reading one, watches a subscribed resource as a filtered channel feed, answers a server that elicits, and prices every request against one `Budget` row whose attempt deadline, total deadline, and interrupt-wired signal reach the SDK's own `RequestOptions`. A remote server's tools enter an app toolkit as ordinary declared rows, so the language model treats local, provider-defined, and remote tools identically and no raw wire value escapes the client seam. The module is `runtime/src/ai/tool.ts`.
+The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes — with one hint-admission constructor both the local annotation band and the remote MCP hint band fold through, so the fail-closed default is a single spelling — the `Arsenal` ledger types the four provider packages that expose provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, every result re-parsed through the native `McpSchema` classes, hints graded onto `Safety` — the `./server` subpath has no import site). That lane is bidirectional and bounded: the session enumerates resources before reading one, watches a subscribed resource as a filtered channel feed, answers a server that elicits, and prices every request against one `Fault.Budget` row whose attempt deadline, total deadline, and interrupt-wired signal reach the SDK's own `RequestOptions`. A remote server's tools enter an app toolkit as ordinary declared rows, so the language model treats local, provider-defined, and remote tools identically and no raw wire value escapes the client seam. The module is `runtime/src/ai/tool.ts`.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,6 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 - Law: a tool is declared once by `Tool.make(name, { description, parameters, success, failure, failureMode, dependencies })` — parameters, success, and failure are `Schema`s, `dependencies` threads `Context.Tag`s into the handler's `R`, and `failureMode` is the routing policy: `"return"` keeps a handler failure inside the tool result so the model self-corrects in-band, `"error"` lifts it onto the effect rail; the mode is chosen per tool by whether the model or the caller owns recovery.
 - Law: `Tool.fromTaggedRequest(schema)` lifts a `Schema.TaggedRequest` — the same triple that serves an entity message and a workflow payload — so one request class is simultaneously actor protocol, workflow definition, and tool row; agents-as-tools is this lift applied to an agent's `Act` class, never a wrapper.
 - Law: annotations are the hint band — `Tool.Readonly`/`Destructive`/`Idempotent`/`OpenWorld`/`Title` project one-to-one onto MCP tool hints at the host seam and seed the `Safety` grade through the one admission constructor; a tool declared without annotations grades through the same constructor's absent arm and lands fail-closed.
-- Law: `ToolFault` is `Schema.TaggedError` because it crosses in-band — under `failureMode: "return"` the failure serializes into the tool result the model reads, and the remote rows declare it as their failure schema — so the fault is encodable by construction. Its rows close through the core `FaultClass.family` seam: `reason` derives its literal schema from the mint, `class` projects the mint's row, and severity, retryability, blame, and quarantine come from the core row table, so no local guard pair and no rank or retry column ride beside `class`. Five reasons route recovery — `dial` (transport or handshake) and `call` (a rejected invocation) classify `unavailable` and re-dial or re-issue, `lapsed` (a deadline the budget row set) classifies `expired` so a blown call is priced as budget exhaustion rather than as an unhealthy server, `shape` (a re-parse miss) classifies `malformed` and quarantines, and `declined` (a refused credential or an `isError` result) classifies `denied` and never re-drives.
 - Law: assembly is data — a folder exports `Toolkit.make(...tools)` values; the composition root merges selected toolkits with `Toolkit.merge` and binds handlers with `toolkit.toLayer(handlers)` where the handler record is compiler-checked exhaustive; `Toolkit.empty` seeds gated calls that admit no tools.
 - Law: `Tool.make` and `Toolkit.make` are used directly — a local wrapper renaming the declaration surface is the one-hop defect; this page adds vocabulary beside the package surface, never in front of it.
 
@@ -33,9 +32,9 @@ import { AmazonBedrockTool } from "@effect/ai-amazon-bedrock"
 import { GoogleTool } from "@effect/ai-google"
 import { OpenAiTool } from "@effect/ai-openai"
 import { Array, Context, Duration, Effect, FiberSet, Layer, Match, Option, PubSub, Queue, Record, Schema, type Scope, Sink, Stream } from "effect"
-import { Budget, FaultClass } from "@rasm/ts/core"
+import { Fault } from "@rasm/ts/core"
 
-const _faults = FaultClass.family(["dial", "call", "lapsed", "shape", "declined"] as const, {
+const _faults = Fault.Class.family(["dial", "call", "lapsed", "shape", "declined"] as const, {
   dial: { class: "unavailable" },
   call: { class: "unavailable" },
   lapsed: { class: "expired" },
@@ -52,7 +51,7 @@ class ToolFault extends Schema.TaggedError<ToolFault>()("ToolFault", {
   server: Schema.String,
   detail: Schema.String,
 }) {
-  get class(): FaultClass.Kind {
+  get class(): Fault.Class.Kind {
     return _faults.classOf(this.reason)
   }
   override get message(): string {
@@ -144,6 +143,7 @@ const Safety = {
 [ARSENAL]:
 - Owner: `Arsenal` — the provider-defined tool ledger: one name-keyed table whose rows carry the constructor, the executing family, and the pre-assigned `Safety` class, so a provider-executed capability (web search, code execution, computer use, file search) is admitted by naming a row and the gate grades it without a hint band — the provider runs it, the ledger prices it. The verified rosters: `OpenAiTool` ships `CodeInterpreter`/`FileSearch`/`WebSearch`/`WebSearchPreview`; `AnthropicTool` ships Bash, computer-use, text-editor, code-execution, and search families; `GoogleTool` ships code execution, current search, legacy dynamic search, and URL context; `AmazonBedrockTool` ships the Anthropic-on-Bedrock Bash, computer-use, and text-editor generations. `@effect/ai-openrouter` exposes no provider-defined tool module, so it contributes no phantom roster. Every materialized row is typed `Tool.ProviderDefined` by its own package, never a local type.
 - Law: web-search rows grade `spend` (external egress, per-call cost), code-execution rows grade `spend`, computer-use and bash rows grade `destroy` — held or denied under every shipped mode — and a ledger row's class is data a deployment tightens, never loosens.
+- Law: a dated family rows its NEWEST generation alone and a package with no provider-defined module rows nothing; a newer date replaces its row rather than joining it.
 - Law: the ledger is the only place a provider tool name appears — a page or app composing `OpenAiTool.WebSearch(...)` inline bypasses pricing and is unspellable; `Arsenal.row(name)` answers the exact value-derived row so its constructor signature survives selection. `Arsenal.Display`, `Arsenal.Threshold`, and `Arsenal.StoreIds` admit the package's loose geometry, confidence, and vector-store inputs before a provider row can form.
 - Growth: a provider's new built-in is one ledger row; a package gaining its first provider-defined tool contributes one row band with its own constructors.
 - Packages: `@effect/ai` (`Tool.ProviderDefined`); `@effect/ai-amazon-bedrock` (`AmazonBedrockTool`); `@effect/ai-anthropic` (`AnthropicTool`); `@effect/ai-google` (`GoogleTool`); `@effect/ai-openai` (`OpenAiTool`).
@@ -271,10 +271,8 @@ const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 - Law: the platform callback seams cross exactly twice, each by its own sanctioned spelling — a notification is a synchronous `Queue.unsafeOffer` onto the channel (no fiber per event), and a request handler that must answer with a promise runs through a `FiberSet.makeRuntimePromise` runner minted in the dial scope, so both handlers' work stays owned and dies when the session's scope closes.
 - Law: remote tools enter a toolkit as DECLARED rows — `Remote.tool(session, row)` lifts a `Remote.Row` (name, description, parameter fields, success schema, safety hints) into an ordinary `Tool.make` declaration whose handler is `session.call` under `failureMode: "return"`; the four hints become native `Tool` annotations, so hosting, local grading, and remote grading consume one metadata band. The census names what a server ships, the declared row is what the model may call, and an undeclared remote tool is uncallable by construction.
 - Law: transport is locality — `StdioClientTransport({ command, args, env: getDefaultEnvironment() })` for a local server process (the safe-env allowlist), `StreamableHTTPClientTransport(url, { authProvider })` for remote with the OAuth provider arriving as an app-passed value composing the security wave's ceremony — no `security` import here.
-- Law: every call is bounded, cancellable, and priced by one row — `_bounded` builds the SDK's own `RequestOptions` from the spec's `Budget.Kind`: the row's per-attempt deadline becomes `timeout`, its whole-call deadline becomes `maxTotalTimeout`, and `resetTimeoutOnProgress` makes the server's progress notification the heartbeat that re-arms the per-attempt clock while the total stays absolute, so a long handler with liveness survives and a silent one does not. The `signal` is the one `Effect.tryPromise` hands its evaluator, so fiber interruption cancels the in-flight request instead of abandoning it — every `dialed` call takes `(signal) => Promise<T>` for exactly that reason. A per-call deadline literal is unspellable because the geometry is the branch budget row's.
 - Law: every SDK rejection folds to `ToolFault` through one triage — `UnauthorizedError` to `declined`, an `McpError` carrying the request-timeout code to `lapsed`, the caller's stated reason otherwise — and the fault's class column routes retry through the caller's budget exactly like every other rail. The triage is `Match.instanceOf` arms over an open `unknown` residue, so `Match.orElse` is its lawful terminal.
 - Growth: a new server is a dial spec value; a new SDK capability (tasks, sampling, roots) is one more member on the `Session` owner beside one handler in the dial scope.
-- Packages: `@modelcontextprotocol/sdk` (`Client`, `StdioClientTransport`, `getDefaultEnvironment`, `StreamableHTTPClientTransport`, `OAuthClientProvider`, `RequestOptions`, `ElicitRequestSchema`, `ResourceUpdatedNotificationSchema`, `McpError`, `ErrorCode`); `@effect/ai` (`McpSchema`, `Tool`); `effect` (`Scope`, `Effect`, `Schema`, `PubSub`, `Queue`, `FiberSet`, `Match`, `Duration`, `Stream`); `@rasm/ts/core` (`Budget`).
 
 ```typescript
 const _UPDATES = 256 // the resource-update channel sheds oldest: a stalled watcher never backpressures the transport's read loop
@@ -283,7 +281,7 @@ declare namespace Remote {
   type Spec = {
     readonly name: string
     readonly version: string
-    readonly budget: Budget.Kind // the row whose attempt deadline bounds one request and whose total deadline bounds the whole call
+    readonly budget: Fault.Budget.Kind // the row whose attempt deadline bounds one request and whose total deadline bounds the whole call
     readonly answer: Option.Option<(ask: typeof McpSchema.Elicit.payloadSchema.Type) => Effect.Effect<typeof McpSchema.ElicitResult.Type, ToolFault>>
     readonly transport:
       | { readonly kind: "stdio"; readonly command: string; readonly args: ReadonlyArray<string> }
@@ -319,9 +317,9 @@ declare namespace Remote {
 
 const _bounded = (spec: Remote.Spec, signal: AbortSignal): RequestOptions => ({
   signal, // the fiber's own interrupt wiring: cancellation crosses the seam instead of abandoning an in-flight request
-  timeout: Duration.toMillis(Budget[spec.budget].attempt),
+  timeout: Duration.toMillis(Fault.Budget.at(spec.budget).attempt),
   resetTimeoutOnProgress: true, // a progress notification IS the heartbeat re-arming the per-attempt clock
-  maxTotalTimeout: Duration.toMillis(Budget[spec.budget].total),
+  maxTotalTimeout: Duration.toMillis(Fault.Budget.at(spec.budget).total),
 })
 
 const _lifted = (server: string, reason: ToolFault.Reason) => (cause: unknown): ToolFault =>
@@ -473,4 +471,5 @@ export { Arsenal, Host, Remote, Safety, ToolFault }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [ARSENAL_DERIVED_ROSTER]-[OPEN]: whether `AnthropicTool.ProviderDefinedTools` and `getProviderDefinedToolName` publish a name-keyed roster the ledger's `family` column can derive from rather than restate per row; verify against `@effect/ai-anthropic/AnthropicTool` on the member rail.
+- [PROVIDER_TOOL_STOP_REASON]-[OPEN]: which `Response.FinishReason` value a provider-executed tool run settles on per family, so the gate distinguishes a tool-exhausted turn from a content-filter refusal; verify against `@effect/ai/Response` `FinishReason` and each provider's finish-part metadata on the member rail.
