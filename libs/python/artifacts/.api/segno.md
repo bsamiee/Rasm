@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_SEGNO]
 
-`segno` (import `segno`) owns pure-Python QR (versions 1-40) and Micro-QR (M1-M4) generation for the `qr` arm of the one `Mark` owner spanning python-barcode's `linear` and zxing-cpp's `matrix` arms. A `make`/`make_micro`/`make_sequence` factory resolves content into a `QRCode` or structured-append `QRCodeSequence`, `segno.helpers` pre-formats vCard/MeCard/WiFi/EPC/geo/email payloads to canonical QR text, and every serializer is in-package and dependency-free down to the zlib-only `png` path, never Pillow.
+`segno` (import `segno`) owns pure-Python QR (versions 1-40) and Micro-QR (M1-M4) generation for the `qr` arm of the one `Mark` owner spanning python-barcode's `linear` and zxing-cpp's `matrix` arms. `make`/`make_micro`/`make_sequence` resolve content into a `QRCode` or structured-append `QRCodeSequence`, `segno.helpers` pre-formats vCard/MeCard/WiFi/EPC/geo/email payloads to canonical QR text, and every serializer is in-package and dependency-free down to the zlib-only `png` path, never Pillow.
 
 `EncodeArm(qr=(SegnoFactory, accepts))` binds it, `DataOverflowError`/`ValueError` mapping onto the closed `MarkFault` vocabulary; DataMatrix/PDF417/Aztec/MaxiCode/rMQR route to zxing-cpp and the linear symbologies to python-barcode.
 

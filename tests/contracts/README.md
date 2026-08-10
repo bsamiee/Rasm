@@ -29,13 +29,16 @@ tests/contracts/
 ├── rasm/<family>/v1/              # Descriptor source per family, seated at the directory its package spells
 │   ├── <family>.proto             # Language-neutral message and service declaration
 │   └── <family>.descriptor.binpb  # Frozen FileDescriptorSet parity digest
+├── io/<publisher-path>/           # Vendored publisher sources, seated at the path the publisher's own package spells
 └── <seam>/
     ├── contract.schema.json       # Definition every conforming branch implements
     ├── <message>.bin              # Frozen wire bytes
     └── <message>.json             # Canonical JSON projection of the same payload
 ```
 
-Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each registers a manifest entry with its own payload kind. A descriptor source and its `FileDescriptorSet` snapshot land together as one peer asset: the snapshot is the drift contract's per-source parity digest, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
+[NON_SEAM_ROOTS]: `.api/`, `rasm/`, and `io/` are the roots this layout names beside the seam directories, and each stands outside the seam census: `.api/` catalogs the gate binary, `rasm/` holds estate-minted descriptor sources, and `io/` holds vendored publisher sources under the publisher's own package path. Vendored CORPORA instead seat as ordinary seam directories carrying the publisher's frozen bytes and no `contract.schema.json`, since the publisher's own format is the definition and an estate-authored schema beside it grades a copy.
+
+Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each registers a manifest entry with its own payload kind. Descriptor sources and their `FileDescriptorSet` snapshot land together as one peer asset: the snapshot is the drift contract's per-source parity digest, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
 
 [PROTO_SEATING]: `buf` `PACKAGE_DIRECTORY_MATCH` binds each source to the directory its package spells, so `rasm.<family>.v1` seats at `rasm/<family>/v1/<family>.proto` and one directory holds one package. Every later family inherits that seat rather than re-deciding it, and the corpus root gains a directory per family instead of a flat file set three packages deep.
 
@@ -48,6 +51,7 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 [MACHINE_RECORD]:
 - Consumer: audits resolve producer anchors and verify pin-state honesty; producers graduate pins; branch readers resolve assets by seam and fixture.
 - Required shape: one summary lookup table over all entries, then one H3 record per fixture carrying the field grammar below in field order.
+- Closed grammar: `[ENTRY_SCHEMA]` is the whole label vocabulary, so a minted label carries load no reader resolves and its content folds into `Shape`.
 - Checked fields: `Class`/`Pin`/`Payload` use closed terms; every `Minters` and `Producer` anchor resolves on disk; exclusive maps: `infrastructure`→`Minters`, `domain`→`Producer`, `DESIGN-PIN`→`Blocker`, `REAL`→`Expectation`.
 - Owner: this README owns the schema; the manifest owns the instances.
 - Refresh trigger: any seam commitment, pin graduation, producer re-anchor, or payload change lands with its manifest entry in the same change.

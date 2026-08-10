@@ -556,4 +556,4 @@ public static class Weathering {
 
 ## [03]-[RESEARCH]
 
-- (none)
+(none)

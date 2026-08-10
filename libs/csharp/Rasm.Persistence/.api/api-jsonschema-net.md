@@ -96,7 +96,7 @@
 |  [10]   | `JsonSchemaBuilder.RecursiveRefRoot()`                                   | static   | a `$recursiveRef` to the document root |
 
 - `JsonSchemaBuilder.Add`: `IEnumerable<KeyValuePair<string, JsonSchemaBuilder>>` and `IEnumerable<(string, JsonSchemaBuilder)>` overloads write a keyed-subschema keyword.
-- `JsonSchema`: a `bool` converts implicitly to the pass-all or fail-all schema, and a `JsonSchemaBuilder` converts implicitly to `JsonSchema`.
+- `JsonSchema`: implicit conversions admit `bool` as the pass-all or fail-all schema and `JsonSchemaBuilder` as its built value.
 
 [ENTRYPOINT_SCOPE]: evaluate an instance and read the verdict
 
@@ -146,7 +146,7 @@
 |  [22]   | `ValidatingJsonConverter.RegisterConverter(Type, JsonConverter)`      | static   | register the gated converter           |
 |  [23]   | `JsonElementBaseDocument(JsonElement, Uri)`                           | ctor     | adopt a raw element as a `$ref` target |
 
-- `SchemaRegistry.Fetch`: a `Func<Uri, SchemaRegistry, IBaseDocument?>` the registry invokes on a miss.
+- `SchemaRegistry.Fetch`: holds the `Func<Uri, SchemaRegistry, IBaseDocument?>` the registry invokes on a miss.
 - `UnknownFormat.Validate`: returns `true`, so an unregistered `format` key passes assertion instead of failing it.
 
 [ANNOTATION_POLICY]: `EvaluationOptions.IgnoreAnnotationsFrom<T>()` `CollectAnnotationsFrom<T>()` `IgnoreAllAnnotations()` `ClearIgnoredAnnotations()` `IgnoredAnnotations` `PreserveDroppedAnnotations` `AddAnnotationForUnknownKeywords`
@@ -172,7 +172,7 @@
 - `JsonSchema.Net` is the sole in-process JSON Schema evaluator on the `validation` rail, computing application-side the verdict the server extension computes at write.
 - Schema text freezes at composition and parses once; the resulting `JsonSchema` is the value every evaluation binds.
 - `SchemaRegistry`, `VocabularyRegistry`, `DialectRegistry`, and `FormatRegistry` are process-global: external `$ref` documents, vocabularies, dialects, and custom formats register once at startup.
-- A `PredicateFormat` on `FormatRegistry.Global` asserts an identity shape no draft keyword expresses, and `IKeywordHandler` with `Dialect.With(...)` admits a lane-local keyword without forking the evaluator.
+- `PredicateFormat` on `FormatRegistry.Global` asserts an identity shape no draft keyword expresses, and `IKeywordHandler` with `Dialect.With(...)` admits a lane-local keyword without forking the evaluator.
 - `ValidatingJsonConverter.MapType<T>` gates typed-document ingress against the same schema the raw column checks.
 
 [RAIL_LAW]:

@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_DOTPULSAR]
 
-`DotPulsar` speaks the native Apache Pulsar binary protocol as a pure-managed client, backing `EgressSink.Pulsar` and a distinct log-streaming ingress backend (`Version/egress#EGRESS_SINK`). Separated compute/storage makes `IReader` replay cursorless from any `MessageId` — the trait distinguishing Pulsar from the Kafka (`api-kafka`), NATS JetStream (`api-nats`), and RabbitMQ (`api-rabbitmq`) egress protocols. `Google.Protobuf` (`Schema.Protobuf<T>`) and `Chr.Avro` (`Schema.Avro*`) are the typed payload codecs, and the built-in `ActivitySource`/`Meter` folds into the AppHost `telemetry` port.
+`DotPulsar` speaks the native Apache Pulsar binary protocol as a pure-managed client, backing the `pulsar` binding row and a distinct log-streaming ingress backend (`Version/egress#EGRESS_SINK`). Separated compute/storage makes `IReader` replay cursorless from any `MessageId` — the trait distinguishing Pulsar from the Kafka (`api-kafka`), NATS JetStream (`api-nats`), and RabbitMQ (`api-rabbitmq`) legs. `Google.Protobuf` (`Schema.Protobuf<T>`) and `Chr.Avro` (`Schema.Avro*`) are the typed payload codecs, and the built-in `ActivitySource`/`Meter` folds into the AppHost `telemetry` port.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -40,7 +40,7 @@
 |  [05]   | `IGetLastMessageIds`        | lag probe       | `GetLastMessageIds(ct)` → topic head positions                     |
 |  [06]   | `IMessageBuilder<TMessage>` | message builder | key/orderingKey/eventTime/deliverAt/properties/sequenceId → `Send` |
 
-- `IMessage<TValue>`/`IMessage` received envelope: `Value()` `MessageId` `Data` `Key` `EventTime*` `Properties` `RedeliveryCount`
+- `IMessage<TValue>`/`IMessage` received message envelope: `Value()` `MessageId` `Data` `Key` `EventTime*` `Properties` `RedeliveryCount`
 - `MessageMetadata` produce carrier: `Key` `KeyBytes` `OrderingKey` `SequenceId` `EventTime*` `DeliverAt*`, property indexer, `SetCompressionInfo`
 - `MessageId` position: `LedgerId` `EntryId` `Partition` `BatchIndex` `Topic`, static `Earliest`/`Latest`, `TryParse`, comparable
 
@@ -167,7 +167,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 [TOPOLOGY]:
 - protocol: native Pulsar binary protocol over `System.IO.Pipelines` on a TCP socket; `Google.Protobuf` frames the wire (`DotPulsar.Internal.PulsarApi`). One `PulsarClient` owns the shared connection pool and, as `IAsyncDisposable`, disposes every producer/consumer/reader it minted; the async surface is `ValueTask`-based throughout.
 - surface shape: send/receive/seek verbs ride small composable interfaces (`ISend`/`IReceive`/`ISeek`/`ISendChannel`) so a client composes only the verbs it implements, and `IProducer`/`IConsumer`/`IReader` are each `IAsyncDisposable`.
-- subscription model: named durable subscriptions carry a `SubscriptionType` — `Exclusive`/`Failover` (ordered, single active consumer), `Shared` (round-robin), `KeyShared` (per-key affinity). A `Reader` replays from any `MessageId` with no server cursor; a `Consumer` commits acks server-side.
+- subscription model: named durable subscriptions carry a `SubscriptionType` — `Exclusive`/`Failover` (ordered, single active consumer), `Shared` (round-robin), `KeyShared` (per-key affinity). `Reader` replays from any `MessageId` with no server cursor; `Consumer` commits acks server-side.
 - delivery: at-least-once via explicit `Acknowledge`/`AcknowledgeCumulative`; `Process` auto-acks after a successful processor invocation, `EnsureOrderedAcknowledgment` preserving order under `MaxDegreeOfParallelism`, and `RedeliverUnacknowledgedMessages` is the negative ack.
 - routing: a partitioned-topic producer routes via `IMessageRouter` — `RoundRobinPartitionRouter` (default) or `SinglePartitionRouter`, both MurmurHash3 over `MessageMetadata.KeyBytes` so same-key messages land on one partition.
 - payload codec: `ISchema<T>` encodes/decodes over `ReadOnlySequence<byte>` with an optional schema version; the raw-bytes path (`ISend<ReadOnlySequence<byte>>`) is the zero-copy egress codec for an already-framed payload, avoiding a per-message serializer.
@@ -175,7 +175,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 - compression: managed `Lz4`/`Zlib`/`Zstd`/`Snappy` via `ProducerOptions.CompressionType`, no native codec.
 
 [STACKING]:
-- egress payload codec: the CDC-egress op payload (already a redacted, framed byte buffer) sends through the raw-bytes `ISend<ReadOnlySequence<byte>>.Send(byte[], ct)` with CloudEvents attributes carried as `MessageMetadata` properties, so a broker filters on metadata without decoding `Data`. A typed sink instead binds `Schema.Protobuf<T>()` (`api-schemaregistry-serdes-protobuf`, `Google.Protobuf`) or `Schema.Avro*` (`api-chr-avro`) so the schema rides the message.
+- egress payload codec: the CDC-egress op payload (already a redacted, framed byte buffer) sends through the raw-bytes `ISend<ReadOnlySequence<byte>>.Send(byte[], ct)` with CloudEvents attributes carried as `MessageMetadata` properties, so a broker filters on metadata without decoding `Data`; `Schema.Protobuf<T>()` (`api-schemaregistry-serdes-protobuf`, `Google.Protobuf`) or `Schema.Avro*` (`api-chr-avro`) instead binds a typed sink so the schema rides the message.
 - exactly-once egress: `ProducerAccessMode.WaitForExclusive` with the reactive `IState` await elects one WAL-leader producer per partition; the awaited `Send` `MessageId` (`LedgerId:EntryId:Partition:BatchIndex`) confirms the durable offset advance, and a `ProducerFencedException` on the loser triggers re-election.
 - ingress replay: `IReader<TMessage>` from a stored `MessageId` (or `Seek(publishTime)`) replays the topic deterministically into the `Version/ledger` ingress rail; tiered storage makes the replay window long-lived, distinct from a cursor-bound consumer.
 - back-pressure: `GetLastMessageIds` against the consumer position derives subscription lag for the egress back-pressure shed — the same lag-probe shape as the Kafka watermark seam (`api-kafka`).
@@ -183,7 +183,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 - fault rail: the `DotPulsarException` family (`ProducerFencedException`, `ConsumerFaultedException`, `TooLargeMessageException`, `TransactionConflictException`) lifts at the sink edge onto the egress failure rail; `ExceptionContext.Result` (`FaultAction.Retry`/`Rethrow`/`ThrowException`) is the registered handler's verdict.
 
 [LOCAL_ADMISSION]:
-- DotPulsar enters behind the `Version/egress#EGRESS_SINK` vocabulary as `EgressSink.Pulsar` and a distinct log-streaming ingress backend, orthogonal to the Kafka/NATS/RabbitMQ wire protocols.
+- DotPulsar enters behind the `Version/egress#EGRESS_SINK` vocabulary as the `pulsar` binding row and a distinct log-streaming ingress backend, orthogonal to the Kafka/NATS/RabbitMQ wire protocols.
 - client lifecycle (connection pool, producer/consumer/reader handles) is egress-profile ceremony — `IAsyncDisposable` resources bracketed by the sink, never ambient singletons.
 - subscription name, type, initial position, and ack policy are sink policy declared on the egress profile, never chosen per-message.
 

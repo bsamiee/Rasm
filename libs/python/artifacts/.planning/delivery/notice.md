@@ -1,187 +1,180 @@
 # [PY_ARTIFACTS_NOTICE]
 
-`TransmittalNotice` seals the settled ISO 19650 issue close as one trace-continuous CloudEvents envelope — a wire-ready announcement a downstream system ingests without opening the archive. `of` projects the landed `ArtifactReceipt.Transmittal` case and the issued register into one checked `cloudevents.v1.http.CloudEvent`: the event `type` reuses the `ArtifactHook.TRANSMITTAL_ISSUED` id so the wire grammar and the hook grammar stay one vocabulary, the `subject` carries the transmittal `ContentKey` hex, the issued-register row references ride the JSON data payload, evidence scalars ride spec-grammar extension attributes, and `propagate.inject` writes the active W3C trace and baggage fields into the attribute map — production context stays continuous into every notice consumer.
+`TransmittalNotice` announces the settled ISO 19650 issue close on the wire. It is the plane's one projection row: an `observe` subscriber over the `TRANSMITTAL_ISSUED` hook fact that answers a `runtime/transport/event#MESSAGE` `MessageEnvelope`, so the issue fold fires its fact once and never learns a transport exists.
 
-Envelope bytes are the terminal product: `sealed` lowers the checked event through the `cloudevents.v1.conversion` structured or binary row and returns `NoticeWire` headers-plus-body, and transport belongs to the composing app — no broker client crosses this page. `issued` is the fold seam `delivery/transmittal#TRANSMITTAL` composes at `_emit`: mint, seal under the selected binding, fire the `NOTICE_ISSUED` observe row under the supplied runtime scope, and land a mint fault as receipt-stream evidence — the notice is the soft terminal member of the issue closure, never a break in the legal close.
+Message-envelope algebra, format contract, protocol lowering, and delivery all seat at the runtime transport owner; this page ends at the message-envelope value and holds no attribute map, header spelling, content mode, or byte body.
 
 ## [01]-[INDEX]
 
-- [02]-[NOTICE]: the `TransmittalNotice` envelope owner — receipt-and-register projection, extension-attribute vocabulary, W3C trace injection, the structured/binary binding rows, and the `issued` fold seam firing the hook registry.
+- [02]-[NOTICE]: `TransmittalNotice` — the fact-to-message-envelope projection, its attribute derivations off the fired identities, the typed extension roster it fills, and the DSSE signer port.
 
 ## [02]-[NOTICE]
 
-- Owner: `TransmittalNotice` holds the checked `CloudEvent` beside its transmittal `ContentKey` and event id — `CloudEvent.create(attributes, data)` is the one admission gate, and `GenericException` converts at that seam, so a held notice is well-formed by construction and `sealed` never fails. `NoticeWire` is the frozen wire value — `headers: frozendict[str, str]`, `body: bytes` — projected from the conversion's header/body tuple with every value rendered to its canonical string: `to_binary` passes a non-string attribute (an `int` extension such as `sheets` or `lineage`) into the header map verbatim, and the HTTP binary binding admits header values as strings alone, so the render is what makes the declared `frozendict[str, str]` true on both bindings rather than a type the structured arm happens to satisfy. Each `NoticeBinding` member carries its own `to_structured` or `to_binary` lowering callable.
-- Law: the vocabulary is derivation, never invention — `id` mints through `uuid7().hex` (time-ordered event identity replacing the SDK's random default, and distinct from the content key so replay identity and event identity never collide), `source` is the caller's issuing-app URI, `type` is `ArtifactHook.TRANSMITTAL_ISSUED.value`, `specversion` is `SPECVERSION_V1_0`, `subject` is the receipt `slot` hex, and `datacontenttype` is `application/json`. `time` is the SDK's own mint: `create` stamps the absent attribute with the aware emission instant already in RFC-3339 spelling, so a key here would re-derive it, and a `datetime` OBJECT there is the deleted form — the structured lowering `json.dumps` the whole attribute map and raises `TypeError` on a live `datetime` outside the `create` seam this page fences. Extension attributes obey the spec's lowercase-alphanumeric grammar: the receipt case scalars land as `transmittalid`/`sheets`/`suitability`/`containerkey`/`validationstate`, the transmittal evidence scalars arrive as the caller's `extensions` mapping (`purpose`/`revision`/`issuedat`/`recordstate`/`padeslevel`/`lineage` from the transmittal fold), and the carrier lands by spreading `propagate.inject` output — an active trace contributes `traceparent` and optional `tracestate`, active tenant baggage contributes `baggage`, and absent context contributes no invented field; binary conversion lowers present fields to `ce-` headers and structured conversion carries them inline.
-- Law: the payload answers what the archive holds — `register` the issued-register pre-run key hex and `rows` one entry per `Register.latest()` container (`reference`, `key`, `suitability` code, `revision` render, `title`) — so an ingesting system routes on rows without the workbook; heavy material never rides the notice, because the envelope references content-keyed artifacts rather than carrying them.
-- Entry: `of(receipt, register)` is the one mint — it matches the `transmittal` receipt case, refuses any other kind through `BoundaryFault.config`, builds the attribute map, and converts the `GenericException` construction raise at the seam. `sealed(binding)` is total over a held notice; `issued(receipt, register, binding, scope)` composes both under the fire seam — the Ok arm runs `Production.fired(ArtifactHook.NOTICE_ISSUED, NoticeIssued(...), scope=scope)` carrying the stored event id, content type, bounded body length, and the `scoped` issue-baggage correlation id before returning the wire; either the mint or fire error arm emits the original fault through `Signals.emit` and returns that same failure, so every refused notice is stream evidence without a raise into the close.
-- Packages: `cloudevents` (`cloudevents.v1.http.CloudEvent.create` the checked envelope, `cloudevents.v1.exceptions.GenericException` the boundary fault, `cloudevents.v1.conversion.to_structured`/`to_binary` the header/body tuple rows, `SPECVERSION_V1_0` the admitted protocol value); `opentelemetry-api` (`propagate.inject` the W3C carrier write, `context.get_current` the live context); `msgspec` (`Struct` the wire value); `expression` (the rail); the builtin `frozendict` (headers and extension rows); `uuid.uuid7` (event identity); core hooks (`ArtifactHook`/`NoticeIssued`/`Production`/`scoped`); `delivery/register#REGISTER` (`Register.latest`/`Register.key` the row projection); `core/receipt#RECEIPT` (`ArtifactReceipt` the projected case); runtime (`faults.BoundaryFault`/`RuntimeRail`, `identity.ContentKey`, `receipts.Signals`/`Receipt`/`OPEN` the fault evidence row).
-- Growth: a new evidence scalar on the wire is one `extensions` entry at the transmittal fold; a new payload row field is one entry in the `rows` projection; a new content mode is one behavior-bearing `NoticeBinding` member; a new announced production fact rides the hooks page's point-row growth, never a second envelope owner.
-- Boundary: this page holds no broker client, opens no span, and re-implements no spec algebra — attribute validation, JSON format, and binding header maps stay the SDK's; the trace context stays the runtime telemetry owner's, reached only through `propagate.inject`; the envelope announces the close and never gains authority over it — `ArtifactReceipt.Transmittal` remains the evidence truth, and the notice projects it. `delivery/transmittal#TRANSMITTAL` composes `issued` downward at `_emit`; nothing here imports the transmittal owner, so the delivery plane stays acyclic.
+- Owner: `TransmittalNotice` is one `Project` row keyed by the `TRANSMITTAL_ISSUED` point id, handed to `transport/binding#BINDING`'s `Emitter` at the composition root beside the bindings that composition dials. Direction runs OUTWARD from the fact: the transmittal fold fires, the registry fans, and this projection answers a message envelope — never a call the producing fold makes and discards. Fault isolation is the registry's `OBSERVE` contract, so a refused projection lands on the receipt stream while the issue close stays whole.
+- Cases: every attribute derives from an identity the fired fact already carries. `type` is `EventType.of(_DOMAIN, _SUBJECT, _FACT, _VERSION)` under the `observability/metrics#METRIC` `artifact` capability segment the receipt fold already records against, so a board and a subscription name one capability. `source` derives from that same value, naming the producing capability and never a host or a caller override. `id` is the transmittal's PRE-RUN aggregate key, which is operation identity exactly: the reuse fabric elides two runs over identical inputs onto one, and a retry replays the value every dedup window reads through `(source, id)`.
+- Law: `subject` carries the PAYLOAD's content key, minted here over the encoded fact bytes through `evidence/identity#IDENTITY` and rendered at this mint through that owner's own `project("wire")` — the estate's ONE lowering site — into the `WireKey` slot the wire carries. Seating the pre-run aggregate key there instead collapses operation identity onto content identity, which is the one distinction `(source, id)` exists to hold.
+- Law: the payload IS the fired fact. One `msgspec` encode answers the `Raw` band the message envelope signs and every format lowers, so no second projection re-spells the evidence and the announcement cannot disagree with the receipt it projects. `datacontenttype` stays absent because the format row that encodes names it, and the issued register rides as its own content key rather than a re-spelled copy of its rows — an unbounded row set defeats every frame budget `transport/binding#BINDING` declares, and a consumer resolves the authoritative register from the key.
+- Law: the extension roster is `transport/event#MESSAGE`'s typed `Extensions` and this owner fills the slots the issue proves. `partitionkey` is the transmittal id, so one transmittal's whole revision stream stays ordered inside one partition; `sequence` is `RevisionCode.ordinal` under `Sequencing.INTEGER`, so a consumer reads a gap as a missed revision; `authcontext` is the issuing party, the same named actor the durable leg records; `correlation` is the issue-scope baggage id every payload carries. Scalars the roster does not name ride the payload, never an invented attribute name.
+- Law: `dataclassification` resolves AT this boundary and nowhere inside. ISO 19650 confidentiality is free header text, so `_CLASSIFIED` keys the estate grade vocabulary off the folded value and an unspelled or absent one reads `INTERNAL` — an unclassified issue is not a publishable one, and the resolved grade is what makes `transport/binding#BINDING`'s `CLASSIFICATION_ROWS` refuse a broker the issue may not cross.
+- Law: the creation-time W3C trace injects here and the transport hop's carrier stays the binding's. Artifacts taps run synchronously inside the fire, so `context.get_current()` at this projection is still the producing fold's context and the injected carrier fills the roster's own W3C slots through `TRACE_SLOTS` rather than three spelled names.
+- Entry: `projections()` answers the point-keyed `Map` the `Emitter` composes, and `announce(fact)` is the one arm. `signer` is an `Option` port bound at the composition root: bound, the message envelope's own `signed` lands the DSSE material over the published attribute digest; unbound, no attribute appears at all.
+- Packages: `msgspec` (`Struct` the projection value, `Raw` the payload band, `json.encode` the fact bytes); `expression` (`Option`/`Map`/`Block` and the rail); `opentelemetry-api` (`propagate.inject` the creation-trace write, `context.get_current` the live context); core hooks (`ArtifactHook`/`TransmittalIssued`); runtime (`event.MessageEnvelope`/`EventType`/`Source`/`OperationId`/`Extensions`/`Severity`/`Sequencing`/`TRACE_SLOTS` the message-envelope algebra, `binding.Project` the emitter row type, `admission.Classification` the grade vocabulary, `identity.ContentIdentity` the payload key, `faults.RuntimeRail`). No `cloudevents` member crosses this page — the message-envelope owner composes the distribution.
+- Growth: a new announced fact is one projection row keyed by its own point id; a new routed scalar is one `TransmittalIssued` field the encoded payload carries; a new confidentiality spelling is one `_CLASSIFIED` row; a new evidence state is one `_GRADE_LADDER` row; a new binding, format, or content mode reaches this announcement untouched, because each is a row at the transport owner.
+- Boundary: fact-to-message-envelope projection only. This page mints no message-envelope algebra, format, header map, wire value, content mode, or broker client, imports no artifacts sibling above the floor, and fires no hook of its own — the runtime `Delivery` receipt carries what the fan answered. Rejected: a lowering callable on an enum member; a frozen struct holding a mutable event; a `frozendict[str, str]` extension passthrough minting spec-invalid names; a literal `datacontenttype` beside the format row that owns it; a caller-supplied `source`; a register row projection beside the content-keyed artifact it copies.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Mapping
-from enum import StrEnum
-from typing import Final, Self, assert_never
-from uuid import uuid7
+from collections.abc import Callable
+from typing import Final
 
-from builtins import frozendict
-from cloudevents.core.spec import SPECVERSION_V1_0
-from cloudevents.v1.conversion import to_binary, to_structured
-from cloudevents.v1.exceptions import GenericException
-from cloudevents.v1.http import CloudEvent
-from expression import Error, Ok, Result
-from msgspec import Struct
+from expression import Nothing, Option, Some
+from expression.collections import Block, Map
+from msgspec import Raw, Struct, json
 from opentelemetry import context as otel_context
 from opentelemetry import propagate
 
-from rasm.artifacts.core.hooks import ArtifactHook, NoticeIssued, Production, scoped
-from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.delivery.register import Register
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.identity import ContentKey
-from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, Signals
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class NoticeBinding(StrEnum):
-    STRUCTURED = ("structured", to_structured)  # whole event as one application/cloudevents+json body
-    BINARY = ("binary", to_binary)  # attributes as ce- headers, data as the raw body
-
-    def __new__(
-        cls,
-        value: str,
-        lower: Callable[[CloudEvent], tuple[Mapping[str, str], bytes]],
-    ) -> Self:
-        member = str.__new__(cls, value)
-        member._value_ = value
-        member._lower = lower
-        return member
-
-    def lower(self, event: CloudEvent, /) -> tuple[Mapping[str, str], bytes]:
-        return self._lower(event)
-
+from rasm.artifacts.core.hooks import ArtifactHook, TransmittalIssued
+from rasm.runtime.admission import Classification
+from rasm.runtime.binding import Project
+from rasm.runtime.event import (
+    TRACE_SLOTS,
+    EventType,
+    Extensions,
+    MessageEnvelope,
+    OperationId,
+    Sequencing,
+    Severity,
+    Source,
+)
+from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.identity import ContentIdentity
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SOURCE: Final[str] = "//rasm/artifacts/delivery"
+# `_DOMAIN` names the METRIC roster's own `artifact` subject the receipt fold already records under, so a
+# board and a subscription join ONE vocabulary; `delivery` is the plane's noun and `issued` reads past tense. The
+# hook id spells `rasm.artifacts.delivery.issued` under the registry's own grammar and carries no version segment,
+# so the event type derives from the roster rather than from that id — one segment apart, and both spelled once.
+_DOMAIN: Final[str] = "artifact"
+_SUBJECT: Final[str] = "delivery"
+_FACT: Final[str] = "issued"
+_VERSION: Final[int] = 1
+
+# `_PAYLOAD_FMT` tags the payload key's own namespace, distinct from every transmittal-stage tag so a notice key
+# and an issue key never collide inside one content-keyed store.
+_PAYLOAD_FMT: Final[str] = "transmittal-notice"
+
+# `dataschema` binds the registry SUBJECT and its version together, and the type major moves with that version
+# rather than beside it; the reference is relative for the same reason `source` is — an absolute form pins a host a
+# redeployment re-authors.
+_REGISTRY: Final[str] = "//rasm/registry"
+
+# ISO 19650 confidentiality is free header text, so the grade resolves at THIS boundary: the folded value keys the
+# estate vocabulary and an unspelled or absent one reads INTERNAL, never PUBLIC — an unclassified issue is not a
+# publishable one, and the grade is what every broker row reads to refuse a crossing.
+_CLASSIFIED: Final[Map[str, Classification]] = Map.of_seq([
+    ("public", Classification.PUBLIC),
+    ("internal", Classification.INTERNAL),
+    ("confidential", Classification.RESTRICTED),
+    ("restricted", Classification.RESTRICTED),
+    ("secret", Classification.SECRET),
+])
+
+# Grade reads the WEAKEST evidence state off one DESCENDING ladder: a failed proof degrades and an unproven one is
+# notable, while a state no row names contributes no grade at all rather than asserting one over evidence nobody
+# took. Neither the signature nor the record proof carries a branch of its own, and a third proof is one ladder row.
+_GRADE_LADDER: Final[Block[tuple[frozenset[str], Severity]]] = Block.of_seq([
+    (frozenset({"invalid"}), Severity.DEGRADED),
+    (frozenset({"unsigned", "unverified"}), Severity.NOTABLE),
+])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class NoticeWire(Struct, frozen=True, gc=False):
-    headers: frozendict[str, str]
-    body: bytes
+class TransmittalNotice(Struct, frozen=True, gc=False):
+    # ONE projection row handed to the runtime `Emitter` at the composition root. Lowering, binding selection,
+    # format, and delivery are the emitter's, so this owner ends at the message-envelope VALUE and holds no wire bytes,
+    # header map, or content mode. `signer` is a PORT: bound, the DSSE material lands over the published attribute
+    # digest; unbound, no attribute appears — never a hand-rolled signature beside the message envelope's own.
+    signer: Option[Callable[[bytes], bytes]] = Nothing
 
+    def projections(self) -> Map[str, Project[Struct]]:
+        return Map.of_seq([(ArtifactHook.TRANSMITTAL_ISSUED.value, self.announce)])
 
-class TransmittalNotice(Struct, frozen=True):
-    event: CloudEvent
-    key: ContentKey
-    event_id: str
-
-    @classmethod
-    def of(
-        cls,
-        receipt: ArtifactReceipt,
-        register: Register,
-        /,
-        *,
-        source: str = _SOURCE,
-        extensions: frozendict[str, str | int] = frozendict(),
-    ) -> RuntimeRail[Self]:
-        match receipt:
-            case ArtifactReceipt(tag="transmittal", transmittal=(key, transmittal_id, sheets, suitability, container, validation_state)):
-                carrier: dict[str, str] = {}
-                propagate.inject(carrier, otel_context.get_current())  # active W3C trace + baggage fields
-                event_id = uuid7().hex
-                attributes: dict[str, object] = {
-                    **extensions,
-                    **carrier,
-                    "id": event_id,
-                    "source": source,
-                    "type": ArtifactHook.TRANSMITTAL_ISSUED.value,
-                    "specversion": SPECVERSION_V1_0,
-                    "subject": key.hex,
-                    # `time` is deliberately absent: `create` stamps it with the aware emission instant already
-                    # RFC-3339-spelled, and a `datetime` object here raises inside `to_structured`'s `json.dumps`.
-                    "datacontenttype": "application/json",
-                    "transmittalid": transmittal_id,
-                    "sheets": sheets,
-                    "suitability": suitability,
-                    "containerkey": container,
-                    "validationstate": validation_state,
-                }
-                rows = [
-                    {
-                        "reference": row.reference,
-                        "key": row.asset_key,
-                        "suitability": row.suitability.code,
-                        "revision": row.revision.render(),
-                        "title": row.title,
-                    }
-                    for row in register.latest()
-                ]
-                try:  # Exemption: the CloudEvent checked factory is the SDK's admission kernel — the one statement seam.
-                    event = CloudEvent.create(attributes, {"register": register.key.hex, "rows": rows})
-                    return Ok(cls(event=event, key=key, event_id=event_id))
-                except GenericException as fault:
-                    return Error(BoundaryFault(config=("artifacts.delivery.notice", str(fault))))
-            case ArtifactReceipt(tag=kind):
-                return Error(BoundaryFault(config=("artifacts.delivery.notice", f"non-transmittal-receipt:{kind}")))
-            case _ as unreachable:
-                assert_never(unreachable)
-
-    def sealed(self, binding: NoticeBinding = NoticeBinding.STRUCTURED, /) -> NoticeWire:
-        # `to_binary` copies each attribute value into the header map untouched, so an `int` extension (`sheets`,
-        # `lineage`) arrives as an `int`; the HTTP binary binding carries header values as strings alone, so the
-        # canonical render happens here — one projection serving both bindings, never a per-binding header type.
-        headers, body = binding.lower(self.event)
-        return NoticeWire(headers=frozendict({name: str(value) for name, value in headers.items()}), body=body)
-
-    @classmethod
-    def issued(
-        cls,
-        receipt: ArtifactReceipt,
-        register: Register,
-        /,
-        *,
-        source: str = _SOURCE,
-        extensions: frozendict[str, str | int] = frozendict(),
-        binding: NoticeBinding = NoticeBinding.STRUCTURED,
-        scope: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[NoticeWire]:
-        match cls.of(receipt, register, source=source, extensions=extensions):
-            case Result(tag="error", error=fault) as refused:
-                Signals.emit(Receipt.of("artifacts.delivery.notice", fault), OPEN)  # mint fault is stream evidence, never a raise
-                return refused
-            case Result(tag="ok", ok=notice):
-                wire = notice.sealed(binding)
-                delivered = Production.fired(
-                    ArtifactHook.NOTICE_ISSUED,
-                    NoticeIssued(
-                        key=notice.key.hex,
-                        event_id=notice.event_id,
-                        content_type=wire.headers["content-type"],
-                        body_bytes=len(wire.body),
-                        scope=scoped(otel_context.get_current()),
-                    ),
-                    scope=scope,
+    def announce(self, fact: TransmittalIssued, /) -> RuntimeRail[MessageEnvelope]:
+        # Payload IS the fired fact: one encode answers the `Raw` band the digest signs and every format lowers,
+        # so no second projection re-spells the evidence and the announcement cannot disagree with the receipt it
+        # projects. `datacontenttype` stays absent because the encoding format row names it.
+        body = json.encode(fact)
+        # CREATION-time trace. Artifacts taps run synchronously inside the fire, so this context is still the
+        # producing fold's; the hop's own carrier stays the binding's and never folds onto these slots.
+        carrier: dict[str, str] = {}
+        propagate.inject(carrier, otel_context.get_current())
+        return (
+            EventType.of(_DOMAIN, _SUBJECT, _FACT, _VERSION)
+            .bind(
+                lambda event_type: Source.of(f"//rasm/{event_type.domain}/{event_type.subject}").map(
+                    lambda source: MessageEnvelope(
+                        event_type=event_type,
+                        source=source,
+                        # PRE-RUN aggregate key: the reuse fabric elides two runs over identical inputs onto one,
+                        # so this value IS operation identity and a retry replays what every dedup window reads.
+                        operation=OperationId(value=fact.key),
+                        occurred=fact.occurred,
+                        payload=Raw(body),
+                        # PAYLOAD content key, minted over the encoded bytes and lowered HERE through the key
+                        # owner's own `project("wire")` into the WireKey slot — the slot holds what crosses, so
+                        # `decoded` rebuilds exactly, and seating the pre-run key here would collapse the two
+                        # identities `(source, id)` exists to hold apart.
+                        subject=Some(ContentIdentity.key(_PAYLOAD_FMT, body).project("wire")),
+                        data_schema=Some(_schema(event_type)),
+                        extensions=Extensions(
+                            # `TRACE_SLOTS` folds the W3C subset off the roster's own slot names, never three keys.
+                            **{slot.value: Some(carrier[slot.value]) for slot in TRACE_SLOTS if slot.value in carrier},
+                            authcontext=_held(fact.issuing_party),
+                            correlation=_held(fact.scope),
+                            dataclassification=Some(
+                                _CLASSIFIED.try_find(fact.confidentiality.casefold()).default_value(Classification.INTERNAL)
+                            ),
+                            # `partitionkey` keeps one transmittal's whole revision stream ordered inside one
+                            # partition, and the revision ordinal is the position a consumer reads a gap against.
+                            partitionkey=Some(fact.transmittal_id),
+                            sequence=Some(fact.revision_ordinal),
+                            sequencetype=Some(Sequencing.INTEGER),
+                            severity=_graded(Block.of_seq([fact.validation_state, fact.record_state])),
+                        ),
+                    )
                 )
-                match delivered:
-                    case Result(tag="error", error=fault) as failed:
-                        Signals.emit(Receipt.of("artifacts.delivery.notice", fault), OPEN)
-                        return failed
-                    case Result(tag="ok"):
-                        return Ok(wire)
-                    case _ as unreachable:
-                        assert_never(unreachable)
-            case _ as unreachable:
-                assert_never(unreachable)
+            )
+            .map(lambda envelope: self.signer.map(envelope.signed).default_value(envelope))
+        )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _held(value: str, /) -> Option[str]:
+    # Empty scalars contribute NO attribute: an empty-string value names an extension a filter matches and nobody
+    # fills, which reads on a subscription exactly like a producer that meant to send one.
+    return Some(value) if value else Nothing
+
+
+def _schema(event_type: EventType, /) -> str:
+    # registry SUBJECT and version in one reference, derived from the type whose major moves with it — a literal
+    # here forks the two the moment a breaking payload change increments one of them.
+    return f"{_REGISTRY}/subjects/{event_type.domain}.{event_type.subject}.{event_type.fact}/versions/{event_type.version}"
+
+
+def _graded(states: Block[str], /) -> Option[Severity]:
+    # descending ladder, first match wins: the weakest evidence state decides the whole fact's grade, and a state
+    # no row names contributes nothing rather than asserting ROUTINE over evidence nobody graded.
+    matched = _GRADE_LADDER.filter(lambda row: not states.filter(lambda state: state in row[0]).is_empty())
+    return Nothing if matched.is_empty() else Some(matched.head()[1])
+
 
 # --- [EXPORTS] ----------------------------------------------------------------------------
 
-__all__ = ("NoticeBinding", "NoticeWire", "TransmittalNotice")
+__all__ = ("TransmittalNotice",)
 ```
 
 ## [03]-[RESEARCH]

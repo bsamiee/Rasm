@@ -109,7 +109,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [16]   | `comment`      | `comment(string: str)`                                                       | build a comment trivia item          |
 |  [17]   | `nl` / `ws`    | `nl()` / `ws(src: str)`                                                      | build whitespace/newline trivia      |
 
-- `key`: a single-element iterable (`key(['a'])`) returns a bare `SingleKey`, not a one-segment `DottedKey`; a multi-element iterable builds a `DottedKey`, a `str` a `SingleKey`.
+- `key`: returns a bare `SingleKey` for a single-element iterable (`key(['a'])`), not a one-segment `DottedKey`; a multi-element iterable builds a `DottedKey`, a `str` a `SingleKey`.
 
 [ENTRYPOINT_SCOPE]: container edit and round-trip
 - rail: structured documents — `Container` / `TOMLDocument` / styled-item methods

@@ -176,10 +176,10 @@ These attach off the `DrawingBasicElement`/`DrawingParentElement` base, so anima
 - boundary: drawsvg owns programmatic SVG authoring, the element vocabulary, path-command building, def-tier paint/effect owners, and SMIL animation; geometry parse/transform/bbox over an existing SVG routes to `svgelements`; rasterization to `resvg-py`/`vl-convert`/`pyvips`/`pillow`; chart/table/QR SVG sources arrive from `vl-convert`/`great-tables`/`segno`; Jupyter display stays at the notebook boundary.
 
 [STACKING]:
-- A diagram figure builds a `Drawing`, registers a `LinearGradient`/`Marker`/`Filter` via `append_def`, draws the `Rectangle`/`Path`/`Text` vocabulary with `z=` ordering, then `as_svg()` emits the SVG string the figure owner records under a `ContentIdentity` content-key — one authoring rail produces the durable SVG artifact.
-- A drawsvg-authored SVG and a `segno` QR / `great-tables` table SVG co-compose through `svgelements` (`SVG.parse` + `Matrix * shape` + `bbox()`) into one n-up sheet — drawsvg authors net-new vector marks, svgelements lays out the parsed tree.
+- Diagram figures build a `Drawing`, register a `LinearGradient`/`Marker`/`Filter` via `append_def`, draw the `Rectangle`/`Path`/`Text` vocabulary with `z=` ordering, then `as_svg()` emits the SVG string the figure owner records under a `ContentIdentity` content-key — one authoring rail produces the durable SVG artifact.
+- `svgelements` (`SVG.parse` + `Matrix * shape` + `bbox()`) co-composes a drawsvg-authored SVG with a `segno` QR / `great-tables` table SVG into one n-up sheet — drawsvg authors net-new vector marks, svgelements lays out the parsed tree.
 - `svg_as_utf8_data_uri(drawing.as_svg())` produces a `data:` URI a `jinja2`/`weasyprint` HTML/PDF document embeds inline, threading the figure artifact into the document rail without a temp-file round-trip.
-- A `SyncedAnimationConfig` + `add_key_frame` timeline serializes to standalone `as_html`; a rasterized GIF/MP4 deliverable runs the frame egress through the runtime worker `to_process.run_sync` seam (ffmpeg subprocess), keeping the blocking call off the async figure rail.
+- `as_html` serializes a `SyncedAnimationConfig` + `add_key_frame` timeline standalone; a rasterized GIF/MP4 deliverable runs the frame egress through the runtime worker `to_process.run_sync` seam (ffmpeg subprocess), keeping the blocking call off the async figure rail.
 
 [RAIL_LAW]:
 - Package: `drawsvg`

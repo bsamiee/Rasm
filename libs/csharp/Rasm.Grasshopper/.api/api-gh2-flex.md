@@ -75,12 +75,12 @@
 | :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------------------- |
 |  [01]   | `MotionEquations.Blend(Motion, double) -> double`                             | static   | map normalized time through an easing kind |
 |  [02]   | `Animators.DurationToTimeSpan(Duration) -> TimeSpan`                          | static   | resolve a named span to a duration         |
-|  [2b]   | `AnimatedPath.{AddGap, AddLine, AddLines, AddCircle, AddArc, Count, Gaps}`    | member   | stroke-set build and tallies               |
-|  [2c]   | `AnimatedPath.Create{Error, Warning, Success, Message, Arrow}Path`            | static   | the five semantic glyph factories          |
-|  [2d]   | `FlexControl.FocusObject -> IResponsive`; `IFlexControl.ResponsivesForwards`  | property | focus head and responder walk              |
-|  [2e]   | `Flex.PopulateContextMenuEventArgs.{Control, MouseEvent, Menu, IsMenu}`       | property | context-menu population payload            |
-|  [2f]   | `ResizingFrame.{Original, Resized, MinimumSize, MaximumSize}`                 | property | resize-frame geometry columns              |
-|  [2g]   | `Flex.{ProjectionChanged, WindowSelection, MouseDwell, ControlDraw}EventArgs` | class    | canvas event-args wires                    |
+|  [03]   | `AnimatedPath.{AddGap, AddLine, AddLines, AddCircle, AddArc, Count, Gaps}`    | member   | stroke-set build and tallies               |
+|  [04]   | `AnimatedPath.Create{Error, Warning, Success, Message, Arrow}Path`            | static   | the five semantic glyph factories          |
+|  [05]   | `FlexControl.FocusObject -> IResponsive`; `IFlexControl.ResponsivesForwards`  | property | focus head and responder walk              |
+|  [06]   | `Flex.PopulateContextMenuEventArgs.{Control, MouseEvent, Menu, IsMenu}`       | property | context-menu population payload            |
+|  [07]   | `ResizingFrame.{Original, Resized, MinimumSize, MaximumSize}`                 | property | resize-frame geometry columns              |
+|  [08]   | `Flex.{ProjectionChanged, WindowSelection, MouseDwell, ControlDraw}EventArgs` | class    | canvas event-args wires                    |
 |  [09]   | `Animators.Finished(value, Duration, Motion)`                                 | factory  | settled typed animation per type           |
 |  [10]   | `Animators.Unfinished(from, to, Duration, Motion)`                            | factory  | animating typed animation per type         |
 

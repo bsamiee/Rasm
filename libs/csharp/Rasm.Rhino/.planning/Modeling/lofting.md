@@ -13,7 +13,7 @@
 
 `CurveFit` collapses loft and sweep fitting into one discriminant. `SweepOneMode` and `SweepTwoStations` encode native modality before dispatch, while `FrozenSet<SweepTwoShapeFeature>` composes height and auto-adjust capabilities. `SweepFrameLaw` alone maps roadlike semantics for both Rhino sweep and SubD sweep consumers.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SweepFrameLaw {
@@ -173,7 +173,7 @@ public readonly partial struct CurveCompatibility {
 
 `PatchLaw`, `VariationalLaw`, and `LoftTangency` validate before native solver carriers exist. `PatchEdge` and `LoftTangentEnd` replace positional booleans with bounded policy values. Variational warning, error, and continuity states preserve native absence separately from negative or empty results.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PatchEdge {
@@ -422,7 +422,7 @@ public readonly partial struct LoftTangency {
 
 `LoftOp` is the sole construction algebra. `LoftRuntime` carries the host governance band — the token and fraction reporter a `ProgressLease` produces — into the one paced native this rail composes, while `VariationalThreading` names solver parallelism. Native engines and settings remain scoped to their consuming arm, and all solver side channels land as typed receipt facts.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]

@@ -183,4 +183,4 @@
 - Package: `System.Security.Cryptography`
 - Owns: RFC-7468 armor, X.509 admission and export, AEAD sealing, ECDSA attestation, buffer zeroization
 - Accept: span writes into rented destinations, size probes ahead of every span call, `Try*` results folded onto a typed rail
-- Reject: a hand-built `-----BEGIN-----` string, a base64 credential envelope, a third-party PEM codec, a hand-rolled constant-time compare
+- Reject: a hand-built `-----BEGIN-----` string, a base64 credential container, a third-party PEM codec, a hand-rolled constant-time compare

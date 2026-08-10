@@ -60,7 +60,7 @@
 
 [LOCAL_ADMISSION]:
 - Store profiles share one policy, and a profile that diverges declares the override at its own options composition.
-- A casing flip is a schema change rather than a formatting preference: the migration it generates renames real database objects.
+- Casing is schema, never formatting: a flip generates a migration renaming real database objects.
 
 [RAIL_LAW]:
 - Package: `EFCore.NamingConventions`

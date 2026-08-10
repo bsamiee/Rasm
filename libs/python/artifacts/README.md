@@ -39,7 +39,7 @@
 [DELIVERY]:
 - [25]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 container-register, sheet-index, and container-metadata owner.
 - [26]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` issue-for-construction orchestrator over imposition, archive, and sign.
-- [27]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` trace-continuous CloudEvents envelope sealing the transmittal close.
+- [27]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` projection turning the issued transmittal fact into a message envelope.
 
 [GRAPHIC]:
 - [28]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
@@ -215,10 +215,6 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `python-magic` — libmagic format-ID power path.
 - `pyexiftool` — cross-format descriptive-metadata read/write.
 
-[DELIVERY]:
-- `cloudevents` — structured/binary envelope with the W3C trace-and-baggage extensions.
-- `python-dateutil` — RFC-3339 `isoparse` the CloudEvents binding and format modules import at module scope.
-
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation.
 - `PhotoshopAPI` — native PSD/PSB layered writer.
@@ -259,6 +255,9 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [OBSERVABILITY]:
 - `opentelemetry-api`
 - `structlog`
+
+[EVENT_FABRIC]:
+- `cloudevents`
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`

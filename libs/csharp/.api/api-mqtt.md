@@ -2,7 +2,7 @@
 
 `MQTTnet` owns legacy and v5 broker-client transport in BOTH directions across three consuming folders: `MqttClientFactory` mints one `IMqttClient` per leg, builder-composed options carry session and channel policy, `PublishAsync` folds its PUBACK to a reason-code result, and `SubscribeAsync` beside `ApplicationMessageReceivedAsync` carries every delivery. `MqttProtocolVersion.V500` opens the `UserProperties` plane the W3C `traceparent`/`tracestate` pair rides, so a publish joins the producing trace and a delivery hands its parent to the consuming bracket.
 
-Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.Persistence` the `EgressSink.Mqtt` deliver leg, and `Rasm.Compute` the CloudEvents-decoded sensor-ingest pump.
+Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.Persistence` the `mqtt` binding-row deliver leg, and `Rasm.Compute` the CloudEvents-decoded sensor-ingest pump.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -221,22 +221,22 @@ Receive reads the entry buffer, never the string property: `MqttUserProperty.Val
 
 `MqttClientPublishResult` is a `public sealed class` whose `IsSuccess` computes off `ReasonCode`, never a stored flag. Subscribe and unsubscribe results carry one item per requested filter, and the item — not the result — holds the per-filter verdict.
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :------------------------------------------------------------ | :------- | :-------------------------------------- |
-|  [01]   | `MqttClientPublishResult.IsSuccess -> bool`                   | property | `Success` or `NoMatchingSubscribers`    |
-|  [02]   | `MqttClientPublishResult.ReasonCode`                          | property | `MqttClientPublishReasonCode` verdict   |
-|  [03]   | `MqttClientPublishResult.PacketIdentifier -> ushort?`         | property | null under QoS 0                        |
-|  [04]   | `MqttClientPublishResult.ReasonString -> string`              | property | broker diagnostic text                  |
-|  [05]   | `MqttClientPublishResult.UserProperties`                      | property | `IReadOnlyCollection<MqttUserProperty>` |
-|  [06]   | `MqttClientSubscribeResult.Items`                             | property | one item per topic filter               |
-|  [07]   | `MqttClientSubscribeResult.PacketIdentifier -> ushort`        | property | SUBACK packet id                        |
-|  [08]   | `MqttClientSubscribeResult.ReasonString` / `.UserProperties`  | property | v5 SUBACK diagnostics, get-only         |
-|  [09]   | `MqttClientSubscribeResultItem.ResultCode`                    | property | `MqttClientSubscribeResultCode`         |
-|  [10]   | `MqttClientSubscribeResultItem.TopicFilter`                   | property | `MqttTopicFilter` the item answers      |
-|  [11]   | `MqttClientUnsubscribeResult.Items`                           | property | one item per unsubscribed topic         |
-|  [12]   | `MqttClientUnsubscribeResult.UserProperties`                  | property | settable, unlike the subscribe twin     |
-|  [13]   | `MqttClientUnsubscribeResultItem.ResultCode`                  | property | `MqttClientUnsubscribeResultCode`       |
-|  [14]   | `MqttClientUnsubscribeResultItem.TopicFilter -> string`       | property | the topic string the item answers       |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `MqttClientPublishResult.IsSuccess -> bool`                  | property | `Success` or `NoMatchingSubscribers`    |
+|  [02]   | `MqttClientPublishResult.ReasonCode`                         | property | `MqttClientPublishReasonCode` verdict   |
+|  [03]   | `MqttClientPublishResult.PacketIdentifier -> ushort?`        | property | null under QoS 0                        |
+|  [04]   | `MqttClientPublishResult.ReasonString -> string`             | property | broker diagnostic text                  |
+|  [05]   | `MqttClientPublishResult.UserProperties`                     | property | `IReadOnlyCollection<MqttUserProperty>` |
+|  [06]   | `MqttClientSubscribeResult.Items`                            | property | one item per topic filter               |
+|  [07]   | `MqttClientSubscribeResult.PacketIdentifier -> ushort`       | property | SUBACK packet id                        |
+|  [08]   | `MqttClientSubscribeResult.ReasonString` / `.UserProperties` | property | v5 SUBACK diagnostics, get-only         |
+|  [09]   | `MqttClientSubscribeResultItem.ResultCode`                   | property | `MqttClientSubscribeResultCode`         |
+|  [10]   | `MqttClientSubscribeResultItem.TopicFilter`                  | property | `MqttTopicFilter` the item answers      |
+|  [11]   | `MqttClientUnsubscribeResult.Items`                          | property | one item per unsubscribed topic         |
+|  [12]   | `MqttClientUnsubscribeResult.UserProperties`                 | property | settable, unlike the subscribe twin     |
+|  [13]   | `MqttClientUnsubscribeResultItem.ResultCode`                 | property | `MqttClientUnsubscribeResultCode`       |
+|  [14]   | `MqttClientUnsubscribeResultItem.TopicFilter -> string`      | property | the topic string the item answers       |
 
 [ENTRYPOINT_SCOPE]: reason-code rosters
 
@@ -281,7 +281,7 @@ Five reason-code enums share one MQTT v5 code space, so a lane column marks memb
 [TOPOLOGY]:
 - `MqttClientFactory` is the single construction root for clients and builders, injecting `IMqttNetLogger` and `IMqttClientAdapterFactory`, and `CreateMqttClient()` mints a distinct `IMqttClient` per call, so one leg owns one connection and disposes it with the leg.
 - `IMqttClient` is `IDisposable` and serializes outgoing packets internally, routing each acknowledgement to its awaiting caller by packet identifier, so concurrent publishes are safe while `ConnectAsync` and `DisconnectAsync` hold the connection alone.
-- `MqttApplicationMessage.Payload` is a `ReadOnlySequence<byte>`, so a large buffered envelope publishes over its own segments with no boundary re-buffer.
+- `MqttApplicationMessage.Payload` is a `ReadOnlySequence<byte>`, so a large buffered message envelope publishes over its own segments with no boundary re-buffer.
 - Channel is exclusive: `MqttClientOptionsBuilder.Build()` throws `InvalidOperationException` when neither TCP nor WebSocket channel is set.
 - `WithConnectionUri` resolves scheme to channel and TLS — `mqtt`/`tcp` plain, `mqtts` TLS, `ws`/`wss` WebSocket, `unix` domain socket — with default ports 1883 plain and 8883 TLS.
 - `WithProtocolVersion(MqttProtocolVersion.Unknown)` throws; v5 metadata fields drop silently under `MqttProtocolVersion.V311`.
@@ -298,12 +298,11 @@ Five reason-code enums share one MQTT v5 code space, so a lane column marks memb
 - `MqttUserProperty.Value` and the `(string, string)` ctor are `[Obsolete]` at the admitted pin — `ValueBuffer` beside `ReadValueAsString()` is the live read, and that extension answers `string.Empty` rather than null for an empty buffer.
 
 [STACKING]:
-- `api-cloudevents-mqtt`(`api-cloudevents-mqtt.md`): `MqttExtensions.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` returns exactly the `MqttApplicationMessage` `PublishAsync` consumes, so a publishing leg appends its trace rows to `UserProperties` and nothing else before the call.
-- `api-cloudevents`(`api-cloudevents.md`): `Egress.Envelope` mints the `CloudEvent` `id` MQTT carries as its sole replay key, so receiver-side dedup on that id absorbs every held-cursor re-drive.
+- `api-cloudevents`(`api-cloudevents.md`): the MQTT binding is branch-owned over this carrier — a leg frames through `EventEnvelope.Encode`, writes the body onto `MqttApplicationMessage.Payload`, and carries the attributes as UNPREFIXED v5 User Properties in binary mode; `Egress.Envelope` mints the `CloudEvent` `id` MQTT carries as its sole replay key, so receiver-side dedup on that id absorbs every held-cursor re-drive.
 - `api-modbus.md`/`api-bacnet.md`: an inbound MQTT message decodes to one `ExternalValue` at the same boundary the poll transports use, but the `mqtt` row binds `ReadShape.Subscribe` broker push where Modbus and MTConnect bind `ReadShape.Poll` — one decode boundary, the observation crossing as a wire row.
 - `Rasm.AppHost`: `ExternalTransport.Mqtt` seats the `mqtt` row as one `[SmartEnum<string>]` case with one `TransportRow` (`ReadShape.Subscribe`, `Writable: true`, an `OutboundHop.ServerStream` hop) whose per-row retry is the client's own auto-reconnect; `MqttLane` holds the factory-built client and `TryWrite`s one decoded `ExternalValue` into the bounded lane, `LiveClient.Mqtt(IMqttClient)` seats the connection in the shared `Atom<Gate>` cell, and `MqttLane.Write` threads `TraceContext.Inject` over the message builder before `Build()` while the receive pump continues the propagated context through `TraceContext`'s own `MqttApplicationMessage` overload, whose ordinal-matched getter decodes `ValueBuffer` through `ReadValueAsString`.
-- `Rasm.Persistence`: `EgressSink.Mqtt` binds the factory-minted client into `SinkBinding.Leg`, whose fold maps `IsSuccess` to `Persisted`, a transport ambiguity to `Indeterminate`, and a `128`+ `ReasonCode` carrying its `ReasonString` to a dead-lettering `Refused`.
-- `Rasm.Compute`: `BrokerChannels.Mqtt<T>` decodes a delivery through the shared `JsonEventFormatter<T>` onto `SensorEnvelope<T>` beside the kernel `TraceCarrier`, so the ingest pump opens no span of its own and the composing root adopts the inbound parent.
+- `Rasm.Persistence`: the `mqtt` binding row binds the factory-minted client into `SinkBinding.Leg`, whose fold maps `IsSuccess` to `Persisted`, a transport ambiguity to `Indeterminate`, and a `128`+ `ReasonCode` carrying its `ReasonString` to a dead-lettering `Refused`.
+- `Rasm.Compute`: `BrokerChannels.Mqtt<T>` reads the framing off `MqttApplicationMessage.ContentType`, takes the structured leg through `Rasm/Domain/event` `EventEnvelope.Decode` over `MqttApplicationMessage.Payload` and the binary leg through the branch-owned binding over the UNPREFIXED v5 `UserProperties`, and lands `SensorReading<T>` whose causal, lag, sampling, and expiry facts project off the message envelope's own rostered attributes, so the ingest pump opens no span of its own and the composing root adopts the inbound parent.
 
 [LOCAL_ADMISSION]:
 - Every folder composes the wire through `MqttClientFactory.CreateMqttClient`, never a direct `MqttClient` construction, and takes the bound client from its own composition root so no case constructs one.

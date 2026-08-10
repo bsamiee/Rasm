@@ -48,6 +48,7 @@ def _corpus(
     row = ledger_row if ledger_row is not None else f"| [01] | DEMO_FIX | `demo-seam` | {producer} | {payload} | {pin} |"
     entry_fields = [
         "- Seam: `demo-seam`",
+        "- Class: domain",
         f"- Producer: {producer}",
         "- Consumers: `python:kit`",
         f"- Payload: {payload}",

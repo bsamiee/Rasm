@@ -16,7 +16,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 
 ## [02]-[EXPOSURE_VOCABULARY]
 
-- Owner: `ExposureClass` owns the zone identity vocabulary alone; `ExposureScaling` owns every per-class factor as a caller-supplied table; `ExposureProfile` owns one admitted physical exposure; `LaserSource` owns a calibrated field envelope.
+- Owner: `ExposureClass` owns the zone identity vocabulary alone; `ExposureScaling` owns every per-class factor as a caller-supplied table; `ExposureProfile` owns one admitted physical exposure; `LaserSource` owns one calibrated scan field and the operating envelope clamping every command into it.
 - Cases: core · down-skin · up-skin · contour · support-sparse · support-interface · remelt.
 - Law: a class is an IDENTITY, never a factor carrier. Power, speed, spacing, focus, spot, contour-pass, and remelt-pass factors are shop tuning that varies per machine and per alloy, so they ride `ExposureScaling` rows and `ExposureScaling.Baseline` ships the landed values as one named preset. A factor spelled on the vocabulary freezes shop policy into the type system and strands every machine that disagrees.
 - Entry: `ExposureScaling.For(ExposureClass)` is the one factor read; an absent row answers unity, so a partially-stated table scales only what it names.
@@ -746,7 +746,7 @@ public static class ScanSort {
 - Law: a `Jump` is emitted only on a real DISCONTINUITY — the prior vector's end is not this vector's start within the link tolerance. Serpentine emission makes consecutive rays inside a cell contiguous by construction, so an unconditional jump per vector both doubles the event count and makes the `Jumps` counter measure the vector count instead of the dark travel it exists to measure.
 - Law: field correction is calibration DATA, never an injected callback — a sampled correction grid replays byte-for-byte, keys canonically through its own bytes, and is what a scanner vendor actually ships. A caller-supplied correction function has no canonical form, so a plan built with one carries a content key that attests nothing about the geometry the machine received.
 - Cases: exposure with dwell · jump · synchronization barrier · recoat · layer delay.
-- Auto: each remelt pass re-reads the scaling table under `ExposureClass.Remelt`, so a shop that disables remelt sets one row rather than editing an emission arm; the source clamps power, focus, and spot through its own envelope members, so the derate and the clamp exist once.
+- Auto: each remelt pass re-reads the scaling table under `ExposureClass.Remelt`, so a shop that disables remelt sets one row rather than editing an emission arm; the source clamps power, focus, and spot through its own operating-envelope members, so the derate and the clamp exist once.
 - Packages: `Rasm.Fabrication.Process` (`FabricationCanon`, `ContentKey`), `Rhino.Geometry`, `UnitsNet`, LanguageExt.Core.
 - Growth: a machine semantic is one `ScanEvent` case consumed by the existing folds; a correction family is one `DistortionCompensation` case.
 - Boundary: the barrier carries the wave it closes and the sources it holds, so the controller schedules against the same bounded wave vocabulary the election produced.

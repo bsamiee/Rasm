@@ -150,7 +150,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 - import `papermill` at boundary scope only.
 - `execute_notebook` returns the mutated `nbformat.NotebookNode` and writes it to `output_path` throughout the run (`request_save_on_cell_execute=True` drives autosave).
 - `progress_bar=True` emits a tqdm cell-level bar to stdout (`False` in headless/log pipelines); `log_output=True` streams cell stdout/stderr to the logger, with `stdout_file`/`stderr_file` capturing them independently; `cwd` sets the kernel working directory.
-- a custom handler registers via `papermill_io.register(scheme, handler)` before `execute_notebook`; `NotebookNodeHandler` routes an in-memory `NotebookNode` with no path, `NoIOHandler` discards output for execute-only runs.
+- `papermill_io.register(scheme, handler)` registers a custom handler before `execute_notebook`; `NotebookNodeHandler` routes an in-memory `NotebookNode` with no path, `NoIOHandler` discards output for execute-only runs.
 
 [RAIL_LAW]:
 - Package: `papermill`

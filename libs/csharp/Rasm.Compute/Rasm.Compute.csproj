@@ -54,7 +54,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Event Transport">
-        <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
+        <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="MQTTnet" />
         <PackageReference Include="NATS.Net" />
     </ItemGroup>

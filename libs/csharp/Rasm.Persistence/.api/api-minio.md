@@ -218,7 +218,7 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 - Endpoint, region, and credential material are host-resolved connection inputs handed in at composition, never fence members.
 - Every lifted exception folds once at the object-store edge into the closed local fault family, so no provider exception type crosses into domain code.
 - Hop retry belongs to the AppHost `OutboundHop` owner, so the client is built with no retry handler and a transient S3 failure re-drives there.
-- A self-hosted endpoint is provisioned infrastructure, so its reachability probe joins the same host degradation grade as the database and cache endpoints.
+- Self-hosted endpoints are provisioned infrastructure, so their reachability probe joins the same host degradation grade as the database and cache endpoints.
 
 [RAIL_LAW]:
 - Package: `Minio`

@@ -137,7 +137,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 [LOCAL_ADMISSION]:
 - solid ingress enters at `ImportStep`/`ImportIges` under a `using`, tessellated through `Triangulate` at a tolerance-driven deflection (finer linear deflection for a small precision part); the `OcctMesh` triangle soup is the cross-seam payload, never the live `OcctShape` handle.
 - boolean stock-removal (rough-stock minus the part, a fixture-clearance cut) is `Fuse`/`Cut`/`Common` returning fresh disposable shapes; extrude/revolve build a solid from a profile face.
-- stock sizing and the keep-out envelope read from `shape.BoundingBox` on an IMPORTED shape and from the primitive's own dimension properties on a CONSTRUCTED one, never folded from the mesh vertices and never carried alongside the handle as a caller-side duplicate.
+- stock sizing and keep-out clearance both read one bounding envelope — `shape.BoundingBox` on an IMPORTED shape, the primitive's own dimension properties on a CONSTRUCTED one — never folded from the mesh vertices and never carried alongside the handle as a caller-side duplicate.
 
 [RAIL_LAW]:
 - Package: `OcctNet.Wrapper` (MIT)

@@ -6,10 +6,10 @@ Every transcode rides the one `Decode` aspect — a direction-parameterized OTel
 
 ## [01]-[INDEX]
 
-- [02]-[WIRE_RAIL]: the traced-railed `Decode` aspect every wire boundary composes.
-- [03]-[PROTO_TRANSCODE]: the registry-driven `Struct`-to-`Message` codec with its length-prefixed frame pair, and the decode-only mirror codec over the positional-record family.
-- [04]-[CRDT_CODEC]: the MessagePack op-log union with derived causal views, the encode mirror, and the injected compress seams.
-- [05]-[CRDT_STATE]: the five converging state owners and the one `converged` fold every replica materializes an op-log prefix through.
+- [02]-[WIRE_RAIL]: `Decode` — the traced-railed aspect every wire boundary composes.
+- [03]-[PROTO_TRANSCODE]: registry-driven `Struct`-to-`Message` codec with its length-prefixed frame pair, beside the decode-only mirror codec over the positional-record family.
+- [04]-[CRDT_CODEC]: MessagePack op-log union with derived causal views, the encode mirror, and the injected compress seams.
+- [05]-[CRDT_STATE]: five converging state owners beside the one `converged` fold every replica materializes an op-log prefix through.
 
 ## [02]-[WIRE_RAIL]
 
@@ -84,11 +84,11 @@ class Decode:
 ## [03]-[PROTO_TRANSCODE]
 
 - Owner: `WireProtoCodec` is generic over the `(Struct, Message)` pair through the message-agnostic `google.protobuf.proto` façade, so interior code never touches a `Message` and the wire never sees a `Struct`; `WIRE_REGISTRY` derives one codec per imported `PROTO_VOCABULARY` row, so the message family is rows rather than hand clients and this page holds zero shape knowledge.
-- Owner: `WireMirrorCodec` is the second transcode arm the second schema authority earns — the appearance documents cross as the producer's positional integer-keyed MessagePack record and hold no descriptor by ruling, so a proto codec over them transcodes against a message that does not exist. It is DECODE-ONLY on the family's own single-producer law: an encode arm here would be the python-side lowering that law names as the drift defect, so the mirror carries no egress and the arity twin the proto codec grows has nothing to mirror.
+- Owner: `WireMirrorCodec` is the second transcode arm the second schema authority earns — the appearance documents cross as the producer's positional integer-keyed MessagePack record and hold no descriptor by ruling, so a proto codec over them transcodes against a message that does not exist. It is DECODE-ONLY on the family's own single-producer law: an encode arm here IS the python-side lowering that law names as the drift defect, so the mirror carries no egress and the arity twin the proto codec grows has nothing to mirror.
 - Entry: the frame pair exists because a bare per-message `proto.serialize` concatenation loses the record-per-frame boundary the server-stream and bidi contracts need — one framing owner for every streamed leg, never a hand-rolled varint.
-- Auto: the mirror decode is a roster ZIP, not a positional struct decode — `array_like=True` would decode the whole nested tree in the C core, and `WireProvenance` forecloses it by crossing on BOTH wires: the same leaf `convert`s from a proto-derived MAPPING for the set documents, which an array-shaped struct rejects outright. So the zip stands the array's slots against `MIRROR_ORDER` and recurses on `MIRROR_NESTED`, and a SHORT array default-fills by construction — the roster outruns the slots and the missing tail never enters the mapping — which is exactly the producer's own version tolerance for a column appended past its frozen block.
+- Auto: the mirror decode is a roster ZIP, not a positional struct decode — `array_like=True` decodes the whole nested tree in the C core, and `WireProvenance` forecloses that by crossing on BOTH wires: the same leaf `convert`s from a proto-derived MAPPING for the set documents, which an array-shaped struct rejects outright. Zipping therefore stands the array's slots against `MIRROR_ORDER` and recurses on `MIRROR_NESTED`, and a SHORT array default-fills by construction — the roster outruns the slots and the missing tail never enters the mapping — which is exactly the producer's own version tolerance for a column appended past its frozen block.
 - Growth: a new descriptor-backed message is one `PROTO_VOCABULARY` row in `transport/shapes#REGISTRY_AND_DRIFT` — the codec, both rails, and the frame pair already carry it; a new appearance document is one `MIRROR_VOCABULARY` row with its nested slots on `MIRROR_NESTED`; zero new surface here for either.
-- Boundary: the deterministic protobuf binary is the gRPC wire and `json_format` the boundary projection only — never JSON-as-wire-format on the production path. `fault_detail` trailer obligations are `transport/serve#SERVE`'s, and the `evidence/clock#CLOCK` `CausalFrame.of` lift is the inbound owner's — `decode` stays the pure generic transcode. The producer's Web-camelCase JSON leg over the same records is the host-side debug projection and reaches no python decode: one wire per family, and the mirror reads the compact one the corpus contract names its authority.
+- Boundary: deterministic protobuf binary IS the gRPC wire and `json_format` the boundary projection only — never JSON-as-wire-format on the production path. `fault_detail` trailer obligations are `transport/serve#SERVE`'s, and the `evidence/clock#CLOCK` `CausalFrame.of` lift is the inbound owner's — `decode` stays the pure generic transcode. Producer-side Web-camelCase JSON over the same records is the host debug projection and reaches no python decode: one wire per family, and the mirror reads the compact one the corpus contract names its authority.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -174,11 +174,11 @@ MIRROR_REGISTRY: Final[Map[str, WireMirrorCodec[Struct]]] = Map.of_seq((name, Wi
 
 
 def _keyed(name: str, slots: list[object]) -> dict[str, object]:
-    # the positional array as the name-keyed mapping `convert` admits: `zip` without `strict` IS the version tolerance
-    # — a producer's older record runs short and its tail never enters the mapping, so every absent slot takes the
+    # positional array as the name-keyed mapping `convert` admits: `zip` without `strict` IS the version tolerance —
+    # a producer's older record runs short and its tail never enters the mapping, so every absent slot takes the
     # struct's own default exactly as the producer's trailing-growth contract promises. A nested slot recurses by NAME
-    # rather than by value shape, because a nested record and a `repeated` scalar both arrive as bare lists and only
-    # the declared correspondence tells them apart.
+    # rather than by value shape, because a nested record and a `repeated` scalar both arrive as bare lists and
+    # only their declared correspondence tells them apart.
     order = MIRROR_ORDER[name]
     return {
         slot: _keyed(MIRROR_NESTED[slot], value) if slot in MIRROR_NESTED and isinstance(value, list) else value
@@ -194,7 +194,7 @@ def codec(name: str) -> RuntimeRail[WireProtoCodec[Struct, Message]]:
 
 
 def mirror(name: str) -> RuntimeRail[WireMirrorCodec[Struct]]:
-    # the mirror twin of `codec`: two registries, two lookups, one fault CLASS — a caller naming a descriptor row here
+    # mirror twin of `codec`: two registries, two lookups, one fault CLASS — a caller naming a descriptor row here
     # (or a mirror row there) gets the same caller-repairable refusal rather than a codec transcoding against nothing,
     # while the detail names WHICH roster refused so the repair is one lookup rather than a two-registry search.
     return MIRROR_REGISTRY.try_find(name).to_result(BoundaryFault(config=(name, "unregistered-mirror-codec")))
@@ -205,18 +205,20 @@ def mirror(name: str) -> RuntimeRail[WireMirrorCodec[Struct]]:
 - Owner: the canonical op IS the wire arm — each arm's fields are the producer `[Key(k)]` slots, and the `evidence/clock#CLOCK` `Hlc`/`ElementId` reconstructions are derived property views through the field-less `_Stamped`/`_Identified` mixins, so no parallel wire-vs-canonical hierarchy or hand-written lift match survives. Interior code reads `op.cell`/`op.id` while the wire shape stays the flat producer envelope; `CrdtArm` closes the union so callers `match`/`assert_never` over the explicit set.
 - Law: the union root carries `field`, the one slot every producer arm leads with, so slot 1 is fixed for all ten by construction and each arm's own roster starts at slot 2; a per-arm declaration lets one arm omit it and shift every slot behind it by one, which decodes as silent corruption rather than a refusal.
 - Cases: LWW survives only as the `set` arm reconstructing the `LwwRegister`; `beat`/`leave` carry the `EphemeralMap` presence delta a late-joining companion reconstructs from the op-log prefix; `increment` carries the producer's `(sequence, positive, negative)` cumulative triple, so the counter absorbs by ordinal and a replayed op re-lands the same total.
-- Cases: `OpLogEntry` is the pinned envelope — `seq`, `id`, `family`, `kind`, `entity`, and a `Raw` payload — so the resumable ordinal, the causal identity, and the lane all survive the crossing; `seq` resumes a drain and orders nothing, `id` orders and dedups, and the `Raw` payload lets a non-`crdt` lane cross this reader untouched.
+- Cases: `OpLogEntry` is the pinned envelope and its slot order IS the producer record's declaration order — sequence, identity, model, entity key, lane, verb, payload, payload content key, trace slot, closure, actor, then the two HLC halves — so every column the changefeed writes survives the crossing and no positional reader shifts. Short envelopes are the corruption an `array_like` decode cannot report: MessagePack hands the reader the first N slots, so `family` reads the model guid, `kind` reads the entity key, and the payload reads the lane string, each as a well-typed value nothing refuses. `seq` resumes a drain and orders nothing, `id` orders and dedups, `content_key` names the payload bytes while `id` names the operation, `trace` carries the changefeed's own 16-byte trace-id slot rather than a propagation fold, `closure` carries the descendant keys a transfer differences against what a peer holds, and the `Raw` payload lets a non-`crdt` lane cross this reader untouched.
+- Law: the trace slot is a TOP-LEVEL envelope column beside `content_key` and never a key inside `payload`, so a lane whose payload this reader never opens still continues its producing trace, and `closure` stays a declared key set the transfer differences rather than a manifest a consumer walks. Both columns cross for every lane, so no arm reads a column another lane omits.
 - Law: `OperationId` carries the `(origin, counter)` dot beside the frontier its minter observed, and identity NEVER derives from payload content — two peers writing identical bytes are two operations, so a content-keyed log reports the second as a duplicate and discards a real edit. Vector slots — `context` here, `WriteOp.context` and `MaintainOp.quiescent` alike — arrive ASCENDING by origin bytes, the producer's canonical order, because a hash-ordered slot list gives one causal position a different digest per runtime and per insertion history, which is what keeps the shared fixture unfreezable.
 - Auto: FLAT is the SOLE realized codec path — the `CRDT_OPLOG_WIRE_AMENDMENT` deprecates the MessagePack-csharp default `[tag, sub-object]` nesting, so no standing nested-envelope machinery survives here. `physical_ticks` is the C# `Instant.ToUnixTimeTicks()` 100-ns count; the `set` arm is the LWW `Adjudicate` survivor and the union the join-semilattice `[05]`'s `converged` fold materializes, so a peer decoding the prefix reconstructs the identical state any minter holds.
-- Auto: `CrdtOpEncode` is the exact mirror of `CrdtOpDecode` — one cached encoder over the same closed union at both arities — so this owner AUTHORS ops as well as merging them and the `crdt-op` corpus contract becomes a round-trip claim rather than a read-only one. A minted op and a decoded op therefore agree on the keyed-FLAT layout by construction; an encode path spelled per call site would fork exactly the field order the producer pins.
+- Auto: `CrdtOpEncode` is the exact mirror of `CrdtOpDecode` — one cached encoder over the same closed union at both arities — so this owner AUTHORS ops as well as merging them and the `crdt-op` corpus contract becomes a round-trip claim rather than a read-only one. Minted and decoded ops therefore agree on the keyed-FLAT layout by construction, where an encode path spelled per call site forks exactly the field order the producer pins.
 - Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one tagged-union arm inheriting `_Stamped` or `_Identified`, one `converged` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the wire tag first, the companion follows, never ahead of the wire; the deprecated NESTED framing re-enters as one framing member with one `msgspec.Raw` re-frame row only if a producer publishes it; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from typing import Protocol
+from collections.abc import Callable
+from typing import Final, Protocol
 
 import msgspec
-from expression.collections import Block
+from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.runtime.clock import ElementId, Hlc
@@ -231,7 +233,7 @@ class DecompressFn(Protocol):
 
 
 class CompressFn(Protocol):
-    # the egress mirror of the decompress seam: LZ4 stays worker-gated, so the envelope codec is injected at both
+    # egress mirror of the decompress seam: LZ4 stays worker-gated, so the envelope codec is injected at both
     # directions and this page imports no compressor. A default identity thunk is the rejected form — it would ship
     # an uncompressed frame under a `Lz4BlockArray` envelope the peer decompressor then rejects.
     def __call__(self, payload: bytes) -> bytes: ...
@@ -360,18 +362,61 @@ class OperationId(Struct, frozen=True, array_like=True):
         return frontier.try_find(self.origin).default_value(0) >= int(self.counter)
 
 
+class TraceSlot(Struct, frozen=True, array_like=True):
+    # changefeed trace SLOT and never a propagation fold: the producer READS its ambient activity once and stores the
+    # 16-byte trace-id beside the tracestate bytes, so this branch continues that parent and re-mints no propagator.
+    # Absence is the EMPTY slot the producer already writes for a correlation that decoded as nothing, so `parented`
+    # tests the sixteen bytes rather than a nullable column every reader re-checks.
+    trace_id: bytes = b""
+    tracestate: bytes = b""
+
+    @property
+    def parented(self) -> bool:
+        return len(self.trace_id) == 16
+
+
 class OpLogEntry(Struct, frozen=True, array_like=True):
-    # pinned entry envelope, positional — `[seq, [origin, counter, context], family, kind, entity, <raw>]`. `seq`
-    # orders and resumes the producer's own drain and NOTHING else; `id` is what dedups and orders causally, because a
-    # transport ordinal diverges the moment two peers resume from different frontiers. `payload` stays `Raw` so a
-    # non-`crdt` lane crosses this reader untouched — decoding every entry as an op misreads a scalar row as a union
-    # tag, and re-framing per lane is one `Raw` decode rather than a second envelope.
+    # pinned entry envelope, positional, and its slot order IS the producer record's own declaration order —
+    # `[seq, [origin, counter, context], model, entity, family, kind, <raw>, content_key, [trace_id, tracestate],
+    # closure, actor, physical_ticks, logical]`. Declaring fewer slots than the producer writes is SILENT corruption
+    # rather than a refusal: an `array_like` decode reads the leading N and every column behind the truncation shifts
+    # into a neighbour that happens to type-check, so the envelope tracks the producer whole and a column the producer
+    # gains lands here before any consumer reads it. `seq` orders and resumes the producer's own drain and NOTHING
+    # else; `id` is what dedups and orders causally, because a transport ordinal diverges the moment two peers resume
+    # from different frontiers. `content_key` names the PAYLOAD bytes where `id` names the operation, so two peers
+    # writing identical bytes stay two operations. `payload` stays `Raw` so a non-`crdt` lane crosses this reader
+    # untouched — decoding every entry as an op misreads a scalar row as a union tag, and re-framing per lane is one
+    # `Raw` decode rather than a second envelope.
     seq: WireU64
     id: OperationId
+    model: bytes
+    entity: str
     family: str
     kind: str
-    entity: str
     payload: msgspec.Raw
+    content_key: bytes
+    trace: TraceSlot
+    closure: list[bytes]
+    actor: str
+    physical_ticks: WireU64
+    logical: WireU64
+
+    @property
+    def stamp(self) -> Hlc:
+        # producer's `Instant.ToUnixTimeTicks()` 100-ns count beside its logical half, reconstructed exactly as the
+        # op arms' `_Stamped` mixin does, so the envelope and its payload read one clock spelling.
+        return Hlc(self.physical_ticks, self.logical)
+
+    @property
+    def origin(self) -> bytes:
+        # store identity is the DOT's own origin and never a second stored column — the producer derives it the same
+        # way, so a peer resuming a feed and a peer ordering an operation read one value.
+        return self.id.origin
+
+    def missing(self, held: Callable[[bytes], bool], /) -> Block[bytes]:
+        # transfer is a SET DIFFERENCE over the declared closure rather than a tree walk, which is why the column
+        # crosses at all: a consumer asks what it lacks without opening the payload it has not fetched yet.
+        return Block.of_seq(key for key in self.closure if not held(key))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -406,7 +451,7 @@ class CrdtOpDecode:
 
 
 class CrdtOpEncode:
-    # the mirror of `CrdtOpDecode` at both arities over ONE cached encoder: msgspec writes the tag field and the
+    # mirror of `CrdtOpDecode` at both arities over ONE cached encoder: msgspec writes the tag field and the
     # declared field order the producer's `[Key(k)]` slots pin, so an authored op is byte-compatible with a decoded one
     # by construction and the `crdt-op` corpus fixture grades a round trip. The prefix arm encodes the whole `Block` as
     # one MessagePack array, exactly the shape `_prefix` drains, so a per-op concatenation cannot fork the envelope.
@@ -424,13 +469,13 @@ class CrdtOpEncode:
 ## [05]-[CRDT_STATE]
 
 - Owner: `CrdtState` is the materialized replica — one column per convergence family, `LwwRegister`, `OrSet`, `Rga`, `PnCounter`, and `EphemeralMap` — and `converged(state, ops)` the one fold every replica replays an op-log prefix through. Each family owns its own absorb law as a method on its own shape, so the fold's arms carry routing alone and no arm re-derives another family's merge; the whole state is frozen, so a replay returns a successor rather than mutating a cell two readers share.
-- Cases: the ten `CrdtArm` members close onto five families — `set` and `write` both land the register, `add`/`remove` the observed set, `insert_after`/`delete` the sequence, `increment` the counter, `beat`/`leave` the presence map, and `maintain` retires the presence rows its quiescence list names and its liveness horizon expires. Two register arms are ONE owner because they answer every discriminant identically and differ only in whether the writer offered a causal context; a second register type beside the first would fork the survivor law the whole branch converges on.
-- Law: every survivor decision on this page — the register's and the presence map's alike — reads the `evidence/clock#CLOCK` owner's `compare` and folds its `Ordering`, never a raw operator or a re-derived sign at the adjudication seam, because an operator discloses its equality behaviour only through the direction of the sign and two families adjudicating one clock by two spellings drift the instant either bound flips. The register's `equal` arm breaks the tie on origin bytes, since two replicas legitimately stamp one cell and an arbitrary choice there diverges the two materializations permanently; the presence arms resolve `equal` toward the beat, so a leave never evicts the event its own cell names.
-- Law: a causally-contexted `write` survives on DOMINANCE first — a version vector covering every entry the held one carries happened strictly after, so no stamp comparison runs — and only a genuinely concurrent pair falls back to the cell tiebreak. An unconditional last-writer-wins over the same pair silently drops a causal successor whose physical clock lagged its predecessor's.
+- Cases: ten `CrdtArm` members close onto five families — `set` and `write` both land the register, `add`/`remove` the observed set, `insert_after`/`delete` the sequence, `increment` the counter, `beat`/`leave` the presence map, and `maintain` retires the presence rows its quiescence list names and its liveness horizon expires. Two register arms are ONE owner because they answer every discriminant identically and differ only in whether the writer offered a causal context; a second register type beside the first forks the survivor law the whole branch converges on.
+- Law: every survivor decision on this page — the register's and the presence map's alike — reads the `evidence/clock#CLOCK` owner's `compare` and folds its `Ordering`, never a raw operator or a re-derived sign at the adjudication seam, because an operator discloses its equality behaviour only through the direction of the sign and two families adjudicating one clock by two spellings drift the instant either bound flips. `LwwRegister.absorbed` breaks its `equal` arm on origin bytes, since two replicas legitimately stamp one cell and an arbitrary choice there diverges the two materializations permanently; the presence arms resolve `equal` toward the beat, so a leave never evicts the event its own cell names.
+- Law: a causally-contexted `write` survives on DOMINANCE first — a version vector covering every entry the held one carries happened strictly after, so no stamp comparison runs — and only a genuinely concurrent pair falls back to the cell tiebreak. Unconditional last-writer-wins over the same pair silently drops a causal successor whose physical clock lagged its predecessor's.
 - Law: every arm is idempotent and order-insensitive under the tags the wire already carries — an `add` re-adds one tag to a set, a `remove` tombstones exactly the tags it observed so a re-delivered add stays dead, a `delete` tombstones an id whether or not its insert landed yet, and a `beat` loses to a later cell — so a redelivered prefix converges to the same state and no fold counts a duplicate twice. `increment` carries the producer's per-origin ordinal in place of an id: the bucket absorbs the highest ordinal whole over cumulative halves, so a replay re-lands the same total, and per-origin bucketing keeps the sum order-insensitive across origins.
 - Law: `converged` folds the op column; `OpLogEntry.seq` orders and resumes the delivery the codec drains, and no arm reads it, because a state keyed on a transport ordinal diverges the moment two peers resume from different frontiers.
 - Law: `replayed` is the entry-level fold and holds the two gates the op-level fold structurally cannot: a dot already under the applied frontier skips as a redelivery, where content equality reports a second genuine edit of identical bytes as that same skip and loses it; and a `maintain` whose minter never observed the horizon it declares refuses, since reclaiming a tombstone a concurrent insert still needs resurrects a deleted element. Both gates read `OperationId`, so the arms below stay identity-free and a replica that drains ops without their ids keeps neither guarantee.
-- Entry: an `insert_after` naming a predecessor no arriving prefix defined is the fold's one refusal — the transport delivers an ordered prefix, so a gap is a defect rather than a normal out-of-order arrival, and inserting at the head instead would silently reorder the sequence every peer holds.
+- Entry: an `insert_after` naming a predecessor no arriving prefix defined is the fold's one refusal — the transport delivers an ordered prefix, so a gap is a defect rather than a normal out-of-order arrival, and inserting at the head instead silently reorders the sequence every peer holds.
 - Growth: a new convergence family is one `CrdtState` column with its own absorb method and its arms' routing rows; a new op on a standing family is one arm and no column; a new tiebreak axis is one field on the family that needs it, reaching the fold through its own method.
 - Boundary: this owner materializes and never transports — the codec above owns the bytes, the clock owner the comparison algebra, and the durable op-log its own persistence. No column carries a wall-clock instant: ordering is the `Hlc` cell alone, so a host whose clock drifts still converges.
 
@@ -451,7 +496,7 @@ from rasm.runtime.shapes import WireU64
 
 # --- [CONSTANTS] --------------------------------------------------------------------------
 
-# the sequence's own zero: a producer names it as the predecessor of a head insert, so the head case is a VALUE the
+# sequence's own zero: a producer names it as the predecessor of a head insert, so the head case is a VALUE the
 # insert arm already handles rather than a nullable predecessor slot every reader re-checks.
 _ROOT: Final[ElementId] = ElementId(b"", 0)
 
@@ -459,8 +504,8 @@ _ROOT: Final[ElementId] = ElementId(b"", 0)
 
 
 class LwwRegister(Struct, frozen=True):
-    # one register for both write arms: `cell` is the stamp, `origin` the tiebreak the equal arm reads, and `context`
-    # the version vector a causally-contexted write offers — empty for the bare `set` arm, which is exactly why an
+    # one register for both write arms: `cell` is the stamp, `origin` the tiebreak the equal arm reads, and
+    # `context` the version vector a causally-contexted write offers — empty for the bare `set` arm, which is why an
     # uncontexted write never claims dominance over a contexted one it cannot order.
     value: bytes = b""
     cell: Hlc = Hlc(0, 0)
@@ -468,7 +513,7 @@ class LwwRegister(Struct, frozen=True):
     context: Map[bytes, int] = Map.empty()
 
     def absorbed(self, candidate: "LwwRegister") -> "LwwRegister":
-        # the survivor decision, read through ONE `fold` call site on the clock owner's own verdict — never a
+        # survivor decision, read through ONE `fold` call site on the clock owner's own verdict — never a
         # re-derived sign comparison here. `equal` breaks on origin bytes: two replicas can legitimately stamp one
         # cell, and choosing arbitrarily there leaves the two materializations permanently divergent.
         return self.cell.compare(candidate.cell).fold(
@@ -477,8 +522,8 @@ class LwwRegister(Struct, frozen=True):
 
     def written(self, candidate: "LwwRegister") -> "LwwRegister":
         # dominance FIRST, stamp second: a context covering the held vector happened strictly after, so the physical
-        # halves never enter the decision. Only a concurrent pair — neither dominating — reaches the tiebreak, which is
-        # the one place an unconditional LWW drops a causal successor whose clock lagged.
+        # halves never enter the decision. Only a concurrent pair — neither dominating — reaches the tiebreak, and
+        # that is the one place an unconditional LWW drops a causal successor whose clock lagged.
         return (
             candidate
             if _dominates(candidate.context, self.context)
@@ -569,7 +614,7 @@ class EphemeralMap(Struct, frozen=True):
         return EphemeralMap(beats=self.beats.add(origin, self._survivor(origin, state, cell)))
 
     def left(self, origin: bytes, cell: Hlc) -> "EphemeralMap":
-        # the clear folds the clock owner's own verdict exactly as the register's adjudication does: a stale leave
+        # clearing folds the clock owner's own verdict exactly as the register's adjudication does: a stale leave
         # arriving after its origin beat again must not evict a live replica, and the `equal` arm KEEPS the beat
         # because one cell names one event the beat already published.
         cleared = self.beats.try_find(origin).map(
@@ -591,7 +636,7 @@ class EphemeralMap(Struct, frozen=True):
         )
 
     def _survivor(self, origin: bytes, state: bytes, cell: Hlc) -> tuple[bytes, Hlc]:
-        # the held beat survives only when it happened strictly after, read through the SAME `compare`/`fold` seam the
+        # held beats survive only where they happened strictly after, read through the SAME `compare`/`fold` seam the
         # register uses — a raw `>` discloses its equality behaviour only through the direction of the sign, so two
         # families adjudicating one clock by two spellings drift the instant either flips a bound.
         return (
@@ -602,7 +647,7 @@ class EphemeralMap(Struct, frozen=True):
 
 
 class CrdtState(Struct, frozen=True):
-    # the materialized replica: one column per convergence family, each carrying its own absorb law, so `converged`
+    # materialized replica: one column per convergence family, each carrying its own absorb law, so `converged`
     # routes and never merges. Frozen whole — a replay returns a successor, so a reader holding the prior state keeps
     # a consistent snapshot rather than watching a cell shift under it.
     register: LwwRegister = LwwRegister()
@@ -617,8 +662,8 @@ class CrdtState(Struct, frozen=True):
 
 def _dominates(candidate: Map[bytes, int], held: Map[bytes, int]) -> bool:
     # strict causal dominance: every entry the held vector carries is matched or exceeded, and at least one is
-    # exceeded. Non-strict would report two identical vectors as ordered and route a genuinely concurrent pair past
-    # the tiebreak that exists for it.
+    # exceeded. Non-strict reports two identical vectors as ordered and routes a genuinely concurrent pair past the
+    # tiebreak that exists for it.
     return all(candidate.try_find(origin).default_value(0) >= counter for origin, counter in held.items()) and any(
         candidate.try_find(origin).default_value(0) > held.try_find(origin).default_value(0) for origin in candidate.keys()
     )
@@ -665,7 +710,7 @@ def _joined(held: Map[bytes, int], advanced: Map[bytes, int]) -> Map[bytes, int]
 
 
 def converged(state: CrdtState, ops: Block[CrdtArm]) -> RuntimeRail[CrdtState]:
-    # the ONE fold every replica materializes an op-log prefix through: each arm routes to its family's own absorb
+    # ONE fold every replica materializes an op-log prefix through: each arm routes to its family's own absorb
     # method and the total `match` proves the ten arms are covered, so a new op kind breaks here at type-check rather
     # than converging silently onto the wrong column. The fold threads the rail so the single causal refusal below can
     # stop the replay at the op that broke it, naming the predecessor rather than the whole prefix.
@@ -689,11 +734,11 @@ def _applied(state: CrdtState, op: CrdtArm) -> RuntimeRail[CrdtState]:
         case IncrementOp():
             return Ok(replace(state, counter=state.counter.incremented(op.origin, op.sequence, op.positive, op.negative)))
         case InsertAfterOp():
-            # the fold's ONE refusal: the transport delivers an ordered prefix, so an unknown predecessor is a gap in
+            # ONE fold refusal: the transport delivers an ordered prefix, so an unknown predecessor is a gap in
             # that prefix rather than a normal out-of-order arrival, and head-inserting instead would reorder the
             # sequence every peer holds. The root id is the sequence's own zero, always defined. `boundary` and never
-            # `wire`: the gap is a seam classification of delivered material carrying no protocol code, and a `0` in
-            # the `wire` slot would publish a status this fold never read.
+            # `wire`: the gap is a seam classification of delivered material carrying no protocol code, and a `0`
+            # there publishes a status this fold never read.
             return (
                 Ok(replace(state, sequence=state.sequence.inserted(op.predecessor, op.id, op.value)))
                 if op.predecessor == _ROOT or state.sequence.defined(op.predecessor)

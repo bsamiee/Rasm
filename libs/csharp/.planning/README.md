@@ -22,7 +22,9 @@ Package roots in strata order; each root README routes its own design pages, and
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogues without registry rows. Host SDK assemblies are not packages and home at the branch tier catalogue-only where more than one folder composes one surface: `RhinoCommon` because the kernel and both host-boundary folders reach it, and `Eto`, `Eto.macOS`, `Microsoft.macOS`, and `Rhino.UI` because both host-boundary folders do — each folder tier then registers the branch catalogue by path and holds only the subsystem its own boundary reaches.
+Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogues without registry rows.
+
+CloudEvents siblings split by what a catalogue STACKS on: the message-envelope core and every event FORMAT sibling catalogue at the branch tier, since the kernel owns one codec identity every folder composes, while a protocol BINDING catalogues at the tier its transport carrier already holds — Kafka and AMQP beside `api-kafka.md` and `api-amqpnetlite.md` at the Persistence tier, ASP.NET Core at the branch tier its framework carrier sits on. Promoting a binding catalogue above its carrier reaches DOWN into a folder tier for the surface it stacks on, which is the inversion this split forecloses. Host SDK assemblies are not packages and home at the branch tier catalogue-only where more than one folder composes one surface: `RhinoCommon` because the kernel and both host-boundary folders reach it, and `Eto`, `Eto.macOS`, `Microsoft.macOS`, and `Rhino.UI` because both host-boundary folders do — each folder tier then registers the branch catalogue by path and holds only the subsystem its own boundary reaches.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -57,8 +59,8 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `SharpGLTF.Toolkit` — typed vertex, mesh, scene, and material builders folding into a `ModelRoot`.
 - `SharpGLTF.Runtime` — scene templatization and per-instance animation decode.
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
-- `Speckle.Sdk` — the `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
-- `Speckle.Objects` — the geometry roster and `DataObject` host-object family over `Base`.
+- `Speckle.Sdk` — `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
+- `Speckle.Objects` — geometry roster and `DataObject` host-object family over `Base`.
 - `Unofficial.laszip.netstandard` — one managed LAS/LAZ codec behind scan-to-BIM decode, chunked residence, and `.lax` windowed reads.
 
 [MESH_PROCESSING]:
@@ -113,9 +115,8 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — CloudEvents 1.0 envelope and typed attribute algebra.
+- `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope and typed attribute algebra.
 - `CloudNative.CloudEvents.SystemTextJson` — structured/binary/batch JSON event formatter over STJ.
-- `CloudNative.CloudEvents.Mqtt` — structured-mode MQTT binding; Persistence egresses, Compute ingests.
 - `NATS.Net` — NATS protocol: Core pub/sub, JetStream durable streams, KV, Object Store, and the capture-ingest seam.
 
 [MACHINE_CONNECTIVITY]:

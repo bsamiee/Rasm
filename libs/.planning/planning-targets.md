@@ -30,6 +30,7 @@
 [CROSS_CUTTING_SURFACES]:
 - Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
 - Cross-language contracts: `tests/contracts/` defines every seam schema and proves it; a branch page minting or producing a contract binds its `MANIFEST.md` entry.
+- Event fabric: `libs/.planning/ARCHITECTURE.md` `[14]-[EVENT_FABRIC]` legislates the message envelope, and its three branch seats are `libs/csharp/Rasm/.planning/Domain/event.md`, `libs/python/runtime/.planning/transport/`, and `libs/typescript/core/.planning/interchange/`.
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server services, native capabilities, and extension availability.
 - Pass execution: `.claude/workflows/` (campaign workflows) and `.claude/commands/` (session skills)

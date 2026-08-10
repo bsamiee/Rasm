@@ -9,32 +9,35 @@
 - [02]-[LOGGING](.planning/observability/logging.md): `LogPipeline` chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
 - [03]-[METRICS](.planning/observability/metrics.md): `Metrics` spine — `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
-- [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job envelope.
+- [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job message envelope.
 - [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner.
 - [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
 - [08]-[JOURNAL](.planning/observability/journal.md): Durable fact stream, retention classes, exact-decimal rating, and crypto-shredded erasure.
 
 [RELIABILITY]:
 - [09]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate.
-- [10]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy table, one row per retryable class.
+- [10]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy, failure window, and admission rate.
 
 [TRANSPORT]:
 - [11]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
 - [12]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
 - [13]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
 - [14]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
+- [15]-[EVENT](.planning/transport/event.md): CloudEvents message envelope owner — attribute grammar, extension roster, and the format contract.
+- [16]-[BINDING](.planning/transport/binding.md): Protocol binding rows, the fact emitter, and the broker lane.
+- [17]-[FILTER](.planning/transport/filter.md): CESQL expression owner, the seven filter dialects, and the subscription resource.
 
 [EXECUTION]:
-- [15]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
-- [16]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [17]-[WORKERS](.planning/execution/workers.md): Worker crossing — closed kind family, kernel value, warm pools, the fenced work lease, supervision.
-- [18]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
+- [18]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, settings, and trust rows.
+- [19]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
+- [20]-[WORKERS](.planning/execution/workers.md): Worker crossing — closed kind family, kernel value, warm pools, the fenced work lease, supervision.
+- [21]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [19]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
-- [20]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
-- [21]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [22]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
+- [22]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [23]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
+- [24]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [25]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -57,12 +60,6 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `stamina`
 - `opentelemetry-instrumentation-grpc`
 - `grpcio-health-checking`
-- `confluent-kafka[schemaregistry,avro,json,protobuf]` — librdkafka client and the Schema Registry serializer family.
-- `nats-py` — NATS core and JetStream client for the subject-addressed arm.
-- `paho-mqtt` — MQTT client for the telemetry and edge-device arm.
-- `pika` — blocking AMQP 0-9-1 client on the `to_thread` arm.
-- `fastavro` — Avro codec under the registry serializer and the `.avsc` schema validator.
-- `jsonschema` — payload validation against a fetched JSON Schema document.
 
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
@@ -93,6 +90,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 [PARSING]:
 - `cyclopts` — typed CLI entrypoint grammar for the daemon.
+- `lark` — CESQL grammar engine behind the `sql` filter dialect; geometry registers the same substrate for its selector grammar.
 - `tree-sitter`
 - `tree-sitter-python`
 - `tree-sitter-typescript`
@@ -131,6 +129,13 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `fsspec`
 - `obstore`
 - `universal-pathlib`
+- `cloudevents` — specification attribute algebra, JSON format, and four protocol bindings.
+- `confluent-kafka` — librdkafka client and the Schema Registry serializer family behind the Kafka binding row.
+- `nats-py` — NATS core and JetStream client behind the subject-addressed binding row.
+- `paho-mqtt` — MQTT client behind the two unprefixed binding rows.
+- `pika` — blocking AMQP 0-9-1 client behind the RabbitMQ binding row.
+- `fastavro` — Avro codec beneath the registry serializer and the branch-owned Avro format row.
+- `jsonschema` — payload validation against a foreign JSON Schema, beneath the registry JSON serializer and every `dataschema` a producer publishes.
 
 [COMPRESSION]:
 - `lz4`

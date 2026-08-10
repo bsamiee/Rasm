@@ -897,7 +897,7 @@ public sealed partial record SolidTopology {
 - Owner: `SolidProjection` is the closed egress row carrying its own view delegate, and `SolidView` carries each row's result shape.
 - Cases: space · input-mesh · input-topology · bounds · units · diagnostics · repair · receipt.
 - Entry: `SolidProjection.<row>.Project(SolidImportReceipt)` — the row IS the dispatch, so the eight payload-free request cases and the eight-arm `Switch` that read them both die.
-- Auto: the bounds view reads the provider's exact rescaled envelope where one exists and the measured input bounds otherwise, so a tessellated stock envelope never reads tighter than the solid it was sampled from.
+- Auto: the bounds view reads the provider's exact rescaled bounding envelope where one exists and the measured input bounds otherwise, so stock sized from a tessellation-derived bounding envelope never reads tighter than the solid it was sampled from.
 - Growth: a new egress is one `SolidProjection` row carrying its delegate and one `SolidView` case.
 - Boundary: `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside the explicit input snapshot, so both states read off one receipt; exact CAD and 3MF round-trip belongs to a representation-preserving owner, never this triangulating ingress.
 

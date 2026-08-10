@@ -35,7 +35,7 @@ Every reopen predicate rides the license gate.
 - `RemeshOp` stays beside `segment`'s host capture — first-principles rewrite against parameter echo; reopens on RhinoCommon structural predicates.
 - Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
 - `Lm.Minimize` is the ONE damped iterate — a private loop forks the singular guard, accept order, and budget accounting; refine rides an `ILmModel`.
-- Hulls split by robustness tier — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact envelope.
+- Hulls split by robustness tier — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact hull.
 - `SpatialIndex` owns primitive-AABB broad phase, `NeighborIndex` bare-point neighborhoods — the query subject decides, never one shared owner.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
 - `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.

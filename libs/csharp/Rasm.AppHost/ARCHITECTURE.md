@@ -183,7 +183,7 @@ flowchart LR
     Kernel e41@-->|"[PORT]: ReceiptSinkPort + TenantContext"| Runtime
     Bim e25@-->|"[PORT]: BimHooks"| Observability
     Bim e26@-->|"[RECEIPT]: BimBenchReceipt"| Observability
-    Bim e39@-->|"[WIRE]: BimEvent"| Wire
+    Bim e39@-->|"[EVENT]: CloudEvents announcement"| Wire
     Bim e43@-->|"[WIRE]: BrickGraph"| Wire
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
     Observability e31@-->|"[PORT]: InstrumentSet + SpanBand"| Element

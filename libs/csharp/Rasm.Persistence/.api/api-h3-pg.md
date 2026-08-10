@@ -33,13 +33,13 @@ One cell vocabulary spans in-process and in-database indexing: the id this surfa
 |  [10]   | `h3index::point`                           | cast     | centroid as a native PG point                         |
 |  [11]   | `h3index::geometry` / `h3index::geography` | cast     | centroid as a PostGIS value                           |
 
-- `geometry @ integer`: a `geography` left operand pairs it; both ride `h3_postgis`.
+- `geometry @ integer`: `geography` left operands pair it, both riding `h3_postgis`.
 
 ## [03]-[INDEXING]
 
 [INDEXING_ENTRY_SCOPE]: location-to-cell conversion and cell inspection
 
-A native `point` argument reads `(lat, lng)`; the `h3_postgis` `geometry`/`geography` overloads read SRID-4326 `(lng, lat)` and cast internally to the same cell. Resolution spans `0..15`.
+Native `point` arguments read `(lat, lng)`; the `h3_postgis` `geometry`/`geography` overloads read SRID-4326 `(lng, lat)` and cast internally to the same cell. Resolution spans `0..15`.
 
 | [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                          |
 | :-----: | :----------------------------------------------- | :------- | :------------------------------------ |
@@ -95,7 +95,7 @@ Each metric carries a trailing `unit text` argument defaulting to `km` or `km^2`
 
 [BRIDGE_ENTRY_SCOPE]: region fill and the `h3_postgis` geometry, geography, EWKB, and raster legs
 
-Core region functions take a native PG exterior `polygon` with a `polygon[]` hole array; bridge overloads take PostGIS values at SRID 4326, and every listed surface returns `SETOF h3index` unless the row shows otherwise. A `geometry` argument or `_geometry` suffix pairs with a `geography` twin under the same name. `containment_mode` admits `center`, `full`, `overlapping`, `overlapping_bbox`. PostgreSQL carries no native multipolygon type, so the WKB leg returns EWKB `bytea`.
+Core region functions take a native PG exterior `polygon` with a `polygon[]` hole array; bridge overloads take PostGIS values at SRID 4326, and every listed surface returns `SETOF h3index` unless the row shows otherwise. `geometry` arguments and `_geometry` suffixes each pair with a `geography` twin under the same name. `containment_mode` admits `center`, `full`, `overlapping`, `overlapping_bbox`. PostgreSQL carries no native multipolygon type, so the WKB leg returns EWKB `bytea`.
 
 | [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                              |
 | :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------- |
@@ -112,7 +112,7 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 |  [11]   | `h3_cells_to_multi_polygon_wkb(h3index[]) -> bytea`                   | function | cell set to a multipolygon as EWKB        |
 |  [12]   | `h3_get_resolution_from_tile_zoom(integer) -> integer`                | function | resolution for an XYZ tile zoom level     |
 
-- `h3_cells_to_multi_polygon_geometry`: a second form over `setof h3index` is an aggregate finaliser, so a `GROUP BY` rolls a cell column into one multipolygon with no prior `array_agg`.
+- `h3_cells_to_multi_polygon_geometry`: its second form over `setof h3index` finalises an aggregate, so a `GROUP BY` rolls a cell column into one multipolygon with no prior `array_agg`.
 
 [RASTER_ENTRY_SCOPE]: per-cell raster summarization over `postgis_raster`, each summary returning `TABLE (h3 h3index, …)` for one band; `_clip`, `_centroids`, and `_subpixel` name the explicit strategies and the bare form selects one by pixels-per-cell
 
@@ -123,7 +123,7 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 
 [INDEX_SUPPORT_TYPE_SCOPE]: operator classes over the four built-in access methods
 
-`h3-pg` registers no custom access method. A bare `CREATE INDEX ON t (cell)` picks the default btree class, whose ordering is raw 64-bit, so spatial locality comes from the H3 hierarchy rather than the index sort.
+`h3-pg` registers no custom access method, so a bare `CREATE INDEX ON t (cell)` picks the default btree class; its raw 64-bit ordering leaves spatial locality to the H3 hierarchy rather than the index sort.
 
 | [INDEX] | [OPCLASS]                  | [AM]   | [DEFAULT] | [CAPABILITY]                                                     |
 | :-----: | :------------------------- | :----- | :-------: | :--------------------------------------------------------------- |

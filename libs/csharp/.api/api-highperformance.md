@@ -200,7 +200,7 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 
 [STACKING]:
 - `Rasm.Materials` `Raster/plane#TEXTURE_PLANE` is the texture estate's arena consumer: `MemoryOwner<T>.Allocate` + `Memory<T>.AsMemory2D(rows, width)` seat every typed-texel plane, `Span2D<T>.GetRowSpan(int)` is the row rail, `Memory2D<T>.Slice` the layer window, and `SpanOwner<T>.Allocate` every per-row lane scratch — the reciprocal edge of the four texture catalogs naming this package their arena owner.
-- `ParallelHelper.For2D<TAction>(int, int, int, int)` orders its bounds **top, bottom, left, right** — never `(x, y, w, h)`; a transposed call partitions a rotated plane and no gate raises.
+- `ParallelHelper.For2D<TAction>(int, int, int, int)` orders its bounds `(top, bottom, left, right)`, never `(x, y, w, h)`; a transposed call partitions a rotated plane and no gate raises.
 - `Span2D<T>` constructs over `(ref T, height, width, pitch)`: the padded-pitch form is what un-pads a WebGPU 256-byte-aligned `BytesPerRow` readback without a repack.
 - `Microsoft.Extensions.Caching.Hybrid`(`.api/api-hybrid-cache.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>` serialize target, and its `WrittenMemory` feeds the paired deserialize read, so an L2 payload never materializes an intermediate array.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `MemoryOwner<byte>.DangerousGetArray` hands its rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap`, and the owner disposes after the send it backs.

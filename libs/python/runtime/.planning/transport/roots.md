@@ -1,13 +1,13 @@
 # [PY_RUNTIME_ROOTS]
 
-Resource-root, object-store, and transport-resource acquisition: `ResourceRoot` admits file, object-store, and scratch roots over `fsspec`/`universal-pathlib` with traversal-safe relative resolution, `ObjectStoreLane` is the one `obstore` operation surface the whole branch dispatches through, and `TransportResource` is the one tagged union over `httpx` HTTP and `asyncssh` SSH/SFTP generic-artifact acquisition. `RemoteEndpoint` is the one asyncssh channel custodian — connection identity, options construction, known-hosts law, and the credential un-mask live here for both consumers, the SFTP acquisition legs on this page and the `execution/workers#POOL` REMOTE exec crossing — so the asyncssh scope widens exactly one seam past SFTP-read and a second SSH dial spelling never forms. `HttpEndpoint` is its HTTP mirror, carrying the destination identity, the RFC-9111 cache posture, the egress hop, and the keyed-store coordinate. No durable store, daemon scheduler, product store-root derivation, or AEC-collaboration transport crosses this page; Speckle, OPC-UA, and MQTT terminate C#-side per the cross-`libs/` boundary and reach the companion through the canonical wire, never a second Python client leg.
+Resource-root, object-store, and transport-resource acquisition: `ResourceRoot` admits file, object-store, and scratch roots over `fsspec`/`universal-pathlib` with traversal-safe relative resolution, `ObjectStoreLane` is the one `obstore` operation surface the whole branch dispatches through, and `TransportResource` is the one tagged union over `httpx` HTTP and `asyncssh` SSH/SFTP generic-artifact acquisition. `RemoteEndpoint` is the one asyncssh channel custodian — connection identity, options construction, known-hosts law, and the credential un-mask live here for both consumers, the SFTP acquisition legs on this page and the `execution/workers#POOL` REMOTE exec crossing — so the asyncssh scope widens exactly one seam past SFTP-read and a second SSH dial spelling never forms. `HttpEndpoint` is its HTTP mirror, carrying the destination identity, the RFC-9111 cache posture, the egress hop, and the keyed-store coordinate. No durable store, daemon scheduler, product store-root derivation, broker acquisition, or AEC-collaboration transport crosses this page; Speckle and OPC-UA terminate C#-side per the cross-`libs/` boundary and reach the companion through the canonical wire, while every broker-addressed acquisition seats at `transport/binding#BINDING` beside the envelope it carries.
 
-Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience#RESILIENCE` `guarded` retried-traced-railed envelope, so the page mints no second retry loop, derivation span, or inline `try`/`except` ladder. A STREAM acquisition returns its lazy iterator under single-consumer custody and defers the provider-fault lift to the `evidence/identity#IDENTITY` consumer that pulls it. One `StoreBackend` row family is the branch's whole store vocabulary — every scheme roster, reach cell, and native driver name derives from it — and one `ObjectStoreLane` owns the whole `obstore` operation set beneath it, so `data/tabular/egress#EGRESS` composes the transport rather than re-minting a second provider composer beside it: receipt, quantity, and veto semantics at the data tier, transport at this one.
+Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience#RESILIENCE` `guarded` retried-traced-railed envelope, so the page mints no second retry loop, derivation span, or inline `try`/`except` ladder. STREAM acquisitions return their lazy iterator under single-consumer custody and defer the provider-fault lift to the `evidence/identity#IDENTITY` consumer that pulls it. One `StoreBackend` row family is the branch's whole store vocabulary — every scheme roster, reach cell, and native driver name derives from it — and one `ObjectStoreLane` owns the whole `obstore` operation set beneath it, so `data/tabular/egress#EGRESS` composes the transport rather than re-minting a second provider composer beside it: receipt, quantity, and veto semantics at the data tier, transport at this one.
 
 ## [01]-[INDEX]
 
-- [02]-[RESOURCE]: the `Transfer` acquisition aspect over resource roots, references, and transport resources.
-- [03]-[STORE]: the `ObjectStoreLane` object-store operation surface — the `StoreOp` axis, the `_ROUTE` fold, the reach matrix, and the caller-supplied admission gate.
+- [02]-[RESOURCE]: `Transfer` — the acquisition aspect over resource roots, references, and transport resources.
+- [03]-[STORE]: `ObjectStoreLane` — the object-store operation surface: the `StoreOp` axis, the `_ROUTE` fold, the reach matrix, and the caller-supplied admission gate.
 
 ## [02]-[RESOURCE]
 
@@ -15,14 +15,14 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
 - Cases: outbound credentials resolve through `execution/admission#SETTINGS` `SecretBoundary.resolve` BEFORE case construction and ride as `Option[SecretStr]`, un-masking through `_BearerAuth`/`_proxy`/`_ssh_options` only at the transport seam — admission owns gating at credential resolution, so re-checking `RuntimeContext.admits` inside `acquire`/`read` is the forbidden double-gate. Each case carries ONE endpoint owner beside its `RetryClass`: the `ssh` case a `RemoteEndpoint` whose `password` is the connection authentication secret, distinct from a key-decryption passphrase a `client_keys` field carries, whose `known_hosts` is the admission-supplied verified database, and whose `root` confines every SFTP request through `confined`, so an absolute or escaping path rails before any dial, the dial carrying connect-timeout and keepalive policy as constants so an idle fleet channel's death is observed within `SSH_KEEPALIVE_MAX` probes rather than discovered at the next submit; the `http` case an `HttpEndpoint` whose `posture` declares the destination's cache class, whose `proxy` declares its egress hop, whose `confined` holds the same gate over the request url, and whose `pool` axes key the client. `Delivery` is the caller-declared closed-enum discriminant — never an `obstore.head` size probe re-deriving it from a second metadata round-trip.
 - Law: containment is ONE gate spelled at the three residences it guards — `ResourceRoot.child` resolves a filesystem child against a resolved root, `RemoteEndpoint.confined` normalizes a POSIX request under the session root, `HttpEndpoint.confined` reads an RFC-3986 join back against its origin and path — because each residence resolves escapes by its own rules and no single fold expresses all three. What they share is the verdict and the comparison: an escaping request rails `resource` under its own `traversal:` subject BEFORE any dial, request, or handle, and every gate compares resolved SEGMENTS rather than string prefixes.
 - Law: `TRANSPORT_ARMS` answers the selection descriptor per arm as data — `fits`, `admit`, `lifetime`, `degrade` — because the `(Endpoint, RetryClass)` tuple states machinery and never which arm a reader wants, and the two arms diverge on every cell: a pooled, cached, proxied HTTP dial and a per-call SFTP dial share no pool, no cache, no egress vocabulary, and no session custody. Tenancy is not a column, on `StoreBackend`'s own reason — an arm isolates no tenant, the endpoint's confined root and resolved credential do — and a coordinate an arm cannot express records the divergence on `degrade` rather than dropping the column.
-- Law: `_object_store`/`_transport_client` memoise one handle per key — `from_url` parses, resolves, and binds credentials, so per-access reconstruction re-pays that cost, and the credential provider joins the store key as its own axis because two roots differing only in provider are two credential resolutions the one handle cannot serve. A client key holds only plain strings whose secrets are one-way digests: an `httpx.Proxy` value would key by object identity and fork a pool per call site, while a live secret there would key by secret. Retry has ONE owner: `RetryClass` holds every curve, and `store_handle` pins the Rust core to a single attempt so no store operation runs under two schedules whose effective attempts are their product. `AsyncHTTPTransport(retries=CONNECT_RETRIES)` survives beside it because it re-dials a failed CONNECTION alone and moves no request, so it composes under a curve rather than nesting a second one inside it. `http2=True` is load-bearing — the concurrent-small-object fan-out multiplexes over one negotiated h2 connection instead of queueing on `max_connections`. Status enforcement is the client `event_hooks` response seam bound once, never an asymmetric inline `raise_for_status`.
-- Law: egress policy is per DESTINATION and rides the `next_transport` the cache transport wraps, so one row states proxy, connect retries, h2, and pool bounds together and an absent proxy IS direct egress. `AsyncClient(proxy=)` is the refused spelling for a reason the provider fixes in code: a client-level proxy mounts a fresh bare transport per url pattern that the client returns ahead of an explicit `transport=`, so a proxied request bypasses both the cache and the connect retries, and the same explicit `transport=` disables env-proxy resolution so `HTTP_PROXY`/`HTTPS_PROXY` are inert for that client. The proxy credential joins the client key as a digest rather than riding per request, because it is baked into the `Proxy` the pooled transport holds — two callers proxying one hop under different credentials are two transports, or the second rides the first's identity.
+- Law: `_object_store`/`_transport_client` memoise one handle per key — `from_url` parses, resolves, and binds credentials, so per-access reconstruction re-pays that cost, and the credential provider joins the store key as its own axis because two roots differing only in provider are two credential resolutions the one handle cannot serve. Client keys hold plain strings alone and their secrets ride one-way digests: an `httpx.Proxy` value keys by object identity and forks a pool per call site, and a live secret there keys by secret. Retry has ONE owner: `RetryClass` holds every curve, and `store_handle` pins the Rust core to a single attempt so no store operation runs under two schedules whose effective attempts are their product. `AsyncHTTPTransport(retries=CONNECT_RETRIES)` survives beside it because it re-dials a failed CONNECTION alone and moves no request, so it composes under a curve rather than nesting a second one inside it. `http2=True` is load-bearing — the concurrent-small-object fan-out multiplexes over one negotiated h2 connection instead of queueing on `max_connections`. Status enforcement is the client `event_hooks` response seam bound once, never an asymmetric inline `raise_for_status`.
+- Law: egress policy is per DESTINATION and rides the `next_transport` the cache transport wraps, so one row states proxy, connect retries, h2, and pool bounds together and an absent proxy IS direct egress. `AsyncClient(proxy=)` is the refused spelling for a reason the provider fixes in code: a client-level proxy mounts a fresh bare transport per url pattern that the client returns ahead of an explicit `transport=`, so a proxied request bypasses both the cache and the connect retries, and the same explicit `transport=` disables env-proxy resolution so `HTTP_PROXY`/`HTTPS_PROXY` are inert for that client. Proxy credentials join the client key as a digest rather than riding per request, because the credential is baked into the `Proxy` the pooled transport holds — two callers proxying one hop under different credentials are two transports, or the second rides the first's identity.
 - Law: the HTTP cache rides the transport seam, so one long-lived `AsyncClient` keeps its timeout, auth, and status hook while `AsyncCacheTransport` wraps the pooled `AsyncHTTPTransport` beneath it — a swapped `AsyncCacheClient` is the rejected form, and posture is per DESTINATION from birth because one freshness rule cannot serve both a long-TTL revalidating catalog root and a presigned URL that must never be stored at all. Cache state crosses in BOTH directions on the provider's own extension vocabulary: the posture's `RequestMetadata` keys ride the outbound request so body-keying and TTL refresh are per-destination request facts rather than a policy subclass every request through the pooled client then pays, and the response's `ResponseMetadata` keys land the reached decision and its stored-at stamp on the acquisition span its own plan opened — never a hit/miss inferred from `Cache-Control`/`Age` headers and never a span-derived counter, because `opentelemetry-instrumentation-httpx` spans BENEATH the cache so a served entry emits no origin span at all. This is the RFC-9111 revalidation half of the two-cache ruling; `execution/recipe#RECIPE` owns content-keyed artifact elision and neither substitutes for the other.
 - Law: the residence credential rides `ResourceRef`, so every store-opening consumer reads ONE column instead of growing its own — a lane takes no `credential_provider` beside its ref, a keyed store takes none beside its root, and a page holding a bare ref reaches a private or requester-pays residence without a second field its own callers then have to fill. It seats on the ref rather than the root because the ref is what CROSSES: a root mints refs and stamps its own provider onto each, so the fact travels with the coordinate it credentials and a consumer never joins two values to open one handle.
-- Law: a returned STREAM is single-consumer and `_Fenced` is where that custody is real — the guard enters ahead of the delegated pull, so an overlapping second puller rails on `anyio.BusyResourceError` before it can interleave the provider session, where a guard inside a leg's own generator never fires at all: the interpreter rejects the frame re-entry first, with an untyped raise naming the frame rather than the resource. The guard reads OVERLAP and not ownership, so a sequential hand-off between tasks stays lawful. The same bracket ends the acquisition span, because a span is a value the leg carries and never an attached context: an async generator shares its consumer's context, so attaching there leaves the acquisition span current between pulls and stamps every unrelated operation the consumer runs mid-drain.
-- Law: an abandoned stream releases its provider session deterministically through one `AsyncExitStack` per leg — `aclose()` raises `GeneratorExit` into the suspended `yield` and the stack unwinds in reverse order — closing only the per-call response context, never the cached client. `drain` is the one teardown the daemon awaits as a `(subject, stage)` row on the `transport/serve#ENTRY` drain fold, and it is TERMINAL for the composition rather than a reclaim a live acquisition may race: it runs after that entry stopped admitting, so a client minted between the clear and the close would outlive the teardown that already enumerated the map while a request already in flight would meet a closed pool. Custody is therefore one-way — a re-armed composition mints fresh handles rather than adopting a drained map, exactly as the band probe re-registers rather than surviving its retire. Every pooled client `aclose`s so no pool reaches the GC, and ONE close is total because the client closes its transport and the cache transport closes both the wrapped pool and its keyed storage — a second `storage.close()` beside it is the doubled teardown, never the missing one. The cached `ObjectStore` is a GC-safe Rust handle whose cache only clears.
-- Entry: `read` is ONE entry over both arities, discriminating on the value — a `ResourceRef` answers `Acquired`, a `Block[ResourceRef]` fans that same per-ref plan through one task group and answers a `Batch` whose members each carry their own rail, so a refused ref sheds no sibling's payload and a caller re-drives exactly what failed. The fan inherits the bounds the single acquisition already takes — `SCAN_BAND` on every filesystem hop, the row's own retry envelope on every store hop — so it buys concurrency and never a second bound; the `scan` band registers its occupancy probe on the first filesystem plan and retires on `drain`. A WHOLE acquisition crosses the one `guarded` envelope, `CLASSIFY` landing the precise tag under the plan's subject — never a `.map_error` re-tag forcing every class to `resource`. Filesystem reads bind `RetryClass.SCAN`, whose `(OSError,)` target retries a transient local read; the `OBJECT_STORE` row's `obstore`-typed target excludes `OSError` and surfaces it terminal. A `read` carrying the caller's prior provider validator threads it as the `if_none_match` precondition, so an unchanged remote answers `NotModifiedError` instead of re-downloading a payload the identity fold discards. STREAM iterators feed the `evidence/identity#IDENTITY` sync fold only after the consumer's async drain — the drain is the boundary seam. `httpx` ships no bearer-`Auth` class, so `_BearerAuth` is the catalog-sanctioned custom `auth_flow`; the whole-payload arm is reserved for small payloads and the stream arm bounds the large GLB/IFC/scan artifacts, per the provider streaming laws.
-- Auto: a thread hop abandons on cancel exactly where the abandoned thread holds nothing the frame still owns — the WHOLE filesystem read does, so a cancelled scope stops waiting out a multi-gigabyte read, while the STREAM legs do not: an abandoned open strands the descriptor its frame is the sole closer of, and an abandoned block read races the very close that follows it. The bound is what makes the split affordable, since an attached hop waits at most one `STREAM_CHUNK`.
+- Law: a returned STREAM is single-consumer and `_Fenced` is where that custody is real — the guard enters ahead of the delegated pull, so an overlapping second puller rails on `anyio.BusyResourceError` before it can interleave the provider session, where a guard inside a leg's own generator never fires at all: the interpreter rejects the frame re-entry first, with an untyped raise naming the frame rather than the resource. `ResourceGuard` reads OVERLAP and not ownership, so a sequential hand-off between tasks stays lawful. `_Fenced` ends the acquisition span in that same bracket, because a span is a value the leg carries and never an attached context: an async generator shares its consumer's context, so attaching there leaves the acquisition span current between pulls and stamps every unrelated operation the consumer runs mid-drain.
+- Law: an abandoned stream releases its provider session deterministically through one `AsyncExitStack` per leg — `aclose()` raises `GeneratorExit` into the suspended `yield` and the stack unwinds in reverse order — closing only the per-call response context, never the cached client. `drain` is the one teardown the daemon awaits as a `(subject, stage)` row on the `transport/serve#ENTRY` drain fold, and it is TERMINAL for the composition rather than a reclaim a live acquisition may race: it runs after that entry stopped admitting, so a client minted between the clear and the close outlives the teardown that already enumerated the map, and a request already in flight meets a closed pool. Custody is therefore one-way — a re-armed composition mints fresh handles rather than adopting a drained map, exactly as the band probe re-registers rather than surviving its retire. Every pooled client `aclose`s so no pool reaches the GC, and ONE close is total because the client closes its transport and the cache transport closes both the wrapped pool and its keyed storage — a second `storage.close()` beside it is the doubled teardown, never the missing one. `_object_store` caches a GC-safe Rust handle, so its memo only clears.
+- Entry: `read` is ONE entry over both arities, discriminating on the value — a `ResourceRef` answers `Acquired`, a `Block[ResourceRef]` fans that same per-ref plan through one task group and answers a `Batch` whose members each carry their own rail, so a refused ref sheds no sibling's payload and a caller re-drives exactly what failed. Fanned refs inherit the bounds the single acquisition already takes — `SCAN_BAND` on every filesystem hop, the row's own retry envelope on every store hop — so it buys concurrency and never a second bound; the `scan` band registers its occupancy probe on the first filesystem plan and retires on `drain`. Whole acquisitions cross the one `guarded` envelope, `CLASSIFY` landing the precise tag under the plan's subject — never a `.map_error` re-tag forcing every class to `resource`. Filesystem reads bind `RetryClass.SCAN`, whose `(OSError,)` target retries a transient local read; the `OBJECT_STORE` row's `obstore`-typed target excludes `OSError` and surfaces it terminal. `read` threads the caller's prior provider validator as the `if_none_match` precondition, so an unchanged remote answers `NotModifiedError` instead of re-downloading a payload the identity fold discards. STREAM iterators feed the `evidence/identity#IDENTITY` sync fold only after the consumer's async drain — the drain is the boundary seam. `httpx` ships no bearer-`Auth` class, so `_BearerAuth` is the catalog-sanctioned custom `auth_flow`; the whole-payload arm is reserved for small payloads and the stream arm bounds the large GLB/IFC/scan artifacts, per the provider streaming laws.
+- Auto: a thread hop abandons on cancel exactly where the abandoned thread holds nothing the frame still owns — the WHOLE filesystem read does, so a cancelled scope stops waiting out a multi-gigabyte read, while the STREAM legs do not: an abandoned open strands the descriptor its frame is the sole closer of, and an abandoned block read races the close that follows it. `STREAM_CHUNK` is what makes the split affordable, since an attached hop waits at most one `STREAM_CHUNK`.
 - Growth: a new storage backend is one `StoreBackend` row every derived roster picks up untouched; a new transport is one `TransportResource` case binding an endpoint owner and a `RetryClass` beside its `TRANSPORT_ARMS` row; a new read size class is one `Delivery` row; a new call arity is one `read` arm over the value's own shape, never a second entry; a new credential provider is one `Provider` value on the admitting root, reaching every ref and lane it mints untouched; a new cache posture is one `CachePosture` member with its `_CACHE_POLICY` and `_CACHE_EXTENSIONS` rows, the pair splitting what the client's policy decides from what each request declares; a new egress hop is one `proxy` value on the admitting endpoint, reaching the key and the transport at once; a new retry geometry is one `RetryClass` row the `TransferPlan` binds; a new SSH consumer is one `RemoteEndpoint.dialed` call site, never a second options or dial spelling.
 - Boundary: runtime-transport acquisition, object-store operation dispatch, and SSH channel custody only — no default root creation, bridge staging-root ownership, service API layer, or companion-control transport. `RemoteEndpoint.dialed` is the one asyncssh dial in the branch; the workers REMOTE arm consumes it for the exec crossing and owns everything past the established connection — sessions, the sealed-kernel payload, deadline enforcement, supervision. `OBJECT_STORE_SCHEMES` names the remote object-store residence the `read` dispatch and the `data/gridded/store#STORE` engine select on, derived off the row family's own `remote` column rather than hand-listed or read off a capability that merely agrees with it today. Speckle terminates C#-side (`csharp:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS`), and this branch reads any Speckle-sourced artifact through the canonical wire, never a `specklepy` client. Rejected: a second scheme roster, backend literal, or native-driver map beside the row family; a `hishel_cache.db` provider-default store path where the composition-admitted scratch root owns it; a bearer or proxy secret joining a client pool key; a client-level proxy beside an injected transport; an `fsspec.open_files` batch arm, whose sync single-use context fans its opens through a concurrency running outside every bound this owner accounts for.
 
@@ -37,11 +37,11 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
   - `List` `offset` is the last-seen object-path cursor resuming lexicographically after that key — a `str | None`, never an integer page index; `delimiter` switches to `list_with_delimiter`'s flat `ListResult`.
   - `Delete` absorbs the singular and plural call over `str | Sequence[str]` on the one case.
   - `Sign` is valid only on the signing-capable backends, so a sign on a `local`/`memory`/`http` store refuses at the `_REFUSAL` matrix ahead of the provider rather than riding out as its `NotSupportedError`; `expires_in` is a `timedelta`, never an `int`.
-  - the `reader`/`writer`/`sign` `read`s carry the obstore handle or URL batch on the outcome `payload` slot and emit a `None` `Source`, so no tag escapes the `_ROUTE` fold and no control-plane op claims operation bytes it never moved.
-- Law: the reach matrix DERIVES off the row family's own capability columns rather than transcribing cells — a backend whose `signs` column is false lands its `sign` refusal automatically, so a seventh backend row arrives already gated and an unreachable cell answers its typed reason ahead of every provider call. An absent cell is reachable and rides its `_ROUTE` row; a cell no capability column answers lands as one explicit row beside the derivation.
+  - `reader`/`writer`/`sign` `read`s carry the obstore handle or URL batch on the outcome `payload` slot and emit a `None` `Source`, so no tag escapes the `_ROUTE` fold and no control-plane op claims operation bytes it never moved.
+- Law: the reach matrix DERIVES off the row family's own capability columns rather than transcribing cells — a backend whose `signs` column is false lands its `sign` refusal automatically, so a seventh backend row arrives already gated and an unreachable cell answers its typed reason ahead of every provider call. Cells absent from the matrix stay reachable and ride their `_ROUTE` row; a cell no capability column answers lands as one explicit row beside the derivation.
 - Law: retry is a per-row mutation-class disposition — reads, `put`, `delete`, `sign`, and the lazy `open_reader`/`open_writer` handle mints replay safely under `OBJECT_STORE` (a conditional-write collision stays the terminal `boundary` fault), while `copy` (a provider-side multi-step rewrite chain) and `rename` (copy-then-delete) cross the bare `boundary`/`async_boundary` fence unretried. Every `obstore.exceptions` leaf lands on the `boundary` catch-all (none is a `CLASSIFY` row), so recovery keys on `fault.recoverable({"boundary"})` and a conditional write-once or copy-once collision surfaces as a terminal `boundary` fault read off the lifted message, never a retry-suppressing per-arm catch.
-- Entry: `run` and `run_async` open one `kind=SpanKind.CLIENT` span off the faults-owned `scoped` stamp, read one `_admitted` prologue, and return `RuntimeRail[StoreOutcome]` — reach answers a cell this backend cannot serve BEFORE the caller's gate fires and before any provider call, then the gate fires its own pre-flight points and may SETTLE the call outright. The awaited leg reads the prologue through a `match` closed by `assert_never` rather than a `bind`, so both entrypoints stay total over the carrier. `_apply` returns the outcome directly, so the fenced rail is single and no leg self-flattens a doubled carrier.
-- Auto: `gate` is the caller's whole pre-flight policy as ONE pre-constructed value — a `StoreAdmission` answering DISPATCH or SETTLED, so a governance veto and a by-reference no-op both ride the composing tier's own semantics with no transport knob and no second prologue, and a consumer owning neither passes nothing. It rides the CALL rather than the lane because its closure carries per-call evidence (the caller's prior receipt) a lane field frozen at construction cannot hold, and it survives the knob test by carrying exactly what the op cannot reconstruct. A SETTLED outcome reports zero quantity, carries the caller's own `meta`, and keeps the operation bytes on its `source` slot, so the receipt the composing tier folds keys identically to the write it stands in for.
+- Entry: `run` and `run_async` open one `kind=SpanKind.CLIENT` span off the faults-owned `scoped` stamp, read one `_admitted` prologue, and return `RuntimeRail[StoreOutcome]` — reach answers a cell this backend cannot serve BEFORE the caller's gate fires and before any provider call, then the gate fires its own pre-flight points and may SETTLE the call outright. `run_async` reads the prologue through a `match` closed by `assert_never` rather than a `bind`, so both entrypoints stay total over the carrier. `_apply` returns the outcome directly, so the fenced rail is single and no leg self-flattens a doubled carrier.
+- Auto: `gate` is the caller's whole pre-flight policy as ONE pre-constructed value — a `StoreAdmission` answering DISPATCH or SETTLED, so a governance veto and a by-reference no-op both ride the composing tier's own semantics with no transport knob and no second prologue, and a consumer owning neither passes nothing. It rides the CALL rather than the lane because its closure carries per-call evidence (the caller's prior receipt) a lane field frozen at construction cannot hold, and it survives the knob test by carrying exactly what the op cannot reconstruct. SETTLED outcomes report zero quantity, carry the caller's own `meta`, and keep the operation bytes on their `source` slot, so the receipt the composing tier folds keys identically to the write it stands in for.
 - Receipt: this owner mints none — `StoreOutcome` is payload-agnostic transport evidence (what moved, what the provider reported, the operation bytes a keyer digests, the handle a streaming caller holds), and content identity, quantity vocabulary, mutation veto, and reuse verdict are the composing tier's. That split is exactly where the tier boundary falls: transport here, receipt semantics at `data/tabular/egress#EGRESS`.
 - Packages: `obstore` is the sole store provider; `SignCapableStore`/`HTTP_METHOD` are stub-only typing references (`obstore._sign.pyi` `TypeAlias`), so `Method` inlines the nine members rather than a runtime import, while the module-level `obstore.parse_scheme` IS bound — it answers the closed six-member backend classification off a store URL, which `from_url`'s own dispatch settles internally and never exposes — and `GetResult.stream`'s `BytesStream` is a typing-only chunk-iterator growth value the same `Get` row carries. `obstore.exceptions`' leaf taxonomy (`BaseError` root and the eleven leaves) and the `config`/`client_options`/`retry_config` `TypedDict` shapes are `libs/python/.api/obstore.md` catalog facts.
 - Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row carrying dispatch, argument planning, result projection, path, and retry class; a new precondition one `PutMode` on `Put` or one `overwrite` value on `Copy`/`Rename`; a newly unreachable cell one capability column on `StoreBackend` the matrix derives from, or one explicit `_REFUSAL` row where no column answers it; a new conditional-get axis one `GetOptions` key on `Get`; a new get-response evidence field one more `GetResult` member on the `Get` `read`'s `payload` tuple; a new streaming or signing surface one `StoreOp` case whose `read` carries its non-byte value on the `payload` slot and emits a `None` `Source`, never a parallel handle table.
@@ -142,7 +142,7 @@ class StoreRefusal(StrEnum):
 
 
 class StoreBackend(Struct, frozen=True, gc=False):
-    # the branch's ONE store vocabulary: `backend` is `obstore.parse_scheme`'s own tag, `aliases` every URL scheme
+    # ONE store vocabulary for the whole branch: `backend` is `obstore.parse_scheme`'s own tag, `aliases` every URL scheme
     # resolving to it, `kvstore` the native key-value driver name a chunk-store consumer opens under it, `signs`
     # whether the backend mints presigned URLs, and `remote` whether a residence under it opens a STORE HANDLE at
     # all. Every roster below is a comprehension over this one table, so a seventh backend is ONE row and no consumer
@@ -240,7 +240,7 @@ STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
 # alias -> row: the scheme-shaped resolver every `ResourceRef.scheme` consumer reads, beside `obstore.parse_scheme`
 # which stays the URL-shaped resolver — one vocabulary, two ingress shapes, never a second roster.
 STORE_SCHEMES: Final[Map[str, StoreBackend]] = Map.of_seq((alias, row) for row in STORE_BACKENDS for alias in row.aliases)
-# the remote object-store residence set, derived off the column that ASSERTS it: a scheme outside this set never
+# remote object-store residence set, derived off the column that ASSERTS it: a scheme outside this set never
 # opens a store handle. Deriving it off `signs` instead reads the same six rows today and is a coincidence, not a
 # law — the first signing-incapable remote backend, or the first local backend that mints signed urls, silently
 # re-routes every `read` in the branch with no row admitting it.
@@ -334,7 +334,7 @@ _CACHE_POLICY: Final[Map[CachePosture, Callable[[], CachePolicy]]] = Map.of_seq(
 # posture -> the `RequestMetadata` keys every request under it carries. The body-key is a PER-REQUEST lever the proxy
 # reads beside the policy's own class flag (`policy.use_body_key or request.metadata["hishel_body_key"]`), so the
 # posture arms it here rather than through a policy subclass that would body-key every GET sharing the client too;
-# the policy row still widens `supported_methods`, because a POST is uncacheable before the key question arises.
+# `_CACHE_POLICY` still widens `supported_methods`, because a POST is uncacheable before the key question arises.
 # `hishel_ttl` is the destination's own eviction horizon, so a catalog root outlives a volatile index without a second
 # keyed store, and the refresh flag makes a hot entry's TTL slide on access rather than expiring mid-fan-out.
 _CACHE_EXTENSIONS: Final[Map[CachePosture, dict[str, object]]] = Map.of_seq([
@@ -343,11 +343,11 @@ _CACHE_EXTENSIONS: Final[Map[CachePosture, dict[str, object]]] = Map.of_seq([
     (CachePosture.NEVER, {}),
 ])
 
-# the reached cache decision as the provider publishes it: hishel stamps its `ResponseMetadata` onto the httpx
+# reached cache decision as the provider publishes it: hishel stamps its `ResponseMetadata` onto the httpx
 # response extensions, so these three keys ARE the state machine's observable projection and header inference over
 # `Cache-Control`/`Age` is the deleted form.
 _CACHE_STATE: Final[Map[str, str]] = Map.of_seq([("hishel_from_cache", "served"), ("hishel_revalidated", "revalidated"), ("hishel_stored", "stored")])
-# the fourth response key is a float, not a flag, so it rides its own attribute rather than the state fold: a served
+# `hishel_created_at` is a float rather than a flag, so it rides its own attribute rather than the state fold: a served
 # entry's own store timestamp is what turns "served" into an AGE a reader thresholds, and a request that reached the
 # origin carries none — absence is the origin reading, never a zero age standing in for one.
 _CACHE_STAMP: Final[str] = "hishel_created_at"
@@ -364,7 +364,7 @@ class TransferPlan(Struct, frozen=True):
 
 
 class ResourceRef(Struct, frozen=True):
-    # the residence coordinate WITH its credential: scheme, root, relative path, owner, and the obstore-native
+    # residence coordinate WITH its credential: scheme, root, relative path, owner, and the obstore-native
     # provider that root's store binds. The provider rides the ref rather than each consumer's own field because it
     # already joins the store memo key as an axis — two refs differing only in provider ARE two residences, never one
     # a caller re-credentials at the call site — so a consumer holding a ref holds everything a handle needs and the
@@ -390,7 +390,7 @@ class ResourceRef(Struct, frozen=True):
 
 
 class Batch(Struct, frozen=True):
-    # the plural acquisition's evidence: every requested ref paired with its OWN rail, in request order. A refused
+    # plural acquisition evidence: every requested ref paired with its OWN rail, in request order. A refused
     # ref carries its fault beside its siblings' payloads rather than collapsing the call, and a consumer wanting one
     # rail over the whole batch folds these through the faults-owned `combine` monoid, never a second aggregation minted here.
     owner: str
@@ -399,7 +399,7 @@ class Batch(Struct, frozen=True):
 
 
 class HttpEndpoint(Struct, frozen=True):
-    # the HTTP mirror of `RemoteEndpoint`: one destination identity carrying the credential, the declared cache
+    # HTTP mirror of `RemoteEndpoint`: one destination identity carrying the credential, the declared cache
     # posture, the egress hop, and the composition-admitted scratch root the keyed store lands under — so cache
     # location, cache class, and egress policy are destination facts rather than global defaults or a hardcoded
     # provider path. An absent `proxy` IS direct egress, so one row per destination expresses the whole policy.
@@ -420,7 +420,7 @@ class HttpEndpoint(Struct, frozen=True):
 
     @property
     def egress(self) -> str:
-        # the proxy arm is a KEY axis because its credential is baked into the `Proxy` the pooled transport holds
+        # `egress` is a KEY axis because its credential is baked into the `Proxy` the pooled transport holds
         # rather than passed per request: two callers proxying one hop under different credentials must be two
         # transports, or the second rides the first's identity. The secret joins as the truncated one-way digest
         # `RemoteEndpoint.key` uses — a stable non-secret fingerprint — and direct egress names itself.
@@ -430,20 +430,20 @@ class HttpEndpoint(Struct, frozen=True):
 
     @property
     def cache(self) -> str:
-        # the keyed store path derives from the admitted root and a digest of the destination key, so two destinations
+        # keyed store paths derive from the admitted root and a digest of the destination key, so two destinations
         # never share rows and no path is spelled at a call site; the provider's CWD-relative default is the deleted form.
         return str(UPath(self.cache_root) / f"{hashlib.sha256(self.key.encode()).hexdigest()[:16]}.sqlite3")
 
     @property
     def pool(self) -> Pool:
-        # the client memo axes as ONE hashable tuple of PLAIN strings: `key` already spans destination, posture, and
-        # egress, and the admitted store path is the one axis it cannot derive. An `httpx.Proxy` value here would key
-        # the memo by object identity and fork a pool per call site; a bearer or proxy secret here would key it by
-        # secret. The mint reads the endpoint itself, so neither has to ride the key to reach the constructor.
+        # client memo axes as ONE hashable tuple of PLAIN strings: `key` already spans destination, posture, and
+        # egress, and the admitted store path is the one axis it cannot derive. An `httpx.Proxy` value here keys the
+        # memo by object identity and forks a pool per call site; a bearer or proxy secret here keys it by secret.
+        # `_transport_client` reads the endpoint itself, so neither has to ride the key to reach the constructor.
         return (self.key, self.cache)
 
     def confined(self, relative: str, /) -> "RuntimeRail[str]":
-        # the join is RFC 3986, which is exactly why the join alone gates nothing — `../`, a leading `/`, and a whole
+        # `httpx.URL.join` is RFC 3986, which is exactly why the join alone gates nothing — `../`, a leading `/`, and a whole
         # absolute URL each REPLACE what they escape — so the resolved child reads back against the root on origin as
         # well as path. The root normalizes to a directory BEFORE the join, since RFC join otherwise drops the root's
         # last segment; an empty relative addresses the endpoint URL itself.
@@ -482,7 +482,7 @@ class RemoteEndpoint(Struct, frozen=True):
         return f"{self.host}:{self.port}:{self.python}:{self.root}:{secret}:kh{id(self.known_hosts):x}"
 
     def confined(self, relative: str, /) -> "RuntimeRail[str]":
-        # the request normalizes as a POSIX path, so only the root-joined confined path ever reaches an SFTP open and
+        # requests normalize as a POSIX path, so only the root-joined confined path ever reaches an SFTP open and
         # a refusal costs no dial — never a dialed-then-denied read.
         normalized = posixpath.normpath(relative)
         escaped = relative.startswith("/") or normalized == ".." or normalized.startswith("../")
@@ -582,21 +582,21 @@ class StoreOutcome(Struct, frozen=True):
     meta: Meta
     source: Source
     payload: Any = None
-    # the gate settled this call and no provider call ran; the composing tier reads it as its own by-reference verdict.
+    # `gate` settled this call and no provider call ran; the composing tier reads it as its own by-reference verdict.
     settled: bool = False
 
 
 @tagged_union(frozen=True)
 class StoreAdmission:
-    # the gate's two answers: DISPATCH the op at the provider, or SETTLE the call with an outcome no provider made —
-    # a by-reference no-op the composing tier already proved against its own prior evidence. Reach refuses ahead of
-    # the gate, so a settled call is always a reachable one.
+    # two gate answers: DISPATCH the op at the provider, or SETTLE the call with an outcome no provider made — a
+    # by-reference no-op the composing tier already proved against its own prior evidence. Reach refuses ahead of the
+    # gate, so a settled call is always a reachable one.
     tag: Literal["dispatch", "settled"] = tag()
     dispatch: StoreOp = case()
     settled: StoreOutcome = case()
 
 
-# the no-policy gate: a consumer owning no mutation semantics binds nothing and every op dispatches.
+# no-policy gate: a consumer owning no mutation semantics binds nothing and every op dispatches.
 _ADMIT: Final[StoreGate] = lambda op, _target: Ok(StoreAdmission(dispatch=op))
 
 
@@ -643,9 +643,9 @@ def _auth(bearer: Option[SecretStr]) -> httpx.Auth | None:
 
 
 def _proxy(url: str | None, secret: Option[SecretStr]) -> "httpx.Proxy | None":
-    # the ONE `Proxy` mint and the proxy credential's ONE un-mask, seated beside `_auth` at the transport seam:
-    # `user:password` splits into the `auth` pair here, so the secret never rides the `proxy` url the key digests and
-    # the provider's own userinfo strip has nothing left to catch. An absent url IS direct egress.
+    # ONE `Proxy` mint beside the proxy credential's ONE un-mask, seated with `_auth` at the transport seam:
+    # `user:password` splits into the `auth` pair here, so the secret never rides the `proxy` url the key digests, and
+    # `httpx`'s own userinfo strip has nothing left to catch. An absent url IS direct egress.
     pair = secret.map(lambda held: held.get_secret_value().partition(":")).map(lambda split: (split[0], split[2])).to_optional()
     return None if url is None else httpx.Proxy(url, auth=pair)
 
@@ -670,10 +670,10 @@ class Transfer:
 
 
 class _Fenced:
-    # the ONE custody-and-span bracket every STREAM leg crosses, so neither fact is spelled at four legs. The guard
-    # seats at `__anext__` AHEAD of the delegation because a leg's own generator frame cannot hold it: a second
-    # concurrent pull re-enters that frame and the interpreter raises an untyped `RuntimeError` naming the frame, not
-    # the provider session the two pulls interleave on. `ResourceGuard` detects OVERLAP rather than ownership, so a
+    # ONE custody-and-span bracket every STREAM leg crosses, so neither fact is spelled at four legs. The guard seats
+    # at `__anext__` AHEAD of the delegation because a leg's own generator frame cannot hold it: a second concurrent
+    # pull re-enters that frame and the interpreter raises an untyped `RuntimeError` naming the frame rather than the
+    # provider session the two pulls interleave on. `ResourceGuard` detects OVERLAP rather than ownership, so a
     # sequential hand-off between tasks stays lawful and only a live second puller takes `BusyResourceError`.
     def __init__(self, chunks: AsyncGenerator[Chunk], span: "Span") -> None:
         self._chunks, self._span, self._guard = chunks, span, anyio.ResourceGuard(action="draining")
@@ -700,7 +700,7 @@ class _Fenced:
 
 
 def _scanned(ref: ResourceRef) -> TransferPlan:
-    # the filesystem plan and the `scan` band's registration are ONE hop, so the band opens on the first acquisition
+    # filesystem plan and `scan` band registration are ONE hop, so the band opens on the first acquisition
     # that will actually borrow the limiter and a process reading only object stores publishes no always-zero level.
     _banded()
     return TransferPlan(
@@ -876,7 +876,7 @@ _REFUSAL: Final[Map[tuple[Backend, str], StoreRefusal]] = Map.of_seq(
 
 
 def store_path(op: StoreOp, target: str) -> str:
-    # the ONE path projection over the op axis: the outcome reads it and a gate building a pre-flight mutation fact
+    # ONE path projection over the op axis: the outcome reads it and a gate building a pre-flight mutation fact
     # reads the same fold, so the destination a governance tap sees and the destination the receipt names cannot diverge.
     return _ROUTE[op.tag].path(op, target)
 
@@ -893,7 +893,7 @@ class ResourceRoot(Struct, frozen=True):
     scheme: str
     root: str
     owner: str
-    # the obstore-native credential provider this root's store binds — `auth.planetary_computer` and `auth.earthdata`
+    # obstore-native credential provider this root's store binds — `auth.planetary_computer` and `auth.earthdata`
     # own token refresh inside the handle, so a long fan-out re-signs transparently and no consumer tracks an expiry
     # it cannot renew. It joins the store memo key, so two roots differing only in provider never share a handle, and
     # `child` STAMPS it onto every ref this root mints so a consumer downstream of the traversal gate carries it too.
@@ -919,10 +919,10 @@ class ResourceRoot(Struct, frozen=True):
         self, source: ResourceRef | Block[ResourceRef], delivery: Delivery = Delivery.WHOLE, known: Option[str] = Nothing
     ) -> RuntimeRail[Acquired | Batch]:
         # ONE acquisition entry over both arities, discriminating on the VALUE's own shape: a `read_many` sibling
-        # forks the plan, the delivery axis, and the validator thread at a second site for one concept. `known` is
-        # the caller's PRIOR provider validator — the `e_tag` its last read reported — threaded as the `if_none_match`
-        # precondition so an unchanged remote answers `NotModifiedError` the fence lifts instead of re-downloading a
-        # payload the identity fold then discards. It is the origin's own opaque validator, never a branch
+        # forks the plan, the delivery axis, and the validator thread at a second site for one concept. `known`
+        # carries the caller's PRIOR provider validator — the `e_tag` its last read reported — threaded as the
+        # `if_none_match` precondition so an unchanged remote answers `NotModifiedError` the fence lifts instead of
+        # re-downloading a payload the identity fold discards. It is the origin's own opaque validator, never a branch
         # `ContentKey`: our digest names our bytes and no origin ever compares against it.
         match source:
             case Block() as refs:
@@ -936,7 +936,7 @@ class ResourceRoot(Struct, frozen=True):
         return await Transfer.run(self._plan(ref, known), delivery)
 
     async def _fan(self, refs: Block[ResourceRef], delivery: Delivery, known: Option[str]) -> RuntimeRail[Batch]:
-        # the batch fans the SAME per-ref plan a single acquisition takes through one task group, so filesystem hops
+        # `_fan` drives the SAME per-ref plan a single acquisition takes through one task group, so filesystem hops
         # still queue on `SCAN_BAND` and every store hop still crosses its own `OBJECT_STORE` envelope — the batch
         # buys concurrency and NOT a second bound. Each child answers with its own rail rather than raising, so a
         # refused ref cancels no sibling and the batch stays TOTAL: partial evidence is what a caller re-drives from,
@@ -960,7 +960,7 @@ class ResourceRoot(Struct, frozen=True):
         )
 
     def _store(self, ref: ResourceRef) -> ObjectStore | None:
-        # the REF's credential, never the root's: `child` stamps the root's provider onto every ref it mints, so the
+        # REF credential, never the root's: `child` stamps the root's provider onto every ref it mints, so the
         # two agree by construction, and reading the ref is what lets a caller holding one alone open the same handle.
         return _object_store(ref.root, ref.credentials) if ref.scheme in OBJECT_STORE_SCHEMES else None
 
@@ -995,7 +995,7 @@ class ObjectStoreLane(Struct, frozen=True):
     async def run_async(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeRail[StoreOutcome]:
         target = path or self.ref.relative
         with self._span(op):
-            # the prologue crosses a `match` rather than a `bind` because the fenced leg is awaited, and `assert_never`
+            # prologue crosses a `match` rather than a `bind` because the fenced leg is awaited, and `assert_never`
             # keeps the arms total over the carrier — an unclosed two-arm match falls through returning `None` past the declared rail.
             match self._admitted(op, target, gate):
                 case Result(tag="error", error=fault):
@@ -1065,7 +1065,7 @@ class TransportResource:
         match self:
             case TransportResource(tag="http", http=(endpoint, retry_class)):
                 client, auth = _transport_client(endpoint), _auth(endpoint.bearer)
-                # the posture's per-request cache levers ride the httpx extensions the proxy reads as `RequestMetadata`,
+                # posture-owned per-request cache levers ride the httpx extensions the proxy reads as `RequestMetadata`,
                 # so body-keying and TTL refresh are decisions of THIS destination's requests rather than of every
                 # request sharing the pooled client.
                 carry = dict(_CACHE_EXTENSIONS[endpoint.posture])
@@ -1105,11 +1105,11 @@ async def _raise_for_status(response: httpx.Response) -> None:
 
 
 def _cached(response: httpx.Response, span: "Span") -> None:
-    # the reached cache state stamped on the acquisition span its own plan opened, read off the extensions the cache
+    # reached cache state stamped on the acquisition span its own plan opened, read off the extensions the cache
     # proxy publishes: an absent key set means the request reached the origin, so "origin" is a measured reading
     # rather than a filled zero.
     span.set_attribute("rasm.transport.cache", ",".join(name for key, name in _CACHE_STATE.items() if response.extensions.get(key)) or "origin")
-    # the stored-at stamp lands ONLY where the provider published one — an origin response carries no entry age, and a
+    # stored-at stamps land ONLY where the provider published one — an origin response carries no entry age, and a
     # zero there would read to a freshness board as a row stored at the epoch rather than as a row that never existed.
     match response.extensions.get(_CACHE_STAMP):
         case float() | int() as stored_at:
@@ -1128,8 +1128,8 @@ def store_handle(
     # ONE `from_url` spelling in the branch, and ONE handle shape: every store this page opens pins the Rust core to a
     # single attempt, so `RetryClass` owns the whole curve and no operation is invoked under two schedules whose
     # effective attempt count is their PRODUCT. `obstore.store.RetryConfig` is a TYPE_CHECKING TypedDict rather than a
-    # runtime constructor, so the pin is the inlined literal. A caller-supplied `retry_config` is the deleted knob and
-    # the zero-retry twin handle it forced is deleted with it — a `retry=None` row was already invoked exactly once by
+    # runtime constructor, so the pin is the inlined literal. A caller-supplied `retry_config` is the deleted knob,
+    # deleting the zero-retry twin handle it forced with it — a `retry=None` row was already invoked exactly once by
     # this pin. `ResourceRef` opens off its own two columns — root and credentials — so `provider=` admits only beside
     # a bare string root: the two-value join re-spells at the call site the custody the ref already carries, and one
     # handle opened from two values is the form the ref column exists to delete.
@@ -1139,7 +1139,7 @@ def store_handle(
 
 @cache
 def _object_store(root: str, provider: Provider = None) -> ObjectStore:
-    # the provider is the second memo axis and rides its own object identity — a live credential handle whose content
+    # `provider` is the second memo axis and rides its own object identity — a live credential handle whose content
     # no public surface recovers, the boundaries memo-key law's id() case. Distinct instances can only over-partition.
     return store_handle(root, provider=provider)
 
@@ -1150,7 +1150,7 @@ _PROBES: Final[ExitStack] = ExitStack()
 
 @cache
 def _banded() -> None:
-    # the `scan` band's registration, exactly once per process: `Metrics.occupied` keys on the probe OBJECT, so a
+    # `scan` band registration, exactly once per process: `Metrics.occupied` keys on the probe OBJECT, so a
     # second registration of one module-level probe adds an entry the single retire cannot tell from the first — the
     # memo IS that once-guard, and `SCAN_BAND` is module-scope with no lifetime a bare `with` could bracket instead.
     _PROBES.enter_context(Metrics.occupied(lambda: SCAN_BAND.borrowed_tokens, band="scan"))
@@ -1184,9 +1184,9 @@ def _transport_client(endpoint: HttpEndpoint) -> httpx.AsyncClient:
 
 
 async def drain() -> None:
-    # `aclose` every pooled client so no pool reaches the GC. ONE close is total: the client closes its transport and
-    # the cache transport closes both the wrapped pool AND its keyed storage, so a second `storage.close()` beside it
-    # is the doubled teardown. The Rust `ObjectStore` has no async pool, so its cache only clears, and the `scan`
+    # `aclose` every pooled client so no pool reaches the GC. ONE close is total: the client closes its transport, and
+    # `AsyncCacheTransport` closes both the wrapped pool AND its keyed storage, so a second `storage.close()` beside
+    # it is the doubled teardown. The Rust `ObjectStore` has no async pool, so its cache only clears, and the `scan`
     # band retires with the composition rather than lingering as a level whose limiter no live owner borrows.
     clients = tuple(_CLIENTS.values())
     _CLIENTS.clear()

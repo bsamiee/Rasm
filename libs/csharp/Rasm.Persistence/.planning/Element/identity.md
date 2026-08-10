@@ -1,6 +1,6 @@
 # [PERSISTENCE_ELEMENT_IDENTITY]
 
-Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. The EF surface is GENERATED, never hand-mapped: `ConverterRail.Compose` mounts `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the three-altitude `IdentitySpine` whose save gate turns `Placement.Writes` into a refusal the store enforces and whose wire tap carries each statement's owning slot to `Store/observability#PLAN_PROFILE`. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this envelope mints out-of-band. The boot verdict folds the Marten startup posture, the EF migration state, and the MEASURED `ModelFingerprint` over the mounted model against the migrations-assembly snapshot into one typed `SchemaVerdict`, and the migration owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.Identity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`RebuildsAlters`/`RetriesInStrategy`/`NativeBulk`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `StoreSlot` from `Store/observability#SLOT_REGISTRY`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
+Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. `ConverterRail.Compose` GENERATES the whole EF surface rather than hand-mapping it, mounting `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the three-altitude `IdentitySpine` whose save gate turns `Placement.Writes` into a refusal the store enforces and whose wire tap carries each statement's owning slot to `Store/observability#PLAN_PROFILE`. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this DEK envelope mints out-of-band. `SchemaGate` folds the boot posture — Marten startup, the EF migration state, and the MEASURED `ModelFingerprint` over the mounted model against the migrations-assembly snapshot — into one typed `SchemaVerdict`, and the migration owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.Identity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`RebuildsAlters`/`RetriesInStrategy`/`NativeBulk`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `StoreSlot` from `Store/observability#SLOT_REGISTRY`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
 
 ## [01]-[INDEX]
 
@@ -8,13 +8,13 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 - [03]-[IDENTITY_POLICY]: key axis, big-endian transcription, per-row mint/decode, and content addressing.
 - [04]-[STORE_OPERATION_BRACKET]: closed `IdentityOp` request family, one bracket owning acquisition/strategy/transaction/tracking/provenance/fault, and the keyset page.
 - [05]-[SAVE_INTERCEPTOR_SPINE]: three interceptor altitudes as declared rows, the write-authority gate and its tracker disposition, and the wire-altitude provenance tap.
-- [06]-[KMS_CUSTODY]: KMS-signed authorship, DEK-envelope `EnvelopeKeyring` (`Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe`), and one `Custody` attestation/envelope fold over `CustodyVerdict`.
+- [06]-[KMS_CUSTODY]: KMS-signed authorship, DEK-envelope `EnvelopeKeyring` (`Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe`), and one `Custody` attestation-and-DEK-envelope fold over `CustodyVerdict`.
 - [07]-[SCHEMA_VERDICT]: boot fold over the Marten startup-assertion posture and the EF migration state, the measured compiled-model fingerprint gate, and the `IdentityDdl` migration owner.
 
 ## [02]-[ELEMENT_IDENTITY]
 
 - Owner: `ElementIdentity` the per-model identity row carrying the `ModelId` PK beside the `Tenant`/`Roots`/`GlobalIds`/`Cell`/`Bounds`/`Embedding`/`Acl`/`Classification`/`At` join columns; `NodeCell` the per-ELEMENT fine-cell routing-vertex row (`Model`/`Node`/`Tenant`/`Cell`) the `Query/cypher#GRAPH_QUERY` `pgrouting` `network_edge` source/target carries and the `#STORE_OPERATION_BRACKET` `Route` op resolves; `StoreBinding` the `[Union]` provider row (`Postgres(NpgsqlDataSource)` / `Embedded(DbConnection)`) the one converter rail discriminates; `ConverterRail` the ONE options composition mounting the generated Thinktecture converters, the snake-case naming convention, and the provider plugin stack (the postgres row mounts `UseNetTopologySuite()` + `UseNodaTime()` + `UseVector()` so the geometry, `Instant`, and `vector(N)` columns all map through the one options entry); `IdentityShapeRow` the `[SmartEnum<string>]` provider-divergence axis carrying the JSON column type, the geometry column with its index method, and the vector column as OPTION-TYPED slots, keyed alongside `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` so the two axes join through one generated lookup; `IdentityContext` the one `DbContext` whose `OnModelCreating` reads the shape row its constructor carried and never probes the provider; `IdentityShape`/`NodeCellShape` the `IEntityTypeConfiguration` mappings carrying ONLY what the conventions cannot derive — the LanguageExt carrier conversions, the JSON columns, the geometry column, and the indexes including the keyset page's covering `(Tenant, At, Model)` prefix; `IdentityDesignFactory` the per-profile `IDesignTimeDbContextFactory<IdentityContext>` seam every scaffold, `Optimize`, and idempotent script runs through; `IdentityStore` the static surface owning the co-transactional model-derived upsert stamp (`Bind` derives the statement from the profile row's compiled model; `Stamp` queues it on the Marten session) and the spatial cell and bounds mints.
-- Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 cell over the model envelope centroid (bucket-equality joins), `Bounds` the `Envelope`-derived `geometry(Polygon, 4326)` PostGIS column beside the `ZMin`/`ZMax` vertical span (the three rows on the ONE spatial-key axis: cells for bucket joins, geometry for exact XY predicates, z-span for storey banding), `Embedding` the optional pgvector reference keying the ANN lane — the per-model envelope locator, distinct in grain from the corpus-grain retrieval index (`Query/retrieval`), `Acl` the `Element/authority` `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
+- Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 cell over the model bounding-envelope centroid (bucket-equality joins), `Bounds` the `Envelope`-derived `geometry(Polygon, 4326)` PostGIS column beside the `ZMin`/`ZMax` vertical span (the three rows on the ONE spatial-key axis: cells for bucket joins, geometry for exact XY predicates, z-span for storey banding), `Embedding` the optional pgvector reference keying the ANN lane — the per-model bounding-envelope locator, distinct in grain from the corpus-grain retrieval index (`Query/retrieval`), `Acl` the `Element/authority` `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
 - Entry: `IdentityStore.Bind(StoreProfile)` derives an immutable `IdentityWriter` from THAT profile's compiled model; `Stamp(IDocumentSession, ElementIdentity, IdentityWriter)` queues it on the event session. `Cell(Envelope, int)` mints either model or element cells without a forwarding sibling, and `BoundsOf(Envelope)` mints the exact footprint. `IdentityShapeRow.Of(StoreProfile)` resolves the divergence row; `IdentityDesignFactory.CreateDbContext(string[])` reads the profile key off the design-time arguments.
 - Auto: the identity row rides the one `IDocumentSession` the `Element/graph#STORE_RAIL` write op uses. `IdentityWriter` captures the profile's table, schema, primary key, relational casts, and value converters at composition off `StoreProfile.Model()`, so the writer's model SOURCE is the profile row and no process-global writer can reuse a PostgreSQL model for SQLite. `UseThinktectureValueConverters(Configuration.Default)` converts generated owners, while Persistence-owned conversions cover LanguageExt carriers, recursive ACL JSON, geometry, and — as ONE `ConverterRail.Tenant` pair both tenant-bearing relations bind — the `TenantId` column over the kernel's `Text`/`Of` inverse. `H3Index.FromPoint` mints cells and rejects `H3Index.Invalid`. RLS compares that canonical tenant text with `current_setting('rasm.tenant')` without a fictional `UInt128`→`uuid` provider mapping.
 - Receipt: an identity stamp rides `store.element.identity` carrying the `Roots` count; every relational read and lane rides its own `#STORE_OPERATION_BRACKET` arity slot.
@@ -49,7 +49,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Persistence.Element;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// The H3 cell as the immutable durable spatial key: the pocketken.H3 `H3Index` is a MUTABLE class wrapping a `ulong`,
+// `H3Cell` is the immutable durable spatial key: the pocketken.H3 `H3Index` is a MUTABLE class wrapping a `ulong`,
 // so the tier stores the cell as the `long` reinterpretation (the `bigint`/`h3-pg` convention, bit-exact round-trip)
 // and never shares a live `H3Index` across a fold. `Of` reinterprets the cell `ulong`; `Live` rehydrates the managed
 // instance for an algebra call. A zero cell is `H3Index.Invalid` and never persists (it rails CellUnresolvable at mint).
@@ -70,10 +70,10 @@ public abstract partial record StoreBinding {
 
 // Provider divergence as ROW DATA, keyed on the SAME vocabulary `Store/provisioning#SERVER_EXTENSIONS`
 // `StoreProfile` uses, so `Of` joins the two axes through one generated lookup and a profile row landed without
-// its shape row fails that lookup loudly at composition. Absent slots are the divergence: no geometry slot means
-// the WKB `byte[]` conversion and no GiST index, no vector slot means `Embedding` never maps a column at all.
-// `Design` binds the provider WITHOUT a connection because a scaffold reaches no server, and `Migrations` names
-// the per-profile migrations assembly both the design emission and the runtime options bind.
+// its shape row fails that lookup loudly at composition. Absent slots are the divergence: no geometry slot drops
+// both the WKB `byte[]` conversion and the GiST index, and no vector slot leaves `Embedding` unmapped.
+// `Design` binds the provider WITHOUT a connection because a scaffold reaches no server, and `Migrations` names the
+// per-profile migrations assembly both the design emission and the runtime options bind.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityShapeRow {
@@ -101,10 +101,10 @@ public sealed partial class IdentityShapeRow {
     public static IdentityShapeRow Of(StoreProfile profile) => Get(profile.Key);
 }
 
-// The compiled models `Optimize` emits, one run per profile under `IdentityDesignFactory`. `StoreProfile.Model`
+// `CompiledModels` holds what `Optimize` emits, one run per profile under `IdentityDesignFactory`. `StoreProfile.Model`
 // reads these slots, so the profile row IS the model identity and `UseModel` never consults the framework cache.
-// The emitter fixes the generated type name off the context, so each profile emits into its OWN migrations
-// namespace (the `Migrations` column above) — a shared namespace collides two engines on one `IdentityContextModel`.
+// Generated type names fix off the context, so each profile emits into its OWN migrations namespace (the
+// `Migrations` column above) — a shared namespace collides two engines on one `IdentityContextModel`.
 public static class CompiledModels {
     public static IModel Server => Rasm.Persistence.Migrations.Server.Compiled.IdentityContextModel.Instance;
     public static IModel Embedded => Rasm.Persistence.Migrations.Embedded.Compiled.IdentityContextModel.Instance;
@@ -134,10 +134,10 @@ public sealed record ElementIdentity(
     public int NodeCount => Roots.Count;
 }
 
-// The per-ELEMENT fine-cell routing-vertex row: one rooted `NodeId` -> its own fine-resolution H3 cell (the element
-// envelope-centroid cell), the element-DISTINCT vertex the `Query/cypher#GRAPH_QUERY` `pgrouting` `network_edge`
-// source/target carries and `NodeAt` resolves back to a `NodeId`. Distinct in grain from the per-MODEL
-// `ElementIdentity.Cell` locator — this is the per-element routing vertex, that the model-envelope spatial locator.
+// `NodeCell` rows the per-ELEMENT fine cell: one rooted `NodeId` -> its own fine-resolution H3 cell (the element
+// bounding-envelope centroid cell), the element-DISTINCT vertex the `Query/cypher#GRAPH_QUERY` `pgrouting`
+// `network_edge` source/target carries and `NodeAt` resolves back to a `NodeId`. Distinct in grain from the per-MODEL
+// `ElementIdentity.Cell` locator — this is the per-element routing vertex, that the model bounding-envelope locator.
 // `Z` is the element centroid elevation (meters), so a storey-banded spatial join is one indexed range predicate
 // beside the cell equality — never a client-side elevation scan.
 public sealed record NodeCell(ModelId Model, NodeId Node, TenantId Tenant, H3Cell Cell, double Z);
@@ -145,13 +145,13 @@ public sealed record NodeCell(ModelId Model, NodeId Node, TenantId Tenant, H3Cel
 public sealed record IdentityWriter(string Sql, Func<ElementIdentity, object?[]> Binds);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// The ONE options composition: generated Thinktecture converters (bounded Configuration.Default key width) +
-// snake-case naming + the provider plugin stack — NTS geometry, NodaTime Instant, and pgvector all mount on
-// the one UseNpgsql options row. Hand `HasConversion` on a Thinktecture type and hand `HasColumnName` are the
-// deleted forms; `ThinktectureValueConverterFactory.Create<T,TKey>` covers the residual EF-cannot-resolve
-// case. The compiled model (`Optimize`) mounts back through this same rail byte-identically.
+// `ConverterRail` composes the ONE options set: generated Thinktecture converters (bounded Configuration.Default key
+// width) + snake-case naming + the provider plugin stack — NTS geometry, NodaTime Instant, and pgvector all mount on
+// one UseNpgsql options row. Hand `HasConversion` on a Thinktecture type and hand `HasColumnName` are the deleted
+// forms; `ThinktectureValueConverterFactory.Create<T,TKey>` covers the residual EF-cannot-resolve case. The compiled
+// model (`Optimize`) mounts back through this same rail byte-identically.
 public static class ConverterRail {
-    // The ONE tenant column conversion, bound by every tenant-bearing relation: the pair is the kernel's own
+    // `Tenant` is the ONE tenant column conversion every tenant-bearing relation binds: the pair is the kernel's own
     // `TenantId.Text`/`Of`, so the column stores the exact fixed-width `x32` text the RLS predicate compares
     // against `current_setting('rasm.tenant')` — no fictional `UInt128`->`uuid` provider mapping, and no
     // entity shape re-spelling the format. A `TenantId` column also makes a cross-key mix-up unrepresentable.
@@ -212,7 +212,7 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
 public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfiguration<ElementIdentity> {
     public void Configure(EntityTypeBuilder<ElementIdentity> identity) {
         ArgumentNullException.ThrowIfNull(identity);
-        // The ONE declared physical relation both sides name: EF owns its DDL and every read lane targets it,
+        // `element_identity` is the ONE declared physical relation both sides name: EF owns its DDL and every read lane targets it,
         // and `IdentityStore.Stamp` queues its model-derived upsert against THIS table — explicit, so the
         // write rail and the query surface can never resolve to two convention-divergent relations.
         identity.ToTable("element_identity");
@@ -280,8 +280,8 @@ public sealed class NodeCellShape : IEntityTypeConfiguration<NodeCell> {
 public static class IdentityStore {
     static readonly GeometryFactory Wgs84 = new(new PrecisionModel(), 4326);
 
-    // A Marten document lives in an `mt_doc_*` id+jsonb table — an EF-shaped relational row can never BE a
-    // Marten document, so the co-transactional stamp is ONE model-derived upsert QUEUED on the session
+    // Marten documents live in an `mt_doc_*` id+jsonb table, so no EF-shaped relational row can BE a Marten
+    // document and the co-transactional stamp is ONE model-derived upsert QUEUED on the session
     // (`QueueSqlCommand` rides the same transaction `SaveChangesAsync` commits with the appended events).
     // `Bind` derives the statement ONCE at boot from the compiled EF model — table, column names, column-type
     // casts, and the `model` conflict key all read off `IEntityType`, and each parameter runs the property's
@@ -988,12 +988,12 @@ public static class IdentitySpine {
 
 ## [06]-[KMS_CUSTODY]
 
-- Owner: `KmsProvider` is the Persistence KMS axis; `KeyState` is its lifecycle vocabulary; `SigningAlgorithm` carries hash and provider spelling; `OpDigest` is an immutable canonical-hex value; `SigningKeyring` carries `Sign`/`Verify`; `EnvelopeAad`, `WrappedKey`, `WrapForm`, and `EnvelopeKeyring` own DEK custody; `CustodyVerdict` is the closed crypto verdict; `Custody` is the one authorship and envelope fold.
-- Cases: `KmsProvider` is `None | Aws | Azure | Gcp`. `SigningAlgorithm` covers ES/PS/RS at each admitted digest width beside AWS `Ed25519`/`Ed25519Ph`, with provider support stored on each row. `KeyState` is `Enabled | Disabled | Destroyed | Scheduled | Pending`; `WrapForm` is `Bound | Remote`. `CustodyVerdict` covers digest width, algorithm/provider compatibility, authenticity, envelope, and key lifecycle.
-- Entry: `public static IO<CustodyVerdict> Attest(StoreActor actor, OpDigest digest, KmsProvider provider, string signingKeyId, SigningKeyring keyring, ProjectionContext frame)` signs an `OpDigest` after gating its width (the `!provider.Signs` local tier shorts to `Unsigned` so a store with no KMS still records the delta→actor binding); `Verify(SignedAuthorship, OpDigest, SigningKeyring)` checks the digest binding and signature; `Wrap(EnvelopeKeyring, EnvelopeAad, WrapForm)` probes the key lifecycle then mints per the form (`Bound` → plaintext + `WrappedKey`; `Remote` → wrapped-only, `Wrapped.Dek` empty); `Unwrap(EnvelopeKeyring, WrappedKey, EnvelopeAad)` recovers the plaintext DEK and the caller zeroizes it after the local bind; `Rewrap(EnvelopeKeyring, WrappedKey, EnvelopeAad)` advances the wrapping-key version without the plaintext crossing the wire — one envelope fold beside the one signing fold.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (`ContentHash.Of` — the AAD tenant digest), AWSSDK.KeyManagementService (signing `SigningAlgorithmSpec`/`SignAsync`/`VerifyAsync`/`MessageType.DIGEST`; envelope `GenerateDataKeyAsync`/`GenerateDataKeyWithoutPlaintextAsync`/`DecryptAsync`/`ReEncryptAsync`; probe `DescribeKeyAsync`), Azure.Security.KeyVault.Keys (signing `SignatureAlgorithm`/`Sign`/`Verify`; native envelope `CryptographyClient.WrapKey`/`UnwrapKey` over `KeyWrapAlgorithm.RsaOaep256`; `KeyClient` key-state), Google.Cloud.Kms.V1 (envelope `EncryptAsync`/`DecryptAsync` + bidirectional CRC32C; `GenerateRandomBytesAsync` HSM-backed off-board DEK material — the Gcp `Mint` arm's DEK source; rotation `UpdateCryptoKeyPrimaryVersionAsync`; probe `GetCryptoKeyVersionAsync` `CryptoKeyVersionState`), System.Security.Cryptography (`CryptographicOperations.HashData`/`ZeroMemory`), System.Collections.Frozen.
+- Owner: `KmsProvider` is the Persistence KMS axis; `KeyState` is its lifecycle vocabulary; `SigningAlgorithm` carries hash and provider spelling; `OpDigest` is an immutable canonical-hex value; `SigningKeyring` carries `Sign`/`Verify`; `EnvelopeAad`, `WrappedKey`, `WrapForm`, and `EnvelopeKeyring` own DEK custody; `CustodyVerdict` is the closed crypto verdict; `Custody` is the one authorship and DEK-envelope fold.
+- Cases: `KmsProvider` is `None | Aws | Azure | Gcp`. `SigningAlgorithm` covers ES/PS/RS at each admitted digest width beside AWS `Ed25519`/`Ed25519Ph`, with provider support stored on each row. `KeyState` is `Enabled | Disabled | Destroyed | Scheduled | Pending`; `WrapForm` is `Bound | Remote`. `CustodyVerdict` covers digest width, algorithm/provider compatibility, authenticity, DEK envelope, and key lifecycle.
+- Entry: `public static IO<CustodyVerdict> Attest(StoreActor actor, OpDigest digest, KmsProvider provider, string signingKeyId, SigningKeyring keyring, ProjectionContext frame)` signs an `OpDigest` after gating its width (the `!provider.Signs` local tier shorts to `Unsigned` so a store with no KMS still records the delta→actor binding); `Verify(SignedAuthorship, OpDigest, SigningKeyring)` checks the digest binding and signature; `Wrap(EnvelopeKeyring, EnvelopeAad, WrapForm)` probes the key lifecycle then mints per the form (`Bound` → plaintext + `WrappedKey`; `Remote` → wrapped-only, `Wrapped.Dek` empty); `Unwrap(EnvelopeKeyring, WrappedKey, EnvelopeAad)` recovers the plaintext DEK and the caller zeroizes it after the local bind; `Rewrap(EnvelopeKeyring, WrappedKey, EnvelopeAad)` advances the wrapping-key version without the plaintext crossing the wire — one DEK-envelope fold beside the one signing fold.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (`ContentHash.Of` — the AAD tenant digest), AWSSDK.KeyManagementService (signing `SigningAlgorithmSpec`/`SignAsync`/`VerifyAsync`/`MessageType.DIGEST`; DEK envelope `GenerateDataKeyAsync`/`GenerateDataKeyWithoutPlaintextAsync`/`DecryptAsync`/`ReEncryptAsync`; probe `DescribeKeyAsync`), Azure.Security.KeyVault.Keys (signing `SignatureAlgorithm`/`Sign`/`Verify`; native DEK envelope `CryptographyClient.WrapKey`/`UnwrapKey` over `KeyWrapAlgorithm.RsaOaep256`; `KeyClient` key-state), Google.Cloud.Kms.V1 (DEK envelope `EncryptAsync`/`DecryptAsync` + bidirectional CRC32C; `GenerateRandomBytesAsync` HSM-backed off-board DEK material — the Gcp `Mint` arm's DEK source; rotation `UpdateCryptoKeyPrimaryVersionAsync`; probe `GetCryptoKeyVersionAsync` `CryptoKeyVersionState`), System.Security.Cryptography (`CryptographicOperations.HashData`/`ZeroMemory`), System.Collections.Frozen.
 - Growth: one `KmsProvider` row per new cloud KMS (a non-signing provider sets `Signs: false` and routes through the SAME `Unsigned` path; a native-wrap provider sets `NativeWrap: true` and binds `Mint`/`Rewrap` against its wrap verb rather than encrypt-as-wrap); one `SigningAlgorithm` row per JWS family; one `KeyState` row per lifecycle posture; one `WrapForm` row per mint modality; one `CustodyVerdict` case per verdict; zero new surface — a separate `Store/encryption` page, a second provider axis, or a Persistence-side long-lived DEK cache is the deleted form.
-- Boundary: signed authorship is the actor-to-blame seam — a cloud-KMS op carries a `SignedAuthorship` over a `SigningAlgorithm`-width cryptographic `OpDigest` so a blame attribution (`Version/timetravel`, `Version/provenance#ATTESTED_LEDGER` — the consumer that chains these attestations) names a verified actor, a 16-byte non-cryptographic content hash standing in for the signed digest being the deleted form; the `SigningKeyring` is the KMS SIGNING surface (`Sign`/`Verify` over an asymmetric key, the disjoint operation from the DEK envelope), resolving the key through the AppHost `SecretLease`-class handle, never a bare passphrase, and the provider-specific algorithm type (`SigningAlgorithmSpec`/`SignatureAlgorithm`) lives only at the keyring delegate edge; the `EnvelopeKeyring` is the DEK-ENVELOPE surface this cluster holds beside the signing keyring on the ONE `KmsProvider` axis — the `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` family wrapping a data-encryption key against the symmetric CMK where each arm's mechanism is a policy value on the `KmsProvider` row (the `NativeWrap` provider routes through Azure's native `WrapKey`/`UnwrapKey`; the encrypt-as-wrap providers through AWS `GenerateDataKey`/`Decrypt`/`ReEncrypt` and GCP `Encrypt`/`Decrypt` + `UpdateCryptoKeyPrimaryVersion`, the GCP `Mint` sourcing its DEK bytes from `GenerateRandomBytesAsync` so key material is HSM-born, never process-entropy-born), the `Probe` arm resolving `KeyState` so a wrap against a `Disabled`/`Scheduled` key rejects `KeyUnusable` at admission; the `EnvelopeAad` (store partition + the tenant id digested through the kernel `ContentHash.Of` so the AAD is a fixed-width opaque value, never a raw tenant uuid on the wire) rides the provider `EncryptionContext`/`AdditionalAuthenticatedData` on the AWS/GCP arms and is compared application-side on the Azure native-wrap arm (which carries no per-call AAD), so a DEK wrapped for one `(partition, tenant)` cannot be unwrapped under another; the recovered plaintext DEK zeroizes through `CryptographicOperations.ZeroMemory` immediately after the local bind so a Persistence-side long-lived key is the deleted form; the `Store/blobstore#BLOB_GC` `ObjectEncryption` is the downstream SSE-stance consumer carrying only the server-side-SSE key-id STRING this envelope mints out-of-band, never a second envelope owner; the authz decision this fold NEVER makes is `Element/authority#AUTHORITY` `Admit` — custody proves WHO DID and KEEPS KEYS, authority decides WHO MAY, and the two verdicts stay two unions.
+- Boundary: signed authorship is the actor-to-blame seam — a cloud-KMS op carries a `SignedAuthorship` over a `SigningAlgorithm`-width cryptographic `OpDigest` so a blame attribution (`Version/timetravel`, `Version/provenance#ATTESTED_LEDGER` — the consumer that chains these attestations) names a verified actor, a 16-byte non-cryptographic content hash standing in for the signed digest being the deleted form; the `SigningKeyring` is the KMS SIGNING surface (`Sign`/`Verify` over an asymmetric key, the disjoint operation from the DEK envelope), resolving the key through the AppHost `SecretLease`-class handle, never a bare passphrase, and the provider-specific algorithm type (`SigningAlgorithmSpec`/`SignatureAlgorithm`) lives only at the keyring delegate edge; the `EnvelopeKeyring` is the DEK-ENVELOPE surface this cluster holds beside the signing keyring on the ONE `KmsProvider` axis — the `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` family wrapping a data-encryption key against the symmetric CMK where each arm's mechanism is a policy value on the `KmsProvider` row (the `NativeWrap` provider routes through Azure's native `WrapKey`/`UnwrapKey`; the encrypt-as-wrap providers through AWS `GenerateDataKey`/`Decrypt`/`ReEncrypt` and GCP `Encrypt`/`Decrypt` + `UpdateCryptoKeyPrimaryVersion`, the GCP `Mint` sourcing its DEK bytes from `GenerateRandomBytesAsync` so key material is HSM-born, never process-entropy-born), the `Probe` arm resolving `KeyState` so a wrap against a `Disabled`/`Scheduled` key rejects `KeyUnusable` at admission; the `EnvelopeAad` (store partition + the tenant id digested through the kernel `ContentHash.Of` so the AAD is a fixed-width opaque value, never a raw tenant uuid on the wire) rides the provider `EncryptionContext`/`AdditionalAuthenticatedData` on the AWS/GCP arms and is compared application-side on the Azure native-wrap arm (which carries no per-call AAD), so a DEK wrapped for one `(partition, tenant)` cannot be unwrapped under another; the recovered plaintext DEK zeroizes through `CryptographicOperations.ZeroMemory` immediately after the local bind so a Persistence-side long-lived key is the deleted form; the `Store/blobstore#BLOB_GC` `ObjectEncryption` is the downstream SSE-stance consumer carrying only the server-side-SSE key-id STRING this DEK envelope mints out-of-band, never a second DEK-envelope owner; the authz decision this fold NEVER makes is `Element/authority#AUTHORITY` `Admit` — custody proves WHO DID and KEEPS KEYS, authority decides WHO MAY, and the two verdicts stay two unions.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -1002,12 +1002,12 @@ using System.Globalization;
 using Rasm.Domain;                                 // CorrelationId/TenantId — the causal and tenancy entries
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// The Persistence-side KMS provider axis BOTH the signing surface (`SigningKeyring`/`SignedAuthorship`) AND the
-// DEK envelope surface (`EnvelopeKeyring`, this cluster's owner) resolve against — the concrete SDK binding
+// `KmsProvider` is the Persistence-side provider axis BOTH the signing surface (`SigningKeyring`/`SignedAuthorship`)
+// AND the DEK envelope surface (`EnvelopeKeyring`, this cluster's owner) resolve against — the concrete SDK binding
 // stays Persistence-side per the AppHost `Runtime/secrets#SECRET_LEASE` seam, AppHost surfacing only the
 // `SecretLease`-class handle. `None` is the local/Personal tier: `Custody.Attest`/`Verify` short to
 // `CustodyVerdict.Unsigned` so a store with no KMS still records the delta->actor binding, never a fabricated
-// signature. `Signs` gates the signing arm; `NativeWrap` gates the envelope arm — Azure wraps through the native
+// signature. `Signs` gates the signing arm; `NativeWrap` gates the DEK-envelope arm — Azure wraps through the native
 // `CryptographyClient.WrapKey`/`UnwrapKey` verb while Aws/Gcp encrypt-as-wrap, so the keyring `Mint`/`Rewrap`
 // arm reads `NativeWrap` rather than hardcoding one provider's spelling.
 [SmartEnum<string>]
@@ -1022,7 +1022,7 @@ public sealed partial class KmsProvider {
     private KmsProvider(string key, bool signs, bool nativeWrap) : this(key) => (Signs, NativeWrap) = (signs, nativeWrap);
 }
 
-// The cloud-key lifecycle the `EnvelopeKeyring.Probe` arm resolves (AWS `DescribeKey` `KeyState`, Azure
+// `KeyState` names the cloud-key lifecycle the `EnvelopeKeyring.Probe` arm resolves (AWS `DescribeKey` `KeyState`, Azure
 // `KeyProperties`, GCP `CryptoKeyVersionState`): only `Enabled` admits a wrap, so a `Mint`/`Rewrap` against a
 // non-`Enabled` key rejects `CustodyVerdict.KeyUnusable` at admission rather than deep in the provider call.
 [SmartEnum<string>]
@@ -1072,7 +1072,7 @@ public readonly partial struct OpDigest {
     public bool Fits(SigningAlgorithm algorithm) => ByteLength == algorithm.DigestWidth;
 }
 
-// The mint modality as a policy row, never a boolean: `Bound` returns the plaintext DEK for the local cipher
+// `WrapForm` carries the mint modality as a policy row, never a boolean: `Bound` returns the plaintext DEK for the local cipher
 // bind (zeroized after); `Remote` is the wrapped-only mint (AWS `GenerateDataKeyWithoutPlaintext`) for a
 // minting node that never encrypts locally — the plaintext first materializes at the read-path `Unwrap`.
 [SmartEnum]
@@ -1085,7 +1085,7 @@ public sealed partial class WrapForm {
 public sealed record SigningKeyring(SigningAlgorithm Algorithm, Func<ReadOnlyMemory<byte>, IO<ReadOnlyMemory<byte>>> Sign, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, IO<bool>> Verify);
 public sealed record SignedAuthorship(StoreActor Actor, KmsProvider Provider, string SigningKeyId, SigningAlgorithm Algorithm, OpDigest Digest, ReadOnlyMemory<byte> Signature, Instant At, CorrelationId Correlation);
 
-// The additional-authenticated-data binding every wrap/unwrap carries: the store partition plus (under RLS) the
+// `EnvelopeAad` binds the additional-authenticated data every wrap/unwrap carries: the store partition and (under RLS) the
 // tenant id digested through the admitted SHA-256 rail so the AAD is a fixed-width opaque value, never a raw
 // tenant uuid on the wire. It rides the provider `EncryptionContext` (AWS) / `AdditionalAuthenticatedData` (GCP)
 // exact-match and is compared application-side on the Azure native-wrap arm (which carries no per-call AAD), so
@@ -1093,7 +1093,7 @@ public sealed record SignedAuthorship(StoreActor Actor, KmsProvider Provider, st
 [ComplexValueObject]
 public sealed partial class EnvelopeAad {
     public string Partition { get; }
-    // The digest is a cryptographic AUTHENTICITY claim, so it mints on `CryptographicOperations.HashData`
+    // `TenantDigest` carries a cryptographic AUTHENTICITY claim, so it mints on `CryptographicOperations.HashData`
     // rather than on the kernel content-identity entry: the whole separation this AAD exists for is that two
     // distinct (partition, tenant) pairs cannot render one value, and the non-cryptographic identity digest
     // admits a chosen-slug collision that unwraps a neighbouring tenant's DEK under its own AAD. It never
@@ -1111,14 +1111,14 @@ public sealed partial class EnvelopeAad {
     }
 }
 
-// The persisted envelope carrier: the wrapped DEK bytes plus the wrapping key id and the exact key version the
-// wrap used (the AWS `KeyMaterialId`, the Azure key version, the GCP `CryptoKeyVersionName`), so a `Rewrap`
-// advances the version and an `Unwrap` resolves the embedded version without a second lookup. The plaintext DEK
-// is NEVER a field.
+// `WrappedKey` persists the DEK-envelope carrier: the wrapped DEK bytes, the wrapping key id, and the exact key
+// version the wrap used (the AWS `KeyMaterialId`, the Azure key version, the GCP `CryptoKeyVersionName`), so a
+// `Rewrap` advances the version and an `Unwrap` resolves the embedded version without a second lookup. The plaintext
+// DEK is NEVER a field.
 public readonly record struct WrappedKey(ReadOnlyMemory<byte> Ciphertext, string WrappingKeyId, string Version);
 
-// The provider-neutral DEK-envelope family (the `EnvelopeKeyring` surface, beside `SigningKeyring` on the one
-// `KmsProvider` axis): `Mint` wraps a fresh DEK returning the plaintext for local AES use plus the `WrappedKey`
+// `EnvelopeKeyring` is the provider-neutral DEK-envelope family, seated beside `SigningKeyring` on the one
+// `KmsProvider` axis: `Mint` wraps a fresh DEK returning the plaintext for local AES use beside the `WrappedKey`
 // to persist; `MintSealed` is the wrapped-only arm (`GenerateDataKeyWithoutPlaintext`; GCP sources DEK bytes
 // from `GenerateRandomBytesAsync`); `Unwrap` recovers the plaintext; `Rewrap` advances the wrapping-key version
 // with the plaintext never crossing the wire; `Probe` resolves the `KeyState`. Each delegate closes over the
@@ -1131,8 +1131,8 @@ public sealed record EnvelopeKeyring(
     Func<WrappedKey, EnvelopeAad, IO<WrappedKey>> Rewrap,
     Func<IO<KeyState>> Probe);
 
-// The custody half of the fissioned decision union (the authz half is `Element/authority` `AuthDecision`):
-// `Wrapped` carries the freshly-minted plaintext DEK (empty on the Remote/rewrap paths) plus the `WrappedKey`
+// `CustodyVerdict` is the custody half of the fissioned decision union (the authz half is `Element/authority`
+// `AuthDecision`): `Wrapped` carries the freshly-minted plaintext DEK (empty on the Remote/rewrap paths) and the `WrappedKey`
 // to persist; `Unwrapped` the recovered DEK; `KeyUnusable` the `Probe`-rejected non-`Enabled` `KeyState`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CustodyVerdict {
@@ -1165,10 +1165,10 @@ public static class Custody {
         : authorship.Digest != digest ? IO.pure<CustodyVerdict>(new CustodyVerdict.Unauthored(digest, authorship.Digest))
         : keyring.Verify(digest.Bytes, authorship.Signature).Map(valid => valid ? (CustodyVerdict)new CustodyVerdict.Authentic(authorship.Actor, authorship.SigningKeyId) : new CustodyVerdict.Forged(authorship.Actor, authorship.SigningKeyId));
 
-    // The DEK envelope fold beside the signing fold: `Wrap` PROBES the key lifecycle first so a wrap against a
+    // `Wrap` folds DEK envelopes beside the signing fold: it PROBES the key lifecycle first so a wrap against a
     // non-`Enabled` key rejects `KeyUnusable` at admission (never deep in the provider call), then mints per the
     // `WrapForm` row — `Bound` returns the plaintext for the local cipher bind, `Remote` the wrapped-only
-    // envelope (`Wrapped.Dek` empty; the plaintext first materializes at the read-path `Unwrap`).
+    // DEK envelope (`Wrapped.Dek` empty; the plaintext first materializes at the read-path `Unwrap`).
     public static IO<CustodyVerdict> Wrap(EnvelopeKeyring keyring, EnvelopeAad aad, WrapForm form) =>
         from state in keyring.Probe()
         from verdict in state.Usable
@@ -1376,13 +1376,13 @@ public static class IdentityDdl {
         "CREATE POLICY node_cell_tenant ON node_cell USING (tenant = current_setting('rasm.tenant')) WITH CHECK (tenant = current_setting('rasm.tenant'))",
     });
 
-    // The extension DDL commits through this rail on the postgres arm only: the frozen provisioning row
-    // vocabulary supplies the SQL, the migration executes it — never a second install path.
+    // `Extensions` commits extension DDL on the postgres arm only: the frozen provisioning row vocabulary
+    // supplies the SQL, the migration executes it — never a second install path.
     public static Seq<string> Extensions(Seq<ServerExtension> required) => required.Map(static ext => ext.CreateSql);
 }
 
 public static class SchemaGate {
-    // The EF half of the boot fold over the relational identity DDL: the assembly-vs-applied migration sets
+    // `Admit` is the EF half of the boot fold over the relational identity DDL: the assembly-vs-applied migration sets
     // classified by the route-owned `Placement` write authority — schema-ahead is a typed rejection, the
     // single-writer applies, the fleet member AwaitBundle. Every failure is the typed IdentityFault band.
     public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement) {
@@ -1417,7 +1417,7 @@ public static class SchemaGate {
             }
             : Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving());
 
-    // The Marten DDL leg: the single-writer placement APPLIES the document/event schema through the runtime
+    // Marten's DDL leg runs here: the single-writer placement APPLIES the document/event schema through the runtime
     // `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync` (the fleet member instead carries the
     // host-registered `AssertDatabaseMatchesConfigurationOnStartup` gate whose throw lifts to MartenMismatch
     // BEFORE this runs), then rolls the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` roster in the SAME

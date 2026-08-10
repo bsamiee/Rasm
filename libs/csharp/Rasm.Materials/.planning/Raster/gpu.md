@@ -1851,4 +1851,4 @@ public sealed partial class PressDevice {
 
 ## [06]-[RESEARCH]
 
-- (none)
+(none)

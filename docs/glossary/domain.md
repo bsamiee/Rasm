@@ -63,7 +63,7 @@ Domain vocabulary carries the AEC, fabrication, geometry, geospatial, building-p
 - `IDF`: describes one energy-model run's geometry, constructions, loads, and systems for the simulation engine.
 - `U-value`: measures heat transmittance through an assembly per unit area and temperature difference.
 - `R-value`: measures an assembly's thermal resistance, the reciprocal of its transmittance.
-- `infiltration`: measures uncontrolled air leakage into a zone, driven by pressure difference and envelope tightness.
+- `infiltration`: measures uncontrolled air leakage into a zone, driven by pressure difference and building-envelope tightness.
 - `psychrometrics`: relates air temperature, humidity, enthalpy, and pressure so comfort and coil loads compute from any two.
 - `PMV`: predicts occupant thermal sensation from air temperature, radiant temperature, humidity, air speed, clothing, and metabolic rate.
 - `UTCI`: scores outdoor thermal stress as an equivalent temperature from air, radiant, wind, and humidity conditions.

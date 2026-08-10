@@ -34,7 +34,7 @@
 
 [ENTRYPOINT_SCOPE]: `Workbook` lifecycle and minting
 
-`Workbook` opens on a path or stream, mints the write-path objects, and `close` triggers the single serialization. A mutator returns `Literal[0, -1]` (0 applied, -1 rejected), a void setter returns `None`, and `filename` is `str | IO[AnyStr] | os.PathLike | None`.
+`Workbook` opens on a path or stream, mints the write-path objects, and `close` triggers the single serialization. Mutators return `Literal[0, -1]` (0 applied, -1 rejected), void setters return `None`, and `filename` is `str | IO[AnyStr] | os.PathLike | None`.
 
 - `Workbook` `options` keys: streaming `constant_memory` `in_memory` `tmpdir` `use_zip64`; coercion `strings_to_numbers` `strings_to_formulas` `strings_to_urls` `nan_inf_to_errors` `default_date_format` `remove_timezone` `date_1904` `max_url_length`.
 
@@ -64,7 +64,7 @@
 
 [ENTRYPOINT_SCOPE]: `Worksheet` row-major writes
 
-`write` discriminates the value type and routes to the typed writers; `write_row`/`write_column` take a sequence with one shared `cell_format`. A positional cell is `(row, col, …)`, `<range>` abbreviates `(first_row, first_col, last_row, last_col)`, `cell_format` defaults `None`, and the typed writers return a `Literal[0, -1, …]` status.
+`write` discriminates the value type and routes to the typed writers; `write_row`/`write_column` take a sequence with one shared `cell_format`. Positional cells spell `(row, col, …)`, `<range>` abbreviates `(first_row, first_col, last_row, last_col)`, `cell_format` defaults `None`, and the typed writers return a `Literal[0, -1, …]` status.
 
 | [INDEX] | [SURFACE]                                                                     | [CAPABILITY]                                      |
 | :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------ |

@@ -5,6 +5,11 @@
 ## [01]-[PACKAGES]
 
 - `loky`'s tracker skew closes at `_use_simple_format` before pool construction — its child spawns across an exec seam no parent rebind crosses.
+- Broker client legs ADMIT here — a branch carrying the message envelope owner dials it, and Speckle and OPC-UA terminate C#-side on SDK reach alone.
+- `confluent-kafka` is the one Kafka client — librdkafka is the engine the C# and TypeScript legs dial, so a pure-Python client forks that floor.
+- `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
+- `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
+- `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition to a backend the sync client leaves free.
 
 ## [02]-[SHAPE]
 
@@ -52,6 +57,24 @@
 - Modality-polymorphic entrypoints whose return shape varies with input carry one `@overload` per shape — an unoverloaded arm type-checks nowhere.
 - `HostRow` extends the descriptor with `lanes`/`recovery`/`scratch`/`document` and refuses `tenancy` — a host separates no tenant, the profile does.
 - `ProviderRow` extends with `supplies`, refusing `tenancy` and `isolation` — `ConsumptionProfile.admit` carries that crossing as axis evidence.
+- `paho` drives socket-first on `loop_read`/`loop_write`/`loop_misc` — `loop_start`'s daemon thread outlives every cancel scope and joins nowhere.
+- Binding rows foreclose `retry` and name their resilience class — a row holding its own curve makes effective attempts the product of two schedules.
+- Extension-name ceilings are branch law — `CloudEvent` proves the charset alone, so a twenty-character name refuses only where the mint states it.
+- Format capability is a ROW COLUMN, never a suffix-derived media type — Avro defines no batch envelope and no binary mode, so both refuse by column.
+- Envelope slots hold CROSSINGS — `subject` and `dataref` carry `WireKey` renders, a `ContentKey` slot needing two columns the pinned spelling lacks.
+- One BROKER retry class serves every binding — Kafka rides its `retriable()` verdict, taxonomy-only families matching their narrowest transient arm.
+- Failure windows key the dependency INSTANCE and trip on TRANSIENCE alone — one dead cluster sheds no healthy sibling, a malformed payload nothing.
+- Circuit and rate settle from INSIDE the retried unit — a lifted fault has surrendered the exception the class's own target classifies.
+- `RateGate` WAITS and never refuses — the caller's deadline is the one ceiling, and two refusals over one queue disagree the moment either moves.
+- ONE row-driven `BrokerLane` owns every connection — a per-protocol adapter class forks the membership, settlement, and drain law six ways.
+- Every settlement joins the durable write it stands for — automatic commit acknowledges what a crash then loses, the loss invisible at both ends.
+- Rebalance callbacks record a delta and start NO work — library work on the client's thread under its lock is the deadlock the portal forecloses.
+- Prefetch sizes WITH the lane limiter, never above it — an unmatched window buys latency the lane then pays as unbounded memory.
+- Drains FLUSH and never cancel — a cancelled in-flight window loses exactly the facts acceptance already promised against.
+- Ingress ADMITS and never inherits — an authenticated connection proves the connection, so a tenant claim verifies against the trust row or clears.
+- Unbound trust tables are CLOSED — a forgotten binding surfaces as a refusal an operator sees rather than an authorization hole nobody observes.
+- Grades above their issuer's ceiling REFUSE and never downgrade — silently lowering publishes the fact onto every binding the lower grade admits.
+- `OpLogEntry` tracks the producer record WHOLE — a short positional envelope shifts every column past the truncation into a type-checking neighbour.
 
 ## [03]-[COLLAPSE]
 

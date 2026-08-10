@@ -49,14 +49,15 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
 - Two sections, `[01]-[OPEN]` and `[02]-[CLOSED]`; each idea is a card — a bracketed semantic UPPERCASE_SNAKE slug leader (never numeric) and bullets.
-- Card bullets carry the capability, what it unlocks, and the gap or technique it draws on.
+- Card bullets are the closed vocabulary `Capability` `Shape` `Unlocks` `Anchors`, extended by `Tension` where the idea holds a live trade-off.
 - Folder ideas are bigger concepts — a new file, sub-domain, or capability — grounded in the folder's domain, never speculation.
 - Each idea drives one or more tasks; resolved ideas move to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
 
 [TASKLOG] — the folder's open and closed work, distilled from its ideas:
 - Two sections, `[01]-[OPEN]` and `[02]-[CLOSED]`; each task card's leader carries a status marker.
 - Open markers: `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`; closed: `[COMPLETE]`, `[DROPPED]`.
-- Task cards carry three to four bullets: the capability or file to build, the packages to integrate, the boundaries or wires, and the considerations.
+- Task cards carry the same four required bullets, extended by `Atomic` where one landing closes the card.
+- `[BLOCKED]` earns its marker from an `Arms` bullet naming what clears the blocker and a `Route` bullet naming the probe that reads each arm.
 - Integration points align internal to the folder or to a sibling or branch, never coupled.
 - Tasks are scoped guidance — not a full spec and not vague; one idea spawns one or more tasks, each naming the exact file or sub-domain it lands in.
 

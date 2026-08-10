@@ -15,7 +15,7 @@
 
 [PUBLIC_TYPE_SCOPE]: element, tree, parser, and query roots (`lxml.etree`)
 
-An XPath text or attribute result is an `_ElementUnicodeResult`, a `str` subclass whose provenance members recover the source node, so a smart-string result round-trips to its origin rather than decaying to bare text (`smart_strings=False` opts out).
+`_ElementUnicodeResult` types every XPath text or attribute result — a `str` subclass whose provenance members recover the source node — so a smart-string result round-trips to its origin rather than decaying to bare text (`smart_strings=False` opts out).
 
 | [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------ |
@@ -51,7 +51,7 @@ An XPath text or attribute result is an `_ElementUnicodeResult`, a `str` subclas
 
 [PUBLIC_TYPE_SCOPE]: faults
 
-`LxmlError` roots the hierarchy; `LxmlSyntaxError` subclasses both it and the stdlib `SyntaxError`. A validator splits faults parse-time (`*ParseError`, building the schema) from validate-time (`*ValidateError`, applying it).
+`LxmlError` roots the hierarchy; `LxmlSyntaxError` subclasses both it and the stdlib `SyntaxError`. Validator faults split parse-time (`*ParseError`, building the schema) from validate-time (`*ValidateError`, applying it).
 
 | [INDEX] | [SYMBOL]                                               | [PACKAGE_ROLE]     | [CAPABILITY]                                            |
 | :-----: | :----------------------------------------------------- | :----------------- | :------------------------------------------------------ |
@@ -120,7 +120,7 @@ Tag filters accept `*`, a tag name, a `{ns}local` Clark name, or an `etree.Eleme
 
 [ENTRYPOINT_SCOPE]: query, transform, and validate
 
-`XPath`/`ETXPath` compile once and reuse with bound variables and `FunctionNamespace` extensions; `XSLT.strparam` escapes a string parameter; `_ElementTree.relaxng`/`.xmlschema`/`.xslt` are the one-shot tree-level convenience forms. A validator engine (`XMLSchema`/`RelaxNG`/`Schematron`/`DTD`/`isoschematron.Schematron`) builds from a schema tree or file.
+`XPath`/`ETXPath` compile once and reuse with bound variables and `FunctionNamespace` extensions; `XSLT.strparam` escapes a string parameter; `_ElementTree.relaxng`/`.xmlschema`/`.xslt` are the one-shot tree-level convenience forms. `XMLSchema`/`RelaxNG`/`Schematron`/`DTD`/`isoschematron.Schematron` each build from a schema tree or file.
 
 | [INDEX] | [CALL_SHAPE]                                                             | [CAPABILITY]                                             |
 | :-----: | :----------------------------------------------------------------------- | :------------------------------------------------------- |

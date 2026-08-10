@@ -42,7 +42,7 @@ When a foreign signal matches several rows, the most specific owner wins, and id
 [BYTE_IDENTITY]:
 - Use: signatures, content keys, idempotency tokens, checksum verification, byte-stable forwarding.
 - Law: a sub-band that must round-trip byte-identically is held opaque at admission — `Schema.Uint8ArrayFromSelf` in memory, `Schema.Uint8ArrayFromBase64` across a text wire — and the digest computes over those held octets before any content parse; identity and content are two projections of one admission, never two reads of the source.
-- Law: parse-then-reserialize is rejected for signed material — a re-encode respells float forms, key order, and escapes — so forwarding emits the held octets verbatim, and `Schema.encode` of the envelope re-emits the same band bytes by construction.
+- Law: parse-then-reserialize is rejected for signed material — a re-encode respells float forms, key order, and escapes — so forwarding emits the held octets verbatim, and `Schema.encode` of the message envelope re-emits the same band bytes by construction.
 - Boundary: the receipt carries the coordinate and the digest, never the octets; the digest function is fixed at composition and arrives as a parameter or service, never chosen per site.
 
 ```typescript conceptual
@@ -189,7 +189,7 @@ export { Contract, ContractLive, Missing, probed, Row, specification };
 ## [04]-[CODEC_ENGINE]
 
 [ENGINE_FOLD]:
-- Use: every foreign codec — binary formats, text formats, compression, crypto envelopes — whose decode/encode pair the platform does not own.
+- Use: every foreign codec — binary formats, text formats, compression, crypto containers — whose decode/encode pair the platform does not own.
 - Law: the engine is a pure function pair behind one `Schema.transformOrFail` from the byte schema to `Schema.Unknown`, composed onto the owned shape with `Schema.compose(shape, { strict: false })`; the engine's throw is caught inside the transform — `Either.try` folding the defect to `new ParseResult.Type(ast, actual, message)` — so codec faults join the same `ParseError` rail every admission rides. A codec fault family beside the decode rail is the rejected second vocabulary: the caller already discriminates admission failure, and the engine's failure is admission failure.
 - Law: the engine configures once at the owner per policy — instance options, untrusted-input ceilings, tag and extension registries are module-init facts — and the configured decode is the exported surface; the interior receives the owned shape and never a raw engine value, so replacing the engine is an edit to one module.
 - Law: the transform is total both directions — the encode arm folds the engine's serializer through the same `Either.try` — so the owner round-trips and the wire twin derives; a decode-only crossing that hand-writes its egress is half an owner.

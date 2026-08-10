@@ -9,6 +9,7 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 - [02]-[CONTEXT]: six-axis `ConsumptionProfile` row with its refusal, closed classification band, declared `RecoveryObjective` window, adopted W3C correlation, clock-consumed causal frame.
 - [03]-[BACKEND_CONTRACT]: local contract composition, the deterministic branch merge, generation proof, realized-evidence admission, and the measured recovery window graded against the declared objective.
 - [04]-[SETTINGS]: `SettingsAdmission` source order, the `SECRET_LADDER` tier table, and the output-parameterized `SecretBoundary.resolve`.
+- [05]-[TENANCY]: `Trust` issuer rows and `TenantAdoption` — the ingress gate every producer claim crosses before a routing decision reads it.
 
 ## [02]-[CONTEXT]
 
@@ -89,12 +90,29 @@ class Isolation(StrEnum):
     REMOTE = "remote"
 
 
-# The sensitivity band every receipt, span, and log projection carries. A bare `str` here is a free-text dimension a
-# board groups on and no producer spells twice, and it is the one axis a caller could widen without an owner noticing.
+# sensitivity band every receipt, span, log projection, and message-envelope `dataclassification` carries — one
+# vocabulary the estate transcribes per branch, so a grade a peer emits decodes here rather than landing as an unknown
+# string. A bare `str` here is a free-text dimension a board groups on and no producer spells twice, and it is the one
+# axis a caller could widen without an owner noticing. Members ascend in sensitivity, and `SECRET` is the grade no
+# broker binding carries at all — its handling row seats at `transport/binding#BINDING`, never here.
 class Classification(StrEnum):
+    PUBLIC = "public"
     INTERNAL = "internal"
     RESTRICTED = "restricted"
-    PUBLIC = "public"
+    SECRET = "secret"
+
+    @property
+    def rank(self) -> int:
+        # ASCENDING sensitivity and the ONE order every ceiling comparison reads. `StrEnum` compares LEXICALLY,
+        # so a bare `claim.grade > row.ceiling` reads `internal` as BELOW `public` and admits a fact past the
+        # ceiling its issuer declared — the exfiltration path the gate exists to close, spelled by an operator
+        # the vocabulary never carried.
+        return GRADE_RANK[self]
+
+
+# rank DERIVES from the declaration order that already states the ascent, so a fifth grade lands as one member
+# and no second roster restates its position.
+GRADE_RANK: Final[Map[Classification, int]] = Map.of_seq((grade, rank) for rank, grade in enumerate(Classification))
 
 
 # Preset NAMES over the axis roster, never a discriminant: PROFILE_ROW expands each to its tuple and
@@ -128,7 +146,7 @@ class Killswitch(StrEnum):
 TraceId = NewType("TraceId", bytes)
 SpanId = NewType("SpanId", bytes)
 
-# A durability window is an integer TICK count on the `evidence/clock#CLOCK` physical scale, never a `float` second or a
+# Durability windows count integer TICKS on the `evidence/clock#CLOCK` physical scale, never `float` seconds or a
 # `timedelta`: the objective is compared against a frontier stamped on exactly that scale, so a float crossing the
 # comparison re-introduces the rounding the integer clock exists to foreclose. `Deadline.seconds` is the deliberate
 # contrast on this same page — a lane budget the `anyio` seam takes as seconds — and the distinct constructor is what
@@ -186,7 +204,7 @@ class FeatureGate(Struct, frozen=True, gc=False):
 
 
 class RecoveryObjective(Struct, frozen=True, gc=False):
-    # the DECLARED durability window — how many ticks of data a restore may lose and how many it may take — stated per
+    # DECLARED durability window — how many ticks of data a restore may lose and how many it may take — stated per
     # deployment shape and overridden per host. This owner declares the target and measures nothing, so the reading it
     # is graded against lives with the observation that took it.
     rpo: Ticks
@@ -375,9 +393,9 @@ class ConsumptionProfile(Struct, frozen=True):
     def admit(cls, row: "ConsumptionProfile") -> RuntimeRail["ConsumptionProfile"]:
         # one axis gate for both open questions: in-host names a host the consumer supplies, and an
         # isolation value whose crossing feature no provider carries refuses rather than dropping a tier.
-        # The refusal rides the branch's ONE fault union: a composition root folds this rail through the same
+        # Refusals ride the branch's ONE fault union: a composition root folds this rail through the same
         # `railed`/`traversed` combinators every other boot step returns through, where a sibling refusal struct
-        # would need a translation adapter at the boot fold and break the cross-tier `combine` the aggregate closes on.
+        # needs a translation adapter at the boot fold and breaks the cross-tier `combine` the aggregate closes on.
         # `config` is the case by kind — an unservable axis value is a caller-repairable construction refusal the
         # same inputs deterministically refuse — and the subject names the axis so recovery keys on the coordinate
         # rather than parsing a reason string.
@@ -528,7 +546,7 @@ class Correlation(Struct, frozen=True):
         # `INVALID_SPAN_CONTEXT`, the one case minting a root.
         match carrier.map(lambda inbound: trace.get_current_span(propagate.extract(inbound)).get_span_context()):
             case Option(tag="some", some=parent) if parent.is_valid:
-                # the flag rides off the extraction rather than a literal, so the evidence stays whatever the
+                # `is_remote` rides off the extraction rather than a literal, so the evidence stays whatever the
                 # propagator decoded — a locally-parented context reads `False` and never claims a remote hop.
                 return cls(
                     trace_id=TraceId(parent.trace_id.to_bytes(_TRACE_BYTES)),
@@ -631,7 +649,7 @@ class RuntimeContext(Struct, frozen=True):
 
 ## [03]-[BACKEND_CONTRACT]
 
-- Owner: `BackendGeneration` is the one polymorphic entry over both directions — `compose` mints this branch's contribution from its own store artifacts, `admit` proves a contract set (its own or a merged one) against provider observations, and `merge` folds branch contributions into the deployment unit. All three land on the `_funnelled` projection, so no mint path reaches the canonical framing unproved. The declared `RecoveryObjective` arrives as an `admit` PARAMETER off the caller's resolved `ProfilePolicy.recovery`, so deployment shape reaches this owner as data and no `RuntimeContext` import inverts the strata.
+- Owner: `BackendGeneration` is the one polymorphic entry over both directions — `compose` mints this branch's contribution from its own store artifacts, `admit` proves a contract set (its own or a merged one) against provider observations, and `merge` folds branch contributions into the deployment unit. All three land on the `_funnelled` projection, so no mint path reaches the canonical framing unproved. `RecoveryObjective` arrives DECLARED as an `admit` parameter off the caller's resolved `ProfilePolicy.recovery`, so deployment shape reaches this owner as data and no `RuntimeContext` import inverts the strata.
 - Cases: each local store artifact — migration script, journal DDL, embedded-store ensure, object-plane bucket — lands as one `ArtifactSource` row carrying key, role, bytes, providers, and dependencies; Python composes from its own artifacts alone.
 - Law: `msgspec.Struct` mirrors the contract wire once; `forbid_unknown_fields` rejects drift at decode, `order="deterministic"` frames the compose-side stream this branch then digests, while admit digests the octets it received, and `FailureRank`/`RestartClass` carry the capability vocabularies as closed wire values a peer's spelling decodes against.
 - Law: `FailureRank.absorbs` decides what a missing capability costs — refusal, a folded lane surfacing here rather than at first query, or recorded evidence — and `absorbed` projects the whole absence set keyed by rank off the one `_lacking` fold `disruption` also reads. `RestartClass` ranks its disruption in declaration order, so `disruption` reports the worst bounce across a gap set instead of the cheapest, and `Nothing` where the observation lacks nothing at all.
@@ -754,7 +772,7 @@ class ConformanceWire(Struct, frozen=True, forbid_unknown_fields=True, rename="c
 
 
 class RecoveryWindow(Struct, frozen=True):
-    # the MEASURED window the declared objective is graded against: `rpo` the tick lag between the observation and the
+    # MEASURED window the declared objective is graded against: `rpo` the tick lag between the observation and the
     # newest datum the store proves durable, `rto` the ticks the restore that produced it actually took. Each half is
     # `Option` because each has a real absence a zero would forge — a provider that took no frontier reading, a live
     # store that was never restored.
@@ -762,7 +780,7 @@ class RecoveryWindow(Struct, frozen=True):
     rto: Option[Ticks]
 
     def exceeding(self, objective: RecoveryObjective, /) -> tuple[str, ...]:
-        # the two halves absorb absence OPPOSITELY, and that split is the whole law. An observation carrying no frontier
+        # Both halves absorb absence OPPOSITELY, and that split is the whole law. An observation carrying no frontier
         # proves no recency, so it refuses as `rpo:unmeasured` rather than admitting a window nobody measured; an absent
         # `rto` is a store that never restored and owes no bounce time, where a fabricated zero would publish a restore
         # it never ran. An admitted generation therefore always carries a measured `rpo`.
@@ -1101,7 +1119,7 @@ _FACTS: Final[Block[ContractFact]] = Block.of_seq([
         lambda e: tuple(sorted(frozenset(e.corpus.required_capabilities) - e.observed.capabilities)),
     ),
     ContractFact(
-        # the ONE recency proof, seated after the realization rows because a store that never carried the artifacts has
+        # ONE recency proof, seated after the realization rows because a store that never carried the artifacts has
         # no window worth grading. Its subjects name the exceeded half with the measured and declared ticks beside it,
         # so an operator reads WHICH objective the restore missed and by how much rather than that recovery failed.
         "recovery-window-exceeded",
@@ -1115,7 +1133,7 @@ _FACTS: Final[Block[ContractFact]] = Block.of_seq([
 
 - Owner: `SettingsAdmission` admits init mapping, environment, dotenv, and the OS secret tree in the DEFAULT `pydantic-settings` precedence, with the one substitution that order alone cannot express: `settings_customise_sources` wraps the flat `file_secret_settings` rung in `NestedSecretsSettingsSource(..., secrets_nested_subdir=True)`, so a flat `<mount>/<field>` file and a subdirectory-per-model tree both resolve off the one `_SECRETS_MOUNT` without a single rung moving. `mounted` is its construction entry, threading one mount onto both the `secrets_dir` source and the `secrets_mount` field, since `secrets_dir` resolves ahead of every validator and no validator reaches it to refuse a split. Every root is typed against the `pydantic` catalogue, never bare `str`, and every environment-derived path — the `known_hosts` home default included — resolves inside this construction rather than at the leg that reads it. `BasicCredential` is deliberately not named `Credential`: the serve-side `CredentialPolicy` union is `transport/serve#SERVE`'s decode of the peer-minted wire axis, a different concept under a different name.
 - Entry: `SecretBoundary.resolve` is the one credential reader, parameterized over output shape by a keyword-only `@overload` pair — admitting a new consumer shape is one `SecretShape` member, one overload arm, and one fold-tail arm, never a parallel resolver. `SecretRequest.admitted` gates the coordinate before any rung fires, so a name outside the shared alphabet refuses as a `config` fault rather than reaching a provider. Absence folds to `Ok(Nothing)` rather than a fault: a missing credential is a wire fact the outbound leg routes. `known_hosts` returns the admission-loaded `SSHKnownHosts` the `transport/roots#RESOURCE` `ssh` leg binds — host-key verification is admission-supplied, never the disabled-verification `known_hosts=None` the connection law forbids.
-- Auto: the ladder fold drops every row the carried `FeatureGate` refuses, so a session that cannot answer a keychain prompt never triggers one and a killswitched deployment dials no vault. The declared-field twins are the branch-catalogued `GoogleSecretManagerSettingsSource` and `AzureKeyVaultSettingsSource` — deployment-added rows on this same source chain, serving model fields the chain resolves at construction where `SecretBoundary` serves the per-service `(service, username)` credentials no construction-time source can address.
+- Auto: the ladder fold drops every row the carried `FeatureGate` refuses, so a session that cannot answer a keychain prompt never triggers one and a killswitched deployment dials no vault. `GoogleSecretManagerSettingsSource` and `AzureKeyVaultSettingsSource` are the branch-catalogued declared-field twins — deployment-added rows on this same source chain, serving model fields the chain resolves at construction where `SecretBoundary` serves the per-service `(service, username)` credentials no construction-time source can address.
 - Growth: a new setting is one typed field on the model; a new source origin is one row on the `settings_customise_sources` tuple; a new secret BACKEND is one `CloudVault` arm, one `VaultTag` member, one `read` case, and one `vault()` arm with zero ladder edits, while a new resolution TIER is one `SecretTier` member with one `SECRET_LADDER` row carrying its `Option[Feature]` gate and one `_read` arm; a tier needing a retry policy the others do not share re-lands `TierRow`'s retry column with two distinct values, never one repeated; a new output shape one `SecretShape` member, one overload, and one fold-tail arm.
 - Law: `SecretTier` names the rung and `CloudVault` names the backend serving it — the deployment supplies one `providers`-axis row, so the resolver holds no provider default and an unnamed backend folds the rung out instead of assuming one. Each backend owns its own read, so the arm carrying a coordinate set is the arm dialling it and a probe builds exactly one client, INSIDE the read and released on the way out: a memoized client binds credential-carrying state to no composition, which is the handle the branch's per-composition custody law forbids, and boot-only resolution makes the per-read construction free.
 - Law: the ladder is ONE synchronous union crossing on `anyio.to_thread.run_sync` under `_PROBE_BAND`, and GCP and Azure publish an `aio` twin where `hvac` publishes none.
@@ -1196,7 +1214,7 @@ _SECRETS_MOUNT: Final[str] = "/run/secrets"
 # together. A payload holding no such field is a MISS the walk continues past, never a fault.
 _VAULT_FIELD: Final[str] = "value"
 
-# The narrowest alphabet every backend admits: Key Vault refuses the underscore GCP secret ids and a file mount both
+# Narrowest alphabet every backend admits: Key Vault refuses the underscore GCP secret ids and a file mount both
 # tolerate, so one spelling serves every arm and no arm re-projects a name. This is a REFUSAL, not a convention —
 # `SecretRequest.admitted` matches against it before any rung fires.
 _SECRET_ALPHABET: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9-]+")
@@ -1210,7 +1228,7 @@ _SECRET_BANDS: Final[dict[ScopeKey, tuple[ExitStack, list[object]]]] = {}
 
 
 def _secret_occupancy() -> int:
-    # the one probe OBJECT the secret band ever registers, per the lanes THREAD_BAND precedent: `Metrics.occupied`
+    # ONE probe OBJECT the secret band ever registers, per the lanes THREAD_BAND precedent: `Metrics.occupied`
     # keys registration on identity, so a module-level read keeps one scope's registration single however many
     # concurrent walks open under it.
     return _PROBE_BAND.borrowed_tokens
@@ -1220,8 +1238,8 @@ def _secret_occupancy() -> int:
 def _secret_band(scope: ScopeKey) -> Iterator[None]:
     # per-scope refcount under a plain thread lock: concurrent walks in one scope keep ONE registration of ONE probe.
     # Per-walk closures each register a reader and the band fold SUMS them, publishing N x the borrowed count, while
-    # one shared probe identity-retired by the first exit darkens the band under a walk still holding the limiter —
-    # the refcount is the only shape that overcounts nothing and retires nothing early. Last walk out closes the
+    # one shared probe identity-retired by the first exit darkens the band under a walk still holding the limiter, so
+    # refcounting is the only shape that overcounts nothing and retires nothing early. Last walk out closes the
     # stack and drops the scope row, so a level nobody holds publishes no point.
     token = object()
     with _SECRET_GATE:
@@ -1248,9 +1266,9 @@ class BasicCredential(Struct, frozen=True):
 
 
 class SecretRequest(Struct, frozen=True, gc=False):
-    # the whole coordinate one resolve addresses, minted once at the entry and read by every rung: `service`/`username`
-    # are the keystore's own two arguments, `name` the dashed correspondence the cloud and file arms address, and `user`
-    # the request's own user those stores' bare secrets pair with. `username` stays `str | None` because
+    # whole coordinate one resolve addresses, minted once at the entry and read by every rung: `service`/`username`
+    # are the keystore's own two arguments, `name` the dashed correspondence the cloud and file arms address, and
+    # `user` names the principal those stores' bare secrets pair with. `username` stays `str | None` because
     # `keyring.get_credential` TAKES that shape, and lifting it here would only unwrap it again one arm later.
     service: str
     username: str | None
@@ -1265,7 +1283,7 @@ class SecretRequest(Struct, frozen=True, gc=False):
 
     @classmethod
     def admitted(cls, service: str, username: str | None, /) -> RuntimeRail[Self]:
-        # the shared alphabet REFUSES at admission rather than at a provider. Key Vault answers a malformed name with an
+        # `_SECRET_NAME` REFUSES at admission rather than at a provider. Key Vault answers a malformed name with an
         # `HttpResponseError` no MISS arm catches and Secret Manager with a 400 the same, so an unrefused typo either
         # leaves as an opaque tier fault or — worse, once both cloud arms are gated out — walks to `file` and answers
         # `Ok(Nothing)` as if the credential were simply absent. `config` is the case by kind: the same inputs
@@ -1278,7 +1296,7 @@ class SecretRequest(Struct, frozen=True, gc=False):
         )
 
     def paired(self, raw: str, /) -> Option[BasicCredential]:
-        # the one lift every cloud and file arm returns through: those stores hold the secret ALONE, so the user is this
+        # ONE lift every cloud and file arm returns through: those stores hold the secret ALONE, so the user is this
         # request's own rather than a provider field a bare secret never carries.
         return Some(BasicCredential(self.user, SecretStr(raw.strip())))
 
@@ -1316,7 +1334,7 @@ class CloudVault:
         # ladder that resolves only at boot pays nothing for the construction that keeps custody honest.
         match self:
             case CloudVault(tag="gcp", gcp=(project, prefix)):
-                # the generated client publishes `__enter__`/`__exit__` and NO `close` member, so the `with` block IS
+                # `SecretManagerServiceClient` publishes `__enter__`/`__exit__` and NO `close` member, so `with` IS
                 # its release and the gRPC channel this read opened dies with the arm.
                 with SecretManagerServiceClient() as client:
                     name = client.secret_version_path(project, f"{prefix}-{request.name}", "latest")
@@ -1389,8 +1407,8 @@ class SettingsAdmission(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         # PRECEDENCE is unchanged and the FILE origin widens — the one substitution a permuted tuple cannot express.
-        # `NestedSecretsSettingsSource` takes the existing flat source as its first positional ARGUMENT and wraps it, so
-        # the flat `<mount>/RASM_PY_<field>` file keeps resolving while `secrets_nested_subdir=True` adds the
+        # `NestedSecretsSettingsSource` takes the existing flat source as its first positional ARGUMENT and wraps it,
+        # so `<mount>/RASM_PY_<field>` keeps resolving flat while `secrets_nested_subdir=True` adds the
         # `<mount>/RASM_PY_<model>/<field>` tree beside it — which is how a validated sub-model's fields arrive as
         # individual mounted files rather than as one JSON blob the flat source can only hand over whole; both layouts
         # carry the prefix because `secrets_prefix` falls back to `env_prefix` on the wrapper exactly as on the flat
@@ -1498,7 +1516,7 @@ class SecretBoundary(Struct, frozen=True):
             case Option(tag="some", some=read):
                 return await guarded(RetryClass.SECRET, anyio.to_thread.run_sync, read, subject="secret", limiter=_PROBE_BAND)
             case _:
-                # the CLOUD rung with no backend named folds to a miss: no client constructed and no provider assumed.
+                # CLOUD rungs naming no backend fold to a miss: no client constructed and no provider assumed.
                 return Ok(Nothing)
 
     def _read(self, row: TierRow, request: SecretRequest, /) -> Option[Callable[[], Option[BasicCredential]]]:
@@ -1550,7 +1568,98 @@ SECRET_LADDER: Final[Block[TierRow]] = Block.of_seq([
 ])
 ```
 
-## [05]-[RESEARCH]
+## [05]-[TENANCY]
+
+- Owner: `Trust` is the issuer table a composition binds and `TenantAdoption` the one ingress gate every producer claim crosses. `TrustRow` answers what ONE issuer may assert — the principals it may claim as `authcontext`, the tenants it may claim at all, and the sensitivity ceiling a fact from it may carry — so trust is DATA bound at the composition root rather than a predicate scattered across every decode site. `Claim` is the untrusted quadruple an ingress decodes off a wire; `TenantAdoption` is the verified answer a routing decision reads.
+- Cases: `Tenancy` already closes the deployment axis and each value answers the gate differently. `NONE` admits no tenant claim at all, so a fact arriving with one refuses rather than being silently flattened onto the root partition. `SINGLE` admits exactly the tenant its own composition bound and refuses every other, so a misrouted fact from a peer deployment cannot land as local data. `MULTI` admits any tenant the issuer's own row carries, which is the only value where the trust table decides rather than the axis.
+- Law: ingress ADMITS and NEVER inherits. Decoded envelopes carry no authority their transport happened to hold — a message crossing an authenticated broker connection proves the CONNECTION was authenticated and says nothing about the tenant its payload claims — so the adopting leg seats the wire entry and a refusing leg CLEARS it rather than falling back to the ambient frame. Reading the transport's own credential as the fact's tenant is the confused-deputy path this gate exists to close.
+- Law: `source` and `authcontext` are producer CLAIMS verified before any routing decision reads them. Matching a filter on an unverified `source` routes on a value its producer chose freely, so a peer naming another capability's source reaches that capability's subscriptions; the same holds for a principal asserted in `authcontext`. Verification is issuer-prefix, resolved LONGEST-first over resolved segments rather than by string prefix, because `rasm/element-evil` carries the `rasm/element` string prefix and none of its segments.
+- Law: `ceiling` is an UPPER bound and never a stamp. Issuers claim a grade at or below their row's ceiling and anything above it refuses — never downgrades — because silently lowering a `restricted` fact to `internal` publishes it onto every binding the lower grade admits, which is exactly the exfiltration path the classification gate exists to close. That comparison reads `Classification.rank` and never the members themselves: a `StrEnum` orders LEXICALLY, so `internal` sorts below `public` and a bare `>` admits precisely the crossing this bound forbids.
+- Law: an unbound `Trust` is CLOSED, not open. `Trust.closed()` trusts no issuer, so a composition that binds no table refuses every claim rather than admitting every one, and the failure mode of forgetting the binding is a refusal an operator sees immediately rather than an authorization hole nobody observes.
+- Entry: `TenantAdoption.of(context, trust, claim)` is the one gate, railed, answering the adopted tenant beside the row that admitted it — the composition-bound table crosses as an ARGUMENT rather than as ambient state a decode site resolves; `Trust.issuer(source)` is the longest-prefix resolve every other read composes. Neither takes a knob, and no consumer re-spells the fold.
+- Auto: a refusal rides the fault union's `config` case keyed `tenancy.<axis>`, so the boot fold and the ingress fold return through the one rail every other step returns through, and a refused claim sheds exactly the fact carrying it rather than the connection that delivered it.
+- Growth: a new trusted issuer is one `TRUST_ROWS`-shaped entry the composition binds; a new claimed dimension is one `Claim` field with its `TrustRow` column; a new tenancy shape is one `Tenancy` member with its arm on the one adoption fold, the standing `assert_never` breaking every arm that lacks it.
+- Boundary: claim verification and tenant adoption only. Mints no `Tenant` — `evidence/clock#CLOCK` owns that newtype and its root — no credential, no session, no row-level predicate, and no transport identity. Rejected: a tenant inherited off a transport credential; a claim verified at a routing site rather than at ingress; a substring issuer match; a ceiling that downgrades; an open default trust table.
+
+```python signature
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class TrustRow(Struct, frozen=True, gc=False):
+    # what ONE issuer may assert. Empty sets admit nothing, so widening is an explicit row edit and the default of a
+    # newly added issuer is refusal rather than whatever the previous row happened to carry.
+    issuer: str
+    principals: frozenset[str]
+    tenants: frozenset[str]
+    ceiling: Classification
+
+
+class Trust(Struct, frozen=True, gc=False):
+    # composition-bound issuer table. CLOSED by default: a composition binding nothing refuses every claim, so a
+    # forgotten binding surfaces as an immediate refusal rather than as an authorization hole nobody observes.
+    rows: Map[str, TrustRow] = Map.empty()
+
+    @classmethod
+    def closed(cls) -> Self:
+        return cls()
+
+    def issuer(self, source: str, /) -> Option[TrustRow]:
+        # LONGEST-prefix over resolved segments, never a string prefix: `rasm/element-evil` carries the
+        # `rasm/element` string prefix and none of its segments, so a string test admits exactly the sibling
+        # capability this resolve refuses.
+        segments = source.strip("/").split("/")
+        candidates = ("/".join(segments[:depth]) for depth in range(len(segments), 0, -1))
+        return Block.of_seq(candidates).choose(self.rows.try_find).try_head()
+
+
+class Claim(Struct, frozen=True, gc=False):
+    # UNTRUSTED quadruple an ingress decodes off a wire, named for what it is so no consumer mistakes it for a
+    # verified value. Every field is the producer's own assertion until `TenantAdoption.of` answers.
+    source: str
+    principal: Option[str] = Nothing
+    tenant: Option[str] = Nothing
+    grade: Classification = Classification.INTERNAL
+
+
+class TenantAdoption(Struct, frozen=True, gc=False):
+    # VERIFIED answer, carrying the row that admitted it so a downstream reader sees which issuer vouched rather
+    # than re-resolving the table. `admitted` is `Nothing` for an untenanted fact, which is a distinct answer from a
+    # refused claim and never the same value.
+    admitted: Option[Tenant]
+    row: TrustRow
+
+    @classmethod
+    def of(cls, context: RuntimeContext, trust: Trust, claim: Claim, /) -> RuntimeRail[Self]:
+        # ONE gate. Issuer resolves first, because every other column is that issuer's to assert; the axis then
+        # decides whether a tenant claim is spellable at all, and the row decides which values it may carry.
+        match trust.issuer(claim.source):
+            case Option(tag="none"):
+                return Error(BoundaryFault(config=("tenancy.source", f"unrostered issuer {claim.source!r}")))
+            case Option(some=row) if claim.grade.rank > row.ceiling.rank:
+                # ABOVE the ceiling REFUSES and never downgrades: silently lowering a restricted fact publishes it
+                # onto every binding the lower grade admits.
+                return Error(BoundaryFault(config=("tenancy.grade", f"{claim.grade} exceeds the {row.issuer!r} ceiling")))
+            case Option(some=row) if claim.principal.map(lambda held: held not in row.principals).default_value(False):
+                return Error(BoundaryFault(config=("tenancy.authcontext", f"{row.issuer!r} asserts no such principal")))
+            case Option(some=row):
+                return cls._partitioned(context.shape.tenancy, row, claim).map(lambda held: cls(admitted=held, row=row))
+
+    @staticmethod
+    def _partitioned(axis: Tenancy, row: TrustRow, claim: Claim, /) -> RuntimeRail[Option[Tenant]]:
+        # axis decides SPELLABILITY and row decides membership, so a deployment that carries no tenants
+        # refuses a claim outright rather than flattening it onto the root partition where it would read as local.
+        match (axis, claim.tenant):
+            case (Tenancy.NONE, Option(tag="some")):
+                return Error(BoundaryFault(config=("tenancy.tenancy", "an untenanted deployment admits no tenant claim")))
+            case (Tenancy.NONE, _) | (_, Option(tag="none")):
+                return Ok(Nothing)
+            case (_, Option(some=held)) if held in row.tenants:
+                return Ok(Some(Tenant(held)))
+            case (_, Option(some=held)):
+                return Error(BoundaryFault(config=("tenancy.tenant", f"{row.issuer!r} claims no tenant {held!r}")))
+```
+
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

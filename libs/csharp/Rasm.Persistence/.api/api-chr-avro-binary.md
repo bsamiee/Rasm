@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CHR_AVRO_BINARY]
 
-`Chr.Avro.Binary` compiles a `Schema` into a reflection-free binary Avro codec: `BinarySerializerBuilder`/`BinaryDeserializerBuilder` assemble a LINQ `Expression` tree and `Compile()` it into a `BinarySerializer<T>`/`BinaryDeserializer<T>` delegate built once per `(type, schema)` pair and invoked on every message. Reading rides the stack-only `BinaryReader` `ref struct` over a `ReadOnlySpan<byte>`, writing the `Stream`-backed `BinaryWriter`. This leg owns the raw Avro binary wire with no framing or schema id; the registry-prefixed envelope is `Chr.Avro.Confluent` (`api-chr-avro-confluent`).
+`Chr.Avro.Binary` compiles a `Schema` into a reflection-free binary Avro codec: `BinarySerializerBuilder`/`BinaryDeserializerBuilder` assemble a LINQ `Expression` tree and `Compile()` it into a `BinarySerializer<T>`/`BinaryDeserializer<T>` delegate built once per `(type, schema)` pair. Reading rides the stack-only `BinaryReader` `ref struct` over a `ReadOnlySpan<byte>`, writing the `Stream`-backed `BinaryWriter`. This leg owns the raw Avro wire with no framing or schema id; `Confluent.SchemaRegistry.Serdes.Avro` (`api-schemaregistry-serdes-avro`) owns the registry-prefixed framing.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -76,14 +76,14 @@ Each `Binary<Shape>SerializerBuilderCase` (deserializer mirror) specializes the 
 
 [STACKING]:
 - `Chr.Avro`(`.api/api-chr-avro`): the codec compiles against the `Schema` that `SchemaBuilder.BuildSchema<T>()` derives; a reader `Schema` differing from the writer resolves at build time — `RecordField.Default` back-fills absent fields and `NamedSchema.Aliases` remaps renamed ones into the compiled delegate.
-- `Chr.Avro.Confluent`(`.api/api-chr-avro-confluent`): `SchemaRegistrySerializerBuilder.SerializerBuilder` holds an `IBinarySerializerBuilder` and calls `BuildDelegateExpression<T>` for the body codec, then prefixes the wire-format-1 magic byte and schema id — the registry serde IS this codec under a registry-id frame.
+- `Confluent.SchemaRegistry.Serdes.Avro`(`.api/api-schemaregistry-serdes-avro`): the registry serde frames the wire-format-1 magic byte and schema id over its own `Apache.Avro` body codec, so this compiled delegate and that serde are two body codecs under one registry subject and never two frames over one payload.
 - `Element/codec` profile: the compiled `BinarySerializer<T>`/`BinaryDeserializer<T>` are profile-cached internals; a batched Avro body loops `deserializer(ref reader)` over one span, `reader.Index` advancing across records with no reader re-allocation.
 
 [LOCAL_ADMISSION]:
 - `BinarySerializer<T>`/`BinaryDeserializer<T>` delegates and the source `Schema` are `Element/codec` profile data, never public Persistence vocabulary.
 - `BinarySerializerBuilder` builds from a `SchemaBuilder`-derived `Schema`, never a hand-authored schema in Persistence code.
 - `BinaryReader` stays stack-resident: a deserializer capturing it into a closure or crossing an `async` await is rejected, so decode the whole record synchronously before yielding.
-- Raw Avro binary carries no schema id; a body that must self-identify routes through the registry serde (`api-chr-avro-confluent`), never a hand-prefixed magic byte here.
+- Raw Avro binary carries no schema id; a body that must self-identify routes through the registry serde (`api-schemaregistry-serdes-avro`), never a hand-prefixed magic byte here.
 
 [RAIL_LAW]:
 - Package: `Chr.Avro.Binary`

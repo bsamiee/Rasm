@@ -4,11 +4,11 @@
 
 `ElementTap` decorates `GraphDelta.AdmitOnto`, `ElementGraph.Bake`, `ModelAudit.Of`, `ProjectionAssembly.Assemble`, and both wire decoders, bracketing each in the kernel `SpanBand` the composing root admits `ElementPoint.Scopes` into. Graph, delta, audit, and wire owners remain emit-free; apps own registration and lifetime.
 
-`GraphInstrument` projects every fact onto the `InstrumentSet` the composing root materializes from `ElementInstruments.Telemetry` — kernel `InstrumentSpec` declarations carrying kind, form, UCUM units, bounded dimensions, and `Buckets` advice. `ConstraintSeverity`, `Discipline`, `AssessmentOutcome`, `AuditCategory`, `WireKind`, and the kernel fault-category band bound tags beside the kernel `TenantContext` partition; `NodeId` and `ContentAddress` ride the span alone, and `AnalysisRoute` rides the typed `AssessmentTouch` census alone — one delta touches N routes and `SetTag` is set-or-replace, so a route slot would report whichever touch folded last.
+`GraphInstrument` projects every fact onto the `InstrumentSet` the composing root materializes from `ElementInstruments.Telemetry` — kernel `InstrumentSpec` declarations carrying kind, form, UCUM units, bounded dimensions, and `Buckets` advice. Closed seam vocabularies bound every tag beside the kernel `TenantContext` partition, identifier-grade `NodeId` and `ContentAddress` ride the span alone, and `AnalysisRoute` rides the typed `AssessmentTouch` census alone — one delta touches N routes and `SetTag` is set-or-replace, so a route slot reports whichever touch folded last.
 
 ## [01]-[INDEX]
 
-- [02]-[HOOK_RAIL]: `ElementPoint` closes the point vocabulary on its kernel `Modality` column and derived `TraceScope` plane, `ElementFact` carries the `[Union]` fact family through one `Of` mint with its `Point` and `Marks` projections, `HookGate`/`HookTap` seat the subscriber rows with the tap's own point scope, `ElementHookRail` mints the composition over the kernel point capsule with its evidence cell, clock, admitted `SpanBand`, point census, and held tap detachers, and `ElementTap` decorates the graph, audit, projection, and wire entrypoints.
+- [02]-[HOOK_RAIL]: `ElementPoint` closes the point vocabulary on its kernel `Modality` column and derived `TraceScope` plane, `ElementFact` carries the `[Union]` fact family through one `Of` mint with its `Point` and `Marks` projections, `HookGate`/`HookTap` seat the subscriber rows at the tap's own point scope, `ElementHookRail` mints the composition over the kernel point capsule and holds every tap detacher, and `ElementTap` decorates the graph, audit, projection, and wire entrypoints.
 - [03]-[INSTRUMENT_PROJECTION]: `ElementInstruments` closes the instrument table — kernel `InstrumentSpec` rows, UCUM units, bucket advice, and the one dotted slot vocabulary both planes spell — and mints the contributor port, while `GraphInstrument.Tap` rails every fact into instrument writes over the composition's `InstrumentSet` and `GraphInstrument.Depth` binds the rail's own parked-fault read to the one pulled row.
 
 ## [02]-[HOOK_RAIL]
@@ -102,7 +102,7 @@ public abstract partial record ElementFact {
  public sealed record Audited(Op Key, ContentAddress Snapshot, Seq<AuditTally> Findings, Duration Elapsed) : ElementFact(Key) {
   public int Total => Findings.Fold(0, static (count, tally) => count + tally.Count);
   public int Blocking => Findings.Filter(static tally => tally.Severity.Blocks).Fold(0, static (count, tally) => count + tally.Count);
-  // The tamper count read off the census by category, so the drift series and the finding series can never disagree.
+  // Drifts reads the tamper count off the census by category, so the drift series and the finding series agree by construction.
   public int Drifts => Findings.Filter(static tally => tally.Category == AuditCategory.AddressDrift).Fold(0, static (count, tally) => count + tally.Count);
  }
  public sealed record Assembled(Op Key, ContentAddress Delta, int Projectors, int Nodes, int Edges, int Findings, Duration Elapsed) : ElementFact(Key);
@@ -131,7 +131,7 @@ public abstract partial record ElementFact {
   // NodeId's own Value is the owned spelling — ToString() reads a generated surface the owner never pinned, so a
   // generator default would silently re-shape the span evidence a trace consumer joins on.
   baked: static f => Seq<(string Slot, object? Value)>((ElementInstruments.RootSlot, f.Root.Value)),
-  // The audit marks the snapshot it GRADED, so the span joins the audit to the freeze that produced the address.
+  // Audited marks the snapshot it GRADED, so the span joins the audit to the freeze that produced the address.
   audited: static f => Seq<(string Slot, object? Value)>((ElementInstruments.SnapshotSlot, f.Snapshot.ToValue())),
   assembled: static f => Seq<(string Slot, object? Value)>((ElementInstruments.DeltaSlot, f.Delta.ToValue())),
   graded: static _ => Seq<(string Slot, object? Value)>(),
@@ -149,8 +149,8 @@ public abstract partial record ElementFact {
 
  public static ElementFact Of(Op key, NodeId root, Duration elapsed) => new Baked(key, root, elapsed);
 
- // Audit fact: the receipt already carries the graded snapshot's address and its finding rows, so the fact folds
- // the census once and re-derives no verdict — the audit is the authority, this is its evidence event.
+ // Audit fact: the receipt already carries the graded snapshot's address and its finding rows, so the fact folds the
+ // census once and re-derives no verdict — ModelAudit holds the authority and this fact carries its evidence.
  public static ElementFact Of(Op key, ModelAudit audit, Duration elapsed) => new Audited(
   key, audit.Snapshot, audit.Tallies, elapsed);
 
@@ -158,9 +158,9 @@ public abstract partial record ElementFact {
   key, ContentAddress.Of(receipt.Delta.ToCanonicalBytes(Grid(receipt.Delta, receipt.Graph.Header)).Span),
   projectors, receipt.Delta.NodeCount, receipt.Delta.EdgeCount, receipt.Findings.Count, elapsed);
 
- // The ONE tolerance resolution both delta-keyed facts read — the SAME `delta.Header.IfNone(base)` rule AdmitOnto,
- // Freeze, and ReplayOnto resolve a header under. Reading a base header directly forked the fact key from the
- // Persistence dedup key on exactly the model-creating delta that establishes the header, where it matters most.
+ // Grid is the ONE tolerance resolution both delta-keyed facts read — the SAME `delta.Header.IfNone(base)` rule
+ // AdmitOnto, Freeze, and ReplayOnto resolve a header under. Reading a base header directly forks the fact key
+ // from the Persistence dedup key on exactly the model-creating delta that establishes the header, where it matters most.
  static double Grid(GraphDelta delta, Header seed) => delta.Header.IfNone(seed).Tolerance;
 
  public static ElementFact Of(Op key, ConstraintFinding finding) => new Graded(
@@ -197,8 +197,8 @@ public sealed class ElementHookRail {
  // Keyed on the POINT ROW, not its string: the generated smart-enum equality is the identity the roster already
  // owns, so a lookup cannot miss on a token spelling and the map answers Find rather than a throwing indexer.
  readonly HashMap<ElementPoint, HookPoint<ElementFact>> points;
- // The tap detachers this mint HOLDS: a composition that outlives one subscriber (a drained instrument set, a
- // replaced replay sink) detaches it here rather than leaking a live capsule subscription for the process life.
+ // detachers holds every tap subscription this mint attached, so a composition outliving one subscriber (a drained
+ // instrument set, a replaced replay sink) detaches it here rather than leaking a live capsule subscription.
  readonly Seq<IDisposable> detachers;
 
  ElementHookRail(HashMap<ElementPoint, HookPoint<ElementFact>> points, Seq<IDisposable> detachers,
@@ -209,8 +209,8 @@ public sealed class ElementHookRail {
  public TimeProvider Clock { get; }
  public Option<SpanBand> Band { get; }
 
- // The point census the kernel capsule's own mount requires and both peer seams already publish — the composing
- // root reads one member rather than re-deriving the roster from ElementPoint.Items and re-minting the ids.
+ // Points publishes the census the kernel capsule's own mount requires and both peer seams already publish, so the
+ // composing root reads one member rather than re-deriving the roster from ElementPoint.Items and re-minting ids.
  public Seq<IHookPoint> Points => points.Values.Map(static point => (IHookPoint)point).ToSeq();
 
  // Custody exits with the composition: every held detacher releases, so a rail torn down leaves no capsule
@@ -240,9 +240,9 @@ public sealed class ElementHookRail {
      points: points, detachers: held, faults: faults, clock: clock.IfNone(TimeProvider.System), band: band));
  }
 
- // A scoped tap attaches to exactly its named rows; an unscoped one to the whole fan. Every named row resolves by
- // construction — the map is built from ElementPoint.Items and the roster is closed — so Choose drops nothing and
- // needs no refusal arm beside the gate's.
+ // Scoped attaches a scoped tap to exactly its named rows and an unscoped one to the whole fan. Every named row
+ // resolves by construction — the map builds from ElementPoint.Items and the roster is closed — so Choose drops
+ // nothing and needs no refusal arm beside the gate's.
  static Seq<HookPoint<ElementFact>> Scoped(HashMap<ElementPoint, HookPoint<ElementFact>> points, HookTap tap) =>
   tap.Scope.Match(
    Some: rows => rows.Choose(points.Find),
@@ -258,8 +258,8 @@ public sealed class ElementHookRail {
  // failed bodies emit no success fact, and a transforming gate governs the body and the taps from one rewrite.
  // Marks stamp AHEAD of the fold, so a refused admission leaves the span carrying what was attempted, beside
  // whatever Error status the band itself lands.
- // The mark stamp is a STEP, not a discarded tuple leg: a statement body is the honest ordering here (the named
- // boundary exemption — a span tag write is host state, not a domain value), where the tuple idiom hid the
+ // Fire stamps the mark as a STEP, never a discarded tuple leg: a statement body is the honest ordering here (the
+ // named boundary exemption — a span tag write is host state, not a domain value), where the tuple idiom buries the
  // sequencing in an element position a reader has to evaluate to find. An unrostered point is unrepresentable —
  // Point projects a roster row — so the Find lands its Some arm by construction.
  public Fin<T> Fire<T>(ElementFact fact, Func<ElementFact, Fin<T>> body, Activity? span = null) {
@@ -296,8 +296,8 @@ public static class ElementTap {
  public static Fin<Element> Baked(ElementHookRail rail, ElementGraph graph, NodeId root, Op key) =>
   Timed(rail, ElementPoint.Baked, key, () => graph.Bake(root, key), (_, elapsed) => ElementFact.Of(key, root, elapsed));
 
- // The audit decoration times the one fold and fires its receipt — the graph-plane sibling of Baked, so a delivery
- // gate reading ModelAudit and a dashboard reading the audit series see the same run.
+ // Audited times the one fold and fires its receipt — the graph-plane sibling of Baked, so a delivery gate reading
+ // ModelAudit and a dashboard reading the audit series see the same run.
  public static Fin<ModelAudit> Audited(ElementHookRail rail, ElementGraph graph, Op key) =>
   Timed(rail, ElementPoint.Audited, key, () => ModelAudit.Of(graph, key), (audit, elapsed) => ElementFact.Of(key, audit, elapsed));
 
@@ -351,13 +351,13 @@ public static class ElementTap {
 
 ## [03]-[INSTRUMENT_PROJECTION]
 
-- Law: [PULL_POLARITY] — a measurement is PUSHED unless the cell it reports is process-scoped AND has no fire to ride. Graph population stays EVENT-shaped for a reason, not for want of the kernel level family: a live population cell needs a bounded key, and this owner's key spaces refuse one from both ends — `Root` and `Snapshot` are identifier-grade and unbounded (which is why they seat as span marks, never series dimensions), while discipline, outcome, severity, waiver, and wire kind partition findings and decodes and never a graph's size. An unkeyed scalar level over MANY graphs republishes whichever root froze last as current state, and a retired owner's reading is indistinguishable from a live one, so `Frozen` histograms are the honest shape with each freeze contributing its own measured population. The `TapFaults` depth is the one row that clears the bar: a rail's evidence cell is composition-scoped (one cell, not one per graph) and a parked subscriber fault is captured by the capsule shield without ever firing a fact, so no push site exists at all — it binds through the kernel's registered read for the rail's own lifetime and retires with it.
+- Law: [PULL_POLARITY] — a measurement is PUSHED unless the cell it reports is process-scoped AND has no fire to ride. Graph population stays EVENT-shaped for a reason, not for want of the kernel level family: a live population cell needs a bounded key, and this owner's key spaces refuse one from both ends — `Root` and `Snapshot` are identifier-grade and unbounded (which is why they seat as span marks, never series dimensions), while discipline, outcome, severity, waiver, and wire kind partition findings and decodes and never a graph's size. `Frozen` histograms are the honest shape, each freeze contributing its own measured population, where an unkeyed scalar level over MANY graphs republishes whichever root froze last as current state and renders a retired owner's reading indistinguishable from a live one. `TapFaults` depth alone clears the bar: a rail's evidence cell is composition-scoped (one cell, not one per graph) and a parked subscriber fault is captured by the capsule shield without ever firing a fact, so no push site exists at all — it binds through the kernel's registered read for the rail's own lifetime and retires with it.
 - Owner: `ElementInstruments` the closed `rasm.element.*` roster — kernel `InstrumentSpec` declarations carrying kind, measurement form, UCUM units, kernel `Buckets` advice, the closed per-instrument dimension vocabularies, and the one dotted slot block both the metric rows and the `[02]` span marks spell — with the kernel-sourced scope identity and the string-scoped contributor-port mint; `GraphInstrument` the fact-to-write projection over the `InstrumentSet` the composing root materializes.
 - Entry: `ElementInstruments.Telemetry(version, schemaUrl)` is the contributor port the composing root materializes — the semconv coordinate defaults to the kernel pin so all three signals bump together — and a root outside that fan binds `InstrumentSet.Of(cells, (meter, ElementInstruments.Rows))` directly against its own minted meter; either path, never both. `GraphInstrument.Tap(set)` returns the `HookTap` passed to `ElementHookRail.Of`, handing the kernel's write rail straight to the capsule shield; `GraphInstrument.Depth(set, rail)` registers the rail's own parked-fault read against the one pulled row and returns the scope that retires it, so the composing root arms it AFTER the mint the tap fed.
-- Auto: `DeltaApplied` counts the two delta magnitudes and one `rasm.element.assessment.outcomes` per census touch (discipline and outcome dimensions — both closed rows); `Frozen` records the snapshot node/edge population histograms; `Baked`/`Audited`/`Assembled` record the duration histograms; `Audited` additionally counts one `rasm.element.audit.findings` per `AuditTally` bucket (integrity category and severity dimensions) and writes the drift count UNCONDITIONALLY — a clean run posts its own zero, so the tamper series never leaves an alert unable to tell a verified snapshot from an unaudited one; `Graded` counts findings under the kernel fault-category slot, severity, and waiver — the same key the kernel fault counter bands on, so one query answers which failure class burns across the estate; `Decoded` records duration and — when the payload length is known — size, both under the `WireKind` dimension; the kernel `TenantContext.Current` resolves ONCE per fact and threads as dispatch state, so every write of one fact lands under one partition, a root-tenant process mints no tenant dimension, and a partitioned one mints it uniformly — the ambient read is the AsyncLocal slot the kernel owns, never a value captured at tap-mint time, which would stamp the composing root's tenant onto every later request; instrument identity de-duplicates by name inside the one meter, so name, unit, kind, and description are declaration facts the row carries once.
+- Auto: `DeltaApplied` counts the two delta magnitudes and one `rasm.element.assessment.outcomes` per census touch (discipline and outcome dimensions — both closed rows); `Frozen` records the snapshot node/edge population histograms; `Baked`/`Audited`/`Assembled` record the duration histograms; `Audited` counts one `rasm.element.audit.findings` per `AuditTally` bucket (integrity category and severity dimensions) and writes the drift count UNCONDITIONALLY — a clean run posts its own zero, so the tamper series never leaves an alert unable to tell a verified snapshot from an unaudited one; `Graded` counts findings under the kernel fault-category slot, severity, and waiver — the same key the kernel fault counter bands on, so one query answers which failure class burns across the estate; `Decoded` records duration and — when the payload length is known — size, both under the `WireKind` dimension; the kernel `TenantContext.Current` resolves ONCE per fact and threads as dispatch state, so every write of one fact lands under one partition, a root-tenant process mints no tenant dimension, and a partitioned one mints it uniformly — the ambient read is the AsyncLocal slot the kernel owns, never a value captured at tap-mint time, which stamps the composing root's tenant onto every later request; instrument identity de-duplicates by name inside the one meter, so name, unit, kind, and description are declaration facts the row carries once.
 - Receipt: none — the projection is a pure fold of the fact tap; a metric minted beside it is a second truth, and every operational dashboard reads the exported stream, never a seam cell. `InstrumentSet.Write` rails an unmounted name or a family mismatch out to the tap shield, which parks it point-attributed, so a mount defect is visible rather than a silent measurement drop.
 - Packages: BCL `System.Diagnostics.Metrics` reached through the kernel capsule alone, `Rasm` (the kernel instrument mechanism, the scope identity roster, the fault-category slot, and the tenancy frame), Thinktecture.Runtime.Extensions (the generated fact `Switch`), LanguageExt.Core.
-- Growth: a new metric is one `ElementInstruments` `InstrumentSpec` row and one write in the owning `Switch` arm — a new fact case breaks the tap at compile time, so an unprojected fact is a build error, never a silent gap; a new PULLED row is one `Level` declaration plus one `Bind` registration on the owner whose lifetime bounds it, admitted only under `[PULL_POLARITY]`; a new instrument family is one kernel `InstrumentKind` row, a new bucket policy one kernel `Buckets` row; a new span attribute is one slot row here and one `Marks` arm at `[02]`; never an inline `new Meter(...)`, never a create or write call outside this fence, and never a numeric value as a tag.
+- Growth: a new metric is one `ElementInstruments` `InstrumentSpec` row and one write in the owning `Switch` arm — a new fact case breaks the tap at compile time, so an unprojected fact is a build error, never a silent gap; a new PULLED row is one `Level` declaration with one `Bind` registration on the owner whose lifetime bounds it, admitted only under `[PULL_POLARITY]`; a new instrument family is one kernel `InstrumentKind` row, a new bucket policy one kernel `Buckets` row; a new span attribute is one slot row here and one `Marks` arm at `[02]`; never an inline `new Meter(...)`, never a create or write call outside this fence, and never a numeric value as a tag.
 - Boundary: this fence is the package telemetry spine and the only declaration and write site — the create bodies belong to the kernel's `InstrumentKind` x `MeasureForm` derivation, so a re-spelled counter or histogram create here is the forked-stream defect. Closed seam vocabularies bound every tag; slot keys carry the package's own dotted `rasm.element.<dimension>` namespace so a concept a second package also tags never collides, and the fault-category band reads the kernel slot rather than re-declaring one. Opaque routes and identities never become tags — they ride the `[02]` span marks — and the tenant slot every row declares is the ONE dimension whose presence the write decides rather than the declaration: `TenantContext.Key` reads `None` at the root row, so `Tags` projects empty and the series exports untagged on the SAME instrument a partitioned process exports keyed. That is the kernel's one absence discriminant governing both the tenancy and level planes, so the declared roster stays uniform, no row carries an optionality column of its own, and a governance view reading `Dimensions` for its tag keys must tolerate the absent entry rather than mint a second stream for it. Provider, exporter, views, exemplars, and base2-exponential defaults remain composition-root policy, and meter lifetime rides the minting factory at that root, so this page holds no `IMeterFactory`, no `Meter`, and no disposable. Memo-hit dimensions remain absent until `Bake` exposes that evidence.
 
 ```csharp signature
@@ -377,13 +377,13 @@ public static class ElementInstruments {
  public const string BakeDuration = "rasm.element.graph.bake.duration";
  public const string AuditDuration = "rasm.element.audit.duration";
  public const string AuditFindings = "rasm.element.audit.findings";
- // The tamper gate's OWN series: ContentAddress.Verify drift is a security signal a dashboard alerts on, so it
- // never dissolves into one category bucket of the coverage-quality counter beside it.
+ // AddressDrift carries the tamper gate's OWN series: ContentAddress.Verify drift is a security signal a dashboard
+ // alerts on, so it never dissolves into one category bucket of the coverage-quality counter beside it.
  public const string AddressDrift = "rasm.element.audit.drift";
  public const string AssembleDuration = "rasm.element.projection.assemble.duration";
  public const string Findings = "rasm.element.projection.findings";
  public const string AssessmentOutcomes = "rasm.element.assessment.outcomes";
- // The rail's parked-fault depth — the ONE pulled row on this roster, earning its seat under the [03] level law.
+ // TapFaults measures the rail's parked-fault depth — the ONE pulled row on this roster, seated under the [03] level law.
  public const string TapFaults = "rasm.element.observe.tap.faults";
  public const string WireDuration = "rasm.element.wire.duration";
  // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
@@ -392,9 +392,9 @@ public static class ElementInstruments {
  // Dimension slots carry this package's dotted namespace — a bare noun forks the moment a sibling package tags
  // `outcome` or `category`, which two already do estate-wide. Delta, Snapshot, and Root stay SPAN-only:
  // a content address and a node id are identifier-grade and unbounded on a series.
- // The AUDIT category axis is this package's own closed vocabulary, distinct from the kernel FAULT-category slot the
- // finding counter bands on — an integrity sweep and a failure class are two taxonomies, and one slot for both would
- // make "orphan" and "Value" siblings on a chart neither answers.
+ // AuditSlot carries this package's own closed AUDIT category vocabulary, distinct from the kernel FAULT-category
+ // slot the finding counter bands on — an integrity sweep and a failure class are two taxonomies, and one slot for
+ // both makes "orphan" and "Value" siblings on a chart neither answers.
  public const string AuditSlot = "rasm.element.audit.category";
  public const string DeltaSlot = "rasm.element.delta";
  public const string DisciplineSlot = "rasm.element.discipline";
@@ -435,12 +435,12 @@ public static class GraphInstrument {
  // be a second, drift-prone statement of the same totality the compiler already enforces.
  public static HookTap Tap(InstrumentSet set) => new("rasm.element.instruments", fact => Project(set, fact));
 
- // The rail's parked-fault depth is the one measurement no fact can carry — a subscriber failure is captured by the
- // capsule shield and never fires a fact, so a pushed row would have no write site at all. The kernel's registered
- // read is the answer: the rail hands in its OWN Seq read for its own lifetime and the returned scope retires it
- // with the composition, so the depth is live without a call site pushing one. The tenant resolves ONCE at bind and
- // that is CORRECT here where the per-fact read is not — a rail is composition-scoped, not request-scoped, so its
- // evidence cell belongs to the partition that composed it.
+ // Depth binds the one measurement no fact can carry: a subscriber failure is captured by the capsule shield and
+ // never fires a fact, so a pushed row has no write site at all. Instead the rail hands its OWN Seq read to the
+ // kernel's registered read for its own lifetime and the returned scope retires it with the composition, keeping
+ // depth live with no call site pushing one. Tenant resolves ONCE at bind and that is CORRECT here where the
+ // per-fact read is not — a rail is composition-scoped, not request-scoped, so its evidence cell belongs to the
+ // partition that composed it.
  public static Fin<IDisposable> Depth(InstrumentSet set, ElementHookRail rail) =>
   set.Bind(ElementInstruments.TapFaults, () => (long)rail.TapFaults.Count, InstrumentSet.Tags(TenantContext.Current));
 
@@ -448,9 +448,9 @@ public static class GraphInstrument {
  // a build error; every tag key is a row's declared closed dimension, and every write rides the kernel rail, so
  // an unmounted name and a measurement-form mismatch surface as refusals rather than silent drops. An arm whose
  // writes share a tag set binds it once at the head, so the shared partition is folded per fact, never per write.
- // The ambient partition resolves ONCE per fact and threads as state beside the mounted set: `TenantContext.Current`
- // is the kernel's AsyncLocal slot, so a per-write read lets two writes of ONE fact land under two partitions when
- // the flow re-enters mid-projection, and a census loop pays the resolve per touch.
+ // Project resolves the ambient partition ONCE per fact and threads it as state beside the mounted set:
+ // `TenantContext.Current` is the kernel's AsyncLocal slot, so a per-write read lets two writes of ONE fact land
+ // under two partitions when a flow re-enters mid-projection, and a census loop pays the resolve per touch.
  static Fin<Unit> Project(InstrumentSet set, ElementFact fact) =>
   fact.Switch<(InstrumentSet Rows, TenantContext Tenant), Fin<Unit>>(
   state: (set, TenantContext.Current),
@@ -468,7 +468,7 @@ public static class GraphInstrument {
    from edges in state.Rows.Write(ElementInstruments.GraphEdges, (long)f.Edges, shared)
    select edges,
   baked: static (state, f) => state.Rows.Write(ElementInstruments.BakeDuration, f.Elapsed.TotalSeconds, InstrumentSet.Tags(state.Tenant)),
-  // The drift row writes UNCONDITIONALLY, zero included: a tamper series whose absence and whose clean run look
+  // AddressDrift writes UNCONDITIONALLY, zero included: a tamper series whose absence and whose clean run look
   // alike gives an alert nothing to rest on, so a verified-clean snapshot posts its own zero.
   audited: static (state, f) =>
    from shared in Fin.Succ(InstrumentSet.Tags(state.Tenant))
@@ -479,8 +479,8 @@ public static class GraphInstrument {
      (ElementInstruments.SeveritySlot, tally.Severity.Key)))).As()
    select unit,
   assembled: static (state, f) => state.Rows.Write(ElementInstruments.AssembleDuration, f.Elapsed.TotalSeconds, InstrumentSet.Tags(state.Tenant)),
-  // The kernel FAULT-category slot here, the package's own AuditSlot on the audit arm — a constraint violation
-  // bands with every other failure class estate-wide, an integrity sweep with its own taxonomy.
+  // Graded bands on the kernel FAULT-category slot while the audit arm bands on the package's own AuditSlot — a
+  // constraint violation bands with every other failure class estate-wide, an integrity sweep with its own taxonomy.
   graded: static (state, f) => state.Rows.Write(ElementInstruments.Findings, 1L, InstrumentSet.Tags(state.Tenant,
    (KernelInstruments.CategorySlot, f.Category),
    (ElementInstruments.SeveritySlot, f.Severity.Key),

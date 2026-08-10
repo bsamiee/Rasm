@@ -58,7 +58,7 @@ Every solver-state failure is a distinct exception carrying the offending object
 
 [ENTRYPOINT_SCOPE]: `Constraint` and `strength` priority
 
-A `Constraint` defaults to `required` strength; `constraint | strength` or the constructor `strength=` lowers it to a band or numeric priority. `strength.create(a, b, c, weight=1.0)` blends the strong/medium/weak slots (×10^6, ×10^3, ×1, each clamped to its band and scaled by `weight`) for a custom priority between the canonical bands. `required` constraints must be satisfiable or `addConstraint` raises `UnsatisfiableConstraint`; non-required constraints minimize as soft objectives.
+`Constraint` defaults to `required` strength; `constraint | strength` or the constructor `strength=` lowers it to a band or numeric priority. `strength.create(a, b, c, weight=1.0)` blends the strong/medium/weak slots (×10^6, ×10^3, ×1, each clamped to its band and scaled by `weight`) for a custom priority between the canonical bands. `required` constraints must be satisfiable or `addConstraint` raises `UnsatisfiableConstraint`; non-required constraints minimize as soft objectives.
 
 | [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                                     |
 | :-----: | :------------------------------------------------- | :------- | :--------------------------------------------------------------- |

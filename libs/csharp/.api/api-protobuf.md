@@ -1,6 +1,6 @@
 # [RASM_API_PROTOBUF]
 
-`Google.Protobuf` owns generated wire contracts for the Compute remote lane and every projection off them: binary through the coded streams, the span and sequence buffer fast path, the extension and unknown-field algebra, the reflection descriptor graph, and JSON at the diagnostic edge. Generated messages implement `IBufferMessage`, so one message body crosses a pooled transport with no intermediate array. Frame envelopes, content digests, and transport policy stop outside this boundary.
+`Google.Protobuf` owns generated wire contracts for the Compute remote lane and every projection off them: binary through the coded streams, the span and sequence buffer fast path, the extension and unknown-field algebra, the reflection descriptor graph, and JSON at the diagnostic edge. Generated messages implement `IBufferMessage`, so one message body crosses a pooled transport with no intermediate array. Message envelopes, content digests, and transport policy stop outside this boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -92,7 +92,7 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                           |
 | :-----: | :----------------------- | :------------ | :------------------------------------- |
-|  [01]   | `Any`                    | sealed class  | type-URL-keyed payload envelope        |
+|  [01]   | `Any`                    | sealed class  | type-URL-keyed message envelope        |
 |  [02]   | `Timestamp`              | sealed class  | instant with comparison and arithmetic |
 |  [03]   | `Duration`               | sealed class  | span with negation and arithmetic      |
 |  [04]   | `FieldMask`              | sealed class  | path selection, set algebra, and merge |

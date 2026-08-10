@@ -77,7 +77,7 @@ Each method returns a fresh `IDMLPackage` (return elided below). Fourteen are `I
 
 [ENTRYPOINT_SCOPE]: the lazy introspection inventory (the `IdmlFact` evidence source)
 
-Lazy memoized properties are the structural inventory the consumer reads off the final instance after the fold; each resets on mutation. A `get_*` query family resolves spread/story objects and page-item ids by xpath/name/id, ridden internally by `set_attributes`/`import_pdf`, never an `isinstance` ladder over the InDesign node classes.
+Lazy memoized properties are the structural inventory the consumer reads off the final instance after the fold; each resets on mutation. `get_*` queries resolve spread/story objects and page-item ids by xpath/name/id, ridden internally by `set_attributes`/`import_pdf`, never an `isinstance` ladder over the InDesign node classes.
 
 | [INDEX] | [SURFACE]                                                     | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------------------ | :----------------------------------------- |

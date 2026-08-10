@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_STREAM_UNZIP]
 
-`stream-unzip` owns bounded-memory streaming ZIP extraction on the bundle rail: `stream_unzip` yields `(name, size, chunks)` triples from a container's chunked `bytes` over a lazy inner `bytes` generator, decoding each member as it arrives — no central-directory seek, no whole-archive buffer. An `allowed_encryption_mechanisms` allow-list bounds which ZipCrypto and WinZip-AES records decode under a `bytes` `password`. It streams the inverse of `stream-zip`, owning its ZipCrypto keystream while delegating deflate64 to `stream-inflate`, AES to `pycryptodome`, and bzip2/deflate to stdlib.
+`stream-unzip` owns bounded-memory streaming ZIP extraction on the bundle rail: `stream_unzip` yields `(name, size, chunks)` triples from a container's chunked `bytes` over a lazy inner `bytes` generator, decoding each member as it arrives — no central-directory seek, no whole-archive buffer. `allowed_encryption_mechanisms` bounds which ZipCrypto and WinZip-AES records decode under a `bytes` `password`. It streams the inverse of `stream-zip`, owning its ZipCrypto keystream while delegating deflate64 to `stream-inflate`, AES to `pycryptodome`, and bzip2/deflate to stdlib.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -123,7 +123,7 @@
 |  [06]   | `ObjectList.RepairPins`                           | `(PinRepair = Default)`                     | `(PinRepair, Guid, Guid)[]`            |
 |  [07]   | `ObjectList.FindNear<T>`                          | `(PointF, int, float)`                      | `T[]` relevance-sorted                 |
 |  [08]   | `ObjectList.Pins` / `SupportedPins`               | property                                    | `IEnumerable<IPin>` / `<Guid>`         |
-|  [09]   | `ObjectList.AttributeBounds` / `PivotBounds`      | property                                    | `RectangleF` envelopes                 |
+|  [09]   | `ObjectList.AttributeBounds` / `PivotBounds`      | property                                    | `RectangleF` bounding envelopes        |
 |  [10]   | `ObjectList.Connectivity`                         | property                                    | a fresh `Connectivity` snapshot        |
 |  [11]   | `Connectivity.FindImmediate*` / `FindAll*`        | `(ConnectiveObject)`                        | immediate and transitive reach         |
 |  [12]   | `Connectivity.FindConnections`                    | `(ConnectiveObject ×2)`                     | `IEnumerable<ConnectiveObject[]>`      |

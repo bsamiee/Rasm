@@ -223,14 +223,15 @@
 |  [07]   | `Relation.Emit`                                                 | property | output-column projection             |
 |  [08]   | `Relation.Hint`                                                 | property | alias and optimizer hint carrier     |
 
-- `RelationVisitor<TReturn, TState>`: an unoverridden `Visit*` arm throws `NotImplementedException`; `ExpressionVisitor<TOutput, TState>` returns `default(TOutput)`, so expression pushdown reads that null as the inexpressible signal.
+- `RelationVisitor<TReturn, TState>`: unoverridden `Visit*` arms throw `NotImplementedException`; `ExpressionVisitor<TOutput, TState>` returns `default(TOutput)`, so expression pushdown reads that null as the inexpressible signal.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SubstraitBaseType` over its `SubstraitType` discriminant types every value, and `NamedStruct` is the row type `ReadRelation.BaseSchema` and `WriteRelation.TableSchema` carry.
 - Every function node resolves by extension URI and name from the `Functions*` catalogs.
-- Generated `Substrait.Protobuf.Plan` carries the RETIRED URI-era extension schema: `ExtensionUris` (`RepeatedField<SimpleExtensionURI>`) at field 1, `Extensions` at 2, `Relations` at 3, `AdvancedExtensions` at 4, `ExpectedTypeUrls` at 5, `Version` at 6, and each `SimpleExtensionDeclaration` nested row back-references its space through `ExtensionUriReferenceFieldNumber = 1`. No URN field exists on this pin and no later release carries one, so this assembly is the producer half of a cross-runtime schema skew rather than a bump away from parity.
+- Generated `Substrait.Protobuf.Plan` carries the RETIRED URI-era extension schema: `ExtensionUris` (`RepeatedField<SimpleExtensionURI>`) at field 1, `Extensions` at 2, `Relations` at 3, `AdvancedExtensions` at 4, `ExpectedTypeUrls` at 5, `Version` at 6, and each `SimpleExtensionDeclaration` back-references its space through `ExtensionUriReferenceFieldNumber = 1`.
+- No URN field exists on this pin or any later release, so this assembly is the producer half of a cross-runtime schema skew, never a bump away from parity.
 - Decode is public and encode internal: `SubstraitDeserializer` lifts wire and JSON plans, `SubstraitSerializer` never leaves the assembly, so an outbound plan is the retained inbound payload.
 - Every `Relation` and `Expression` folds through `Accept`; a transform overrides only the arms it handles.
 

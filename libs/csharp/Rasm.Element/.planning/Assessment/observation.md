@@ -67,8 +67,8 @@ public sealed partial class SensorId {
 //   (Instantaneous/Cumulative); Expected reads it for the closed-window-versus-boundary count, and an interval row
 //   never interpolates across a gap because the window it summarizes did not happen.
 // Monotone — this run admits only a non-decreasing sequence (Cumulative alone): a register stepping backwards is a
-//   rollover or a replacement, never negative consumption, so the [03] From derivation — the one owner reading both
-//   the run and the row that governs it — refuses the run rather than minting a negative register span from it.
+//   rollover or a replacement, never negative consumption, so the [03] From derivation — one owner reading both the
+//   run and the row that governs it — refuses the run rather than minting a negative register span from it.
 // Combine — DURATION-WEIGHTED merge of two adjacent windows (left earlier): an average weights by span, a total adds,
 //   a register and an instant keep the later reading, an extreme takes the extremum. Downsample folds a decoded run
 //   through it and [03] Fold reuses the Averaged and Total rows for the mean and total columns, so weighted-mean and
@@ -175,8 +175,8 @@ public readonly partial record struct ObservationChunk(Interval Window, UInt128 
   w.Ordinal(samples.Count);
   foreach ((Instant at, double si, ObservationGrade grade) in samples) { w.I64(at.ToUnixTimeTicks()).Double(si).String(grade.Key); }
   ReadOnlyMemory<byte> bytes = w.ToBytes();
-  // The window is the run's OWN extent, degenerate for a single sample — a synthetic tick of width is fabricated
-  // evidence, so every window-positivity gate downstream (Append's and Rehydrate's alike) carries the
+  // Written takes the run's OWN extent as the window, degenerate for a single sample — a synthetic tick of width is
+  // fabricated evidence, so every window-positivity gate downstream (Append's and Rehydrate's alike) carries the
   // single-sample exemption instead and a one-reading block reports the instant it actually holds.
   return (new ObservationChunk(
    new Interval(samples[0].At, samples[samples.Count - 1].At),
@@ -192,8 +192,8 @@ public readonly partial record struct ObservationChunk(Interval Window, UInt128 
   if (span.Length < sizeof(int)) { return Truncated(key); }
   int declared = BinaryPrimitives.ReadInt32LittleEndian(span);
   int cursor = sizeof(int);
-  // The count prefix is UNTRUSTED metadata a persisted blob carries: a negative one clamped to an empty array
-  // decodes as a legitimately empty run, and an inflated one allocates the whole array before the first bounds
+  // Read treats the count prefix as UNTRUSTED metadata a persisted blob carries: a negative one clamped to an empty
+  // array decodes as a legitimately empty run, and an inflated one allocates the whole array before the first bounds
   // check refuses it. The declared count therefore admits against the SMALLEST record the layout can carry — two
   // fixed-width I64s and a zero-length token prefix — over the bytes that actually remain.
   if (declared < 0 || declared > (span.Length - sizeof(int)) / ((sizeof(long) * 2) + sizeof(int))) { return Truncated(key); }
@@ -290,7 +290,7 @@ public sealed partial record ObservationSeries {
  public Fin<ObservationSeries> Append(ObservationChunk chunk, SeriesStatistics statistics, Op key) =>
   Accumulate(Seq(
     Gate(chunk.IsBounded, key, "<observation-chunk-unbounded>"),
-    // A SINGLE-sample block's window is degenerate by construction (its extent IS one instant), so the positivity
+    // Every SINGLE-sample block carries a degenerate window by construction (its extent IS one instant), so the positivity
     // law is "at least one sample wide", never "at least one tick wide" — the exemption lives at every window gate
     // (here and at Rehydrate) rather than in a fabricated tick at Encode, which writes an end no reading occurred at.
     Gate(!chunk.IsBounded || chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1, key, "<observation-chunk-window-empty>"),
@@ -318,9 +318,9 @@ public sealed partial record ObservationSeries {
     Gate(!string.IsNullOrWhiteSpace(canonicalUnit), key, "<observation-unit-blank>"),
     Gate(cadence.ForAll(static span => span > Duration.Zero), key, "<observation-cadence-non-positive>"),
     Gate(window.HasStart && window.HasEnd && window.End >= window.Start, key, "<observation-window-unbounded>"),
-    // The chunk gate carries the SAME single-sample exemption Append and Encode admit: a one-reading block's window
+    // This chunk gate carries the SAME single-sample exemption Append and Encode admit: a one-reading block's window
     // is legitimately degenerate (its extent IS one instant), so the positivity law reads "at least one sample wide".
-    // A gate without the disjunct refuses a run this page's own growth transition grew, and the series then cannot
+    // Dropping the disjunct refuses a run this page's own growth transition grew, and the series then cannot
     // rehydrate from the store it was legally written into.
     Gate(chunks.ForAll(static chunk => chunk.IsBounded && (chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1) && chunk.SampleCount > 0), key, "<observation-chunk-degenerate>"),
     Gate(!chunks.Zip(chunks.Tail).Exists(static pair => pair.Item1.IsBounded && pair.Item2.IsBounded && pair.Item2.Window.Start < pair.Item1.Window.End), key, "<observation-chunks-not-advancing>"),
@@ -340,8 +340,8 @@ public sealed partial record ObservationSeries {
  // whole series to answer a one-day window is the deleted form.
  public Option<ObservationChunk> ChunkAt(Instant at) => Chunks.Find(chunk => chunk.Covers(at));
 
- // The QUERY window is the one un-admitted input this page takes — every stored window crossed Open, Append, or
- // Rehydrate — so the fetch read admits it before a single chunk is compared, RAILED because an unbounded extent
+ // ChunksIn admits the QUERY window, the one un-admitted input this page takes — every stored window crossed Open,
+ // Append, or Rehydrate — so the read admits it before a single chunk is compared, RAILED because an unbounded extent
  // selects nothing while looking like a legitimately empty answer and because NodaTime endpoint reads THROW on an
  // unbounded side, past the rail rather than onto it.
  public Fin<Seq<ObservationChunk>> ChunksIn(Interval window, Op key) =>
@@ -448,8 +448,8 @@ public readonly record struct SeriesStatistics(
   Seq<(Instant At, double Si, ObservationGrade Grade)> run,
   SamplingKind sampling, QuantityType type, Dimension signature, string unit, Op key) {
   if (run.IsEmpty) { return Fin.Succ(Empty); }
-  // A Monotone row's register may only climb, so a backward step is a rollover or a replacement, never negative
-  // consumption — and the register-span Total below would mint exactly that negative figure from it. The refusal
+  // Monotone rows climb only, so a backward step is a rollover or a replacement, never negative
+  // consumption — and the register-span Total below mints exactly that negative figure from it. The refusal
   // therefore owns the run BEFORE any column derives, so no consumer receives a summary the algebra forbids.
   if (sampling.Monotone && run.Zip(run.Tail).Exists(static pair => pair.Item2.Si < pair.Item1.Si)) {
    return ElementFault.ValueRejected(key, "<observation-register-decreasing>");
@@ -458,12 +458,12 @@ public readonly record struct SeriesStatistics(
   Seq<(double Si, Duration Span)> weighted = Weighted(run, span);
   Map<ObservationGrade, int> census = run.Fold(Map<ObservationGrade, int>(),
    static (map, sample) => map.AddOrUpdate(sample.Grade, static count => count + 1, 1));
-  // The four columns are INDEPENDENT of one another, so they ACCUMULATE (VALIDATION_MONOID): each leg is one
+  // Columns derive INDEPENDENTLY of one another, so they ACCUMULATE (VALIDATION_MONOID): each leg is one
   // concrete Validation<Error,_> slot, the tuple .Apply unions every ValueRejected through Error.Combine/ManyErrors,
   // and .ToFin() collapses ONCE at the return — a run whose extremum and whose fold both refuse reports both, the
   // grammar every sibling admission on this branch rides. Downsample answers None only over an EMPTY weighted run,
   // which the empty-run return above already excluded, so the absent arm RAILS rather than substituting a
-  // first-sample default that would report one reading as the whole run's total.
+  // first-sample default reporting one reading as the whole run's total.
   return (Value(type, signature, run.Fold(run[0].Si, static (low, s) => Math.Min(low, s.Si)), unit),
     Value(type, signature, run.Fold(run[0].Si, static (high, s) => Math.Max(high, s.Si)), unit),
     Folded(SamplingKind.Averaged, weighted, type, signature, unit, key),
@@ -473,8 +473,8 @@ public readonly record struct SeriesStatistics(
    .Apply((low, high, mean, sum) => new SeriesStatistics(census, span, low, high, mean, sum)).As().ToFin();
  }
 
- // One accumulating downsample leg: the row's own algebra folds the weighted run, and an unfoldable run refuses on
- // the concrete Validation carrier the derivation joins, the bare-fault ternary lift the admission grammar rides.
+ // One accumulating downsample leg: the row's own algebra folds the weighted run, and an unfoldable run refuses
+ // on the concrete Validation carrier the derivation joins, the bare-fault ternary lift the admission grammar rides.
  private static Validation<Error, Option<MeasureValue>> Folded(
   SamplingKind algebra, Seq<(double Si, Duration Span)> weighted,
   QuantityType type, Dimension signature, string unit, Op key) =>
@@ -491,7 +491,7 @@ public readonly record struct SeriesStatistics(
    (sample.Si, index + 1 < run.Count ? run[index + 1].At - sample.At : tail));
  }
 
- // The trusted RE-MINT of one derived column under the series' own stamped triple, lifted onto the accumulating
+ // Value RE-MINTS one derived column under the series' own stamped triple, lifted onto the accumulating
  // carrier through .ToValidation() — the ONE conversion shape a Fin column takes into this derivation.
  private static Validation<Error, Option<MeasureValue>> Value(QuantityType type, Dimension signature, double si, string unit) =>
   MeasureValue.OfAdmitted(type, signature, si, unit).ToValidation().Map(static measure => Some(measure)).As();
@@ -525,8 +525,8 @@ public readonly record struct SeriesStatistics(
  public bool IsCoherent =>
   Census.ForAll(static (_, count) => count >= 0)
   && Span >= Duration.Zero
-  // CanonicalUnit is Option<string> at its owner, so the agreement reads the carrier's own equality — Some/None and
-  // the ordinal string comparison in one test, where a bare string.Equals cannot take the optional at all.
+  // CanonicalUnit is Option<string> at its owner, so the agreement reads the carrier's own equality — Some/None
+  // and the ordinal string comparison in one test, where a bare string.Equals cannot take the optional at all.
   && Columns.Head.Map(first => Columns.ForAll(column =>
     column.Type == first.Type && column.Dimension == first.Dimension
     && column.CanonicalUnit == first.CanonicalUnit)).IfNone(true)

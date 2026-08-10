@@ -8,11 +8,11 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 
 - [02]-[STREAM_VOCABULARY]: `StreamKey`, the event-family contract, the persisted row models, the ensure rows.
 - [03]-[APPEND_SURFACE]: `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane.
-- [04]-[LEDGER_CLAIM]: the idempotency ledger — scoped key, explicit first-writer marker, replay receipt.
-- [05]-[ATOMIC_PUBLISH]: the one publish transaction — claim, append, outbox, slots, settle, wake.
+- [04]-[LEDGER_CLAIM]: `IdempotencyKey`, the scope-qualified claim, the first-writer marker, the replay receipt.
+- [05]-[ATOMIC_PUBLISH]: `publish` — claim, append, outbox, slots, settle, and wake inside one commit.
 - [06]-[READ_SURFACE]: `head` and the windowed `read` stream lifted through the evolve plan.
-- [07]-[RELAY_ROWS]: the deliverable model, the SKIP-LOCKED claim/complete pair, the CloudEvents envelope, the overlay bindings.
-- [08]-[HOOK_POINTS]: the core-brand data hook points and the publisher port the app mounts on the runtime engine.
+- [07]-[RELAY_ROWS]: `_Deliverable` with its own announcement projection, the SKIP-LOCKED claim/complete pair, the overlay bindings.
+- [08]-[HOOK_POINTS]: `Hook` — the core-brand data hook points and the publisher port an app root mounts.
 
 ## [02]-[STREAM_VOCABULARY]
 
@@ -35,12 +35,12 @@ import {
   Model, SqlClient, SqlEventJournal, SqlEventLogServer, SqlSchema, type SqlError, type Statement,
 } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
-import { CloudEvent, type CloudEventV1, ValidationError, V1 } from "cloudevents"
+import type { CloudEvent, CloudEventV1 } from "cloudevents"
 import {
   Array, Context, Data, DateTime, Effect, Either, Encoding, Hash, HashMap, Option, Predicate, Record, Schedule, Schema,
   Stream, pipe, type ParseResult,
 } from "effect"
-import { Carrier, Fault, Identity, Tap } from "@rasm/ts/core"
+import { Carrier, Digest, Event, Fault, Identity, Tap } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenant, Tenancy } from "../lane/tenant.ts"
 import { Live } from "../read/live.ts"
@@ -62,7 +62,7 @@ const _Version = Schema.Union(
   Schema.NumberFromString.pipe(Schema.int(), Schema.between(0, Number.MAX_SAFE_INTEGER)),
 )
 
-// The composed identity has ONE spelling and two composition shapes, because two SQL sites need the same string from
+// One spelling and two composition shapes carry the composed identity, because two SQL sites need the same string from
 // different operands: the advisory lock hashes it from a held `StreamKey`'s bound values, the head resolver groups it
 // from the relation's own columns. Separator and join order live here alone, so neither site can desync the lock key
 // from the resolver key — which is exactly the failure a hand-repeated `|| ':' ||` makes invisible until two callers
@@ -139,7 +139,8 @@ const _journalDdl: Capability.Ensure = {
 - Owner: `_append` locks, admits, inserts, and returns every landed global sequence.
 - Packages: `effect`, `@effect/sql`, and `@rasm/ts/core` (`Fault.Class`).
 - Entry: `bound.append(stream, events, occ)` — ONE entry whose plural modality is the input shape (`A | NonEmptyReadonlyArray<A>`), never an `appendMany` sibling; standalone it owns its commit, inside `publish` it folds to a savepoint.
-- Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects, each carrying its landed global `sequence`; the ledger stores it for replay and the publish wake announces the last sequence so drains skip empty cycles.
+- Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects, each carrying its landed global `sequence`, its `eventVersion` generation, and the `subject` content key minted over the exact bytes this transaction wrote; the ledger stores it for replay and the publish wake announces the last sequence so drains skip empty cycles.
+- Law: `subject` mints at the write and never at the projection — `Digest.mint("content", …)` reads the encoded payload text this statement inserts, so the announced content key addresses the stored bytes rather than a re-encoding of them, and the parse-then-reserialize spelling that respells float forms, key order, and escapes has no site here.
 - Growth: a new write-side invariant is a guard inside `_append`, never a second append; a new event tag costs this page nothing — the plan stamps its `eventVersion` and the union admits it.
 - Owner: `Journal.signal` folds a driver fault onto the closed `conflicted`/`refused`/`transient` vocabulary every retry gate in the folder reads.
 - Law: concurrency is `Occ` — `Exact` fails as `VersionConflict` when the locked head disagrees, `None` demands version zero, `Any` serializes under the lock and appends at head; the advisory lock is `pg_advisory_xact_lock(hashtextextended(...))` on the spine and degrades to the single writer through `onDialectOrElse` — the unique constraint remains the structural backstop on every profile.
@@ -150,7 +151,7 @@ const _journalDdl: Capability.Ensure = {
 - Law: the signal vocabulary is three-valued and its default is `transient` — `conflicted` names a uniqueness refusal, `refused` names the enumerated rejections no retry can change, and every unrecognized code stays retryable, so an unmapped driver degrades to patience rather than to data loss.
 - Law: the conflict carries evidence — `expected` and the optional read `actual` — so recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the tag, never a loop.
 - Law: `VersionConflict` classifies `conflicted`; reload-fold-retry owns recovery.
-- Law: Unknown tags classify `invalid`; malformed envelopes classify `malformed`.
+- Law: Unknown tags classify `invalid`; malformed message envelopes classify `malformed`.
 - Law: Incomplete landing and unsettled replay receipts classify `breached`.
 - Law: `Fault.Class` derives retryability, blame, and quarantine from `class` alone, so every fault leaving this page carries one — the tagged faults as a getter, and a raw `SqlError` through `Journal.classOf`, because a driver fault reaching `Fault.Class.of` with no `class` property grades `defect`, and `defect` refuses every retry and every failover without saying so.
 - Law: `Journal.retryable` is the gate a budget or schedule takes over this page's statement faults — `Fault.Budget.schedule` defaults to the property grader, which is inert against a driver fault, so a drain that accepts that default parks a connection blip permanently instead of deferring it on the lease.
@@ -286,16 +287,15 @@ class VersionConflict extends Schema.TaggedError<VersionConflict>()("VersionConf
 class JournalFault extends Schema.TaggedError<JournalFault>()("JournalFault", {
   reason: _family.schema,
   stream: StreamKey,
-  detail: Schema.Union(Schema.String, Schema.Array(Schema.Unknown)),
+  // One evidence shape: every mint site now carries a settled sentence — the refused tag, the missing version, the
+  // unsettled claim key, or the owner's own refusal detail — so no arm re-joins a foreign issue list here.
+  detail: Schema.NonEmptyString,
 }) {
   get class(): Fault.Class.Kind {
     return _family.classOf(this.reason)
   }
   override get message(): string {
-    const detail = typeof this.detail === "string"
-      ? this.detail
-      : Array.join(Array.map(this.detail, String), ";")
-    return `<journal:${this.reason}> ${this.stream.aggregate}: ${detail}`
+    return `<journal:${this.reason}> ${this.stream.aggregate}: ${this.detail}`
   }
 }
 
@@ -316,6 +316,9 @@ declare namespace Journal {
 }
 
 const _Occ = Data.taggedEnum<Journal.Occ>()
+
+// Digests read bytes and the payload column holds text, so one encoder crosses that seam for the whole page.
+const _utf8 = new TextEncoder()
 
 const _Landed = Schema.Struct({ sequence: _Sequence, version: _Version })
 
@@ -387,11 +390,21 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
           )
           const bySequence = HashMap.fromIterable(Array.map(landed, (row) => [row.version, row.sequence] as const))
           const received = yield* Effect.forEach(rows, (row) =>
-            Effect.map(
-              Effect.fromOption(HashMap.get(bySequence, row.version), () =>
+            Effect.all({
+              sequence: Effect.fromOption(HashMap.get(bySequence, row.version), () =>
                 new JournalFault({ reason: "landing", stream, detail: String(row.version) })),
-              (sequence) => ({ sequence, version: row.version, tag: row.tag, payload: row.payload }),
-            ))
+              // This content key addresses the bytes THIS statement wrote: minting it from the encoded text keeps the
+              // announced `subject` byte-true, where a projection-side digest over a re-encoded payload addresses a
+              // spelling no reader ever stored.
+              subject: Digest.mint("content", _utf8.encode(row.payload)),
+            }).pipe(Effect.map(({ sequence, subject }) => ({
+              sequence,
+              version: row.version,
+              tag: row.tag,
+              eventVersion: row.event_version,
+              payload: row.payload,
+              subject,
+            }))))
           return {
             stream,
             version: held + batch.length,
@@ -407,7 +420,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 
 - Owner: the `idempotency_ledger` ensure row, the `IdempotencyKey` brand, and `_claim` — the one statement that inserts-or-touches the scope-qualified `(app, tenant, key)` identity and reports first-writer truth with the stored receipt in a single round trip; `_settle` writes the receipt through the same identity.
 - Packages: `@effect/sql` (`sql.insert`, `sql.onDialectOrElse`); `effect` (`Option`, `Schema`).
-- Receipt: `Journal.Claim` — `{ key, first, held }` — `first` from the explicit `first_writer` insert/update marker shared by both dialects; timestamp equality and PostgreSQL transaction internals never stand in for protocol state. A replay is served entirely from this row, and the whole claim decodes through one `SqlSchema.single`; `Journal.Receipt` derives from `_Receipt.Type`, so the stored schema and process type cannot drift.
+- Receipt: `Journal.Claim` — `{ key, first, held }` — `first` from the explicit `first_writer` insert/update marker shared by both dialects; timestamp equality and PostgreSQL transaction internals never stand in for protocol state. This one row serves a replay whole, and the claim decodes through one `SqlSchema.single`; `Journal.Receipt` derives from `_Receipt.Type`, so the stored schema and process type cannot drift.
 - Growth: a new ledger dimension (scope column, expiry class) is a column pair and a field on the claim row — the statement shape never changes.
 - Law: the claim is one statement — `INSERT … ON CONFLICT (app, tenant, key) DO UPDATE SET touched_at = …, first_writer = false RETURNING first_writer AS inserted, receipt` — the spine's `conflictClaim` primitive row realized; a SELECT-then-INSERT pair is the torn spelling.
 - Law: idempotency identity includes the tenant coordinate — equal caller keys in different apps or tenants are independent claims, and settle repeats the full predicate so one scope cannot overwrite another scope's receipt.
@@ -422,7 +435,16 @@ const _Receipt = Schema.Struct({
   version: _Version,
   count: Schema.Int.pipe(Schema.positive()),
   first: _Version.pipe(Schema.positive()),
-  rows: Schema.NonEmptyArray(Schema.Struct({ sequence: Schema.BigInt, version: _Version, tag: Schema.String, payload: Schema.String })),
+  rows: Schema.NonEmptyArray(Schema.Struct({
+    sequence: Schema.BigInt,
+    version: _Version,
+    tag: Schema.String,
+    // Each row carries the generation the plan stamped, so the announcement resolves its registry coordinate
+    // without re-reading a plan the drain never holds.
+    eventVersion: Schema.Int,
+    payload: Schema.String,
+    subject: Digest.Key.content,
+  })),
 })
 
 declare namespace Journal {
@@ -498,7 +520,7 @@ const _ledgerDdl: Capability.Ensure = {
 - Law: the NOTIFY payload is the last landed global `sequence` — a drain daemon compares it against its checkpoint and skips the claim transaction when no work exists, so a high-fanout deployment pays zero empty wake cycles; the payload is an accelerator only, and a garbled payload costs one probing cycle, never correctness. `Journal.wake` catches only `SqlError` into the empty stream because the relay's lease-width tick is the durable fallback; a listener loss delays the next claim and cannot lose a deliverable.
 - Law: publish is total over its faults — `VersionConflict`, `JournalFault`, `HookVeto`, `SqlError`, `ParseError`; an unknown plan tag, incomplete `RETURNING` roster, duplicate claim lacking its settled receipt, or app-armed admission veto fails typed and rolls back whole.
 - Law: the hook points bracket the commit from both sides — the `journalPublish` veto runs pre-append inside the transaction after the replay short-circuit (a replay is already-settled truth no policy re-adjudicates), and the observe fan rides `Tenant.afterCommit` beside the Live stamp, so a subscriber can never see pre-commit state, join the commit, or slow the write path beyond the post-commit drain it subscribed to.
-- Law: each slot returns the read owner's exact `Live.Keys` value; publish composes the roster through `Live.merged` and registers one `Reactivity.invalidate` through `Tenant.afterCommit`. `Tenant.within` drains the invocation-local roster only after its outer transaction commits. A savepoint release, rollback, and ledger replay stamp nothing, so no reader can wake into pre-commit state and no duplicate commit emits a second mutation.
+- Law: each slot returns the read owner's exact `Live.Keys` value; publish composes the roster through `Live.merged` and registers one `Reactivity.invalidate` through `Tenant.afterCommit`. `Tenant.within` drains the invocation-local roster only after its outer transaction commits. Savepoint release, rollback, and ledger replay stamp nothing, so no reader can wake into pre-commit state and no duplicate commit emits a second mutation.
 - Owner: `Journal.causal(spec)` is the host op-log admission — one producer entry decodes into one `Journal.Intent` and lands through the SAME publish transaction every app write takes, so a synced entry inherits OCC, idempotency, the outbox, and slot projection instead of a second write path that has none of them.
 - Law: a synced entry claims the ledger on its operation DOT, `${origin}:${counter}` — the identity the producer minted, never the payload digest, so two peers writing identical bytes land two rows and a redelivery replays the stored receipt; a content-keyed claim reports the second genuine edit as a duplicate and the ledger then serves a receipt for a write that never happened. Causal CONTEXT stays out of the key: it is ordering evidence this plane does not arbitrate, and folding it in makes one operation re-appendable every time its minter's frontier re-encodes.
 - Law: every synced entry publishes under `Occ.Any`. Stream version is this plane's single-writer coordinate and the entry already carries its own causal position, so `Occ.Exact` refuses exactly the concurrent operations the producer's merge policy declares commutative — the journal records causal order, and re-adjudicating it here arbitrates a decision the CRDT plane already settled.
@@ -548,6 +570,9 @@ declare namespace Journal {
     readonly occ: Occ
     readonly key: Option.Option<Key>
     readonly urgency: number // ascending-first claim order; the draining plane's service-class row is what fills it
+    // This grade publishes as `dataclassification`, and a binding reads it to decide whether the payload crosses at
+    // all, so the writer states it once here rather than every egress guessing per destination.
+    readonly classification: Event.Class
     readonly slots: ReadonlyArray<Slot<A>>
   }
   type Published = {
@@ -577,16 +602,21 @@ const _wake = (app: Identity.App.Key): Stream.Stream<string> =>
     })),
   ).pipe(Stream.retry(_RELISTEN), Stream.catchTag("SqlError", () => Stream.empty))
 
-const _deliverables = (stream: StreamKey, receipt: Journal.Receipt, urgency: number) =>
+// Each outbox row carries every coordinate the announcement publishes, so the relay projects a message envelope from one
+// claimed row instead of re-reading the journal, the evolve plan, and the intent to recover three of its attributes.
+const _deliverables = <A extends Journal.Event>(intent: Journal.Intent<A>, receipt: Journal.Receipt) =>
   Array.map(receipt.rows, (row) => ({
     sequence: row.sequence,
-    app: stream.app,
-    tenant: stream.tenant,
-    aggregate: stream.aggregate,
+    app: intent.stream.app,
+    tenant: intent.stream.tenant,
+    aggregate: intent.stream.aggregate,
     version: row.version,
     tag: row.tag,
+    event_version: row.eventVersion,
+    subject: row.subject,
+    classification: intent.classification,
     payload: row.payload,
-    urgency,
+    urgency: intent.urgency,
   }))
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
@@ -635,6 +665,7 @@ const _causal = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
     app: typeof Identity.App.fields.app.Type,
     tenant: typeof Identity.Tenant.fields.tenant.Type,
     entry: Journal.Entry,
+    classification: Event.Class,
     slots: ReadonlyArray<Journal.Slot<A>> = [],
   ) =>
     Effect.map(spec.plan.decode({ tag: entry.tag, version: entry.eventVersion, payload: entry.payload }), (event): Journal.Intent<A> => ({
@@ -643,6 +674,9 @@ const _causal = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
       occ: _Occ.Any(),
       key: Option.some(_claimOf(entry.id)),
       urgency: _SYNC_URGENCY,
+      // Synced entries announce at the grade their producer declared: inheriting a default here lets a peer's
+      // restricted payload cross a broker this deployment refuses it on.
+      classification,
       slots,
     }))
 
@@ -678,7 +712,7 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
                   tags: Array.map(batch, (event) => event._tag),
                 }) // pre-commit veto: a refusal rolls the whole transaction back before any row lands
                 const journal = yield* _append(spec)(intent.stream, intent.events, intent.occ)
-                yield* sql`INSERT INTO outbox ${sql.insert(_deliverables(intent.stream, journal, intent.urgency))}`
+                yield* sql`INSERT INTO outbox ${sql.insert(_deliverables(intent, journal))}`
                 yield* Effect.forEach(intent.slots, (slot) => slot.project(intent.stream, batch, journal), { discard: true })
                 yield* Effect.transposeOption(Option.map(intent.key, (key) => _settle(sql, intent.stream, key, journal)))
                 yield* sql.onDialectOrElse({
@@ -747,9 +781,9 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 
 - Owner: `_Deliverable` and the outbox ensure row own queued journal records.
 - Owner: `Journal.claimBatch`, `Journal.complete`, and `Journal.census` are the work-plane SQL ports.
-- Owner: `Journal.envelope` and `Journal.carrier` own CloudEvents projection and authenticated inverse.
+- Owner: `_Deliverable.envelope` and `Journal.carrier` own the announcement projection and its authenticated inverse.
 - Owner: `_overlay` binds EventLog storage onto the owning `SqlClient`.
-- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `cloudevents` (`CloudEvent` — strict-validated envelope construction; core owns the catalog and the carrier dialect table).
+- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `@rasm/ts/core` (`Event` — the branch's one mint entry, roster, and grammar; `Digest` — the content-key mint).
 - Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, ids)` requires a non-empty bigint identity roster; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
 - Growth: a new deliverable dimension (deliver-at, shard affinity) is a column and a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: claim order is `(urgency, id)` — the urgency term ahead of insert identity, so ordering is a stamped policy value and FIFO is the degenerate case where every publisher stamps one number; the partial pending index leads on the same pair, because an ORDER BY term the index cannot serve turns each claim into a scan of the whole undelivered backlog.
@@ -758,10 +792,14 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and a live claimant is never raced; the sqlite arm serializes on the single writer and drops the lock clause while keeping the lease predicate. `SqlSchema.findAll` decodes every returned identity and payload through `_Deliverable`; raw driver rows never cross the data seam.
 - Law: each deliverable carries the journal's global `sequence` beside its stream version, so a drain receipt, checkpoint, or forensic join names the exact source fact without re-querying by payload coordinates.
 - Law: outbox observability is the census projected across the seam — `Journal.census` answers `{ depth, oldest, redelivered }` in one decoded aggregate, the runtime meter bridge samples it through its `Probe` port and sets the `Convention.metric.outboxDepth`/`outboxAge`/`outboxRedelivered` gauges, and this page mints no instrument: the outbox rows stay the evidence truth and the gauges stay the lossy dashboard projection.
-- Law: the envelope is a projection fold over the claimed deliverable, never a second record of truth — `type` is the event tag, `source` is the `StreamKey` spelled as one URI path, `id` is the landed global `sequence` so a redelivered claim replays the SAME envelope id and consumer dedup is structural, `data` is the decoded payload under `application/json`, and construction runs strict validation with `ValidationError` folding to the `envelope` fault reason — a malformed projection is a typed rail outcome, never a raw throw. `Journal.envelope` requires a `Carrier.Context`; `Carrier.empty` spells absence, so an omitted continuation argument cannot silently orphan a drain span.
-- Law: `Carrier.promote` seats the complete tenant scope before CloudEvents extension injection.
-- Law: `Journal.envelope` constructs one complete `CloudEventV1` with no parallel tenant extension.
-- Law: binding mode is the carrier's fact across the claim seam — the runtime transport selects structured versus binary through its own dialect row and serializes the envelope VALUE this page mints; no `Binding`, `Mode`, or emitter surface is reached here, and the process-global `Emitter` singleton stays banned estate-wide.
+- Law: the announcement is a projection fold the claimed row owns and never a second record of truth — `_Deliverable.envelope` composes `Event.mint`, the branch's ONE mint entry, so this page states no attribute grammar, no extension roster, and no construction posture; a refusal arrives as `Event.Refusal` and folds to the `envelope` fault reason, and the raw throw the package raises never reaches a fiber.
+- Law: the addressed attributes decode ONCE through `Event.Fact` — `id` the landed global `sequence`, `source` the `StreamKey` spelled as one URI path, `type` the event tag verbatim, `time` the write instant, `subject` the stored content key, `dataschema` the registry coordinate, `datacontenttype` the arrow's media — so the proof that record satisfies the grammar rides the decoded value into the mint rather than dissolving in a widened attribute record on the next expression.
+- Law: the app's event family spells its own `_tag` as the estate grammar's `rasm.<domain>.<subject>.<fact>.v<N>`, since the tag IS the announced `type`; a tag outside that grammar fails typed at the projection rather than reaching a subscription that keys on it.
+- Law: the two version axes stay disjoint — the `type` major `v<N>` moves only on a breaking change while `event_version` moves on every generation, so `dataschema` names `(tag, event_version)` as the registry coordinate the evolve plan already resolves and no consumer re-derives one from the other.
+- Law: the landed global `sequence` serves both roles it inhabits — `id` carries it as the producer's operation identity, so `(source, id)` dedups a redelivered claim structurally, and the `sequence` extension carries it as the per-source position under `sequencetype: "Integer"`; both cross as decimal TEXT, which is why no consumer of this branch arms the package's `CE_USE_BIG_INT` global JSON swap to move a 64-bit identity.
+- Law: `partitionkey` is the stream triple, so a transport partitioning on it keeps one aggregate's announcements in one ordering domain, and `dataclassification` is the writer's declared grade a binding reads before deciding the payload crosses at all.
+- Law: `Carrier.promote` seats the complete tenant scope before the mint injects, so the CREATION-time trace and the tenant baggage ride the roster extensions the mint writes; the transport's own hop context is its binding's, never this projection's.
+- Law: binding mode is the transport's fact across the claim seam — the runtime engine selects structured versus binary through its own binding row and carries the VALUE this page mints; no `Binding`, `Mode`, or emitter surface is reached here, and the process-global `Emitter` singleton stays banned estate-wide.
 - Law: `Journal.carrier` parses through `Carrier.extract("cloudevents", ...)`.
 - Law: `Identity.Tenant.alike` admits only the authenticated full scope; every mismatch folds to `Option.none`.
 - Law: Successful inverse re-promotes authenticated tenancy and removes duplicate tenant members.
@@ -778,13 +816,30 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   aggregate: StreamKey.fields.aggregate,
   version: _Version,
   tag: Schema.NonEmptyString,
+  // Three announcement coordinates the write already decided: the generation resolving the registry subject, the
+  // content key minted over the stored bytes, and the handling grade a binding gates on.
+  event_version: Schema.Int,
+  subject: Digest.Key.content,
+  classification: Event.classes.schema,
   payload: Model.JsonFromString(Schema.Unknown),
   urgency: Schema.Int,
   attempts: Schema.Int,
   created_at: Model.DateTimeInsert,
   claimed_at: Model.FieldOption(Schema.DateTimeUtc),
   delivered_at: Model.FieldOption(Schema.DateTimeUtc),
-}) {}
+}) {
+  // This row is the raw payload column's ONE reader, so a claim carries its own announcement and a drain projecting
+  // one never reaches past its admitted value to the undecoded bytes underneath.
+  envelope(carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> {
+    return _envelope(this, carrier)
+  }
+}
+
+declare namespace Journal {
+  // Claims cross as this instance type: a drain names it to widen the lane's claim floor and reads `envelope` off the
+  // row it already holds, so the announcement never travels as a second value beside the claim producing it.
+  type Deliverable = _Deliverable
+}
 
 const _ClaimBatch = Schema.Struct({
   app: Identity.App.fields.app,
@@ -799,6 +854,8 @@ const _outboxDdl: Capability.Ensure = {
     sequence BIGINT NOT NULL,
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version BIGINT NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991), tag TEXT NOT NULL,
+    event_version INT NOT NULL CHECK (event_version > 0),
+    subject TEXT NOT NULL, classification TEXT NOT NULL,
     payload JSONB NOT NULL, urgency INT NOT NULL, attempts INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     claimed_at TIMESTAMPTZ,
@@ -810,6 +867,8 @@ const _outboxDdl: Capability.Ensure = {
     sequence INTEGER NOT NULL,
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version INTEGER NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991), tag TEXT NOT NULL,
+    event_version INTEGER NOT NULL CHECK (event_version > 0),
+    subject TEXT NOT NULL, classification TEXT NOT NULL,
     payload TEXT NOT NULL, urgency INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     claimed_at TEXT,
@@ -854,36 +913,57 @@ const _overlay = {
   serverSubtle: SqlEventLogServer.layerStorageSubtle,
 } as const
 
+// One serdes arrow serves the whole outbox — the journal writes JSON text through `Schema.parseJson` — so the media
+// type and the registry coordinate are both row data off THAT arrow and neither reaches the mint as a call-site literal.
+const _SERDES = {
+  media: "application/json",
+  subject: (tag: string, generation: number): string => `rasm://schema/journal/${tag}/${generation}`,
+} as const
+
 const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> =>
   Effect.gen(function* () {
     const stream = new StreamKey({ app: deliverable.app, tenant: deliverable.tenant, aggregate: deliverable.aggregate })
-    const fault = (caught: unknown) => new JournalFault({
-      reason: "envelope",
-      stream,
-      detail: caught instanceof ValidationError ? caught.errors ?? [caught.message] : String(caught),
-    })
+    const fault = (detail: string) => new JournalFault({ reason: "envelope", stream, detail })
     const { app, tenant, aggregate } = yield* Either.mapLeft(
       Either.all({
         app: Encoding.encodeUriComponent(deliverable.app),
         tenant: Encoding.encodeUriComponent(deliverable.tenant),
         aggregate: Encoding.encodeUriComponent(deliverable.aggregate),
       }),
-      fault,
+      (caught) => fault(String(caught)),
     )
-    const attributes = {
-      id: String(deliverable.sequence), // Redelivery keeps the landed sequence as the same consumer-dedup identity.
-      specversion: V1,
-      type: deliverable.tag,
-      source: `rasm://journal/${app}/${tenant}/${aggregate}`,
-      time: DateTime.formatIso(deliverable.created_at),
-      datacontenttype: "application/json",
-      data: deliverable.payload,
-    } satisfies CloudEventV1<unknown>
+    // Decoding the addressed record into `Event.Fact` is what carries the grammar proof INTO the mint: the widened
+    // attribute record the mint's own carrier injection returns can no longer discard it on the next expression.
+    const fact = yield* Effect.mapError(
+      Effect.flatMap(Schema.encode(Digest.codecs.content.wire)(deliverable.subject), (subject) =>
+        Schema.decode(Event.Fact)({
+          id: String(deliverable.sequence), // Redelivery keeps the landed sequence as the same consumer-dedup identity.
+          source: `rasm://journal/${app}/${tenant}/${aggregate}`,
+          type: deliverable.tag,
+          time: DateTime.formatIso(deliverable.created_at),
+          subject,
+          dataschema: _SERDES.subject(deliverable.tag, deliverable.event_version),
+          datacontenttype: _SERDES.media,
+          data: deliverable.payload,
+        })),
+      (issue) => fault(issue.message),
+    )
     const scope = new Identity.Tenant({ app: deliverable.app, tenant: deliverable.tenant })
-    return yield* Effect.try({
-      try: () => new CloudEvent({ ...Carrier.inject("cloudevents", Carrier.promote(carrier, scope), attributes) }),
-      catch: fault,
-    })
+    return yield* Effect.mapError(
+      Event.mint(
+        fact,
+        {
+          // This stream triple is the ordering domain a partitioning transport keys on, and the same landed sequence
+          // that identifies the operation is this source's position — one number in two declared roles, both text.
+          partitionkey: `${deliverable.app}${_SEPARATOR}${deliverable.tenant}${_SEPARATOR}${deliverable.aggregate}`,
+          sequence: String(deliverable.sequence),
+          sequencetype: "Integer",
+          dataclassification: deliverable.classification,
+        },
+        Carrier.promote(carrier, scope),
+      ),
+      (refusal) => fault(refusal.message),
+    )
   })
 
 // Inbound tenancy must equal the complete authenticated scope; success re-promotes that authority and strips
@@ -932,7 +1012,7 @@ const Journal = {
   wake: _wake,
   claimBatch: (sql: SqlClient.SqlClient, request: typeof _ClaimBatch.Type) =>
     _safe(_claimBatch(sql)(request)), // the claim decodes two BIGINT identities, so it reads under the same pinned posture
-  envelope: _envelope,
+  Deliverable: _Deliverable, // the claimed row and its own `envelope` projection travel under one name
   carrier: _carrier,
   census: (sql: SqlClient.SqlClient, app: typeof Identity.App.fields.app.Type) =>
     _census(sql)(app),

@@ -150,7 +150,6 @@ public sealed partial class Detail {
     // The four slot-parameterized rows carry their wire-slot name as a SUBJECT: the retired
     // `event-<slot>-malformed` grammar infixed it, so the family had no prefix a row could own.
     public static readonly Detail EventArtifactKeyMalformed = new("event-artifact-key-malformed", DetailLeg.Events, Codec);
-    public static readonly Detail EventBatchEmpty = new("event-batch-empty", DetailLeg.Events, Codec);
     public static readonly Detail EventBodyMiss = new("event-body-miss", DetailLeg.Events, Codec);
     public static readonly Detail EventEnvelopeMalformed = new("event-envelope-malformed", DetailLeg.Events, Codec);
     public static readonly Detail EventKeyMalformed = new("event-key-malformed", DetailLeg.Events, Codec);

@@ -51,6 +51,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [41]   | deploy-plane served decoder artifact row     | the consuming roster row + absence gate    | a decoder serves where its address publishes |
 |  [42]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
 |  [43]   | `navigator.connection` refinement per owner  | the peer's refinement + its axis carve     | one surface, two refinements, one owner each |
+|  [44]   | `[14]-[EVENT_FABRIC]` grammar or roster row  | each branch message-envelope owner + entry | one fabric, three branch transcriptions      |
 
 ## [02]-[CONDITIONED]
 
@@ -70,6 +71,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Two pages contradicting on an external fact resolve on the installed distribution alone — neither confidence nor page count elects a winner.
 - Law: Repairing the side that reads weaker without probing inverts the defect, so both spellings stay unverified until the rail answers.
 - Law: Codec rows claim per container — standalone exactness re-proves in each carrier across the extent range; asserting both is two claims.
+- Law: Rows claim their OWN package's surface, so a capability asserted about a peer package proves at that peer's catalog or never lands.
 
 [FENCE_SEAM]:
 - Surface: Planning-fence seam members.

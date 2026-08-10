@@ -570,9 +570,9 @@ public static partial class Dialect {
 - Owner: `Dialect.Directive` owns the lowering of every `MotionDirective` case the S0 atoms floor declares.
 - Law: a directive lowers to an EXECUTABLE word where the dialect's declared features admit it, and to a declared ANNOTATION where they do not — never silently. A controller with no revolution-dwell feature receives the dwell as a comment carrying its own basis and amount, so the operator reads the intent the control cannot execute rather than running a program the intent vanished from.
 - Law: `OrientedStop` emits the DECLARED orient angle. Re-deriving an angle from the retract vector discards the angle the atom carries and publishes a different stop position wherever the two disagree.
-- Cases: spindle law with its control mode and hand; a dwell carrying `DwellBasis`, which decides the time or revolution address; a synchronized channel pair; an oriented stop with its orient angle and retract; a channel barrier; and an admitted specialized envelope.
+- Cases: spindle law with its control mode and hand; a dwell carrying `DwellBasis`, which decides the time or revolution address; a synchronized channel pair; an oriented stop with its orient angle and retract; a channel barrier; and an admitted `SpecializedToolpathEnvelope`.
 - Auto: `DialectFeature.TimeDwell` and `DialectFeature.RevolutionDwell` decide the dwell address from the basis, so no arm tests a controller identity; `CommandKeys.MotionSynchronize` and `CommandKeys.ChannelBarrier` resolve their vendor words through the dialect's own override map.
-- Receipt: the specialized envelope arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
+- Receipt: every `SpecializedToolpathEnvelope` arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
 - Boundary: an annotation rides the family's own comment channel — parenthesised for word-address, semicolon for every other family — so a controller that ignores comments loses nothing.
 
 ```csharp signature

@@ -20,8 +20,8 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [09]-[PROVENANCE](.planning/Version/provenance.md): W3C-PROV causal DAG and attested tamper-evidence ledger.
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
-- [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump minting one CloudEvents envelope per sink with dedup and replay.
-- [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, CloudEvents decode, content-key dedup.
+- [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump, its subscription-over-binding roster, and the seven-dialect CESQL filter.
+- [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, rostered decode, `(source, id)` dedup.
 
 [QUERY]:
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
@@ -114,9 +114,8 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Ara3D.BimOpenSchema`
 - `Ara3D.BimOpenSchema.IO`
 - `Parquet.Net` — pure-managed Parquet codec under the BimOpenSchema Parquet-zip leg, version-governed as a central transitive pin.
-- `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping.
+- `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping; mints the `dataschema` registry subject.
 - `Chr.Avro.Binary`
-- `Chr.Avro.Confluent` — binds the Confluent Schema Registry serdes leg.
 - `System.Formats.Cbor` — BCL CBOR / RFC 8949 self-describing snapshot codec.
 - `MiniExcel` — streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach.
 - `ZstdSharp.Port` — standalone Zstandard snapshot and blob compression.
@@ -139,9 +138,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Confluent.SchemaRegistry.Serdes.Json`
 - `AMQPNetLite.Core` — `AMQP 1.0` protocol transport beneath the CloudEvents binding: connection, session, links, framing.
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg.
-- `CloudNative.CloudEvents.Kafka` — binary-mode `ce_` header binding onto `Confluent.Kafka`; backs `EgressSink.Kafka`.
-- `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`.
-- `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`.
+- `CloudNative.CloudEvents.Kafka` — binary-mode `ce_` header binding onto `Confluent.Kafka`; backs the `kafka` binding row.
+- `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs the `rabbitmq` binding row.
+- `DotPulsar` — Apache Pulsar binary-protocol client; backs the `pulsar` binding row.
+- `Pidgin` — allocation-light parser combinators; the table-driven CESQL grammar behind the `sql` dialect at `Version/egress#SUBSCRIPTION_FILTER`.
 
 [OBJECT_CACHE_KMS]: Cloud object stores, the Redis cache backplane, and KMS custody.
 - `AWSSDK.S3`
@@ -150,7 +150,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Azure.Storage.Blobs.Batch` — separate distribution carrying the blob batch client the object plane's page-at-a-time erase folds.
 - `Google.Cloud.Storage.V1`
 - `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane.
-- `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink.
+- `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `redis` binding row.
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
 - `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the cache and egress multiplexers into the root trace.
 - `AWSSDK.KeyManagementService`
@@ -162,7 +162,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [MACHINE_CONNECTIVITY]:
-- `MQTTnet` — QoS-1 `PublishAsync` PUBACK evidence and the v5 UserProperties tracing carrier; backs `EgressSink.Mqtt`.
+- `MQTTnet` — QoS-1 `PublishAsync` PUBACK evidence and the v5 User Property carrier the branch-owned MQTT binding writes unprefixed attributes onto.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -181,8 +181,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 
 [GEOMETRY_INTERCHANGE]:
-- `Speckle.Sdk` — the send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
-- `Speckle.Objects` — the `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
+- `Speckle.Sdk` — send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
+- `Speckle.Objects` — `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
 - `Unofficial.laszip.netstandard` — one LAS/LAZ engine behind chunked residence and `.lax` windowed reads.
 
 [ENERGY_SIMULATION]:
@@ -193,10 +193,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Data.Sqlite` — embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile rail.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — the `Egress.Envelope` projection: one `CloudEvent` per `OpLogEntry` on the changefeed wire.
-- `CloudNative.CloudEvents.SystemTextJson` — the one shared `JsonEventFormatter` codec identity across every sink.
-- `CloudNative.CloudEvents.Mqtt` — structured-mode MQTT v5 binding; backs `EgressSink.Mqtt`, payload-body-only with no binary mode.
-- `NATS.Net` — JetStream publish-ack egress backing `EgressSink.Nats`; KV and Object Store as distributed store-backend rows.
+- `CloudNative.CloudEvents` — `CloudEvent` values `Version/egress` mints per `OpLogEntry` through the kernel envelope owner holding codec identity.
+- `NATS.Net` — JetStream publish-ack egress backing the `nats` binding row; KV and Object Store as distributed store-backend rows.
 
 [GEOSPATIAL_INDEX]:
 - `pocketken.H3` — managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
@@ -221,7 +219,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — generated boundary transcription; `Store/schema` `CapabilityMap` is the landed projector.
 - `Generator.Equals` — generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
-- `MessagePack` — the snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
+- `MessagePack` — snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
 - `MessagePackAnalyzer` — build-only generator and `MsgPack###` gate behind the AOT resolver chain.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 

@@ -67,7 +67,7 @@
 
 [LOCAL_ADMISSION]:
 - `import brotli` at boundary scope only; module-level import is banned by the manifest import policy.
-- A non-`bytes` or non-contiguous input is a boundary-rejected argument before it reaches the native call.
+- Boundary admission rejects a non-`bytes` or non-contiguous input before it reaches the native call.
 - Live UI stays outside this package.
 
 [RAIL_LAW]:

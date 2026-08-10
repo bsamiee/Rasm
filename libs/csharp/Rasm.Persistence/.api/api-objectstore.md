@@ -216,7 +216,7 @@
 |  [02]   | `DownloadObjectAsync`          | bucket, object, stream, options       | range-read fetch                           |
 |  [03]   | `StorageClient.CreateAsync(…)` | `GoogleCredential?`, `EncryptionKey?` | client factory; app-root credential + CSEK |
 
-- `UploadObjectOptions.ChunkSize`: a positive multiple of 262144 selects resumable chunked upload; null uploads single-request. Generation-match gates (`IfGenerationMatch`) ride the same options.
+- `UploadObjectOptions.ChunkSize`: selects resumable chunked upload at a positive multiple of 262144 and single-request upload at null; generation-match gates (`IfGenerationMatch`) ride the same options.
 
 [GCS_LIFECYCLE]: per-object retention and storage-class rewrite over `StorageClient`
 
@@ -258,7 +258,7 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 |  [03]   | `UrlSigner.FromCredential(GoogleCredential) -> UrlSigner`              | factory  | credential-bound signer for GCS V4 signed URLs |
 
 - `AmazonS3Client.GetPreSignedURL`: custom `Parameters` with an expiry past 7 days throws `InvalidOperationException` — SigV2 leaves custom parameters unsigned, so the `ObjectLeg.Issue` TTL stays inside the SigV4 7-day ceiling.
-- `BlobClient.GenerateSasUri`: an AAD-dialed client cannot sign — `CanGenerateSasUri` is the probe, so SAS capability is a deployment fact of the host-dialed container. GCS's signer stands separate from `StorageClient`, so the `ObjectClient.Gcs` row carries both.
+- `BlobClient.GenerateSasUri`: refuses an AAD-dialed client — `CanGenerateSasUri` probes it, so SAS capability is a deployment fact of the host-dialed container. GCS's signer stands separate from `StorageClient`, so the `ObjectClient.Gcs` row carries both.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -271,7 +271,7 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 
 [STACKING]:
 - `Minio`(`.api/api-minio`): the fourth self-hosted `ObjectClient` provider row on the same `BlobRemote` placement contract, supplying the same four legs, range-read, and the `#WRITE_ONCE_SEAL` edge (`ObjectConditionalQueryArgs.WithMatchETag`/`CopyConditions`).
-- within-lib: the `ObjectClient` union dispatches one `Store/blobstore#OBJECT_STORE` placement row across S3/Azure/GCS/Minio; the SSE-KMS KEK reference rides the tenant `Element/identity#KMS_CUSTODY` DEK envelope, and framing is settled at `#ARTIFACT_FRAMES`.
+- within-lib: the `ObjectClient` union dispatches one `Store/blobstore#OBJECT_STORE` placement row across S3/Azure/GCS/Minio; the SSE-KMS KEK reference rides the tenant `Element/identity#KMS_CUSTODY` `EnvelopeKeyring` wrap, and framing is settled at `#ARTIFACT_FRAMES`.
 
 [LOCAL_ADMISSION]:
 - Conditional-write conflict — S3 `PreconditionFailed`/412, Azure `ConditionNotMet`/412, GCS 412 on generation-match — folds to `RemoteStoreFault.Conflict`, a benign write-once no-op since the content is already durably present, identical by hash.

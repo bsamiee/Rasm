@@ -675,4 +675,4 @@ internal static class TileGate {
 
 ## [04]-[RESEARCH]
 
-- (none)
+(none)

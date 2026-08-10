@@ -6,12 +6,12 @@
 
 ## [01]-[INDEX]
 
-- [02]-[WIRE_REGISTRY]: the ordered family vocabulary and exact row contract; `Wire`.
+- [02]-[WIRE_REGISTRY]: ordered family vocabulary and exact row contract; `Wire`.
 - [03]-[FAULT_RAIL]: fault policy, quarantine intake, replay, and divert; `Wire.Fault`, `Wire.Quarantine`.
 - [04]-[PARITY_VERIFY]: content-key verification and semantic roundtrip; `Wire.Parity`.
 - [05]-[LANDING_EVIDENCE]: evidence, identity, version, CRDT, and oplog landings; `Wire`.
 - [06]-[LANDING_WIRE]: wire-owned decoded shapes for later-wave consumers; landing classes on `Wire`.
-- [07]-[KEYED_REGISTRY]: the mapped landing table, the polymorphic decode/encode/stream entrypoints; `Wire`.
+- [07]-[KEYED_REGISTRY]: mapped landing table, polymorphic decode/encode/stream entrypoints; `Wire`.
 - [08]-[FEED_DEDUP]: quarantine diversion and family transition policies; `Wire.feed`.
 - [09]-[SEQUENCE_GAP]: sequence evidence, oplog continuity, and frontier reads; `Wire.Gap`, `Wire.OpLog`.
 
@@ -22,6 +22,8 @@
 - Law: `_faultFamilies` widens the roster with families this page never decodes but whose owners raise faults against it.
 - Law: `_faultArms` names the arm of every such family, so arm resolution stays total across the fault roster.
 - Boundary: `Format` owns codec engines and the arm vocabulary; external producers own wire spellings.
+- Boundary: `interchange/carrier` owns the message envelope and `Format.event` its media roster, so no row, landing class, fault cause, or parity obligation here names a CloudEvents shape.
+- Boundary: a message envelope crossing this plane carries a wire family in its payload rather than being one.
 
 ```typescript signature
 import { Array, type ParseResult, Schema, type Types } from "effect"
@@ -51,9 +53,9 @@ const _faultFamilies = [
 const _faultLiteral = Schema.Literal(..._faultFamilies)
 
 // Fault-only families decode at their OWN owner — `frame` assembles the artifact, geometry, residency, and IFC
-// envelopes and `invoke` decodes the command payload — so no `_rows` entry exists to read an arm from. Naming the
-// arm here keeps arm resolution total across the whole fault roster, which is what lets a held frame from any of
-// the five render: without it the quarantine census holds bytes it can print nothing about. The complement type
+// wire families and `invoke` decodes the command payload — so no `_rows` entry exists to read an arm from. Naming the
+// arm here keeps arm resolution total across the whole fault roster, which is what lets a held frame from any of the
+// five render: without it the quarantine census holds bytes it can print nothing about. The complement type
 // closes the table both ways, so a sixth fault family fails at this declaration rather than at a silent absence.
 const _faultArms = {
   ArtifactFrame: "proto",
@@ -86,7 +88,7 @@ import { Format } from "./format.ts"
 
 const _causes = ["malformed", "truncated", "overrun", "sequence", "parity", "drift", "stale", "conflict"] as const
 
-// The plane's one family mint: `class` is the branch taxonomy every rail already grades and orders on, and the two
+// This plane mints one family: `class` is the branch taxonomy every rail already grades and orders on, and the two
 // columns beside it are genuinely this plane's — `held` whether the failing frame is RETAINED in the poison census
 // (a frame-retention disposition, not the class table's repair-intake divert), `replayable` whether re-decoding the
 // same octets can change the verdict at all (which no class-level retryability answers: unparseable bytes are
@@ -95,7 +97,7 @@ const _causes = ["malformed", "truncated", "overrun", "sequence", "parity", "dri
 const _policy = Fault.Class.family(_causes, {
   malformed: { class: "malformed", held: true, replayable: true },
   truncated: { class: "malformed", held: true, replayable: true },
-  // An over-budget frame is the ONE cause whose evidence is its measurement: `Fault.evidence` already carries the
+  // Over-budget frames are the ONE cause whose evidence is its measurement: `Fault.evidence` already carries the
   // actual and expected extents, and retaining the octets would pin exactly the bytes the budget refused — a
   // census of oversized frames is the exhaustion the refusal exists to prevent, and `replayable: false` means the
   // retention buys no second verdict either.
@@ -190,7 +192,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
     // an accident: `intake` starts it and four owners end it — `replayed` on delivery, `replayed` on retirement
     // once attempts exhaust or the cause is unreplayable, a caller through `release`, and this eviction when a
     // newer frame needs the slot. The last owner is what makes the lifetime finite with no pump running at all.
-    // The census is process-scoped and tenant-blind by construction: `Wire.Fault` carries a family and an extent,
+    // Census reads stay process-scoped and tenant-blind by construction: `Wire.Fault` carries a family and an extent,
     // never an `Identity.Tenant`, so a partition here would key on a field the fault does not have.
     const held = yield* STM.commit(TMap.empty<bigint, PoisonFrame>())
     const serial = yield* STM.commit(TRef.make(0n))
@@ -208,7 +210,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
     // Slot order IS arrival order, so the pump works the roster oldest-first with no second structure recording it.
     // On an EMPTY census the pump parks rather than polls: `STM.retry` suspends this transaction until the map
     // changes, so a frame admitted a moment after a sweep is worked at once instead of waiting out the schedule —
-    // the prompt wake a blocking queue take used to supply, kept without the queue. Suspending here is the inverse
+    // prompt wake a blocking queue take used to supply, kept without the queue. Suspending here is the inverse
     // of suspending on a full queue: the transaction that waits belongs to the CONSUMER, never to a decoding
     // fiber, so ingress holds its own pace whatever the pump is doing.
     const due: Effect.Effect<ReadonlyArray<PoisonFrame>> =
@@ -223,9 +225,9 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
             return yield* admit(new PoisonFrame({ slot, family, octets, fault, at: now, attempts: 0 }))
           }))),
       census: STM.commit(TMap.values(held)),
-      // The ROW renders and the family only supplies what the row cannot know. Branching on two arm names left the
-      // nine msgpack and cbor families printing nothing at all — and the positional appearance records are exactly
-      // the frames whose slot drift an operator has to see — while the five fault-only families printed nothing
+      // Rows render and the family supplies only what a row cannot know. Branching on two arm names left the
+      // nine msgpack and cbor families printing nothing at all — and the positional appearance records are exactly the
+      // frames whose slot drift an operator has to see — while the five fault-only families printed nothing
       // either. The descriptor rides in for the one arm that cannot print without it.
       diagnostic: (frame: PoisonFrame): Option.Option<string> =>
         Format.rows.arm[_armOf(frame.family)].render(
@@ -421,7 +423,7 @@ const _stamped = (op: Extract<CrdtOp, { readonly physicalTicks: bigint }>): Cloc
 ## [06]-[LANDING_WIRE]
 
 - Owner: `Wire` lands producer-exact domain values for graph, edits, BCF, model diff, appearance, and support evidence.
-- Law: NodeId and ContentAddress remain distinct brands; Node retains the producer-carried authoritative content address.
+- Law: the producer's `NodeId` and its `ContentAddress` — the C# bare-digest brand this branch spells `ContentKey`, never C#'s own composite of that name — land as distinct brands, and `Node` retains the producer-carried authoritative content address.
 - Law: entity edits apply a closed JSON Patch document to exact `NodeWire` ProtoJSON under per-node base-address OCC.
 - Boundary: raw GeoJSON text and CloudEvents remain outside the registry because no typed family crosses.
 
@@ -434,7 +436,7 @@ const _reasons = [
   "precondition", "aborted", "range", "unimplemented", "internal", "unavailable", "dataloss", "unauthenticated",
 ] as const
 
-// The transport family mints through the same seam every folder family takes: `class` is the branch taxonomy, and
+// Transport families mint through the same seam every folder family takes: `class` is the branch taxonomy, and
 // `code`/`retryable`/`terminal` are the gRPC peer's OWN columns adopted verbatim — the wire's retryability diverges
 // from its class default where the protocol says so (an already-exists refusal never succeeds on a re-send), so
 // these are peer facts the landing carries, never a second taxonomy this branch mints.
@@ -640,7 +642,7 @@ class WriteReceipt extends Schema.TaggedClass<WriteReceipt>()("WriteReceipt", {
 }) {
   static readonly FromWire: Schema.Schema<WriteReceipt, unknown> = Schema.compose(_stamp("WriteReceipt"), WriteReceipt, { strict: false })
 }
-// The palette gate reuses `Evidence.Availability`'s level vocabulary without sharing its document.
+// Palette gating reuses `Evidence.Availability`'s level vocabulary without sharing its document.
 class CommandGate extends Schema.TaggedClass<CommandGate>()("CommandGate", {
   key: Schema.NonEmptyString,
   available: Schema.Boolean,
@@ -651,14 +653,14 @@ class CommandGate extends Schema.TaggedClass<CommandGate>()("CommandGate", {
 
 const _Vec3 = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
 
-// The AppUi shell's widget vocabulary: twenty-nine locked kind literals, each arm carrying its typed shape beside
-// the one `IntentBinding` carrier. The producer SHIPS the discriminant, so this landing decodes on the `kind`
+// AppUi's shell publishes this widget vocabulary: twenty-nine locked kind literals, each arm carrying its typed shape beside the
+// one `IntentBinding` carrier. The producer SHIPS the discriminant, so this landing decodes on the `kind`
 // column the wire already carries and mints no second tag. Key-grade columns take `NonEmptyString` because an
 // empty key resolves against no label catalog, command registry, or automation id on either head; display text
 // takes `String`, since the producer's own text columns admit it.
 const _Emphasis = Schema.Literal("quiet", "secondary", "primary", "danger", "inverted", "link")
 const _Orientation = Schema.Literal("Horizontal", "Vertical")
-// the picker modality is the shipped `UsePickerTypes` roster whole, so a fourth posture breaks here
+// picker modality is the shipped `UsePickerTypes` roster whole, so a fourth posture breaks here
 const _PickerMode = Schema.Literal("OpenFile", "SaveFile", "OpenFolder")
 
 const _IconSlot = Schema.Struct({
@@ -690,7 +692,7 @@ const _Window = Schema.Struct({
   fixedItemExtent: Schema.Number,
 })
 
-// The integral, unsigned, and precise arms cross as ORDINAL DECIMAL STRINGS because a sixty-four-bit bound and a
+// Integral, unsigned, and precise arms cross as ORDINAL DECIMAL STRINGS because a sixty-four-bit bound and a
 // decimal significand both exceed this head's native number, so they land on `bigint` and `BigDecimal` where the
 // real arm lands on `number` — decoding the string arms as numbers silently rounds the top decade of a `ulong`
 // spinner and the tail digits of a `decimal` one, which is exactly the bound a checked narrowing exists to keep.
@@ -730,7 +732,7 @@ const _CrumbRow = Schema.Struct({
 
 const _AvatarRow = Schema.Struct({ labelKey: Schema.NonEmptyString, portrait: Schema.NullOr(Schema.NonEmptyString) })
 
-// the pattern list lands non-empty because the producer's own filter encoder refuses an empty one before the
+// pattern lists land non-empty because the producer's own filter encoder refuses an empty one before the
 // picker mounts, so the landing states the emission's shape rather than admitting a document it never writes
 const _FileFilterRow = Schema.Struct({ label: Schema.String, patterns: Schema.NonEmptyArray(Schema.NonEmptyString) })
 
@@ -758,7 +760,7 @@ const _MenuRow: Schema.Schema<_MenuRow> = Schema.Struct({
   rows: Schema.Array(Schema.suspend((): Schema.Schema<_MenuRow> => _MenuRow)),
 })
 
-// The leaf half of the family: twenty arms whose shapes bottom out, so both representations DERIVE from the union
+// Leaf arms close the family: twenty shapes bottom out, so both representations DERIVE from the union
 // rather than being spelled twice — the numeric and temporal columns are what make the two sides differ at all.
 const _leaves = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("button"), key: Schema.NonEmptyString, labelKey: Schema.NonEmptyString, binding: _Binding }),
@@ -791,7 +793,7 @@ const _leaves = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("menu"), key: Schema.NonEmptyString, rows: Schema.Array(_MenuRow), binding: _Binding }),
 )
 
-// The nesting half is spelled ONCE and instantiated per representation: the child type is the only axis that
+// Nesting spells ONCE and instantiates per representation: the child type is the only axis that
 // moves, because `_Binding`, `_Window`, and the extent/align columns are representation-invariant by
 // construction — every one of their columns is a string, a literal, or a nullable of one.
 type _BindingRow = typeof _Binding.Type
@@ -1087,8 +1089,8 @@ const _absent: typeof Schema.OptionFromNonEmptyTrimmedString = Schema.OptionFrom
 const _Color = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
 const _Weight = Schema.Number.pipe(Schema.between(0, 1)) // the unit interval every OpenPBR weight, ratio, and grain azimuth rides
 
-// `MaterialWire` lands its receipt verbatim — capture evidence, fit conditioning, chromaticity/CCT grounding,
-// the chart-solve tail separating a colour-corrected capture from a camera's guess, and model attribution a neural
+// `MaterialWire` lands its receipt verbatim — capture evidence, fit conditioning, chromaticity/CCT grounding, the
+// chart-solve tail separating a colour-corrected capture from a camera's guess, and model attribution a neural
 // capture fills; an empty string is the producer's typed absence, never a hole. One decoded receipt serves BOTH
 // wire dialects — the proto leg lands it by name on `TextureSetWire`, the msgpack leg by position at `MaterialWire`
 // slot 3 — so no second provenance vocabulary exists.
@@ -1107,7 +1109,7 @@ const _Provenance = Schema.Struct({
   cctDuv: Schema.Number,
   modelCard: Schema.String,
   license: Schema.String,
-  // The chart-solve tail: `calibrated` separates a chart-corrected capture from a camera's guess and
+  // Chart solving closes the tail: `calibrated` separates a chart-corrected capture from a camera's guess and
   // `calibrationDeltaE` carries the mean CIEDE2000 residual over the producer's measured patch set, so a receipt
   // reading `measured` on a photographed base colour is still gradeable; `modelArtefact` digests the inferred row's
   // own weights beside the `modelCard` naming them, so two revisions of one card separate without resolving bytes.
@@ -1121,8 +1123,8 @@ const _Provenance = Schema.Struct({
 // [MIRROR_ORDER] — the msgpack appearance wires are POSITIONAL `[MessagePackObject]` records: the producer's
 // `[Key(n)]` index IS the array position, so every wire tuple below spells its slots in KEY order and NEVER in the
 // producer's declaration order — `OpenPbrGroupsWire` declares `SpecularRotation` mid-record yet keys it 29 and
-// `GeometryThinWalled` last at 30, both APPENDED past the frozen block, so pre-append bytes decode unchanged when
-// the missing trailing slot folds to the producer's stated default (rotation 0; thinWalled false, the OpenPBR
+// `GeometryThinWalled` last at 30, both APPENDED past the frozen block, so pre-append bytes decode unchanged when the
+// missing trailing slot folds to the producer's stated default (rotation 0; thinWalled false, the OpenPBR
 // closed-solid default). Position is the whole mirror contract because the array carries no names: a slot re-seated
 // to its reading position decodes a neighbour's value silently. The reshape arms move POSITION to NAME only; every
 // refinement re-proves on the named class after the mapping runs, exactly once.
@@ -1216,7 +1218,7 @@ class PbrGroups extends Schema.Class<PbrGroups>("PbrGroups")({
   emission: Schema.Struct({ color: _Shade, luminance: Schema.Number.pipe(Schema.nonNegative()) }),
   geometry: Schema.Struct({ opacity: _Weight, thinWalled: Schema.Boolean }),
 }) {
-  // The wire twin rides the owner: position moves to name in the reshape arm, every refinement re-proves here.
+  // Wire twins ride the owner: position moves to name in the reshape arm, every refinement re-proves here.
   static readonly FromVector: Schema.Schema<PbrGroups, typeof _PbrVector.Encoded> = Schema.transform(
     _PbrVector, PbrGroups, { strict: true, decode: _vectored, encode: _unvectored },
   )
@@ -1229,7 +1231,7 @@ class Material extends Schema.Class<Material>("Material")({
   conductor: _absent, // Key(2): the `ConductorMetal` key, empty for a dielectric — the producer's typed absence
   provenance: _Provenance, // Key(3): the capture receipt, verbatim
   preview: _Shade, // Key(4): the resolved `SurfaceShade` scene-linear triple + clipped hex
-  // The photometric grounding the producer's admission recorded: an ABSENT unit spells an authored emission whose
+  // Photometric grounding records what the producer's admission read: an ABSENT unit spells an authored emission whose
   // magnitude reads unread, so a bare multiplier and an admitted cd/m2 stay apart where a lone scalar collapses them.
   emissionUnit: _absent, // Key(5)
   emissionValue: Schema.Number.pipe(Schema.nonNegative()), // Key(6)
@@ -1314,7 +1316,7 @@ const _depthRows = {
 
 const _mipPolicies = ["box", "kaiser", "normalRenormalize", "roughnessVariance", "none"] as const
 
-// The three physical units the roster's own channels carry; every other channel is a dimensionless ratio, an index,
+// Three physical units ride the roster's own channels; every other channel is a dimensionless ratio, an index,
 // or a normalized field and declares none. The column is what gives the millimetre height span, the nanometre
 // thin-film thickness, and the photometric emission floor a declared home instead of a bind-site guess.
 const _units = ["mm", "nm", "cd/m2"] as const
@@ -1332,7 +1334,7 @@ const _roles = [
   "height", "occlusion", "curvature",
 ] as const
 
-// The channel fact carries the roster's five wire-bearing columns and NOTHING derived from them: `ch` the semantic
+// Channel facts carry the roster's five wire-bearing columns and NOTHING derived from them: `ch` the semantic
 // component count, `transfer` the tag the channel is authored under, `neutral` the constant an absent packed slot, a
 // mip gutter, and a UDIM hole fill with, `unit` the physical unit the value is expressed in, and `mip` the declared
 // fold. Every plane law READS those five — the colorimetric class, the depth-coupled transfer, the storage-width
@@ -1359,7 +1361,7 @@ const _channelRows = {
   specular_color: { ch: 3, transfer: "srgb", neutral: [1, 1, 1], unit: null, mip: "kaiser" },
   specular_roughness: { ch: 1, transfer: "linear", neutral: [0.3], unit: null, mip: "roughnessVariance" },
   specular_roughness_anisotropy: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
-  // the scalar anisotropy-direction plane; mips correctly under box where a tangent vector plane cancels
+  // scalar anisotropy-direction planes mip correctly under box where a tangent vector plane cancels
   specular_roughness_anisotropy_rotation: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
   specular_ior: { ch: 1, transfer: "raw", neutral: [1.5], unit: null, mip: "box" },
   transmission_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
@@ -1426,7 +1428,7 @@ const _planeRows = {
   r8: { depth: "u8", width: 1, web: true }, r16: { depth: "u16", width: 1, web: false },
   r16f: { depth: "f16", width: 1, web: true }, r32f: { depth: "f32", width: 1, web: true },
   rg8: { depth: "u8", width: 2, web: true }, rg16: { depth: "u16", width: 2, web: false },
-  // the float two-component stores carry Vulkan format rows, so rg16f is the web re-route for the direction planes rg16 cannot serve
+  // float two-component stores carry Vulkan format rows, so rg16f re-routes the direction planes rg16 cannot serve
   rg16f: { depth: "f16", width: 2, web: true }, rg32f: { depth: "f32", width: 2, web: true },
   rgba8: { depth: "u8", width: 4, web: true }, rgba16: { depth: "u16", width: 4, web: true },
   rgba16f: { depth: "f16", width: 4, web: true }, rgba32f: { depth: "f32", width: 4, web: true },
@@ -1456,8 +1458,8 @@ const _alphaModes = ["straight", "associated", "none"] as const
 const _conventions = ["gl", "dx"] as const
 
 // `_containerRows` carries the frozen fragment's twelve-row file-container roster WHOLE — a container one branch
-// alone writes still rides it, refused by roster membership rather than by an unknown key — beside the three columns
-// the wire laws read: `alpha` the canonical association encode converts to (the jxl/avif rows are the measured
+// alone writes still rides it, refused by roster membership rather than by an unknown key — beside the three columns the
+// wire laws read: `alpha` the canonical association encode converts to (the jxl/avif rows are the measured
 // no-premultiplication-seat posture of the provisioned encoders), `pyramid` whether the file holds its OWN mip chain,
 // which is the column the plane-level list law generates its length off, and `plane` whether the container reaches a
 // CHANNEL plane at all. The eight-bit lossless preview row admits for a thumbnail egress and never for a channel, and
@@ -1498,8 +1500,8 @@ const _layerRows = {
   none: { extent: 1, gltf: true }, cubeFaces: { extent: 6, gltf: false },
   array: { extent: null, gltf: false }, volume: { extent: null, gltf: false }, frames: { extent: null, gltf: false },
 } as const satisfies { readonly [K in Texture.LayerLaw]: { readonly extent: number | null; readonly gltf: boolean } }
-// `_packRows` fixes each packing order in slot order beside the ONE legality column the fragment states: `slots` is
-// the roster `present` indexes, so a packed channel is addressed by its pack row and the roster names which
+// `_packRows` fixes each packing order in slot order beside the ONE legality column the fragment states: `slots` is the
+// roster `present` indexes, so a packed channel is addressed by its pack row and the roster names which
 // standalone plane row then cannot exist, and `gltf` is whether the order crosses to a glTF consumer at all. The
 // occlusion-first order IS the glTF KHR occlusion-plus-metallic-roughness read order and matches a three-component
 // sampler's `.r`/`.g`/`.b` convention; the inverted order swaps R and B, so a consumer binding it to those slots
@@ -1580,8 +1582,8 @@ const Texture: Texture.Shape = {
 // brand — so the triple is ONE variant declaration whose address column carries both encodings and whose `file` and
 // `byteLength` are shared; each document's schema is an `extract`, and a third producer is one variant key. Two
 // parallel struct declarations beside a schema-parameterized factory is the hand-rolled shape this deletes.
-// Every addressed plane is a LEVEL-ORDERED list of these triples — entry 0 the base level — and `_leveled` generates
-// the length law off the container's `pyramid` column: a self-pyramiding container holds ONE entry whatever `mips`
+// Every addressed plane is a LEVEL-ORDERED list of these triples — entry 0 the base level — and `_leveled` generates the
+// length law off the container's `pyramid` column: a self-pyramiding container holds ONE entry whatever `mips`
 // declares, every other container one entry per level. A scalar address beside a `mips` count is the
 // undigested-pyramid shape the list replaces.
 const _producer = VariantSchema.make({ variants: ["web", "proto"], defaultVariant: "web" })
@@ -1608,7 +1610,7 @@ const _ascending = (strict: boolean) => (values: ReadonlyArray<number>): boolean
 const _rosterOrdered = (rows: ReadonlyArray<{ readonly role: Texture.Role }>): boolean =>
   _ascending(true)(Array.map(rows, (row) => _roles.indexOf(row.role)))
 
-// The python producer's CompanionPolicy.RENDER emits TWO entries for one role — the primary plus a sampled
+// Python's producer emits TWO entries for one role under CompanionPolicy.RENDER — the primary plus a sampled
 // companion, distinguished by `container` — so the manifest's map key is `(role, container)`, never role alone:
 // roster order holds non-strictly across the role axis while each equal-role run keeps its containers distinct.
 const _companionKeyed = (rows: ReadonlyArray<{ readonly role: Texture.Role; readonly container: string }>): boolean =>
@@ -1655,8 +1657,8 @@ const _MariTiles = Schema.Array(Schema.Int.pipe(Schema.greaterThanOrEqualTo(1001
 )
 
 // Packs occupy every component, so a storage row DERIVES as the four-wide half of the format roster under the
-// same two-way close every other subset takes. Both documents' pack rows are otherwise one shape whose only axis is
-// the producer's address spelling — which is why the row is the same variant declaration the triple is — and the row
+// same two-way close every other subset takes. Both documents' pack rows are otherwise one shape whose only axis is the
+// producer's address spelling — which is why the row is the same variant declaration the triple is — and the row
 // carries NO mip-policy column by design: each slot mips under its own channel's roster fold, so one policy across a
 // pack is the defect a policy column would invite.
 type _PackFormat = {
@@ -1666,7 +1668,7 @@ const _packFormats = ["rgba8", "rgba16", "rgba16f", "rgba32f"] as const
 type _PackWidened<K extends _PackFormat = (typeof _packFormats)[number]> = K
 type _PackClosed<K extends (typeof _packFormats)[number] = _PackFormat> = K
 
-// The level-list law is ONE filter both documents' pack rows take, applied after `extract` because a variant
+// Level lists take ONE filter across both documents' pack rows, applied after `extract` because a variant
 // declaration carries fields and a refusal rides a schema.
 const _packLeveled = <
   A extends { readonly container: Texture.Container; readonly mips: number; readonly levels: ReadonlyArray<unknown> },
@@ -1733,8 +1735,8 @@ const _PressReceipt = Schema.Struct({
   texels: Schema.BigIntFromSelf,
   elapsedMs: Schema.Number.pipe(Schema.nonNegative()),
   gpuDeltaMax: Schema.optionalWith(Schema.Number, { as: "Option" }), // absent until a parity run measures it; telemetry, never a key input
-  // The press's two quality tallies at wire grain: `downgraded` COUNTS the channels whose paired mip policy fell to
-  // the box floor and `faultedTexels` SUMS the neutral-filled texels across every channel, so a set that pressed
+  // Pressing reports two quality tallies at wire grain: `downgraded` COUNTS the channels whose paired mip policy fell to the
+  // box floor and `faultedTexels` SUMS the neutral-filled texels across every channel, so a set that pressed
   // clean and one that degraded per plane read apart on the analytics plane rather than on `elapsedMs`.
   downgraded: Schema.Int.pipe(Schema.nonNegative()),
   faultedTexels: Schema.BigIntFromSelf,
@@ -1964,7 +1966,7 @@ class WkbParser extends Context.Tag("@rasm/ts/core/WkbParser")<WkbParser, {
   readonly parse: (wkb: Uint8Array, srid: number) => Effect.Effect<GeoFeature.Geometry, WireFault>
 }>() {}
 
-// The generated oneof envelope: `{ case, value }` where an UNSET oneof carries no case at all. `_caseOf` reads it as
+// Generated oneof wrappers read `{ case, value }`, where an UNSET oneof carries no case at all. `_caseOf` reads it as
 // presence, so an unset case yields none, the message falls through unlifted, no arm matches it, and the union's own
 // refusal is the answer — the producer's `<wire-*-none>` rail one runtime over.
 const _caseOf = (raw: unknown): Option.Option<{ readonly case: string; readonly value: Record<string, unknown> }> =>
@@ -1972,9 +1974,9 @@ const _caseOf = (raw: unknown): Option.Option<{ readonly case: string; readonly 
     ? Option.some({ case: raw.case, value: raw.value })
     : Option.none()
 
-// The oneof lift beside `_stamp`: a protobuf arm ships its DISCRIMINANT as the case name, so `kind` derives here and
-// the landing mints nothing the producer's `.proto` never declared. `seat` is the one policy column — `hoist` spreads
-// the arm's own columns beside `kind` (a message whose oneof IS its whole content), `keep` leaves the case value whole
+// Oneof lifting sits beside `_stamp`: a protobuf arm ships its DISCRIMINANT as the case name, so `kind` derives here and the
+// landing mints nothing the producer's `.proto` never declared. `seat` is the one policy column — `hoist` spreads the
+// arm's own columns beside `kind` (a message whose oneof IS its whole content), `keep` leaves the case value whole
 // under its own field (a message whose arms this landing carries untyped). Encode passes through, exactly as the
 // stamp does, because these rows are decode-only.
 const _cased = (field: string, seat: "hoist" | "keep"): Schema.Schema<unknown, unknown> =>
@@ -1988,7 +1990,7 @@ const _cased = (field: string, seat: "hoist" | "keep"): Schema.Schema<unknown, u
     encode: Function.identity,
   })
 
-// The projected frame at `GeoReferenceWire` field 11: the authority name beside the optional EPSG code, the WKT
+// Projected frames land at `GeoReferenceWire` field 11: the authority name beside the optional EPSG code, the WKT
 // definition, the projection and zone labels a legacy IFC map conversion carries, and the producer's own resolution
 // token naming which of those the frame actually resolved through.
 class ProjectedCrs extends Schema.Class<ProjectedCrs>("ProjectedCrs")({
@@ -2000,9 +2002,9 @@ class ProjectedCrs extends Schema.Class<ProjectedCrs>("ProjectedCrs")({
   resolution: Schema.NonEmptyString,
 }) {}
 
-// The survey frame at `HeaderWire` field 3 — the map-conversion origin, the X-axis abscissa/ordinate pair, the three
-// scale columns, and the datum tokens. A blank `verticalDatum` with no `verticalEpsg` IS the absent vertical frame,
-// the producer's own reading, so no second absence spelling lands beside it.
+// Survey frames land at `HeaderWire` field 3 — the map-conversion origin, the X-axis abscissa/ordinate pair, the three
+// scale columns, and the datum tokens. A blank `verticalDatum` with no `verticalEpsg` IS the absent vertical frame, the
+// producer's own reading, so no second absence spelling lands beside it.
 class GeoReference extends Schema.Class<GeoReference>("GeoReference")({
   eastings: Schema.Number,
   northings: Schema.Number,
@@ -2021,7 +2023,7 @@ class GeoReference extends Schema.Class<GeoReference>("GeoReference")({
   static readonly Crs: typeof ProjectedCrs = ProjectedCrs
 }
 
-// The STEP file header at `HeaderWire` field 6. Its `authors` and `organizations` rosters are the producer's own
+// STEP file headers land at `HeaderWire` field 6. Its `authors` and `organizations` rosters are the producer's own
 // personal-sensitivity columns, so a scoped egress clears them to the proto3 default and they land as plain strings
 // whose emptiness the crossing's `Redaction` manifest — never the message — separates from an authored blank.
 class StepHeader extends Schema.Class<StepHeader>("StepHeader")({
@@ -2035,7 +2037,7 @@ class StepHeader extends Schema.Class<StepHeader>("StepHeader")({
   schema: Schema.Array(Schema.String),
 }) {}
 
-// The crossing's header — `ElementGraphWire` field 1, `GraphDeltaWire` field 6. `tolerance` lands as the producer
+// Crossings head at `ElementGraphWire` field 1 and `GraphDeltaWire` field 6. `tolerance` lands as the producer
 // lands it, a free real under no seam gate, and it is the tolerance any address verification here grades at.
 // `unitScheme` maps a quantity token to its registry unit-enum member and an EMPTY map reads as SI, so a consumer
 // renders a magnitude under the producer's own scheme rather than guessing one.
@@ -2052,8 +2054,8 @@ class Header extends Schema.Class<Header>("Header")({
   static readonly Step: typeof StepHeader = StepHeader
 }
 
-// The uncertainty band at `MeasureValueWire` field 10 — the interval in SI beside the producer's own kind token, with
-// the standard deviation and coverage factor a stated statistical band carries and a bare interval does not.
+// Uncertainty bands land at `MeasureValueWire` field 10 — the interval in SI beside the producer's own kind token, with the
+// standard deviation and coverage factor a stated statistical band carries and a bare interval does not.
 class MeasureBand extends Schema.Class<MeasureBand>("MeasureBand")({
   kind: Schema.NonEmptyString,
   lowerSi: Schema.Number,
@@ -2062,7 +2064,7 @@ class MeasureBand extends Schema.Class<MeasureBand>("MeasureBand")({
   coverageFactor: Schema.optionalWith(Schema.Number, { as: "Option" }),
 }) {}
 
-// The SI-coerced identity columns the producer hashes: the quantity token, the SI magnitude, and the seven base
+// SI-coerced identity columns are what the producer hashes: the quantity token, the SI magnitude, and the seven base
 // dimension exponents in producer order. The registry unit re-mints at the producer's own SI admission, so no
 // `{ value, unit }` pair crosses and no column here carries one.
 class MeasureValue extends Schema.Class<MeasureValue>("MeasureValue")({
@@ -2101,7 +2103,7 @@ const _usages = Schema.Union(
 const MaterialUsage: Schema.Schema<typeof _usages.Type, unknown> =
   Schema.compose(_cased("usage", "hoist"), _usages, { strict: false })
 
-// The `ObjectWire` pose frame at field 12: the producer's `PlacementTransform` flattened to its nine ordered
+// Pose frames land at `ObjectWire` field 12: the producer's `PlacementTransform` flattened to its nine ordered
 // doubles — the location origin, the axis local-Z, the ref-direction local-X — free reals its kernel factory
 // re-admits at the far end. This is the shape a reader of the `object` payload decodes a pose against.
 class Placement extends Schema.Class<Placement>("Placement")({
@@ -2256,8 +2258,8 @@ class Organization extends Schema.Class<Organization>("Organization")({
   current: Schema.optionalWith(_OrgAddress, { as: "Option" }),
 }) {}
 
-// The snapshot a peer decodes into its own graph mirror without re-deriving an identity: the producer declares NO key
-// column on this envelope — the ids and content keys inside it are the identity — so the landing carries none and a
+// Peers decode this snapshot into their own graph mirror without re-deriving an identity: the producer declares NO key
+// column on this snapshot — the ids and content keys inside it are the identity — so the landing carries none and a
 // consumer owing a document address takes it from the transport that carried the bytes.
 class ElementGraph extends Schema.Class<ElementGraph>("ElementGraph")({
   header: Header,
@@ -2275,7 +2277,7 @@ class ElementGraph extends Schema.Class<ElementGraph>("ElementGraph")({
   get byId(): HashMap.HashMap<typeof _NodeId.Type, Node> {
     return Array.reduce(this.nodes, HashMap.empty<typeof _NodeId.Type, Node>(), (acc, node) => HashMap.set(acc, node.id, node))
   }
-  // the manifest's roster is the DECLARED-UNSTABLE set, so the complement is the only address a content-keyed
+  // manifest rosters name the DECLARED-UNSTABLE set, so the complement is the only address a content-keyed
   // consumer verifies; an unredacted crossing declares nothing and every node stands
   get addressable(): ReadonlyArray<Node> {
     return Option.match(this.redaction, {
@@ -2291,14 +2293,14 @@ declare namespace ElementGraph {
   type Usage = typeof _usages.Type
 }
 
-// The before/after pair at `GraphDeltaWire` field 3 — a revision the producer's normal form keys unique per id, so a
+// Before/after pairs land at `GraphDeltaWire` field 3 — a revision the producer's normal form keys unique per id, so a
 // consumer folds the pair off one row rather than diffing two rosters for the node it names.
 class NodeRevision extends Schema.Class<NodeRevision>("NodeRevision")({
   before: Node.FromWire,
   after: Node.FromWire,
 }) {}
 
-// The `delta#GRAPH_DELTA` event body: the change record a streaming consumer folds onto the snapshot it holds. The
+// `delta#GRAPH_DELTA` carries the change record a streaming consumer folds onto the snapshot it holds. The
 // header is OPTIONAL here where the snapshot's is required, because a delta re-headers the graph only where the
 // producer's own reheader ran, and the five sections re-admit through the same `Node`/`Relation` gates the snapshot
 // takes — one landing pair, two crossings.
@@ -2351,14 +2353,14 @@ class SupportEntry extends Schema.Class<SupportEntry>("SupportEntry")({
   bytes: Schema.Int.pipe(Schema.nonNegative()),
   truncatedBytes: Schema.Int.pipe(Schema.nonNegative()),
   redactions: Schema.Int.pipe(Schema.nonNegative()),
-  // The optional post-redaction archive identity remains distinct from the producer member's pre-redaction key.
+  // Post-redaction archive identity stays optional and distinct from the producer member's pre-redaction key.
   contentKey: Schema.optional(Schema.String.pipe(Schema.pattern(/^[0-9a-f]{32}$/))),
   fault: Schema.optional(Schema.NonEmptyString),
 }) {}
 
-// The producer's FLATTENED export projection, never its receipt union: a coalesced or evicted receipt names no
-// bundle, so a decoder branching on a kind discriminant to find three quarters of its fields absent is exactly
-// the shape the producer flattened away. This is the AppHost bundle leaving the host toward a dashboard — the
+// Producers cross their FLATTENED export projection, never a receipt union: a coalesced or evicted receipt names no
+// bundle, so a decoder branching on a kind discriminant to find three quarters of its fields absent is exactly the
+// shape the producer flattened away. This is the AppHost bundle leaving the host toward a dashboard — the
 // opposite direction from `invoke`'s `SupportCapture`, which is a report arriving at this branch's gateway.
 class SupportExport extends Schema.Class<SupportExport>("SupportExport")({
   trigger: Schema.Literal(..._triggers),
@@ -2368,9 +2370,9 @@ class SupportExport extends Schema.Class<SupportExport>("SupportExport")({
   windowEnd: Schema.DateTimeUtc,
   bundlePath: Schema.NonEmptyString,
   totalBytes: Schema.Int.pipe(Schema.nonNegative()),
-  // The producer crosses this as NodaTime round-trip TEXT and no effect Duration codec reads that dialect —
-  // `DurationFromMillis` wants a number and `Duration` wants the encoded object or a `[seconds, nanos]` pair — so
-  // the landing carries the text the producer actually writes and a consumer needing arithmetic parses at its own
+  // Producers cross this as NodaTime round-trip TEXT and no effect Duration codec reads that dialect —
+  // `DurationFromMillis` wants a number and `Duration` wants the encoded object or a `[seconds, nanos]` pair — so the
+  // landing carries the text the producer actually writes and a consumer needing arithmetic parses at its own
   // seam. Binding a Duration schema here would refuse every real payload while the census read correct.
   elapsed: Schema.NonEmptyString,
   redactions: Schema.Int.pipe(Schema.nonNegative()),
@@ -2380,7 +2382,7 @@ class SupportExport extends Schema.Class<SupportExport>("SupportExport")({
 }
 const _labels = ["CERTIFICATE", "PUBLIC KEY", "PKCS7", "PRIVATE KEY", "EC PRIVATE KEY", "RSA PRIVATE KEY"] as const
 
-// The producer's own RFC-7468 vocabulary with its own `secret` column: the mint refuses to cross a block whose
+// Producers publish their own RFC-7468 vocabulary with its own `secret` column: the mint refuses to cross a block whose
 // label carries it, so a `sealed` landing is broken-producer evidence rather than a decode this end must handle.
 const _PEM = {
   "CERTIFICATE": { secret: false },
@@ -2613,7 +2615,7 @@ type _TextureWirePayload = Texture.WirePayload
 
 declare namespace Wire {
   type Direction = "decode" | "encode" | "duplex"
-  // The arm vocabulary belongs to the plane that owns the engines; spelling it a second time here let a row name an
+  // Arm vocabulary belongs to the plane owning the engines; spelling it a second time here let a row name an
   // encoding `Format` never published, and let the compatibility token drift off the arm it describes.
   type Arm = Format.Arm
   type Family = (typeof _families)[number]
@@ -2716,7 +2718,7 @@ const _decode = <K extends Wire.Ingress>(family: K, octets: Uint8Array) =>
       ),
     ))
 
-// The byte ceiling grades HERE, where the extent is in hand and the cause is nameable. Left to the codec's own
+// Byte ceilings grade HERE, where the extent is in hand and the cause is nameable. Left to the codec's own
 // octet filter it reached this fold as an undifferentiated `ParseError` and folded to `malformed` — a cause whose
 // row retains the frame and replays it three times over ninety seconds, which is the retention an oversized frame
 // is refused to avoid, spent on a verdict no re-decode can move. Recovering the class from the issue's message
@@ -2787,7 +2789,7 @@ declare namespace feed {
   type _Bands<T extends { readonly [K in Band]: Flow } = typeof _CADENCE> = T
 }
 
-// The coalescing grain sits at the bucket's own token period, so a burst collapses to its CURRENT reading inside
+// Coalescing grain sits at the bucket's own token period, so a burst collapses to its CURRENT reading inside
 // each window and the bucket prices the residue instead of delaying a tail of superseded ones.
 const _CADENCE = {
   display: { units: 240, per: "1 second", burst: 60 },
@@ -2821,8 +2823,8 @@ const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
 
 const _transitions = <A>(row: feed.Row<A>) => <E, R>(marks: Stream.Stream<A, E, R>): Stream.Stream<A, E, R> =>
   marks.pipe(
-    // the subject projection binds ONCE per element: a re-read per arm charges the keying fold three projections on
-    // the feed's own hot path, where the declared cadence is hundreds of marks a second
+    // subject projection binds ONCE per element: a re-read per arm charges the keying fold three projections on the
+    // feed's own hot path, where the declared cadence is hundreds of marks a second
     Stream.mapAccum(HashMap.empty<string, A>(), (seen, value) =>
       pipe(row.subject(value), (subject) =>
         Option.match(HashMap.get(seen, subject), {
@@ -2921,7 +2923,7 @@ const _registry: Wire.Shape = {
   schema: (family) => _rows[family].schema,
   decode: _decode,
   encode: (family, value) => Schema.encode(_rows[family].schema)(value),
-  // The conformance rail spends EVERY parity row a family carries, `suite` included, so the schema-level proof the
+  // Conformance rails spend EVERY parity row a family carries, `suite` included, so the schema-level proof the
   // decode path no longer charges per frame is still owed — deliberately, once, where a fixture run can afford it.
   audited: (family, value, octets) =>
     Option.match(_rows[family].parity, { onNone: () => Effect.void, onSome: (row) => row.run(value, octets) }),

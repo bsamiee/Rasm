@@ -108,7 +108,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# spells the reverse evidence envelope `GraduationEvidence` against python's `EvidenceBundle`.
+Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# spells the reverse evidence message envelope `GraduationEvidence` against python's `EvidenceBundle`.
 
 ```mermaid
 ---

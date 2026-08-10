@@ -10,10 +10,14 @@ The transactional-outbox and dead-letter owner for the runtime spine: a `DomainE
 
 ## [02]-[OUTBOX_FABRIC]
 
-- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `ComparerAccessors.StringOrdinal` accessor; `OutboxRow` the durable transactional-outbox record; `OutboxFault` `[Union]` fault family deriving its codes through `FaultBand.Outbox`. The poison row is NOT owned here — it declares at `Rasm.Persistence` `Version/egress#EGRESS_PUMP` and this relay reaches it through wire-stable primitives on the decode-only recovery port under the S1 spine law, so the lane is named here and the record lives at its store.
+- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `ComparerAccessors.StringOrdinal` accessor; `OutboxRow` the durable transactional-outbox record carrying the projected envelope whole, its `Project` half the ONE crossing between the bus vocabulary and the wire vocabulary and its `ToEvent` half the inverse; `OutboxFault` `[Union]` fault family deriving its codes through `FaultBand.Outbox`. The poison row is NOT owned here — it declares at `Rasm.Persistence` `Version/egress#EGRESS_PUMP` and this relay reaches it through wire-stable primitives on the decode-only recovery port under the S1 spine law, so the lane is named here and the record lives at its store.
 - Cases: dispatch statuses pending | dispatched | dead-lettered; `OutboxFault` = Text | RelayRejected | Exhausted | WatermarkStale.
-- Entry: `OutboxRow.Enqueue(DomainEvent evt, TenantContext tenant)` returns `Option<OutboxRow>` — it materializes a pending row only for a topic whose `TopicDurability` column reads `Durable`, so an `Ephemeral` row answers `None` and never enters the sweep; the materialized row carries the event payload, the topic, the dedup key, the event's `DataClassification`, the HLC stamp, the producing span's kernel `TraceCarrier`, and a zero attempt count; `OutboxRow.Deferred(Instant at)` increments the attempt, stamps the same column, and routes to `dead-lettered` at the poison ceiling — `dispatched` is never folded here, because a row the sink's cursor has passed already reads dispatched.
+- Entry: `OutboxRow.Enqueue(DomainEvent evt, TenantContext tenant, Op key)` returns `Fin<Option<OutboxRow>>` — it materializes a pending row only for a topic whose `TopicDurability` column reads `Durable`, so an `Ephemeral` row answers `None` and never enters the sweep; the materialized row carries the routing topic, the PROJECTED CloudEvents envelope, and a zero attempt count, because payload, dedup identity, classification, causal position, and producing trace are all attributes that envelope already defines; `OutboxRow.Deferred(Instant at)` increments the attempt, stamps the same column, and routes to `dead-lettered` at the poison ceiling — `dispatched` is never folded here, because a row the sink's cursor has passed already reads dispatched.
 - Auto: the sweep enqueues a `Topic` row whose `TopicDurability` is `Durable` and never an `Ephemeral` row, so presence and health frames are in-process by COLUMN rather than by prose and the sweep reads the durability axis instead of every topic — the counterpart half of `Wire/topics#TOPIC_FABRIC`'s at-least-once law, where a `Durable` subscription that misses the bounded in-process fan re-receives on this sweep while an `Ephemeral` one accepts the loss its own row declares; the outbox row writes same-transaction with the producing write so a domain event and its source state commit atomically — a crash between the state write and event publish cannot lose the event because both ride one transaction, and the dispatch sweep relays the durable row after commit; the dedup key is the event's idempotency key so a re-enqueued identical event within the relay window refuses at the one `Runtime/resources#DEDUPE_WINDOW` window the delivery fan admits against, never a second dedup map; a row reaching the poison ceiling routes to the Persistence-owned `DeadLetterRow` carrying the last fault and the monotone `Attempts` count so a poison message leaves the dispatch lane rather than blocking it — `Attempts` never resets, retirement is its terminal state, and the replay schedule reads that count at the store's own loader rather than through a second attempt ledger here; the row carries the HLC stamp so the relay advances a `(ConsumerId, Hlc)` watermark monotonically and a relayed row never re-relays; the row persists the event's `DataClassification` and `ToEvent` re-emits it verbatim, so a durable hop cannot silently downgrade classification; the row persists the producing span's `TraceCarrier` beside the causal stamp, because the durable hop severs the in-process trace and the carrier is what lets the sweep name every write that caused it.
+- Law: the projection is SINGLE and lives here — `Wire/topics#TOPIC_FABRIC` keeps `Topic` and `EventType` as two vocabularies over one fact, and this row is where they meet: `Project` lowers a `DomainEvent` onto the kernel envelope and `ToEvent` raises it back, so a sink, a peer runtime, and a replay all read one object rather than three re-packs of it. A second mapping table anywhere in the branch is the drift defect.
+- Law: dedup reads the envelope's own `(source, id)` composite through the ONE `Runtime/resources#DEDUPE_WINDOW` window every at-least-once consumer in this suite admits against; a synthesized `topic:key` row identity was a THIRD address for a fact already carrying two, and a second seen-key map beside that window is the deleted form.
+- Law: the classification crossing NARROWS one way and states its forfeit — the branch taxonomy is finer than the four estate grades, the wire carries the grade because a peer runtime holds none of this branch's rows, and `ToEvent` raises the coarsest branch row carrying the same redactor, so a relayed payload is redacted exactly as its producer required while nothing claims to recover which finer row produced it.
+- Law: replay relation declares against `Runtime/determinism#EVENT_LOG` and `Runtime/determinism#REPLAY_VERIFY` rather than restating a durability claim of its own — the hash-chained content-addressed log proves a relayed sequence was neither re-ordered nor re-authored, and the replay verifier proves a re-executed drain reaches the same per-step content hash, so this relay owes its replay evidence to those owners and mints none beside them.
 - Receipt: a relayed row mints one `DeliveryReceipt` (the `DeliveryFanout` shape) carrying the topic, the dispatched flag, and the MEASURED dedupe verdict — the relay admits against the one shared window rather than pinning the column false, so a re-offered window reports its matched-duplicate half instead of reading as fresh delivery; a dead-letter transition fans one `SpineLog` event; no parallel outbox receipt.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one dispatch status is one `DispatchStatus` row; a new outbox column is one field on `OutboxRow`; a new fault is one `OutboxFault` case; zero new surface.
@@ -43,37 +47,90 @@ public abstract partial record OutboxFault : Expected, IValidationError<OutboxFa
     public sealed record WatermarkStale : OutboxFault { public WatermarkStale(string detail) : base(detail, FaultBand.Outbox.Code(3)) { } }
 }
 
+// Rows carry the ENVELOPE, never a payload beside three re-spellings of what that envelope already holds. An
+// earlier shape kept a `JsonElement` body, a `DataClassification` column, an HLC pair, and a `TraceCarrier`
+// alongside each other, which made the relayed classification, the causal stamp, and the producing trace each
+// readable two ways with nothing reconciling them — a fourth trace representation on a spine already carrying
+// its Activity chain, its baggage store, and its HLC stamp. Projecting once at enqueue collapses all four onto
+// attributes the specification already defines, so the durable hop and every peer runtime read one object
+// whose own `(source, id)` pair IS the dedup composite.
 public sealed record OutboxRow(
-    string OutboxId,
     string Topic,
-    string DedupKey,
-    JsonElement Payload,
-    DataClassification Classification,
+    CloudEvent Envelope,
     DispatchStatus Status,
     int Attempt,
-    ulong Logical,
-    Instant Physical,
     TenantContext Tenant,
-    TraceCarrier Trace,
     Option<Instant> DispatchedAt = default) {
     // Poison-quarantine THRESHOLD, never a retry schedule: it decides when to stop trying forever, while
     // when to try again belongs to the hop pipeline `OutboundSurface.Run` already brackets. This row names
     // its retry owner and carries no schedule of its own.
     public const int PoisonCeiling = 8;
 
-    // The carrier captures at ENQUEUE, inside the producing transaction, because that is the only moment the
-    // causing span is live — the sweep runs on its own cadence minutes later with no ambient trace to read,
-    // so a carrier stamped anywhere downstream would name the sweep that relayed the row, never the write
-    // that produced it. An unlistened producer stamps the absent pair and its row contributes no edge.
-    //
     // Enqueue admits on the topic's OWN durability column, so a `Durable` row enters the sweep and an
     // `Ephemeral` one answers None and never does — presence and awareness frames stay in-process because
     // their row says so, not because a call site remembered to skip them. An unknown topic key refuses the
     // same way, since a durability the roster cannot answer is not a durability guarantee.
-    public static Option<OutboxRow> Enqueue(DomainEvent evt, TenantContext tenant) =>
+    //
+    // Projection runs INSIDE the producing transaction, the only moment the causing span is live: this sweep
+    // runs on its own cadence minutes later with no ambient trace to read, so a carrier stamped downstream
+    // names the sweep that relayed the row and never the write that produced it. An unlistened producer
+    // stamps its absent pair and contributes no edge.
+    public static Fin<Option<OutboxRow>> Enqueue(DomainEvent evt, TenantContext tenant, Op key) =>
         Topic.TryGet(evt.Topic, out var topic) && topic.Durability == TopicDurability.Durable
-            ? Some(new OutboxRow($"{evt.Topic}:{evt.IdempotencyKey}", evt.Topic, evt.IdempotencyKey, evt.Payload, evt.Classification, DispatchStatus.Pending, Attempt: 0, evt.Logical, evt.Physical, tenant, TraceCarrier.Of(Activity.Current)))
-            : None;
+            ? Project(evt, key).Map(envelope =>
+                Some(new OutboxRow(evt.Topic, envelope, DispatchStatus.Pending, Attempt: 0, tenant)))
+            : Fin.Succ(Option<OutboxRow>.None);
+
+    // THE one projection between the two vocabularies `Wire/topics#TOPIC_FABRIC` holds distinct. Every column
+    // lands on the attribute the specification already defines: the idempotency key IS the operation identity
+    // `(source, id)` dedups on, the HLC logical position rides `sequence` under a `sequencetype` naming its
+    // domain (the specification types `sequence` as a String, so the value crossing stays branch-owned exactly
+    // as the kernel roster states), the classification federates onto the kernel handling grade as
+    // `(taxonomy, value)` text, and the creation-time trace rides the kernel carrier. A relay re-packing any
+    // of these is the drift defect the one projection forecloses.
+    static Fin<CloudEvent> Project(DomainEvent evt, Op key) =>
+        EventEnvelope.Mint(
+            new EventMint(
+                Type: evt.Type,
+                Source: evt.Source,
+                Id: evt.IdempotencyKey,
+                Subject: Some(evt.Topic),
+                Time: evt.Physical,
+                DataSchema: None,
+                DataContentType: Some(MediaTypeNames.Application.Json),
+                Data: evt.Payload,
+                Trace: TraceCarrier.Of(Activity.Current),
+                Extensions: Seq<(EventExtension Row, object Value)>(
+                    (EventExtension.DataClassification, Graded(evt.Classification).Key),
+                    (EventExtension.Sequence, evt.Logical.ToString(CultureInfo.InvariantCulture)),
+                    (EventExtension.SequenceType, HlcSequence))),
+            key: key);
+
+    // Suite taxonomy runs FINER than the estate handling grades, so this crossing NARROWS rather than renames:
+    // a redactor-bearing row cannot cross a broker unredacted and an erasing one never crosses at all. The
+    // wire carries the four-value vocabulary every runtime transcribes, because a peer holding none of this
+    // branch's taxonomy cannot resolve `host-path` and would read a finer label as no label at all.
+    static DataGrade Graded(DataClassification classification) => classification.Redactor switch {
+        var kind when kind == RedactorKind.Erase => DataGrade.Secret,
+        var kind when kind == RedactorKind.Hmac => DataGrade.Restricted,
+        _ when classification == DataClassification.None => DataGrade.Public,
+        _ => DataGrade.Internal,
+    };
+
+    // Raising restores the OBLIGATION and forfeits the provenance label, the honest inverse of a narrowing:
+    // each grade lands the coarsest branch row carrying its own redactor, so a relayed row is redacted exactly
+    // as its producer required while nothing pretends to recover which finer row produced it. Reading a raised
+    // label as provenance is the misuse this table's declared forfeit forecloses.
+    static DataClassification Raised(DataGrade grade) =>
+        grade == DataGrade.Secret ? DataClassification.Credential
+        : grade == DataGrade.Restricted ? DataClassification.Confidential
+        : grade == DataGrade.Public ? DataClassification.Operational
+        : DataClassification.Internal;
+
+    // `sequencetype` names the DOMAIN of the position, which is what lets a consumer order a source's
+    // deliveries without knowing this spine mints HLC — a bare integer with no declared domain is a number a
+    // peer cannot compare against anything.
+    public const string HlcSequence = "rasm.hlc.logical";
 
     // Every Instant parameter is CONSUMED: the transition stamps the row's dispatched-at column.
     public OutboxRow Deferred(Instant at) =>
@@ -81,11 +138,29 @@ public sealed record OutboxRow(
             ? this with { Status = DispatchStatus.DeadLettered, Attempt = Attempt + 1, DispatchedAt = Some(at) }
             : this with { Attempt = Attempt + 1, DispatchedAt = Some(at) };
 
-    // Relayed event round-trips its ORIGINAL classification — a durable hop never downgrades the redaction
-    // taxonomy — and hands an UNSTAMPED ordinal: this sweep republishes through the one `EventBus.Dispatch`
-    // entry and `Wire/topics#TOPIC_FABRIC` `TopicFabric.Publish` owns the stamp, so a relay minting its own
-    // would fork the dense per-topic sequence the subscription gap fold reads as loss.
-    public DomainEvent ToEvent() => new(Topic, DedupKey, Payload, Classification, Logical, Physical, Offset: 0);
+    // Dedup reads the envelope's OWN uniqueness composite through the one `Runtime/resources#DEDUPE_WINDOW`
+    // window every at-least-once consumer in the suite admits against — never a second seen-key map and never
+    // a synthesized `topic:key` identity, which was a third address for a fact already carrying two.
+    public string Dedup => $"{Envelope.Source}\u0000{Envelope.Id}";
+
+    // Relayed event round-trips its ORIGINAL classification and causal position — a durable hop never
+    // downgrades the redaction taxonomy and never re-mints an ordinal — and hands an UNSTAMPED offset: this
+    // sweep republishes through the one `EventBus.Dispatch` entry and `Wire/topics#TOPIC_FABRIC`
+    // `TopicFabric.Publish` owns the stamp, so a relay minting its own forks the dense per-topic sequence that
+    // subscription gap fold reads as loss.
+    public Fin<DomainEvent> ToEvent(Op key) =>
+        from grade in EventExtension.DataClassification.Read<string>(Envelope, key)
+        from sequence in EventExtension.Sequence.Read<string>(Envelope, key)
+        select new DomainEvent(
+            Topic,
+            EventType.Create(value: Envelope.Type ?? ""),
+            EventSource.Create(value: Envelope.Source?.ToString() ?? ""),
+            Envelope.Id ?? "",
+            Envelope.Data is JsonElement body ? body : default,
+            Raised(grade.Bind(static key => DataGrade.TryGet(key, out DataGrade? row) ? Optional(row) : None).IfNone(DataGrade.Internal)),
+            sequence.Bind(text => ulong.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out ulong held) ? Some(held) : None).IfNone(0UL),
+            Instant.FromDateTimeOffset(Envelope.Time ?? default),
+            Offset: 0);
 }
 
 // The poison row is the Persistence `Version/egress#EGRESS_PUMP` `DeadLetterRow(UInt128 ContentKey, SinkKey

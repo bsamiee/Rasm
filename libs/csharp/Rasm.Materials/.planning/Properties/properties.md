@@ -1015,4 +1015,4 @@ public static class MixDesign {
 
 ## [06]-[RESEARCH]
 
-- (none)
+(none)

@@ -62,7 +62,7 @@ Defaults are `250 mm²`/`25°` concrete and `200 mm²`/`25°` rebar mesh, `16` r
 
 [TOPOLOGY]:
 - Construction meshes the concrete `Perimeter` and each rebar (a `RebarDivisions`-segment circle, voided in the concrete mesh) into `AnalyticalFace` fibres via Triangle.NET, builds `LinearElasticMaterial` strengths through `AnalysisMaterialFactory.CreateLinearElastic`, then `Parallel.For` sweeps `Steps²` strain-plane orientations, integrating `σ·A` over each compression zone into one `(N, My, Mz)` `ForceMomentVertex`; `Meshing.CreateHull` closes the de-duplicated points into `Mesh`.
-- Output is a RIGID-PLASTIC stress-block capacity hull (uniform `fcd`/`fyd`, no strain-limit curvature cap) — the design CAPACITY envelope, not a moment-curvature analysis.
+- Output is a RIGID-PLASTIC stress-block capacity hull (uniform `fcd`/`fyd`, no strain-limit curvature cap) — the design CAPACITY boundary, not a moment-curvature analysis.
 - Materials must be EN grades: the fibre strength read is `IEnConcreteMaterial`/`IEnRebarMaterial` specific, and every capacity coordinate stays a `UnitsNet` `Force`/`Torque` quantity — no interior carries the hull as raw `double`.
 
 [STACKING]:

@@ -4,7 +4,21 @@ Conformance rides as rows: dotted `rasm.<domain>.<measure>` names under UCUM cod
 
 ## [01]-[INDEX]
 
+- [02]-[SEMCONV_ROWS]: frozen and incubating attribute rosters beside their bounded value families; `Convention`.
+- [03]-[RASM_ROWS]: module, domain, dimension, metric, unit, instrument, event, and profile tables; `Convention`.
+- [04]-[IDENTITY_PROJECTION]: store translation, wire pins, mount memo, outcome fold, and resource stamping; `Convention`.
+
 ## [02]-[SEMCONV_ROWS]
+
+- Owner: `_attr`, `_incubating`, and `_value` name every OpenTelemetry key and bounded value the branch spells, so a producer reads one roster and a collector's enrichment keys stay recoverable from it.
+- Law: stability decides the table, never the concern — a key the pinned release ships stable rides `_attr` and an incubating key rides `_incubating`, so a promotion is a row moving between two tables and the census guard refuses the moment a promoted key keeps its incubating twin.
+- Law: announcement identity crosses on the specification's own five `cloudevents.*` keys, so a span joins the fact producing it through the same `(source, id)` composite every branch dedups on rather than a private correlation key.
+- Law: `messaging.system` is an OPEN enum and the pinned release generates a value for Kafka alone, so the branch's NATS and MQTT bindings spell their own system name at the emitting owner and no row here fabricates a generated constant that does not exist.
+- Law: messaging span names derive from the bounded five-word operation vocabulary, so a lane never coins a sixth word for a step one of those already names.
+- Law: bounded value families project by template extraction over their own prefix, so each family closes under one unchanged clause and a row outside every prefix binds no projection and reaches its signal site as a free string.
+- Growth: a key is one row on the table its stability names; a bounded value family is one prefix with its extraction clause.
+- Boundary: which producer stamps which key is the emitting folder's; this cluster owns the spellings alone.
+- Packages: `@opentelemetry/semantic-conventions` (stable and `incubating` entrypoints).
 
 ```typescript signature
 import {
@@ -44,11 +58,25 @@ import {
   ATTR_BROWSER_PLATFORM,
   ATTR_CLOUD_AVAILABILITY_ZONE,
   ATTR_CLOUD_REGION,
+  ATTR_CLOUDEVENTS_EVENT_ID,
+  ATTR_CLOUDEVENTS_EVENT_SOURCE,
+  ATTR_CLOUDEVENTS_EVENT_SPEC_VERSION,
+  ATTR_CLOUDEVENTS_EVENT_SUBJECT,
+  ATTR_CLOUDEVENTS_EVENT_TYPE,
   ATTR_DEVICE_MODEL_IDENTIFIER,
   ATTR_FEATURE_FLAG_KEY,
   ATTR_FEATURE_FLAG_PROVIDER_NAME,
   ATTR_FEATURE_FLAG_RESULT_REASON,
   ATTR_HOST_NAME,
+  ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
+  ATTR_MESSAGING_CONSUMER_GROUP_NAME,
+  ATTR_MESSAGING_DESTINATION_NAME,
+  ATTR_MESSAGING_DESTINATION_PARTITION_ID,
+  ATTR_MESSAGING_MESSAGE_BODY_SIZE,
+  ATTR_MESSAGING_MESSAGE_ID,
+  ATTR_MESSAGING_OPERATION_NAME,
+  ATTR_MESSAGING_OPERATION_TYPE,
+  ATTR_MESSAGING_SYSTEM,
   ATTR_NETWORK_CONNECTION_TYPE,
   ATTR_SESSION_ID,
   ATTR_SESSION_PREVIOUS_ID,
@@ -61,6 +89,12 @@ import {
   FEATURE_FLAG_RESULT_REASON_VALUE_STATIC,
   FEATURE_FLAG_RESULT_REASON_VALUE_TARGETING_MATCH,
   FEATURE_FLAG_RESULT_REASON_VALUE_UNKNOWN,
+  MESSAGING_OPERATION_TYPE_VALUE_CREATE,
+  MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
+  MESSAGING_OPERATION_TYPE_VALUE_PUBLISH,
+  MESSAGING_OPERATION_TYPE_VALUE_RECEIVE,
+  MESSAGING_OPERATION_TYPE_VALUE_SETTLE,
+  MESSAGING_SYSTEM_VALUE_KAFKA,
   NETWORK_CONNECTION_TYPE_VALUE_CELL,
   NETWORK_CONNECTION_TYPE_VALUE_UNAVAILABLE,
   NETWORK_CONNECTION_TYPE_VALUE_UNKNOWN,
@@ -105,6 +139,14 @@ const _incubating = {
   browserLanguage: ATTR_BROWSER_LANGUAGE,
   browserMobile: ATTR_BROWSER_MOBILE,
   browserPlatform: ATTR_BROWSER_PLATFORM,
+  // Announcement identity rides the specification's own five: a board joins a span to the fact producing it by
+  // `cloudevents.event_id` beside `cloudevents.event_source`, which IS the uniqueness composite every branch dedups
+  // on, so a subscription and a trace read one coordinate rather than each stamping a private correlation key.
+  cloudeventsId: ATTR_CLOUDEVENTS_EVENT_ID,
+  cloudeventsSource: ATTR_CLOUDEVENTS_EVENT_SOURCE,
+  cloudeventsSpecVersion: ATTR_CLOUDEVENTS_EVENT_SPEC_VERSION,
+  cloudeventsSubject: ATTR_CLOUDEVENTS_EVENT_SUBJECT,
+  cloudeventsType: ATTR_CLOUDEVENTS_EVENT_TYPE,
   cloudRegion: ATTR_CLOUD_REGION,
   cloudZone: ATTR_CLOUD_AVAILABILITY_ZONE,
   connectionType: ATTR_NETWORK_CONNECTION_TYPE,
@@ -113,6 +155,19 @@ const _incubating = {
   flagProvider: ATTR_FEATURE_FLAG_PROVIDER_NAME,
   flagReason: ATTR_FEATURE_FLAG_RESULT_REASON,
   hostName: ATTR_HOST_NAME,
+  // Transport coordinates a binding row already decides, so a producer and a consumer stamp one vocabulary: the
+  // destination a row routes on, the partition an ordering key selected, the group a durable consumer holds, and
+  // whatever batch arity a frame settled per member. `messaging.system` is an OPEN enum whose generated value names
+  // Kafka and not the branch's NATS or MQTT bindings, so those two spell their system name at the emitting owner.
+  messagingBatchCount: ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
+  messagingBodySize: ATTR_MESSAGING_MESSAGE_BODY_SIZE,
+  messagingConsumerGroup: ATTR_MESSAGING_CONSUMER_GROUP_NAME,
+  messagingDestination: ATTR_MESSAGING_DESTINATION_NAME,
+  messagingMessageId: ATTR_MESSAGING_MESSAGE_ID,
+  messagingOperation: ATTR_MESSAGING_OPERATION_NAME,
+  messagingOperationType: ATTR_MESSAGING_OPERATION_TYPE,
+  messagingPartition: ATTR_MESSAGING_DESTINATION_PARTITION_ID,
+  messagingSystem: ATTR_MESSAGING_SYSTEM,
   sessionId: ATTR_SESSION_ID,
   sessionPrevious: ATTR_SESSION_PREVIOUS_ID,
 } as const
@@ -132,10 +187,31 @@ const _value = {
   flagStatic: FEATURE_FLAG_RESULT_REASON_VALUE_STATIC,
   flagTargeting: FEATURE_FLAG_RESULT_REASON_VALUE_TARGETING_MATCH,
   flagUnknown: FEATURE_FLAG_RESULT_REASON_VALUE_UNKNOWN,
+  // Messaging span names derive from this bounded operation vocabulary: `create` mints the announcement, `publish`
+  // hands it to a transport, `receive` pulls it, `process` runs the handler, and `settle` acknowledges — five words
+  // spanning the whole fabric, so a lane never invents a sixth to describe a step one of these already names.
+  messagingCreate: MESSAGING_OPERATION_TYPE_VALUE_CREATE,
+  messagingKafka: MESSAGING_SYSTEM_VALUE_KAFKA,
+  messagingProcess: MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
+  messagingPublish: MESSAGING_OPERATION_TYPE_VALUE_PUBLISH,
+  messagingReceive: MESSAGING_OPERATION_TYPE_VALUE_RECEIVE,
+  messagingSettle: MESSAGING_OPERATION_TYPE_VALUE_SETTLE,
 } as const
 ```
 
 ## [03]-[RASM_ROWS]
+
+- Owner: `_module`, `_domain`, `_rasm`, `_metric`, `_unit`, `_kinds`, `_instrument`, `_event`, and `_profile` publish every estate-minted name, so a dotted spelling closes against a roster rather than a producer's coinage.
+- Law: `rasm.<domain>.<measure>` closes against `_domain` at the declaration — a measure naming an unrostered segment fails the guard rather than exporting a series no board can find, and the same `<domain>` segment is the capability subject a message-envelope `type` reads.
+- Law: `_domain` rows name their emitting modules, so a subject no module mints refuses at the guard and a segment carries legislated capability rather than a coined word.
+- Law: `_module` carries the emitting column and the emitter union derives from it, so a module that stops mounting narrows one roster instead of stranding a hand-listed union.
+- Law: estate dimensions carve out of every instrument's own fan — a row claiming `ring` or `tenant` as its dimension double-stamps a coordinate the resource projection already carries.
+- Law: unit codes are UCUM and every unit answers both egress tables, so an unanswered code renames its own series at one receiver and renders unitless at the other.
+- Law: instrument rows carry their bucket layout, quantile window, and carrier width as columns, so a mount reads one row and a histogram never takes a bucket vector a caller assembled.
+- Law: a frequency row admits no dimension column, because its word axis IS the exported dimension the bridge appends and a second fan multiplies one census into many.
+- Growth: a measure is one `_metric` name with one `_instrument` row; a dimension is one `_rasm` key; a domain is one `_domain` row naming its emitters.
+- Boundary: which site mounts which instrument is the emitting folder's; this cluster owns names, units, shapes, and their closure.
+- Packages: `effect` (`Duration`); `../value/schema.ts` (`Shape`).
 
 ```typescript signature
 const _module = {
@@ -157,9 +233,11 @@ const _domain = {
   cache: { emitters: ["data"], subject: "lane cache population and hit economics" },
   chart: { emitters: ["ui"], subject: "pivot delta delivery into a live chart view" },
   crash: { emitters: ["runtime"], subject: "fatal captures and the breadcrumb replay riding them" },
+  deliver: { emitters: ["runtime"], subject: "outbound channel egress and the settlement each transmission returns" },
   derivative: { emitters: ["data"], subject: "derivative render pressure over stored objects" },
   export: { emitters: ["ui"], subject: "surface serialization into content-minted parcels and their egress routes" },
   fact: { emitters: ["data"], subject: "journal fact drain into the queryable fact table" },
+  fanout: { emitters: ["runtime"], subject: "broker fanout publication and the consumer lanes draining it" },
   form: { emitters: ["ui"], subject: "form submit round-trip settlement by outcome" },
   gateway: { emitters: ["core"], subject: "command-gateway dispatch by verb and outcome" },
   invoke: { emitters: ["core"], subject: "capability-plane calls crossing the interchange" },
@@ -591,6 +669,18 @@ const _profile = {
 ```
 
 ## [04]-[IDENTITY_PROJECTION]
+
+- Owner: `_translation`, `_wire`, `_translated`, `_mount`, `_outcome`, `_dimensions`, and `_identity` own store-side naming, the estate pins, instrument materialization, the outcome fold, and resource stamping.
+- Law: suffixing is a TARGET property — `translated` projects a store's own series name off the receiver's declared strategy, so a producer mints one dotted name and a store that escapes or suffixes reads its own row rather than a second spelling on the mint.
+- Law: `mount` memoizes each row-and-vocabulary pair, so one site names an instrument and a second site naming the same row shares its carrier instead of minting a twin the exporter reports separately.
+- Law: UCUM tagging lands at the mount, because the OTLP bridge computes an exported descriptor's unit before any view runs and the constructors take no unit option; the export lane drops that key by name.
+- Law: outcome derives from ONE `Exit` fold discriminating interrupt-first, so an interrupted run carries no outcome and a defect never reads as a typed fault; the vocabulary anchors on the family's own reason axis and widens there, never inside an arm.
+- Law: `outcome` takes the row's OWN declared fan, so an axis the instrument never mints is unspellable at the call and a tagged increment cannot invent a dimension the census refuses.
+- Law: the resource projection stamps identity ONCE and every optional coordinate rides a fold, so an absent region, zone, cluster, or tenant OMITS its key rather than exporting an empty string a query reads as a value.
+- Law: the estate service group is the floor a fleet's own namespace overrides, so one pin serves every unconfigured app without freezing a deployment that names its own.
+- Growth: a receiver posture is one `_translation` row; a promoted identity coordinate is one `_ESTATE` entry with its resource fold.
+- Boundary: exporter wiring and the reader seat are `runtime/otel`'s; this cluster owns names, shapes, and the projections a store reads.
+- Packages: `effect` (`Array`, `Cause`, `Duration`, `Effect`, `Exit`, `Metric`, `MetricBoundaries`, `MutableHashMap`, `Option`, `Record`, `Types`); `../value/identity.ts` (`Identity`); `../value/schema.ts` (`Shape`).
 
 ```typescript signature
 const _translation = {

@@ -400,4 +400,4 @@ public static class Finish {
 
 ## [03]-[RESEARCH]
 
-- (none)
+(none)

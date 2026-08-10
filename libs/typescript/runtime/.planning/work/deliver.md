@@ -1,20 +1,21 @@
 # [RUNTIME_DELIVER]
 
-Outbound delivery is ONE owner: mail and webhook egress are channel rows of one dispatch table sharing one settlement receipt, one reason-discriminated fault family, and one suppression fold, and the transactional-outbox relay is the cluster singleton draining every channel under the queue page's verdict vocabulary — retry, redelivery, parking, and replay never re-appear as channel-local machinery. A channel owns exactly three things: its payload's admission schema, the destination projection the suppression gate reads, and the fold from its transport's evidence into the shared receipt.
+Outbound delivery is ONE owner: mail and webhook egress are channel rows of one dispatch table sharing one settlement receipt, one reason-discriminated fault family, and one suppression fold, and the transactional-outbox relay is the cluster singleton draining every channel under the queue page's verdict vocabulary — retry, redelivery, parking, and replay never re-appear as channel-local machinery. Each channel owns exactly three things: its payload's admission schema, the destination projection the suppression gate reads, and the fold from its transport's evidence into the shared receipt.
 
-Claim admission, lease, urgency order, park ceiling, tenant egress quota, and replay arrive settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing splits into two domains that never merge — the `Crypto` service signs webhook bodies byte-identical, the mail plane signs DKIM in-transport. Suppression is evidence on the record of truth: a bounce or gone endpoint appends a fact row, and the relay's lane rows compose the gate between admission and the wire, so a suppressed destination cannot reach a transport and the ledger stays history, never a mutable blocklist. Its module ships on the `./server` subpath as `runtime/src/work/deliver.ts`.
+Claim admission, lease, urgency order, park ceiling, tenant egress quota, and replay arrive settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing splits into two domains that never merge — the `Crypto` service signs webhook bodies byte-identical, the mail plane signs DKIM in-transport.
+
+Suppression is evidence on the record of truth: a bounce or gone endpoint appends a fact row, and the relay's lane rows compose the gate between admission and the wire, so a suppressed destination cannot reach a transport and the ledger stays history, never a mutable blocklist. Its module ships on the `./server` subpath as `runtime/src/work/deliver.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[CHANNEL_FAMILY]: the channel dispatch table, the shared receipt, the one delivery fault family; `Deliver`.
-- [03]-[MAIL_ROW]: the transport rows (dial and capture sinks), the one message shape, auth/DKIM/DSN policy, send evidence; `Mailer`.
+- [02]-[CHANNEL_FAMILY]: `Deliver` — the channel dispatch table, the shared receipt, the one delivery fault family.
+- [03]-[MAIL_ROW]: `Mailer` — dial and capture transport rows, one message shape, auth/DKIM/DSN policy, send evidence.
 - [04]-[HOOK_ROW]: byte-identity signed webhook egress and its settlement fold; `Hook`.
-- [05]-[SUPPRESSION]: the shared suppress-by-evidence fold and the pre-send check; `Deliver`.
-- [06]-[RELAY]: the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing; `Relay`.
+- [05]-[SUPPRESSION]: `Deliver.admissible` — the shared suppress-by-evidence fold and its pre-send check.
+- [06]-[RELAY]: `Relay` — the singleton outbox drain: claim, quota, dispatch, verdict, wake, pacing.
 
 ## [02]-[CHANNEL_FAMILY]
 
-[CHANNEL_FAMILY]:
 - Owner: `Deliver` maps every channel row onto one settlement receipt and one `Fault.Class` family.
 - Law: a channel is a row keyed by its kind — `{ payload, targets, weight, transmit }` minted through `Deliver.channel` so the members correlate on one payload type: the payload `Schema` is the admission authority the lane's `Lane.row` mint decodes against, `targets` projects the destinations the suppression gate answers over, and `transmit` carries the admitted payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the relay dispatches on the claim's stream prefix through keyed lookup — zero `Match` arms — and a new channel (push, SMS, chat) is one table row with one relay lane row, never a sibling drain.
 - Law: `_kinds` is the one channel roster — the receipt literal, the fault field, and the dispatch table derive from it, so a new channel cannot land while a second spelling still names the old pair.
@@ -30,20 +31,23 @@ Claim admission, lease, urgency order, park ceiling, tenant egress quota, and re
 - Growth: a new channel is one `Deliver.channel` row; a new settlement dimension is one `Receipt` field both channels populate; a new gate axis (a per-destination rate class, an allowlist) is a column on the channel row the relay lane reads.
 - Packages: `effect`; `@rasm/ts/core` (`Fault.Class`).
 
-```typescript
-import { Array, Context, Data, DateTime, Duration, Effect, Option, Record, Redacted, Schema, Stream, pipe } from "effect"
+```typescript signature
+import {
+  Array, Context, Data, DateTime, Duration, Effect, Encoding, Option, Record, Redacted, Schema, Stream, pipe,
+} from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
 import { Singleton } from "@effect/cluster"
 import { SqlClient, SqlError } from "@effect/sql"
 import { createTestAccount, createTransport, getTestMessageUrl, type Transporter } from "nodemailer"
 import type Mail from "nodemailer/lib/mailer"
 import type SMTPConnection from "nodemailer/lib/smtp-connection"
-import { type CloudEvent, CONSTANTS, HTTP, type Message, Mode } from "cloudevents"
+import { CloudEvent, CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
 import { Buffer } from "node:buffer"
 import { Fact, Journal } from "@rasm/ts/data"
 import { Crypto } from "@rasm/ts/security"
-import { Fault, type Identity } from "@rasm/ts/core"
+import { Event, Fault, type Identity } from "@rasm/ts/core"
 import { Client } from "../net/client.ts"
+import { Propagation } from "../otel/emit.ts"
 import { Pulse } from "../otel/meter.ts"
 import { Setting } from "../proc/config.ts"
 import { WorkClass } from "./entity.ts"
@@ -109,11 +113,15 @@ declare namespace Deliver {
     readonly refuse: string
     readonly degrade: string
   }
+  // Every outbox row IS an announced fact, so every channel receives the announcement its own claimed row projects
+  // beside the payload it decoded — a channel with no use for it simply takes fewer parameters, and none re-derives
+  // one from its payload column, which would announce a fact the journal never recorded.
+  type Announcement = CloudEventV1<unknown>
   type Channel<A extends { readonly tenant: string }, I, R> = Descriptor & {
     readonly payload: Schema.Schema<A, I>
     readonly targets: (payload: A) => ReadonlyArray<string>
     readonly weight: (payload: A) => number
-    readonly transmit: (payload: A) => Effect.Effect<Receipt, DeliverFault, R>
+    readonly transmit: (payload: A, announced: Announcement) => Effect.Effect<Receipt, DeliverFault, R>
   }
   type _Table<T extends Record<Kind, Channel<never, never, never>> = typeof _channels> = T
 }
@@ -123,7 +131,6 @@ const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Chan
 
 ## [03]-[MAIL_ROW]
 
-[MAIL_ROW]:
 - Owner: `Mailer` — the scoped transport service built from the `Setting.mail` row, whose `transport` discriminant selects the sink: `smtp` (the pooled production dial carrying pool geometry, LOGIN credential, and DKIM material), `json` and `stream` (the capture sinks that open no socket), and `ethereal` (the sandbox dial whose credential `createTestAccount()` mints inside the same acquisition). `verify()` proves the connection at acquisition on the dialing arms alone, `close()` releases at teardown, `isIdle()` gates each claim, and the transporter's `idle` event becomes `Mailer.wake` through one scoped stream bridge. Secrets arrive `Redacted` on `Setting` and unwrap only inside the `smtp` row's own builder.
 - Law: the sink is a transport row, never a code path — `_transports` keys the builder and the `dials` column off `Setting.mail.transport`, so pool and DKIM options exist only where a socket does, a capture sink is a root-config choice rather than a conditional inside the service, and a new sink (SES, a provider adapter) is one row. Without it the relay cannot be exercised without live SMTP, so the acceptance-band fold and the suppression tap have no reachable proof.
 - Law: one receipt fold reads every sink — `_Sent` is the widened band the arms share, `envelopeTime` and `rejectedErrors` riding the SMTP connection alone, so a captured send settles as a real `Receipt` with a deterministic `messageId` and an empty rejected band and a second fold never appears; `getTestMessageUrl(info)` is the ethereal arm's own inspection read, an operator affordance beside the receipt and never a receipt field.
@@ -139,8 +146,8 @@ const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Chan
 - Growth: a provider, OAuth2, or inspect transport is one `_transports` row against one `Setting.mail.transport` value; a new message concern is one payload field and one `_mailOptions` projection.
 - Packages: `nodemailer` (`createTransport`, `createTestAccount`, `getTestMessageUrl`, `Transporter`, `Mail.Address`, `Mail.ListHeader`); `effect` (`Layer`, `Option`, `Record`, `Redacted`); `../proc/config.ts` (`Setting`).
 
-```typescript
-// The band every transport arm answers: `envelopeTime` and `rejectedErrors` ride the SMTP connection alone, so the
+```typescript signature
+// Every transport arm answers this band: `envelopeTime` and `rejectedErrors` ride the SMTP connection alone, so the
 // widened shape is what lets ONE `_mailReceipt` fold read a dialed send and a captured one without a second fold.
 type _Sent = {
   readonly accepted: ReadonlyArray<string | Mail.Address>
@@ -193,7 +200,7 @@ const _transports = {
     open: () =>
       Effect.map(
         Effect.tryPromise({
-          // the sandbox credential mints inside the same acquisition, so no environment row carries a throwaway secret
+          // Sandbox credentials mint inside the same acquisition, so no environment row carries a throwaway secret
           try: () => createTestAccount(),
           catch: (cause) => new DeliverFault({ reason: "dial", channel: "mail", detail: String(cause), targets: [] }),
         }),
@@ -302,51 +309,67 @@ const _mailReceipt = (info: _Sent, at: DateTime.Utc): Effect.Effect<Receipt, Del
 
 ## [04]-[HOOK_ROW]
 
-[HOOK_ROW]:
-- Owner: `Hook` — signed webhook egress under byte identity: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
+- Owner: `Hook` — signed webhook egress under byte identity, carrying the projection, the attribute-set seal, the validation handshake, and the transmit: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
 - Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Receipt`, 410 folds `bounced` (the endpoint is gone — suppression consumes it), 429/5xx fold `dial` (the lease redelivers), a client timeout folds `timeout`.
 - Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
-- Law: `_hookProject` selects `HTTP.binary` or `HTTP.structured` through one `Mode` table.
-- Law: Projected binding headers and content type enter `HookPayload` once.
-- Law: `_hook` signs and transmits the same detached body bytes `_hookProject` produced.
-- Boundary: envelope construction is upstream payload admission — `HookPayload.body` and `headers` preserve the admitted bytes and band unchanged; this row signs and transmits them and does not invent an envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
+- Law: content mode is an OWNED literal row — `Mode` is a TypeScript `enum` this branch cannot declare, so `_hookBindings` keys `binary`/`structured` to the package's own two serializers and the enum value crosses nowhere else.
+- Law: `Hook.project` is the relay's OWN step and runs at claim time over the announcement `data:journal/append#RELAY_ROWS` projects from the same claimed row — so the stored draft carries destination and signing material alone, a binding change re-frames every queued row, and no enqueue stores transport framing it must keep in step with a binding it never reached; projected binding headers and content type enter `HookPayload` exactly once, and `_signed` transmits the same detached octets that projection produced.
+- Law: `HookPayload.body` crosses as base64, so the projected shape decodes from a JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is what made a pre-projected outbox payload structurally unreadable at the claim seam.
+- Law: two signatures ship and neither substitutes for the other — `dssematerial` binds the ANNOUNCED attribute set over DSSE Pre-Authentication Encoding, folded in `Event.digested`'s published alphabetical order so a peer verifier reproduces the sequence from its own roster, while the transport triple binds the exact octets THIS hop carried; the attribute seal survives every rebinding and the triple survives none, so folding either onto the other loses the claim only it makes.
+- Law: abuse protection is the specification's own `OPTIONS` validation request and `Hook.validate` is its sender half — a target answering 405 is a REGISTRATION verdict, so a declined origin never queues delivery work, and `WebHook-Request-Origin` rides every delivery request so the target re-reads the claim per message.
+- Boundary: the announcement is `data:journal/append#RELAY_ROWS`'s projection and its grammar `core:interchange/carrier#EVENT_ENVELOPE`'s; this row seals, frames, signs, and transmits it and invents no envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
-- Packages: `cloudevents`, `@effect/platform`, `effect`, `@rasm/ts/security`, and `../net/client.ts`.
+- Packages: `cloudevents` (`HTTP`, `CloudEvent`, `CONSTANTS`), `@effect/platform`, `effect` (`Encoding`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
 
-```typescript
-// single-sourced framing: media alone mints the content type, the signer alone mints the triple —
-// a caller band re-spelling either refuses at the admission filter
+```typescript signature
+// Single-sourced framing: media alone mints the content type, the signer alone mints the triple, and the abuse-
+// protection origin rides the row below — a caller band re-spelling any of them refuses at the admission filter.
 const _RESERVED: ReadonlyArray<string> = [
   CONSTANTS.HEADER_CONTENT_TYPE, "content-length", "transfer-encoding",
-  "webhook-id", "webhook-timestamp", "webhook-signature",
+  "webhook-id", "webhook-timestamp", "webhook-signature", "webhook-request-origin",
 ]
 
-const HookPayload = Schema.Struct({
+const _band = Schema.optionalWith(
+  Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
+    Schema.filter((band) => Object.keys(band).every((name) => !_RESERVED.includes(name.toLowerCase())), {
+      message: () => "framing, signature, and origin headers are reserved — media mints the content type, the signer mints the triple",
+    }),
+  ),
+  { default: () => ({}) },
+)
+
+// `Mode` is a TypeScript `enum` this branch cannot declare, so content mode is an OWNED literal row and the package's
+// two serializers cross at this one table rather than an enum value travelling every signature.
+const _hookModes = ["binary", "structured"] as const
+const _hookBindings = { binary: HTTP.binary, structured: HTTP.structured } as const
+
+// Each outbox column holds the DRAFT alone — destination, signing reference, claimed origin, content mode — and
+// never transport framing an enqueue must keep in step with a binding it never reached. The announced fact is the
+// JOURNAL's projection over the same claimed row, so a binding change re-frames every queued row and no enqueue ever
+// stored a re-encoding whose float forms, key order, and escapes the journal itself never wrote.
+const HookDraft = Schema.Struct({
   tenant: Schema.NonEmptyString,
   destination: Schema.URL,
   deliverable: Schema.NonEmptyString,
-  body: Schema.Uint8ArrayFromSelf,
-  media: Schema.NonEmptyString,
-  headers: Schema.optionalWith(
-    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
-      Schema.filter((band) => Object.keys(band).every((name) => !_RESERVED.includes(name.toLowerCase())), {
-        message: () => "framing and signature headers are reserved — media mints the content type, the signer mints the triple",
-      }),
-    ),
-    { default: () => ({}) },
-  ),
+  origin: Schema.NonEmptyString,
+  mode: Schema.Literal(..._hookModes),
+  headers: _band,
   keyRef: Schema.NonEmptyString,
   weight: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 
-const _hookBindings = {
-  [Mode.BINARY]: HTTP.binary,
-  [Mode.STRUCTURED]: HTTP.structured,
-} as const
+// Projection lands this wire shape. `body` crosses as base64 rather than a live `Uint8Array`, so it decodes from a
+// JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is
+// what made a pre-projected payload unreadable at the claim seam.
+const HookPayload = Schema.Struct({
+  ...Schema.Struct(HookDraft.fields).pipe(Schema.omit("announcement")).fields,
+  body: Schema.Uint8ArrayFromBase64,
+  media: Schema.NonEmptyString,
+})
 
 declare namespace Deliver {
-  type HookMode = keyof typeof _hookBindings
-  type HookDraft = Omit<typeof HookPayload.Type, "body" | "media">
+  type HookMode = (typeof _hookModes)[number]
+  type HookDraft = typeof HookDraft.Type
 }
 
 const _hookUtf8 = new TextEncoder()
@@ -359,17 +382,82 @@ const _messageBody = (message: Message, target: string): Effect.Effect<Uint8Arra
       : message.body instanceof Uint8Array
         ? Effect.succeed(new Uint8Array(message.body))
         : Effect.fail(new DeliverFault({
-          reason: "schema", channel: "webhook", detail: "<cloudevent-body>", targets: [target],
+          reason: "schema", channel: "webhook", detail: "<message-envelope-body>", targets: [target],
         }))
 
+// DSSE Pre-Authentication Encoding: a fixed header and length-prefixed fields, so two adjacent operands cannot be
+// re-cut by a value containing the delimiter — the flaw every ad-hoc concatenation carries.
+const _pae = (payloadType: string, payload: Uint8Array): Uint8Array => {
+  // BOUNDARY ADAPTER: byte-join kernel — the draft detaches immutable at the return
+  const head = _hookUtf8.encode(`DSSEv1 ${payloadType.length} ${payloadType} ${payload.length} `)
+  const joined = new Uint8Array(head.length + payload.length)
+  joined.set(head)
+  joined.set(payload, head.length)
+  return joined
+}
+
+// Signing folds the roster's OWN published order — `Event.digested` is alphabetical by declaration, which is what
+// lets a C# or Python verifier fold the same sequence from its own roster instead of sorting an unordered map at its
+// signing seam — with the addressed attributes ahead of it and `dssematerial` excluded, since no signature covers
+// whichever attribute carries it.
+const _preimage = (envelope: CloudEventV1<unknown>): string =>
+  pipe(
+    [
+      ...Array.filterMap(
+        ["id", "source", "specversion", "type", "time", "subject", "dataschema", "datacontenttype"] as const,
+        (name) => Option.map(Option.fromNullable(envelope[name]), (value) => `${name}=${String(value)}`),
+      ),
+      ...Array.filterMap(Event.digested, (name) =>
+        Option.map(Option.fromNullable(envelope[name]), (value) => `${name}=${String(value)}`)),
+    ],
+    Array.join("\n"),
+  )
+
+// Both signatures ship because they cover DIFFERENT things: DSSE binds the announced attributes so any consumer past
+// any binding re-verifies them, while the transport triple binds the exact octets THIS hop carried. Folding either
+// onto the other loses the claim only it makes.
+const _sealed = (
+  envelope: CloudEventV1<unknown>,
+  key: Redacted.Redacted<Uint8Array>,
+  keyRef: string,
+  target: string,
+): Effect.Effect<CloudEventV1<unknown>, DeliverFault, Crypto> =>
+  Effect.gen(function* () {
+    const crypto = yield* Crypto
+    const payload = _hookUtf8.encode(_preimage(envelope))
+    const signature = yield* crypto.sign(key, _pae(_DSSE.payloadType, payload)).pipe(
+      Effect.mapError((fault) => new DeliverFault({
+        reason: "refused", channel: "webhook", detail: fault.reason, targets: [target],
+      })),
+    )
+    const material = yield* Schema.encode(Event.extensions.at("dssematerial").admit)(
+      _hookUtf8.encode(JSON.stringify({
+        payloadType: _DSSE.payloadType,
+        payload: Encoding.encodeBase64(payload),
+        signatures: [{ keyid: keyRef, sig: signature }],
+      })),
+    ).pipe(Effect.mapError((issue) => new DeliverFault({
+      reason: "schema", channel: "webhook", detail: issue.message, targets: [target],
+    })))
+    return yield* Effect.try({
+      // `cloneWith` is the owner's own re-attribution and re-runs the whole admission, so a sealed envelope proves
+      // its mint's own grammar; `strict` raises a bare `TypeError`, which this conversion is the seam for.
+      try: () => envelope instanceof CloudEvent ? envelope.cloneWith({ dssematerial: material }) : envelope,
+      catch: (cause) => new DeliverFault({
+        reason: "schema", channel: "webhook", detail: String(cause), targets: [target],
+      }),
+    })
+  })
+
+const _DSSE = { payloadType: "application/vnd.rasm.cloudevents-attributes" } as const
+
 const _hookProject = (
-  event: CloudEvent<unknown>,
-  mode: Deliver.HookMode,
+  envelope: CloudEventV1<unknown>,
   draft: Deliver.HookDraft,
 ): Effect.Effect<typeof HookPayload.Type, DeliverFault> =>
   Effect.flatMap(
     Effect.try({
-      try: () => _hookBindings[mode](event),
+      try: () => _hookBindings[draft.mode](envelope),
       catch: (cause) => new DeliverFault({
         reason: "schema", channel: "webhook", detail: String(cause), targets: [draft.destination.toString()],
       }),
@@ -377,10 +465,16 @@ const _hookProject = (
     (message) =>
       pipe(message.headers[CONSTANTS.HEADER_CONTENT_TYPE], (media) => typeof media !== "string"
         ? Effect.fail(new DeliverFault({
-          reason: "schema", channel: "webhook", detail: "<cloudevent-content-type>", targets: [draft.destination.toString()],
+          reason: "schema", channel: "webhook", detail: "<message-envelope-content-type>", targets: [draft.destination.toString()],
         }))
         : Effect.map(_messageBody(message, draft.destination.toString()), (body) => ({
-          ...draft,
+          tenant: draft.tenant,
+          destination: draft.destination,
+          deliverable: draft.deliverable,
+          origin: draft.origin,
+          mode: draft.mode,
+          keyRef: draft.keyRef,
+          weight: draft.weight,
           body,
           media,
           headers: {
@@ -408,13 +502,11 @@ const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
   return joined
 }
 
-const _hook = (payload: typeof HookPayload.Type) =>
+const _signed = (payload: typeof HookPayload.Type, key: Redacted.Redacted<Uint8Array>) =>
   Effect.gen(function* () {
     const crypto = yield* Crypto
-    const secrets = yield* _HookSecret
     const at = yield* DateTime.now
     const stamp = String(Math.trunc(DateTime.toEpochMillis(at) / 1000))
-    const key = yield* secrets.resolve(payload.keyRef)
     const signed = yield* crypto.sign(key, _signable(payload.deliverable, stamp, payload.body)).pipe(
       Effect.mapError((fault) => new DeliverFault({
         reason: "refused", channel: "webhook", detail: fault.reason, targets: [payload.destination.toString()],
@@ -425,6 +517,9 @@ const _hook = (payload: typeof HookPayload.Type) =>
       HttpClientRequest.post(payload.destination.toString()).pipe(
         HttpClientRequest.setHeaders({
           ...payload.headers,
+          // Every delivery rides the claimed origin, not the one validation exchange: a target re-reads it per
+          // message, so a rotated or revoked sender identity refuses on the next request rather than at re-handshake.
+          "webhook-request-origin": payload.origin,
           "webhook-id": payload.deliverable,
           "webhook-timestamp": stamp,
           "webhook-signature": `v1,${signed}`,
@@ -446,6 +541,50 @@ const _hook = (payload: typeof HookPayload.Type) =>
     )
   })
 
+// One key resolution serves both signatures: the attribute-set seal and the transport triple sign under the SAME
+// per-destination material, so a rotation moves one reference and neither claim is left signed by a retired key.
+const _hook = (payload: typeof HookPayload.Type) =>
+  Effect.flatMap(_HookSecret, (secrets) => Effect.flatMap(secrets.resolve(payload.keyRef), (key) => _signed(payload, key)))
+
+// This is the channel's own transmit and the whole webhook order: resolve the material once, recover the
+// announcement, seal its attribute set, project the wire payload through the mode's binding, and sign the encoded
+// octets exactly once. Every step composes an owner — the mint's roster, the package's binding, the security wave's
+// signer — so this row adds routing and nothing cryptographic of its own.
+const _hookDeliver = (draft: Deliver.HookDraft, announced: Deliver.Announcement) =>
+  Effect.gen(function* () {
+    const secrets = yield* _HookSecret
+    const key = yield* secrets.resolve(draft.keyRef)
+    const sealed = yield* _sealed(announced, key, draft.keyRef, draft.destination.toString())
+    const payload = yield* _hookProject(sealed, draft)
+    return yield* _signed(payload, key)
+  })
+
+// Abuse protection is the specification's own validation request and this member is its sender half: the target
+// answers a grant or 405, and a refusing target is a registration verdict rather than a delivery fault, so the
+// roster never queues work for an endpoint that already declined the origin.
+const _hookValidate = (destination: URL, origin: string) =>
+  Client.dial(
+    "batch",
+    HttpClientRequest.options(destination.toString()).pipe(
+      HttpClientRequest.setHeaders({ "webhook-request-origin": origin }),
+    ),
+  ).pipe(
+    Effect.scoped,
+    Effect.map((response) => ({
+      origin: Option.fromNullable(response.headers["webhook-allowed-origin"]),
+      rate: Option.fromNullable(response.headers["webhook-allowed-rate"]),
+    })),
+    Effect.catchTags({
+      ResponseError: (fault) => _hookSettle(fault.response.status, destination.toString()),
+      RequestError: () => Effect.fail(new DeliverFault({
+        reason: "dial", channel: "webhook", detail: "<transport>", targets: [destination.toString()],
+      })),
+      Lapse: () => Effect.fail(new DeliverFault({
+        reason: "timeout", channel: "webhook", detail: "<budget>", targets: [destination.toString()],
+      })),
+    }),
+  )
+
 const _hookSettle = (status: number, target: string): Effect.Effect<never, DeliverFault> =>
   Effect.fail(new DeliverFault({
     reason: status === 404 || status === 410 ? "bounced" : status === 401 || status === 403 ? "refused" : status === 408 ? "timeout" : "dial",
@@ -457,15 +596,14 @@ const _hookSettle = (status: number, target: string): Effect.Effect<never, Deliv
 
 ## [05]-[SUPPRESSION]
 
-[SUPPRESSION]:
-- Owner: the shared suppress-by-evidence fold — both channels feed it and both consult it. A `bounced`-reasoned fault or a receipt's rejected band appends one `deliver.suppressed` fact row (recipient or destination as target, the channel and note as change rows, `regulatory` retention for mail — the unsubscribe evidence — and `operational` for webhooks); `Deliver.admissible(suppressed)(channel, targets)` folds the channel row's projected targets over the suppression read the data wave serves and answers before any `transmit` — the relay's lane rows compose it between lane admission and the wire, so a suppressed destination structurally cannot reach a transport effect, and a direct send outside the relay composes the same gate at its own seam.
+- Owner: the shared suppress-by-evidence fold — both channels feed it and both consult it. Either a `bounced`-reasoned fault or a receipt's rejected band appends one `deliver.suppressed` fact row (recipient or destination as target, the channel and note as change rows, `regulatory` retention for mail — the unsubscribe evidence — and `operational` for webhooks); `Deliver.admissible(suppressed)(channel, targets)` folds the channel row's projected targets over the suppression read the data wave serves and answers before any `transmit` — the relay's lane rows compose it between lane admission and the wire, so a suppressed destination structurally cannot reach a transport effect, and a direct send outside the relay composes the same gate at its own seam.
 - Law: a suppressed target refuses the whole deliverable — the gate fails `refused` (`denied` class), the lane's poison short-circuit parks it on first refusal with the suppressed target as evidence, and replay after reinstatement is the one path back; a silently narrowed recipient list erases the evidence the park row carries.
 - Law: suppression is append-only history — reinstatement is a `deliver.reinstated` fact, and the projection folds the pair; deleting suppression evidence is unrepresentable.
 - Law: the unsubscribe seam is one-way — the serving plane's unsubscribe endpoint appends the same fact shape; this fold never mounts a route.
 - Growth: a suppression cause (complaint feedback loop, manual block) is one action verb on the same fact shape.
 - Packages: `@rasm/ts/data` (`Fact`); `effect` (`Effect`, `Option`).
 
-```typescript
+```typescript signature
 const _admissible = <R>(suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R>) =>
 (channel: Deliver.Kind, targets: ReadonlyArray<string>): Effect.Effect<void, DeliverFault, R> =>
   Effect.findFirst(targets, (target) => suppressed(channel, target)).pipe(
@@ -495,7 +633,7 @@ const _settled = (receipt: Receipt) =>
 
 ## [06]-[RELAY]
 
-[RELAY]:
+- Law: the announcement has ONE owner and this pass is its consumer — `Journal.Deliverable.envelope` mints it from the claimed row under the drain's live context, so a channel never re-derives a fact from its own payload column and a row that will not project parks as its own claim rather than failing the pass; the claim reaches the projection as the lane's own `meta`, so no batch-keyed index stands between a claim and the announcement it already carries.
 - Owner: `Relay` — the one outbox drain: a `Singleton.make` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, and settles it through `Lane.settle` over the relay's lane rows: each row is `Lane.row(channel.payload, …)` composing the fixed sequence suppression gate → tenant throttle → `channel.transmit` → rejected-band suppression tap, so the drain body is route and composition, with zero retry, backoff, decode, or dead-letter machinery of its own.
 - Law: every transmission passes one suppression decision — the gate sits inside the lane row between admission and the wire, so no route reaches `transmit` without it; a refused deliverable parks with the suppressed target as evidence through the lane's poison short-circuit.
 - Law: quota precedes transmission — `Throttle.spend` runs before the wire and its exceeded posture is the durable delay, so a tenant's burst paces the drain inside the lease width instead of converting into provider-side rejections; a lease that expires mid-delay redelivers, attempts already incremented, and a quota-store fault (`RateLimiterError`) defers `unavailable`.
@@ -504,9 +642,9 @@ const _settled = (receipt: Receipt) =>
 - Law: the pass budget grades on `Journal.retryable`, never on the class default — every fault the pass raises is a store fault the journal already projects onto the shared class table, so a connection blip re-drives inside the tick and an undecodable claim batch refuses; accepting the property grader parks the whole shard's outbox on the first blip while the compiled budget records nothing.
 - Receipt: each pass folds `Lane.settle`'s verdict roster into one `deliver.drained` meter fact — claims, settled, deferred, parked — and marks the settled count onto the `Pulse` throughput counter in the same fold, so the OTel series and the journal fact cannot disagree on a pass.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/meter.ts` (`Pulse`).
+- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
 
-```typescript
+```typescript signature
 // one interior field schema every list key composes: the bare URL and the annotated arm are one decoded shape,
 // so a key gains the comment form by declaration and no per-key variant exists to drift
 const _ListEntry = Schema.optionalWith(
@@ -536,7 +674,7 @@ const MailPayload = Schema.Struct({
     disposition: Schema.Literal("attachment", "inline"),
     cid: Schema.optionalWith(Schema.String, { as: "Option" }),
   })),
-  // the six standard list keys nodemailer renders into List-* headers, each admitting the annotated arm; the
+  // Six standard list keys render into List-* headers, each admitting the annotated arm; the
   // {url, comment} form is what renders the one-click List-Unsubscribe / List-Unsubscribe-Post pair the suppression
   // fold's regulatory retention is evidence of, and a bare URL string cannot express the header that evidence is about
   list: Schema.optionalWith(
@@ -567,7 +705,7 @@ const _mailOptions = (message: typeof MailPayload.Type): Parameters<Transporter[
   icalEvent: Option.getOrUndefined(message.icalEvent),
   headers: message.headers,
   priority: message.priority,
-  // the decoded record passes straight through: every present key is one ListHeader and every absent key omits
+  // Decoded records pass straight through: every present key is one ListHeader and every absent key omits
   list: Option.getOrUndefined(Option.map(message.list, Record.getSomes)),
   attachments: Array.map(message.attachments, (attachment) => ({
     filename: attachment.filename,
@@ -581,7 +719,7 @@ const _mailOptions = (message: typeof MailPayload.Type): Parameters<Transporter[
 const _channels = {
   mail: _channel({
     fits: "<addressed-human-notification-over-smtp>",
-    admit: "<mail-prefixed-outbox-claim-decoded-through-MailPayload>",
+    admit: "<deliver-subject-outbox-claim-decoded-through-MailPayload>",
     tenancy: "<per-payload-tenant-field:-it-keys-the-outbox-claim-and-the-queue#THROTTLE-egress-quota-that-meters-it>",
     // Custody ENDS at the accepting relay: this row cannot observe the mailbox, so it states the non-decision rather
     // than naming a span it never measures, and the DSN request is the only evidence that returns after handoff.
@@ -597,44 +735,47 @@ const _channels = {
     targets: (message) => [...message.to, ...Option.getOrElse(message.cc, () => []), ...Option.getOrElse(message.bcc, () => [])],
     weight: (message) => message.weight,
     transmit: (message) => Effect.flatMap(Mailer, (mailer) => mailer.send(_mailOptions(message))),
+    // Mail takes the payload alone: its transport frames a message from the decoded fields, so the announcement is
+    // evidence this row does not carry onto the wire and the shorter arity states that rather than a dropped operand.
   }),
   webhook: _channel({
     fits: "<machine-callback-to-a-tenant-registered-endpoint-under-byte-identity-signing>",
-    admit: "<webhook-prefixed-outbox-claim-decoded-through-HookPayload>",
+    admit: "<deliver-subject-outbox-claim-decoded-through-HookDraft>",
     tenancy: "<per-payload-tenant-field-and-per-destination-keyRef:-one-tenant's-secret-signs-only-its-own-endpoint>",
     lifetime: "<ends-at-the-receiver-2xx-which-the-receiver-itself-issues>",
     deliver: "<at-least-once-past-2xx:-a-redrive-repeats-the-event-id-and-the-receiver-owns-the-dedup>",
     order: "<none:-skip-locked-claiming-drains-unordered-and-HookPayload-carries-no-key-selecting-a-domain>",
-    settle: "<the-receiver's-2xx-status-alone;-the-response-body-is-never-read-as-evidence>",
+    settle: "<the-receiver's-2xx-status-alone;-the-response-body-is-never-read-as-evidence,-and-the-OPTIONS-grant-settles-registration-not-delivery>",
     replay: "<queue#LANE_POLICY-re-offers-a-parked-row-under-its-stable-webhook-id,-so-the-receiver's-dedup-absorbs-it>",
     bound: "<queue#THROTTLE-tenantEgress-and-the-Client-lane's-http-concurrency;-this-row-spells-neither-ceiling>",
     refuse: "<a-reason-classed-DeliverFault-folded-from-the-response-status;-nothing-returns-once-the-request-closes>",
     degrade: "<no-ack-past-2xx:-a-receiver-answering-then-dropping-the-work-reads-identically-to-one-that-kept-it>",
-    payload: HookPayload,
-    targets: (payload) => [payload.destination.toString()],
-    weight: (payload) => payload.weight,
-    transmit: _hook,
+    payload: HookDraft,
+    targets: (draft) => [draft.destination.toString()],
+    weight: (draft) => draft.weight,
+    transmit: _hookDeliver,
   }),
 } as const
 
-// Routing reads the claim tag's own namespace against the roster, so a channel key IS its prefix: a per-row predicate
-// spells the same grammar once per row and lets one drift silently, and the park fold already splits the tag this way.
+// Routing reads the ANNOUNCED grammar, not a second prefix vocabulary beside it: a claim tag is the announced `type`
+// `rasm.<domain>.<subject>.<fact>.v<N>`, so a channel key IS that `<subject>` segment and `rasm.deliver.webhook.queued.v1`
+// routes with no per-row predicate to drift and no parallel tag dialect for the outbox to carry.
 const _routed = (tag: string): Option.Option<Deliver.Kind> =>
-  pipe(tag.split(":", 1)[0] ?? tag, (head) => Array.findFirst(_kinds, (kind) => kind === head))
+  Option.flatMap(Array.get(tag.split("."), 2), (subject) => Array.findFirst(_kinds, (kind) => kind === subject))
 
 const _sent = <A extends { readonly tenant: string }, I, R, R2>(
   kind: Deliver.Kind,
   row: Deliver.Channel<A, I, R>,
   suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R2>,
 ) =>
-(payload: A, meta: Lane.Meta) =>
+(payload: A, meta: Lane.Meta<Journal.Deliverable>, announced: Deliver.Announcement) =>
   _admissible(suppressed)(kind, row.targets(payload)).pipe(
     Effect.zipRight(Throttle.spend(Throttle.tenantEgress, {
       tenant: payload.tenant,
       channel: kind,
       weight: row.weight(payload),
     })),
-    Effect.zipRight(row.transmit(payload)),
+    Effect.zipRight(row.transmit(payload, announced)),
     Effect.tap(_settled),
     Effect.as(LaneVerdict.Settled()),
     Effect.tapErrorTag("DeliverFault", (fault) =>
@@ -677,19 +818,34 @@ const _drain = <R>(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const mailer = yield* Mailer
-    const lanes = {
-      mail: Lane.row(_channels.mail.payload, (message, meta) =>
-        Effect.flatMap(mailer.idle, (idle) =>
-          idle
-            ? _sent("mail", _channels.mail, suppressed)(message, meta)
-            : Effect.succeed(LaneVerdict.Deferred({ class: "exhausted" })))),
-      webhook: Lane.row(_channels.webhook.payload, _sent("webhook", _channels.webhook, suppressed)),
-    } as const
     const claims = yield* Journal.claimBatch(sql, {
       app,
       take: WorkClass.bulk.concurrency * 4,
       leaseSeconds: Duration.toSeconds(Fault.Budget.at("bulk").attempt),
     })
+    // Claimed rows own their announcement and this pass consumes it: each row projects under the drain's live
+    // context, so a delivered body is the fact the journal recorded rather than a lane's re-derivation from its own
+    // payload column, and a row that will not project parks as its own claim rather than failing the pass. The claim
+    // reaches the projection through the lane's own `meta`, so this pass builds no batch-keyed index and carries no
+    // absent-row arm that the fold it indexes could never reach.
+    const context = yield* Propagation.current
+    const projected = <A extends { readonly tenant: string }, I, R>(
+      kind: Deliver.Kind,
+      row: Deliver.Channel<A, I, R>,
+    ) =>
+    (payload: A, meta: Lane.Meta<Journal.Deliverable>) =>
+      Effect.matchEffect(meta.envelope(context), {
+        onFailure: (fault) => Effect.succeed(Lane.judge(meta, "bulk", { class: fault.class, detail: fault.detail })),
+        onSuccess: (announcement) => _sent(kind, row, suppressed)(payload, meta, announcement),
+      })
+    const lanes = {
+      mail: Lane.row(_channels.mail.payload, (message, meta) =>
+        Effect.flatMap(mailer.idle, (idle) =>
+          idle
+            ? projected("mail", _channels.mail)(message, meta)
+            : Effect.succeed(LaneVerdict.Deferred({ class: "exhausted" })))),
+      webhook: Lane.row(_channels.webhook.payload, projected("webhook", _channels.webhook)),
+    } as const
     const verdicts = yield* Lane.settle(sql, "bulk", (tag) => Option.map(_routed(tag), (kind) => lanes[kind]), Lane.park)(claims)
     yield* _metered(claims.length, verdicts)
   })
@@ -726,9 +882,13 @@ const Deliver = {
 
 const Hook = {
   Secret: _HookSecret,
+  draft: HookDraft,
+  modes: _hookModes,
   payload: HookPayload,
   project: _hookProject,
+  seal: _sealed,
   transmit: _hook,
+  validate: _hookValidate,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

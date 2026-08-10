@@ -365,7 +365,7 @@ public static class SchurDecode
 
 [PROVENANCE_SNAPSHOT]:
 - Law: snapshot the provider `ToString` tag, parallelism degree, and the two parallelization thresholds at solve construction; every kernel reads this ambient static at execution instant.
-- Law: derive bit-versus-envelope equality from the provider, degree, and threshold triple; the partition-tree topology varies run-to-run, so a recorded value is correct for one core count only and bit-comparison on another host falsely flags tampering.
+- Law: derive bit-versus-tolerance equality from the provider, degree, and threshold triple; the partition-tree topology varies run-to-run, so a recorded value is correct for one core count only and bit-comparison on another host falsely flags tampering.
 - Boundary: short-circuit provider-mismatched eigenvector comparison to span equivalence; backends agree only up to sign and span and choose different bases within degenerate eigenspaces.
 
 [HONESTY_MARKERS]:
@@ -378,7 +378,7 @@ public static class SchurDecode
 [ONLINE_STATISTICS]:
 - Law: the accumulator is `RunningStatistics` for the whole stream and `MovingStatistics` for a fixed window — distinct semantics recorded as the receipt's accumulator fact, never one knob, since the moving form re-weights as samples leave the window where the running form never forgets.
 - Law: carry the Bessel-versus-population normalizer as a policy enum beside every stored deviation, reading `RunningStatistics.Variance`/`StandardDeviation` (`n−1`) versus `PopulationVariance`/`PopulationStandardDeviation` (`n`); unmarked mixing silently corrupts every downstream confidence computation.
-- Law: merge partitions through the pure static `RunningStatistics.Combine(a, b)` (the `operator +` form) as a CAS-safe reduction, asserting the identity `combined.Count == a.Count + b.Count`; the parallel accumulation runs to fourth order, so `Skewness`/`PopulationSkewness` and `Kurtosis`/`PopulationKurtosis` survive the merge to the floating-point envelope.
+- Law: merge partitions through the pure static `RunningStatistics.Combine(a, b)` (the `operator +` form) as a CAS-safe reduction, asserting the identity `combined.Count == a.Count + b.Count`; the parallel accumulation runs to fourth order, so `Skewness`/`PopulationSkewness` and `Kurtosis`/`PopulationKurtosis` survive the merge to the floating-point tolerance band.
 - Boundary: guard the stream at `Push`/`PushRange` admission — one pushed `NaN` permanently poisons `Minimum`/`Maximum` and every moment with no reset — through the same all-finite predicate the operands cross.
 
 [TERMINAL_PARTITION]:

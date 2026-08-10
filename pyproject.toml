@@ -18,7 +18,7 @@ dependencies = [
     "hvac",                                               # [RUNTIME]: HashiCorp Vault secret backend closing the SecretTier.cloud provider family beside the GCP arm
     "jinja2",                                             # [ARTIFACTS]: report templating between visual and document outputs
     "keyring",                                            # [RUNTIME]: OS keychain credential boundary
-    "lark",                                               # [GEOMETRY]: IDS and selector parsing grammar
+    "lark",                                               # [RUNTIME]+[GEOMETRY]: CESQL filter grammar beside the IDS and selector grammar
     "loky",                                               # [RUNTIME]: warm reusable crash-respawning process pool for the worker crossing
     "lxml",                                               # [ARTIFACTS]: XML processing
     "msgspec",
@@ -115,14 +115,14 @@ dependencies = [
     "sympy",                                              # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
     "uncertainties",                                      # [COMPUTE]: first-order error propagation with correlated_values/unumpy
     # --- [STATISTICS_ML]
-    "arviz",                                              # [COMPUTE]: Bayesian diagnostics
+    "arviz<1",                                            # [COMPUTE]: Bayesian diagnostics; pymc 5.x caps arviz<1 and the pymc 6 line that admits arviz 1 hard-requires pytensor 3
     "blackjax; python_version<'3.15'",                    # [COMPUTE]: JAX NUTS/HMC samplers
     "numpyro; python_version<'3.15'",                     # [COMPUTE]: JAX NUTS sampler
     "nutpie",                                             # [COMPUTE]: Rust NUTS sampler for PyMC
     "onnx",                                               # [COMPUTE]: model graph IR
     "onnxruntime; python_version<'3.15'",                 # [COMPUTE]: model runtime; wheels cap at cp314 and the project ships no sdist
     "pyDOE3",                                             # [COMPUTE]: classical DOE design matrices — factorial, fractional-factorial, Box-Behnken, central-composite, Plackett-Burman, and GSD response-surface designs beside the SALib samplers and scipy.qmc floors
-    "pymc<6",                                             # [COMPUTE]: probabilistic programming; the 6 line moves to pytensor 3, which hard-requires numba
+    "pymc<6",                                             # [COMPUTE]: probabilistic programming; every pytensor past 2.35.1 hard-requires numba, so the 5.26 line is the ceiling
     "salib",                                              # [COMPUTE]: global sensitivity analysis
     "scikit-learn",                                       # [COMPUTE]: classical ML and ONNX export
     "skl2onnx",                                           # [COMPUTE]: sklearn-to-ONNX converter
@@ -208,11 +208,11 @@ dependencies = [
     "rhino3dm",                                           # [DATA]: Rhino mesh and 3DM IO
     "rtree",                                              # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
     "small-gicp",                                         # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
-    "topologicpy",                                        # [GEOMETRY]: non-manifold topology graph modeling
+    "topologicpy; python_version<'3.15'",                 # [GEOMETRY]: non-manifold topology graph modeling; topologic_core's cp315 wheel predates the rc ABI and segfaults on import, and no sdist ships
     "trimesh",
     "usd-core; python_version<'3.15'",                    # [ARTIFACTS]: USD/USDZ scene packaging; the release declares Requires-Python <3.15 and ships no sdist, so `pxr` imports live from the Forge python-overlay `.pth`
     # --- [BIM_ENERGY]
-    "bcf-client",                                         # [GEOMETRY]: BCF 3.0 coordination XML
+    "bcf-client; python_version<'3.15'",                  # [GEOMETRY]: BCF 3.0 coordination XML; hard ifcopenshell dep
     "dragonfly-core",                                     # [GEOMETRY]: Dragonfly district and urban model object graph
     "dragonfly-energy",                                   # [GEOMETRY]: Dragonfly energy model aggregation and translation
     "honeybee-core",                                      # [GEOMETRY]: HBJSON base object model and validation companion
@@ -220,14 +220,14 @@ dependencies = [
     "honeybee-energy-standards",                          # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
     "honeybee-openstudio",                                # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
     "honeybee-standards",                                 # [GEOMETRY]: baseline default construction/program/schedule standards for Honeybee energy models
-    "ifc4d",                                              # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange
-    "ifc5d",                                              # [GEOMETRY]: IFC 5D quantity and cost extraction
-    "ifcclash",                                           # [GEOMETRY]: IFC clash-detection sets
-    "ifccsv",                                             # [GEOMETRY]: IFC to CSV/ODS/XLSX/Pandas schedule round-trip
-    "ifcdiff",                                            # [GEOMETRY]: IFC revision diff
-    "ifcopenshell",                                       # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring
-    "ifcpatch",                                           # [GEOMETRY]: IFC patch and migration recipes
-    "ifctester",                                          # [GEOMETRY]: IDS validation over IFC models
+    "ifc4d; python_version<'3.15'",                       # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange; ifcopenshell-gated
+    "ifc5d; python_version<'3.15'",                       # [GEOMETRY]: IFC 5D quantity and cost extraction; ifcopenshell-gated
+    "ifcclash; python_version<'3.15'",                    # [GEOMETRY]: IFC clash-detection sets; ifcopenshell-gated
+    "ifccsv; python_version<'3.15'",                      # [GEOMETRY]: IFC to CSV/ODS/XLSX/Pandas schedule round-trip; ifcopenshell-gated
+    "ifcdiff; python_version<'3.15'",                     # [GEOMETRY]: IFC revision diff; ifcopenshell-gated
+    "ifcopenshell; python_version<'3.15'",                # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring; binary wheels cap at py314
+    "ifcpatch; python_version<'3.15'",                    # [GEOMETRY]: IFC patch and migration recipes; ifcopenshell-gated
+    "ifctester; python_version<'3.15'",                   # [GEOMETRY]: IDS validation over IFC models; ifcopenshell-gated
     "ladybug-comfort",                                    # [GEOMETRY]: comfort-model calculations
     "ladybug-core",                                       # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
     "ladybug-geometry",                                   # [GEOMETRY]: Ladybug planar and solid geometry primitives
@@ -338,7 +338,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "annotated-types",  # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
+    "annotated-types",              # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
     "brotli-stubs",
     "coverage",
     "dirty-equals",
@@ -358,10 +358,10 @@ dev = [
     "pytest-timeout",
     "pytest-xdist",
     "ruff>=0.16.2",
-    "s3fs",             # object-store testkit backend over moto S3
+    "s3fs",                         # object-store testkit backend over moto S3
     "scipy-stubs",
-    "sniffio",          # async-flavor detection the testkit env/seams doubles import directly
-    "sqlfluff",         # SQL format/lint rail; squawk keeps the migration-safety lane
+    "sniffio",                      # async-flavor detection the testkit env/seams doubles import directly
+    "sqlfluff",                     # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
     "types-defusedxml",
@@ -433,6 +433,29 @@ requires-dist = [
     "xxhash<4,>=3; extra == 'optional'",
 ]
 provides-extras = ["docs", "meshing", "optional"]
+
+# pytensor 2.35.1 is the newest numba-free pytensor — 2.36+ hard-require numba, which ships no cp315 wheel — and its Requires-Python <3.14 cap is
+# spurious on the current interpreter (probed live: imports and compiles functions): corrected static metadata drops the cap and mirrors the real
+# dependency set, so the pymc 5 constellation stays cold-resolvable instead of riding a lock fossil.
+[[tool.uv.dependency-metadata]]
+name = "pytensor"
+version = "2.35.1"
+requires-python = ">=3.11"
+requires-dist = [
+    "setuptools>=59.0.0",
+    "scipy<2,>=1",
+    "numpy>=2.0",
+    "filelock>=3.15",
+    "etuples",
+    "logical-unification",
+    "miniKanren",
+    "cons",
+    "jax; extra == 'jax'",
+    "jaxlib; extra == 'jax'",
+    "numba>=0.57; extra == 'numba'",
+    "llvmlite; extra == 'numba'",
+]
+provides-extras = ["jax", "numba"]
 
 # substrait 0.30.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
 [[tool.uv.dependency-metadata]]
@@ -609,7 +632,7 @@ branch = true
 relative_files = true # subprocess coverage combines through relative repo paths
 source = ["tools/assay"]
 data_file = ".cache/coverage/.coverage"
-core = "sysmon"       # CPython 3.15 beta lacks coverage's compiled C tracer
+core = "sysmon" # CPython 3.15 beta lacks coverage's compiled C tracer
 patch = [
     "subprocess",
 ] # children auto-measure via COVERAGE_PROCESS_CONFIG + shipped pth; forces parallel data files, so reporting requires a combine step
@@ -660,7 +683,7 @@ timeout_constant = 5.0
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
 [tool.importlinter]
 root_packages = ["tools.assay"]
-exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
+exclude_type_checking_imports = true # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
 
 [[tool.importlinter.contracts]]
 name = "assay strata: model -> diagnostics -> store -> settings/aspect -> _logging -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation -> __main__"
@@ -726,7 +749,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
-exclude = ["*.md"]  # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
+exclude = ["*.md"]               # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
 line-ending = "lf"
 docstring-code-format = true
 skip-magic-trailing-comma = true

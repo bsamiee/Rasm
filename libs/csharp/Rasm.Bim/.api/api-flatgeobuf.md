@@ -90,7 +90,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `FeatureCollectionConversions` is the codec root: `Serialize` writes the header (feature count, bbox `Envelope`, `Crs`, `ColumnMeta` schema, R-tree node size), builds the `PackedRTree` over the feature envelopes, sorts the body by Hilbert order, and streams it; `Deserialize` reads the header, walks the R-tree for a `rect` filter, and yields NTS `IFeature` rows.
+- `FeatureCollectionConversions` is the codec root: `Serialize` writes the header (feature count, bbox `Envelope`, `Crs`, `ColumnMeta` schema, R-tree node size), builds the `PackedRTree` over the feature bounding envelopes, sorts the body by Hilbert order, and streams it; `Deserialize` reads the header, walks the R-tree for a `rect` filter, and yields NTS `IFeature` rows.
 - Geometry decodes through `GeometryConversions.FromFlatbuf` into a `Geometry` whose `CoordinateSequence` is the `FlatGeobufCoordinateSequence` over the FlatBuffers packed ordinate buffer — a zero-copy layout the NTS geometry wraps without per-point `Coordinate` boxing.
 - `GeometryType`/`ColumnType` are the discriminant enums the `LayerMeta`/`ColumnMeta` header carries: a homogeneous layer is one `GeometryType` (the `ToGeometryType` of a sample geometry), the attribute schema one `ColumnMeta` list.
 - `AsyncFeatureEnumerator` exposes `Extent`/`SRID`/`Crs`/`NumFeatures` before iterating, so a reader knows extent and CRS without scanning the body — the metadata-first posture a streaming clip relies on.

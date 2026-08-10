@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_AMQPNETLITE]
 
-`AMQPNetLite.Core` owns the `AMQP 1.0` protocol itself: the container connection, its session multiplex, the sender and receiver links, the full framing model every performative and terminus lowers onto, the SASL negotiation, transaction coordination, and a broker-side listener. It carries the `AMQP 1.0` leg of the op-log changefeed egress — `CloudNative.CloudEvents.Amqp` (`api-cloudevents-amqp`) maps the envelope onto this package's `Amqp.Message`, and this package owns everything from that message to the wire. Its message model is disjoint from the `AMQP 0-9-1` `RabbitMQ.Client` surface (`api-rabbitmq`); the two protocols share no type.
+`AMQPNetLite.Core` owns the `AMQP 1.0` protocol itself: the container connection, its session multiplex, sender and receiver links, the framing model every performative and terminus lowers onto, SASL negotiation, transaction coordination, and a broker-side listener. It carries the `AMQP 1.0` leg of the op-log changefeed egress: `CloudNative.CloudEvents.Amqp` (`api-cloudevents-amqp`) maps the message envelope onto `Amqp.Message`, and this package owns everything from that message to the wire. Its message model shares no type with the `AMQP 0-9-1` `RabbitMQ.Client` surface (`api-rabbitmq`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -106,10 +106,10 @@
 - `Open` carries frame-size and channel ceilings only, so no connection-level knob caps outbound deliveries either.
 
 [STACKING]:
-- `CloudNative.CloudEvents.Amqp`(`.api/api-cloudevents-amqp.md`): `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, formatter)` mints the exact `Amqp.Message` a send takes and `message.ToCloudEvent(formatter, extensions)` inverts it, so envelope attributes ride `cloudEvents_` application properties and this package never reads the body.
-- `System.Threading.Channels`(`libs/csharp/.api/api-bcl-channels.md`): a caller wanting overlapped sends supplies the in-flight bound this package refuses to — a bounded channel under `BoundedChannelFullMode.Wait` offers deliveries and settles their awaited acks in offer order, which is the only shape that pipelines without inheriting the unbounded outgoing list.
+- `CloudNative.CloudEvents.Amqp`(`.api/api-cloudevents-amqp.md`): `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, formatter)` mints the exact `Amqp.Message` a send takes and `message.ToCloudEvent(formatter, extensions)` inverts it, so message-envelope attributes ride `cloudEvents_` application properties and this package never reads the body.
+- `System.Threading.Channels`(`libs/csharp/.api/api-bcl-channels.md`): callers wanting overlapped sends supply the in-flight bound this package refuses to — a bounded channel under `BoundedChannelFullMode.Wait` admits deliveries and settles their awaited acks in admission order, which is the only shape that pipelines without inheriting the unbounded outgoing list.
 - `RabbitMQ.Client`(`.api/api-rabbitmq.md`): the `AMQP 0-9-1` peer sink; protocols are disjoint, so no message, channel, or property type crosses between the two and a shared delivery leg is structurally impossible.
-- `Version/egress#EGRESS_SINK`: its `EgressSink.Amqp` row composes the awaited send inside its own bounded window and reads `AmqpObject.Closed` into the family's `Watch` cell, so a link the peer detached reports even when a send already returned.
+- `Version/egress#EGRESS_SINK`: its `amqp` binding row composes the awaited send inside its own bounded window and reads `AmqpObject.Closed` into the family's `Watch` cell, so a link the peer detached reports even when a send already returned.
 
 [LOCAL_ADMISSION]:
 - egress sends through `SendAsync(Message, TimeSpan)` alone; its awaited return IS the settlement, and an `AmqpException` over a `Released` or `Rejected` outcome is the refusal.

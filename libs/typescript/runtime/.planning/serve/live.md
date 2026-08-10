@@ -4,12 +4,12 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 
 ## [01]-[INDEX]
 
-- [02]-[LIVE_FAULT]: the realtime refusal family, the resume brand, the resumable-source contract; `LiveFault`.
-- [03]-[SSE_ROW]: the SSE endpoint fold: resume decode, encoder framing, heartbeat, lossless bound; `Realtime`.
-- [04]-[SOCKET_ROW]: the WS upgrade fold: typed duplex framing over the socket channel; `Realtime`.
+- [02]-[LIVE_FAULT]: `LiveFault` — the realtime refusal family, the resume brand, the resumable-source contract.
+- [03]-[SSE_ROW]: `Realtime.sse` — resume decode, encoder framing, heartbeat, lossless bound.
+- [04]-[SOCKET_ROW]: `Realtime.socket` — typed duplex framing over the socket channel at the WS upgrade.
 - [05]-[FEED_ROWS]: source adapters: reactive query reads, fanout topics, the presence roster stream; `Realtime`.
 - [06]-[ADMISSION]: channel rules, subscription grant, stamp guard, roster read, fan registry; `Admission`.
-- [07]-[MOUNT_PORT]: the foreign-protocol mount port and its one node-handler lift; `Mount`.
+- [07]-[MOUNT_PORT]: `Mount` — the foreign-protocol mount port and its one node-handler lift.
 
 ## [02]-[LIVE_FAULT]
 
@@ -26,7 +26,7 @@ import {
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { Clock, Fault, Fold, Identity, Presence } from "@rasm/ts/core"
 import { Live } from "@rasm/ts/data"
-import { Envelope, Fanout } from "../net/pubsub.ts"
+import { Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"
 
 // One row per reason: the core kind alone. Retryability, blame, and the response code stay the core row
@@ -162,7 +162,7 @@ const _sse = <A, I, E, R, R2>(
       Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
       Stream.buffer({ capacity: Option.getOrElse(_lanes.sse.lag, () => 1), strategy: "suspend" }),
     )
-    // the admission fence bounds the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
+    // Admission fences the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
     // this response ends, so the plane-level slot the successor took is never held by two live feeds at once
     const beat = Option.match(_lanes.sse.beat, {
       onNone: () => Stream.empty as Stream.Stream<Sse.AnyEvent>,
@@ -204,7 +204,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
       Ndjson.duplexString(),
       ChannelSchema.duplexUnknown({ inputSchema: frames.inbound, outputSchema: frames.outbound }),
       Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
-      // the same admission fence both endpoint rows honor: one supersede closes the duplex exactly as it closes an SSE
+      // Both endpoint rows honor this same admission fence: one supersede closes the duplex exactly as it closes an SSE
       Channel.interruptWhenDeferred(fence),
     )
   })
@@ -217,7 +217,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
 
 ```typescript signature
-// The bound's own error channel crosses verbatim: a feed carries whatever its query fails with, so hardcoding one
+// Every bound's error channel crosses verbatim: a feed carries whatever its query fails with, so hardcoding one
 // relational pair here narrowed every non-relational bound to a shape it never raises. Its requirement is the
 // reactive bus, not a SQL client — the owner re-runs through `Reactivity.stream`, so a serving Layer satisfying this
 // feed with a client alone provides a Tag the stream never asks for and omits the one it does.
@@ -225,13 +225,13 @@ const _query = <A, E, R>(
   bound: Live.Bound<A, E, R>,
 ): Realtime.Source<A, E, Exclude<R, Scope.Scope> | Reactivity.Reactivity> => ({
   from: () => bound.changes,
-  // the bound's own emission-identity projection: a durable coordinate (a lane's AsOf sequence) rides as the event
+  // Emission identity projects off the bound: a durable coordinate (a lane's AsOf sequence) rides as the event
   // id and a coordinate-free bound answers none — a DEDUPE token the client proves its rendered state against,
   // never a replay cursor, because every emission already carries the complete answer
   token: (value) => Option.flatMap(bound.coordinate(value), (id) => Schema.decodeOption(_Resume)(id)),
 })
 
-const _topic = (topic: string): Realtime.Source<Envelope, LiveFault, Fanout> => ({
+const _topic = (topic: string): Realtime.Source<Fanout.Announced, LiveFault, Fanout> => ({
   from: (resume) =>
     Stream.unwrap(
       Effect.map(Fanout, (fanout) =>
@@ -358,7 +358,7 @@ const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Ad
                 // settling the predecessor's fence interrupts ITS served stream, so a supersede closes a response
                 // rather than leaving a slot the cap still counts and nothing can reach
                 Option.match(incumbent, { onNone: () => Effect.void, onSome: (spent) => Deferred.succeed(spent, undefined) }),
-                // the slot frees on response-scope close, and only while this fence still owns the key — a
+                // Slots free on response-scope close, and only while this fence still owns the key — a
                 // successor that already superseded keeps its own reservation
                 Effect.addFinalizer(() =>
                   Ref.update(cell, (slots) =>

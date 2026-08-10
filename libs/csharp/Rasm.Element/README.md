@@ -56,6 +56,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
 - `JetBrains.Annotations`
 
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — `CloudEvent` values `Graph/wire#EVENT_ENVELOPE` mints through the kernel message envelope owner per consuming binding.
+
 [TIME_IDENTITY]:
 - `System.IO.Hashing` — kernel seed-zero content-hash seed.
 - `NodaTime` — instant stamps on assessments, provenance, and headers.

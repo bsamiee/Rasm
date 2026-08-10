@@ -69,7 +69,7 @@
 
 [ENTRYPOINT_SCOPE]: preprocessor chain and output writers
 
-A configured `Preprocessor` chain mutates `(nb, resources)` before render, appended via `register_preprocessor`. `ExecutePreprocessor` wraps `nbclient.NotebookClient`; the campaign executes through nbclient directly and leaves it `enabled=False` to avoid double execution. `writers` persist `output` with every `resources['outputs']` figure to a build directory, the path `ExtractOutputPreprocessor`'s figure bytes reach disk.
+`register_preprocessor` appends each configured `Preprocessor` onto the chain mutating `(nb, resources)` before render. `ExecutePreprocessor` wraps `nbclient.NotebookClient`; the campaign executes through nbclient directly and leaves it `enabled=False` to avoid double execution. `writers` persist `output` with every `resources['outputs']` figure to a build directory, the path `ExtractOutputPreprocessor`'s figure bytes reach disk.
 
 | [INDEX] | [SURFACE]                                            | [SHAPE]       | [CAPABILITY]                                                   |
 | :-----: | :--------------------------------------------------- | :------------ | :------------------------------------------------------------- |
@@ -137,7 +137,7 @@ Each concrete exporter adds its assembly-backend traits: `HTMLExporter` inlines/
 
 [ENTRYPOINT_SCOPE]: filter map
 
-`nbconvert.filters` is the named-callable map every `TemplateExporter` exposes to its templates; `register_filter` and the `filters` trait both write into it. A custom template references these by name (`{{ cell.source | highlight2html }}`) rather than re-implementing ANSI/Markdown/highlight conversion.
+`nbconvert.filters` is the named-callable map every `TemplateExporter` exposes to its templates; `register_filter` and the `filters` trait both write into it. Templates reference these by name (`{{ cell.source | highlight2html }}`) rather than re-implementing ANSI/Markdown/highlight conversion.
 
 | [INDEX] | [FILTER]                                                | [CAPABILITY]                                                                 |
 | :-----: | :------------------------------------------------------ | :--------------------------------------------------------------------------- |
@@ -163,7 +163,7 @@ Each concrete exporter adds its assembly-backend traits: `HTMLExporter` inlines/
 
 [STACKING]:
 - runtime lane: `from_notebook_node` is blocking, so `ReportPlan.lane.offload(Kernel.of(_exported, KernelTrait.RELEASING), spec, executed)` bounds every render through the runtime owner, never an inline await or folder-local limiter.
-- `msgspec`(`.api/msgspec` under `libs/python/.api`): export-shaping traits are fields on the frozen `ExportPolicy` `msgspec.Struct`, projected through `ExportPolicy.exporter_kwargs()` into class-keyed `traitlets.config.Config` rows — preprocessor bands nested, content-exclusion top-level `**kw`. A new knob is one struct field, the structural peer of the execution-side `NotebookEngine.client_kwargs()` projection.
+- `msgspec`(`.api/msgspec` under `libs/python/.api`): export-shaping traits are fields on the frozen `ExportPolicy` `msgspec.Struct`, projected through `ExportPolicy.exporter_kwargs()` into class-keyed `traitlets.config.Config` rows — preprocessor bands nested, content-exclusion top-level `**kw`. `ExportPolicy` grows a knob as one struct field, the structural peer of the execution-side `NotebookEngine.client_kwargs()` projection.
 - `expression`(`.api/expression` under `libs/python/.api` + the runtime `faults` owner): `ReportPlan.of` maps `ExporterNameError`/`ExporterDisabledError` onto `ReportFault.export`; raises from `papermill`, `nbclient`, and exporter execution close through the plan's `async_boundary` capsule. One fault algebra owns the `NOTEBOOK` arm.
 - node-tree rail (`document/model#NODE`): `(output, resources)` partitions on the output's `str`-vs-`bytes` type — a `TemplateExporter` `str` wraps a `BlockKind.CODE` HTML leaf, binary output a content-addressed `FigureNode` asset carrying the exporter MIME type, and `resources['outputs']` contributes extracted `FigureNode` assets; PDF output feeds the document owner, HTML the visuals owner.
 - folder chain (`jupytext` -> `papermill` -> `nbclient` -> nbconvert): nbconvert is the terminal lowering stage — `get_exporter(...).from_notebook_node(executed)` lowers the executed node while `jupytext.writes(executed, "ipynb")` owns the round-trip archive.

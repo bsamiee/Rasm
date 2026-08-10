@@ -15,6 +15,8 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Settled money is exact `decimal` in the runtime journal and observed spend `float` in data's cost plane — a charge admits no float, a gauge does.
 - Evidence bands close on every exit inside a FENCED `finally` with exit state — pricing in the `map` arm loses the refused and unwound crossings.
 - `Residence` names data's plane family and runtime's port spells `Ledger` — one name over a `Protocol` and a `StrEnum` resolves to the last import.
+- `Classification` grades admission sensitivity and `Scrub` names receipts' redaction — sharing a consumer, one spelling resolves to the last import.
+- `Classification` stays folder-local where no consumer reaches two — artifacts' ISO-12006 reference, texture-set result, and grade share no reader.
 - Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.
 - Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused across the branch.
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.

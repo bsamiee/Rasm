@@ -228,7 +228,7 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 
 ## [04]-[INTERNAL]
 
-Every host mutation walks one path — no sub-domain opens the document directly, the one carve being the worksession attach/detach rail, whose reference-set change Rhino's undo stack does not record and which therefore compensates through its declared per-verb inverse instead of the sealed envelope. Document-session demand gates capability, the shared `DocumentCommit.Sealed` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
+Every host mutation walks one path — no sub-domain opens the document directly, the one carve being the worksession attach/detach rail, whose reference-set change Rhino's undo stack does not record and which therefore compensates through its declared per-verb inverse instead of `DocumentCommit.Sealed`. Document-session demand gates capability, the shared `DocumentCommit.Sealed` frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---

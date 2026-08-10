@@ -10,19 +10,20 @@ Every `CanonicalBytes` contribution composes this codec, so identity, content ad
 
 ## [01]-[INDEX]
 
-- [02]-[CONTENT_ADDRESS]: the `ContentAddress` `[ValueObject<UInt128>]` over the kernel seed-zero `XxHash128`, the raw-hash/precomputed-wrap/node/graph/verification entries, the id-inclusive node and order-independent graph addressing (semantic header folded, provenance excluded), and the `Verify` re-derive dual that re-mints by the minting regime and rails `ElementFault.AddressUnstable` on a mismatch.
-- [03]-[INCREMENTAL_ADDRESS]: the `GraphMembers` accumulator — the id-keyed node-address map and the content-keyed edge-byte multiset under the header they folded under, its `Of` seed, its `Advance(delta, key)` step with the tolerance-reheader refusal, and the `ContentAddress.OfGraph(GraphMembers)` re-entry into the ONE private sorting fold.
-- [04]-[CANONICAL_WRITER]: the `CanonicalWriter` ONE deterministic byte-projection codec (IEEE-754 LE, sign/`NaN`/∞ canon, tolerance-quantized measures with their presence-prefixed uncertainty band, length-prefixed strings and count-prefixed collections, explicit attribute order) every seam value's `CanonicalBytes`/`ToCanonicalBytes` composes, so identity, content address, and 3-way-merge key project through one encoding.
+- [02]-[CONTENT_ADDRESS]: `ContentAddress` the `[ValueObject<UInt128>]` seam content key over the kernel seed-zero `XxHash128`, the raw-hash/precomputed-wrap/node/graph/verification entries, the id-inclusive node and order-independent graph addressing (semantic header folded, provenance excluded), and the `Verify` re-derive dual that re-mints by the minting regime and rails `ElementFault.AddressUnstable` on a mismatch.
+- [03]-[INCREMENTAL_ADDRESS]: `GraphMembers` the delta-composable accumulator — the id-keyed node-address map and the content-keyed edge-byte multiset under the header they folded under, its `Of` seed, its `Advance(delta, key)` step with the tolerance-reheader refusal, and the `ContentAddress.OfGraph(GraphMembers)` re-entry into the ONE private sorting fold.
+- [04]-[CANONICAL_WRITER]: `CanonicalWriter` the ONE deterministic byte-projection codec (IEEE-754 LE, sign/`NaN`/∞ canon, tolerance-quantized measures with their presence-prefixed uncertainty band, length-prefixed strings and count-prefixed collections, explicit attribute order) every seam value's `CanonicalBytes`/`ToCanonicalBytes` composes, so identity, content address, and 3-way-merge key project through one encoding.
 
 ## [02]-[CONTENT_ADDRESS]
 
-- Owner: `ContentAddress` is the `[ValueObject<UInt128>]` content key over kernel seed-zero `XxHash128`; `ByteOrder` is the shared edge-byte comparer for snapshot and `GraphDelta.ToCanonicalBytes` sorting. The FULL-STATE fold over the graph is the DEFINITION of a snapshot address — the `[03]` `GraphMembers` accumulator is that definition's provably-identical cache, re-entering this owner's own private fold, never a parallel derivation that could fall out of step.
+- Owner: `ContentAddress` is the `[ValueObject<UInt128>]` seam content key — one bare 128-bit digest — over kernel seed-zero `XxHash128`; `ByteOrder` is the shared edge-byte comparer for snapshot and `GraphDelta.ToCanonicalBytes` sorting. `OfGraph`'s FULL-STATE fold over the graph DEFINES a snapshot address, and the `[03]` `GraphMembers` accumulator caches that definition provably-identically by re-entering this owner's own private fold rather than deriving beside it.
 - Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` hashes canonical bytes; `Of(UInt128)` wraps a precomputed hash; `Of(Node, tolerance)` addresses an id-inclusive node; `OfGraph(ElementGraph)` addresses an order-independent snapshot; `OfGraph(GraphMembers)` addresses the same snapshot from the accumulated member sets; `Verify(Node, tolerance, key)` re-derives one identity; `Verify(ElementGraph, key)` accumulates snapshot mismatches.
 - Auto: `Of(Node)` writes the id before `node.ToCanonicalBytes(tolerance)`. `OfGraph` writes `Header.CanonicalBytes`, sorted node addresses, and lexicographically sorted edge bytes with section counts. `Verify` re-mints Types through `NodeId.RootedType`, non-rooted nodes through `NodeId.OfContent`, and admits Occurrences vacuously because their random Guid-v7 has no content preimage.
-- Receipt: a `ContentAddress` is the stable cross-runtime content key — a `NodeId.Content` for a non-rooted node, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
+- Receipt: a `ContentAddress` is the stable cross-runtime seam content key — a `NodeId.Content` for a non-rooted node, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
 - Packages: `Rasm` supplies kernel `Domain.ContentHash` and `Op`; Thinktecture.Runtime.Extensions generates `[ValueObject<UInt128>]` members; LanguageExt.Core supplies `Fin`, `Validation`, `Error`, `Unit`, `Seq.Traverse`, and `.As()`.
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; canonical vocabulary grows only on `CanonicalWriter`.
 - Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so every serializer framework renders and admits through the `[ObjectFactory<string>]` factory, the admission preserving the canonical 32-digit spelling exactly so a padded, over-long, or prefix-bearing alias never round-trips into a different string than it arrived as; the `[05]` cluster owns the hasher, projection-split, ordering, exclusion, preimage, and verification laws this owner answers to.
+- Boundary: `ToValue()`'s upper-case `X32` is this seam's INTERIOR spelling — the protobuf `content_address` field, the `NodeId` render, and every store column read it — while an attribute on the message envelope crossing a broker carries the kernel `EventKey` lower-case `x32` under `libs/.planning/RULINGS.md` `[02]-[SHAPE]`. One mapping at one edge holds the split: `Graph/wire#EVENT_ENVELOPE` renders `subject` and `dataref` through `EventKey.Render` and never through this member, so the two spellings never meet on one wire and no consumer lowers a value this owner handed it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -98,10 +99,10 @@ public sealed partial class ContentAddress {
   return Of(w.ToBytes().Span);
  }
 
- // The TYPE arm re-mints over the Representations-EXCLUDED ToTypeSeedBytes seed, so a later geometry attach cannot
- // spuriously fail a sound id while a forged or corrupted one is still caught. Each content arm composes the seam's
- // own mint entries and compares NodeId to NodeId under the declared [KeyMemberEqualityComparer] — the X32 spelling
- // is owned by NodeId, never re-spelled here. [VERIFY_REGIME] owns the arm law.
+ // Verify re-mints the TYPE arm over the Representations-EXCLUDED ToTypeSeedBytes seed, so a later geometry attach
+ // never spuriously fails a sound id while a forged or corrupted one is still caught. Each content arm composes the
+ // seam's own mint entries and compares NodeId to NodeId under the declared [KeyMemberEqualityComparer]; NodeId owns
+ // that X32 spelling, never re-spelled here. [VERIFY_REGIME] owns the arm law.
  // [ObjectFactory<string>] contracts are IObjectFactory<ContentAddress, string, ValidationError> and
  // IConvertible<string> (decompile-verified), so every serializer framework picks up the hex face through the
  // generated converters with zero local edits and the TS/Python peers hold the key as that string.
@@ -122,8 +123,8 @@ public sealed partial class ContentAddress {
 
  public static Fin<Unit> Verify(Node node, double tolerance, Op key) =>
   node.Switch<Fin<Unit>>(
-   // An OCCURRENCE Object's random Guid-v7 has no content preimage, so it verifies vacuously; a TYPE Object re-mints
-   // from its volatile-excluded seed. Every other case verifies by content through the one body.
+   // Occurrence Objects carry a random Guid-v7 with no content preimage, so they verify vacuously; a TYPE Object
+   // re-mints from its volatile-excluded seed, and every other case verifies by content through the one body.
    @object: o => o.Kind == ObjectKind.Occurrence
     ? Fin.Succ(unit)
     : NodeId.RootedType(o.ToTypeSeedBytes(tolerance).Span) == o.Id
@@ -158,24 +159,24 @@ public sealed partial class ContentAddress {
 ## [03]-[INCREMENTAL_ADDRESS]
 
 - Owner: `GraphMembers` the delta-composable accumulator over exactly the two member sets `OfGraph` sorts — `Nodes` the id-keyed map of id-INCLUSIVE node addresses and `Edges` the content-keyed multiset of edge canonical bytes with their multiplicity — held under the `Header` they folded under; `EdgeMember` the multiset cell pairing an edge's retained bytes with its count.
-- Law: the accumulator is a CACHE of the full-state fold, never a second algebra. `OfGraph(GraphMembers)` re-sorts both member sets and re-enters the SAME private `OfGraph(Header, Seq<UInt128>, Seq<ReadOnlyMemory<byte>>)` the graph entry calls, so incremental and full-state are byte-identical by construction rather than by agreement. SORTING is the order-independence mechanism and stays so: a commutative hash (XOR- or sum-folded member digests) would make the accumulator trivial and fork EVERY address already persisted estate-wide, so the sort is the cost the identical-bytes guarantee is bought with.
-- Entry: `GraphMembers.Of(ElementGraph)` seeds from a frozen snapshot; `Advance(GraphDelta delta, Op key)` steps by one delta returning the next accumulator; `ContentAddress.OfGraph(GraphMembers)` addresses it. The consumer spelling is the TWO-ARG form the `Rasm.Persistence` `Element/codec` contract records — `Advance(prior, delta)` then `OfGraph(members)` — so a `Version/timetravel` `Scrub` reel or a `Bisect` probe pays one member step per event instead of one full-state fold per event.
-- Auto: `Advance` gates `delta.IsNormalForm` FIRST (the accumulator's arithmetic is exact, so a delta carrying a cancelled pair or a duplicate id would double-count), resolves the header as `delta.Header.IfNone(prior.Header)`, then applies removals, adds, and revisions in the SAME order `GraphDelta.ReplayOnto` folds them. It applies the delta's DECLARED sets and derives no cascade — the `DropNode` sweep already ran where the delta was produced, so the accumulator mirrors the replay rather than re-deciding it. A node removal naming an absent id rails `NodeAbsent` and an edge removal naming an absent member `DeltaConflict`, because the multiset is exact and a negative count is unrepresentable.
+- Law: the accumulator is a CACHE of the full-state fold, never a second algebra. `OfGraph(GraphMembers)` re-sorts both member sets and re-enters the SAME private `OfGraph(Header, Seq<UInt128>, Seq<ReadOnlyMemory<byte>>)` the graph entry calls, so incremental and full-state are byte-identical by construction rather than by agreement. SORTING is the order-independence mechanism and stays so: a commutative hash (XOR- or sum-folded member digests) makes the accumulator trivial and forks EVERY address already persisted estate-wide, so the sort is the cost the identical-bytes guarantee is bought with.
+- Entry: `GraphMembers.Of(ElementGraph)` seeds from a frozen snapshot; `Advance(GraphDelta delta, Op key)` steps by one delta returning the next accumulator; `ContentAddress.OfGraph(GraphMembers)` addresses it. `Rasm.Persistence`'s `Element/codec` contract records the TWO-ARG consumer spelling — `Advance(prior, delta)` then `OfGraph(members)` — so a `Version/timetravel` `Scrub` reel or a `Bisect` probe pays one member step per event instead of one full-state fold per event.
+- Auto: `Advance` gates `delta.IsNormalForm` FIRST (the accumulator's arithmetic is exact, so a delta carrying a cancelled pair or a duplicate id double-counts), resolves the header as `delta.Header.IfNone(prior.Header)`, then applies removals, adds, and revisions in the SAME order `GraphDelta.ReplayOnto` folds them. It applies the delta's DECLARED sets and derives no cascade — the `DropNode` sweep already ran where the delta was produced, so the accumulator mirrors the replay rather than re-deciding it. `Advance` rails `NodeAbsent` on a node removal naming an absent id and `DeltaConflict` on an edge removal naming an absent member, because the multiset is exact and a negative count is unrepresentable.
 - Receipt: a `GraphMembers` is the address's own preimage held live — a consumer that owns it can answer "what is this snapshot's identity" without re-walking the graph, and `OfGraph` over it is the same value the recompute yields.
 - Packages: LanguageExt.Core (`HashMap`/`Seq`/`Fin`/`Option` + the `Fold` step and the `Bind` rail), `Rasm` (the kernel `Op` op-key), `Graph/element#ELEMENT_GRAPH` (`ElementGraph`/`Header`/`Node`/`NodeId`), `Graph/delta#GRAPH_DELTA` (`GraphDelta` with its `IsNormalForm` gate and its declared member sets), BCL inbox (`BitConverter.DoubleToInt64Bits` the bitwise tolerance comparison).
-- Growth: a new member SET on the snapshot address is one column here and one section in the private fold, landed in the same edit so the two projections cannot diverge; a new delta slot is one arm in `Advance`. A second accumulator shape, a witness carrying a prior ADDRESS rather than its members, or an incremental path that re-derives the layout is the deleted form — an address is only ever the sorted member fold.
-- Boundary: a delta whose header changes `Tolerance` REFUSES — the accumulator holds node ADDRESSES, not node payloads, so it cannot re-quantize a measure onto a new grid, and every stored node address is grid-bound; the refusal is an explicit arm naming the full-state re-fold, never a caller obligation a consumer discovers by drifting. The comparison is BITWISE (the `Federate` header law's own spelling), so a `-0.0`/`0.0` or `NaN` re-header is a real fork rather than an `==` that silently rules two grids the same. The edge multiset keys on the edge's own `ContentAddress` — the identity space every seam key already rides — and RETAINS the bytes, because the private fold sorts the byte runs and a key alone cannot reproduce them; a count-less set would collapse the parallel edges `allowParallelEdges` admits and address a different graph.
+- Growth: a new member SET on the snapshot address is one column here and one section in the private fold, landed in the same edit so the two projections cannot diverge; a new delta slot is one arm in `Advance`. `OfGraph` only ever folds the sorted members, so a second accumulator shape, a witness carrying a prior ADDRESS rather than its members, and an incremental path re-deriving the layout are each the deleted form.
+- Boundary: a delta whose header changes `Tolerance` REFUSES — the accumulator holds node ADDRESSES, not node payloads, so it cannot re-quantize a measure onto a new grid, and every stored node address is grid-bound; the refusal is an explicit arm naming the full-state re-fold, never a caller obligation a consumer discovers by drifting. `Advance` compares BITWISE (the `Federate` header law's own spelling), so a `-0.0`/`0.0` or `NaN` re-header is a real fork rather than an `==` that silently rules two grids the same. `Edges` keys the multiset on the edge's own `ContentAddress` — the identity space every seam key already rides — and RETAINS the bytes, because the private fold sorts the byte runs and a key alone cannot reproduce them; a count-less set collapses the parallel edges `allowParallelEdges` admits and addresses a different graph.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
-// The edge multiset cell: the canonical bytes the sort reads back, beside the multiplicity a parallel-edge graph
-// carries. Bytes are RETAINED rather than re-projected because the accumulator holds no Relationship — re-deriving
-// them would demand the payload the accumulator exists to avoid keeping.
+// EdgeMember pairs the canonical bytes the sort reads back with the multiplicity a parallel-edge graph carries, and
+// RETAINS those bytes rather than re-projecting them: the accumulator holds no Relationship, so re-deriving them
+// demands the payload the accumulator exists to avoid keeping.
 public readonly record struct EdgeMember(ReadOnlyMemory<byte> Bytes, int Count);
 
-// The address preimage held live. Nodes is a MAP, not a bare address multiset, because GraphDelta.RemovedNodes is a
-// Seq<NodeId> carrying NO content — a removal can only be applied against a set keyed by id. HashMap is the carrier
-// on both columns: ordering is the OfGraph sort's job and never the map's, so the keys owe no comparison axis.
+// GraphMembers holds the address preimage live. Nodes is a MAP, never a bare address multiset, because
+// GraphDelta.RemovedNodes is a Seq<NodeId> carrying NO content and a removal applies only against a set keyed by id.
+// HashMap carries both columns: ordering is the OfGraph sort's job and never the map's, so keys owe no comparison axis.
 public sealed record GraphMembers {
  private GraphMembers(Header header, HashMap<NodeId, ContentAddress> nodes, HashMap<ContentAddress, EdgeMember> edges) =>
   (Header, Nodes, Edges) = (header, nodes, edges);
@@ -184,7 +185,7 @@ public sealed record GraphMembers {
  public HashMap<NodeId, ContentAddress> Nodes { get; }
  public HashMap<ContentAddress, EdgeMember> Edges { get; }
 
- // The seed reads exactly what the full-state fold reads: the id-inclusive node address per node and the edge
+ // Of seeds from exactly what the full-state fold reads: one id-inclusive node address per node and the edge
  // canonical bytes per edge, both under the snapshot's own Header.Tolerance.
  public static GraphMembers Of(ElementGraph graph) =>
   new(graph.Header,
@@ -209,10 +210,10 @@ public sealed record GraphMembers {
           .Fold(kept, (held, node) => held.AddOrUpdate(node.Id, ContentAddress.Of(node, header.Tolerance))),
          delta.AddedEdges.Fold(edges, (held, edge) => Admit(held, edge, header.Tolerance))))));
 
- // The tolerance-reheader REFUSAL, stated as an arm rather than left to a caller: every held node address was minted
- // on the prior grid and the accumulator kept no payload to re-quantize, so the only honest answer is the full-state
- // re-fold this detail names. Bitwise, per the Federate header law — an == would rule -0.0 and 0.0 one grid.
- // INSTANCE, not static: the resolution reads the accumulator's own held Header as the IfNone floor.
+ // Advance states the tolerance-reheader REFUSAL as an arm rather than leaving it to a caller: every held node address
+ // minted on the prior grid and the accumulator kept no payload to re-quantize, so the full-state re-fold this detail
+ // names is the one honest answer. Comparison is bitwise per the Federate header law — an == rules -0.0 and 0.0 one
+ // grid — and the arity is INSTANCE, never static, so the resolution reads the accumulator's own held Header floor.
  Fin<Header> Regrid(GraphDelta delta, Op key) =>
   delta.Header.Match(
    None: () => Fin.Succ(Header),
@@ -242,18 +243,18 @@ public sealed record GraphMembers {
     slot, member => member with { Count = member.Count + 1 }, new EdgeMember(bytes, 1)),
   };
 
- // The SAME Relationship.ToCanonicalBytes(tolerance) projection the full-state fold sorts, addressed through the one
- // seam key so the multiset and the byte run key on one identity.
+ // Slot reads the SAME Relationship.ToCanonicalBytes(tolerance) projection the full-state fold sorts and addresses it
+ // through the one seam key, so the multiset and the byte run key on one identity.
  static (ContentAddress Slot, ReadOnlyMemory<byte> Bytes) Slot(Relationship edge, double tolerance) =>
   edge.ToCanonicalBytes(tolerance) switch { var bytes => (ContentAddress.Of(bytes.Span), bytes) };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public sealed partial class ContentAddress {
- // The incremental entry re-enters the PRIVATE full-state fold above — same header contribution, same node-address
+ // OfGraph(GraphMembers) re-enters the PRIVATE full-state fold above — same header contribution, same node-address
  // sort, same lexicographic edge-byte sort, same section counts — so the two paths are one projection with two
  // ingresses. Each multiset cell expands to its own count of byte runs, because the full-state fold writes one run
- // per edge INSTANCE and a parallel edge must contribute twice.
+ // per edge INSTANCE and a parallel edge contributes twice.
  public static ContentAddress OfGraph(GraphMembers members) =>
   OfGraph(members.Header,
           toSeq(members.Nodes.Values).Map(static address => address.Value),
@@ -321,10 +322,10 @@ public sealed class CanonicalWriter(double tolerance) {
   // physical measure identically. The token is length-prefixed (String), so a name boundary can never blur into the magnitude.
   CanonicalWriter signature = String(q.Type.Value).Double(q.Si)
    .Ordinal(d.Length).Ordinal(d.Mass).Ordinal(d.Time).Ordinal(d.Current).Ordinal(d.Temperature).Ordinal(d.Amount).Ordinal(d.LuminousIntensity);
-  // The UNCERTAINTY BAND is preimage, not decoration. Two measures agreeing on magnitude and differing only in
-  // declared band are DIFFERENT evidence, so a preimage omitting it deduped them to ONE content-keyed node and
-  // silently destroyed the surviving band — a measured 42 ± 3 and a bare 42 must never share a NodeId.Content.
-  // Presence-prefixed, so an unbanded measure costs one byte and every key stays derivable from the value alone.
+  // CanonicalWriter writes the UNCERTAINTY BAND as preimage, never decoration: two measures agreeing on magnitude
+  // and differing only in declared band are DIFFERENT evidence, so a preimage omitting it dedupes them to ONE
+  // content-keyed node and destroys the surviving band silently — a measured 42 ± 3 and a bare 42 never share a
+  // NodeId.Content. Presence-prefixed, so an unbanded measure costs one byte and every key derives from the value.
   // Bounds and sigma arrive already on the tolerance grid from MeasureValue.Quantize (the ONE rounding owner, so
   // two bands within tolerance address identically); the coverage factor is a declared policy scalar on no physical
   // axis, so it writes raw — a length tolerance has nothing to say about k = 2.
@@ -348,12 +349,13 @@ public sealed class CanonicalWriter(double tolerance) {
 
 ## [05]-[IMPLEMENTATION_LAW]
 
-- [ONE_HASHER]: every address on this seam composes the KERNEL seed-zero `XxHash128` through `ContentHash.Of` — a second hasher, a non-zero seed, or a locally-spelled digest is the named defect, because the content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers and a fork is invisible until two runtimes disagree about one node's id. `GetHashCode` is process-salted in-memory state and is NEVER persisted, wire-compared, or read as identity; `Generator.Equals` stays an orthogonal field diff over the same member set.
-- [THREE_PROJECTIONS]: three distinct projections share the ONE `CanonicalWriter` and are never conflated. The id-INCLUSIVE node address writes the id before the node's canonical bytes, because graph dedup must distinguish two occurrences whose content is identical. The id-EXCLUSIVE `NodeId.Content` mint hashes the content bytes ALONE, because there the id DERIVES from them. The GRAPH address folds the header and the sorted member sets. A consumer reaching for "the node's hash" without naming which of the three is the recurring error this split forecloses.
-- [ORDER_INDEPENDENCE]: the snapshot address SORTS — node addresses by ascending `UInt128`, edge byte runs lexicographically through `ByteOrder` — with a section count before each run, so the layout is self-delimiting and identical content addresses identically whatever order it was inserted, decoded, or federated in. Sorting, not a commutative hash, is the mechanism: a commutative fold would buy cheap incrementality and lose the section framing, admit multiset collisions, and re-key every persisted address in the estate.
-- [PROVENANCE_EXCLUSION]: the graph address folds the SEMANTIC header (schema, model view, tolerance, georeference) and EXCLUDES `StepHeader`/`Instant` provenance — the graph-altitude mirror of the node-level `OwnerHistory` exclusion — so a re-export under a new timestamp or author addresses identically while a schema, view, georeference, or tolerance change forks identity honestly. The node-level mirror carries `Object.Placement` in the same exclusion, so a rigid move is a `Moved` verdict and not a re-key.
-- [PREIMAGE_COVERAGE]: a value's preimage covers EVERY axis its admission can distinguish. Two values that a consumer can tell apart and the writer cannot are one node under the content-keyed mint, and the surviving one's dropped axis is destroyed silently — which is why `Measure` writes the uncertainty band beside the magnitude, every optional column carries a presence bit, and every collection carries its count. Widening a preimage RE-KEYS every node that reaches it exactly once: no pin window is declared anywhere in the estate (the `RULINGS` `ValueBag` identity row establishes that precedent and its terms), so the widening lands as an edit and every corpus snapshot key derives at its own landing rather than as a migration.
-- [VERIFY_REGIME]: `Verify` re-mints by the regime that MINTED the id, never by one uniform re-hash — a TYPE `Object` through `NodeId.RootedType` over its volatile-excluded seed, a non-rooted node through `NodeId.OfContent` over its full canonical bytes, an OCCURRENCE `Object` vacuously because a random Guid-v7 has no content preimage. The single-node `Verify` is a `Fin` (one dependent check, fail-fast) and the snapshot sweep a `Validation` (independent node checks accumulate, so a corrupt snapshot reports every drifted node at once) — the carrier selects the algebra, never a flag. The tolerance MUST be the mint-time `Header.Tolerance` on every content-derived arm, or the quantized re-projection drifts and a sound node reads unstable.
+- [ONE_HASHER]: every address on this seam composes the KERNEL seed-zero `XxHash128` through `ContentHash.Of`, because a fork in that kernel-shared cross-runtime content space stays invisible until two runtimes disagree on one node's id; a second hasher, a non-zero seed, or a locally-spelled digest is the named defect. `GetHashCode` is process-salted in-memory state, never persisted, wire-compared, or read as identity; `Generator.Equals` stays an orthogonal field diff over the same member set.
+- [THREE_PROJECTIONS]: three distinct projections share the ONE `CanonicalWriter` and never conflate — an id-INCLUSIVE node address writes the id ahead of the node's canonical bytes so graph dedup distinguishes two occurrences of identical content, an id-EXCLUSIVE `NodeId.Content` mint hashes the content bytes ALONE because there the id DERIVES from them, and a GRAPH address folds the header with the sorted member sets. Every call site names which of the three it reaches.
+- [ORDER_INDEPENDENCE]: `OfGraph` SORTS the snapshot address — node addresses by ascending `UInt128`, edge byte runs lexicographically through `ByteOrder` — and counts each section ahead of its run, so the layout is self-delimiting and identical content addresses identically in any arrival order. Sorting, never a commutative hash, is the mechanism: a commutative fold buys cheap incrementality, loses the section framing, admits multiset collisions, and re-keys every persisted address.
+- [PROVENANCE_EXCLUSION]: `OfGraph` folds the SEMANTIC header (schema, model view, tolerance, georeference) and EXCLUDES `StepHeader`/`Instant` provenance — the graph-altitude mirror of the node-level `OwnerHistory` exclusion — so a re-export under a new timestamp or author addresses identically while a schema, view, georeference, or tolerance change forks identity honestly. `Object.Placement` rides that same node-level exclusion, so a rigid move is a `Moved` verdict, never a re-key.
+- [PREIMAGE_COVERAGE]: `CanonicalWriter` covers EVERY axis a value's admission distinguishes — the uncertainty band beside a `Measure` magnitude, a presence bit on every optional column, a count on every collection — so two values a consumer tells apart never collapse to one node under the content-keyed mint. Widening a preimage RE-KEYS every node reaching it exactly once and lands as one edit with no pin window, so every corpus snapshot key derives at its own landing.
+- [VERIFY_REGIME]: `Verify` re-mints by the regime that MINTED the id, never by one uniform re-hash — a TYPE `Object` through `NodeId.RootedType` over its volatile-excluded seed, a non-rooted node through `NodeId.OfContent` over its full canonical bytes, an OCCURRENCE `Object` vacuously because a random Guid-v7 has no content preimage. Every content-derived arm re-projects under the mint-time `Header.Tolerance`, or the quantized re-projection drifts and a sound node reads unstable.
+- [VERIFY_CARRIER]: carrier selects the verification algebra, never a flag — the single-node `Verify` fails fast on `Fin` over its one dependent check, and the snapshot sweep accumulates every drifted node on `Validation` over independent per-node checks.
 
 ## [06]-[RESEARCH]
 

@@ -32,17 +32,17 @@
 
 [ENTRYPOINT_SCOPE]: the feature→tile slicing fold (`VectorTileTreeExtensions`)
 
-`VectorTileTree.Add` slices features into per-`{z}/{x}/{y}` tiles; `zoom` defaults to 14, `layerName` to `"default"`. `ToFeatureZoomAndLayerFunc` is `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` — the per-feature LOD/layer discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds onto. `GetExtents` reads the populated pyramid's geographic envelope and zoom span for the `VectorTileSource` TileJSON descriptor.
+`VectorTileTree.Add` slices features into per-`{z}/{x}/{y}` tiles; `zoom` defaults to 14, `layerName` to `"default"`. `ToFeatureZoomAndLayerFunc` is `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` — the per-feature LOD/layer discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds onto. `GetExtents` reads the populated pyramid's geographic bounding envelope and zoom span for the `VectorTileSource` TileJSON descriptor.
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `Add(FeatureCollection, int, string)`                       | fold     | fixed-zoom ingest under one layer name         |
-|  [02]   | `Add(IEnumerable<IFeature>, int, string)`                   | fold     | the `IEnumerable` mirror                       |
-|  [03]   | `Add(FeatureCollection, ToFeatureZoomAndLayerFunc)`         | fold     | per-feature LOD + layer routing                |
-|  [04]   | `Add(IEnumerable<IFeature>, ToFeatureZoomAndLayerFunc)`     | fold     | the routed-ingest `IEnumerable` mirror         |
-|  [05]   | `Add(IEnumerable<(IFeature, int, string)>)`                 | fold     | already-tupled triples, the router bypassed    |
-|  [06]   | `Add(IFeature, int, string)`                                | fold     | the single-feature leaf the batch folds onto   |
-|  [07]   | `VectorTileTree.GetExtents(out double[], out int, out int)` | instance | envelope + zoom span for the TileJSON manifest |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                            |
+| :-----: | :---------------------------------------------------------- | :------- | :------------------------------------------------------ |
+|  [01]   | `Add(FeatureCollection, int, string)`                       | fold     | fixed-zoom ingest under one layer name                  |
+|  [02]   | `Add(IEnumerable<IFeature>, int, string)`                   | fold     | the `IEnumerable` mirror                                |
+|  [03]   | `Add(FeatureCollection, ToFeatureZoomAndLayerFunc)`         | fold     | per-feature LOD + layer routing                         |
+|  [04]   | `Add(IEnumerable<IFeature>, ToFeatureZoomAndLayerFunc)`     | fold     | the routed-ingest `IEnumerable` mirror                  |
+|  [05]   | `Add(IEnumerable<(IFeature, int, string)>)`                 | fold     | already-tupled triples, the router bypassed             |
+|  [06]   | `Add(IFeature, int, string)`                                | fold     | the single-feature leaf the batch folds onto            |
+|  [07]   | `VectorTileTree.GetExtents(out double[], out int, out int)` | instance | bounding envelope + zoom span for the TileJSON manifest |
 
 [ENTRYPOINT_SCOPE]: the WebMercator XYZ tile algebra (`Tile`, `TileRange`, `WebMercatorHandler`)
 

@@ -2,19 +2,15 @@
 
 `ElementWire` owns the proto-first `rasm.element.v1` graph crossing. `ElementGraphWire` and `GraphDeltaWire` mirror closed seam unions; `WireCodec` owns per-case transcription; `Encode` lowers valid values; `DecodeGraph` and `DecodeDelta` re-admit hostile input on `Fin<T>`.
 
-Content keys cross verbatim: `NodeId` as X32 text and `UInt128` as big-endian bytes.
-Every `NodeWire` carries the authoritative id-inclusive address minted under the active header tolerance.
-Decode reuses value admissions; graphs enter through `GraphDelta.AdmitOnto`, and deltas prove `IsNormalForm` before admission.
-`WireLimits` owns parse budgets and address verification.
-`RedactionScope` clears encoded fields and carries the manifest; unstable-node addresses remain evidence but cannot serve OCC.
-Measures carry SI magnitude, quantity token, and dimension exponents.
-`GraphEventEnvelope` carries CloudEvents context metadata beside the protobuf body.
+Content keys cross verbatim — `NodeId` as X32 text, `UInt128` as big-endian bytes — and every `NodeWire` carries the authoritative id-inclusive address minted under the active header tolerance. Decode reuses value admissions, graphs enter through `GraphDelta.AdmitOnto`, deltas prove `IsNormalForm` first, and `WireLimits` owns parse budgets and address verification.
+
+`RedactionScope` clears encoded fields and carries the manifest, so unstable-node addresses remain evidence yet serve no OCC. Measures carry SI magnitude, quantity token, and dimension exponents. `GraphCrossing` composes the kernel message-envelope owner and admits the Protobuf event format over the wire body.
 
 ## [01]-[INDEX]
 
 - [02]-[WIRE_CODEC]: the `rasm.element.v1` messages, `WireCodec` Mapperly transcription and key codecs, `ElementWire` encode/decode boundary, `WireLimits`, and the key, depth, and evolution laws.
 - [03]-[EGRESS_REDACTION]: the `rasm.element` sensitivity taxonomy over the wire's classified columns, the `ClassifiedColumn` roster carrying each column group's `FieldMask` and identity verdict, and `RedactionScope` — the presence-clearing egress policy and its `RedactionManifestWire` receipt.
-- [04]-[EVENT_ENVELOPE]: the `GraphEventType` closed event-token vocabulary and the `GraphEventEnvelope` CloudEvents-aligned crossing metadata — content-key subject dedup, the `Attributes`/`Admit` transport-neutral dual, and the W3C trace slots an app-tier propagator fills.
+- [04]-[EVENT_ENVELOPE]: the `GraphEventType` closed crossing vocabulary over the kernel grammar and `GraphCrossing` — the mint composing `Rasm/Domain/event#ENVELOPE_MINT`, the Protobuf-format frame pair, the content-key `subject`, and the handling grade the egress scope derives.
 
 ## [02]-[WIRE_CODEC]
 
@@ -1847,114 +1843,109 @@ public sealed record RedactionScope {
 
 ## [04]-[EVENT_ENVELOPE]
 
-- Owner: `GraphEventType` closes the `rasm.element.graph.v1` snapshot and `rasm.element.graphdelta.v1` delta tokens. `GraphEventEnvelope` owns the CloudEvents context attributes: `specversion`, `id`, `source`, `type`, `datacontenttype`, `subject`, `time`, and optional W3C `traceparent`/`tracestate`.
-- Entry: `For(ElementGraph, ...)` and `For(GraphDelta, ...)` derive `Subject` through the same content projections used by persistence dedup and observation facts. `Attributes()` emits the canonical unprefixed rows. `Admit(attributes, key)` rejects duplicate, missing, malformed, or reserved `data` attribute names, re-admits the type and content address, compares the protobuf media type case-insensitively, verifies fixed CloudEvents values and derived id, validates the source URI-reference and trace composite, and ignores unknown extension rows.
-- Auto: `Id` equals the subject's X32 value, so republication preserves event identity. Trace admission requires version `00`, non-zero trace and span ids, lowercase fixed-width hex including the complete flags byte, and `tracestate` only beside `traceparent`; vendor-list parsing remains the app propagator's concern.
-- Receipt: the envelope IS the broker-lane metadata — a Kafka/NATS/MQTT/CloudEvents lane at the peer tier publishes a crossing as envelope attributes with the protobuf body, and a streaming consumer folds length-prefixed bodies (`MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` into a pooled sink, `WriteDelimitedTo` the stream-shaped sibling) one envelope per frame, deduped by `Subject`.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + the generated `TryGet`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Map`), NodaTime (`Instant` + `InstantPattern.ExtendedIso` the `time` canon), Google.Protobuf (`MessageExtensions.WriteLengthPrefixedTo` the buffer-writer frame).
-- Growth: a `Breaking` descriptor dial mints a sibling token row, so old consumers keep decoding their own token; a new attribute is one envelope column with its `Attributes`/`Admit` rows; a new broker lane is one carrier adapter at the peer tier, never a seam member.
-- Boundary: the envelope carries metadata alone; the protobuf message is the body. App-tier propagators fill trace slots and promote tenant baggage. Carrier adapters alone add binding prefixes such as `ce-` or `ce_`. `WireKind` remains the in-process decode dimension, and `GraphEventType` remains the transport crossing vocabulary.
+- Owner: `GraphEventType` the closed crossing vocabulary, each row carrying the `Rasm/Domain/event#EVENT_GRAMMAR` `EventType` its facts announce and the `EventSource` naming the producing capability; `GraphCrossing` the seam's composition of the kernel envelope owner — one mint, one Protobuf-framed encode, one decode, and the handling grade an egress scope derives.
+- Entry: `GraphCrossing.Mint(crossing, subject, operation, at, body, ports, key)` composes `EventEnvelope.Mint` and returns its `Fin<CloudEvent>`; `Frame(envelope, key)` composes `EventEnvelope.Encode(EventFormat.Protobuf, …)` and `Admit(frame, key)` composes `EventEnvelope.Decode`, so the crossing owns which format it admits and the kernel owns every codec.
+- Auto: `id` carries the PRODUCING RAIL's operation identity and `subject` the content key, so `(source, id)` is the uniqueness composite a dedup reads and two rails announcing one snapshot stay two events. `subject` renders through `EventKey.Render` — the kernel's ONE envelope content-key spelling — never `ContentAddress.ToValue()`, whose upper-case X32 is this seam's own protobuf and `NodeId` spelling and puts a second rendering of one key on one wire.
+- Auto: `datacontenttype` DERIVES from the encoded message's own descriptor — `application/protobuf` carrying the `messageType` parameter off `IMessage.Descriptor.FullName` — so a consumer selects its parser from the attribute rather than from the topic it arrived on, and a renamed wire message moves the attribute with it. `dataschema` is the composing rail's registry binding and arrives as a value, because this seam runs no registry.
+- Auto: `dataclassification` DERIVES from the egress scope through `#EGRESS_REDACTION`'s own roster — a scope claiming every `ClassifiedColumn` row grades `internal`, and every lesser scope (`RedactionScope.None` included) grades `restricted`, whose `DataGrade.Redact` column states the redaction route is still owed. A crossing therefore cannot announce a handling class its cleared-column roster contradicts.
+- Receipt: the envelope IS the broker-lane metadata — the protobuf body is `Data` and the frame's `ContentType` is what a binding stamps — and a streaming consumer folds length-prefixed bodies (`MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` into a pooled sink, `WriteDelimitedTo` the stream-shaped sibling) one frame per crossing, deduped on `(source, id)`.
+- Packages: Rasm (`Rasm.Domain` `EventEnvelope.Mint`/`.Encode`/`.Decode`, `EventMint`, `EventType`/`EventSource`/`EventKey`, `EventExtension`/`EventRoster`, `EventFormat.Protobuf`, `EventFrame`, `DataGrade`, `TraceCarrier`), CloudNative.CloudEvents (`CloudEvent` — the envelope value crossing this seam's signatures), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + the generated `TryGet`), LanguageExt.Core (`Fin`/`Option`/`Seq`), NodaTime (`Instant`), Google.Protobuf (`IMessage.Descriptor`, `MessageExtensions.ToByteArray`/`WriteLengthPrefixedTo`).
+- Growth: a new crossing is one `GraphEventType` row carrying its own `EventType`, so a `Breaking` descriptor dial moves that row's major and old consumers keep matching their own; a new envelope dimension is one `EventExtension` row at the kernel owner and one `Extensions` entry here; a new broker lane is one binding row at its consuming owner, never a seam member.
+- Boundary: the envelope carries metadata alone and the protobuf message is the body; bindings, content mode, prefixes, `dataref` residence, and delivery guarantees seat at the consuming owner. The creation-time trace arrives as a `TraceCarrier` VALUE the composing rail captured — this seam neither reads `Activity.Current` nor formats a `traceparent`, because the kernel mint owns the stamp and the propagator owns the format. `WireKind` stays the in-process decode dimension `Projection/observe` tags facts with; `GraphEventType` stays the transport crossing vocabulary.
+
+| [INDEX] | [CROSSING]  | [TYPE]                            | [SOURCE]                | [BODY]              |
+| :-----: | :---------- | :-------------------------------- | :---------------------- | :------------------ |
+|  [01]   | `snapshot`  | `rasm.element.graph.frozen.v1`    | `rasm:element/snapshot` | `ElementGraphWire`  |
+|  [02]   | `delta`     | `rasm.element.delta.appended.v1`  | `rasm:element/delta`    | `GraphDeltaWire`    |
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// Closed event-token vocabulary every broker-published crossing rides — the version suffix is part of the
-// token, so a Breaking descriptor dial mints a sibling row and old consumers keep decoding their own token.
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Net.Mime;
+using CloudNative.CloudEvents;
+using Google.Protobuf;
+using NodaTime;
+using Rasm.Domain;
+using Rasm.Element.Wire;
+
+namespace Rasm.Element.Graph;
+
+// --- [TYPES] ----------------------------------------------------------------------------------
+// Closed crossing vocabulary. Each row carries the kernel `EventType` its facts announce rather than a literal
+// token: `Of` assembles the four grammar segments, so a row cannot spell a type the estate grammar refuses and a
+// major move is one argument on the row that owns it. `Source` names the producing CAPABILITY under the same
+// grammar, so no host, deployment, or topic can enter the identity a consumer keys its subscription on.
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GraphEventType {
- public static readonly GraphEventType Graph = new("rasm.element.graph.v1");
- public static readonly GraphEventType Delta = new("rasm.element.graphdelta.v1");
+ private const string Domain = "element";
+
+ public static readonly GraphEventType Snapshot = new("snapshot", subject: "graph", fact: "frozen");
+ public static readonly GraphEventType Delta = new("delta", subject: "delta", fact: "appended");
+
+ private GraphEventType(string key, string subject, string fact) : this(key) =>
+  (Type, Source) = (EventType.Of(Domain, subject, fact, major: 1), EventSource.Of(Domain, capability: key));
+
+ public EventType Type { get; }
+
+ public EventSource Source { get; }
 }
 
-// CloudEvents context metadata. Subject is the content-key dedup identity; app propagators fill trace slots.
-public sealed record GraphEventEnvelope {
- public const string CloudEventsSpecVersion = "1.0";
- public const string ProtobufContentType = "application/protobuf";
+// --- [MODELS] ---------------------------------------------------------------------------------
+// The composing rail's own contributions, so this seam never invents one: `Operation` is the producing rail's
+// operation identity that `id` carries (a content digest there would make two rails announcing one snapshot into
+// one event and drop the second), `Schema` the registry binding a serdes arrow resolved, `Trace` the creation-time
+// pair the rail captured, and `Extensions` whatever rostered rows the rail adds. Every slot is a value, so this
+// page reads no ambient clock, no ambient activity, and no registry.
+public readonly record struct CrossingPorts(
+ string Operation,
+ Option<Uri> Schema,
+ TraceCarrier Trace,
+ Seq<(EventExtension Row, object Value)> Extensions);
 
- private GraphEventEnvelope(GraphEventType type, string source, ContentAddress subject, NodaTime.Instant at,
-  Option<string> traceParent, Option<string> traceState) =>
-  (Type, Source, Subject, At, TraceParent, TraceState) = (type, source, subject, at, traceParent, traceState);
+// --- [OPERATIONS] -------------------------------------------------------------------------------
+public static class GraphCrossing {
+ // ONE mint: the kernel owner funnels construction, every rostered write, and `Validate()` through its own rail,
+ // so this seam composes an admitted request and never touches a `CloudEvent` slot. `subject` and the handling
+ // grade are the two rows this seam derives; every other value arrives admitted.
+ public static Fin<CloudEvent> Mint(GraphEventType crossing, ContentAddress subject, Instant at,
+   IMessage body, CrossingPorts ports, Op key, Option<RedactionScope> scope = default) =>
+  EventEnvelope.Mint(
+   new EventMint(
+    Type: crossing.Type,
+    Source: crossing.Source,
+    Id: ports.Operation,
+    Subject: Some(EventKey.Render(subject.Value)),
+    Time: at,
+    DataSchema: ports.Schema,
+    DataContentType: Some(ContentType(body)),
+    Data: body.ToByteArray(),
+    Trace: ports.Trace,
+    Extensions: ports.Extensions.Add((EventExtension.DataClassification, Grade(scope).Key))),
+   key);
 
- public GraphEventType Type { get; }
- public string Source { get; }
- public ContentAddress Subject { get; }
- public NodaTime.Instant At { get; }
- public Option<string> TraceParent { get; }
- public Option<string> TraceState { get; }
+ // Structured self-contained frame: the kernel encode chooses the framing and hands back the carrier a binding
+ // stamps, so a lane that carries one message whole needs no second encoder and a batch is the same call at a
+ // higher arity. A binary-mode lane instead ships `Data` beside the binding's own attribute headers and reads
+ // `datacontenttype` for its parser — one envelope, two placements, zero re-packs.
+ public static Fin<EventFrame> Frame(Op key, params ReadOnlySpan<CloudEvent> envelopes) =>
+  EventEnvelope.Encode(EventFormat.Protobuf, key, envelopes);
 
- // Event identity derives from the subject, so a re-published crossing dedups by construction.
- public string Id => Subject.ToValue();
+ public static Fin<Seq<CloudEvent>> Admit(EventFrame frame, Op key) => EventEnvelope.Decode(frame, key);
 
- public static Fin<GraphEventEnvelope> For(ElementGraph graph, string source, NodaTime.Instant at, Op key,
-  Option<string> traceParent = default, Option<string> traceState = default) =>
-  Of(GraphEventType.Graph, source, ContentAddress.OfGraph(graph), at, traceParent, traceState, key);
+ // The handling class the crossing announces is the SCOPE's own answer: a scope claiming every classified row
+ // ships a body whose commercial and personal columns are already cleared, and every lesser scope still carries
+ // them, so `DataGrade.Redact` reads true exactly while the redaction route is owed. Deriving the grade forecloses
+ // a crossing that labels itself clean while its manifest lists nothing.
+ public static DataGrade Grade(Option<RedactionScope> scope) =>
+  scope.Map(static claimed => claimed.Columns.Count == ClassifiedColumn.Items.Count).IfNone(false)
+   ? DataGrade.Internal
+   : DataGrade.Restricted;
 
- public static Fin<GraphEventEnvelope> For(GraphDelta delta, double tolerance, string source, NodaTime.Instant at, Op key,
-  Option<string> traceParent = default, Option<string> traceState = default) =>
-  Of(GraphEventType.Delta, source, ContentAddress.Of(delta.ToCanonicalBytes(tolerance).Span), at, traceParent, traceState, key);
-
- // Canonical unprefixed context rows; each carrier owns its binding prefix.
- public Seq<(string Key, string Value)> Attributes() {
-  Seq<(string Key, string Value)> rows =
-   [("specversion", CloudEventsSpecVersion), ("id", Id), ("source", Source), ("type", Type.Key),
-    ("datacontenttype", ProtobufContentType), ("subject", Subject.ToValue()),
-    ("time", NodaTime.Text.InstantPattern.ExtendedIso.Format(At))];
-  rows = TraceParent.Match(Some: held => rows.Add(("traceparent", held)), None: () => rows);
-  return TraceState.Match(Some: held => rows.Add(("tracestate", held)), None: () => rows);
- }
-
- // Consumer inverse: duplicate canonical names rail; unknown extension rows are tolerated and ignored.
- public static Fin<GraphEventEnvelope> Admit(Seq<(string Key, string Value)> attributes, Op key) {
-  bool malformedName = attributes.AsEnumerable().Any(static row => !AttributeShaped(row.Key));
-  bool duplicated = attributes.Map(static row => row.Key).Distinct().Count != attributes.Count;
-  Map<string, string> frame = attributes.Fold(Map<string, string>(), static (held, row) => held.AddOrUpdate(row.Key, row.Value));
-  return malformedName ? ElementFault.ValueRejected(key, "<event-attribute-name-malformed>")
-   : duplicated ? ElementFault.ValueRejected(key, "<event-attribute-duplicate>")
-   : Required(frame, "specversion", key).Bind(specVersion =>
-    Required(frame, "id", key).Bind(id =>
-     Required(frame, "type", key).Bind(token =>
-      Required(frame, "source", key).Bind(source =>
-       Required(frame, "datacontenttype", key).Bind(contentType =>
-        Required(frame, "subject", key).Bind(subject =>
-         Required(frame, "time", key).Bind(time =>
-          specVersion != CloudEventsSpecVersion ? ElementFault.ValueRejected(key, $"<event-specversion:{specVersion}>")
-          : !string.Equals(contentType, ProtobufContentType, StringComparison.OrdinalIgnoreCase)
-           ? ElementFault.ValueRejected(key, $"<event-datacontenttype:{contentType}>")
-          : id != subject ? ElementFault.ValueRejected(key, $"<event-id-subject-mismatch:{id}:{subject}>")
-          : !GraphEventType.TryGet(token, out GraphEventType? kind) ? ElementFault.ValueRejected(key, $"<event-type-unknown:{token}>")
-          : ContentAddress.Validate(subject, null, out ContentAddress? address) is not null ? ElementFault.ValueRejected(key, $"<event-subject-malformed:{subject}>")
-          : NodaTime.Text.InstantPattern.ExtendedIso.Parse(time) is { Success: true } at
-           ? Of(kind!, source, address!, at.Value, frame.Find("traceparent"), frame.Find("tracestate"), key)
-           : ElementFault.ValueRejected(key, $"<event-time-malformed:{time}>"))))))));
- }
-
- static Fin<GraphEventEnvelope> Of(GraphEventType type, string source, ContentAddress subject, NodaTime.Instant at,
-  Option<string> traceParent, Option<string> traceState, Op key) =>
-  string.IsNullOrWhiteSpace(source) || !Uri.TryCreate(source.Trim(), UriKind.RelativeOrAbsolute, out _)
-   ? ElementFault.ValueRejected(key, "<event-source-uri-reference>")
-  : traceParent.Match(Some: static held => !TraceParentShaped(held), None: static () => false)
-   ? ElementFault.ValueRejected(key, "<event-traceparent-malformed>")
-  : traceState.Match(Some: static _ => true, None: static () => false)
-    && traceParent.Match(Some: static _ => false, None: static () => true)
-   ? ElementFault.ValueRejected(key, "<event-tracestate-without-traceparent>")
-  : traceState.Match(Some: static held => string.IsNullOrWhiteSpace(held), None: static () => false)
-   ? ElementFault.ValueRejected(key, "<event-tracestate-blank>")
-  : Fin.Succ(new GraphEventEnvelope(type, source.Trim(), subject, at, traceParent, traceState));
-
- static Fin<string> Required(Map<string, string> frame, string attribute, Op key) =>
-  frame.Find(attribute).ToFin(ElementFault.ValueRejected(key, $"<event-attribute-absent:{attribute}>"));
-
- // CloudEvents context and extension attribute names are lowercase ASCII alphanumerics, at most twenty chars; data is reserved.
- static bool AttributeShaped(string value) =>
-  value is { Length: > 0 and <= 20 }
-   && value != "data"
-   && value.All(static c => c is >= 'a' and <= 'z' or >= '0' and <= '9');
-
- // W3C version-00 traceparent: fixed lowercase hex fields with non-zero trace and span ids; every flags byte is admitted.
- static bool TraceParentShaped(string value) =>
-  value is { Length: 55 } && value[2] == '-' && value[35] == '-' && value[52] == '-'
-   && value.StartsWith("00-", StringComparison.Ordinal)
-   && value[3..35].Any(static c => c != '0') && value[36..52].Any(static c => c != '0')
-   && value.Index().All(static slot => slot.Index is 2 or 35 or 52 || char.IsAsciiHexDigitLower(slot.Item));
+ // Content type DERIVES from the message's own descriptor, so a consumer selects its parser from the attribute
+ // rather than from the topic, and a renamed wire message moves the declaration with it.
+ static string ContentType(IMessage body) =>
+  new ContentType("application/protobuf") { Parameters = { ["messageType"] = body.Descriptor.FullName } }.ToString();
 }
 ```
 
@@ -1964,7 +1955,7 @@ public sealed record GraphEventEnvelope {
 - [NODE_OCC_ADDRESS]: `content_address` mints under the active header tolerance; delta encode requires its basis header.
 - [CODEC_DIVISION]: `Grpc.Tools` emits messages, Mapperly emits field transcription, Thinktecture `Switch` owns seam-case encode dispatch, and protobuf case enums own decode dispatch. Reflection and parallel hand-written mappings are forbidden.
 - [ADMISSION_AND_DEPTH_GATE]: `DecodeGraph` and `DecodeDelta` parse under positive `WireLimits`. Every decoded value re-crosses its owner gate before the aggregate reaches `AdmitOnto` or `IsNormalForm`. Duplicate node ids rail on a raw-id scan before value admission. Unset cases, unknown rows, invalid values, and illegal structure share the in-process typed rail.
-- [EVENT_ENVELOPE]: `GraphEventEnvelope` derives subject and id from the crossing content key, emits canonical CloudEvents attributes, and carries app-filled W3C trace data. Carrier adapters own binding prefixes. Protobuf streaming uses `WriteLengthPrefixedTo` for buffer writers and `WriteDelimitedTo` for streams.
+- [EVENT_ENVELOPE]: `GraphCrossing` composes the kernel envelope owner whole — one mint, one Protobuf-framed encode, one decode — with `id` the composing rail's operation identity, `subject` the content key under the kernel `EventKey` spelling, `datacontenttype` derived from the body descriptor, and `dataclassification` from the egress scope; binding prefixes, content mode, and `dataref` residence own at the consuming binding; Protobuf streaming rides `WriteLengthPrefixedTo`/`WriteDelimitedTo`.
 - [EGRESS_REDACTION]: a scoped crossing clears classified field paths on the encoded message and carries its `RedactionManifestWire`. Source content keys survive — no key re-derives over redacted bytes — and the verifying decode admits exactly the manifest-named nodes as declared-unstable while a drifted node outside that roster still faults `AddressUnstable`. A redacted crossing is a DISTINCT byte stream from its unredacted twin, so parity vectors are forged and compared unredacted and a redaction policy never enters a parity gate.
 - [CONTRACT_EVOLUTION]: `rasm/element/v1/element.proto` is the descriptor source. Appended fields and new `oneof` arms are additive; renumbers, incompatible type changes, and unreserved removals are breaking. Whole-graph parity literals remain governed by `Graph/corpus`'s terminal research route until exact addresses exist.
 

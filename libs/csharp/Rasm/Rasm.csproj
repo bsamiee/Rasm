@@ -22,6 +22,15 @@
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
+    <ItemGroup Label="Event Envelope">
+        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="CloudNative.CloudEvents.Avro" />
+        <PackageReference Include="CloudNative.CloudEvents.Protobuf" />
+        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
     <ItemGroup Label="Bounded Lanes">
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />

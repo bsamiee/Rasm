@@ -1,11 +1,25 @@
 # [ELEMENT_MATERIAL]
 
-The host-neutral material owner: the `MaterialId` `[ValueObject<string>]` a `Material` node keys on, one `MaterialComposition` `[Union]` closing the type-level material-set structure (`Single`/`LayerSet`/`ProfileSet`/`ConstituentSet`), and one `MaterialPropertySet` `[Union]` closing the typed engineering-property family (`Mechanical`/`Orthotropic`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`/`Damping`/`Hygrothermal`/`Durability`/`Optical`) keyed to the one `Classification/classification#DISCIPLINE_AXIS` `Discipline`. A material is a FULL engineering object: a `Material` node carries its composition and its property sets over one `MaterialId`, so a consumer reads a material's U-value, sound spectrum, fire REI rating, structural grade, seismic damping, moisture-storage curve, service-life diffusion data, solar-optical constants, embodied carbon, and cost from one node — never a `StructuralMaterial`/`ThermalMaterial`/`AcousticMaterial` surface, never a per-discipline material type. Every multi-column admission ACCUMULATES: the `Of*` smart-constructors run each independent column as a concrete `Validation<Error,_>` slot joined by the tuple `.Apply` and collapse `.As().ToFin()` once, so a bad datasheet reports every offending column in one `Fin.Fail` (`ManyErrors`), never first-fault-wins. `MaterialComposition` and `MaterialPropertySet` are the seam's two material owners: the `Rasm.Materials` projector lowers its material subgraph onto `Material` nodes carrying them, and the `Rasm.Bim` projector reads them. The occurrence usage binding (layer direction/offset, profile cardinal point) is NOT here — it rides the `Relations/relation#EDGE_ALGEBRA` `Associate` edge, this owner carrying only the type-level SET structure. The page composes `Properties/quantity#MEASURE_VALUE` for every measured column (`MeasureValue.Of` SI coercion + the `Dimension` discriminator), `Composition/acoustic#ACOUSTIC_FOLDS` for the `Acoustic` case, and `Classification/classification#DISCIPLINE_AXIS` for the property-to-discipline key; a non-finite or out-of-range admission rails `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected`. The page references NO VividOrange — a `ProfileSet` carries its `Seq<MaterialProfile>` rows, each a neutral `ProfileRef` with its IFC junction priority, function category, and reference-axis offsets, PLUS the neutral `SectionProperties` the `Rasm.Materials` projector resolves ONE-HOP (M7) and BAKES on (`WithSection`), so a `Rasm.Compute` structural consumer reads the section off the seam graph (`ElementGraph.SectionOf`) without re-resolving or admitting VividOrange while a built-up compound keeps every row rather than its primary alone. The `SectionProperties` receipt carries the FULL structural-design and fire column set the `Rasm.Compute` design-code checks read off the seam (the AISC 360 / EN 1993 / AISI S100 / ACI 318 / NDS / TMS 402 flexure-shear-compression and the EN 1993-1-2 / EN 1992-1-2 fire routes) — a CONSUMER-CONTRACT-driven shape, the `Rasm.Materials` projector resolving the elastic columns from the VividOrange polygon solver and computing the plastic moduli / torsion constant / shear areas / shear-centre offsets / mono-symmetry factor the solver does not expose (the asymmetric-section columns the EN 1993-1-1 §6.3.2 general LTB route needs for a channel/tee/angle, zero on a doubly-symmetric section), never a per-element-type section receipt.
+`Material` nodes key on `MaterialId` `[ValueObject<string>]`, carry one `MaterialComposition` `[Union]` closing the type-level material-set structure (`Single`/`LayerSet`/`ProfileSet`/`ConstituentSet`), and carry one `MaterialPropertySet` `[Union]` closing the typed engineering-property family keyed to the one `Classification/classification#DISCIPLINE_AXIS` `Discipline`.
+
+Each material is a FULL engineering object: one node carries U-value, sound spectrum, fire REI rating, structural grade, seismic damping, moisture-storage curve, service-life diffusion data, solar-optical constants, embodied carbon, and cost together — never a per-discipline material type.
+
+Every multi-column admission ACCUMULATES: the `Of*` smart-constructors run each independent column as a concrete `Validation<Error,_>` slot joined by the tuple `.Apply` and collapse `.As().ToFin()` once, so a bad datasheet reports every offending column in one `Fin.Fail` (`ManyErrors`), never first-fault-wins.
+
+`MaterialComposition` and `MaterialPropertySet` are the seam's two material owners: the `Rasm.Materials` projector lowers its material subgraph onto `Material` nodes carrying them, and the `Rasm.Bim` projector reads them. `Relations/relation#EDGE_ALGEBRA` `Associate` carries the occurrence usage binding (layer direction/offset, profile cardinal point), this owner keeping only the type-level SET structure.
+
+`MaterialPropertySet` composes `Properties/quantity#MEASURE_VALUE` for every measured column (`MeasureValue.Of` SI coercion with the `Dimension` discriminator), `Composition/acoustic#ACOUSTIC_FOLDS` for the `Acoustic` case, and `Classification/classification#DISCIPLINE_AXIS` for the property-to-discipline key; a non-finite or out-of-range admission rails `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected`.
+
+`ProfileSet` carries its `Seq<MaterialProfile>` rows — each a neutral `ProfileRef` with its IFC junction priority, function category, and reference-axis offsets, beside the neutral `SectionProperties` the `Rasm.Materials` projector resolves ONE-HOP (M7) and BAKES on (`WithSection`) — so a `Rasm.Compute` structural consumer reads the section off the seam graph (`ElementGraph.SectionOf`) without re-resolving or admitting VividOrange, and a built-up compound keeps every row rather than its primary alone.
+
+`SectionProperties` carries the FULL structural-design and fire column set the `Rasm.Compute` design-code checks read off the seam (the AISC 360 / EN 1993 / AISI S100 / ACI 318 / NDS / TMS 402 flexure-shear-compression and the EN 1993-1-2 / EN 1992-1-2 fire routes) — a CONSUMER-CONTRACT-driven shape, never a per-element-type section receipt.
+
+`Rasm.Materials` resolves its elastic columns from the VividOrange polygon solver and computes the plastic moduli, torsion constant, shear areas, shear-centre offsets, and mono-symmetry factor the solver does not expose — the asymmetric-section columns the EN 1993-1-1 §6.3.2 general LTB route needs for a channel, tee, or angle, zero on a doubly-symmetric section.
 
 ## [01]-[INDEX]
 
-- [02]-[MATERIAL_COMPOSITION]: the `MaterialId` key, the `MaterialComposition` `[Union]` (`Single`/`LayerSet`/`ProfileSet`/`ConstituentSet`) with the `Of`-prefixed admissions, the private-constructor admission gate on the invariant-bearing cases, the `MaterialLayer`/`MaterialConstituent`/`MaterialProfile` rows with their IFC per-row `Priority`/`Category`/`Ventilated`/`PartName`/`Offsets` columns, the `ProfileRef` neutral section reference, and the consumer-shaped neutral `SectionProperties` the M7 bake stamps.
-- [03]-[MATERIAL_PROPERTY]: the class-root `MaterialPropertySet` `[Union]` + `[Equatable]` (`Mechanical`/`Orthotropic`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`/`Damping`/`Hygrothermal`/`Durability`/`Optical`) keyed to `Discipline`, the `FireRating`/`SmokeClass`/`DropletClass` reaction vocabulary and the `FireResistance` REI criteria, the `ImpactCategory` EN 15804+A2 indicator vocabulary the `Environmental` case bands its `(ImpactCategory × LifecycleStage)` impact matrix over, the derived isotropic shear modulus (and the realized `Orthotropic` directional-stiffness case the `Rasm.Materials` `timber#TIMBER_FAMILY` lowers into), the EN 1998 `Damping` / EN 15026 `Hygrothermal` / fib Model Code `Durability` discipline carriers, the accumulating `Of` admissions over the `[ADMISSION_SLOTS]` combinators, and the one generic `Property<T>()` typed lookup the named per-discipline reads derive from.
+- [02]-[MATERIAL_COMPOSITION]: `MaterialId` key, `MaterialComposition` `[Union]` (`Single`/`LayerSet`/`ProfileSet`/`ConstituentSet`) with its `Of`-prefixed admissions and private-constructor gate on the invariant-bearing cases, the `MaterialLayer`/`MaterialConstituent`/`MaterialProfile` rows with their IFC per-row `Priority`/`Category`/`Ventilated`/`PartName`/`Offsets` columns, `ProfileRef` the neutral section reference, and the consumer-shaped neutral `SectionProperties` the M7 bake stamps.
+- [03]-[MATERIAL_PROPERTY]: `MaterialPropertySet` the class-root `[Union]` + `[Equatable]` keyed to `Discipline`, the `FireRating`/`SmokeClass`/`DropletClass` reaction vocabulary and the `FireResistance` REI criteria, `ImpactCategory` the EN 15804+A2 indicator vocabulary the `Environmental` case bands its `(ImpactCategory × LifecycleStage)` matrix over, the accumulating `Of` admissions over `[ADMISSION_SLOTS]`, and the one generic `Property<T>()` lookup the named per-discipline reads derive from.
 
 ## [02]-[MATERIAL_COMPOSITION]
 
@@ -42,7 +56,7 @@ public sealed partial class MaterialId {
  public static MaterialId Of(string value) => Create(value);   // the codebase .Of factory the cross-package catalogues key on
 }
 
-// A neutral section-profile reference: a catalogue designation (+ optional standard + content key) the
+// ProfileRef names a neutral section profile: a catalogue designation (with optional standard and content key) the
 // Rasm.Materials projector resolves ONE-HOP (M7) to the neutral SectionProperties it BAKES onto the ProfileSet
 // composition, so a Rasm.Compute structural consumer reads graph.SectionOf(member) without re-resolving or
 // admitting VividOrange. The content key projects the normalized (standard, designation) through the ONE canonical
@@ -79,7 +93,7 @@ public readonly partial record struct ProfileRef {
  }
 }
 
-// The neutral section-property receipt the Rasm.Materials projector BAKES onto a ProfileSet composition (M7) — the
+// SectionProperties IS the neutral receipt the Rasm.Materials projector BAKES onto a ProfileSet composition (M7) — the
 // FULL structural-design + fire column set the Rasm.Compute design-code checks read off the seam (a CONSUMER CONTRACT,
 // not a source slice): Area, both-axis second moment of area (Iyy/Izz), St-Venant torsion constant (J), warping
 // constant (Iw, the EN 1993-1-1 §6.3.2 / AISC 360 Ch.F lateral-torsional-buckling input the bare J cannot supply), both-axis
@@ -113,9 +127,9 @@ public readonly partial record struct ProfileRef {
 // offset), or an angle (both offsets): a doubly-symmetric I-section places its shear centre AT the centroid so all three read
 // ZERO, never smuggling an asymmetry onto the symmetric baseline. A symmetric-only column set leaves a PFC/tee
 // flexural-torsional-buckling-uncheckable, so the resolver sources all three from the section geometry.
-// A CLASS-ROOT [Equatable] is NOT used (no discriminator, every field present) — the record-struct is [Equatable] so the
-// Rasm.Persistence 3-way StructuralMerge drills a changed section column to Composition.Section.<column> rather than replacing
-// the whole Option<SectionProperties>; the drill bottoms at the MeasureValue column (a native-equality record struct the
+// Seating [Equatable] at a CLASS ROOT is refused here (no discriminator, every field present) — the record-struct carries it so the
+// Rasm.Persistence 3-way StructuralMerge drills a changed section column to Composition.Section.<column> rather than replacing the whole
+// Option<SectionProperties>; the drill bottoms at the MeasureValue column (a native-equality record struct the
 // Generator.Equals DefaultEqualityComparer compares atomically — the measure IS the merge leaf, Properties/quantity).
 [Equatable]
 public readonly partial record struct SectionProperties(
@@ -127,11 +141,11 @@ public readonly partial record struct SectionProperties(
  // EN 1992-1-2 concrete-fire minimum cross-section dimension — derived min(Depth, Width), never a stored column
  // that could drift from the bounding extents the projector sources.
  public MeasureValue LeastDimension => Depth.Si <= Width.Si ? Depth : Width;
- // A doubly-symmetric section: the shear centre coincides with the centroid (both offsets zero) AND the mono-symmetry
+  // IsDoublySymmetric reads the shear centre coinciding with the centroid (both offsets zero) AND the mono-symmetry
  // factor vanishes — the predicate the EN 1993-1-1 §6.3.2 route reads to take the simplified (doubly-symmetric) LTB form
  // rather than the general one, derived from the offsets the resolver stamped, never a stored "isDoublySymmetric" flag.
  public bool IsDoublySymmetric => ShearCentreY.Si == 0.0 && ShearCentreZ.Si == 0.0 && MonosymmetryFactor == 0.0;
- // The receipt's OWN canonical contribution (the MaterialComposition.CanonicalBytes co-location discipline): every
+  // CanonicalBytes contributes the receipt's OWN bytes (the MaterialComposition.CanonicalBytes co-location discipline): every
  // measured column through the tolerance-quantized Measure canon in declared order, the dimensionless β_y through
  // Double — the ProfileSet arm delegates here, so two compositions differing only in a baked section column (a
  // re-resolved catalogue revision's Wply, a changed AxisDistance) address as the distinct materials they are.
@@ -209,10 +223,10 @@ public readonly record struct PropertyEvidence(string Source, string Reference, 
  }
 }
 
-// The generic sampled-function carrier for STATE-DEPENDENT material properties — the measured-curve evidence the
+// SampledCurve carries STATE-DEPENDENT material properties as a generic sampled function — the measured-curve evidence the
 // transient physics runs on where a point scalar under-models: the EN 15026/WUFI sorption isotherm w(φ), the liquid
 // transport coefficient Dw(w), the moisture-dependent conductivity λ(w), a temperature-dependent datasheet column.
-// The Composition/acoustic banded-carrier pattern generalized to a DECLARED axis: Axis strictly increasing and
+// SampledCurve generalizes the Composition/acoustic banded carrier onto a DECLARED axis: Axis strictly increasing and
 // finite, Values finite at matching arity, both [OrderedEquality] ImmutableArray<double> content-equality stores the
 // StructuralMerge drills per sample and CanonicalBytes writes each adjacent collection run count-prefixed through the Double canon; At(x, key) is the
 // piecewise-LINEAR read clamped to the end samples (the WUFI table-interpolation convention), derived from the stored
@@ -262,7 +276,7 @@ public sealed partial record SampledCurve {
   for (int i = 0; i < v.Length; i++) { w.Double(v[i]); }
  }
 
- // The ONE finiteness span scan this owner and the MaterialPropertySet Matrix slot share.
+  // AllFinite is the ONE finiteness span scan this owner and the MaterialPropertySet Matrix slot share.
  internal static bool AllFinite(ReadOnlySpan<double> values) {
   foreach (double d in values) { if (!double.IsFinite(d)) { return false; } }
   return true;
@@ -274,7 +288,7 @@ public sealed partial record SampledCurve {
  }
 }
 
-// A CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
+// MaterialComposition takes the CLASS-root [Union] + [Equatable] [GRAPH_FAMILY] form, never a record-root: a class-root union surrenders
 // Thinktecture's record-generated equality, so structural equality AND the member-level structured diff ride Generator.Equals
 // [Equatable] (never stacked on a record-root union). [Equatable] is LOAD-BEARING, not decorative: the Graph/element#NODE_MODEL
 // Node.Material carries this MaterialComposition as a member, the Node.Material [Equatable] drill descends ONE [Equatable] link
@@ -331,7 +345,7 @@ public abstract partial class MaterialComposition {
   public MaterialProfile Primary => Profiles[0];
   public MaterialId Material => Primary.Material;
   public ProfileRef Profile => Composite.IfNone(Primary.Profile);
-  // The M7 section bake lives HERE: a class-root [Union] case has NO compiler-generated `with`, so With RECONSTRUCTS the
+  // With owns the M7 section bake: a class-root [Union] case has NO compiler-generated `with`, so With RECONSTRUCTS the
   // case (the base WithSection delegates here so the base never copies a case across the private-ctor type boundary).
   // Section is the ONLY member that changes; the resolved neutral SectionProperties stamps once at projection.
   public ProfileSet With(SectionProperties section) => new(Profiles, Composite, Some(section));
@@ -361,13 +375,13 @@ public abstract partial class MaterialComposition {
   profileSet: static s => s.Material,
   constituentSet: static s => s.Constituents.OrderByDescending(static c => c.Fraction).First().Material);
 
- // The M7 bake: the Rasm.Materials projector resolves the ProfileRef one-hop and stamps the neutral section onto
+  // WithSection lands the M7 bake: the Rasm.Materials projector resolves the ProfileRef one-hop and stamps the section onto
  // a ProfileSet composition, so a structural consumer reads it through graph.SectionOf without re-resolving.
  public MaterialComposition WithSection(SectionProperties section) =>
   this is ProfileSet ps ? ps.With(section) : this;
 
- // The canonical projection through the Projection/address#CONTENT_ADDRESS writer: case ordinal then
- // the typed set members in declared order, layer thicknesses quantized through MeasureValue. The ProfileSet
+  // CanonicalBytes projects through the Projection/address#CONTENT_ADDRESS writer: case ordinal then the typed
+ // set members in declared order, layer thicknesses quantized through MeasureValue. The ProfileSet
  // arm covers EVERY case field — the Bool-prefixed baked Section delegates to the receipt's own CanonicalBytes,
  // so a WithSection bake (which runs at projection, BEFORE the Material node's content-keyed mint) and a
  // re-resolved section column both fork the node identity; an unresolved (None) and a resolved (Some) profile
@@ -413,7 +427,7 @@ public abstract partial class MaterialComposition {
   .Apply((_, _, _) => (MaterialComposition)LayerSet.Seed(layers))
   .As().ToFin();
 
- // A constituent set is a composite MIXTURE: the fractions are proportions of the whole, so they normalize to one
+  // OfConstituentSet admits a composite MIXTURE: the fractions are proportions of the whole, so they normalize to one
  // within tolerance (the Rasm.Compute rule-of-mixtures fold reads them normalized and never re-guards) — a set that
  // does not sum to unity is a malformed mixture the admission rejects, the seam carrying only valid composites.
  public static Fin<MaterialComposition> OfConstituentSet(Seq<MaterialConstituent> constituents, Op key) =>
@@ -430,13 +444,13 @@ public abstract partial class MaterialComposition {
 ## [03]-[MATERIAL_PROPERTY]
 
 - Owner: `MaterialPropertySet` the `[Union]` typed engineering-property family keyed to `Discipline`; `FireRating` the `[SmartEnum<string>]` reaction-to-fire class with `SmokeClass`/`DropletClass` the EN 13501-1 sub-classifications; `FireResistance` the EN 13501-2 R/E/I criteria; the `Of` admissions coercing each measured column through `Properties/quantity#MEASURE_VALUE`.
-- Cases: `Mechanical` (density / Young's modulus / yield strength / ultimate strength as `MeasureValue`, Poisson's ratio + thermal-expansion as guarded dimensionless doubles, the isotropic shear modulus DERIVED `G = E/(2(1+ν))` — `Discipline.Structural`) · `Orthotropic` (density / the two principal moduli `E1∥`/`E2⊥` / the INDEPENDENT measured shear modulus `G` / the two principal strengths as `MeasureValue` + thermal-expansion — the directional-stiffness carrier the isotropic `Mechanical` structurally cannot model, the `Rasm.Materials` `timber#TIMBER_FAMILY` consumer's seam home, also `Discipline.Structural` so the case TYPE discriminates an isotropic from a directional material) · `Thermal` (conductivity / specific heat / U-value as `MeasureValue` + vapour-resistance factor μ as a guarded dimensionless double for EN 13788 Glaser condensation — `Discipline.Thermal`) · `Acoustic` (the `Composition/acoustic#ACOUSTIC_FOLDS` banded carrier with its `DynamicStiffnessMNPerM3`/`FlowResistivityPaSPerM2`/`LossFactor` intrinsic constants forwarded — `Discipline.Acoustic`) · `Fire` (a `FireRating` reaction class + `SmokeClass`/`DropletClass` sub-class + a `FireResistance` R/E/I rating — `Discipline.Fire`) · `Environmental` (a `MeasurementBasis` declared unit + the EN 15804+A2 `(ImpactCategory × LifecycleStage)` row-major flat `Impacts` matrix that is the ONE impact store + `RecycledContent`/`EndOfLifeRecovery` fractions + EPD provenance, with the general `IndicatorAt(category, stage)` cell read and the `WholeLife(category)` cross-stage fold, plus the carbon-keyed convenience projections `Gwp` (the DERIVED cradle-to-gate `(GwpTotal, A1A3)` cell, never a parallel stored scalar), `StageAt`, `WholeLifeGwp`, and the DERIVED `StageGwp` per-module GwpTotal-row vector (the `[A1A3..D]` carbon row sliced from the matrix via `IndicatorAt(GwpTotal, stage)`, never a parallel stored 6-vector, the `Rasm.Compute` carbon fold reads one-hop) over them — `Discipline.Environmental`) · `Cost` (supply / install / lifecycle per-unit columns over a `Currency` + `MeasurementBasis` — `Discipline.Cost`) · `Damping` (the EN 1998-1 fraction-of-critical `DampingRatio` ζ + the optional per-material Rayleigh `(α, β)` proportional-damping pair a time-history FE model reads + the DERIVED hysteretic `StructuralLossFactor = 2ζ` — `Discipline.Dynamic`) · `Hygrothermal` (the EN 15026/WUFI transient-simulation inputs the steady-state `Thermal` case cannot model: `Porosity`, the `WaterContent80Rh`/`FreeWaterSaturation` sorption-isotherm anchors as MoistureStorage-typed kg/m³ measures, the optional capillary `WaterAbsorptionKgPerM2SqrtS` A-value, and the three optional `SampledCurve` measured functions — the full sorption isotherm `w(φ)`, the liquid-transport table `Dw(w)`, the moisture-dependent conductivity `λ(w)` — the WUFI-class solver runs on where the anchors under-model — `Discipline.Hygrothermal`) · `Durability` (the fib Model Code service-life inputs: `CarbonationRateMmPerSqrtYear` K, the `ChlorideDiffusion` D_RCM as a ChlorideDiffusivity-typed m²/s measure, the `AgeingExponent` decay fraction — `Discipline.Durability`) · `Optical` (the IFC `Pset_MaterialOptical` / EnergyPlus `WindowMaterial:Glazing` solar-optical record: per-band transmittance plus side-asymmetric front/back reflectances for the visible and solar bands, thermal-IR transmittance plus front/back hemispherical emissivities, the band absorptances DERIVED conservation remainders — `Discipline.Energy`); a property is a `MaterialPropertySet` case over a `MaterialId`, never a property subtype, and a single-indicator GWP-only environmental model is the deleted 1-of-13 slice of the EN 15804+A2 indicator family.
-- Law: FAULT ARITY selects the admission idiom, and the two idioms this branch carries are principled peers, never drift. A `[ComplexValueObject]` + `ValidateFactoryArguments` owns SINGLE-fault shape-and-trim admission — one product, one refusal, the generated `Validate` the only authority (`Currency`'s alpha-3 shape gate, `Classification/classification#CLASSIFICATION_AXIS` `Classification`, `Geospatial/reference#GEO_REFERENCE` `ProjectedCrs`) — because the generated factory spine returns at most one error and re-minting the hook to accumulate is unmanufacturable. The hand-rolled PRIVATE-ctor + accumulating `Of` triad is EARNED exactly where MULTI-SLOT accumulation IS the contract — every `MaterialPropertySet` case, `FireResistance`, `SampledCurve`, `MaterialComposition`'s three set cases — because a datasheet with three bad columns must report three named faults in one `Fin.Fail`. An owner crosses from the first idiom to the second only when its independent-column count passes one; converting a single-fault owner to the triad buys nothing and forfeits the generated `Validate`, `Create`, and equality surface.
+- Cases: `Mechanical` (density / Young's modulus / yield strength / ultimate strength as `MeasureValue`, Poisson's ratio + thermal-expansion as guarded dimensionless doubles, the isotropic shear modulus DERIVED `G = E/(2(1+ν))` — `Discipline.Structural`) · `Orthotropic` (density / the two principal moduli `E1∥`/`E2⊥` / the INDEPENDENT measured shear modulus `G` / the two principal strengths as `MeasureValue` + thermal-expansion — the directional-stiffness carrier the isotropic `Mechanical` structurally cannot model, the `Rasm.Materials` `timber#TIMBER_FAMILY` consumer's seam home, also `Discipline.Structural` so the case TYPE discriminates an isotropic from a directional material) · `Thermal` (conductivity / specific heat / U-value as `MeasureValue` + vapour-resistance factor μ as a guarded dimensionless double for EN 13788 Glaser condensation — `Discipline.Thermal`) · `Acoustic` (the `Composition/acoustic#ACOUSTIC_FOLDS` banded carrier with its `DynamicStiffnessMNPerM3`/`FlowResistivityPaSPerM2`/`LossFactor` intrinsic constants forwarded — `Discipline.Acoustic`) · `Fire` (a `FireRating` reaction class + `SmokeClass`/`DropletClass` sub-class + a `FireResistance` R/E/I rating — `Discipline.Fire`) · `Environmental` (a `MeasurementBasis` declared unit + the EN 15804+A2 `(ImpactCategory × LifecycleStage)` row-major flat `Impacts` matrix that is the ONE impact store + `RecycledContent`/`EndOfLifeRecovery` fractions + EPD provenance, with the general `IndicatorAt(category, stage)` cell read and the `WholeLife(category)` cross-stage fold, and the carbon-keyed convenience projections `Gwp` (the DERIVED cradle-to-gate `(GwpTotal, A1A3)` cell, never a parallel stored scalar), `StageAt`, `WholeLifeGwp`, and the DERIVED `StageGwp` per-module GwpTotal-row vector (the `[A1A3..D]` carbon row sliced from the matrix via `IndicatorAt(GwpTotal, stage)`, never a parallel stored 6-vector, the `Rasm.Compute` carbon fold reads one-hop) over them — `Discipline.Environmental`) · `Cost` (supply / install / lifecycle per-unit columns over a `Currency` + `MeasurementBasis` — `Discipline.Cost`) · `Damping` (the EN 1998-1 fraction-of-critical `DampingRatio` ζ + the optional per-material Rayleigh `(α, β)` proportional-damping pair a time-history FE model reads + the DERIVED hysteretic `StructuralLossFactor = 2ζ` — `Discipline.Dynamic`) · `Hygrothermal` (the EN 15026/WUFI transient-simulation inputs the steady-state `Thermal` case cannot model: `Porosity`, the `WaterContent80Rh`/`FreeWaterSaturation` sorption-isotherm anchors as MoistureStorage-typed kg/m³ measures, the optional capillary `WaterAbsorptionKgPerM2SqrtS` A-value, and the three optional `SampledCurve` measured functions — the full sorption isotherm `w(φ)`, the liquid-transport table `Dw(w)`, the moisture-dependent conductivity `λ(w)` — the WUFI-class solver runs on where the anchors under-model — `Discipline.Hygrothermal`) · `Durability` (the fib Model Code service-life inputs: `CarbonationRateMmPerSqrtYear` K, the `ChlorideDiffusion` D_RCM as a ChlorideDiffusivity-typed m²/s measure, the `AgeingExponent` decay fraction — `Discipline.Durability`) · `Optical` (the IFC `Pset_MaterialOptical` / EnergyPlus `WindowMaterial:Glazing` solar-optical record: per-band transmittance with side-asymmetric front/back reflectances for the visible and solar bands, thermal-IR transmittance with front/back hemispherical emissivities, the band absorptances DERIVED conservation remainders — `Discipline.Energy`); a property is a `MaterialPropertySet` case over a `MaterialId`, never a property subtype, and a single-indicator GWP-only environmental model is the deleted 1-of-13 slice of the EN 15804+A2 indicator family.
+- Law: FAULT ARITY selects the admission idiom, and the two idioms this branch carries are principled peers, never drift. `[ComplexValueObject]` with `ValidateFactoryArguments` owns SINGLE-fault shape-and-trim admission — one product, one refusal, the generated `Validate` the only authority (`Currency`'s alpha-3 shape gate, `Classification/classification#CLASSIFICATION_AXIS` `Classification`, `Geospatial/reference#GEO_REFERENCE` `ProjectedCrs`) — because the generated factory spine returns at most one error and re-minting the hook to accumulate is unmanufacturable. Hand-rolled private-ctor accumulating `Of` triads earn their place exactly where MULTI-SLOT accumulation IS the contract — every `MaterialPropertySet` case, `FireResistance`, `SampledCurve`, `MaterialComposition`'s three set cases — because a datasheet with three bad columns must report three named faults in one `Fin.Fail`. Owners cross from the first idiom to the second only when the independent-column count passes one; converting a single-fault owner to the triad buys nothing and forfeits the generated `Validate`, `Create`, and equality surface.
 - Entry: `MaterialPropertySet.OfMechanical(density, youngsModulus, yieldStrength, ultimateStrength, poissons, thermalExpansion, key)` / `OfOrthotropic(density, e1Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, key)` / `OfThermal(conductivity, specificHeat, uValue, vapourResistanceFactor, key, evidence, conductivityCurve)` (`uValue` an `Option` on BOTH arities — a substance declares no transmittance and the EN ISO 6946 assembly fold owns U, so only a product-declared transmittance fills it) / `OfAcoustic(acoustic)` / `OfFire(rating, resistance)` (+ the full `OfFire(rating, smoke, droplets, resistance)`) / `OfEnvironmental(basis, impacts, recycledContent, endOfLifeRecovery, key)` (the `impacts` an `ImmutableArray<double>` of arity `ImpactCategory.Count × LifecycleStage.Count`; the two resource fractions `Option<double>` — scenario data many declarations omit, absence never a fabricated fraction; EPD identity + `LocalDate` expiry ride the `evidence` argument as `PropertyEvidence.Declaration("epd", id, validUntil)`, never per-case columns) / `OfCost(basis, currency, supply, install, lifecycle, key)` (the factory's leading pair mirrors the `Cost` case ctor, so no call site reorders one against the other) / `OfDamping(dampingRatio, rayleigh, key)` / `OfHygrothermal(porosity, waterContent80Rh, freeWaterSaturation, waterAbsorption, key)` / `OfDurability(carbonationRate, chlorideDiffusion, ageingExponent, key)` / `OfOptical(visibleTransmittance, visibleReflectanceFront, visibleReflectanceBack, solarTransmittance, solarReflectanceFront, solarReflectanceBack, thermalIrTransmittance, thermalIrEmissivityFront, thermalIrEmissivityBack, key)` — `OfMechanical` and `OfThermal` each DECLARE both a raw-double and a typed-`MeasureValue` arity discriminating on input shape, the typed form owning the ONE slot set and the raw form coercing its declared-unit doubles (those coercions accumulating among themselves) before delegating into it, so a producer holding `QuantityRow`-minted columns keeps its propagated `MeasureBand` instead of unwrapping to a declared-unit double and re-coercing, and the two arities cannot drift; the typed smart-constructors coerce each measured column to its SI base and guard the dimensionless ratios, every multi-column form an ACCUMULATING admission (each independent column one slot — a material-domain `[ADMISSION_SLOTS]` combinator or a shared `Projection/fault#ADMISSION_SLOTS` one, both on the concrete carrier the shared owner states — the tuple `.Apply` unioning every `ElementFault.ValueRejected` through `Error.Combine`/`ManyErrors`, `.As().ToFin()` collapsing once at the seam return — the public rail stays `Fin<T>`, so consumers are untouched while a bad datasheet reports ALL offending columns; the total `OfAcoustic`/`OfFire` carry no invariant and return the bare case; `OfHygrothermal` (whose trailing `Option<SampledCurve>` `sorptionIsotherm`/`liquidTransport`/`moistureConductivity` columns arrive already admitted through `SampledCurve.Of` and ride as pass-through evidence) binds its `wf >= w80` isotherm refinement AND the curve↔anchor agreement refinement (`Disagrees` at `φ=0.8`/`φ=1.0` within `IsothermAnchorTolerance`) AFTER the accumulated leaves, and `OfOptical` accumulates its six per-band-per-side `τ + ρ <= 1`/`τIR + ε <= 1` conservation refinements as a SECOND stage after the nine in-unit leaves, the COMPOSITE_ADMISSION order); `Discipline` reads the case-to-discipline map; the generic `Property<T>()` is the one polymorphic typed lookup, the named per-discipline reads (`Mechanical`/`Orthotropic`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`) deriving from it as the ergonomic consumer surface the `Rasm.Compute` aggregator reads, `props.Density` the cross-case substance read, and `ForDiscipline(discipline)` the dual by-discipline-value read.
-- Auto: `MaterialPropertySet` is a CLASS-root `[Union]` + `[Equatable]` (the `[GRAPH_FAMILY]` form), so the generated `Switch`/`Map` survive while structural equality and the member diff ride `Generator.Equals` — the `Graph/element#NODE_MODEL` `Node.Material` `[Equatable]` drill descends into each case's columns (a record-root case is an opaque equality leaf that collapses the `Rasm.Persistence` `StructuralMerge` to whole-property replacement); `Discipline` dispatches the generated `Switch` mapping each case to its row (`Mechanical`/`Orthotropic`→`Structural`, `Damping`→`Dynamic`, `Hygrothermal`→`Hygrothermal`, `Durability`→`Durability`, `Optical`→`Energy`, …, `Cost`→`Cost`); the `Of` constructors route each dimensioned value through `MeasureValue.Of(value, UnitsNet.Units.X, key)` (or the TYPED `OfSi` for the registry-less MoistureStorage/ChlorideDiffusivity signatures) so the column carries its SI base and `Dimension`, the Poisson's ratio guarded to the physical isotropic `[0,0.5]` range (the `is >= 0.0 and <= 0.5` relational pattern rejecting an out-of-range ratio AND a `NaN`), every density/stiffness/strength/conductivity column guarded finite-AND-strictly-positive through the per-column `Positive` slot (a negative MPa is finite, so the `MeasureValue.Of` finiteness gate alone admits a physically-impossible negative-stiffness material the seam rejects BY NAME), the dimensionless ratios and the `MeasurementBasis`-relative fractions guarded finite-and-in-unit through the same NaN-rejecting relational patterns, and the raw-double cost columns guarded finite-and-non-negative (the `MeasureValue` finiteness gate never sees the raw-double `Cost`/`Environmental`-fraction carriers, so a bare `< 0.0` guard admits `NaN`/∞ into the content hash is rejected at admission) — every such miss ACCUMULATED across the constructor's independent slots, never first-fault-wins; the `Mechanical` shear modulus is a DERIVED read off `E` and `ν` (the isotropic relation `G = E/(2(1+ν))`), never a drift-prone stored column; the `Acoustic` case wraps the `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` carrier whose `Nrc`/`Saa`/`StcWeighted` are derived reads; the `Fire` case carries the EN 13501-1 reaction class plus its smoke/droplet sub-class and the EN 13501-2 R/E/I `FireResistance`; the `Environmental` case stores the EN 15804+A2 impact matrix row-major flat and `OfEnvironmental` guards its `Environmental.MatrixArity` and finiteness once so the derived `IndicatorAt`/`Gwp`/`WholeLife` reads trust the admission.
+- Auto: `MaterialPropertySet` is a CLASS-root `[Union]` + `[Equatable]` (the `[GRAPH_FAMILY]` form), so the generated `Switch`/`Map` survive while structural equality and the member diff ride `Generator.Equals` — the `Graph/element#NODE_MODEL` `Node.Material` `[Equatable]` drill descends into each case's columns (a record-root case is an opaque equality leaf that collapses the `Rasm.Persistence` `StructuralMerge` to whole-property replacement); `Discipline` dispatches the generated `Switch` mapping each case to its row (`Mechanical`/`Orthotropic`→`Structural`, `Damping`→`Dynamic`, `Hygrothermal`→`Hygrothermal`, `Durability`→`Durability`, `Optical`→`Energy`, …, `Cost`→`Cost`); the `Of` constructors route each dimensioned value through `MeasureValue.Of(value, UnitsNet.Units.X, key)` (or the TYPED `OfSi` for the registry-less MoistureStorage/ChlorideDiffusivity signatures) so the column carries its SI base and `Dimension`, the Poisson's ratio guarded to the physical isotropic `[0,0.5]` range (the `is >= 0.0 and <= 0.5` relational pattern rejecting an out-of-range ratio AND a `NaN`), every density/stiffness/strength/conductivity column guarded finite-AND-strictly-positive through the per-column `Positive` slot (a negative MPa is finite, so the `MeasureValue.Of` finiteness gate alone admits a physically-impossible negative-stiffness material the seam rejects BY NAME), the dimensionless ratios and the `MeasurementBasis`-relative fractions guarded finite-and-in-unit through the same NaN-rejecting relational patterns, and the raw-double cost columns guarded finite-and-non-negative (the `MeasureValue` finiteness gate never sees the raw-double `Cost`/`Environmental`-fraction carriers, so a bare `< 0.0` guard admits `NaN`/∞ into the content hash is rejected at admission) — every such miss ACCUMULATED across the constructor's independent slots, never first-fault-wins; the `Mechanical` shear modulus is a DERIVED read off `E` and `ν` (the isotropic relation `G = E/(2(1+ν))`), never a drift-prone stored column; the `Acoustic` case wraps the `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` carrier whose `Nrc`/`Saa`/`StcWeighted` are derived reads; the `Fire` case carries the EN 13501-1 reaction class with its smoke/droplet sub-class and the EN 13501-2 R/E/I `FireResistance`; the `Environmental` case stores the EN 15804+A2 impact matrix row-major flat and `OfEnvironmental` guards its `Environmental.MatrixArity` and finiteness once so the derived `IndicatorAt`/`Gwp`/`WholeLife` reads trust the admission.
 - Receipt: a `Seq<MaterialPropertySet>` on a `Material` node is the full engineering profile a `Bake`-derived `Element` reads flat — `props.Thermal.Bind(t => t.UValue)`, `props.Mechanical.Map(m => m.YieldStrength)`, `props.Acoustic.Map(a => a.StcWeighted)`, `props.Damping.Map(d => d.DampingRatio)`, `props.Durability.Map(u => u.ChlorideDiffusion)`, or the generic `props.Property<T>()` for a future case before its named forward lands — one node carrying every discipline keyed by `Discipline`; the `Rasm.Compute` analysis route reads the `MeasureValue` columns by `Discipline`, and the assembly aggregation (series-resistance U-value, rule-of-mixtures density, layered STC) folds the `MaterialComposition` plies in Compute, never re-keyed per assembly.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[ValueObject<string>]`), Generator.Equals (`[Equatable]` the class-root `MaterialPropertySet` union's structural equality + the member diff the `Rasm.Persistence` `StructuralMerge` drills, `[OrderedEquality]` the `Environmental.Impacts` matrix), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Validation<Error,_>` the accumulating admission slots joined by the tuple `.Apply` and collapsed `.ToFin()`/`Choose`/`Find`), `Projection/fault#ADMISSION_SLOTS` (the shared `Guarded`-sibling slots — `Gate`, `Accumulate`, `OptionalPositive` — the material-domain combinators sit beside), NodaTime (`LocalDate` the `PropertyEvidence.ValidUntil` calendar expiry — the exact EPD/declaration date the procurement filter compares, over the deleted lossy int-year), UnitsNet (via `MeasureValue`), System.Collections.Immutable (`ImmutableArray<double>` the immutable impact-matrix store), `Projection/address#CANONICAL_WRITER` (`CanonicalWriter` the `MaterialPropertySet.CanonicalBytes` content projection writes through), `Rasm` (the kernel `Op` op-key).
-- Growth: a new engineering property shared across materials is one column on its `MaterialPropertySet` case; a new property discipline with no fit is one `MaterialPropertySet` case carrying its `Discipline` — never a parallel `Eco`/`Cost` owner (the `Damping`/`Hygrothermal`/`Durability`/`Optical` cases are this law EXECUTED: each one case + one `Discipline` row + one next-free `CanonicalBytes` ordinal + one named forward, zero new surfaces beside the union); a new fire-reaction class is one `FireRating` row, a new acoustic rating one fold on the `Acoustic` carrier, a new EN 15804 environmental indicator one `ImpactCategory` row (the `Impacts` matrix widens by one indicator row and `IndicatorAt`/`WholeLife` read it with no new column or method); a new admission invariant is one `[ADMISSION_SLOTS]` combinator slot, never a per-constructor guard chain; a new state-dependent measured function (a temperature-dependent modulus, a moisture-dependent property) is one `Option<SampledCurve>` column on its owning case plus one `Curve` canon write — the ONE sampled-function carrier, never a per-curve column spray and never a lossy point compression; the family grows by case, column, and vocabulary row, never by a per-discipline material type, and the typed lookup grows by ONE generic `Property<T>()` over the case type plus an ergonomic named forward, never a per-case roster of independent `Choose` bodies.
+- Growth: a new engineering property shared across materials is one column on its `MaterialPropertySet` case; a new property discipline with no fit is one `MaterialPropertySet` case carrying its `Discipline` — never a parallel `Eco`/`Cost` owner (the `Damping`/`Hygrothermal`/`Durability`/`Optical` cases are this law EXECUTED: each one case + one `Discipline` row + one next-free `CanonicalBytes` ordinal + one named forward, zero new surfaces beside the union); a new fire-reaction class is one `FireRating` row, a new acoustic rating one fold on the `Acoustic` carrier, a new EN 15804 environmental indicator one `ImpactCategory` row (the `Impacts` matrix widens by one indicator row and `IndicatorAt`/`WholeLife` read it with no new column or method); a new admission invariant is one `[ADMISSION_SLOTS]` combinator slot, never a per-constructor guard chain; a new state-dependent measured function (a temperature-dependent modulus, a moisture-dependent property) is one `Option<SampledCurve>` column on its owning case and one `Curve` canon write — the ONE sampled-function carrier, never a per-curve column spray and never a lossy point compression; the family grows by case, column, and vocabulary row, never by a per-discipline material type, and the typed lookup grows by ONE generic `Property<T>()` over the case type and an ergonomic named forward, never a per-case roster of independent `Choose` bodies.
 - Boundary: `MaterialPropertySet` is the ONE typed property family — a `StructuralMaterial`/`ThermalMaterial` per-discipline material type is the deleted form, a property being a case over a `MaterialId`; the family is FULL-VECTOR by construction and AUTHORED-only, every case's `Of` admission requiring each column, so an IMPORTED foreign material `Pset` lands as a neutral `Properties/property#PROPERTY_BAG` bag node under `PropertySource.Import` rather than Option-widened columns here — widening a case to accept a partial foreign set fabricates every undeclared column and erases the difference between a declared zero and an absent measurement; the CARVE is the column an AUTHORED producer structurally cannot declare — the product-only `UValue`, the two scenario resource fractions, the tested-system-only fire `Reaction` — each an `Option` whose absence is the domain's own undeclared state, never a partial-import accommodation; every dimensioned measured column admits through `MeasureValue.Of` to its SI base (the `Density`/`YoungsModulus`/`Conductivity` columns, and the optional `UValue` when a product declares one), never a bare double, the dimensionless `PoissonsRatio` guarded to the isotropic `[0,0.5]` so an out-of-range ratio is unrepresentable; the `Mechanical` shear modulus is DERIVED from `E`/`ν` (DERIVED_LOGIC — a stored `G` independent of `E`/`ν` on the ISOTROPIC owner is the named drift defect), and a material whose `G` IS an independent measured datum (timber along/across grain) carries it on the distinct `Orthotropic` case (its `E1∥`/`E2⊥`/`G` all stored, no Poisson derivation), never smuggled onto the isotropic `Mechanical` as a stored field; the `FireRating` is a closed reaction-class vocabulary (a non-standard class is a row never a free string) and fire resistance is a typed R/E/I `FireResistance` (a single resistance scalar cannot distinguish a load-bearing `R 90` column from a separating `EI 60` wall — the deleted form); the typed read is the one generic `Property<T>()` over the case type (the near-identical per-case reads DERIVE from it — one `Choose p is T` body, never one body per case — yet stay as the consumer-contract ergonomic surface the `Rasm.Compute` aggregator reads), `ForDiscipline` the dual by-discipline-value read; the `Acoustic` case is the banded `Composition/acoustic#ACOUSTIC_FOLDS` carrier, never a scalar STC; the per-case-to-`Discipline` map is the one correspondence the `Assessment/assessment#ASSESSMENT_NODE` and `Rasm.Compute` analysis route share; the typed columns lower at the `Rasm.Bim` egress into the ONE neutral detail schema `Properties/property#PROPERTY_BAG` declares over the canonical `PropertyName` vocabulary, the seam carrying NO `Pset_Material*` IFC name — `Rasm.Bim` maps the neutral detail schema to the IFC material property sets at `Emit`, the `MaterialPropertySet` case the seam-native store and the neutral bag the egress projection (never an element-level `PropertyBag` on the `Material` node); the `Cost` case carries neutral per-unit doubles over a `Currency` `[ValueObject<string>]` (an OPAQUE ISO 4217 alpha-3 token the seam shape-validates but never rosters — the SAME neutrality `AnalysisRoute`/`Classification.System` hold, a closed three-row currency enum being the deleted naive slice) + a `MeasurementBasis` declared unit (the seam references no money library — the `Rasm.Bim` `NodaMoney` cost algebra owns the ISO 4217 roster and meets the per-unit double at the quantity×rate join), and the `Environmental` case carries the EN 15804+A2 `(ImpactCategory × LifecycleStage)` row-major flat `Impacts` matrix (the thirteen core impact indicators — `GwpTotal`/`GwpFossil`/`GwpBiogenic`/`GwpLuluc`/`Odp`/`Ap`/`EpFreshwater`/`EpMarine`/`EpTerrestrial`/`Pocp`/`AdpMinerals`/`AdpFossil`/`Wdp` — over the EN 15978 A1-A3/A4/A5/B/C/D stage modules) as the ONE impact store — a GWP-only single-vector store is the deleted 1-of-13 slice, and a `Map<ImpactCategory, ImmutableArray<double>>` is the deleted form because Generator.Equals keys its dictionary-value arrays by REFERENCE not content; the general read is `IndicatorAt(category, stage)` and the cradle-to-gate `Gwp` is the DERIVED convenience `IndicatorAt(GwpTotal, A1A3)`, a parallel stored `GlobalWarmingPotential` `MeasureValue` beside that cell the named double-store defect (DERIVED_LOGIC — the same one-owner discipline the `Acoustic` carrier holds, every rating derived from the spectrum), so `OfEnvironmental` guards the matrix arity (`Environmental.MatrixArity`) and FINITE once (`AllFinite` over `Impacts.AsSpan()`) and the derived `IndicatorAt`/`Gwp`/`WholeLife`/`WholeLifeGwp` reads then trust the admission; `Impacts` is an `ImmutableArray<double>` not a `ReadOnlyMemory<double>` because the immutable owner forbids the post-admission mutable-aliasing a memory-over-array admits AND is `IEnumerable<double>` so `[OrderedEquality]` gives content (not reference) equality and the `Rasm.Persistence` `StructuralMerge` drills a changed cell to `Properties[i].Impacts[k]`; an EPD declaring fewer indicators (the carbon-only EC3 ingress) zeroes the un-declared indicator rows so the matrix arity is invariant and the `Rasm.Compute` EC3 embodied-carbon route reads `WholeLife(GwpTotal)`; every `Impacts` cell is on the case's `MeasurementBasis` (per-m³/per-m²/per-kg/per-item) — the SAME basis axis the `Cost` case carries, so the `Rasm.Compute` `AggregateEnvironmental` fold scales each ply by the basis-matching element quantity through the SAME basis-aware `DeclaredQuantity` derivation the cost fold uses, never a forced per-m³ normalization that demanded a density at ingress and dropped an area/item EPD; provenance is SINGLE-stored on the base `PropertyEvidence` (`Source`/`Reference`/`ValidUntil` `LocalDate`) — an `Environmental.Epd`/`ValidUntilYear` per-case column pair is a double-store of the evidence concept the Bim egress can only dodge with a suppression flag, and an int YEAR is lossy against an EC3 declaration's full expiry date; the `Damping.DampingRatio` is the LARGE-strain design ζ (EN 1998 response spectrum) and never derives from or duplicates the `Composition/acoustic#ACOUSTIC_FOLDS` small-strain `LossFactor` η — different measurement standards at amplitude regimes orders of magnitude apart, so the two are independent measured data while `Damping.StructuralLossFactor = 2ζ` is the case's OWN derived FE input; the `Optical` case is the ENGINEERING solar-optical record (the IFC `Pset_MaterialOptical` member of the material property-set family, the EN 410 / EnergyPlus `WindowMaterial:Glazing` column set) — nine `[0,1]` spectral-average fractions with side-asymmetric front/back reflectances and emissivities (a coated pane is directional), the per-band absorptances DERIVED conservation remainders (`SolarAbsorptanceFront = 1 − τe − ρe,f`, the EnergyPlus opaque-surface α and the g-value secondary-heat input; a stored absorptance beside its τ/ρ pair is the double-store defect), the `OfOptical` admission enforcing `τ + ρ <= 1` per band and side and `τIR + ε <= 1` per side (Kirchhoff) so an unphysical datasheet is unrepresentable — the RENDER appearance (BSDF, texture) stays the `Rasm.Materials` Appearance owner's, this case carrying only the measured engineering constants the energy/daylight routes read; the fractional-exponent quantities (`CarbonationRateMmPerSqrtYear` mm/√year, `WaterAbsorptionKgPerM2SqrtS` kg/(m²·√s)) are raw doubles with the declared unit in the NAME because their √t dimension is inexpressible in the integer `Dimension` 7-vector (the `ThermalExpansionPerK` precedent), while every integer-dimension column stays a typed `MeasureValue` — the MoistureStorage/ChlorideDiffusivity `QuantityType.Create` mints keep a water content from reading as a bulk density and a diffusion coefficient from reading as a kinematic viscosity under the discriminator (the `SectionProperties` same-dimension-distinct-type discipline).
 
 ```csharp signature
@@ -456,7 +470,7 @@ public sealed partial class FireRating {
   TryGet(reaction, out FireRating? rating) && rating is { } r ? Fin.Succ(r) : ElementFault.ValueRejected(key, $"<fire-reaction-unknown:{reaction}>");
 }
 
-// The EN 13501-1 additional smoke-production class (s1 least … s3 most) — a Euroclass reaction rating is incomplete
+// SmokeClass rows the EN 13501-1 additional smoke-production class (s1 least … s3 most) — a Euroclass reaction rating is incomplete
 // without it (a "B" is reported "B-s1,d0"); NotSpecified carries an unclassified product.
 [SmartEnum<string>]
 public sealed partial class SmokeClass {
@@ -466,7 +480,7 @@ public sealed partial class SmokeClass {
  public static readonly SmokeClass S3 = new("s3");
 }
 
-// The EN 13501-1 additional flaming-droplet/particle class (d0 none … d2 most).
+// DropletClass rows the EN 13501-1 additional flaming-droplet/particle class (d0 none … d2 most).
 [SmartEnum<string>]
 public sealed partial class DropletClass {
  public static readonly DropletClass NotSpecified = new("");
@@ -475,7 +489,7 @@ public sealed partial class DropletClass {
  public static readonly DropletClass D2 = new("d2");
 }
 
-// The EN 13501-2 fire-resistance criteria in minutes — R load-bearing capacity, E integrity, I insulation, each rated
+// FireResistance carries the EN 13501-2 criteria in minutes — R load-bearing capacity, E integrity, I insulation, each rated
 // independently (a column is "R 90", a separating wall "EI 60", a load-bearing wall "REI 90"); a single resistance
 // scalar cannot distinguish them, so the three criteria are first-class.
 //
@@ -494,7 +508,7 @@ public readonly record struct FireResistance {
  private FireResistance(Option<int> loadBearingMinutes, Option<int> integrityMinutes, Option<int> insulationMinutes) =>
   (LoadBearingMinutes, IntegrityMinutes, InsulationMinutes) = (loadBearingMinutes, integrityMinutes, insulationMinutes);
 
- // The unclassified carrier: nothing measured on any criterion, distinct from "measured at zero minutes".
+  // None carries the unclassified rating: nothing measured on any criterion, distinct from "measured at zero minutes".
  public static readonly FireResistance None = new(Option<int>.None, Option<int>.None, Option<int>.None);
 
  public static Fin<FireResistance> Of(Option<int> loadBearingMinutes, Option<int> integrityMinutes, Option<int> insulationMinutes, Op key) =>
@@ -505,12 +519,12 @@ public readonly record struct FireResistance {
   .Apply(static (_, r, e, i) => new FireResistance(r, e, i))
   .As().ToFin();
 
- // The named subsets a datasheet actually publishes: a full REI classification, a load-bearing-only column, and the
+  // Named mints cover the subsets a datasheet publishes: a full REI classification, a load-bearing-only column, and the
  // separating EI pair — each stating which criteria the test COVERED, the rest absent rather than zero-filled.
  public static Fin<FireResistance> Rei(int minutes, Op key) => Of(Some(minutes), Some(minutes), Some(minutes), key);
  public static Fin<FireResistance> R(int minutes, Op key) => Of(Some(minutes), None, None, key);
  public static Fin<FireResistance> Ei(int minutes, Op key) => Of(None, Some(minutes), Some(minutes), key);
- // The insulation-only mint an ACI 216.1 equivalent-thickness derivation takes — the arity a copied R/E figure forges.
+  // I is the insulation-only mint an ACI 216.1 equivalent-thickness derivation takes — the arity a copied R/E figure forges.
  public static Fin<FireResistance> I(int minutes, Op key) => Of(None, None, Some(minutes), key);
 
  private static Validation<Error, Option<int>> Minutes(Option<int> value, string criterion, Op key) =>
@@ -519,7 +533,7 @@ public readonly record struct FireResistance {
    : value;
 }
 
-// The EN 15978 lifecycle-stage modules the Environmental case bands the COLUMN axis of its (ImpactCategory × LifecycleStage)
+// LifecycleStage rows the EN 15978 modules banding the COLUMN axis of the Environmental case's (ImpactCategory × LifecycleStage)
 // Impacts matrix over (ImpactCategory is the row axis). Index is the matrix column, Count the per-indicator stage arity.
 [SmartEnum<int>]
 public sealed partial class LifecycleStage {
@@ -536,7 +550,7 @@ public sealed partial class LifecycleStage {
  public static int Count => Items.Count;
 }
 
-// The unit-cost currency the Cost case carries — an OPAQUE ISO 4217 alpha-3 token (the SAME neutrality the
+// Currency carries the Cost case's unit-cost token — an OPAQUE ISO 4217 alpha-3 code (the SAME neutrality the
 // Assessment/assessment#ASSESSMENT_NODE AnalysisRoute and Classification/classification#CLASSIFICATION_AXIS
 // Classification.System tokens hold), NOT a closed seam roster: the currency roster (180+ active codes plus the
 // historic/crypto long tail) is owned by the Rasm.Bim NodaMoney cost algebra, so the seam admits ANY well-formed
@@ -550,13 +564,13 @@ public sealed partial class Currency {
   value = value.Trim().ToUpperInvariant();
   if (value.Length != 3 || !value.All(char.IsAsciiLetterUpper)) { validationError = new ValidationError("currency requires an ISO 4217 alpha-3 code"); }
  }
- // The seam-rail admission a wire/catalog token takes — the FireRating.Parse/Discipline.Parse-consistent form
+  // Parse rails a wire/catalog token onto the seam — the FireRating.Parse/Discipline.Parse-consistent form
  // railing ElementFault.ValueRejected on a malformed (non-alpha-3) code; the ISO 4217 roster check is NodaMoney's.
  public static Fin<Currency> Parse(string code, Op key) =>
   TryCreate(code, out Currency? c) && c is { } v ? Fin.Succ(v) : ElementFault.ValueRejected(key, $"<currency-malformed:{code}>");
 }
 
-// The declared-unit basis the Cost AND Environmental cases share — a genuinely CLOSED four-set (per mass/area/
+// MeasurementBasis declares the unit basis the Cost AND Environmental cases share — a genuinely CLOSED four-set (per mass/area/
 // volume/item), so here a non-standard basis IS a row, never a free string (unlike the OPEN Currency above whose
 // roster lives downstream): the four bases are the complete declared-unit closure, never a downstream-owned roster.
 [SmartEnum<string>]
@@ -569,13 +583,13 @@ public sealed partial class MeasurementBasis {
   TryGet(token, out MeasurementBasis? b) && b is { } v ? Fin.Succ(v) : ElementFault.ValueRejected(key, $"<measurement-basis-unknown:{token}>");
 }
 
-// The EN 15804+A2 environmental-impact indicator the Environmental case bands the ROW axis of its (ImpactCategory ×
+// ImpactCategory rows the EN 15804+A2 indicator banding the ROW axis of the Environmental case's (ImpactCategory ×
 // LifecycleStage) Impacts matrix over — the CORE indicator set an EN 15804+A2 EPD declares, NOT a GWP-only slice: modeling
 // carbon alone where the governing standard mandates ozone-depletion, acidification, eutrophication, photochemical-ozone, and
-// abiotic-depletion indicators is the naive 1-of-13 slice this vocabulary closes. Keyed on the STABLE matrix-row INDEX (so
-// the flat row-major Impacts vector offset is indicator.Index * LifecycleStage.Count + stage.Index and a new indicator
-// appended takes the next free index without shifting an already-projected EPD's cells — the SAME stable-ordinal discipline
-// the property-case CanonicalBytes ordinals hold), carrying the EPD wire Name token and its declared characterization Unit as
+// abiotic-depletion indicators is the naive 1-of-13 slice this vocabulary closes. Keyed on the STABLE matrix-row INDEX (so the flat
+// row-major Impacts vector offset is indicator.Index * LifecycleStage.Count + stage.Index and a new indicator
+// appended takes the next free index without shifting an already-projected EPD's cells — the SAME stable-ordinal discipline the property-case
+// CanonicalBytes ordinals hold), carrying the EPD wire Name token and its declared characterization Unit as
 // columns. GwpTotal is the headline the intrinsic Gwp read keys on; the GwpFossil/GwpBiogenic/GwpLuluc split is the EN
 // 15804+A2 sub-decomposition a fuller carbon report reads. Count is the row arity the OfEnvironmental matrix admission checks.
 [SmartEnum<int>]
@@ -600,7 +614,7 @@ public sealed partial class ImpactCategory {
  // Items-derived arity through an accessor (the LifecycleStage.Count discipline) — never an eager static initializer.
  public static int Count => Items.Count;
 
- // The EPD wire token is the Name (not the int matrix-row Key), so the wire admission resolves by Name through a lazy
+  // EPD wire token IS the Name (not the int matrix-row Key), so the wire admission resolves by Name through a lazy
  // ordinal-insensitive frozen index projected from Items (the [LOOKUP_LIFECYCLE] derived-index-through-accessor pattern,
  // O(1) steady-state, materialized on first Parse), the FireRating.Parse-consistent rail railing ElementFault.ValueRejected
  // on an unknown indicator name; the int Key stays the internal matrix-row offset Index reads O(1) on the hot IndicatorAt path.
@@ -612,21 +626,21 @@ public sealed partial class ImpactCategory {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// A CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
+// MaterialPropertySet takes the CLASS-root [Union] + [Equatable] [GRAPH_FAMILY] form, never a record-root: a class-root union surrenders
 // Thinktecture's record-generated equality, so structural equality AND the member-level diff ride Generator.Equals [Equatable]
 // (never stacked on a record-root union). LOAD-BEARING per the Graph/element#NODE_MODEL [STRUCTURAL_EQUALITY] mandate: the
 // Node.Material [UnorderedEquality] Seq<MaterialPropertySet> Properties member's element compare DRILLS only into an [Equatable]
 // element, so a record-root case would key Nodes[id].Properties[i] WHOLE-property in the Rasm.Persistence 3-way StructuralMerge
 // (the deleted coarse form) where a class-root [Equatable] case localizes a changed yield strength / U-value / one impact-stage
-// cell to Nodes[id].Properties[i].<column> — the RFC 6902 patch member granularity. The scalar MeasureValue/double columns are
-// the ATOMIC value-equality LEAVES the drill BOTTOMS at — a MeasureValue is a native-equality readonly record struct
+// cell to Nodes[id].Properties[i].<column> — the RFC 6902 patch member granularity. The scalar MeasureValue/double columns are the ATOMIC
+// value-equality LEAVES the drill BOTTOMS at — a MeasureValue is a native-equality readonly record struct
 // (Properties/quantity) the Generator.Equals DefaultEqualityComparer compares atomically by its record value-equality (the
 // column IS the leaf at Nodes[id].Properties[i].<column>, never a descent into .<column>.Si — it carries no [Equatable] and
 // needs none, adding it would redundantly re-derive the field compare the record already gives); the one IEnumerable-shaped
 // member (the Environmental Impacts ImmutableArray<double> — an ImmutableArray IS IEnumerable<double> where a
 // ReadOnlyMemory<double> is NOT) carries [OrderedEquality] for content equality, NOT the reference equality a bare
 // ReadOnlyMemory<double> member would take.
-// The generated Switch/Map survive [Equatable] — seated PER NESTED CASE, a root seat being the compile-proven
+// Generated Switch/Map survive [Equatable] — seated PER NESTED CASE, a root seat being the compile-proven
 // silent form whose case members reference-compare; the root-declared Evidence property folds into each case's
 // generated comparison through the ancestor walk. A class-root case has NO `with`.
 [Union]
@@ -657,7 +671,7 @@ public abstract partial class MaterialPropertySet {
    MeasureValue.OfAdmitted(YoungsModulus.Type, YoungsModulus.Dimension,
     YoungsModulus.Si / (2.0 * (1.0 + PoissonsRatio)), YoungsModulus.CanonicalUnit).ThrowIfFail();
  }
- // The ORTHOTROPIC structural case — a material whose along-axis (E1) and across-axis (E2) elastic moduli AND its shear
+  // Orthotropic is the directional structural case — a material whose along-axis (E1) and across-axis (E2) moduli AND its shear
  // modulus G are INDEPENDENT measured data the isotropic Mechanical case structurally cannot model: timber along/across
  // grain (G_mean ≈ E0/16, not E/(2(1+ν))), a fibre-reinforced lamina, a cold-formed orthotropic deck. The
  // Rasm.Materials timber#TIMBER_FAMILY family is its producing consumer.
@@ -666,8 +680,8 @@ public abstract partial class MaterialPropertySet {
  // material and props.Mechanical for an isotropic one. The columns are NEUTRAL MeasureValue Pressure scalars (the seam
  // references no VividOrange — the Rasm.Materials projector lowers timber's directional moduli/strengths through the
  // TYPED OfSi(QuantityType.Create("Pressure"), Dimension.PressureDim, _) overload), so a directional G never reads as an
- // isotropic-derived one and the seam stays host/library-neutral. E1Parallel/E2Perpendicular the two principal moduli, G
- // the independent in-plane shear, Strength1Parallel/Strength2Perpendicular the two principal compression/bearing
+ // isotropic-derived one and the seam stays host/library-neutral. E1Parallel/E2Perpendicular the two principal moduli, G the independent
+ // in-plane shear, Strength1Parallel/Strength2Perpendicular the two principal compression/bearing
  // strengths (timber's fc0k/fc90k); a third out-of-plane axis is one further column when a genuinely-3D orthotropic
  // consumer admits it, never a parallel case.
  [Equatable]
@@ -684,14 +698,14 @@ public abstract partial class MaterialPropertySet {
  public sealed partial class Thermal(MeasureValue conductivity, MeasureValue specificHeat, Option<MeasureValue> uValue, double vapourResistanceFactor, PropertyEvidence evidence, Option<SampledCurve> conductivityCurve = default) : MaterialPropertySet(evidence) {
   public MeasureValue Conductivity { get; } = conductivity;
   public MeasureValue SpecificHeat { get; } = specificHeat;
-  // A SUBSTANCE has no transmittance — the EN ISO 6946 assembly fold owns U; Some carries a genuinely
+  // UValue stays None for a SUBSTANCE — the EN ISO 6946 assembly fold owns U; Some carries a genuinely
   // PRODUCT-declared transmittance (an IGU or window-part datasheet), and None is every bulk material.
   public Option<MeasureValue> UValue { get; } = uValue;
   public double VapourResistanceFactor { get; } = vapourResistanceFactor;
-  // The TEMPERATURE-DEPENDENT conductivity λ(θ) the case's own charter cites: the EN 1992-1-2 / EN 1993-1-2 fire
+  // ConductivityCurve carries the TEMPERATURE-DEPENDENT λ(θ) the case's charter cites: the EN 1992-1-2 / EN 1993-1-2 fire
   // routes and every transient thermal solve read conductivity AT a temperature, and a scalar alone forces every
-  // consumer to either assume the 20 °C value across a 1000 °C fire curve or carry its own table. It rides BESIDE
-  // the scalar rather than replacing it — the scalar stays the steady-state ISO 6946 datum every U-value fold
+  // consumer to either assume the 20 °C value across a 1000 °C fire curve or carry its own table. It rides BESIDE the scalar
+  // rather than replacing it — the scalar stays the steady-state ISO 6946 datum every U-value fold
   // reads — and it arrives already admitted through SampledCurve.Of, exactly as the Hygrothermal curves do; None
   // is a material whose source declared no curve, never a fabricated one-point table.
   public Option<SampledCurve> ConductivityCurve { get; } = conductivityCurve;
@@ -700,10 +714,10 @@ public abstract partial class MaterialPropertySet {
  public sealed partial class Acoustic(global::Rasm.Element.Composition.Acoustic spectrum, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public global::Rasm.Element.Composition.Acoustic Spectrum { get; } = spectrum;
   // Forwarding reads so the Rasm.Materials marshaller and the Rasm.Compute layered-STC fold read the
-  // single-material ratings off the case directly (a.SoundReductionIndexDb / a.StcWeighted), never .Spectrum.x;
-  // the intrinsic constants forward likewise — a.DynamicStiffnessMNPerM3 is the EN 12354-2 floating-floor ΔL_w
+  // single-material ratings off the case directly (a.SoundReductionIndexDb / a.StcWeighted), never .Spectrum.x; the
+  //  intrinsic constants forward likewise — a.DynamicStiffnessMNPerM3 is the EN 12354-2 floating-floor ΔL_w
   // input the Compute impact fold reads (the deferred impact RatingContour row's material leg).
-  // The spectra forward as ImmutableArray<double> — the OWNER's storage type (Composition/acoustic#ACOUSTIC_FOLDS):
+  // Spectra forward as ImmutableArray<double> — the OWNER's storage type (Composition/acoustic#ACOUSTIC_FOLDS):
   // an ImmutableArray has NO implicit conversion to ReadOnlyMemory<double> (only .AsMemory()/.AsSpan()), so a
   // ReadOnlyMemory<double> forward would not compile, and forwarding the owner's type lets the Rasm.Compute Fit
   // consumer take the zero-copy .AsSpan() the contour kernel reads without an intervening copy.
@@ -747,20 +761,20 @@ public abstract partial class MaterialPropertySet {
  public sealed partial class Environmental(MeasurementBasis basis, ImmutableArray<double> impacts, Option<double> recycledContent, Option<double> endOfLifeRecovery, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasurementBasis Basis { get; } = basis;
   [property: OrderedEquality] public ImmutableArray<double> Impacts { get; } = impacts;
-  // The two EN 15804 resource fractions are OPTIONS: they are scenario data many declarations omit, and a required
+  // Two EN 15804 resource fractions ride OPTIONS: scenario data many declarations omit, where a required
   // slot forces the fabricated fraction the admission exists to refuse — absence is the honest undeclared state,
   // distinct from a measured zero.
   public Option<double> RecycledContent { get; } = recycledContent;
   public Option<double> EndOfLifeRecovery { get; } = endOfLifeRecovery;
 
-  // The one general read: an (indicator, stage) cell off the row-major flat matrix — every named carbon convenience below
+  // IndicatorAt is the one general read: an (indicator, stage) cell off the row-major flat matrix — every named convenience below
   // derives from it, never a per-indicator span scan. An out-of-arity (indicator, stage) reads 0.0 (a not-declared cell is
   // zero impact), so a partial EPD (carbon-only, the EC3 ingress) zeroes the un-declared indicator rows rather than faulting.
   public double IndicatorAt(ImpactCategory category, LifecycleStage stage) {
    int i = category.Index * LifecycleStage.Count + stage.Index;
    return i >= 0 && i < Impacts.Length ? Impacts[i] : 0.0;
   }
-  // The whole-life (cradle-to-grave) fold of ONE indicator across every lifecycle stage — the general WholeLifeGwp the
+  // WholeLife folds ONE indicator cradle-to-grave across every lifecycle stage — the general WholeLifeGwp the
   // Rasm.Compute embodied-carbon rollup reads per indicator, derived from IndicatorAt over the stage vocabulary.
   public double WholeLife(ImpactCategory category) =>
    LifecycleStage.Items.Sum(stage => IndicatorAt(category, stage));
@@ -772,7 +786,7 @@ public abstract partial class MaterialPropertySet {
   public double Gwp => IndicatorAt(ImpactCategory.GwpTotal, LifecycleStage.A1A3);   // cradle-to-gate A1-A3 GwpTotal (per Basis unit)
   public double StageAt(LifecycleStage stage) => IndicatorAt(ImpactCategory.GwpTotal, stage);  // per-stage GwpTotal (per Basis unit)
   public double WholeLifeGwp => WholeLife(ImpactCategory.GwpTotal);                 // cradle-to-grave GwpTotal (per Basis unit)
-  // The GwpTotal-per-stage row READ FLAT — the per-module [A1A3, A4, A5, B, C, D] carbon vector the Rasm.Compute
+  // StageGwp reads the GwpTotal row FLAT — the per-module [A1A3, A4, A5, B, C, D] carbon vector the Rasm.Compute
   // Analysis/aggregator AssemblyAggregator.AddScaled scales per ply and the Analysis/lifecycle StageFacts emits, a
   // DERIVED single-row slice of the (ImpactCategory × LifecycleStage) matrix (the GwpTotal row across every stage),
   // NEVER a parallel stored 6-vector beside the matrix (DERIVED_LOGIC — the same one-owner discipline Gwp/WholeLifeGwp
@@ -784,7 +798,7 @@ public abstract partial class MaterialPropertySet {
   // collection-expression fold, never a mutable write loop).
   public ImmutableArray<double> StageGwp =>
    [.. LifecycleStage.Items.OrderBy(static s => s.Index).Select(s => IndicatorAt(ImpactCategory.GwpTotal, s))];
-  // The WRITE dual of StageGwp — embed a CARBON-ONLY per-module GwpTotal stage row (the [A1A3..D] vector a baked
+  // CarbonMatrix is the WRITE dual of StageGwp — embedding a CARBON-ONLY per-module GwpTotal stage row (the [A1A3..D] vector a baked
   // catalogue row, an EC3 declaration, or a generic float-glass figure carries — LifecycleStage.Count entries) into the
   // FULL (ImpactCategory × LifecycleStage) row-major flat matrix OfEnvironmental admits: the GwpTotal indicator row at
   // its stable offset (GwpTotal.Index * LifecycleStage.Count + stage), EVERY other indicator row left ZERO — the seam's
@@ -803,10 +817,10 @@ public abstract partial class MaterialPropertySet {
    for (int s = 0; s < stages; s++) { matrix[gwpRow + s] = row[s]; }
    return [.. matrix];
   }
-  // The matrix row arity OfEnvironmental admits against (every indicator × every stage) — an accessor, so the
+  // MatrixArity gives the row arity OfEnvironmental admits against (every indicator × every stage) — an accessor, so the
   // arity always reads the materialized vocabularies and never races a static-init order.
   public static int MatrixArity => ImpactCategory.Count * LifecycleStage.Count;
-  // The zero-impact baseline a Rasm.Compute embodied-carbon fold seeds an element-set rollup from (PerM3, the curated
+  // Baseline carries the zero-impact seed a Rasm.Compute embodied-carbon fold starts an element-set rollup from (PerM3, the curated
   // default basis) — behind the SAME accessor edge MatrixArity and the two vocabularies' Count columns hold: its width
   // reads ImpactCategory.Items and LifecycleStage.Items, and an eager static field would touch those generated lazies
   // inside this type's own static init, the cross-partial field-order race the [LOOKUP_LIFECYCLE] law forbids. The
@@ -825,7 +839,7 @@ public abstract partial class MaterialPropertySet {
   public double InstallPerUnit { get; } = installPerUnit;
   public double LifecyclePerUnit { get; } = lifecyclePerUnit;
  }
- // The DYNAMIC-analysis carrier (Discipline.Dynamic): DampingRatio the fraction-of-critical ζ the EN 1998-1 response-
+  // Damping is the DYNAMIC-analysis carrier (Discipline.Dynamic): DampingRatio the fraction-of-critical ζ the EN 1998-1 response-
  // spectrum and EN 1990-A1.4.4 footfall routes read (welded steel ≈ 0.02, RC ≈ 0.05, timber ≈ 0.08 — LARGE-strain
  // design damping, independent of the Composition/acoustic small-strain LossFactor η whose amplitude regime differs by
  // orders of magnitude); Rayleigh the OPTIONAL per-material (α, β) proportional-damping pair a time-history FE model
@@ -838,7 +852,7 @@ public abstract partial class MaterialPropertySet {
   public Option<(double AlphaPerS, double BetaS)> Rayleigh { get; } = rayleigh;
   public double StructuralLossFactor => 2.0 * DampingRatio;
  }
- // The EN 15026 TRANSIENT hygrothermal carrier (Discipline.Hygrothermal) — the WUFI-class simulation inputs the
+  // Hygrothermal is the EN 15026 TRANSIENT carrier (Discipline.Hygrothermal) — the WUFI-class simulation inputs the
  // steady-state Thermal case (whose Glaser vapour-μ stays there) structurally cannot model: Porosity the open-pore
  // fraction; WaterContent80Rh/FreeWaterSaturation the two sorption-isotherm anchors (w80 at 80 % RH, wf at free
  // saturation — the two-point isotherm approximation the transient solver builds its storage function from), each a
@@ -853,16 +867,16 @@ public abstract partial class MaterialPropertySet {
   public MeasureValue WaterContent80Rh { get; } = waterContent80Rh;
   public MeasureValue FreeWaterSaturation { get; } = freeWaterSaturation;
   public Option<double> WaterAbsorptionKgPerM2SqrtS { get; } = waterAbsorptionKgPerM2SqrtS;
-  // The MEASURED-FUNCTION evidence a WUFI-class transient solver runs on where the two-point anchors under-model —
+  // Curve columns carry the MEASURED-FUNCTION evidence a WUFI-class transient solver runs on where two-point anchors under-model —
   // each an Option-carried SampledCurve (None = the datasheet carried only the anchors, the common case): the full
   // sorption isotherm w(φ) (axis RH fraction [0..1], values kg/m³ — admission enforces it agrees with the stored
-  // w80/wf anchors, one isotherm truth never two), the liquid-transport table Dw(w) (axis kg/m³, values m²/s), and
-  // the moisture-dependent conductivity λ(w) (axis kg/m³, values W/(m·K)).
+  // w80/wf anchors, one isotherm truth never two), the liquid-transport table Dw(w) (axis kg/m³, values m²/s), and the moisture-dependent
+  // conductivity λ(w) (axis kg/m³, values W/(m·K)).
   public Option<SampledCurve> SorptionIsotherm { get; } = sorptionIsotherm;
   public Option<SampledCurve> LiquidTransport { get; } = liquidTransport;
   public Option<SampledCurve> MoistureConductivity { get; } = moistureConductivity;
  }
- // The fib Model Code service-life carrier (Discipline.Durability): CarbonationRateMmPerSqrtYear the carbonation
+  // Durability is the fib Model Code service-life carrier (Discipline.Durability): CarbonationRateMmPerSqrtYear the carbonation
  // ingress coefficient K (mm/√year — a raw double, the √t dimension's fractional exponent outside the integer
  // Dimension vector; 0 a carbonation-immune material); ChlorideDiffusion the NT Build 492 migration coefficient
  // D_RCM as a ChlorideDiffusivity-typed m²/s MeasureValue (Create over the L²T⁻¹ signature); AgeingExponent the fib
@@ -874,11 +888,11 @@ public abstract partial class MaterialPropertySet {
   public MeasureValue ChlorideDiffusion { get; } = chlorideDiffusion;
   public double AgeingExponent { get; } = ageingExponent;
  }
- // The SOLAR-OPTICAL carrier (Discipline.Energy) — the IFC Pset_MaterialOptical / EnergyPlus WindowMaterial:Glazing
+  // Optical is the SOLAR-OPTICAL carrier (Discipline.Energy) — the IFC Pset_MaterialOptical / EnergyPlus WindowMaterial:Glazing
  // column set the energy and daylight routes read per material: the visible and solar band each carry a transmittance
  // plus front/back reflectances (coated glass is side-asymmetric), the thermal-IR band a transmittance plus front/back
- // hemispherical emissivities (Kirchhoff: ε IS the IR absorptance). All nine are [0,1] spectral-average fractions;
- // the band absorptances are DERIVED remainders (1 − τ − ρ), never stored columns that could break conservation.
+ // hemispherical emissivities (Kirchhoff: ε IS the IR absorptance). All nine are [0,1] spectral-average fractions; the
+ //  band absorptances are DERIVED remainders (1 − τ − ρ), never stored columns that could break conservation.
  [Equatable]
  public sealed partial class Optical(double visibleTransmittance, double visibleReflectanceFront, double visibleReflectanceBack, double solarTransmittance, double solarReflectanceFront, double solarReflectanceBack, double thermalIrTransmittance, double thermalIrEmissivityFront, double thermalIrEmissivityBack, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public double VisibleTransmittance { get; } = visibleTransmittance;
@@ -890,8 +904,8 @@ public abstract partial class MaterialPropertySet {
   public double ThermalIrTransmittance { get; } = thermalIrTransmittance;
   public double ThermalIrEmissivityFront { get; } = thermalIrEmissivityFront;
   public double ThermalIrEmissivityBack { get; } = thermalIrEmissivityBack;
-  // The EnergyPlus opaque-surface α and the EN 410 g-value secondary-heat input — the conservation remainder per side,
-  // non-negative by the OfOptical conservation refinement.
+  // SolarAbsorptance gives the EnergyPlus opaque-surface α and the EN 410 g-value secondary-heat input — the conservation
+  // remainder per side, non-negative by the OfOptical conservation refinement.
   public double SolarAbsorptanceFront => 1.0 - SolarTransmittance - SolarReflectanceFront;
   public double SolarAbsorptanceBack => 1.0 - SolarTransmittance - SolarReflectanceBack;
  }
@@ -909,7 +923,7 @@ public abstract partial class MaterialPropertySet {
   durability: static _ => Discipline.Durability,
   optical: static _ => Discipline.Energy);
 
- // The canonical content contribution the Graph/element#NODE_MODEL Node.Material arm folds per property (the bag
+  // CanonicalBytes contributes what the Graph/element#NODE_MODEL Node.Material arm folds per property (the bag
  // ordered by Discipline before this projection): the case ordinal then every SCALAR column — MeasureValue measures
  // tolerance-quantized through Measure, dimensionless ratios as exact IEEE-754 through Double, vocabulary rows through
  // their Key, the integer fire-resistance minutes / evidence-expiry calendar fields through Ordinal, Option columns
@@ -942,9 +956,9 @@ public abstract partial class MaterialPropertySet {
   return w;
  }
 
- // The Option-curve canon write — Bool-prefixed (self-delimiting, the acoustic Scalar discipline), the curve
+  // Curve writes the Option canon — Bool-prefixed (self-delimiting, the acoustic Scalar discipline), the curve
  // delegating to its OWN count-prefixed CanonicalBytes so a re-sampled curve forks the property identity.
- // The presence-prefixed Option writes: Bool(IsSome) then the payload, self-delimiting so absence and a present
+  // Presence-prefixed Option writes run Bool(IsSome) then the payload, self-delimiting so absence and a present
  // value can never blur — the one idiom every optional column on this page composes.
  private static CanonicalWriter Curve(CanonicalWriter w, Option<SampledCurve> curve) {
   w.Bool(curve.IsSome);
@@ -965,12 +979,12 @@ public abstract partial class MaterialPropertySet {
  // .As().ToFin() collapses ONCE at the seam return — so a datasheet with three bad columns reports THREE named faults in
  // one Fin.Fail, never first-fault-wins (a from/select chain over independent columns is the rejected form that
  // silently switches accumulation off). The public rail stays Fin<T>, so every consumer call site is untouched.
- // A negative or zero density / stiffness / strength is a physically-impossible material the MeasureValue.Of
+  // Positive slots reject a negative or zero density / stiffness / strength — a physically-impossible material the MeasureValue.Of
  // finiteness gate alone does NOT catch (a negative MPa is finite) — the Positive slot guards finite AND strictly
  // positive per named column. ThermalExpansionPerK is EXCLUDED from positivity — a negative coefficient is physical
  // (a negative-thermal-expansion material), so its slot guards finiteness only; the Poisson ratio keeps its own
  // [0,0.5] isotropic-range relational pattern at the call site (the Guarded slot owns only the lift and fault mint).
- // The RAW arity coerces its four declared-unit doubles through the UnitsNet registry — the four coercions themselves
+  // OfMechanical's RAW arity coerces its four declared-unit doubles through the UnitsNet registry — the four coercions themselves
  // accumulating — then DELEGATES the admitted columns to the typed body below, so one slot set owns the mechanical
  // admission and the two arities can never drift. The stage split is the dependence the shape already carries
  // (COMPOSITE_ADMISSION): the typed body cannot open until it holds MeasureValues, exactly as the hygrothermal
@@ -984,7 +998,7 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin()
   .Bind(column => OfMechanical(column.Density, column.Youngs, column.Yield, column.Ultimate, poissons, thermalExpansion, key, evidence));
 
- // The TYPED arity is the ONE body: a producer that already minted its columns through a QuantityRow (the
+  // OfMechanical's TYPED arity is the ONE body: a producer that already minted its columns through a QuantityRow (the
  // Rasm.Materials catalogue lowering, an assessed-column rebuild) hands the MeasureValues straight in rather than
  // unwrapping to a raw double in a declared unit and re-coercing — a round trip that re-scales an SI magnitude by the
  // unit's own factor and silently drops the propagated MeasureBand.
@@ -998,7 +1012,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((d, e, y, u, nu, a) => (MaterialPropertySet)new Mechanical(d, e, y, u, nu, a, evidence))
   .As().ToFin();
 
- // The orthotropic structural admission — the two principal moduli (E1∥/E2⊥), the INDEPENDENT shear modulus G, and the
+  // OfOrthotropic admits the directional columns — the two principal moduli (E1∥/E2⊥), the INDEPENDENT shear modulus G, and the
  // two principal strengths as RAW MPa doubles coerced to SI Pressure through the SAME UnitsNet registry OfMechanical
  // uses (the seam owns the coercion; the Rasm.Materials timber family passes the EN-grade E0Mean/E90Mean/GMean/Fc0k/Fc90k
  // data RAW). No isotropic Poisson guard — G is a measured datum here, not the derived E/(2(1+ν)). Seven independent
@@ -1015,7 +1029,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((rho, e1, e2, g, s1, s2, a) => (MaterialPropertySet)new Orthotropic(rho, e1, e2, g, s1, s2, a, evidence))
   .As().ToFin();
 
- // The RAW thermal arity, the OfMechanical shape: coerce the three declared-unit doubles, then delegate to the typed
+  // OfThermal's RAW arity takes the OfMechanical shape: coerce the three declared-unit doubles, then delegate to the typed
  // body that owns every slot.
  public static Fin<MaterialPropertySet> OfThermal(double conductivity, double specificHeat, Option<double> uValue, double vapourResistanceFactor, Op key, PropertyEvidence evidence = default, Option<SampledCurve> conductivityCurve = default) =>
   (MeasureValue.Of(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin, key).ToValidation(),
@@ -1027,7 +1041,7 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin()
   .Bind(column => OfThermal(column.Conductivity, column.SpecificHeat, column.UValue, vapourResistanceFactor, key, evidence, conductivityCurve));
 
- // The TYPED thermal arity is the ONE body — a caller holding QuantityRow-minted columns keeps its bands. The
+  // OfThermal's TYPED arity is the ONE body — a caller holding QuantityRow-minted columns keeps its bands. The
  // vapour-resistance factor μ is dimensionless and >= 1 by definition (μ = 1 is still air, no material resists vapour
  // LESS than air), so the `is >= 1.0` relational pattern accepts unity-and-above AND rejects NaN in one test — a bare
  // `< 1.0` admits NaN. Conductivity / specific-heat / U-value are strictly positive physical quantities the per-column
@@ -1045,7 +1059,7 @@ public abstract partial class MaterialPropertySet {
  public static MaterialPropertySet OfAcoustic(global::Rasm.Element.Composition.Acoustic spectrum, PropertyEvidence evidence = default) =>
   new Acoustic(spectrum, evidence);
 
- // The 2-arg form defaults the smoke/droplet sub-class (NotSpecified) for a reaction-class-only datasheet — or takes an
+  // OfFire's 2-arg form defaults the smoke/droplet sub-class (NotSpecified) for a reaction-class-only datasheet — or takes an
  // ABSENT reaction for a tested-system resistance-only record; the full form admits the complete EN 13501-1 "B-s1,d0"
  // classification and therefore demands the concrete reaction its sub-classes qualify. Both total — a
  // FireRating/FireResistance carry their own admission.
@@ -1063,7 +1077,7 @@ public abstract partial class MaterialPropertySet {
  // fact (DERIVED_LOGIC); EPD identity + LocalDate expiry ride the evidence argument (Declaration("epd", id, validUntil)),
  // never per-case columns. The matrix is the EN 15804+A2 (ImpactCategory × LifecycleStage) row-major flat ImmutableArray; an
  // EPD declaring fewer indicators (the carbon-only EC3 ingress) zeroes the un-declared rows so the matrix arity is invariant.
- // The characterization units are domain bases not SI dimensions, so the cells carry raw magnitudes the Matrix slot guards
+  // Characterization units are domain bases not SI dimensions, so the cells carry raw magnitudes the Matrix slot guards
  // ARITY-then-FINITE (dependent checks on ONE input bind inside the slot; the two resource fractions are independent slots
  // beside it) — the admission the derived IndicatorAt/Gwp/WholeLife reads then trust.
  public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, ImmutableArray<double> impacts, Option<double> recycledContent, Option<double> endOfLifeRecovery, Op key, PropertyEvidence evidence = default) =>
@@ -1077,7 +1091,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((m, recycled, recovery) => (MaterialPropertySet)new Environmental(basis, m, recycled, recovery, evidence))
   .As().ToFin();
 
- // A cost column is finite and non-negative — `IsFinite` rejects NaN/±∞ and `>= 0.0` the negative, per NAMED column,
+  // OfCost holds every cost column finite and non-negative — `IsFinite` rejects NaN/±∞ and `>= 0.0` the negative, per NAMED column,
  // all misses accumulated: a NaN or infinite per-unit cost would otherwise enter the content hash through the
  // raw-double columns the MeasureValue finiteness gate never sees, so the seam guards the cost columns the way it
  // guards a measure.
@@ -1088,7 +1102,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((s, i, l) => (MaterialPropertySet)new Cost(basis, currency, s, i, l, evidence))
   .As().ToFin();
 
- // The dynamic-analysis admission: ζ the fraction-of-critical damping ratio in [0,1) (an at-or-over-critical material
+  // OfDamping admits the dynamic-analysis columns: ζ the fraction-of-critical damping ratio in [0,1) (an at-or-over-critical material
  // datum is a datasheet error, not a material), the optional Rayleigh (α, β) pair finite and non-negative when Some
  // (a zero leg is a legitimate pure mass- or stiffness-proportional model, so non-negative not strictly-positive).
  public static Fin<MaterialPropertySet> OfDamping(double dampingRatio, Option<(double AlphaPerS, double BetaS)> rayleigh, Op key, PropertyEvidence evidence = default) =>
@@ -1097,7 +1111,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((zeta, pair) => (MaterialPropertySet)new Damping(zeta, pair, evidence))
   .As().ToFin();
 
- // The EN 15026 transient-hygrothermal admission: the leaf columns accumulate applicatively, THEN the composite
+  // OfHygrothermal admits the EN 15026 transient columns: the leaf columns accumulate applicatively, THEN the composite
  // refinements bind AFTER every leaf succeeds (COMPOSITE_ADMISSION) — wf < w80 is an inverted sorption curve the
  // seam rejects as one cross-field fault, and a Some-carried full isotherm must AGREE with the stored two-point
  // anchors at φ=0.8 and φ=1.0 within the relative tolerance (the anchors stay the required minimum every datasheet
@@ -1118,11 +1132,11 @@ public abstract partial class MaterialPropertySet {
     ? Fin.Fail<MaterialPropertySet>(ElementFault.ValueRejected(key, "<hygrothermal-isotherm-anchor-mismatch>"))
     : Fin.Succ<MaterialPropertySet>(new Hygrothermal(t.Phi, t.W80, t.Wf, t.A, sorptionIsotherm, liquidTransport, moistureConductivity, evidence)));
 
- // The relative isotherm-anchor agreement band the curve↔anchor refinement reads.
+  // IsothermAnchorTolerance bounds the relative isotherm-anchor agreement the curve↔anchor refinement reads.
  private const double IsothermAnchorTolerance = 0.02;
  private static bool Disagrees(double curve, double anchor) => Math.Abs(curve - anchor) > IsothermAnchorTolerance * Math.Max(Math.Abs(anchor), 1.0);
 
- // The fib Model Code service-life admission: K non-negative (0 = carbonation-immune), D_RCM strictly positive and
+  // OfDurability admits the fib Model Code service-life columns: K non-negative (0 = carbonation-immune), D_RCM strictly positive and
  // minted on the L²T⁻¹ chloride-diffusivity signature, the ageing exponent a [0,1] fraction.
  public static Fin<MaterialPropertySet> OfDurability(double carbonationRate, double chlorideDiffusion, double ageingExponent, Op key, PropertyEvidence evidence = default) =>
   (Guarded(double.IsFinite(carbonationRate) && carbonationRate >= 0.0, carbonationRate, "durability-carbonation-rate-non-finite-or-negative", key),
@@ -1131,7 +1145,7 @@ public abstract partial class MaterialPropertySet {
   .Apply((k, d, alpha) => (MaterialPropertySet)new Durability(k, d, alpha, evidence))
   .As().ToFin();
 
- // The solar-optical admission: the nine [0,1] leaf fractions accumulate first (each an in-unit NaN-rejecting slot),
+  // OfOptical admits the solar-optical columns: the nine [0,1] leaf fractions accumulate first (each an in-unit NaN-rejecting slot),
  // THEN the six per-band-per-side conservation refinements (τ + ρ ≤ 1 visible/solar front/back; τIR + ε ≤ 1 per side —
  // Kirchhoff over an opaque-or-transparent layer) accumulate as a SECOND stage over the constructed case, so a
  // datasheet violating two bands reports both (COMPOSITE_ADMISSION — leaves before refinements, refinements
@@ -1159,7 +1173,7 @@ public abstract partial class MaterialPropertySet {
    .As().ToFin());
 
  // --- [ADMISSION_SLOTS]
- // The MATERIAL-DOMAIN column combinators, seated here because their payloads are this page's own (a MeasureValue
+  // MATERIAL-DOMAIN column combinators seat here because their payloads are this page's own (a MeasureValue
  // column, an EN 15804 impact matrix, a Rayleigh pair) — the domain-neutral slots every seam page shares (Gate,
  // Accumulate, Indexed, OptionalPositive) live on Projection/fault#ADMISSION_SLOTS and are imported, never re-minted
  // here. Each returns one slot whose fault NAMES the offending column, so the tuple .Apply reports the union, and the
@@ -1168,8 +1182,8 @@ public abstract partial class MaterialPropertySet {
  // column crosses through .ToValidation(), never a second lift shape. Guarded owns only the lift + fault mint (the
  // call site keeps its NaN-rejecting relational pattern); Positive gates a measured column finite-and-strictly-positive
  // (the raw-double form after the MeasureValue.Of SI coercion, the MeasureValue form direct); PositiveSi
- // guards-then-mints a consumer-domain quantity through the TYPED OfSi (the registry-less signatures); Rayleigh gates
- // the Option-carried damping pair when Some and passes None (absence is legal, never a sentinel).
+ // guards-then-mints a consumer-domain quantity through the TYPED OfSi (the registry-less signatures); Rayleigh gates the Option-carried
+ // damping pair when Some and passes None (absence is legal, never a sentinel).
  private static Validation<Error, double> Guarded(bool valid, double value, string name, Op key) =>
   valid ? value : ElementFault.ValueRejected(key, $"<{name}:{value:R}>");
 
@@ -1189,7 +1203,7 @@ public abstract partial class MaterialPropertySet {
    ? ElementFault.ValueRejected(key, "<damping-rayleigh-non-finite-or-negative>")
    : pair;
 
- // The dependent matrix slot: arity gates the finiteness scan of the SAME array (dependence binds inside one slot;
+  // Matrix is the dependent slot: arity gates the finiteness scan of the SAME array (dependence binds inside one slot;
  // independence accumulates across slots — EXPRESSION_SPINE's carrier-selected algebra in one constructor).
  private static Validation<Error, ImmutableArray<double>> Matrix(ImmutableArray<double> impacts, Op key) =>
   impacts.IsDefaultOrEmpty || impacts.Length != Environmental.MatrixArity
@@ -1208,7 +1222,7 @@ public static class MaterialPropertyAccess {
   public Option<T> Property<T>() where T : MaterialPropertySet =>
    properties.Choose(static p => p is T t ? Some(t) : None).Head;
 
-  // The ergonomic per-discipline reads the Rasm.Compute aggregator consumes (props.Thermal/Mechanical/Environmental) —
+  // Per-discipline reads the Rasm.Compute aggregator consumes (props.Thermal/Mechanical/Environmental) —
   // each a one-line projection of the generic owner, the consumer-contract surface, never a re-implemented Choose body.
   public Option<MaterialPropertySet.Mechanical> Mechanical => properties.Property<MaterialPropertySet.Mechanical>();
   public Option<MaterialPropertySet.Orthotropic> Orthotropic => properties.Property<MaterialPropertySet.Orthotropic>();
@@ -1230,7 +1244,7 @@ public static class MaterialPropertyAccess {
   public Option<MeasureValue> Density =>
    Mechanical.Map(static m => m.Density) | Orthotropic.Map(static o => o.Density);
 
-  // The dual by-discipline read a Rasm.Compute analysis route takes when it holds a runtime Discipline value
+  // ForDiscipline is the dual read a Rasm.Compute analysis route takes when it holds a runtime Discipline value
   // rather than a static case type — dispatching on the case→Discipline map, never a parallel discipline scan.
   public Option<MaterialPropertySet> ForDiscipline(Discipline discipline) => properties.Find(p => p.Discipline == discipline);
  }

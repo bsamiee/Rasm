@@ -504,4 +504,4 @@ public static class SustainabilityCatalogue {
 
 ## [03]-[RESEARCH]
 
-- (none)
+(none)

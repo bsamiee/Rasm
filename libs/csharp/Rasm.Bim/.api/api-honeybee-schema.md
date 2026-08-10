@@ -1,6 +1,6 @@
 # [RASM_BIM_API_HONEYBEE_SCHEMA]
 
-`HoneybeeSchema` binds the Ladybug Tools Honeybee energy/daylight model as the HBJSON object graph: the geometry envelope (`Model` -> `Room` -> `Face` -> `Aperture`/`Door`/`Shade`), the energy/radiance/doe2 property stores, and the validation surface, every type deriving from one `OpenAPIGenBaseModel` base with `ToJson`/`FromJson` round-trip and DataAnnotations validation. This generated DTO-and-serialization binding is the HBJSON leg of the Bim energy-model exchange owner, the schema a Rhino/Pollination/Grasshopper energy model round-trips in.
+`HoneybeeSchema` binds the Ladybug Tools Honeybee energy/daylight model as the HBJSON object graph: the building-envelope geometry (`Model` -> `Room` -> `Face` -> `Aperture`/`Door`/`Shade`), the energy/radiance/doe2 property stores, and the validation surface, every type deriving from one `OpenAPIGenBaseModel` base with `ToJson`/`FromJson` round-trip and DataAnnotations validation. This generated DTO-and-serialization binding is the HBJSON leg of the Bim energy-model exchange owner, the schema a Rhino/Pollination/Grasshopper energy model round-trips in.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -39,7 +39,7 @@
 |  [14]   | `Adiabatic`            | class         | no-flux boundary                                                                 |
 |  [15]   | `OtherSideTemperature` | class         | `HeatTransferCoefficient` + `Temperature` (`AnyOf<Autocalculate,double>`)        |
 
-[PUBLIC_TYPE_SCOPE]: geometry envelope (honeybee-core), generated model and geometry value-type classes
+[PUBLIC_TYPE_SCOPE]: building-envelope geometry (honeybee-core), generated model and geometry value-type classes
 - note: the `Model` root carries `Version`, `Units` (default `Meters`), `Tolerance`/`AngleTolerance`, and the `Orphaned{Faces,Shades,Apertures,Doors}` lists beside `Rooms`; the geometry value types are the ladybug-geometry primitives Dragonfly's massing composes.
 
 | [INDEX] | [SYMBOL]              | [CAPABILITY]                                                                                             |
@@ -171,6 +171,6 @@ Each ctor is positional-then-optional; the optional tail carries the schema's OW
 
 [RAIL_LAW]:
 - Package: `HoneybeeSchema`
-- Owns: the Honeybee HBJSON energy/daylight schema — the `OpenAPIGenBaseModel`/`AnyOf` serialization base, the geometry envelope, the `IBoundarycondition` union and `IAltnumber` sentinels, the energy/radiance/doe2 property stores and full energy library Dragonfly references by id, the abridged-reference model and `Extension` resolver/codec helpers, the enum vocabulary, validation, and the standards-library helper
+- Owns: the Honeybee HBJSON energy/daylight schema — the `OpenAPIGenBaseModel`/`AnyOf` serialization base, the building-envelope geometry, the `IBoundarycondition` union and `IAltnumber` sentinels, the energy/radiance/doe2 property stores and full energy library Dragonfly references by id, the abridged-reference model and `Extension` resolver/codec helpers, the enum vocabulary, validation, and the standards-library helper
 - Accept: HBJSON serialize/parse/validate/duplicate, energy-model assembly, standards-library lookup, the Exchange-boundary map to canonical Bim carriers
 - Reject: energy simulation (`OpenStudio` and EnergyPlus own it), HBJSON->OSM translation (the external `honeybee-openstudio` Python step), `System.Text.Json`/stock-Newtonsoft serialization of these types, and leaking `HoneybeeSchema.*` types past the codec boundary

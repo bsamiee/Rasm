@@ -1,6 +1,6 @@
 # [DIAGNOSTICS]
 
-Telemetry is one spine declared at process roots and joined across the suite by one identity envelope. Emission is a compile-checked contract — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one receipts fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
+Telemetry is one spine declared at process roots and joined across the suite by one identity carrier. Emission is a compile-checked contract — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one receipts fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
 
 ## [01]-[SIGNAL_CHOOSER]
 
@@ -14,7 +14,7 @@ This table routes a telemetry concern to its owning surface; the most specific r
 |  [04]   | telemetry volume      | one root sampler, derived thrice          | per-signal probabilities         |
 |  [05]   | metric shaping        | view rows + cardinality limits            | call-site meter gating           |
 |  [06]   | export                | `UseOtlpExporter` once                    | per-signal exporter scatter      |
-|  [07]   | cross-process context | versioned envelope + one propagator pair  | ad-hoc baggage writes            |
+|  [07]   | cross-process context | versioned carrier + one propagator pair   | ad-hoc baggage writes            |
 |  [08]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
 |  [09]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
 |  [10]   | resource signals      | governed meter admission + publisher rows | counter polling loops            |
@@ -200,7 +200,7 @@ public static class SignalRoot {
 
 [IDENTITY_LAYERS]:
 - Law: four identity layers, each minted by one owner, none derivable from another — correlation root at boot scope, trace id at request scope, span id at hop scope, causal stamp at event-order scope — and every exported surface answers same-process, same-request, same-hop, what-order; an unanswerable question is the gap an incident finds first.
-- Law: one boot mint, three projections — the stamp envelope's origin, the pinned resource instance id, and the root tag on a static enricher row — and the equality of the three is a boot assertion.
+- Law: one boot mint, three projections — the stamp record's origin, the pinned resource instance id, and the root tag on a static enricher row — and the equality of the three is a boot assertion.
 - Law: log records carry trace and span ids natively as typed fields — a hand-written trace-id enricher marks a stale design; metrics join through exemplars and resource identity, never per-point correlation tags, which are one-series-per-request cardinality.
 - Law: the three ambient breaks — pooled callbacks, native callbacks, manual threads — share one repair: capture context as a value, restore at entry; deferred work starts children from the captured `ActivityContext`, never the ambient current at execution time.
 - Law: nested ambient scopes restore through an explicit scope stack — disposal wins only from the current top, an out-of-order disposal refuses and leaves the scope live for retry after its child closes, restoration reinstates the prior value and the parent scope together, and a won disposal is idempotent.
@@ -268,14 +268,14 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 ```
 
 [SKEW_EVIDENCE]:
-- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes one `FactRecord.Skew` case on the shared receipts stream and the stamp still advances, and rejection is a policy a consumer may layer above the envelope.
+- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes one `FactRecord.Skew` case on the shared receipts stream and the stamp still advances, and rejection is a policy a consumer may layer above the stamp.
 - Law: the bound derives from the skew cases on that stream — worst observed offset raised by the margin — a measured, revisable policy value; the per-peer fold over those cases, not the raw stream, is what health consumes.
 - Law: span clocks carry duration truth and stamps carry order truth — a cross-process waterfall may show negative gaps up to the bound by design, and ordering is producer-stamped evidence, never consumer inference.
 
 ## [06]-[ENVELOPE_SEAM]
 
 [ENVELOPE_SCHEMA]:
-- Law: cross-process context is one versioned envelope — declared baggage keys, each with an owner, a classification verdict of identifiers-only, and a byte budget — and the seam owner holds the keys behind typed verbs; an ad-hoc baggage write bypasses classification review and erodes the budget invisibly.
+- Law: cross-process context is one versioned carrier — declared baggage keys, each with an owner, a classification verdict of identifiers-only, and a byte budget — and the seam owner holds the keys behind typed verbs; an ad-hoc baggage write bypasses classification review and erodes the budget invisibly.
 - Law: baggage broadcasts to every downstream hop and instrumented client — identifiers only, never payload, never classified material; the stamp rides baggage rather than `tracestate`, because evidence seams are not always trace-aware.
 - Law: two baggage stores live in one process and never synchronize — `Baggage.Current` is the SDK store and the one write surface, `Activity.Baggage` is read-only foreign material — and `Baggage` is an immutable value, so a discarded `SetBaggage` return changes nothing and compiles cleanly.
 - Law: the platform and SDK propagator seams agree by boot assertion — before SDK initialization the SDK seam is a no-op that injects nothing, silently; `TraceStateString` mutation is read-modify-write by law, because overwrite clobbers foreign vendors.
@@ -284,7 +284,7 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 [ADMISSION_VERDICTS]:
 - Law: the receive-advance executes once at the transport admission seam where extraction already happens, never per handler; departure stamps the post-advance value, so the wire never carries stale time forward.
 - Law: arrival resolves across the `Fin<Arrival>` rail — refusal where context is contractual rides the fail side, the success side joins a present trace context or adopts a context-less frame as a countable foreign root, and quarantine is a consumer policy layered above the seam — so a child started from the zero trace id never mints, because a plausible-looking tree from a zero id corrupts every downstream join.
-- Law: the envelope version key turns mixed-fleet schema drift into a typed fault at extract, never a renamed key misread as absence; the version is numeric and compared as a number, because ordinal text comparison inverts past one digit.
+- Law: the carrier version key turns mixed-fleet schema drift into a typed fault at extract, never a renamed key misread as absence; the version is numeric and compared as a number, because ordinal text comparison inverts past one digit.
 - Exemption: the propagator's carrier inject body is the platform-forced statement seam.
 
 ```csharp conceptual

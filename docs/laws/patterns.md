@@ -56,7 +56,7 @@ Portable operational behavior binds every branch a rail crosses.
 
 [TYPED_ENVELOPE]:
 - Binds: All branches.
-- Law: Operational rails return one typed envelope, and failure rides that envelope, never a sentinel in a data row.
+- Law: Operational rails return one typed envelope, and failure rides it, never a sentinel in a data row.
 
 [EMPTY_FOLD]:
 - Binds: All branches.

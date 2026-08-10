@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CHR_AVRO]
 
-`Chr.Avro` owns the abstract Avro schema-model core: the `Schema` algebra, the `LogicalType` decorators, the reflection-driven `SchemaBuilder` deriving a schema from a CLR `Type`, and the open expression-builder codec framework the binary and registry legs specialize. It ships no encoder and no JSON codec — the binary codec is `Chr.Avro.Binary`, the JSON codec the transitive `Chr.Avro.Json`, the registry serde `Chr.Avro.Confluent`. It is the schema-governed, evolution-safe interchange rail the `Arrow`/`Parquet`/`MessagePack`/`CBOR` codec set lacks.
+`Chr.Avro` owns the abstract Avro schema-model core: the `Schema` algebra, the `LogicalType` decorators, the reflection-driven `SchemaBuilder` deriving a schema from a CLR `Type`, and the open expression-builder codec framework the binary and registry legs specialize. It ships no encoder and no JSON codec — `Chr.Avro.Binary` carries the binary codec and the first-party Confluent serde the registry frame — so schema derivation is its whole governance, and it supplies the evolution-safe interchange rail the `Arrow`/`Parquet`/`MessagePack`/`CBOR` set lacks.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -130,15 +130,15 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 - `RecordField.Default` (typed `DefaultValue`) back-fills a reader-schema field absent from the writer schema — the evolution back-compat seam.
 
 [STACKING]:
-- Owning pages: the schema model is the interchange-codec source on `Element/codec` (the binary leg compiles the body codec, `api-chr-avro-binary`) and the registry-governed Kafka-wire leg on `Version/egress` (`api-chr-avro-confluent`).
-- `SchemaBuilder.BuildSchema<T>()` mints the `Schema` once per type; `BinarySerializerBuilder.BuildDelegate<T>(schema)` (`api-chr-avro-binary`) compiles the codec against it and `SchemaRegistrySerializerBuilder.Build<T>(subject, …)` (`api-chr-avro-confluent`) registers its JSON representation and prefixes the registry schema id — never rebuilt per message.
+- Owning pages: the schema model is the interchange-codec source on `Element/codec` (the binary leg compiles the body codec, `api-chr-avro-binary`) and the `dataschema` registry-subject mint on `Version/egress`, whose wire frame is `Confluent.SchemaRegistry.Serdes.Avro` (`api-schemaregistry-serdes-avro`).
+- `SchemaBuilder.BuildSchema<T>()` mints the `Schema` once per type and `BinarySerializerBuilder.BuildDelegate<T>(schema)` (`api-chr-avro-binary`) compiles the codec against it — never rebuilt per message; the derived schema's JSON representation is what the registry subject registers, and the Confluent serde owns the id prefix from there.
 - Boundary against the first-party Confluent serde: this core's carve is the expression-tree-compiled CLR-schema-DERIVATION path; the canonical Kafka-wire Avro serde is `Confluent.SchemaRegistry.Serdes.Avro` (`api-schemaregistry-serdes-avro`) over the `Apache.Avro` codec on `GenericRecord`/`ISpecificRecord`, and the two arms never frame the same Kafka payload.
 - Boundary against the schemaless codecs: `MessagePack` (`api-messagepack`) and `CBOR` (`api-cbor`) own self-describing schema-free blobs, Avro owns the schema-governed evolution-safe row whose field add/remove/rename rides `RecordField.Default` + `NamedSchema.Aliases`; the codec choice is body-receipt profile data.
 - Logical-type mapping stacks onto the temporal/decimal owners at the edge: `TimestampLogicalType` → a `NodaTime`/`DateTimeOffset` instant and `DecimalLogicalType` → a `System.Decimal`, so the boundary adapter maps to the canonical internal type rather than leaking the Avro wrapper inward.
 
 [LOCAL_ADMISSION]:
 - Chr.Avro is the schema-model + codegen owner inside the Avro interchange profile, not public Persistence vocabulary; the `Schema`, logical types, and build policies are profile data.
-- A schema derives from the canonical record type via `SchemaBuilder`, never hand-authored as JSON text inside Persistence code.
+- Schemas derive from the canonical record type via `SchemaBuilder`, never hand-authored as JSON text inside Persistence code.
 - Schema evolution rides `RecordField.Default` + `NamedSchema.Aliases` on the model, never ad-hoc payload patching.
 - `Chr.Avro.Binary` owns the encoder and `Chr.Avro.Json` the JSON codec; this core ships neither, so a catalog citing a binary `Encode`/`Decode` or a `JsonSchemaReader` against this assembly is wrong.
 

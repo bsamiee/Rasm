@@ -1,12 +1,12 @@
 # [ELEMENT_GEO_REFERENCE]
 
-The host-neutral coordinate-reference owner: one `GeoReference` record carrying the full map-conversion-and-CRS state — the eastings/northings/orthogonal-height translation, the X-axis abscissa/ordinate rotation cosine pair, the per-axis `ScaleX`/`ScaleY`/`ScaleZ`, the `GeodeticDatum` name, one `ProjectedCrs` `[ComplexValueObject]` horizontal CRS identity beside one `VerticalCrs` vertical identity, and the `Option<double> Epoch` decimal-year coordinate epoch (the dynamic-datum/ITRF plate-motion anchor the Bim OSR leg threads through `SpatialReference.SetCoordinateEpoch`; no IFC attribute carries it, so an IFC ingest lands `None` and a survey/GIS ingest supplies it) — and the `CrsResolution` `[SmartEnum<string>]` policy column that records HOW the CRS resolves (an EPSG authority code, an inline OGC WKT definition, a `MapProjection`+`MapZone` projection identity — round-trippable identification no engine builds a transform from, its own typed mode — or no reference at all) — every accepted mode carrying exactly the evidence its consumer reads. The record constructor is PRIVATE: `Admit` and the pre-admitted `Identity` are the only entries, so an unadmitted frame is unrepresentable. The reference is HOST-NEUTRAL and PURE DATA: it carries the parameters a downstream `Rasm.Bim` projector folds into a rigid map-conversion transform (over the kernel transform algebra) and a `ProjNET`/OSR datum-to-datum reprojection — the seam references NO ProjNET, NO kernel `Transform` type, and materializes no geometry, because geometry is referenced by content hash. The translation and per-axis scale doubles are METRE-NORMALIZED at ingest: the `Rasm.Bim` projector composes the `IfcProjectedCRS.MapUnit` `IfcNamedUnit.SIFactor()` model-unit↔CRS-unit factor onto the scale BEFORE handing the tuple to `Admit`, so the seam frame is one metre frame a federation reconciles every model onto from one record and the seam carries NO `MapUnit` field (a US-survey-foot State Plane zone is reconciled to metres in Bim, never left as an ambiguous CRS-native double on the seam).
+`GeoReference` owns the host-neutral coordinate reference — one record carrying the full map-conversion-and-CRS state — the eastings/northings/orthogonal-height translation, the X-axis abscissa/ordinate rotation cosine pair, the per-axis `ScaleX`/`ScaleY`/`ScaleZ`, the `GeodeticDatum` name, one `ProjectedCrs` `[ComplexValueObject]` horizontal CRS identity beside one `VerticalCrs` vertical identity, and the `Option<double> Epoch` decimal-year coordinate epoch (the dynamic-datum/ITRF plate-motion anchor the Bim OSR leg threads through `SpatialReference.SetCoordinateEpoch`; no IFC attribute carries it, so an IFC ingest lands `None` and a survey/GIS ingest supplies it) — and the `CrsResolution` `[SmartEnum<string>]` policy column that records HOW the CRS resolves (an EPSG authority code, an inline OGC WKT definition, a `MapProjection`+`MapZone` projection identity — round-trippable identification no engine builds a transform from, its own typed mode — or no reference at all) — every accepted mode carrying exactly the evidence its consumer reads. `Admit` and the pre-admitted `Identity` are the only entries over a PRIVATE record constructor, so an unadmitted frame is unrepresentable. `GeoReference` stays HOST-NEUTRAL and PURE DATA, carrying the parameters a downstream `Rasm.Bim` projector folds into a rigid map-conversion transform (over the kernel transform algebra) and a `ProjNET`/OSR datum-to-datum reprojection — the seam references NO ProjNET, NO kernel `Transform` type, and materializes no geometry, because geometry is referenced by content hash. Translation and per-axis scale doubles arrive METRE-NORMALIZED at ingest: the `Rasm.Bim` projector composes the `IfcProjectedCRS.MapUnit` `IfcNamedUnit.SIFactor()` model-unit↔CRS-unit factor onto the scale BEFORE handing the tuple to `Admit`, so the seam frame is one metre frame a federation reconciles every model onto from one record and the seam carries NO `MapUnit` field (a US-survey-foot State Plane zone is reconciled to metres in Bim, never left as an ambiguous CRS-native double on the seam).
 
-The CRS is a THREE-STATE concept, never a two-state EPSG/none slice: an `IfcProjectedCRS` may carry an EPSG authority `Name` (`EPSG:25832`), an inline `IfcWellKnownText.WellKnownText` OGC WKT definition (a GIS-origin CRS with NO authority code), or — for a non-georeferenced model — neither. The `ProjectedCrs` `[ComplexValueObject]` carries the authority `Name`, the parsed `Epsg`, the `Wkt` definition, and the `MapProjection`/`MapZone` projection identity together, and `CrsResolution` discriminates the state a consumer reads as a column. The `Admit` factory is the tuple's VALUE-ADMISSION gate: the independent legs accumulate — the translation finite, the direction-cosine pair finite and non-degenerate, the per-axis scales finite and strictly positive, the optional epoch finite and positive, and the CRS leg — so a NaN eastings or a zero scale faults BESIDE a bad CRS rather than canonicalizing stably into `Header.CanonicalBytes` as a silently-mislocated frame; the CRS leg FAULTS (not silently skips) ONLY when a CRS name is present but resolves to NEITHER an EPSG code NOR a WKT definition NOR a projection+zone — an unresolvable georeference surfaces as `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` rather than a silently-mislocated model — and a WKT-defined CRS is VALID (the `ProjNET` `CoordinateSystemFactory.CreateFromWkt` / OSR `SpatialReference.ImportFromWkt` resolves it), never faulted as "unresolvable". `GeoReference` rides ONLY the `Graph/element#ELEMENT_GRAPH` `Header` and the `Geospatial/coverage#COVERAGE_NODE` `Coverage` node — it is DROPPED from the `Object` node, because an object's placement is geometry the kernel owns by content hash, and the model-wide georeference is a header fact, not a per-object one. The reference is COMPOUND: `VerticalCrs` carries the vertical half over the same three states, so an orthometric height reconciles against a named vertical frame rather than a bare datum string. The page composes the kernel `Op` op-key and, for the coverage-node content identity, the `Projection/address#CANONICAL_WRITER` `CanonicalWriter` (a coverage's `NodeId` derives from its CRS, so `GeoReference` owns the `CanonicalBytes` projection of its full state), folding the `Epsg` AND the `Wkt`/`MapProjection`/`MapZone` AND the vertical frame so two EPSG-less WKT CRSs that differ only in their WKT — or two frames sharing a horizontal CRS over different vertical datums — address as the distinct frames they are.
+`ProjectedCrs` models the CRS in THREE states, never a two-state EPSG/none slice: an `IfcProjectedCRS` may carry an EPSG authority `Name` (`EPSG:25832`), an inline `IfcWellKnownText.WellKnownText` OGC WKT definition (a GIS-origin CRS with NO authority code), or — for a non-georeferenced model — neither. Its `[ComplexValueObject]` carries the authority `Name`, the parsed `Epsg`, the `Wkt` definition, and the `MapProjection`/`MapZone` projection identity together, and `CrsResolution` discriminates the state a consumer reads as a column. `Admit` is the tuple's VALUE-ADMISSION gate: the independent legs accumulate — the translation finite, the direction-cosine pair finite and non-degenerate, the per-axis scales finite and strictly positive, the optional epoch finite and positive, and the CRS leg — so a NaN eastings or a zero scale faults BESIDE a bad CRS rather than canonicalizing stably into `Header.CanonicalBytes` as a silently-mislocated frame; the CRS leg FAULTS (not silently skips) ONLY when a CRS name is present but resolves to NEITHER an EPSG code NOR a WKT definition NOR a projection+zone — an unresolvable georeference surfaces as `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` rather than a silently-mislocated model — and a WKT-defined CRS is VALID (the `ProjNET` `CoordinateSystemFactory.CreateFromWkt` / OSR `SpatialReference.ImportFromWkt` resolves it), never faulted as "unresolvable". `GeoReference` rides ONLY the `Graph/element#ELEMENT_GRAPH` `Header` and the `Geospatial/coverage#COVERAGE_NODE` `Coverage` node — it is DROPPED from the `Object` node, because an object's placement is geometry the kernel owns by content hash, and the model-wide georeference is a header fact, not a per-object one. `VerticalCrs` makes the reference COMPOUND, carrying the vertical half over the same three states, so an orthometric height reconciles against a named vertical frame rather than a bare datum string. `GeoReference` composes the kernel `Op` op-key and, for the coverage-node content identity, the `Projection/address#CANONICAL_WRITER` `CanonicalWriter` (a coverage's `NodeId` derives from its CRS, so `GeoReference` owns the `CanonicalBytes` projection of its full state), folding the `Epsg` AND the `Wkt`/`MapProjection`/`MapZone` AND the vertical frame so two EPSG-less WKT CRSs that differ only in their WKT — or two frames sharing a horizontal CRS over different vertical datums — address as the distinct frames they are.
 
 ## [01]-[INDEX]
 
-- [02]-[GEO_REFERENCE]: the `GeoReference` map-conversion-and-CRS record, the `ProjectedCrs` `[ComplexValueObject]` three-state horizontal CRS identity (authority `Name`+parsed `Epsg`, inline `Wkt`, `MapProjection`/`MapZone`), the `VerticalCrs` `[ComplexValueObject]` vertical identity (stored `Epsg` + ordinal-compared datum `Name`), the `CrsResolution` `[SmartEnum<string>]` resolution-mode policy column both read, the accumulating `Admit` factory (finite-translation / non-degenerate-direction / positive-scale metre-frame gates, the near-uniform scale snap, and the fault-on-fully-unresolvable horizontal and vertical CRS legs), and the `RotationRadians` direction-cosine projection.
+- [02]-[GEO_REFERENCE]: `GeoReference` records the map conversion and CRS — `ProjectedCrs` the three-state horizontal identity (authority `Name`+parsed `Epsg`, inline `Wkt`, `MapProjection`/`MapZone`), `VerticalCrs` the vertical identity (stored `Epsg` + ordinal-compared datum `Name`), `CrsResolution` the resolution-mode policy column both read, `Admit` the accumulating factory (finite-translation, non-degenerate-direction, and positive-scale metre-frame gates, the near-uniform scale snap, and a fault on a fully unresolvable horizontal or vertical leg), and `RotationRadians` the direction-cosine projection.
 
 ## [02]-[GEO_REFERENCE]
 
@@ -44,7 +44,7 @@ public sealed partial class CrsResolution {
  public static readonly CrsResolution Wkt = new("wkt");                   // an inline OGC WKT payload defines it, no authority code (the CreateFromWkt path)
  public static readonly CrsResolution Projection = new("projection");     // naming evidence alone — a MapProjection+MapZone pair or a vertical datum name, engine-unbuildable
 
- // The build path is the CASE ITSELF — the Rasm.Bim GeoTransform owner dispatches the GENERATED total `Switch`
+ // CrsResolution makes the build path the CASE ITSELF — the Rasm.Bim GeoTransform owner dispatches the GENERATED `Switch`
  // (`resolution.Switch(epsg: …, wkt: …, projection: …, unreferenced: …)`) to select the EPSG-keyed
  // CoordinateSystemServices build, the WKT-keyed CreateFromWkt build, the typed projection-only verdict (a bare
  // MapProjection+MapZone identity is round-trippable IDENTIFICATION the egress re-emits, but NEITHER managed
@@ -53,18 +53,18 @@ public sealed partial class CrsResolution {
  // resolution mode breaks every build site at compile time. A `BuildsByEpsg`/`BuildsByWkt` boolean pair the
  // consumer chains as `if (resolution.BuildsByEpsg)` is the deleted COLLAPSE_SCAN [04] re-branch — the smart-enum
  // owns the dispatch, never a derived bool that re-states the case as a flag and silently misses the next mode.
- // The seam owns the DISCRIMINANT; Bim owns the ProjNET/OSR build and the per-mode verdict.
+ // CrsResolution owns the DISCRIMINANT; Bim owns the ProjNET/OSR build and the per-mode verdict.
 }
 
-// The CRS identity a THREE-STATE [ComplexValueObject], never a two-state Option<int> Epsg slice: an IfcProjectedCRS may
-// carry an EPSG authority Name, an inline IfcWellKnownText.WellKnownText OGC definition
-// (a GIS-origin CRS with NO authority code), or a MapProjection+MapZone projection identity. All four carriers (Name,
-// the parsed Epsg, Wkt, MapProjection/MapZone) ride ONE value-object so a consumer reads the whole CRS identity in one
+// ProjectedCrs carries the CRS identity as a THREE-STATE [ComplexValueObject], never a two-state Option<int> Epsg slice: an
+// IfcProjectedCRS may carry an EPSG authority Name, an inline IfcWellKnownText.WellKnownText OGC definition
+// (a GIS-origin CRS with NO authority code), or a MapProjection+MapZone projection identity. All four carriers (Name, the
+// parsed Epsg, Wkt, MapProjection/MapZone) ride ONE value-object so a consumer reads the whole CRS identity in one
 // hop and Resolution discriminates the EPSG-vs-WKT path. Identity is the (Name, MapProjection, MapZone, Wkt) product
 // under SPLIT comparer policy (the authority Name/MapProjection/MapZone case-insensitive — CRS authority tokens are
 // case-stable; the Wkt byte-exact — a WKT is a structured definition, not a case-fold token), mirroring the sibling
 // Classification/classification#CLASSIFICATION_AXIS Classification axis (the other neutral cross-cutting value-object).
-// The all-blank product is the rejected form — a CRS with no identity at all is not constructible.
+// ValidateFactoryArguments rejects the all-blank product — a CRS with no identity at all is not constructible.
 [ComplexValueObject]
 [ValidationError<ElementFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -76,8 +76,8 @@ public readonly partial struct ProjectedCrs {
 
  // Trim the four CRS carriers in place, then reject the STRUCTURALLY empty product: a value with NO authority Name, NO
  // inline Wkt, NO MapProjection, and NO MapZone carries no identity. The keyless ValidateFactoryArguments fault is
- // re-stamped to the caller's Op in `Of` (the Classification/classification#CLASSIFICATION_AXIS re-key idiom). This is
- // the STRUCTURAL gate (some identity string present); the SEMANTIC resolvability (EPSG OR Wkt OR projection+zone — a
+ // re-stamped to the caller's Op in `Of` (the Classification/classification#CLASSIFICATION_AXIS re-key idiom). This is the
+ // STRUCTURAL gate (some identity string present); the SEMANTIC resolvability (EPSG OR Wkt OR projection+zone — a
  // name-only "GibberishName" is structurally valid but semantically unresolvable) is GeoReference.Admit's richer gate.
  private static partial void ValidateFactoryArguments(ref ElementFault? validationError, ref string name, ref string mapProjection, ref string mapZone, ref string wkt) {
   (name, mapProjection, mapZone, wkt) = (name.Trim(), mapProjection.Trim(), mapZone.Trim(), wkt.Trim());
@@ -86,7 +86,7 @@ public readonly partial struct ProjectedCrs {
   }
  }
 
- // The seam-rail admission a Rasm.Bim projector takes: re-keys the keyless ValidateFactoryArguments fault to the
+ // Of is the seam-rail admission a Rasm.Bim projector takes: it re-keys the keyless ValidateFactoryArguments fault to the
  // caller's Op so the operation context survives (the Classification/classification#CLASSIFICATION_AXIS `Of` idiom).
  public static Fin<ProjectedCrs> Of(string name, string mapProjection, string mapZone, string wkt, Op key) =>
   Validate(name, mapProjection, mapZone, wkt, out ProjectedCrs value) is { } fault
@@ -103,9 +103,9 @@ public readonly partial struct ProjectedCrs {
  // frame nobody declared. A WKT-only or projection-only CRS is None by the same law.
  public Option<int> Epsg => EpsgOf(Name);
 
- // The parse is STATIC because two owners read one grammar: this instance column, and the VerticalCrs authority code
- // the Rasm.Bim height-datum leg admits off a bare IfcVerticalDatum declaration. A second arm-for-arm copy at the
- // vertical end would drift the authority-evidence law the moment either side gains a URN form.
+ // EpsgOf parses STATICALLY because two owners read one grammar: this instance column, and the VerticalCrs code the
+ // Rasm.Bim height-datum leg admits off a bare IfcVerticalDatum declaration. A second arm-for-arm copy at the
+ // vertical end drifts the authority-evidence law the moment either side gains a URN form.
  public static Option<int> EpsgOf(string name) =>
   name.StartsWith("EPSG:", StringComparison.OrdinalIgnoreCase) && int.TryParse(name.AsSpan(5), out int prefixed)
   ? Some(prefixed)
@@ -122,7 +122,7 @@ public readonly partial struct ProjectedCrs {
  // re-spelled inline at Admit or in Bim (the ONE_HOP_RESOLUTION owner co-location).
  public bool IsResolvable => Epsg.IsSome || Wkt.Length > 0 || (MapProjection.Length > 0 && MapZone.Length > 0);
 
- // The resolution mode: an EPSG code wins (the authority is the densest identity a ProjNET CoordinateSystemServices
+ // Resolution ranks the mode: an EPSG code wins (the authority is the densest identity a ProjNET CoordinateSystemServices
  // build keys on); a WKT-carrying CRS resolves through the CreateFromWkt path; a projection+zone identity with NO
  // WKT payload takes its OWN Projection mode — identification the egress round-trips, transform-unbuildable by
  // either engine, so the Bim leg faults it by CASE rather than receiving a Wkt label over an empty payload (every
@@ -133,9 +133,9 @@ public readonly partial struct ProjectedCrs {
   : Wkt.Length > 0 ? CrsResolution.Wkt
   : CrsResolution.Projection;
 
- // The CRS-identity content projection GeoReference.CanonicalBytes folds: the parsed Epsg (the dense identity when
- // present, so two names resolving the same EPSG code address identically whether or not the name string differs) AND
- // the Wkt/MapProjection/MapZone (so two EPSG-LESS CRSs differing only in WKT or projection address distinctly — an
+ // ProjectedCrs projects its identity for GeoReference.CanonicalBytes to fold: the parsed Epsg (the dense identity when
+ // present, so two names resolving the same EPSG code address identically whether or not the name string differs) AND the
+ // Wkt/MapProjection/MapZone (so two EPSG-LESS CRSs differing only in WKT or projection address distinctly — an
  // Epsg-only canon collides every WKT CRS onto one identity, the deleted form). The authority Name string itself is
  // EXCLUDED when an Epsg resolves (Epsg IS the identity); for a WKT/projection CRS the Wkt + projection ARE the identity.
  public void CanonicalBytes(CanonicalWriter w) {
@@ -145,15 +145,15 @@ public readonly partial struct ProjectedCrs {
  }
 }
 
-// The VERTICAL half of a compound reference, the horizontal ProjectedCrs's sibling: an orthometric height reconciles
-// only against a NAMED vertical frame, so a bare VerticalDatum string strands every height a federation tries to
+// VerticalCrs carries the VERTICAL half of a compound reference, the horizontal ProjectedCrs's sibling: an orthometric
+// height reconciles only against a NAMED vertical frame, so a bare VerticalDatum string strands every height a federation tries to
 // align. Resolution is the same three states the horizontal owner carries, read off the SAME CrsResolution column: an
 // authority code (EPSG:5701 Newlyn, EPSG:5703 NAVD88) a Rasm.Bim height-transform build keys on, a datum name alone
 // (identification the egress round-trips, engine-unbuildable), and absence — the Option<VerticalCrs> None a model
-// whose heights are ellipsoidal or unreferenced carries. The Epsg is a STORED member, not a Name parse: IFC supplies
-// the vertical datum as a name and a survey/GIS ingest supplies the code separately, so the two are independent
+// whose heights are ellipsoidal or unreferenced carries. The Epsg is a STORED member, not a Name parse: IFC supplies the
+// vertical datum as a name and a survey/GIS ingest supplies the code separately, so the two are independent
 // evidence rather than one string two readers disagree about. Name is ORDINAL-compared because the CanonicalWriter
-// writes it verbatim — a case-folding comparer would rule two frames equal whose canonical bytes differ.
+// writes it verbatim — a case-folding comparer rules two frames equal whose canonical bytes differ.
 [ComplexValueObject]
 [ValidationError<ElementFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -161,7 +161,7 @@ public readonly partial struct VerticalCrs {
  public Option<int> Epsg { get; }
  [MemberEqualityComparer<ComparerAccessors.StringOrdinal, string>] public string Name { get; }
 
- // The structural gate: a vertical CRS with neither a code nor a name carries no identity and is not constructible.
+ // ValidateFactoryArguments gates structurally: a vertical CRS with neither a code nor a name carries no identity and is not constructible.
  private static partial void ValidateFactoryArguments(ref ElementFault? validationError, ref Option<int> epsg, ref string name) {
   name = name.Trim();
   if (epsg.IsNone && name.Length == 0) {
@@ -195,13 +195,13 @@ public sealed record GeoReference {
  public double ScaleZ { get; }
  public string GeodeticDatum { get; }
  public Option<ProjectedCrs> Crs { get; }
- // The vertical half of the compound reference — it ABSORBS the vertical-datum name, so the frame carries one
+ // Vertical carries the compound reference's vertical half — it ABSORBS the vertical-datum name, so the frame carries one
  // vertical identity rather than a bare string beside a code nobody can attach to it.
  public Option<VerticalCrs> Vertical { get; }
  public Option<double> Epoch { get; }
 
- // PRIVATE ctor + GET-ONLY members (the AssessmentPayload shape): Admit is the ONLY public admission and Identity
- // the one pre-admitted constant, so a non-finite translation, a direction-less cosine pair, a collapsing or
+ // PRIVATE ctor + GET-ONLY members (the AssessmentPayload shape): Admit is the ONLY public admission and Identity the
+ // one pre-admitted constant, so a non-finite translation, a direction-less cosine pair, a collapsing or
  // mirroring scale, or an unresolvable CRS is UNREPRESENTABLE — a positional public ctor beside Admit is the bypass
  // that mints a silently-mislocated frame straight into Header.CanonicalBytes; a wire or persistence
  // decoder re-admits through the SAME gate (the ContentAddress.Verify distrust posture), and no init/set survives
@@ -218,18 +218,18 @@ public sealed record GeoReference {
  public static readonly GeoReference Identity =
   new(0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, "", None, None, None);
 
- // The parsed EPSG (the CRS identity for the EPSG-keyed ProjNET transform build) — None for a WKT-only, a
+ // Epsg reads the parsed code (the CRS identity for the EPSG-keyed ProjNET transform build) — None for a WKT-only, a
  // projection-only, or a non-georeferenced CRS, where Resolution reads Wkt, Projection, or Unreferenced and the Bim
  // transform owner dispatches the CreateFromWkt build, the unbuildable verdict, or the no-transform leg.
  public Option<int> Epsg => Crs.Bind(static c => c.Epsg);
 
  // HOW the CRS resolves: Unreferenced when no CRS, else the ProjectedCrs.Resolution (Epsg, Wkt, or Projection) — the
- // column the downstream Rasm.Bim transform owner dispatches to select the EPSG-keyed build, the WKT-keyed build, or
- // the typed projection-only unbuildable verdict.
+ // column the downstream Rasm.Bim transform owner dispatches to select the EPSG-keyed build, the WKT-keyed build, or the
+ // typed projection-only unbuildable verdict.
  public CrsResolution Resolution =>
   Crs is { IsSome: true, Case: ProjectedCrs projected } ? projected.Resolution : CrsResolution.Unreferenced;
 
- // A WKT-only CRS (no EPSG, no non-zero origin) is STILL georeferenced — a two-state Epsg.IsSome test reporting false
+ // IsGeoreferenced admits a WKT-only CRS (no EPSG, no non-zero origin) — a two-state Epsg.IsSome test reporting false
  // for a WKT CRS is the deleted form. A non-identity map conversion alone also counts (an engineering offset, a
  // TrueNorth-folded rotation, or a per-axis scale with no CRS): an origin-only test blind to a rotation-only or
  // scale-only conversion is the deleted form — the predicate reads EVERY georeferencing carrier the record holds, not
@@ -244,15 +244,15 @@ public sealed record GeoReference {
  // IFC carries the map-conversion rotation as a direction cosine, not an angle.
  public double RotationRadians => Math.Atan2(XAxisOrdinate, XAxisAbscissa);
 
- // The uniform map-conversion scale the IFC single-`Scale` egress read recovers WHEN the three metre-frame axes agree
+ // Scale recovers the uniform map-conversion factor the IFC single-`Scale` egress read takes WHEN the three axes agree
  // (the common LoGeoRef-50 case carries one Scale); Option<double>.None when an IfcMapConversionScaled set distinct
  // per-axis factors, so an egress fold reads the per-axis ScaleX/Y/Z instead of silently emitting one wrong scale.
- // The EXACT compare is honest because Admit already SNAPPED a near-uniform triple to exactly uniform: uniformity is
+ // Exact comparison is honest because Admit already SNAPPED a near-uniform triple to exactly uniform: uniformity is
  // an admission verdict, never a downstream float test.
  public Option<double> Scale => ScaleX == ScaleY && ScaleY == ScaleZ ? Some(ScaleX) : None;
 
- // The CRS content projection a Geospatial/coverage#COVERAGE_NODE CoverageGrid delegates to for its node identity:
- // the map-conversion translation/rotation/per-axis metre-frame scale, the geodetic datum name, the full ProjectedCrs
+ // CanonicalBytes projects the CRS a Geospatial/coverage#COVERAGE_NODE CoverageGrid delegates to for node identity: the
+ // map-conversion translation/rotation/per-axis metre-frame scale, the geodetic datum name, the full ProjectedCrs
  // identity (Epsg + Wkt + MapProjection/MapZone), and the vertical frame, through the shared
  // Projection/address#CANONICAL_WRITER IEEE-754 canon — so two georeferences resolving the same EPSG code address
  // identically, two EPSG-less WKT CRSs differing only in WKT address distinctly, and a change to either half of the
@@ -271,14 +271,14 @@ public sealed record GeoReference {
   Epoch.IfSome(e => w.Double(e));
  }
 
- // The metre-frame admission: the Rasm.Bim projector has already composed the IfcProjectedCRS.MapUnit SIFactor() onto
- // the per-axis scale, so the doubles arrive in metres. The independent legs ACCUMULATE (VALIDATION_MONOID): the
+ // Admit gates the metre frame: the Rasm.Bim projector has already composed the IfcProjectedCRS.MapUnit SIFactor() onto the
+ // per-axis scale, so the doubles arrive in metres. The independent legs ACCUMULATE (VALIDATION_MONOID): the
  // translation finite, the direction-cosine pair finite and non-degenerate ((0,0) has no direction — RotationRadians
- // would silently read 0), the per-axis scales finite and strictly positive (a zero scale collapses the frame, a
+ // silently reads 0), the per-axis scales finite and strictly positive (a zero scale collapses the frame, a
  // negative one mirrors it — neither is a map conversion), and the CRS leg — a value-admission gate, because a NaN
- // eastings would otherwise canonicalize stably into Header.CanonicalBytes and mislocate every model silently.
- // Dependence binds INSIDE each CRS leg (COMPOSITE_ADMISSION): a blank Name AND blank Wkt AND blank projection yields
- // the no-CRS None state (valid, an ungeoreferenced model never blocks); else ProjectedCrs.Of is the STRUCTURAL
+ // eastings otherwise canonicalizes stably into Header.CanonicalBytes and mislocates every model silently.
+ // Dependence binds INSIDE each CRS leg (COMPOSITE_ADMISSION): a blank Name AND blank Wkt AND blank projection yields the
+ // no-CRS None state (valid, an ungeoreferenced model never blocks); else ProjectedCrs.Of is the STRUCTURAL
  // admission (some identity string present, re-keyed to `key`), then crs.IsResolvable the SEMANTIC gate — an
  // EPSG-bearing name, a WKT-defined CRS, or a projection+zone CRS all SUCCEED, while a name-only "GibberishName"
  // FAULTS ValueRejected (never a silent skip, never a faulted WKT). The vertical leg follows the same shape over its
@@ -306,7 +306,7 @@ public sealed record GeoReference {
   })
  .As().ToFin();
 
- // The relative band inside which three independently-composed per-axis factors ARE one factor.
+ // ScaleUniformityTolerance is the relative band inside which three independently-composed per-axis factors ARE one factor.
  private const double ScaleUniformityTolerance = 1e-12;
 
  // Scale uniformity is decided at ADMISSION and stored, never re-tested downstream: the three axes reach Admit as
@@ -334,7 +334,7 @@ public sealed record GeoReference {
    : ElementFault.ValueRejected(key, $"<map-conversion-direction-degenerate:{abscissa:R}:{ordinate:R}>");
  }
 
- // The dependent horizontal CRS leg: no-identity -> None (valid), else structural-then-semantic on the Fin rail,
+ // AdmitCrs runs the dependent horizontal CRS leg: no-identity -> None (valid), else structural-then-semantic on the Fin rail,
  // ToValidation lifting it into the accumulating tuple so a bad CRS reports BESIDE a bad conversion tuple, never
  // instead of it.
  private static Validation<Error, Option<ProjectedCrs>> AdmitCrs(string name, string wkt, string mapProjection, string mapZone, Op key) =>
@@ -346,8 +346,8 @@ public sealed record GeoReference {
        : ElementFault.ValueRejected(key, $"<crs-name-unresolvable:{name}>")))
   .ToValidation();
 
- // The vertical leg, structurally the horizontal leg's twin over its own two carriers: neither code nor name yields
- // the None state (a model with ellipsoidal or unreferenced heights), and either one alone mints the frame.
+ // AdmitVertical runs the vertical leg, structurally the horizontal twin over its own two carriers: neither code nor name
+ // yields the None state (a model with ellipsoidal or unreferenced heights), and either one alone mints the frame.
  private static Validation<Error, Option<VerticalCrs>> AdmitVertical(Option<int> epsg, string datum, Op key) =>
   (epsg.IsNone && string.IsNullOrWhiteSpace(datum)
    ? Fin.Succ(Option<VerticalCrs>.None)

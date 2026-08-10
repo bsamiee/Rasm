@@ -6,7 +6,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 
 - [02]-[OPERATION_FAMILY]: `BlockOp` carrying every verified definition mutation and block-specific instance operation as generated values, `BlockMember` pairing one admitted `GeometryIntake` with one attribute set under a lease that closes on every exit.
 - [03]-[READ_FAMILY]: `BlockAsk`/`BlockAnswer` closing state, dependency, preview, field extraction, token composition, name minting, and instance explosion, `ExplodedPiece` owning its detached geometry and attribute custody.
-- [04]-[COMMIT_SPINE]: `BlockTransaction` admitting one homogeneous program through `BlockTrait`-derived undo and kernel-context requirements, and `Blocks.Commit` walking the one `DocumentCommit.Sealed` envelope.
+- [04]-[COMMIT_SPINE]: `BlockTransaction` admitting one homogeneous program through `BlockTrait`-derived undo and kernel-context requirements, and `Blocks.Commit` walking the one `DocumentCommit.Sealed` entry.
 - [05]-[RECEIPTS]: `BlockSlot`/`BlockBody` the folder's contribution to the Document spine's shared `FactStream`, `BlockFacts` its mint and projection extension surface, path, tally, signal, and undo facts sharing one closed payload family and slot projections deriving from `Facts`.
 - [06]-[SURFACE_LEDGER]: owner-to-ingress-to-rail-to-egress roster across `BlockOp`, `BlockTransaction`, `Blocks`, and the slot and body vocabularies.
 
@@ -639,7 +639,7 @@ public sealed class ExplodedPiece : IDisposable {
 
 `BlockTransaction` admits one homogeneous program. `BlockTrait` derives undo and kernel-context requirements from each `BlockOp` case, so a mixed recorded/unrecorded program fails before document acquisition and no transaction flag can contradict its operations.
 
-`Blocks.Commit` walks the shared envelope: needs derive through `SessionNeed.Mutation`, one document demand, optional kernel context, and `DocumentCommit.Sealed` owns the bracket, restoration, and post-restore redraw — a hand-spelled envelope beside it is the deleted form.
+`Blocks.Commit` walks the shared commit entry: needs derive through `SessionNeed.Mutation`, one document demand, optional kernel context, and `DocumentCommit.Sealed` owns the bracket, restoration, and post-restore redraw — a hand-spelled `UndoBracket.Begin` or redraw triple beside it is the deleted form.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -851,7 +851,7 @@ public static class Blocks {
 
 - Law: the stream MACHINERY is not this folder's — a folder-local receipt, fact, gate, or projection beside the owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
 - Law: every address column on `BlockBody` takes its spine owner — `ResourceId`, `ResourceIndex`, `DocumentPath`, `UndoSerial` — because each raw primitive's invalid value is precisely what a failed host member answers with, and a receipt publishing one is indistinguishable from a real consequence. The address admissions stay on this page, because which host members lie about failure is this folder's evidence law, not the stream's.
-- Law: the undo stamp is a projection on the stream, not a rail — the envelope stamps every sealed receipt, an unrecorded program's serial is zero, `UndoSerial` refuses zero, so no fact claims record zero and the total `(receipt, serial) -> receipt` shape holds.
+- Law: the undo stamp is a projection on the stream, not a rail — `DocumentCommit.Sealed` stamps every sealed receipt, an unrecorded program's serial is zero, `UndoSerial` refuses zero, so no fact claims record zero and the total `(receipt, serial) -> receipt` shape holds.
 
 The stream factory is the one fact ingress and the cross-product gate: `BlockSlot` carries an `Admits` predicate row naming exactly the body kinds its slot emits, so a tally landed on an authoring slot or a path on a tally slot refuses at construction with the slot named, and a new slot cannot compile without declaring its bodies.
 

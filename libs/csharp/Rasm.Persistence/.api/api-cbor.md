@@ -117,12 +117,12 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 [STACKING]:
 - `api-hashing`: `Canonical` `Encode()` bytes feed `XxHash128.HashToUInt128` through the seed-zero `ContentHash.Of` entry, keying the `ContentKey` — canonical mode is the seam holding the key stable across map-insertion order.
 - `api-messagepack` / `api-chr-avro`: codec-selection peers — CBOR owns the self-describing schema-free blob, `MessagePack` the schemaless wire, and Avro the schema-governed evolving-payload leg.
-- `api-cloudevents`: a nested pre-encoded CBOR item splices verbatim through `WriteEncodedValue` and re-extracts through `ReadEncodedValue`, the outer codec never re-parsing the inner body; `WriteTag(CborTag.SelfDescribeCbor)` marks a self-describing top-level frame for content-type-free detection.
+- `api-cloudevents`: `WriteEncodedValue` splices a nested pre-encoded CBOR item verbatim and `ReadEncodedValue` re-extracts it, the outer codec never re-parsing the inner body; `WriteTag(CborTag.SelfDescribeCbor)` marks a self-describing top-level frame for content-type-free detection.
 - within-lib: the blob rail composes `new CborWriter(Canonical)` -> `Encode()` -> hash -> `ContentKey`, and reads untrusted ingestion under a `Strict`/`Ctap2Canonical` `CborReader` whose `PeekState()` loop bounds `CurrentDepth` against a profile cap and refuses indefinite-length frames before allocating, faulting a depth-bomb as `CborContentException` — the BCL caps no decompressed size, so the depth/length guard is the rail's.
 
 [LOCAL_ADMISSION]:
 - CBOR is a codec inside blob/snapshot profiles, never public Persistence vocabulary; conformance mode and tag usage are profile data.
-- A stored CBOR body carries receipt projection for codec, conformance mode, and compression/redaction class, matching the `MessagePack` payload contract.
+- Receipt projection over every stored CBOR body carries codec, conformance mode, and compression/redaction class, matching the `MessagePack` payload contract.
 - `CborReader` is buffer-resident: a body larger than memory is framed into items by the store layer (`api-objectstore`), never streamed through one reader.
 - Canonical determinism binds wherever bytes feed content identity; `Lax`/`Strict` are read-time validation choices and never key a `ContentKey`.
 

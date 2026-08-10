@@ -53,13 +53,13 @@
 
 [TOPOLOGY]:
 - `_PG_init` hard-errors unless `pg_net` sits on `shared_preload_libraries`, so its worker registers at postmaster start and install rides the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net", PreloadGated: true)` row whose `CreateSql` the `Migrate` fold emits.
-- A request function returns its id inside the transaction and the transfer starts at COMMIT, so a rolled-back enqueue never sends and the response is read later by id, never awaited on the calling backend.
+- Request functions return their id inside the transaction and the transfer starts at COMMIT, so a rolled-back enqueue never sends and the response reads later by id, never awaited on the calling backend.
 - One worker per cluster binds to `pg_net.database_name`, drains `net.http_request_queue` by `DELETE ... RETURNING` bounded by `pg_net.batch_size`, and purges `net._http_response` past `pg_net.ttl` on the same iteration.
 - Both `net` tables are UNLOGGED, so a crash truncates queued requests and landed responses alike.
 
 [STACKING]:
 - `Npgsql`(`.api/api-npgsql.md`), `Npgsql.EntityFrameworkCore.PostgreSQL`(`.api/api-npgsql-ef.md`): url, `params`, `headers`, `body`, and `timeout_milliseconds` bind as `NpgsqlParameter` values through `FromSql`/`RelationalDatabaseFacadeExtensions.SqlQuery<T>`; no EF translator covers the `net` schema.
-- `Version/egress#EGRESS_SINK`: `EgressSink.Webhook` enqueues `net.http_post` under the content key as idempotency header and folds `net.http_response_result` on the NEXT drain — `SUCCESS` advances the cursor, `ERROR` and timeout refuse, an unresolved row holds it as `EgressFault.DeliveryUnconfirmed`.
+- `Version/egress#EGRESS_SINK`: `http` enqueues `net.http_post` under the content key as idempotency header and folds `net.http_response_result` on the NEXT drain — `SUCCESS` advances the cursor, `ERROR` and timeout refuse, an unresolved row holds it as `EgressFault.DeliveryUnconfirmed`.
 - `Version/egress#EGRESS_PUMP`: retriability reads three `net._http_response` columns directly — a `5xx` `status_code`, a NULL `status_code` with its transport cause in `error_msg`, and `timed_out = true` re-enqueue through the request function, while a `4xx` dead-letters.
 - `Store/provisioning#SERVER_EXTENSIONS`: `ClusterConfig` verifies `pg_net.ttl` and `pg_net.batch_size` read-only against `pg_settings` after boot, and its verification fold calls `net.check_worker_is_up`/`net.wait_until_running` for liveness.
 

@@ -8,11 +8,11 @@ import { Asset, ContentDigest, Corpus, CorpusFault, CorpusRoot } from './corpus.
 
 // A two-fixture scratch registry: one REAL entry with emitted pairs, one DESIGN-PIN entry whose seam holds only a stray file.
 const _SCRATCH_MANIFEST = [
-    '| [INDEX] | [FIXTURE] | [SEAM] | [PRODUCER] | [PAYLOAD] | [PIN] |',
-    '| :-----: | :-------- | :----- | :--------- | :-------- | :---- |',
-    '| [01] | EMITTED_ONE | `alpha` | `csharp:Owner/emit` | `wire-bytes` + `canonical-json` | REAL |',
-    '| [02] | PINNED_ONE | `beta` | `csharp:Owner/pin` | `wire-bytes` | DESIGN-PIN |',
-    '| [03] | SEAMFILE_ONE | `gamma` | `csharp:Owner/broken` | `wire-bytes` | REAL |',
+    '| [INDEX] | [FIXTURE] | [SEAM] | [CLASS] | [PAYLOAD] | [PIN] |',
+    '| :-----: | :-------- | :----- | :------ | :-------- | :---- |',
+    '| [01] | EMITTED_ONE | `alpha` | domain | `wire-bytes` + `canonical-json` | REAL |',
+    '| [02] | PINNED_ONE | `beta` | domain | `wire-bytes` | DESIGN-PIN |',
+    '| [03] | SEAMFILE_ONE | `gamma` | infrastructure | `wire-bytes` | REAL |',
 ].join('\n');
 
 const _ECHO_BYTES = Uint8Array.from([0xca, 0xfe, 0x00, 0x42]);
@@ -96,8 +96,8 @@ layer(NodeContext.layer)('corpus', (it) => {
                 const path = yield* Path.Path;
                 const scratch = yield* fs.makeTempDirectoryScoped();
                 const twice = [
-                    '| [01] | TWIN_ONE | `alpha` | `csharp:Owner/emit` | `wire-bytes` | REAL |',
-                    '| [02] | TWIN_ONE | `beta` | `csharp:Owner/emit` | `wire-bytes` | DESIGN-PIN |',
+                    '| [01] | TWIN_ONE | `alpha` | domain | `wire-bytes` | REAL |',
+                    '| [02] | TWIN_ONE | `beta` | domain | `wire-bytes` | DESIGN-PIN |',
                 ].join('\n');
                 yield* fs.writeFileString(path.join(scratch, 'MANIFEST.md'), twice);
                 const fault = yield* Effect.flip(Effect.provideService(Corpus.manifest, CorpusRoot, scratch));
@@ -112,7 +112,12 @@ layer(NodeContext.layer)('corpus', (it) => {
             Effect.gen(function* () {
                 const scratch = yield* _scratchCorpus;
                 const asset = yield* Effect.provideService(Corpus.resolve('EMITTED_ONE'), CorpusRoot, scratch);
-                const pairs = Asset.$match(asset, { Emitted: ({ pairs: held }) => held, Awaiting: () => [], Blocked: () => [] });
+                const pairs = Asset.$match(asset, {
+                    Emitted: ({ pairs: held }) => held,
+                    Vendored: () => [],
+                    Awaiting: () => [],
+                    Blocked: () => [],
+                });
                 expect(Array.map(pairs, (pair) => pair.message)).toEqual(['echo']);
                 const head = yield* Array.head(pairs);
                 const loaded = yield* Effect.provideService(Corpus.load(asset.fixture, head), CorpusRoot, scratch);

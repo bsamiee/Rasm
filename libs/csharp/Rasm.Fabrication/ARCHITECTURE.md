@@ -309,7 +309,7 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - `ProbeRoute.Measured` authorizes its parallel substrate only against an accepted claim, never against a roster row alone.
 - Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
-- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes.
+- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` message envelopes.
 - Settled verify receipts fire their own fact through that tap, which defaults silent so a headless caller emits nothing and branches nowhere.
 - Money and carbon stay parallel dimensions on parallel instruments, and `ClockAttribution` names the clock's own source rather than a default.
 - `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and board pack inward at composition; the mounting root proves both.

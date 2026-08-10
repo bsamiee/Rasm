@@ -124,7 +124,7 @@ public abstract partial record StatFault : Expected, IValidationError<StatFault>
 - Receipt: `StatementStatRow` — queryid, calls, total and mean execution time, rows, shared-block hits and reads, WAL bytes; `IoStatRow` — backend type, object, context, reads, writes, extends, their byte figures, hits, evictions, fsyncs; the `object` column carries `relation`, `temp relation`, AND `wal`, so WAL I/O rides the same rows with zero widening; each batch fans under `store.stat.statements` / `store.stat.io`.
 - Packages: Npgsql, LanguageExt.Core, NodaTime.
 - Growth: a new harvested column is one field on the owning row and one select column; a new server view is one harvest member on this owner.
-- Boundary: this fold is the query-depth complement to the driver meter seam — the `Npgsql` meter carries operation duration and pool level at the AppHost root while these rows carry per-statement and per-backend server truth as receipts; pg_stat views are server-global, so these receipts carry no tenant brand by ruling and the batch envelope carries the frame correlation at the `Send` seam; the three lag gauges stay distinct owners — provisioning's slot lag, recovery's replication lag, and this page's I/O timing never share a row; `track_io_timing` is a deliberate server posture the provisioning verify batch asserts before timing columns read as truth.
+- Boundary: this fold is the query-depth complement to the driver meter seam — the `Npgsql` meter carries operation duration and pool level at the AppHost root while these rows carry per-statement and per-backend server truth as receipts; pg_stat views are server-global, so these receipts carry no tenant brand by ruling and the batch's message envelope carries the frame correlation at the `Send` seam; the three lag gauges stay distinct owners — provisioning's slot lag, recovery's replication lag, and this page's I/O timing never share a row; `track_io_timing` is a deliberate server posture the provisioning verify batch asserts before timing columns read as truth.
 
 ```csharp signature
 public sealed record StatementStatRow(
@@ -204,7 +204,7 @@ public static class PgStatHarvest {
 - Receipt: `DuckProfileReceipt` — latency, CPU time, rows returned, result-set bytes, blocked-thread time, operator-tree digest, top operator rows, the frame's instant and correlation; fans under `store.stat.duckdb`.
 - Packages: DuckDB.NET.Data.Full, LanguageExt.Core, NodaTime, System.IO.Hashing.
 - Growth: one profiling metric key is one receipt field and one parse line; plan-shape capture and drift verdicts are the `#PLAN_PROFILE` rail's, which probes `EXPLAIN (FORMAT json)` without arming this profiling bracket.
-- Boundary: the profiling switch is connection state, so the bracket sets, runs, and resets on every exit path — a lane query outside the bracket runs unprofiled at full speed; `outputPath` arrives from the configured artifact owner, resolves to a full path, escapes as a DuckDB string literal, and is deleted after decode on success or failure, so ambient temp storage and orphaned profile files are forbidden; the harvest borrows the `Query/columnar` connection and mints no second DuckDB lane; the analytical lane is process-scoped, so the receipt carries the frame's correlation and instant while tenant stays a `ProjectionContext` fact the sink envelope carries by ruling.
+- Boundary: the profiling switch is connection state, so the bracket sets, runs, and resets on every exit path — a lane query outside the bracket runs unprofiled at full speed; `outputPath` arrives from the configured artifact owner, resolves to a full path, escapes as a DuckDB string literal, and is deleted after decode on success or failure, so ambient temp storage and orphaned profile files are forbidden; the harvest borrows the `Query/columnar` connection and mints no second DuckDB lane; the analytical lane is process-scoped, so the receipt carries the frame's correlation and instant while tenant stays a `ProjectionContext` fact the sink's message envelope carries by ruling.
 
 ```csharp signature
 public sealed record DuckOperatorRow(string Name, double TimingSeconds, long Cardinality);
@@ -519,7 +519,7 @@ public static class PlanProfile {
 - Receipt: none — a hook fire is the evidence event itself; the emitter's own receipt already carries the fact.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new point is one `PersistencePoint` row, one typed field with its `Live()` seat, and one `Points` row; a subscriber is one `Observe`/`Veto` call at composition; a new lifecycle domain contributes its point through this roster, never a second registry type.
-- Boundary: ids and modalities live on the roster rows alone, so a `Live()` seat re-spelling either is the forked-vocabulary defect; point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every envelope this package emits, so these points carry what that tap cannot: the TYPED facts and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe here without touching owner rails.
+- Boundary: ids and modalities live on the roster rows alone, so a `Live()` seat re-spelling either is the forked-vocabulary defect; point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every message envelope this package emits, so these points carry what that tap cannot: the TYPED facts and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe here without touching owner rails.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -536,9 +536,9 @@ public sealed partial class PersistencePoint {
     public static readonly PersistencePoint SweepEvict = new("rasm.persistence.retention.sweep", modality: HookModality.Veto);
     public static readonly PersistencePoint MergeConflict = new("rasm.persistence.merge.conflict", modality: HookModality.Observe);
     public static readonly PersistencePoint RecoveryReplay = new("rasm.persistence.recovery.replay", modality: HookModality.Replay);
-    // The CDC boundary fires at BOTH ends: `EgressDelivered` over an `EgressReceipt` and this over the ingress
-    // pump's end-of-partition edge, which is the lane's one idle signal (`Version/ingress#INGRESS_PUMP`). Without
-    // it a stalled inbound lane and a drained one look identical to every subscriber.
+    // CDC fires at BOTH ends: `EgressDelivered` over an `EgressReceipt`, this point over the ingress pump's
+    // end-of-partition edge — the lane's one idle signal (`Version/ingress#INGRESS_PUMP`). Without it a stalled
+    // inbound lane and a drained one look identical to every subscriber.
     public static readonly PersistencePoint IngressDrained = new("rasm.persistence.ingress.drained", modality: HookModality.Observe);
 
     public HookModality Modality { get; }
@@ -606,7 +606,7 @@ public sealed record PersistenceHooks(
 
 ## [08]-[USAGE_PROJECTION]
 
-- Owner: `StoreUsage` — the (tenant, class, tier) usage census, the tenancy lift every partition key and every census-wire slug crosses, the census wire inverse, and the CHARGEBACK FACT residence with its projection, its reader inverse, and its durable read; `UsageReceipt` the chargeback row carrying the kernel `TenantContext` the envelope already stamps; `UsageFactRow` the flat residence row a cost question queries.
+- Owner: `StoreUsage` — the (tenant, class, tier) usage census, the tenancy lift every partition key and every census-wire slug crosses, the census wire inverse, and the CHARGEBACK FACT residence with its projection, its reader inverse, and its durable read; `UsageReceipt` the chargeback row carrying the kernel `TenantContext` the message envelope already stamps; `UsageFactRow` the flat residence row a cost question queries.
 - Entry: `StoreUsage.Fold(Seq<BlobCatalogRow> catalog, Seq<(TenantId Tenant, EgressReceipt Drain)> drains, ProjectionContext frame)` — one pure fold over the content-lineage catalog snapshot and the drain receipts; a resumed census re-folds with no journal; `StoreUsage.Decode(JsonElement payload)` — the FALLIBLE wire inverse the `#STORE_INSTRUMENTS` arm binds, so the batch re-admits through the same owner that emitted it and a malformed payload lands as a typed refusal on the arm's own rail; `StoreUsage.Dataset`/`Facts`/`Cells`/`Shape` — the one `AnalyticsSchema` declaration, the flat-table projection landing under `StoreUsage.FactSlot`, the cell projection in that declaration's own order, and the reader inverse, so the chargeback breakdown this package's own tenancy ruling names becomes a queryable residence table instead of a receipt a reader must re-fold; `StoreUsage.Land(NpgsqlDataSource store, Seq<UsageReceipt> census, ProjectionContext frame)` — the write half through `Query/columnar#ANALYTICS_RESIDENCE`'s one relational landing, refusing a census row the frame's tenant does not scope; `StoreUsage.Resident(ResidenceReach reach, ResidenceScope scope, Seq<(Identifier Column, string Value)> narrow)` — the durable counterpart read over that table through the one residence entry, its residence, schema, window, and frame riding the one scope value that entry takes; `StoreUsage.Tenancy` — the one lift, discriminating the typed `TenantId` partition key at the catalog and drain ingress from the slug text at the census wire, so both wire ends resolve one tenancy through one owner.
 - Auto: catalog rows group under `(tenant, class, tier)` carrying the vocabulary rows themselves in the key, summing the SEALED byte figures (never a later filesystem stat) and counting objects; drain receipts fold their delivered counts onto the drain tenant's `stream`-class row — the egress obligation is event-stream custody; the census batch fans under `store.cost.usage` carrying its `rows` array, and every tenancy on either side of that wire crosses `Tenancy` exactly once, so `Partitions`, `Entry`, and `Tags` all read the kernel row rather than a page-local zero test; the fact projection carries class and tier as COLUMNS where the meter carries neither, so the breakdown a capped metric dimension cannot express is queried rather than approximated, and its schema is one `Query/columnar#ANALYTICS_RESIDENCE` `AnalyticsSchema` value so the residence DDL, the egress column list, and every reader's ordinals derive from one declaration.
 - Receipt: `UsageReceipt` rows under `store.cost.usage` and `UsageFactRow` rows under `store.cost.fact`; the receipt stream is the EVIDENCE plane and the instrument projection is the lossy health channel, so retention class and storage tier ride the receipt, the census wire, and the fact table while the meter carries the one capped dimension.
@@ -617,10 +617,10 @@ public sealed record PersistenceHooks(
 ```csharp signature
 // Chargeback bytes/objects fold from the `Store/blobstore#BLOB_GC` `BlobCatalogRow` census,
 // deliveries from the egress drain receipts under the drain frame's tenant.
-// `Kind` is the ASSET-CLASS axis the retention class alone cannot answer — "which asset class costs what" is the
-// first question an asset estate asks and the catalog row holds it one hop upstream. It is `Option` because the
-// drain half of this census counts DELIVERIES, which have no stored asset behind them: an empty cell there states
-// the absence, where minting a kind for an event stream would answer a question about an artifact nobody stored.
+// `Kind` carries the ASSET-CLASS axis the retention class alone cannot answer — an asset estate asks "which asset
+// class costs what" first, and the catalog row holds it one hop upstream. `Option` covers the drain half of this
+// census, which counts DELIVERIES with no stored asset behind them: an empty cell states that absence, where
+// minting a kind for an event stream would answer a question about an artifact nobody stored.
 public sealed record UsageReceipt(TenantContext Tenant, Option<ArtifactKind> Kind, RetentionClass Class, StorageTier Tier, long Bytes, long Objects, long Deliveries, Instant At, CorrelationId Correlation);
 
 // Flat chargeback fact: the class-by-tier breakdown the capped meter dimension cannot carry, landed as one
@@ -668,10 +668,10 @@ public static class StoreUsage {
     // reconstructs the census whole rather than stamping a sentinel frame over evidence the batch carried.
     // Correlation re-enters through the kernel factory: `CorrelationId` declares
     // `ConversionFromKeyMemberType = None`, so no `Guid`-to-`CorrelationId` operator exists to bind a raw scalar.
-    // Admission, not projection: the payload is FOREIGN — a missing property, a member at the wrong JSON kind,
-    // an unminted vocabulary key, and an unparsable instant each throw out of the walk — so the whole
-    // reconstruction rides one capture funnel and lands as a typed refusal the arm binds. `.Strict()` forces
-    // the run INSIDE the funnel, where a lazy projection would defer every throw past it.
+    // `Decode` ADMITS a foreign payload: a missing property, a member at the wrong JSON kind, an unminted
+    // vocabulary key, and an unparsable instant each throw out of the walk, so the whole reconstruction rides one
+    // capture funnel and lands as a typed refusal the arm binds. `.Strict()` forces the run INSIDE the funnel,
+    // where a lazy projection defers every throw past it.
     public static Fin<Seq<UsageReceipt>> Decode(JsonElement payload) =>
         Try.lift(() => toSeq(payload.GetProperty("rows").EnumerateArray()).Map(static row => new UsageReceipt(
             Tenancy(row.GetProperty("tenant").GetProperty("slug").GetString()!),
@@ -774,7 +774,7 @@ public static class StoreUsage {
 - Cases: the kernel instrument kinds carry the roster — advised distributions for statement duration, profiled analytical time across its wall, cpu, and blocked phases, drain duration, the residence read's duration beside the rows its engine scanned, and dead-letter attempt depth whose own observation count IS the dead-letter stream; a plain distribution for profiled row counts (base2-exponential by default); counters for the embedded step tells, the pg buffer-pressure events, the egress settlement stream, the plan-capture stream, and the rows a residence dataset landing stages; scalar levels for the pg I/O and embedded cache hit ratios; keyed levels for the embedded memory regions and for the tenant usage byte, object, and delivery census, whose root group reports the same three figures untagged on the same three instruments.
 - Law: a per-tenant chargeback figure is a LEVEL and a per-asset-class footprint census is a DATASET — the meter carries the cardinality a board polls and the lake carries the product a query groups. Fanning a bounded vocabulary across a keyed level multiplies two bounded axes into a series count neither declared, so the asset-class breakdown rides `#USAGE_PROJECTION`'s landed fact table where no cardinality ceiling exists by law and an operator asks "which asset class costs what" as a GROUP BY, while the meter keeps the tenant-only figure. Bounded × bounded is still a product; the fault, sweep, and object-plane rows carry their bounded dimensions because their instruments are COUNTERS whose series are the tag product alone, never a keyed level family whose cardinality is already the tenant count.
 - Entry: `StoreInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the contributor port peer of the AppHost host roster, carrying every row and the `#STORE_BOARD` pack over those same rows under the minted `TelemetrySource.Persistence` scope with the semconv coordinate the mint stamps as `MeterOptions.TelemetrySchemaUrl`; `StoreInstruments.Arms` — the slot-keyed projection table the AppHost receipt fan mounts beside its own arms at the composition root; `StoreInstruments.Census(string version, SlotRegistry registry)` — the declared-truth census folding rows, kinds, bounds, tag vocabularies, mounted slots, and projected-arm keys into one wire record, so a new instrument or slot appears on the board with zero dashboard edits and a hand-listed metric name in a dashboard is the deleted form.
-- Auto: rows are pure declarations, so the roster and the arm table are static values a composition binds rather than per-composition constructions, and the bind body derives from `Kind` x `MeasureForm` at the kernel — a folder re-spelling a counter, gauge, or histogram create re-mints the mechanism; the projection subscribes as one observe row on the AppHost hook rail's receipt point, so every envelope the sink emits projects with zero call-site metering; level-shaped facts write through the kernel `InstrumentSet.Level` gate and ride observable gauges at collection cadence, so a polled level never aliases through a synchronous gauge and a level named by no pulled row refuses rather than accumulating in a cell no reader samples; the usage arm heads its fold with the kernel `Enabled` listener gate, so a process subscribed to none of the three usage rows pays no census decode; a NodaTime `Duration` crosses the wire as its JsonRoundtrip text and `Seconds` is the one arm-side decode.
+- Auto: rows are pure declarations, so the roster and the arm table are static values a composition binds rather than per-composition constructions, and the bind body derives from `Kind` x `MeasureForm` at the kernel — a folder re-spelling a counter, gauge, or histogram create re-mints the mechanism; the projection subscribes as one observe row on the AppHost hook rail's receipt point, so every message envelope the sink emits projects with zero call-site metering; level-shaped facts write through the kernel `InstrumentSet.Level` gate and ride observable gauges at collection cadence, so a polled level never aliases through a synchronous gauge and a level named by no pulled row refuses rather than accumulating in a cell no reader samples; the usage arm heads its fold with the kernel `Enabled` listener gate, so a process subscribed to none of the three usage rows pays no census decode; a NodaTime `Duration` crosses the wire as its JsonRoundtrip text and `Seconds` is the one arm-side decode.
 - Receipt: none — the arms project the harvest, plan, usage, and egress receipts; a metric minted beside them is a second truth, and each arm returns the kernel `Write`/`Level` rail whose refusal names the offending row rather than dropping a measurement silently.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: one projected slot is one `Arms` row and its instrument rows here, and a slot whose receipt shape an existing arm already folds binds that arm's parameterized mint under its own tag value rather than a second body; a further step tell, memory region, profile phase, or I/O event the harvest receipts grow is one `(wire field, tag value)` pair on its own row table — never a second instrument, because the fanned dimension already carries the axis; a slot without an `Arms` row is receipt-only by default, so projection is opt-in per row and no page declares the default; a new bucket policy is one `Buckets` row at the kernel, never a folder-local bound array; the census follows rows and slots with zero edits.
@@ -966,9 +966,9 @@ public static class StoreInstruments {
                 select unit,
             [EgressPump.DrainSlot.ToString()] = Fan(DrainLane),
             [EgressPump.ReplaySlot.ToString()] = Fan(ReplayLane),
-            // The object plane's four slots are four values of ONE verb axis over one `BlobTransferFact` shape, so
-            // they fan through one parameterized mint exactly as the two egress lanes do — four arm bodies for one
-            // fact shape is the inline-repeated-concern defect the `Fan` precedent already deleted once.
+            // `ObjectIo` seats four slots on ONE verb axis over one `BlobTransferFact` shape, so they fan through
+            // one parameterized mint exactly as the two egress lanes do — four arm bodies for one fact shape is the
+            // inline-repeated-concern defect the `Fan` precedent already deleted once.
             [ObjectIo.PartSlot.ToString()] = Verb("part"),
             [ObjectIo.ResumeSlot.ToString()] = Verb("resume"),
             [ObjectIo.AbortSlot.ToString()] = Verb("abort"),
@@ -1009,12 +1009,12 @@ public static class StoreInstruments {
                     InstrumentSet.Tags((DatasetSlot, payload.GetProperty("dataset").GetString()))),
             // Grouping keys on `TenantContext.Key`, the kernel's ONE optional-key read, so the root group projects
             // its figures UNTAGGED and a partitioning row tags its `Entry` text: one instrument answers both
-            // deployments, the root tenant's usage stops vanishing behind a filter, and the untagged entry stays
-            // the absent-tenant PARTITION rather than a total, so a board folding the family counts every byte
-            // once. Class and tier remain receipt and census facts, so the tenant cap never multiplies by them.
-            // Gate placement is THIS arm alone: a whole-census decode, a grouping, and three sums precede its
-            // writes, where every other arm pays one `GetProperty` read and one `TagList` mint — under the
-            // roster walk the gate itself runs, so gating those arms buys a second admission read.
+            // deployments, the root tenant's usage stops vanishing behind a filter, and the untagged entry marks the
+            // absent-tenant PARTITION rather than a total, so a board folding the family counts every byte once.
+            // Class and tier remain receipt and census facts, so the tenant cap never multiplies by them. This arm
+            // alone gates: a whole-census decode, a grouping, and three sums precede its writes, where every other
+            // arm pays one `GetProperty` read and one `TagList` mint — under the roster walk the gate itself runs,
+            // so gating those arms buys a second admission read.
             [StoreUsage.Slot.ToString()] = static (set, payload) =>
                 !set.Enabled(UsageSize, UsageObjects, UsageDeliveries)
                     ? Fin.Succ(unit)
@@ -1056,9 +1056,9 @@ public static class StoreInstruments {
         ("delivered", DeliveredOutcome), ("duplicates", DuplicateOutcome),
         ("held", HeldOutcome), ("deadLettered", DeadOutcome));
 
-    // The sweep receipt's conservation partition IS the tag vocabulary: `inventory = kept + held + cooled + evicted`
-    // closes, so a fifth retention-side count is one row here rather than a fifth instrument, and the wire fields
-    // are the receipt's own — a rule value the receipt never counted cannot be stamped.
+    // `SweepOutcomes` spells the sweep receipt's conservation partition as its tag vocabulary — closure over
+    // `inventory = kept + held + cooled + evicted` makes a fifth retention-side count one row here rather than a
+    // fifth instrument, and the wire fields stay the receipt's own, so an uncounted rule value never stamps.
     static readonly Seq<(string Field, string Value)> SweepOutcomes = Seq(
         ("kept", "kept"), ("held", "hold"), ("cooled", "cool"), ("evicted", "evict"));
 

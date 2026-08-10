@@ -52,6 +52,14 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 - `obstore` — Rust object-store client: S3/GCS/Azure byte-range reads, puts, and listing.
 - `universal-pathlib` — `UPath` path objects over every fsspec backend; one cross-store path currency.
 
+[EVENT_FABRIC]:
+- `cloudevents` — Specification attribute algebra, its validating event family, the JSON format, and four protocol bindings.
+- `confluent-kafka` — librdkafka client, cluster administration, and the Schema Registry stack with its magic-byte framing.
+- `nats-py` — NATS core and JetStream client: subject addressing, headers, streams, and the two bucket families.
+- `paho-mqtt` — MQTT protocol state machine, its 5.0 property vocabulary, reason codes, and topic-filter matching.
+- `pika` — AMQP 0-9-1 protocol: the blocking channel, the content-header vocabulary, topology verbs, and publisher confirms.
+- `fastavro` — Avro container and schemaless codecs, schema parse and fingerprinting, and logical-type dispatch.
+
 [MESH_INTERCHANGE]:
 - `meshio` — Neutral mesh read/write across solver formats.
 

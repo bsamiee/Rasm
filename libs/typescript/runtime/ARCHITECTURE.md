@@ -33,12 +33,13 @@ runtime/
     │   ├── live.ts            # Realtime SSE/WS serving over branch feeds under the resume-token and admission laws
     │   ├── problem.ts         # Problem — the RFC 9457 owner rendering itself as a self-describing response
     │   └── cli.ts             # Command-value verb families the app folds into one root
-    ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, documents
+    ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, filtering, documents
     │   ├── entity.ts          # Durable-actor plane: the WorkClass service-class table over tiered mailboxes
     │   ├── flow.ts            # Workflow suspend-and-replay: minted steps, two-tier deadlines, one durable pause timer
     │   ├── queue.ts           # DurableQueue families and rate-limiter throttles over the pg lane policy and DLQ fold
     │   ├── schedule.ts        # Cadence rows minted into cluster cron with misfire and catch-up postures
     │   ├── deliver.ts         # One channel table for mail and webhook egress: one receipt, one fault, one suppression
+    │   ├── filter.ts          # The seven subscription dialects compiled to one predicate, CESQL the parsed seventh
     │   └── report.ts          # Report specs folded through three engine arms over the same decoded rows
     ├── ai/                    # Intelligence spine
     │   ├── model.ts           # Provider families on one capability-asymmetry table with ranked fallback
@@ -151,10 +152,13 @@ flowchart LR
     Security e16@-->|"[SHAPE]: TenantScope.metered"| Serve
     Core e17@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e18@-->|"[SHAPE]: Tap.Registry"| Otel
-    Data e20@-->|"[SHAPE]: Journal.envelope"| Work
+    Data e20@-->|"[SHAPE]: Journal.Deliverable.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
     Data e22@-->|"[SHAPE]: Backend.Generation"| Net
     Core e23@-->|"[SHAPE]: Convention"| Proc
+    Core e24@-->|"[EVENT]: Event.Fact"| Net
+    Core e25@-->|"[EVENT]: Event.Fact"| Serve
+    Core e26@-->|"[EVENT]: Event.Fact"| Work
 ```
 
 ```mermaid

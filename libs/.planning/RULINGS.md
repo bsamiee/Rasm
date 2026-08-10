@@ -59,7 +59,7 @@
 - Causal-log replay dedups on operation IDENTITY — a content test reads a second edit of identical bytes as redelivery and discards it.
 - Commutation is ONE `Ordered | Commutative | Semilattice` triple per mutation kind — a lone convergent flag counts a lost total order as convergence.
 - Compaction admits only where the entry's causal context DOMINATES its declared horizon — a state fold holds no frontier and refuses nothing.
-- Op-log entries carry no descriptor family — the msgpack roster IS canonical, and a proto envelope over opaque payload bytes types nothing.
+- Op-log entries carry no descriptor family — the msgpack roster IS canonical, and a proto message envelope over opaque payload bytes types nothing.
 - Scene descriptors and event payloads REFERENCE bulk bodies by key — re-carrying the octets mints a second producer for the entry that owns them.
 - Descriptor lengths cross in METRES with the host unit as provenance — a peer-side rescale forks one conversion across three decoders.
 - Solved solar angles cross as `[0,360)` azimuth EAST OF NORTH beside `[-90,90]` altitude — a renderer's own convention converts at its edge.
@@ -73,17 +73,19 @@
 - Composite identities cross WHOLE, discriminating components beside the digest — a digest-only join merges two identities minted over equal bytes.
 - Framed-binary wires frame an `Option` as a count of 0 or 1 — presence on the collection rule leaves an absent field no second spelling to fork on.
 - Kind-discriminated payload tails carry NO arm tag — the discriminant in hand fixes the tail, and a second spelling of it can contradict the first.
-- One envelope owner per branch mints the attribute map — a second mint inside one branch is the `[07]` drift defect the corpus class forecloses.
+- One message-envelope owner per branch mints the attribute map — a second mint in one branch is the `[07]` drift defect the corpus class forecloses.
 - Format roster is JSON, Protobuf, and Avro with each `-batch` sibling — CBOR, XML, and avro-compact stay drafts no peer decode is held to.
-- CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house envelope legs — no spec binding exists to name them by.
+- CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house message-envelope legs — no spec binding names them.
 - Subscriptions and all seven filter dialects land, `sql` being CESQL — reading CESQL as the filter concept collapses six dialects into one arm.
 - CESQL evaluation is TOTAL — every operator returns a value beside an accumulated error list, so the rail accumulates rather than short-circuits.
 - CESQL parses through a parser-combinator or table-driven expression owner — recursive descent over mutable state and downloading codegen refuse.
 - Signing is DSSE over the attribute digests, never JWS — the format registry carries no JWS member, so a signed event rides a type nothing resolves.
 - Event identity rides `id` and content identity `subject` and `dataref` — `(source, id)` is the uniqueness composite, so no dedup keys on bytes.
+- `subject` and `dataref` carry the content key as 32 LOWERCASE hex — an upper-spelling branch maps at the envelope edge, re-casing no shared codec.
+- `ContentAddress` is a bare digest and `ContentKey` a kind-discriminated composite — neither renames onto the other, and a citation scope-qualifies.
 - `dataschema` binds the registry subject and version, `datacontenttype` is row data off the serdes arrow — a literal content type forks codec choice.
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
-- Hook points are the in-process best-effort tap and envelopes the durable cross-process fact — re-firing an envelope as a hook merges two custodies.
+- Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
 
 ## [03]-[COLLAPSE]
 
@@ -103,3 +105,6 @@
 ## [05]-[PROCESS]
 
 - Refuted `[COMPLETE]` cards delete and re-author as a new open card under a new slug with all four fields — no re-open mechanic exists at any tier.
+- `[BLOCKED]` is the TERMINAL hold naming a live upstream blocker beside its arms and route — a corpus at zero open work still carries it.
+- Holds close by re-running their own route — deleting one discards the probe that reverses it, and the next pass re-derives the blocker.
+- Blockers an in-pass probe clears were never holds — the card re-marks `[QUEUED]` and lands in that same pass.

@@ -161,8 +161,8 @@ These closed `StrEnum` vocabularies the measurement/physical nodes select from a
 - universal rail (`libs/python/.api`): a parsed `Object`/`ColorSpecification` projects onto a `msgspec.Struct` wire model at `data/tabular`; bounded admissions (`@start_wl`, coverage, recipe `value`) refine through a `beartype.vale.Is` contract; a malformed `read_cxf` crosses the `runtime/reliability/faults` `async_boundary` as a typed fault, not a bare `xsdata` `ParserError`; a `structlog`/OTel span records each parse; a batch decode runs the `anyio` `CapacityLimiter` over `to_thread` slots.
 
 [LOCAL_ADMISSION]:
-- a CxF document enters via `read_cxf`/`read_cxf_from_file` and leaves via `write_cxf`; the typed `cxf3` graph is the only intermediate — never `lxml`/`ElementTree` parsing nor string templating.
-- a `cxf3.CxF` is built and mutated as plain dataclasses (construct `Object`, append to `ObjectCollection.object_value`, set `color_values.choice`), never assembled as an XML string.
+- `read_cxf`/`read_cxf_from_file` ingest every CxF document and `write_cxf` emits it; the typed `cxf3` graph is the only intermediate — never `lxml`/`ElementTree` parsing nor string templating.
+- authoring builds and mutates a `cxf3.CxF` as plain dataclasses (construct `Object`, append to `ObjectCollection.object_value`, set `color_values.choice`), never assembling an XML string.
 - bulk reads share one re-exported `XmlContext()` passed to `XmlParser(context=...)`; pretty/indent output sets an `xsdata` `SerializerConfig` on `XmlSerializer` rather than post-processing the rendered string.
 
 [RAIL_LAW]:

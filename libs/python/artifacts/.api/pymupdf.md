@@ -89,9 +89,9 @@ Call rows discriminate on module-level `int`/flag constants, never re-minted loc
 |  [15]   | `Document.apply_css(css, append)`                         | instance | apply/append CSS to a reflowable HTML/EPUB document       |
 
 - `Document` context manager (`with pymupdf.open(...) as doc`): `__enter__` returns the `Document`, `__exit__` closes the native handle at scope exit rather than GC-reaping it.
-- `Document(archive=)`: an `Archive` resolving the external images/CSS/fonts a reflowable HTML/EPUB document references at layout time.
+- `Document(archive=)`: `Archive` resolves the external images/CSS/fonts a reflowable HTML/EPUB document references at layout time.
 - `Document.apply_css`: reflowable-document only — silently no-ops on a PDF/non-reflowable document; `append=False` drops the default type stylesheet instead of extending it.
-- `Document.save`: a non-PDF (reflowable/image) document serializes in PDF format; reach for `convert_to_pdf` when page-range, rotation, or link control is needed.
+- `Document.save`: serializes a non-PDF (reflowable/image) document in PDF format; reach for `convert_to_pdf` when page-range, rotation, or link control is needed.
 
 [ENTRYPOINT_SCOPE]: outline and embedded files
 

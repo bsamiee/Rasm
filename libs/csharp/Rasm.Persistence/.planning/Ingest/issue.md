@@ -1,13 +1,13 @@
 # [PERSISTENCE_INGEST_ISSUE]
 
-Rasm.Persistence is the DURABLE half of the BCF issue-review cycle, and it operates on typed rows alone: the `.bcfzip` container wire has ONE branch custodian — `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfArchive` over the catalogued `Smino.Bcf.Toolkit` — so this owner never opens a container, parses no XML, and holds no zip surface. The composition root reads an archive through the custodian, transcribes each `BcfTopic` onto this page's `IssueTopic` row under the `BcfTopic`⇄`IssueTopic` correspondence law, and hands the row set here; the reverse leg releases held rows for the root to transcribe back and write through `BcfArchive.Write`. What this owner keeps is everything only the durable spine can do: element correlation (a BCF `IfcGuid` is exactly the `Element/identity#ELEMENT_IDENTITY` `GlobalIds` mirror, so every viewpoint component resolves one hop to a durable model-qualified `SetKey` through the injected resolve port — a sibling discipline reference resolves across models instead of dropping to absence), the `Query/lane#ELEMENT_SET_ALGEBRA` `ElementSet` projection the clash/IDS/QTO surfaces compose, the `IssueRows.Reconcile` cycle diff, content-addressed snapshot residence, the `store.issue.*` fact stream, and the durable landing at the app composition root — the same row-shape law every Ingest sibling obeys.
+Rasm.Persistence is the DURABLE half of the BCF issue-review cycle, and it operates on typed rows alone: the `.bcfzip` container wire has ONE branch custodian — `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfArchive` over the catalogued `Smino.Bcf.Toolkit` — so this owner never opens a container, parses no XML, and holds no zip surface. This owner's composition root reads an archive through the custodian, transcribes each `BcfTopic` onto this page's `IssueTopic` row under the `BcfTopic`⇄`IssueTopic` correspondence law, and hands the row set here; the reverse leg releases held rows for the root to transcribe back and write through `BcfArchive.Write`. What this owner keeps is everything only the durable spine can do: element correlation (a BCF `IfcGuid` is exactly the `Element/identity#ELEMENT_IDENTITY` `GlobalIds` mirror, so every viewpoint component resolves one hop to a durable model-qualified `SetKey` through the injected resolve port — a sibling discipline reference resolves across models instead of dropping to absence), the `Query/lane#ELEMENT_SET_ALGEBRA` `ElementSet` projection the clash/IDS/QTO surfaces compose, the `IssueRows.Reconcile` cycle diff, content-addressed snapshot residence, the `store.issue.*` fact stream, and the durable landing at the app composition root — the same row-shape law every Ingest sibling obeys.
 
-The correspondence law: `IssueTopic.Status` carries the custodian's `StatusToken` VERBATIM (the project-vocabulary free string, never the parsed lifecycle enum, so a Persistence round trip launders no foreign tool's state); stamps cross as the custodian's `Instant` — one stamp law per wire, the container family's; camera absence is TYPED (`Option` — a selection-only viewpoint is legal BCF the custodian's XOR gate already admitted, and a fabricated default frame is the deleted form); `BcfVocabulary` hands across as the `IssueVocabulary` registry data; snapshot and bitmap bytes leave the custodian's `BcfFile` payload store into the blob plane with only the `ContentAddress` on the row. Columns the durable cycle never keys — reference links, document references, BIM snippets, header files — stay the custodian's container family and cross only through it. An unresolved GlobalId stays a carried FACT (a cross-model or retired reference is normal review reality, never a fault), the topic vocabularies stay PROJECT-EXTENSIBLE runtime data, and this owner NEVER computes review logic: rows project to `Rasm.Element` and land durably at the app composition root. `IssueFault` closes the accumulating band (`FaultBand.Issue`), facts ride `store.issue.*`, `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`, and `ProjectionContext` from `Element/graph#STORE_RAIL`.
+Correspondence binds one law per wire: `IssueTopic.Status` carries the custodian's `StatusToken` VERBATIM (the project-vocabulary free string, never the parsed lifecycle enum, so a Persistence round trip launders no foreign tool's state); stamps cross as the custodian's `Instant` — one stamp law per wire, the container family's; camera absence is TYPED (`Option` — a selection-only viewpoint is legal BCF the custodian's XOR gate already admitted, and a fabricated default frame is the deleted form); `BcfVocabulary` hands across as the `IssueVocabulary` registry data; snapshot and bitmap bytes leave the custodian's `BcfFile` payload store into the blob plane with only the `ContentAddress` on the row. Columns the durable cycle never keys — reference links, document references, BIM snippets, header files — stay the custodian's container family and cross only through it. Every unresolved GlobalId stays a carried FACT (a cross-model or retired reference is normal review reality, never a fault), the topic vocabularies stay PROJECT-EXTENSIBLE runtime data, and this owner NEVER computes review logic: rows project to `Rasm.Element` and land durably at the app composition root. `IssueFault` closes the accumulating band (`FaultBand.Issue`), facts ride `store.issue.*`, `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`, and `ProjectionContext` from `Element/graph#STORE_RAIL`.
 
 ## [01]-[INDEX]
 
-- [02]-[ISSUE_SEAM]: the row-admission seam — the runtime-sourced vocabulary registry, the closed ingest/egress op family over handed rows, the element correlation, the accumulating fault band, and the typed fact stream.
-- [03]-[ISSUE_ROWS]: the topic/comment/viewpoint row family at durable-cycle depth, the GlobalId→`SetKey` correlation carrier and `ElementSet` projection, and the `Reconcile` issue-cycle diff.
+- [02]-[ISSUE_SEAM]: `IssueSource` row-admission seam — the runtime-sourced vocabulary registry, the closed ingest/egress op family over handed rows, the element correlation, the accumulating fault band, and the typed fact stream.
+- [03]-[ISSUE_ROWS]: `IssueTopic`/`IssueComment`/`IssueViewpoint` row family at durable-cycle depth, the GlobalId→`SetKey` correlation carrier and `ElementSet` projection, and the `Reconcile` issue-cycle diff.
 
 ## [02]-[ISSUE_SEAM]
 
@@ -27,8 +27,8 @@ using Expected = Rasm.Domain.Expected;
 namespace Rasm.Persistence.Ingest;
 
 // --- [TYPES] ----------------------------------------------------------------------------
-// The wire-dialect provenance axis the facts stamp. Which residence a dialect's vocabulary
-// parses from — and every other container concern — is the custodian codec's, never a column here.
+// `IssueVersion` is the wire-dialect provenance axis the facts stamp. Which residence a dialect's vocabulary
+// parses from — and every other container concern — belongs to the custodian codec, never a column here.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IssueVersion {
@@ -36,8 +36,8 @@ public sealed partial class IssueVersion {
     public static readonly IssueVersion Bcf30 = new("3.0");
 }
 
-// The extensible-axis vocabulary: BCF projects declare their own value sets per axis, so the axis is
-// closed and the VALUES are runtime data — the OWNER_CHOOSER runtime-sourced-vocabulary row.
+// `VocabularyAxis` closes the extensible-axis vocabulary: BCF projects declare their own value sets per axis,
+// so the axis is closed and the VALUES are runtime data — the OWNER_CHOOSER runtime-sourced-vocabulary row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VocabularyAxis {
@@ -51,8 +51,8 @@ public sealed partial class VocabularyAxis {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-// The per-project frozen registry handed as data off the custodian's declared extensions; a value
-// outside a declared set is a carried FACT, never a mutation — round-trip fidelity outranks local taste.
+// `IssueVocabulary` freezes the per-project registry handed as data off the custodian's declared extensions; a
+// value outside a declared set is a carried FACT, never a mutation — round-trip fidelity outranks local taste.
 public sealed record IssueVocabulary(HashMap<VocabularyAxis, FrozenSet<string>> Declared) {
     public static readonly IssueVocabulary Empty = new(HashMap<VocabularyAxis, FrozenSet<string>>());
     public bool Admits(VocabularyAxis axis, string value) =>
@@ -123,7 +123,7 @@ public sealed partial class IssueFactKind {
 public readonly record struct IssueFact(IssueFactKind Kind, IssueVersion Dialect, int Topics, int Comments, int Viewpoints, int Unresolved, int Foreign, Instant At);
 
 public static class IssueSource {
-    // The registry-mounted census derives from the kind vocabulary, whose keys already carry the full slot spelling.
+    // `Slots` censuses off the kind vocabulary, whose keys already carry the full slot spelling.
     public static readonly Seq<StoreSlot> Slots =
         toSeq(IssueFactKind.Items).Map(static kind => StoreSlot.Create(kind.Key));
 
@@ -190,7 +190,7 @@ public static class IssueSource {
 
 ## [03]-[ISSUE_ROWS]
 
-- Owner: the row family — `IssueTopic` the per-topic aggregate at durable-cycle depth, `IssueComment` the threaded comment row, `IssueViewpoint` the visualization row, `IssueCamera` the closed camera family, `IssueComponent` the element reference carrying its correlation outcome, `IssueVector` the bare XYZ carrier — plus `IssueDelta` the cycle diff and `IssueRows` the correlation/diff surface.
+- Owner: the row family — `IssueTopic` the per-topic aggregate at durable-cycle depth, `IssueComment` the threaded comment row, `IssueViewpoint` the visualization row, `IssueCamera` the closed camera family, `IssueComponent` the element reference carrying its correlation outcome, `IssueVector` the bare XYZ carrier, `IssueDelta` the cycle diff, and `IssueRows` the correlation/diff surface.
 - Cases: `IssueCamera` closes at `Perspective(ViewPoint, Direction, Up, FieldOfView, Option<double> AspectRatio)` and `Orthogonal(ViewPoint, Direction, Up, ViewToWorldScale)`; the viewpoint carries it `Option`-valued — a selection-only viewpoint is legal BCF whose absence stays typed, per the custodian's camera-XOR admission, and a fabricated default frame is the deleted form; `IssueComponent` carries the wire `IfcGuid`, the resolved model-qualified `Option<SetKey>`, and the `OriginatingSystem`/`AuthoringToolId` provenance; `IssueViewpoint` carries selection, visibility (`DefaultVisibility` + exceptions + `ViewSetupHints`), coloring groups, clipping planes, and the snapshot's `ContentAddress`.
 - Entry: `public static ElementSet IssueTopic.Referenced()` projects every RESOLVED component GlobalId across the topic's viewpoints into the one selection currency (unresolved references stay carried data); `public static IssueDelta IssueRows.Reconcile(Seq<IssueTopic> held, Seq<IssueTopic> update)` correlates by the stable topic `Guid` and partitions the cycle — opened, removed, status moves, assignment moves, comment additions — the issue sibling of the schedule `Reconcile` discipline.
 - Auto: correlation is the identity tier's law inverted — a BCF `IfcGuid` is exactly the compressed IFC GlobalId the `GlobalIds` map mirrors, so resolution is one injected-port hop and a re-imported model's fresh `NodeId`s stay correlated because the GlobalId, not the neutral key, is the wire; an unresolved component (a demolished element, a foreign file outside the project) rides `Option.None` on the row and counts on the ingest fact, while a sibling discipline's reference resolves model-qualified through the same port — review reality routinely references what the local model no longer holds; `Reconcile` never invents rows: a topic in `update` absent from `held` is `Opened`, the inverse is `Removed` (a BCF exchange that drops a topic is itself review information), and a shared GUID diffs field-wise into the move partitions.
@@ -210,8 +210,8 @@ public abstract partial record IssueCamera {
     public sealed record Orthogonal(IssueVector ViewPoint, IssueVector Direction, IssueVector Up, double ViewToWorldScale) : IssueCamera;
 }
 
-// The element reference: the wire IfcGuid is the correlation key, the resolved model-qualified SetKey the durable
-// outcome, and None is carried review reality — never a fault, never a dropped component.
+// `IssueComponent` is the element reference: the wire IfcGuid keys the correlation, the resolved model-qualified
+// SetKey is the durable outcome, and None is carried review reality — never a fault, never a dropped component.
 public readonly record struct IssueComponent(string IfcGuid, Option<SetKey> Node, Option<string> OriginatingSystem, Option<string> AuthoringToolId);
 
 public sealed record IssueVisibility(bool DefaultVisibility, Seq<IssueComponent> Exceptions, HashMap<string, bool> ViewSetupHints);
@@ -236,8 +236,8 @@ public sealed record IssueTopic(
     Option<Instant> Due, Option<string> AssignedTo, Option<string> Description,
     Seq<Guid> RelatedTopics, Seq<IssueComment> Comments, Seq<IssueViewpoint> Viewpoints);
 
-// The cycle diff: opened/removed partition by GUID presence, the move partitions diff shared GUIDs
-// field-wise — the issue sibling of the schedule baseline/update Reconcile discipline.
+// `IssueDelta` carries the cycle diff: opened/removed partition by GUID presence, the move partitions diff
+// shared GUIDs field-wise — the issue sibling of the schedule baseline/update Reconcile discipline.
 public sealed record IssueDelta(
     Seq<IssueTopic> Opened, Seq<IssueTopic> Removed,
     Seq<(IssueTopic Held, IssueTopic Update)> StatusMoved, Seq<(IssueTopic Held, IssueTopic Update)> Reassigned,

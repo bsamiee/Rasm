@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_AZURE_KEYVAULT]
 
-`Azure.Security.KeyVault.Keys` owns vault-side key custody and cryptography for the `azure` `KmsProvider` arm: `KeyClient` drives master-key CRUD, rotation, and secure-key-release over Azure Key Vault and Managed HSM, `CryptographyClient` drives the DEK envelope and asymmetric signing. Its `CryptographyClient.WrapKey`/`UnwrapKey` is a native vault key-wrap verb, so the Azure `EnvelopeKeyring` arm wraps a DEK directly rather than through an `Encrypt`/`Decrypt`-as-wrap shim, and its `Sign`/`Verify` binds the `SigningKeyring` arm over the precomputed `OpDigest`.
+`Azure.Security.KeyVault.Keys` owns vault-side key custody and cryptography for the `azure` `KmsProvider` arm: `KeyClient` drives master-key CRUD, rotation, and secure-key-release over Azure Key Vault and Managed HSM, `CryptographyClient` drives the DEK wrap round trip and asymmetric signing. Its `CryptographyClient.WrapKey`/`UnwrapKey` is a native vault key-wrap verb, so the Azure `EnvelopeKeyring` arm wraps a DEK directly rather than through an `Encrypt`/`Decrypt`-as-wrap shim, and its `Sign`/`Verify` binds the `SigningKeyring` arm over the precomputed `OpDigest`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - namespace: `Azure.Security.KeyVault.Keys`, `Azure.Security.KeyVault.Keys.Cryptography`
 - asset: runtime library
 - depends: `Azure.Core` (pipeline, `Response<T>`, `Pageable<T>`, `TokenCredential`), paired with `Azure.Identity` for the credential at composition
-- rail: encryption (the DEK envelope arm), signing (the `SigningKeyring` arm)
+- rail: encryption (the `EnvelopeKeyring` arm), signing (the `SigningKeyring` arm)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -60,7 +60,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: key-wrap and envelope cryptography
+[ENTRYPOINT_SCOPE]: key-wrap and key-management cryptography
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                             |
 | :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------- |
@@ -135,17 +135,17 @@
 
 [STACKING]:
 - `api-aws-kms`, `api-google-kms`: the peer `KmsProvider` arms bind the same `EnvelopeKeyring`/`SigningKeyring` delegate surfaces against their own members; the Azure arm alone exposes a native `WrapKey`/`UnwrapKey` vault verb, so its `Rewrap` is a `WrapKey` against the new key version, never the `Encrypt`/`Decrypt`-as-wrap those arms run.
-- `Element/identity` `KmsProvider` `[SmartEnum<string>]` axis: selects the `azure` arm (`NativeWrap: true`); `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` binds `Mint`→`WrapKey(RsaOaep256, dek)`, `Unwrap`→`UnwrapKey` zeroing the recovered `Key`, `Rewrap`→`WrapKey` under a new version, `Probe`→`KeyClient.GetKey` `KeyProperties`, and `SigningKeyring` `Sign`/`Verify` binds `CryptographyClient.Sign`/`Verify` over the precomputed `OpDigest` against a signing key distinct from the envelope CMK.
+- `Element/identity` `KmsProvider` `[SmartEnum<string>]` axis: selects the `azure` arm (`NativeWrap: true`); `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` binds `Mint`→`WrapKey(RsaOaep256, dek)`, `Unwrap`→`UnwrapKey` zeroing the recovered `Key`, `Rewrap`→`WrapKey` under a new version, `Probe`→`KeyClient.GetKey` `KeyProperties`, and `SigningKeyring` `Sign`/`Verify` binds `CryptographyClient.Sign`/`Verify` over the precomputed `OpDigest` against a signing key distinct from the wrapping CMK.
 - within-lib crypto bridge: `CryptographyClient.CreateRSA`→`RSAKeyVault` (`RSA` over the vault key) and `JsonWebKey.ToRSA`/`ToAes` rehydrate BCL primitives for the `CryptographyClient(JsonWebKey)` offline path, so a cached JWK wraps or verifies with no vault round-trip.
 
 [LOCAL_ADMISSION]:
 - `KeyClient` owns master-key lifecycle (`CreateRsaKey`, `RotateKey`, `GetKeyRotationPolicy`/`UpdateKeyRotationPolicy` on a `KeyRotationPolicy.ExpiresIn` cadence); the persistence path consumes a `CryptographyClient` from `GetCryptographyClient(keyName, keyVersion)`, so a wrap binds one explicit version and rotation mints a new version without invalidating prior-version unwrap.
-- `KeyEnvelope.WrappedDek` persists the wrapped DEK beside `WrapResult.KeyId` and `.Algorithm`; the recovered `UnwrapResult.Key` rehydrates the local cipher and zeroes immediately after the bind.
+- `WrappedKey` persists `WrapResult.EncryptedKey` beside `WrapResult.KeyId` and the pinned key version; the recovered `UnwrapResult.Key` rehydrates the local cipher and zeroes immediately after the bind.
 - Azure `WrapKey`/`UnwrapKey` carry no `EncryptionContext` parameter, so per-partition AAD rides the `FrozenDictionary<string,string>` the keyring threads and is enforced application-side before the call; an AAD that changes between mint and unwrap is rejected before the call, never by a vault error.
 - `KeyVaultKeyIdentifier.TryCreate` parses a stored key URI into `VaultUri`/`Name`/`Version` at the configuration boundary, internal code holding the parsed components; clients are long-lived and thread-safe — one per vault at composition, never per wrap, consuming the per-open `SecretLease` CMK handle so this owner holds the client and AAD binding while the runtime lease owns the credential lifecycle.
 
 [RAIL_LAW]:
 - Package: `Azure.Security.KeyVault.Keys`
 - Owns: master-key custody, native key-wrap cryptography for the `azure` `EnvelopeKeyring` arm, and asymmetric Sign/Verify for the `SigningKeyring` arm
-- Accept: `CryptographyClient.WrapKey`/`UnwrapKey` for the DEK envelope, `Sign`/`Verify` over the precomputed `OpDigest`, the `CryptographyClient(JsonWebKey)` local path for an offline unwrap or verify, `KeyClient` for master-key CRUD/rotation and the attested `ReleaseKey` TEE export, well-known `KeyWrapAlgorithm`/`SignatureAlgorithm` constants, `Azure.Core` carriers converted once at the boundary
+- Accept: `CryptographyClient.WrapKey`/`UnwrapKey` for the DEK round trip, `Sign`/`Verify` over the precomputed `OpDigest`, the `CryptographyClient(JsonWebKey)` local path for an offline unwrap or verify, `KeyClient` for master-key CRUD/rotation and the attested `ReleaseKey` TEE export, well-known `KeyWrapAlgorithm`/`SignatureAlgorithm` constants, `Azure.Core` carriers converted once at the boundary
 - Reject: `Encrypt`/`Decrypt`-as-wrap where the native `WrapKey` verb exists, `SignData`/`VerifyData` for an already-hashed `OpDigest`, exported master-key material outside the attested `ReleaseKey` path, per-operation client construction, raw key-URI strings in internal code, `RequestFailedException` past the keyring boundary

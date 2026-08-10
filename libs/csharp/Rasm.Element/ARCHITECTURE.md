@@ -204,7 +204,7 @@ flowchart LR
     Projection -->|"[CONTENT_KEY]: ContentAddress"| Persistence
     Graph -->|"[SHAPE]: ElementGraph"| Persistence
     Graph -->|"[SHAPE]: GraphDelta"| Persistence
-    Graph -->|"[SHAPE]: GraphEventEnvelope"| Persistence
+    Graph -->|"[EVENT]: GraphCrossing"| Persistence
     Persistence -->|"[WIRE]: ElementGraph"| Graph
     Graph <-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Composition -->|"[SHAPE]: AssemblyAggregator"| Compute

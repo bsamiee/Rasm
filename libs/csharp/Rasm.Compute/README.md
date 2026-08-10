@@ -116,11 +116,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
+- `CloudNative.CloudEvents` — envelope type the branch-owned MQTT 5.0 and NATS bindings raise; `Rasm/Domain/event` owns grammar, roster, and decode.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
 
 [MACHINE_CONNECTIVITY]:
-- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder.
+- `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

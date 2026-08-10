@@ -85,7 +85,7 @@
 |  [13]   | `Config.WithCraneliftNaNCanonicalization(bool)`   | instance | canonicalizes NaN payloads for replay    |
 |  [14]   | `Config.WithComponentModel(bool)`                 | instance | toggles NATIVE component support only    |
 
-- `WithComponentModel` reaches `wasmtime_config_wasm_component_model_set` in the native engine and NOTHING in managed code can then compile or instantiate a component: `Wasmtime.Dotnet` 44.0.0 (the current release) exposes zero type carrying `Component` in its name, and `Module`/`Linker`/`Instance` are core-module only. WASI Preview 2 is therefore unreachable from this binding, and a component host is a native-side embedding rather than a `Wasmtime.NET` row — enabling the flag buys nothing a managed caller can spend.
+- `WithComponentModel` reaches `wasmtime_config_wasm_component_model_set` in the native engine and NOTHING in managed code can then compile or instantiate a component: `Wasmtime.Dotnet` exposes no type carrying `Component` in its name, and `Module`/`Linker`/`Instance` are core-module only. WASI Preview 2 is therefore unreachable from this binding, and a component host is a native-side embedding rather than a `Wasmtime.NET` row — enabling the flag buys nothing a managed caller can spend.
 - `WithFuelConsumption` and `WithEpochInterruption` are CONSTRUCTION-time only; neither is settable after `Engine(Config)`, so a store's `Fuel` setter and `SetEpochDeadline` are inert on an engine that did not arm them.
 
 [ENTRYPOINT_SCOPE]: module compilation
@@ -135,8 +135,7 @@
 
 [ENTRYPOINT_SCOPE]: host-function binding — the one import-table seat
 
-Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnlyList<ValueKind> resultKinds)`, and
-`UntypedCallbackDelegate` is `void (Caller, ReadOnlySpan<ValueBox> arguments, Span<ValueBox> results)`.
+Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnlyList<ValueKind> resultKinds)`, and `UntypedCallbackDelegate` is `void (Caller, ReadOnlySpan<ValueBox> arguments, Span<ValueBox> results)`.
 
 | [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                      |
 | :-----: | :------------------------------------------------------------------ | :------- | :-------------------------------- |
@@ -211,7 +210,7 @@ Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnl
 - fuel metering: `Config.WithFuelConsumption(true)` arms it, the `Store.Fuel` setter adds fuel, and exhaustion raises `TrapException` with `TrapCode.OutOfFuel`.
 - epoch interruption: `Config.WithEpochInterruption(true)` arms it, `Engine.IncrementEpoch()` advances the counter, and `Store.SetEpochDeadline(ticks)` sets the cutoff — the deadline counts ENGINE EPOCHS, never wall time, so a host that never increments arms a deadline that never arrives.
 - preemption reach: epoch interruption is the ONLY mechanism that reaches a guest inside a host-free loop. `Store.Dispose()` releases a `SafeHandle` and cannot release while a native call is in flight on that store, and `Store.SetLimits` caps what a store may ACQUIRE — neither converges a spinning guest, so neither substitutes for an epoch increment.
-- component model: `Config.WithComponentModel(bool)` toggles the native engine only; the managed surface has no component type, so WASI Preview 2 is out of reach at 44.0.0.
+- component model: `Config.WithComponentModel(bool)` toggles the native engine only; the managed surface has no component type, so WASI Preview 2 is out of reach.
 - WASI admission: `Linker.DefineWasi()` and `Store.SetWasiConfiguration(WasiConfiguration)` both precede instantiation, and `WithPreopenedDirectory` scopes filesystem access to named prefixes under explicit directory and file permission flags.
 
 [STACKING]:

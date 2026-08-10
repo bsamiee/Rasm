@@ -101,3 +101,5 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `building envelope`: separates a building's conditioned interior from its exterior, and its tightness bounds the air a zone leaks.
 - `operating envelope`: bounds the conditions one machine or process admits, so a demand outside it refuses rather than degrades.
 - `swept envelope`: encloses the volume a moving body occupies across its whole motion, and a clearance test runs against that solid.
+- `bounding envelope`: brackets a geometry inside the axis-aligned extent an index compares first, so an exact predicate runs on candidates alone.
+- `typed envelope`: carries an operational rail's whole outcome — value beside failure — so no sentinel rides inside a data row.

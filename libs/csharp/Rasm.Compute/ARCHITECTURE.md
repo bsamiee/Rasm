@@ -325,7 +325,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
 - `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
-- Every ledger fold reads the kernel `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
+- Every ledger fold reads the kernel `TenantContext` stamped on the message envelope as its tenant partition, never a Compute-minted tenancy.
 - `Runtime/transport` decodes MQTT and NATS CloudEvents onto the kernel `TraceCarrier` — MQTT from composition, NATS inline from `NatsMsg.Headers`.
 - NATS Core pump drains `SubscribeAsync<byte[]>`; `BrokerChannels.Capture` admits samples as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
 - MQTT's event-delivered receive loop bridges through one bounded channel onto that same stream, its ack riding a successful enqueue alone.

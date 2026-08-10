@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_SKIA_PATHOPS]
 
-`skia-pathops` mints the planar boolean, offset, and stroke-to-outline geometry the `graphic/vector` rail lacks: an abi3 binding of Skia `SkPathOps`/`SkStroke`/`SkPath` over one mutable `Path` ingesting cubics/quads/conics/arcs, running N-ary set operations, self-intersection repair, and stroke-to-outline fill. A FontTools-pen bridge (`getPen`/`draw`) makes `Path` one geometry spine any pen producer draws into and re-emits from. Its owner composes `op`/`OpBuilder`/`simplify`/`Path.stroke` into the `Vector` arms, never re-implementing set-ops or stroking, and never rasterizing.
+`skia-pathops` mints the planar boolean, offset, and stroke-to-outline geometry the `graphic/vector` rail lacks: an abi3 binding of Skia `SkPathOps`/`SkStroke`/`SkPath` over one mutable `Path` ingesting cubics/quads/conics/arcs, running N-ary set operations, self-intersection repair, and stroke-to-outline fill. `getPen`/`draw` bridge FontTools pens, making `Path` one geometry spine any pen producer draws into and re-emits from. Its owner composes `op`/`OpBuilder`/`simplify`/`Path.stroke` into the `Vector` arms, never re-implementing set-ops or stroking, and never rasterizing.
 
 ## [01]-[PACKAGE_SURFACE]
 

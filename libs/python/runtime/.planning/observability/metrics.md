@@ -182,7 +182,9 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("artifact", "produced-artifact byte volume and compression economics"),
     ("band", "live occupancy of every bounded band the branch names"),
     ("bench", "benchmark claims and the verdicts grading them"),
+    ("broker", "message-envelope crossings per binding — ingest lag, settled halves, and every shed fact"),
     ("catalog", "cloud-asset discovery volume per STAC query"),
+    ("circuit", "failure-window transitions per guarded dependency"),
     ("compute", "solver execution, monitoring, and the numerical residual per graduation"),
     ("contract", "data-contract claim breaches per checked frame"),
     ("cost", "worker-crossing resource price per kernel"),
@@ -208,6 +210,7 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("quality", "data-quality breach fractions per grade"),
     ("query", "query-engine latency and row volume per engine"),
     ("ragged", "ragged-array source and row volume"),
+    ("rate", "admission pacing per destination — the queue a published rate imposes"),
     ("retry", "retry attempts per target"),
     ("runtime", "mid-operation fact delivery across the worker conduit"),
     ("serve", "served-request latency per method"),
@@ -421,6 +424,21 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
         dimensions=(Dimension.METHOD, Dimension.OUTCOME),
     ),
     InstrumentSpec(RETRY_ATTEMPTS, InstrumentKind.COUNTER, "{attempt}", dimensions=(Dimension.TARGET, Dimension.CAUSE)),
+    # Resilience's other two edges, both keyed on the DEPENDENCY rather than on the class: a class-only key
+    # reports one dead cluster as the whole class degrading and hides a healthy peer inside the same series.
+    # Transitions alone land, so an arc that never trips exports nothing and a board reads the edges.
+    InstrumentSpec("rasm.circuit.transitions", InstrumentKind.COUNTER, "{transition}", mapped=True, dimensions=(Dimension.TARGET, Dimension.OUTCOME)),
+    InstrumentSpec("rasm.rate.wait", InstrumentKind.HISTOGRAM, "ms", mapped=True, advisory=DURATION_BUCKETS_MS, dimensions=(Dimension.TARGET,)),
+    # Broker crossings take three edges. `ingest_lag` is `recordedtime - time` measured at the RECEIVER, the one
+    # reading collapsing the two stamps erases — a distribution rather than a counter, because a queue's shape is what
+    # an operator reads and a mean over it hides the tail that actually breaks a subscription. `settled` and `shed`
+    # stay two monotonic series rather than one counter under an outcome fan: a matched duplicate is not an acceptance
+    # and a shed is neither, so folding the three into one total erases exactly the exactly-once evidence
+    # `Uniqueness` exists to carry. Both key on the binding beside the disposition, so a board attributes a shift
+    # to whichever protocol produced it without a second instrument per protocol.
+    InstrumentSpec("rasm.broker.ingest_lag", InstrumentKind.HISTOGRAM, "ms", mapped=True, advisory=DURATION_BUCKETS_MS, dimensions=(Dimension.TARGET,)),
+    InstrumentSpec("rasm.broker.settled", InstrumentKind.COUNTER, "{fact}", mapped=True, dimensions=(Dimension.TARGET, Dimension.OUTCOME)),
+    InstrumentSpec("rasm.broker.shed", InstrumentKind.COUNTER, "{fact}", mapped=True, dimensions=(Dimension.TARGET, Dimension.CAUSE)),
     InstrumentSpec("rasm.artifact.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.artifact.compression_ratio", InstrumentKind.HISTOGRAM, "1", mapped=True),
     # Pyramid depth and texel volume are the produced-set facts a texture regression moves that byte volume alone
@@ -435,9 +453,9 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.query.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
     InstrumentSpec("rasm.egress.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.quality.breach_fraction", InstrumentKind.HISTOGRAM, "1", mapped=True),
-    # A profile's breach FRACTION and a contract's breach COUNT answer different questions off different gates —
-    # the fraction grades a sampled frame's shape, this counter tallies the settled claims a covenant refused — so
-    # the contract claim trends its own monotonic series rather than folding onto a distribution it would skew.
+    # Breach FRACTION and breach COUNT answer different questions off different gates — a fraction grades a sampled
+    # frame's shape while this counter tallies the settled claims a covenant refused — so the contract claim trends
+    # its own monotonic series rather than folding onto a distribution it skews.
     InstrumentSpec("rasm.contract.breaches", InstrumentKind.COUNTER, "{breach}", mapped=True),
     InstrumentSpec("rasm.impact.score", InstrumentKind.HISTOGRAM, "kg", mapped=True),
     InstrumentSpec("rasm.graph.nodes", InstrumentKind.HISTOGRAM, "{node}", mapped=True),
@@ -445,9 +463,9 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.lake.commit.files_added", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.lake.commit.files_removed", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.materialize.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
-    # Data-plane throughput rows: every one is a per-operation DELTA a producer adds at its own call, so each takes
-    # the monotonic counter a cumulative reader integrates rather than a distribution over magnitudes nobody
-    # compares across sources. The `<measure>` tail is byte-identical to its cross-domain twin — `byte_volume`
+    # Data-plane throughput rows: every one is a per-operation DELTA a producer adds at its own call, so each takes a
+    # monotonic counter a cumulative reader integrates rather than a distribution over magnitudes nobody compares
+    # across sources. Each `<measure>` tail is byte-identical to its cross-domain twin — `byte_volume`
     # beside artifact and egress, `rows` beside query and materialize, `points` shared by both point-bearing
     # producers — so one board expression joins the tail across every domain producing it.
     InstrumentSpec("rasm.tensor.byte_volume", InstrumentKind.COUNTER, "By", mapped=True),
@@ -466,7 +484,7 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.geometry.deviation.noncompliant", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.registration.fitness", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.section.closure", InstrumentKind.HISTOGRAM, "1", mapped=True),
-    # The three graduating subjects whose charter counterparts had no mounted row: an IDS/clash verdict's failing
+    # Three graduating subjects whose charter counterparts had no mounted row: an IDS/clash verdict's failing
     # share, a form-finding solve's max-abs residual, and a comfort run's discomfort fraction. Each reads `1`
     # because each is dimensionless by construction — a share, a fraction, and a residual whose two engines carry
     # different physical dimensions (a DR force residual against a TNA crown scale), so naming either engine's unit
@@ -502,9 +520,7 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.runtime.pulse.dropped", InstrumentKind.COUNTER, "{pulse}", mapped=True),
     InstrumentSpec("rasm.runtime.pulse.rejected", InstrumentKind.COUNTER, "{pulse}", mapped=True),
     InstrumentSpec(LANE_DRAINED, InstrumentKind.COUNTER, "{unit}", dimensions=(Dimension.OUTCOME,)),
-    InstrumentSpec(
-        "rasm.band.in_flight", InstrumentKind.OBSERVABLE_UP_DOWN_COUNTER, "{unit}", _inflight, dimensions=(Dimension.BAND,),
-    ),
+    InstrumentSpec("rasm.band.in_flight", InstrumentKind.OBSERVABLE_UP_DOWN_COUNTER, "{unit}", _inflight, dimensions=(Dimension.BAND,),),
     InstrumentSpec("rasm.process.memory.rss", InstrumentKind.OBSERVABLE_GAUGE, "By", _gauge("rss")),
     InstrumentSpec("rasm.process.memory.uss", InstrumentKind.OBSERVABLE_GAUGE, "By", _gauge("uss")),
     InstrumentSpec("rasm.process.cpu.utilization", InstrumentKind.OBSERVABLE_GAUGE, "1", _gauge("cpu")),

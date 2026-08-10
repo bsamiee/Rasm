@@ -451,9 +451,9 @@ def keyed(
 ## [06]-[WIRE_CONTRACTS]
 
 [PROTOCOL_EDGE]:
-- Use: payload structs, envelopes, serializer contracts, persisted packets, and remote frames.
+- Use: payload structs, message envelopes, serializer contracts, persisted packets, and remote frames.
 - Law: wire shapes stay protocol-shaped at the edge — a `msgspec.Struct` with `rename=`/`forbid_unknown_fields=True` or a pydantic ingress model is the only site where protocol and interior schemas meet, and interior canonical owners carry no codec attributes, serializer options, or transport fields. A converter is the boundary; the domain owner is unaware of the wire.
-- Law: inner envelopes reject drift — `forbid_unknown_fields=True` on `msgspec.Struct` and `extra="forbid"` on a pydantic model fail an unknown member before admission — while only a declared `extra_items` band tolerates extension material.
+- Law: inner message envelopes reject drift — `forbid_unknown_fields=True` on `msgspec.Struct` and `extra="forbid"` on a pydantic model fail an unknown member before admission — while only a declared `extra_items` band tolerates extension material.
 - Law: a decoder's malformed-input tolerance is an explicit admission policy pinned at the seam — the strictest provider mode named in the call (`on_error="raise"`, `fail_on=FailOn.ERROR`) — because a provider tolerance default admits partial material the fault vocabulary never sees.
 - Law: a positional or offset field crossing a seam carries its declared coordinate regime — index unit, origin, edge-attachment rule — and the consumer normalizes to its own regime before composition, because integer equality across UTF-16 code units, code points, grapheme boundaries, and glyph clusters never establishes coordinate identity.
 - Reject: a `schema_version` branch on a canonical owner that belongs to read-boundary migration; last-write-wins parse for an owned protocol shape; a domain owner decorated with serializer config.
@@ -522,7 +522,7 @@ def signed(raw: bytes, /) -> Result[tuple[str, str], WireFault]:
 
 [BYTE_IDENTITY]:
 - Use: signatures, content hashes, idempotency keys, checksums, and byte-stable forwarding.
-- Law: the sub-tree that must round-trip byte-identically is a `msgspec.Raw` band on the envelope — the decoder holds the inner octets opaque instead of parsing them and a re-encode writes them verbatim, so a float spelled `1.1000`, a `-0.0`, and a non-finite `1e400` survive intact where a parse-then-reserialize re-spells every one; `bytes(raw)` is the exact octet sequence the digest signs, captured before any interior owner sees a parsed value.
-- Law: semantic equality and byte equality are different contracts — one `hashlib` surface per byte-identity domain is fixed at composition (`hashlib.sha256(bytes(raw)).hexdigest()`), never chosen per site, and the parsed projection of the same envelope is a separate egress that never feeds the signature.
+- Law: the sub-tree that must round-trip byte-identically is a `msgspec.Raw` band on the message envelope — the decoder holds the inner octets opaque instead of parsing them and a re-encode writes them verbatim, so a float spelled `1.1000`, a `-0.0`, and a non-finite `1e400` survive intact where a parse-then-reserialize re-spells every one; `bytes(raw)` is the exact octet sequence the digest signs, captured before any interior owner sees a parsed value.
+- Law: semantic equality and byte equality are different contracts — one `hashlib` surface per byte-identity domain is fixed at composition (`hashlib.sha256(bytes(raw)).hexdigest()`), never chosen per site, and the parsed projection of the same message envelope is a separate egress that never feeds the signature.
 - Boundary: a receipt carries the coordinate and the hex digest, never the `Raw` octets; the persisted fingerprint is the stable `hashlib` digest, never a process-randomized `hash()` whose seed resets each run.
 - Reject: a parsed-then-reserialized payload between verification, signing, or forwarding; a per-site encoder where one composition-fixed `hashlib` surface serves; a `hash()` persisted as stable identity; a domain field reaching the interior where the `msgspec.Raw` band holds the signed octets opaque.

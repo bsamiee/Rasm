@@ -65,22 +65,22 @@ Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Va
 
 [PUBLIC_TYPE_SCOPE]: cutting-tool asset graph (`MTConnect.Assets.CuttingTools`)
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [CAPABILITY]             |
-| :-----: | :------------------------------ | :-------------- | :----------------------- |
-|  [01]   | `CuttingToolAsset`              | tool asset      | physical tool model      |
-|  [02]   | `CuttingToolLifeCycle`          | tool state      | operational lifecycle    |
-|  [03]   | `CuttingItem`                   | insert or edge  | item-level state         |
-|  [04]   | `CuttingToolDefinition`         | tool definition | format-tagged payload    |
-|  [05]   | `CuttingToolArchetypeAsset`     | archetype       | shared tool template     |
-|  [06]   | `CuttingToolArchetypeReference` | archetype       | instance template link   |
-|  [07]   | `ToolLife`                      | life budget     | tool-life accumulator    |
-|  [08]   | `ItemLife`                      | life budget     | insert-life accumulator  |
-|  [09]   | `Location`                      | magazine slot   | physical slot address    |
-|  [10]   | `ProcessFeedRate`               | process range   | feed-rate envelope       |
-|  [11]   | `ProcessSpindleSpeed`           | process range   | spindle-speed envelope   |
-|  [12]   | `ReconditionCount`              | counter         | recondition state        |
-|  [13]   | `Measurement`                   | measurement     | common measurement state |
-|  [14]   | `ToolingMeasurement`            | measurement     | ISO-13399 measurement    |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [CAPABILITY]                     |
+| :-----: | :------------------------------ | :-------------- | :------------------------------- |
+|  [01]   | `CuttingToolAsset`              | tool asset      | physical tool model              |
+|  [02]   | `CuttingToolLifeCycle`          | tool state      | operational lifecycle            |
+|  [03]   | `CuttingItem`                   | insert or edge  | item-level state                 |
+|  [04]   | `CuttingToolDefinition`         | tool definition | format-tagged payload            |
+|  [05]   | `CuttingToolArchetypeAsset`     | archetype       | shared tool template             |
+|  [06]   | `CuttingToolArchetypeReference` | archetype       | instance template link           |
+|  [07]   | `ToolLife`                      | life budget     | tool-life accumulator            |
+|  [08]   | `ItemLife`                      | life budget     | insert-life accumulator          |
+|  [09]   | `Location`                      | magazine slot   | physical slot address            |
+|  [10]   | `ProcessFeedRate`               | process range   | feed-rate operating envelope     |
+|  [11]   | `ProcessSpindleSpeed`           | process range   | spindle-speed operating envelope |
+|  [12]   | `ReconditionCount`              | counter         | recondition state                |
+|  [13]   | `Measurement`                   | measurement     | common measurement state         |
+|  [14]   | `ToolingMeasurement`            | measurement     | ISO-13399 measurement            |
 
 [CuttingToolAsset]: `ToolId` `SerialNumber` `CuttingToolLifeCycle` `CuttingToolDefinition` `CuttingToolArchetypeReference` `IsValid(Version)` `GenerateHash`
 [CuttingToolLifeCycle]: `CutterStatus` `CuttingItems` `Location` `Measurements` `ProcessFeedRate` `ProcessSpindleSpeed` `ProgramToolNumber` `ProgramToolGroup` `ReconditionCount` `ToolLife` `ConnectionCodeMachineSide`
@@ -132,16 +132,16 @@ Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Va
 
 [PUBLIC_TYPE_SCOPE]: asset base, status, and enums (`MTConnect.Assets`, `.CuttingTools`)
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]          |
-| :-----: | :---------------------- | :---------------- | :-------------------- |
-|  [01]   | `Asset`                 | asset base        | cutting-tool envelope |
-|  [02]   | `IAsset`                | interface         | asset contract        |
-|  [03]   | `AssetValidationResult` | validation result | conformance outcome   |
-|  [04]   | `CutterStatusType`      | enum              | lifecycle state       |
-|  [05]   | `ToolLifeType`          | enum              | life basis            |
-|  [06]   | `CountDirectionType`    | enum              | counting direction    |
-|  [07]   | `LocationType`          | enum              | magazine address kind |
-|  [08]   | `MTConnectVersions`     | constants         | schema versions       |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                  |
+| :-----: | :---------------------- | :---------------- | :---------------------------- |
+|  [01]   | `Asset`                 | asset base        | cutting-tool asset graph root |
+|  [02]   | `IAsset`                | interface         | asset contract                |
+|  [03]   | `AssetValidationResult` | validation result | conformance outcome           |
+|  [04]   | `CutterStatusType`      | enum              | lifecycle state               |
+|  [05]   | `ToolLifeType`          | enum              | life basis                    |
+|  [06]   | `CountDirectionType`    | enum              | counting direction            |
+|  [07]   | `LocationType`          | enum              | magazine address kind         |
+|  [08]   | `MTConnectVersions`     | constants         | schema versions               |
 
 [Asset]: `AssetId` `Type` `InstanceId` `Timestamp` `DeviceUuid` `SerialNumber` `Station` `Model` `Manufacturers` `Hash` `Removed` `Configuration`
 [AssetValidationResult]: `bool IsValid` `string Message`; ctor `(bool isValid, string message = null)`
@@ -232,7 +232,7 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - `MTConnectAdapter` is the SHDR relay case: AppHost re-publishes observations to a downstream agent, `AddObservation`/`SendChanged` buffering and flushing on the SHDR line, a distinct row shape from the consume path sharing the one transport row's binding spec.
 
 - `CuttingToolAsset : Asset` is the physical tool: `ToolId` (program tool-number space), `SerialNumber` (instance), one `CuttingToolLifeCycle`, optionally a `CuttingToolDefinition` (ISO-13399 definition body) and a `CuttingToolArchetypeReference` (shared template)
-- `CuttingToolLifeCycle` carries operational state: `CutterStatus` (a SET of `CutterStatusType`, simultaneous `AVAILABLE`+`MEASURED`), `CuttingItems`, `Location`, body-level `Measurements`, the `ProcessFeedRate`/`ProcessSpindleSpeed` envelopes, `ToolLife` budget, and `ProgramToolNumber`/`ProgramToolGroup` NC binding
+- `CuttingToolLifeCycle` carries operational state: `CutterStatus` (a SET of `CutterStatusType`, simultaneous `AVAILABLE`+`MEASURED`), `CuttingItems`, `Location`, body-level `Measurements`, the `ProcessFeedRate`/`ProcessSpindleSpeed` operating envelopes, `ToolLife` budget, and `ProgramToolNumber`/`ProgramToolGroup` NC binding
 - `CuttingItem` is one insert/edge with its own `Indices`, `Grade`, `ItemLife`, and edge-level `Measurements`; a multi-insert body holds several
 - every measurement is a typed `Measurements.*` subtype `: ToolingMeasurement` fixing `TypeId`/`CodeId` and carrying `Value` with `Minimum`/`Maximum`/`Nominal`/`Units`/`NativeUnits`/`SignificantDigits` — `CornerRadiusMeasurement(2.0)` is the corner radius, not a `Measurement` with a stringly-set `Type`/`Code`
 - domain code binds the `I…` interfaces (`ICuttingToolAsset`/`ICuttingToolLifeCycle`/`ICuttingItem`/`IToolingMeasurement`); the concrete classes are the mutable authoring shapes

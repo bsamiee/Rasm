@@ -20,7 +20,7 @@
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                        |
 | :-----: | :----------------- | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `CityJsonDocument` | class         | document root, vertex pool, envelope accessor                       |
+|  [01]   | `CityJsonDocument` | class         | document root, vertex pool, bounding-envelope accessor              |
 |  [02]   | `Transform`        | class         | `Scale`/`Translate` (`double[]`), `ScaleVector3`/`TranslateVector3` |
 |  [03]   | `Vertex`           | class         | `X`/`Y`/`Z` (`double`), `ToVector3`                                 |
 |  [04]   | `Metadata`         | class         | dataset metadata record                                             |
@@ -74,14 +74,14 @@
 
 Read is Newtonsoft deserialization into `CityJsonDocument`; write and the dequant helpers are static.
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `JsonConvert.DeserializeObject<CityJsonDocument>(string) -> CityJsonDocument` | static   | read a CityJSON string into the graph |
-|  [02]   | `CityJsonWriter.Write(CityJsonDocument) -> string`                            | static   | serialize a document to CityJSON text |
-|  [03]   | `CityJsonWriter.WriteToFile(CityJsonDocument, string)`                        | static   | serialize a document to a file path   |
-|  [04]   | `CityJsonDocument.GetVerticesEnvelope() -> (Envelope, float, float)`          | instance | dequantized NTS envelope and Z-range  |
-|  [05]   | `Transform.ScaleVector3() / TranslateVector3() -> Vector3`                    | instance | dequantization vectors                |
-|  [06]   | `Vertex.ToVector3() -> Vector3`                                               | instance | a vertex as `System.Numerics.Vector3` |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `JsonConvert.DeserializeObject<CityJsonDocument>(string) -> CityJsonDocument` | static   | read a CityJSON string into the graph      |
+|  [02]   | `CityJsonWriter.Write(CityJsonDocument) -> string`                            | static   | serialize a document to CityJSON text      |
+|  [03]   | `CityJsonWriter.WriteToFile(CityJsonDocument, string)`                        | static   | serialize a document to a file path        |
+|  [04]   | `CityJsonDocument.GetVerticesEnvelope() -> (Envelope, float, float)`          | instance | dequantized NTS bounding envelope, Z-range |
+|  [05]   | `Transform.ScaleVector3() / TranslateVector3() -> Vector3`                    | instance | dequantization vectors                     |
+|  [06]   | `Vertex.ToVector3() -> Vector3`                                               | instance | a vertex as `System.Numerics.Vector3`      |
 
 [ENTRYPOINT_SCOPE]: CityJSONSeq streaming (`CityJSON`)
 
@@ -128,5 +128,5 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 [RAIL_LAW]:
 - Package: `bertt.CityJSON`
 - Owns: CityJSON / CityGML JSON read+write — the transform-quantized vertex pool, the typed `CityObject` taxonomy, the index-encoded LoD geometry hierarchy, appearance/textures, the CityJSONSeq streaming form, and the NTS `Feature`/`Polygon` projection rail
-- Accept: 3D urban/city-context interchange, dataset envelope/CRS extraction, NTS-Feature handoff
+- Accept: 3D urban/city-context interchange, dataset bounding envelope/CRS extraction, NTS-Feature handoff
 - Reject: coordinate reprojection (ProjNET), raster/general-vector GIS ingest (MaxRev.Gdal), mesh/tessellation codecs (SharpGLTF/AssimpNetter), IFC semantics (GeometryGym), and leaking `CityJSON.*` types past the codec boundary

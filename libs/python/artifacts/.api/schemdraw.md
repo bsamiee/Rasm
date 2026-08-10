@@ -130,7 +130,7 @@ Every `Element` carries the chainable placement/style/label algebra — each met
 
 [ENTRYPOINT_SCOPE]: `Element2Term` extra placement (in-line two-terminal symbols)
 
-A two-terminal symbol (resistor, capacitor, wire) adds the in-line placement surface: `.to(xy)` stretches so the END lands at a point, `.tox`/`.toy` stretch to an x/y keeping the other axis, `.length(L)` fixes the span, `.endpoints(start, end)` pins both ends, and `.dot`/`.idot` add a connection dot at the end/start — how a wire run reaches a target node by coordinate-free stretching.
+Two-terminal symbols (resistor, capacitor, wire) add the in-line placement surface: `.to(xy)` stretches so the END lands at a point, `.tox`/`.toy` stretch to an x/y keeping the other axis, `.length(L)` fixes the span, `.endpoints(start, end)` pins both ends, and `.dot`/`.idot` add a connection dot at the end/start — how a wire run reaches a target node by coordinate-free stretching.
 
 | [INDEX] | [SURFACE]                                                          | [CAPABILITY]                                       |
 | :-----: | :----------------------------------------------------------------- | :------------------------------------------------- |
@@ -181,7 +181,7 @@ A two-terminal symbol (resistor, capacitor, wire) adds the in-line placement sur
 
 [ENTRYPOINT_SCOPE]: custom symbol composition (`Segment*` + `ElementCompound`)
 
-A symbol the `elements` vocabulary does not carry is composed by subclassing `ElementCompound` and appending typed `Segment*` primitives to `self.segments` in `__init__`, declaring named anchors in `self.anchors` — so a custom AEC fixture symbol (a sprinkler head, a damper, a building-system glyph) is one `Segment*`-built class, never a hand-emitted SVG path, and participates in the identical fluent placement algebra.
+`ElementCompound` composes a symbol the `elements` vocabulary does not carry: subclass it, append typed `Segment*` primitives to `self.segments` in `__init__`, and declare named anchors in `self.anchors` — so a custom AEC fixture symbol (a sprinkler head, a damper, a building-system glyph) is one `Segment*`-built class, never a hand-emitted SVG path, and participates in the identical fluent placement algebra.
 
 | [INDEX] | [SURFACE]                                                          | [CAPABILITY]                                         |
 | :-----: | :----------------------------------------------------------------- | :--------------------------------------------------- |
@@ -194,7 +194,7 @@ A symbol the `elements` vocabulary does not carry is composed by subclassing `El
 [TOPOLOGY]:
 - import: `import schemdraw` and `from schemdraw import elements as elm` (add `flow`, `logic`, `dsp` where the domain vocabulary is needed) at boundary scope only; distribution and import name are both `schemdraw`. Domain code holds the schematic content — the component graph, flowchart structure, or logic network — and lowers it here through the fluent algebra, never letting the `Drawing`/`Element` object model leak inward.
 - backend axis: `use('svg')` selects the standalone pure-SVG backend once — in-process, no matplotlib, no native library — so the design fixes it and treats `get_imagedata("svg")` as the durable artifact; `use('matplotlib')` is the raster/EPS/PGF path, engaged only where the SVG-then-`resvg-py`/`vl-convert` raster route cannot reach. Backend selection is a process-global, set once at the rail boundary, never per-element.
-- canvas axis: `Drawing` is the one spine, entered as a context manager so layout finalizes on `__exit__`; `d += element` / `d.add(element)` places a constructed `Element` and returns it. A new symbol is one `elements` class or one `ElementCompound`, never a new insertion method.
+- canvas axis: `Drawing` is the one spine, entered as a context manager so layout finalizes on `__exit__`; `d += element` / `d.add(element)` places a constructed `Element` and returns it. New symbols land as one `elements` class or one `ElementCompound`, never a new insertion method.
 - placement axis: the fluent algebra (`.at(prev.anchor)`/`.right`/`.up`/`.to`/`.tox`/`.toy`/`.length`/`.anchor(name)`) chains each method returning `self`; coordinates derive from the prior element's named anchor, a wire reaches a target by `.to`/`.tox`/`.toy` stretch, an IC pin is addressed by name (`ic.IN`) — the diagram structure is the source of truth, not a coordinate table.
 - symbol axis: `elements` is the 226-symbol closed vocabulary (a standards variant a sibling class — `ResistorIEEE`/`ResistorIEC`), `flow`/`logic`/`dsp` the domain modules on the same spine, `Segment`/`SegmentCircle`/`SegmentArc`/`SegmentText`/`SegmentPath`/`SegmentPoly`/`SegmentBezier` the primitive grammar; a custom symbol subclasses `ElementCompound` and appends typed `Segment*` to `self.segments` with named anchors in `self.anchors`.
 - structured-figure axis: `logic.Kmap`/`Table`/`TimingDiagram`/`BitField` fold a `dict`/string into a complete figure in one constructor, and `parsing.logicparse(expr)` parses a boolean expression to a fully-placed gate `Drawing` through the bundled Buchheim placement — the logic-layout fallback; generic graph routing stays with `rustworkx`/`pyelk`/`fast-sugiyama`.

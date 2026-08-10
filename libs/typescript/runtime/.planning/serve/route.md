@@ -4,41 +4,44 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 
 ## [01]-[INDEX]
 
-- [02]-[SEAM_ROWS]: the middleware rows: mark, ambient, trace, admission, upload bound, derived shield, route stamp, net; `Seam`.
+- [02]-[SEAM_ROWS]: `Seam` — mark, ambient, trace, admission, upload bound, derived shield, route stamp, and net rows.
 - [03]-[LAYER_ROUTES]: api/docs/health/tus/mount route Layers, the bounded webhook intake row; `Router`, `Intake`.
 - [04]-[CEREMONY_ROWS]: oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application; `Ceremony`.
-- [05]-[ASSET_ROWS]: the SPA/static fold: address-first cache selector, list-aware revalidation, traversal refusal; `Router`.
+- [05]-[ASSET_ROWS]: `Router.assets` — address-first cache selector, list-aware revalidation, traversal refusal.
 - [06]-[SERVE_FOLD]: multiplex rows, the serve Layer, the web-handler twin; `Router`.
 
 ## [02]-[SEAM_ROWS]
 
 [SEAM_ROWS]:
 - Owner: `Seam` — the one cross-cutting composition over one `Seam.Policy` value: `Seam.guard(policy)(app)` mints the request mark (id, instant, negotiated locale from the `accept-language` header against the ambient fallback), provides the `Current` rows in one scoped provision, continues the W3C trace through `Current.traced` over the request headers, bounds every multipart read through the policy's `uploads` row as fiber-ref policy, folds every escaping cause through `Problem.net` — self-rendering first, total ladder as the floor — and stamps the derived shield headers on every response; the served app's error channel is `never` by construction. `Seam.admission(identity)` is its credential companion and `Seam.routed` the route-attribution row, so the whole cross-cutting stack is three `HttpLayerRouter.middleware` rows composed once at the serve fold.
-- Law: the shield splits by what a header actually is — the four transport-fixed rows (`strict-transport-security`, `x-content-type-options`, `x-frame-options`, `referrer-policy`) are literals, and the CSP DERIVES from the export policy through `Seam.shield(shield)`: `default-src 'self'` and `frame-ancestors 'none'` fix the frame, `script-src` grants `'wasm-unsafe-eval'` because CSP3 demands it for the `WebAssembly.instantiate` the served decoder leaves run, `connect-src` assembles the collector origin beside the cross-origin API roster the deployment already declares, and `worker-src`/`img-src` join the asset origin wherever the multiplex row places assets on a second host. A deployment that moves its collector or adds an API origin therefore edits no header, and the standing clause — a handler hand-setting a shield header is the drift defect — becomes enforceable instead of aspirational.
+- Law: the shield splits by what a header IS — the four transport-fixed rows (`strict-transport-security`, `x-content-type-options`, `x-frame-options`, `referrer-policy`) are literals, and the CSP DERIVES from the export policy through `Seam.shield(shield)`: `default-src 'self'` and `frame-ancestors 'none'` fix the frame, `script-src` grants `'wasm-unsafe-eval'` because CSP3 demands it for the `WebAssembly.instantiate` the served decoder leaves run, `connect-src` assembles the collector origin beside the cross-origin API roster the deployment already declares, and `worker-src`/`img-src` join the asset origin wherever the multiplex row places assets on a second host. Moving a collector or adding an API origin therefore edits no header, and the standing clause — a handler hand-setting a shield header is the drift defect — becomes enforceable instead of aspirational.
 - Law: the shield row derives, never restates — `Seam.shieldOf(policy, origins)` reads the collector ORIGIN off `otel/emit#POLICY`'s own `collector.baseUrl`, so the estate spells the collector once; the `propagate` roster stays anchored `RegExp` patterns for the SDK's `urlMatches` compare and cannot serve a CSP source list, so the cross-origin API origins arrive as the explicit `connect` roster the same app root assembles both from.
-- Law: `Seam.admission` is the tenancy binder every sibling folder names as "the edge" — it composes `Gate.Authn.admit(identity, request.headers)` ONCE per request, provides the result through `Current.Admitted` so the api's scheme arms project rather than re-verify, and wraps the whole downstream in `TenantScope.bind` plus `TenantScope.metered` on the admitted arm; an anonymous request binds nothing and the unscoped default answers, because refusal belongs to the endpoint that declares a scheme, never to this seam.
+- Law: `Seam.admission` is the tenancy binder every sibling folder names as "the edge" — it composes `Gate.Authn.admit(identity, request.headers)` ONCE per request, provides the result through `Current.Admitted` so the api's scheme arms project rather than re-verify, and wraps the whole downstream in `TenantScope.bind` under `TenantScope.metered` on the admitted arm; an anonymous request binds nothing and the unscoped default answers, because refusal belongs to the endpoint that declares a scheme, never to this seam.
 - Law: `Seam.routed` is what makes `http.route` producible — `@opentelemetry/instrumentation-http` installs the `RPCMetadata` record under `RPCType.HTTP` and reads `route` off it at response end to build BOTH the span attribute and the duration histogram's own dimension, and no published hook fills that field: `startIncomingSpanHook` fires before any route matches, `requestHook`/`responseHook` see the node message alone, and `applyCustomAttributesOnSpan` runs PAST the metric-attribute build, so an attribute set there decorates the span while the RED plane still ships route-less. This row therefore writes the matched pattern onto the record under the same `RPCType.HTTP` discriminant the reader compares, attaching per route because `RouteContext` exists only after a match, and covering `addHttpApi`'s endpoints through the api-level `Seam.Routed` Tag.
 - Law: forwarded-header trust is a policy ROW, never a default — `fronted` selects `HttpMiddleware.xForwardedHeaders`, which rewrites `host` from `x-forwarded-host` and the caller address from the first `x-forwarded-for` hop, so a proxied deployment dispatches and audits on the PUBLIC coordinates while an unfronted origin refuses the rewrite outright. Both header names stay caller-writable: a default-on row hands any caller its own virtual host, and a default-off row collapses every multiplex predicate onto the ingress hostname behind a load balancer.
 - Law: CORS is delegated, never re-implemented — the assembly composes `HttpLayerRouter.cors()` (or `HttpApiBuilder.middlewareCors(options)` on the api mount) with the options row as its one policy value; no `Seam` member renames it, because a forwarding member is the one-hop wrapper the platform surface already owns.
 - Growth: a new cross-cutting response concern is one line in `Seam.guard`, inherited by every route Layer at once; a new CSP directive is one `_directives` row.
 - Packages: `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`, `HttpApiMiddleware`, `HttpMiddleware`, `HttpLayerRouter`, `Multipart`); `@opentelemetry/core` (`getRPCMetadata`, `RPCType`); `@opentelemetry/api` (`context`); `effect` (`DateTime`, `Effect`, `Option`, `Array`, `identity`); `@rasm/ts/security` (`TenantScope`); `./api.ts` (`Current`, `Gate`); `../otel/emit.ts` (`Export`).
 
-```typescript
+```typescript signature
 import { Buffer } from "node:buffer"
 import { context } from "@opentelemetry/api"
 import { getRPCMetadata, RPCType } from "@opentelemetry/core"
-import { CloudEvent, CONSTANTS, HTTP, type CloudEventV1, type Message, ValidationError } from "cloudevents"
+import { CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
 import {
   type Cookies, Etag, FileSystem, type HttpApi, type HttpApiGroup, HttpApiMiddleware, HttpLayerRouter,
   HttpMiddleware, HttpMultiplex, type HttpPlatform, HttpServerRequest, HttpServerResponse, Multipart, Path,
 } from "@effect/platform"
 import { type RpcGroup, RpcServer } from "@effect/rpc"
-import { Array, Context, DateTime, Duration, Effect, Layer, Number, Option, Redacted, Schema, identity, pipe } from "effect"
-import type { Identity } from "@rasm/ts/core"
+import {
+  Array, Context, Data, DateTime, Duration, Effect, Layer, Number, Option, Predicate, Record, Redacted, Schema,
+  identity, pipe,
+} from "effect"
+import { Carrier, Event, Format, type Identity } from "@rasm/ts/core"
 import { Cookie, CookieSpec, Departed, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
-import { Rail } from "@rasm/ts/data"
+import { Journal, Rail } from "@rasm/ts/data"
 import { Life } from "../proc/life.ts"
-import type { Export } from "../otel/emit.ts"
+import { type Export, Propagation } from "../otel/emit.ts"
 import { Current, Emit, Gate, type GateFault, type Principal } from "./api.ts"
 import { Mount } from "./live.ts"
 import { Problem } from "./problem.ts"
@@ -83,7 +86,7 @@ const _shield = (shield: Seam.Shield): Record<string, string> => ({
   ),
 })
 
-// the collector is spelled once, in the export policy: this projection is the only place the serving edge reads it
+// One spelling holds the collector, in the export policy: this projection is the only place the serving edge reads it
 const _shieldOf = (
   policy: Export.Policy,
   origins: { readonly connect: ReadonlyArray<string>; readonly assets: Option.Option<string> },
@@ -136,7 +139,7 @@ const _admission = (identity: Identity.App) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const admitted = yield* Gate.Authn.admit(identity, request.headers)
-        // the ONE place a verified credential first exists, so the ONE place tenancy can bind
+        // Verified credentials first exist HERE, so this is the ONE place tenancy can bind
         return yield* Option.match(admitted, {
           onNone: () => Effect.provideService(app, Current.Admitted, Option.none()),
           onSome: (held) =>
@@ -149,7 +152,7 @@ const _admission = (identity: Identity.App) =>
     { global: true },
   )
 
-// the http instrumentation owns the record and reads `route` off it at response end to build the span attribute
+// Http instrumentation owns the record and reads `route` off it at response end to build the span attribute
 // AND the duration histogram's dimension; the write guards on `RPCType.HTTP` because that is the discriminant the
 // reader compares, and a stamp that throws folds here rather than widening every mounted route's error channel
 const _stamp: Effect.Effect<void, never, HttpLayerRouter.RouteContext> = Effect.flatMap(
@@ -175,8 +178,8 @@ const _routed = <E, R>(
   options?: { readonly uninterruptible?: boolean },
 ) => HttpLayerRouter.add(method, path, (request) => Effect.zipRight(_stamp, handler(request)), options)
 
-// the api arm: `addHttpApi` publishes no per-endpoint hook, and an api-level middleware runs inside the match
-// where `RouteContext` carries the endpoint's own pattern
+// This api arm answers `addHttpApi`, which publishes no per-endpoint hook: an api-level middleware runs inside the
+// match where `RouteContext` carries the endpoint's own pattern
 class Routed extends HttpApiMiddleware.Tag<Routed>()("runtime/serve/Routed") {
   static readonly live: Layer.Layer<Routed> = Layer.succeed(Routed, _stamp)
 }
@@ -196,23 +199,27 @@ const Seam = {
 
 [LAYER_ROUTES]:
 - Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api, docs)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` and selects its reference UI through `api#EMIT`'s `_uis` roster, so the derived document and the UI ride the same router and the docs choice lives at one owner; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through the fused `RpcServer.layerHttpRouter` owner, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `proc/life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts every provided foreign-protocol row at its prefix under the `"*"` catch-all method literal — presence-as-data, an unwired port serves nothing and never crashes.
-- Law: every raw route on this page mounts through `Seam.routed`, never `HttpLayerRouter.add` directly, so the matched pattern reaches the RED plane's route dimension from the one place that knows it; a bare `add` is the drift defect this constructor forecloses. The api half is the assembly's one `HttpApi.middleware(Seam.Routed)` declaration against the Layer `Router.api` already merges, so every endpoint stamps its own pattern without a per-endpoint hook the platform does not publish.
+- Law: every raw route on this page mounts through `Seam.routed`, never `HttpLayerRouter.add` directly, so the matched pattern reaches the RED plane's route dimension from the one place that knows it; a bare `add` is the drift defect this constructor forecloses. Its api half is the assembly's one `HttpApi.middleware(Seam.Routed)` declaration against the Layer `Router.api` already merges, so every endpoint stamps its own pattern without a per-endpoint hook the platform does not publish.
 - Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and delegates its value to `Router.RailMount`, the port whose selected runtime row routes every method under the spec's route prefix into the rail's own dispatchers and schedules `rail.groom` through the lifecycle plane; the node lift is NOT this port's, it is `live#MOUNT_PORT`'s one `Mount.node` member, so a fetch engine drives `rail.web(request)` through `HttpApp.fromWebHandler` or `BunHttpServerRequest.toRequest` while the node engine composes that one adapter, and offset semantics, staging custody, and finalize stay the data rail's while this module names no binding.
-- Law: `Intake` is the held-octet webhook row — the raw body reads ONCE as bytes through the platform's own `arrayBuffer` accessor (`HttpIncomingMessage`'s byte member, lifted to `Uint8Array` at the seam) and is held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases the enqueue through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and enqueue is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
-- Law: the spec's `ceiling` gates BEFORE the read — `Intake` is by design the one route admitting unauthenticated bytes and its held-octets law forces full materialization before any verification, so the declared `content-length` is probed against the ceiling and refused as `invalid` before `arrayBuffer` allocates, and an absent or unparseable length is itself the refusal. A 413 has no core fault class and a serve-local status override is the fork `problem#STATUS_RECORD` forecloses, so the governed 422 answers; the multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
-- Law: `HTTP.toEvent` detects binary, structured, and batch mode from the held message.
-- Law: Intake strict-validates every decoded event and carries `ValidationError.errors` into `Problem`.
-- Law: `Intake.Spec.enqueue` receives one non-empty event batch and the signature receipt.
-- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; the rail spec's cut policy and staging band are `data`'s.
+- Law: `Intake` is the held-octet webhook row — the raw body reads ONCE as bytes through the platform's own `arrayBuffer` accessor (`HttpIncomingMessage`'s byte member, lifted to `Uint8Array` at the seam) and is held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases `settle` through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and settle is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
+- Law: the spec's `ceiling` gates BEFORE the read — `Intake` is by design the one route admitting unauthenticated bytes and its held-octets law forces full materialization before any verification, so the declared `content-length` is probed against the ceiling and refused as `invalid` before `arrayBuffer` allocates, and an absent or unparseable length is itself the refusal. Status 413 has no core fault class and a serve-local status override is the fork `problem#STATUS_RECORD` forecloses, so the governed 422 answers; the multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
+- Law: detection precedes decode and reads the FRAME, never a trial parse — `Format.event.framed` recovers format and arity from one media-type prefix comparison and the binding's own `ce-specversion` header names a binary frame whose `content-type` belongs to the data, so a frame naming neither refuses before any body is parsed; the package's `isEvent` pair runs a full deserialize inside `try`/`catch`, so a detect-then-decode pair over it parses every arriving frame twice.
+- Law: the header band is SANITIZED at the seam, never handed raw — node lowercases nothing it did not receive lowercased and repeats a header as an array, and the package's own `sanitize` sits behind a `dist/` path this branch refuses, so `_sanitized` lowercases every name and takes the first repeated value before any binding reads it; a binding fed a mixed-case or repeated `ce-` name silently drops the attribute it was looking for.
+- Law: intake mints NOTHING — the decoded message envelope admits through `Event.Fact` and `Event.read` at the core owner, so the grammar, the roster, and the dropped-name census arrive typed and this route constructs no message envelope of its own; a refusal is a `ParseError` the `Problem` rail already renders.
+- Law: tenancy admits through the authenticated inverse, never inherits — where the seam's one credential lift produced a scope, `Journal.carrier` re-proves the announcement's own tenant claim against it and a mismatch refuses `denied` before the fact enters, so a valid credential can never carry a peer's tenant across; an unauthenticated intake has no scope to compare, so the signature is that route's whole gate.
+- Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and continues that CREATION-time trace through `otel/emit#CONTINUATION`'s one ingress transformer; the transport hop's own context already crossed at `Seam.guard`, and the two-trace law keeps both rather than folding either onto the other.
+- Law: a batch settles per event — `Intake.Spec.settle` receives ONE admitted event beside the signature receipt and the route folds the frame's members through it, so an accepted member and a refused member are separate halves and no batch arm re-proves an arity the frame already decided.
+- Law: abuse protection is the specification's own `OPTIONS` handshake and nothing beside it — the request's `WebHook-Request-Origin` is required, an origin outside the spec's declared roster answers 405 rather than a validation grant, and a grant answers `WebHook-Allowed-Origin` with `WebHook-Allowed-Rate` where the spec declares a ceiling; the same origin header rides every delivery request, so the target re-reads the claimed origin per message instead of trusting one handshake.
+- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
-- Packages: `@effect/platform`, `cloudevents`, `effect`, `node:buffer`, `@rasm/ts/data`, and `@rasm/ts/security`.
+- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, and `@rasm/ts/security`.
 
-```typescript
+```typescript signature
 const _oversize = (detail: string): Problem =>
   // 413 has no core class; the governed record answers 422 and no serve-local status override exists to fork it
   Problem.of({ class: "invalid", message: detail })
 
-// the declared length is the ONLY bound available before the body materializes, so an absent or unparseable
+// Declared length is the ONLY bound available before the body materializes, so an absent or unparseable
 // one refuses rather than admitting an unbounded read on the one route that admits unauthenticated bytes
 const _octets = (
   request: HttpServerRequest.HttpServerRequest,
@@ -267,7 +274,19 @@ const _mounts: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Mount.Lift
 )
 
 declare namespace Intake {
-  type Events = Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>
+  // One admitted member carries the arriving message envelope, its grammar-proven addressed record, the whole
+  // roster read, every peer name this roster misses, and the CREATION-time context its extensions held.
+  type Admitted = {
+    readonly envelope: CloudEventV1<unknown>
+    readonly fact: Event.Fact
+    readonly roster: Event.Roster
+    readonly dropped: ReadonlyArray<string>
+    readonly carrier: Carrier.Context
+  }
+  type Frame = Data.TaggedEnum<{
+    Structured: { readonly format: Format.Event; readonly batch: boolean }
+    Binary: {}
+  }>
   type Spec = {
     readonly route: `/${string}`
     readonly ceiling: FileSystem.SizeInput
@@ -275,60 +294,175 @@ declare namespace Intake {
     readonly header: string
     readonly mac: Option.Option<MacKey>
     readonly tolerance: Duration.Duration
-    readonly enqueue: (events: Events, verified: Verified) => Effect.Effect<void, Problem>
+    // This roster and its optional rate ceiling drive the handshake: an origin outside the roster never receives a
+    // grant, and the same roster gates every delivery request rather than one validation exchange.
+    readonly origins: Array.NonEmptyReadonlyArray<string>
+    readonly rate: Option.Option<string>
+    readonly settle: (admitted: Intake.Admitted, verified: Verified) => Effect.Effect<void, Problem>
   }
 }
 
-const _eventProblem = (caught: unknown): Problem =>
-  Problem.of({
-    class: "malformed",
-    message: caught instanceof ValidationError
-      ? JSON.stringify({ message: caught.message, errors: caught.errors ?? [] })
-      : String(caught),
-  })
+const _Frame = Data.taggedEnum<Intake.Frame>()
+
+// Abuse protection is the specification's own vocabulary, so these five names live in one row and no route spells one.
+const _WEBHOOK = {
+  origin: "webhook-request-origin",
+  callback: "webhook-request-callback",
+  rate: "webhook-request-rate",
+  allowedOrigin: "webhook-allowed-origin",
+  allowedRate: "webhook-allowed-rate",
+} as const
+
+const _eventProblem = (detail: string): Problem => Problem.of({ class: "malformed", message: detail })
 
 const _eventText = new TextDecoder()
 
-const _events = (headers: Message["headers"], body: Uint8Array): Effect.Effect<Intake.Events, Problem> =>
+// Node hands header names in whatever case a peer sent and a repeat as an array, and the package's own sanitizer
+// sits behind a `dist/` path this branch refuses — so the band normalizes HERE, once, before any binding reads it.
+const _sanitized = (headers: HttpServerRequest.HttpServerRequest["headers"]): Message["headers"] =>
+  Record.fromEntries(
+    Array.filterMap(Object.entries(headers), ([name, value]) =>
+      Option.map(
+        globalThis.Array.isArray(value) ? Array.head(value) : Option.fromNullable(value),
+        (held) => [name.toLowerCase(), held] as const,
+      )),
+  )
+
+const _header = (headers: Message["headers"], name: string): Option.Option<string> =>
+  Option.filter(Option.fromNullable(headers[name]), Predicate.isString)
+
+// Detection reads the frame and nothing else: the media-type prefix carries format AND arity for a structured or
+// batch frame, while a binary frame declares itself with the binding's own specversion header and leaves
+// `content-type` to the DATA — so a frame naming neither refuses before a single body byte is parsed.
+const _framing = (headers: Message["headers"]): Option.Option<Intake.Frame> =>
+  Option.orElse(
+    Option.map(
+      Option.flatMap(_header(headers, CONSTANTS.HEADER_CONTENT_TYPE), Format.event.framed),
+      ({ format, batch }) => _Frame.Structured({ format, batch }),
+    ),
+    () => Option.map(_header(headers, CONSTANTS.CE_HEADERS.SPEC_VERSION), () => _Frame.Binary()),
+  )
+
+// Structured frames carry their envelope as TEXT and binary frames carry opaque DATA bytes, so the frame the
+// detector already recovered selects the body shape and no second media-type read decides it again.
+const _decoded = (headers: Message["headers"], body: Uint8Array, frame: Intake.Frame) =>
+  Effect.try({
+    try: () =>
+      HTTP.toEvent<unknown>({
+        headers,
+        body: _Frame.$is("Structured")(frame) ? _eventText.decode(body) : Buffer.from(body),
+      }),
+    catch: (caught) => _eventProblem(String(caught)),
+  })
+
+// `data:journal/append#RELAY_ROWS` owns the authenticated inverse and this route is its consumer: where the seam
+// admitted a credential, an arriving announcement's own tenant claim must EQUAL that scope before the fact enters,
+// so a peer announcing another tenant's fact under a valid credential refuses HERE rather than at the projection it
+// would otherwise reach. An unauthenticated intake carries no scope to compare against, so the signature is the whole
+// gate there and the raw extraction stands.
+const _carried = (
+  envelope: CloudEventV1<unknown>,
+  scope: Option.Option<Identity.Tenant>,
+): Effect.Effect<Carrier.Context, Problem> =>
+  Option.match(scope, {
+    onNone: () => Effect.succeed(Carrier.extract("cloudevents", envelope)),
+    onSome: (held) =>
+      Option.match(Journal.carrier(envelope, held), {
+        onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<tenant-claim-mismatch>" })),
+        onSome: Effect.succeed,
+      }),
+  })
+
+// Admission is the core owner's: the addressed record decodes through `Event.Fact` and the roster reads whole, so a
+// grammar refusal is one `ParseError` and every peer name this roster does not name leaves as census rather than fault.
+const _admitted = (
+  envelope: CloudEventV1<unknown>,
+  scope: Option.Option<Identity.Tenant>,
+): Effect.Effect<Intake.Admitted, Problem> =>
+  Effect.all({
+    carrier: _carried(envelope, scope),
+    fact: Effect.mapError(Schema.decodeUnknown(Event.Fact)(envelope, { errors: "all" }), (issue) =>
+      _eventProblem(issue.message)),
+  }).pipe(
+    Effect.map(({ carrier, fact }) =>
+      pipe(Event.read(envelope), ({ roster, dropped }) => ({ envelope, fact, roster, dropped, carrier }))),
+  )
+
+const _members = (
+  headers: Message["headers"],
+  body: Uint8Array,
+  scope: Option.Option<Identity.Tenant>,
+): Effect.Effect<Array.NonEmptyReadonlyArray<Intake.Admitted>, Problem> =>
   Effect.flatMap(
-    Effect.try({
-      try: () =>
-        pipe(headers[CONSTANTS.HEADER_CONTENT_TYPE], (held) => globalThis.Array.isArray(held) ? held[0] : held, (media) =>
-          HTTP.toEvent<unknown>({
-            headers,
-            body: typeof media === "string" &&
-              (media.startsWith(CONSTANTS.MIME_CE) || media.startsWith(CONSTANTS.MIME_JSON))
-              ? _eventText.decode(body)
-              : Buffer.from(body),
-          })),
-      catch: _eventProblem,
+    Option.match(_framing(headers), {
+      onNone: () => Effect.fail(_eventProblem("<no-event-frame>")),
+      onSome: (frame) => _decoded(headers, body, frame),
     }),
     (decoded) =>
       pipe(
         globalThis.Array.isArray(decoded) ? decoded : [decoded],
         Option.liftPredicate(Array.isNonEmptyReadonlyArray),
         Option.match({
-          onNone: () => Effect.fail(_eventProblem(new ValidationError("CloudEvents batch is empty"))),
-          onSome: (events) =>
-            Effect.try({ try: () => Array.map(events, (event) => new CloudEvent(event)), catch: _eventProblem }),
+          onNone: () => Effect.fail(_eventProblem("<empty-batch-frame>")),
+          onSome: (envelopes) => Effect.forEach(envelopes, (envelope) => _admitted(envelope, scope)),
         }),
       ),
   )
 
-const _intake = (spec: Intake.Spec): Layer.Layer<never, never, Verify | HttpLayerRouter.HttpRouter> =>
-  _routed("POST", spec.route, () =>
-    Effect.gen(function* () {
-      const request = yield* HttpServerRequest.HttpServerRequest
-      const held = yield* _octets(request, spec.ceiling)
-      const verify = yield* Verify
-      const presented = Option.fromNullable(request.headers[spec.header])
-      const verified = yield* verify.verify(spec.dialect, held, presented, spec.mac, spec.tolerance)
-      const events = yield* _events({ ...request.headers }, held)
-      yield* spec.enqueue(events, verified)
-      return HttpServerResponse.empty({ status: 202 })
-    }))
+// Every delivery request rides its claimed origin, so this read gates the POST as well as the handshake and a target
+// that answered one validation exchange never inherits a trust the next message failed to re-present.
+const _origin = (request: HttpServerRequest.HttpServerRequest, spec: Intake.Spec): Effect.Effect<string, Problem> =>
+  Option.match(
+    Option.filter(
+      Option.filter(Option.fromNullable(request.headers[_WEBHOOK.origin]), Predicate.isString),
+      (claimed) => Array.contains(spec.origins, claimed),
+    ),
+    {
+      onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<unallowed-webhook-origin>" })),
+      onSome: Effect.succeed,
+    },
+  )
 
-const Intake = { of: _intake } as const
+const _intake = (spec: Intake.Spec): Layer.Layer<never, never, Verify | HttpLayerRouter.HttpRouter> =>
+  Layer.merge(
+    // This handshake answers on the SAME path a delivery posts to, since the specification's validation request is
+    // that delivery target's own `OPTIONS`; a declining target answers 405 rather than a grant no origin earned.
+    _routed("OPTIONS", spec.route, (request) =>
+      Effect.match(_origin(request, spec), {
+        onFailure: () => HttpServerResponse.empty({ status: 405 }),
+        onSuccess: (claimed) =>
+          HttpServerResponse.setHeaders({
+            [_WEBHOOK.allowedOrigin]: claimed,
+            ...Option.match(spec.rate, { onNone: () => ({}), onSome: (rate) => ({ [_WEBHOOK.allowedRate]: rate }) }),
+          })(HttpServerResponse.empty({ status: 200 })),
+      })),
+    _routed("POST", spec.route, () =>
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest
+        yield* _origin(request, spec)
+        const held = yield* _octets(request, spec.ceiling)
+        const verify = yield* Verify
+        const presented = Option.fromNullable(request.headers[spec.header])
+        const verified = yield* verify.verify(spec.dialect, held, presented, spec.mac, spec.tolerance)
+        // Seam admission already performed the ONE credential lift, so this route projects it rather than re-verifying.
+        const admitted = yield* Current.Admitted
+        const members = yield* _members(
+          _sanitized(request.headers),
+          held,
+          Option.map(admitted, (credential) => credential.scope),
+        )
+        // Each member settles under its OWN creation-time parent: a batch carries as many producing traces as it has
+        // members, so one continuation over the whole frame would attribute every member to the first one's minter.
+        yield* Effect.forEach(
+          members,
+          (admitted) => Propagation.ingress(spec.settle(admitted, verified), admitted.carrier),
+          { discard: true },
+        )
+        return HttpServerResponse.empty({ status: 202 })
+      })),
+  )
+
+const Intake = { of: _intake, headers: _WEBHOOK } as const
 ```
 
 ## [04]-[CEREMONY_ROWS]
@@ -338,12 +472,12 @@ const Intake = { of: _intake } as const
 - Law: every mutating ceremony passes the CSRF gate BEFORE any state changes — the `_csrfed` fold reads the `CookieSpec.csrf` pair and runs `Cookie.verify`'s constant-time double-submit compare, so the webauthn finish pair, `refresh`, and `logout` are unreachable from ambient cookies alone; the oauth `callback` is exempt because its `state` round-trip is that flow's own anti-forgery evidence.
 - Law: BOTH halves of the double-submit pair read one `CookieSpec.csrf` row — `name` for the cookie, `header` for the echo — so this gate and `browser/route#SESSION_PLANE`'s stamp cannot spell different fields; a route literal here, or the cookie name reused as the header name there, forks the pair into a mismatch that fails closed on every mutation with no type breaking.
 - Law: cookie application is one fold — `_cookied(response, framed)` reduces the security wave's `Cookies.Cookie` set through `HttpServerResponse.setCookie(name, value, options)`, so the security attribute policy table decides every attribute and no route names `httpOnly`, `sameSite`, or a path.
-- Law: ceremonies own HTTP shape only — redirect codes, query decode, body admission, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), while `Ceremony.identity` projects the authenticated `Principal` from the application's chosen raw-route credential lift and `Ceremony.resolveSubject` handles only providers without OIDC subject evidence. A handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. This `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
+- Law: ceremonies own HTTP shape only — redirect codes, query decode, body admission, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), while `Ceremony.identity` projects the authenticated `Principal` from the application's chosen raw-route credential lift and `Ceremony.resolveSubject` handles only providers without OIDC subject evidence. Each handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. This `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
 - Law: the passkey finish bodies admit through one Schema pair mirroring the verified `@simplewebauthn/server` wire shapes — `_Enroll` decodes the POSTed registration response (`id`, `rawId`, the attestation `response` block, optional attachment, extension outputs, `type: "public-key"`) into the `RegistrationResponseJSON` parameter `WebAuthn.enrollFinish` takes, `_Assert` the assertion twin for `assertFinish` — raw JSON crosses the decode seam exactly once and the browser collection half stays the ui wave's.
 - Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair under `_AUTH` composing its security owner; a new cookie role reframes through the same fold with zero route edits.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Redacted`).
 
-```typescript
+```typescript signature
 const _csrfed: Effect.Effect<void, Problem, Cookie | HttpServerRequest.HttpServerRequest> = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const cookie = yield* Cookie
@@ -521,12 +655,12 @@ const _ceremony = () =>
 - Law: `_cached` selects by ADDRESS first, filename second — a leaf resolving under the content-addressed `assets/` prefix is immutable by its address (the digest is a DIRECTORY segment and its leaves are plain names a fingerprint pattern never matches), a `name-<hash>.ext` bundle leaf is immutable by its filename, and everything else including the entry document is `no-cache` because it is the mutable pointer INTO immutable content — one selector, total over every asset, ordered so the addressed tree can never fall to the pointer row.
 - Law: the immutable value is TRANSCRIBED from `iac/program/source.md` `_CACHE_POSTURE`, the estate's one served-header roster — the unfronted origin and the fronting edge must answer identically on the same address, and no import crosses iac and runtime to enforce it, so the two ends carry one value and a divergence is a two-ended edit.
 - Law: the row SELECTS `Etag.layerWeak` and mounts it itself — both engine server Layers export that generator while the `HttpPlatform` merged beside them mints from `Etag.layer`, and both fold the identical `<size>-<mtime>` pair, so validator STRENGTH is their whole difference: size and modification time carry no byte-identity evidence, and byte identity is the claim a strong validator makes. Mounting the weak row here drops `Etag.Generator` from the requirement channel, so strength becomes this row's decision rather than an app root's, and the served validator, the `304` hit, and the `_matched` compare read one mint.
-- Law: revalidation reads the header RFC 9110 actually defines — `_matched` splits `if-none-match` on commas, trims, admits `*`, and compares with the weak prefix stripped from both sides, so a browser revalidating a weak validator and a client holding two variants both answer `304`; both the hit and the body response carry the same `etag` and cache row.
+- Law: revalidation reads the header RFC 9110 defines — `_matched` splits `if-none-match` on commas, trims, admits `*`, and compares with the weak prefix stripped from both sides, so a browser revalidating a weak validator and a client holding two variants both answer `304`; both the hit and the body response carry the same `etag` and cache row.
 - Law: traversal is structurally refused — the request path resolves under the root and the fold asserts the resolved target still carries the root as its prefix, so an encoded, normalized, or absolute escape lands outside the prefix and serves the SPA entry, never a distinct error that maps the filesystem for a probe.
 - Boundary: what the assets ARE (app shell, prerender output, the self-hosted wasm bundles the ui wave serves beside the shell) is the ui wave's; this row owns only serving them byte-identical.
 - Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpPlatform`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
 
-```typescript
+```typescript signature
 // transcribed from iac `program/source.md` `_CACHE_POSTURE`: the estate answers one Cache-Control on this
 // address whether an edge fronts the origin or not
 const _CACHE = {
@@ -569,7 +703,7 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
     const target = resolved === anchor || resolved.startsWith(`${anchor}/`) ? resolved : path.resolve(anchor, options.entry)
     const held = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false))
     const chosen = held && clean !== "/" ? target : path.join(options.root, options.entry)
-    // the selector reads the path RELATIVE to the anchor, because `assets/` is an address, not a disk prefix
+    // This selector reads the path RELATIVE to the anchor, because `assets/` is an address, not a disk prefix
     const cache = _cached(path.relative(anchor, chosen))
     const generator = yield* Etag.Generator
     // Stat runs first because a `304` answers without opening the file at all; `HttpServerResponse.file` then
@@ -605,7 +739,7 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 - Growth: a new virtual host is one multiplex row; a new engine is one runtime-row edit with zero serve-fold changes.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpMultiplex`); `effect` (`Layer`).
 
-```typescript
+```typescript signature
 declare namespace Router {
   // one type covers every predicate the multiplex publishes, because each is already a `self => self` transform
   // once its match and app are applied: `HttpMultiplex.hostRegex(/^api\./, app)` and
@@ -634,7 +768,7 @@ const _rail = (spec: Rail.Spec) =>
 // `RouteNotFound` for the seam's net to render `absent`, so a catch-all is a DECLARED last row rather than a
 // silent default some caller inherited.
 const _hosts = <E, R>(rows: Array.NonEmptyReadonlyArray<Router.HostRow<E, R>>) =>
-  // the catch-all mount is what lands the multiplex app in the served Layer set; `HttpLayerRouter.serve`
+  // This catch-all mount lands the multiplex app in the served Layer set; `HttpLayerRouter.serve`
   // and `toWebHandler` both take Layers, so a bare HttpApp value reaches no front door
   _routed("*", "/*", () => Array.reduce(rows, HttpMultiplex.make<E, R>([]), (held, row) => row(held)))
 
@@ -645,7 +779,7 @@ const Router = {
   ) =>
     Layer.mergeAll(
       HttpLayerRouter.addHttpApi(api, { openapiPath: docs.openapiPath }),
-      // the roster owns the UI choice and its path; a constructor spelled here forks the docs decision in two
+      // That roster owns the UI choice and its path; a constructor spelled here forks the docs decision in two
       Emit.docs({ api, path: docs.path, ui: docs.ui ?? "scalarRouter" }),
       Seam.Routed.live,
     ),

@@ -70,7 +70,7 @@
 |  [14]   | `Container.set_chapters`                   | `set_chapters(chapters: list[Chapter]) -> None`      | bind the chapter list on a remux  |
 |  [15]   | `Stream.metadata`                          | `dict[str, str]` (mutable before header write)       | per-stream tags (title/language)  |
 
-- `OutputContainer.add_stream`: a `hwaccel` device uploads software frames passed to `encode` to the GPU automatically, and `VideoCodecContext.sw_format` sets the pre-upload pixel format the hardware encoder consumes.
+- `OutputContainer.add_stream`: `hwaccel` uploads software frames passed to `encode` to the GPU automatically, and `VideoCodecContext.sw_format` sets the pre-upload pixel format the hardware encoder consumes.
 
 [ENTRYPOINT_SCOPE]: container demux, decode, and seek (read side)
 
@@ -111,8 +111,8 @@
 |  [17]   | `CodecContext.extradata`       | writable `bytes \| None`                                  | codec-private header payload            |
 |  [18]   | `Container.format.name`        | property -> `str`                                         | active muxer identifier                 |
 
-- `VideoFrame.reformat`: a transfer/primaries conversion runs only when `dst_color_trc`/`dst_color_primaries` is passed; reserved or unsupported source `color_primaries`/`color_trc` tags (VP9, NVDEC) no longer raise on `reformat`/`to_ndarray`/`to_rgb`/`to_image`.
-- `VideoStream.encode`: a DLPack CUDA frame encodes directly under `pix_fmt="cuda"`, the encoder adopting the frame's `hw_frames_ctx`; downloading a hardware frame to system memory preserves `pts`/`time_base`/colorspace.
+- `VideoFrame.reformat`: runs a transfer/primaries conversion only when `dst_color_trc`/`dst_color_primaries` is passed; reserved or unsupported source `color_primaries`/`color_trc` tags (VP9, NVDEC) no longer raise on `reformat`/`to_ndarray`/`to_rgb`/`to_image`.
+- `VideoStream.encode`: encodes a DLPack CUDA frame directly under `pix_fmt="cuda"`, adopting the frame's `hw_frames_ctx`; downloading a hardware frame to system memory preserves `pts`/`time_base`/colorspace.
 
 [ENTRYPOINT_SCOPE]: filter graph, bitstream filter, and resample
 

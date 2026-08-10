@@ -100,7 +100,7 @@
 |  [01]   | `Canvas.ShowInlineEditor(RectangleF, string, Func<string,IResult>, Action?)` | instance | in-place parse-and-commit editor      |
 |  [02]   | `Canvas.WindowSelect{Objects,Wires,Groups}`                                  | property | per-category marquee gates            |
 |  [03]   | `Canvas.SnapXAction` / `SnapYAction -> SnappingAction`                       | property | active-axis nudge; setter invalidates |
-|  [3b]   | `Canvas.ShowUndoHistory`                                                     | property | get/set undo-history pane toggle      |
+|  [04]   | `Canvas.ShowUndoHistory`                                                     | property | get/set undo-history pane toggle      |
 |  [05]   | `Canvas.SkinLit` / `SkinDim` / `Skin`                                        | property | lit, dimmed, interpolated palettes    |
 
 [ENTRYPOINT_SCOPE]: WireShape geometry (`Grasshopper2.UI.Canvas`)

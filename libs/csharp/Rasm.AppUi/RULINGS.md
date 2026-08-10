@@ -106,7 +106,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `XrComfortPolicy` is ROWS a user sets — tolerance varies by person more than any other setting, so a fixed value makes the modality unusable.
 - Pigments are addressed by `TokenKey`, never a composed string — the draw-site `PaintRole` stays its own vocabulary under its own type.
 - Domain-scoped artifacts ELECT their own `DraftUnits` over the reader's, and only that — the locale keeps format, denominator, and grammar.
-- `FlameView` and every surface presenting a settled instrument SEAL nothing — every fact is on the envelope stream, so they own projection alone.
+- `FlameView` and every settled-instrument surface SEAL nothing — every fact is on the message-envelope stream, so they own projection alone.
 - `WedgeSpans` serves every reading of one value tree in UNIT FRACTIONS with a source index per span — two folds diverge on the first repair.
 - Golden captures pin scale, gamut, and posture as `CaptureRow` COLUMNS — an unpinned raster input diffs a golden against the panel it was taken over.
 - Surfaces that DISPLAY a `ResultPayload` compute none of it — the only arithmetic admitted is a read provably inside the sealed receipt's own range.

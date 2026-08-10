@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[MACHINE_KINEMATICS]: owns physical-axis admission, topology generation, whole-trajectory inverse, branch continuity, TCP/RTCP, envelope evidence, jerk-limited timing, and frozen motion projection.
+- [02]-[MACHINE_KINEMATICS]: owns physical-axis admission, topology generation, whole-trajectory inverse, branch continuity, TCP/RTCP, operating-envelope evidence, jerk-limited timing, and frozen motion projection.
 
 ## [02]-[MACHINE_KINEMATICS]
 

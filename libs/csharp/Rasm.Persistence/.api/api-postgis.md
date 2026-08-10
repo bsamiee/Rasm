@@ -9,12 +9,12 @@
 - namespace: SQL `public` (the `geometry`/`geography`/`raster` types, the `ST_*` and `CG_*` functions, the operator/opclass set)
 - depends: `postgis` is the base; `postgis_raster` and `postgis_sfcgal` each `requires = postgis` — installed as their own `ServerExtension` rows
 - registration: preload-free — GiST/SP-GiST/BRIN operator classes over the built-in AMs, no custom access method and no `shared_preload_libraries` row; the EF `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model
-- consumed by: the `api-npgsql-nts` `NetTopologySuiteTypeInfoResolverFactory` wire codec and the `api-nts-ef` `NpgsqlGeometryTypeMapping<TGeometry>` column mapping, the `Element/identity#ELEMENT_IDENTITY` footprint/boundary/envelope columns, and the `h3_postgis`/`pgrouting` extensions that `requires` it
+- consumed by: the `api-npgsql-nts` `NetTopologySuiteTypeInfoResolverFactory` wire codec and the `api-nts-ef` `NpgsqlGeometryTypeMapping<TGeometry>` column mapping, the `Element/identity#ELEMENT_IDENTITY` `Bounds` footprint column, and the `h3_postgis`/`pgrouting` extensions that `requires` it
 - rail: geospatial-provisioning, spatial-store
 
 ## [02]-[SPATIAL_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the geospatial store types. A `geometry` typmod carries the subtype token — `POINT`/`LINESTRING`/`POLYGON`/`MULTIPOINT`/`MULTILINESTRING`/`MULTIPOLYGON`/`GEOMETRYCOLLECTION`, the curved `CIRCULARSTRING`/`COMPOUNDCURVE`/`CURVEPOLYGON`, and the surface `POLYHEDRALSURFACE`/`TIN`/`TRIANGLE` — with a `Z`/`M`/`ZM` dimensionality suffix and an SRID (`geometry(PointZ, 4326)`).
+[PUBLIC_TYPE_SCOPE]: the geospatial store types. `geometry` typmods carry the subtype token — `POINT`/`LINESTRING`/`POLYGON`/`MULTIPOINT`/`MULTILINESTRING`/`MULTIPOLYGON`/`GEOMETRYCOLLECTION`, the curved `CIRCULARSTRING`/`COMPOUNDCURVE`/`CURVEPOLYGON`, and the surface `POLYHEDRALSURFACE`/`TIN`/`TRIANGLE` — with a `Z`/`M`/`ZM` dimensionality suffix and an SRID (`geometry(PointZ, 4326)`).
 
 | [INDEX] | [SURFACE]         | [SEMANTICS]                                                                               |
 | :-----: | :---------------- | :---------------------------------------------------------------------------------------- |
@@ -159,7 +159,7 @@
 
 ## [08]-[INDEX_SUPPORT]
 
-[ENTRYPOINT_SCOPE]: PostGIS ships operator classes for the built-in GiST/SP-GiST/BRIN access methods over `geometry`/`geography` — no custom AM. A bare `USING gist (geom)` picks the default `gist_geometry_ops_2d`; an N-D or `geography` index names its opclass. `geom <-> geom` (2D) and box-KNN `geom <#> geom` ride the GiST opclass for index-ordered nearest-neighbour; the bbox operators `&&` (2D) and `&&&` (nD) drive `ST_Intersects`/`ST_DWithin` pushdown.
+[ENTRYPOINT_SCOPE]: PostGIS ships operator classes for the built-in GiST/SP-GiST/BRIN access methods over `geometry`/`geography` — no custom AM, so a bare `USING gist (geom)` picks the default `gist_geometry_ops_2d` while an N-D or `geography` index names its opclass. `geom <-> geom` (2D) and box-KNN `geom <#> geom` ride the GiST opclass for index-ordered nearest-neighbour; the bbox operators `&&` (2D) and `&&&` (nD) drive `ST_Intersects`/`ST_DWithin` pushdown.
 
 | [INDEX] | [OPCLASS]                                | [AM]   | [DEFAULT] | [SEMANTICS]                                 |
 | :-----: | :--------------------------------------- | :----- | :-------- | :------------------------------------------ |

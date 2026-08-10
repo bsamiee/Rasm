@@ -37,7 +37,7 @@
 ## [03]-[COLLAPSE]
 
 - Native-lane stage ladders stay PER-LANE rosters over the one `StageMark` carrier — a cross-lane owner forces phases a lane never runs.
-- Envelope derivation is SHARED across the energy arms — honeybee envelope and dragonfly plate read ONE `EnvelopeFace` fold, per-arm walks forking it.
+- Energy arms SHARE one building-envelope derivation — honeybee envelope and dragonfly plate read ONE `EnvelopeFace` fold, per-arm walks forking it.
 
 ## [04]-[STRUCTURE]
 

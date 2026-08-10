@@ -185,7 +185,7 @@
 - Cross-pass content — `TableOfContents`, `SimpleIndex`, back-references — resolves only under `BaseDocTemplate.multiBuild`, which re-runs layout until page numbers stabilize.
 - Coordinate origin is bottom-left under `bottomup=1` and every `Canvas` coordinate is in points; a `Frame` flows top-down internally regardless.
 - `TableStyle` is a command list of `('BACKGROUND', (col, row), (col, row), color)`-shaped tuples (`SPAN`/`LINEBELOW`/`VALIGN`/`*PADDING`) applied to cell ranges; `LongTable` streams large data with `repeatRows`.
-- A `graphics.shapes.Drawing` is a `Flowable`, so charts and barcodes embed directly in a story or render standalone via `renderPDF`/`renderPM`/`renderSVG`.
+- `graphics.shapes.Drawing` is a `Flowable`, so charts and barcodes embed directly in a story or render standalone via `renderPDF`/`renderPM`/`renderSVG`.
 
 [STACKING]:
 - `pikepdf`(`.api/pikepdf.md`) / `pypdf`(`.api/pypdf.md`): `reportlab -> BytesIO -> Pdf.open(stream)` hands the synthesized bytes for merge/split/page-ops and re-encryption; reportlab synthesizes, pikepdf/pypdf restructure.

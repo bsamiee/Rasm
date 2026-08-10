@@ -46,7 +46,7 @@
 
 [TOPOLOGY]:
 - `IForceMomentMesh` is `ICartesianMesh<IForceMomentVertex, IForceMomentTriFace, ICoordinate, Force, Torque, Torque>`, `IGeometryBase`, and `ITaxonomySerializable`, adding no member beyond the closed specialization.
-- `IForceMomentVertex` is both a 3-axis `ICartesian3d<Force, Torque, Torque>` point and a 2-axis `ILocalCartesian2d<Torque, Torque>` projection, so a consumer reads the boundary as a 3D hull or as the P-M moment envelope at one axial level.
+- `IForceMomentVertex` is both a 3-axis `ICartesian3d<Force, Torque, Torque>` point and a 2-axis `ILocalCartesian2d<Torque, Torque>` projection, so a consumer reads the boundary as a 3D hull or as the P-M interaction curve at one axial level.
 - `IForceMomentTriFace` is `ICartesianTriFace<IForceMomentVertex, ICoordinate, Force, Torque, Torque>` carrying `A`/`B`/`C`, `Center`, and `Area`.
 - Force-moment space, not length space: `X` carries axial `Force`, `Y` and `Z` carry My and Mz `Torque`; an interior point is a safe N-My-Mz combination, a surface point sits at capacity, an exterior point exceeds biaxial capacity.
 - Facet `Area` is a `UnitsNet` `Ratio` — a dimensionless Heron product over the mixed coordinates as raw scalars, a meshing weight never read as a physical quantity.

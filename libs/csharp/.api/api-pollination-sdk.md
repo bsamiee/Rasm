@@ -136,7 +136,7 @@ No shared async tail exists — the progress delegate is named per member and a 
 |  [20]   | `ArtifactsApi.CreateArtifactAsync(KeyRequest) -> Task<S3UploadRequest>`                  | instance | presigned S3 upload request        |
 |  [21]   | `ArtifactsApi.DownloadArtifactAsync(path) -> Task<object>`                               | instance | fetch an artifact by path          |
 |  [22]   | `ArtifactsApi.ListArtifactsAsync(path, page, perPage) -> Task<FileMetaList>`             | instance | list artifacts                     |
-|  [23]   | `ArtifactsApi.DeleteArtifactAsync(owner, name, path, page, perPage) -> Task`             | instance | delete by path — returns bare `Task` |
+|  [23]   | `ArtifactsApi.DeleteArtifactAsync(owner, name, path, page, perPage) -> Task`             | instance | path delete returning bare `Task`  |
 
 - `ProjectsApi.CreateProjectAsync`: takes `owner` alone — no `name` argument.
 

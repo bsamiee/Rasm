@@ -36,6 +36,8 @@
 - Retention class follows what the FACT attests — seals, credentials, and delivery records are REGULATORY, and every produced artifact OPERATIONAL.
 - `ArtifactWork.cost` is a MILLISECOND work-weight fixed by the `COMPUTE` series — a dimensionless rank exports a rescaled charge nothing raises on.
 - `Actor.USER` is earned by a NAMED party's act under a protocol — the ISO 19650 issue is that one leg, and the only one carrying real `subjects`.
+- Announced-payload width is the ANNOUNCEMENT's, never the receipt's — identity fields carry `ContentKey` renders, a tap projecting payloads whole.
+- Announcement boundaries read sensitivity off the ISO 19650 confidentiality header, unspelled reading INTERNAL — unclassified is not publishable.
 
 ## [03]-[COLLAPSE]
 
@@ -48,6 +50,9 @@
 
 - Worker-body homing splits on floor-legality — a legal provider keeps workers in-page under lazy import, a floor-illegal native earns its own module.
 - Durable records never seat in a worker-process callback — no custody binds there, so evidence returns as data and records at the async fold.
+- Wire announcements SUBSCRIBE to a fired fact — a producer calling a wire owner off-rail inverts the direction and hand-rolls registry isolation.
+- Facts fire at the fold holding settled evidence — a per-kind fire in a roster-generic projection announces a case narrower than its producer holds.
+- Runtime transport seats envelope algebra, format, and protocol lowering — this folder projects facts, minting no attribute, header, or wire value.
 
 ## [05]-[PROCESS]
 

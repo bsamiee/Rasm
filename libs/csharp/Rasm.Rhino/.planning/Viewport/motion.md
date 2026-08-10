@@ -15,7 +15,7 @@ Host motion-pacing adapter (`Rasm.Rhino.Viewport`). Sampling mathematics is kern
 - Law: a target is data on the drive, never a branch in the tick body — the pump invalidates whatever row it holds, and adding a landing surface is one case with the pump untouched.
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
@@ -70,7 +70,7 @@ public abstract partial record RedrawTarget {
 - Law: this page composes no `Eto.Forms` type: `Eto` partially qualified inside `Rasm.Rhino.Viewport` binds the sibling `Rasm.Rhino.Eto` namespace, and the strata forbid an S3 owner reaching the S1 Eto floor's package directly. The affinity assert enters through `UiThread`, the portable cadence through the Eto `Pulse` lease, and the density read through `Displays` — each the Eto sub-domain's own owner, each carrying the beat chain and disposal this page then never re-derives.
 - Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer (`OperatingSystem.IsMacOSVersionAtLeast(14)` selects the row); portable code holds `FrameClock` values and `FrameTick` facts, never an `NSScreen`, `CADisplayLink`, or `nint`.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class FrameRatePolicy {

@@ -1,16 +1,20 @@
 # [ELEMENT_ASSESSMENT]
 
-The generic analysis-receipt owner: one `AssessmentPayload` the `Graph/element#NODE_MODEL` `Node.Assessment` case wraps, keyed by the `Classification/classification#DISCIPLINE_AXIS` `Discipline`, a typed `AnalysisRoute` token, and a `UInt128` `InputKey` content key, carrying its lifecycle `AssessmentOutcome`, a typed flat `Results` bag, an optional typed failure `Diagnostic`, an optional heavy-result blob reference, its typed upstream-receipt `DependsOn` set (the analysis-DAG edge data staleness propagates down), and its `Provenance`. An assessment is the seam's discipline-agnostic carrier for ANY analysis outcome attached to an element: a structural FEA utilization, an ISO 6946 U-value, an EnergyPlus annual-energy result, an ISO 12354 assembly STC, an EN 1992/1993-1-2 fire rating, an EN 15978 LCA, an EC3 embodied-carbon figure — each lands as an `Assessment` node attached to its object through an `Relations/relation#EDGE_ALGEBRA` `Assign` edge (sub-kind `AssignKind.Assessment`, authored by the `Rasm.Compute` analysis producer on write-back — an imported IFC objectified-assessment/`AssignsToControl` relation round-trips through the `Rasm.Bim` projector's NEUTRAL edge algebra, never a typed IFC case on the seam), keyed by `(Discipline, Route, InputKey)` so re-running an analysis on unchanged inputs is a cache hit. The payload is OPAQUE and TYPED: the seam carries the `Discipline`, the `AnalysisRoute`, the input content key, the `Outcome`, a typed `Results` bag a consumer reads flat, the failure `Diagnostic` (the `(SolvePhase, FailureKind, Message, Code)` carrier — the foreign solver's message preserved verbatim, the discipline-specific failure SHAPE staying in `Rasm.Compute`), an optional `ResultBlob` content key to the heavy artifact (the EnergyPlus SQLite, the FEA result set), and the `Provenance` (author, tool+version, receipt instant, solver-reported `Elapsed`, optional solve `Window`, optional projection-run `Correlation`) — but NOT the discipline-specific solver I/O shapes, which live in `Rasm.Compute`, nor the geometry, which is content-keyed. The `AnalysisRoute` is itself OPAQUE — the route roster is `Rasm.Compute`'s (the seam never enumerates it, the SAME neutrality `Classification.System` holds for the standards roster), so the cache key is a typed triple rather than a stringly-keyed one. The lifecycle is a BEHAVIOR-COLUMN vocabulary, not four ad-hoc states: eight `AssessmentOutcome` rows (request through supersession) each carry `Usable`/`Terminal`/`Dispatchable`, their `Coherent` payload-shape law, plus their legal in-place flip set as ROW DATA — one `Advance` transition validates every flip against that adjacency and one railed `Rehydrate` re-validates a persisted tuple against the row's coherence — never a sibling `AsX` method per state. The multi-ply `AssemblyAggregator` (series-resistance U-value, rule-of-mixtures density, layered STC) ALSO lives in `Rasm.Compute`, reading the `Composition/material#MATERIAL_COMPOSITION` plies and writing its result back as an `Assessment` node. The page composes `Properties/property#PROPERTY_VALUE` for the typed results, `Classification/classification#DISCIPLINE_AXIS` for the keying, and `NodaTime` for the provenance instant/elapsed/window; a malformed result rails `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected`.
+`AssessmentPayload` owns the discipline-agnostic analysis receipt — one payload the `Graph/element#NODE_MODEL` `Node.Assessment` case wraps, keyed by the `Classification/classification#DISCIPLINE_AXIS` `Discipline`, a typed `AnalysisRoute` token, and a `UInt128` `InputKey` content key. Any analysis outcome an element carries — a structural utilization, an ISO 6946 U-value, an EnergyPlus annual-energy figure, an EN 15978 embodied-carbon result — lands as one `Assessment` node under that triple, so a route re-run over unchanged inputs resolves the stored receipt instead of re-solving.
+
+`AssessmentPayload` holds the `Outcome`, the typed flat `Results` bag, the typed failure `Diagnostic`, an optional heavy-artifact `ResultBlob` content key, the upstream-receipt `DependsOn` set, and `Provenance`; `Rasm.Compute` keeps the discipline-specific solver I/O shapes and the `AnalysisRoute` roster behind its opaque token, so the seam grows no route enum and no per-discipline payload type.
+
+`AssessmentOutcome` rows carry the `Usable`/`Terminal`/`Dispatchable` behavior columns, the per-row `Coherent` payload-shape law, and their legal in-place flip set as row data, so one `Advance` validates every transition and one railed `Rehydrate` re-validates a persisted tuple. `AssessmentPayload` composes `Properties/property#PROPERTY_VALUE` for typed results, `Classification/classification#DISCIPLINE_AXIS` for the keying, and `NodaTime` for the provenance instant, elapsed, and window; a malformed result rails `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected`.
 
 ## [01]-[INDEX]
 
-- [02]-[ASSESSMENT_NODE]: the `AssessmentPayload` generic receipt keyed by `Discipline`+`AnalysisRoute`+`InputKey`, the `AnalysisRoute` opaque route token, the `AssessmentOutcome` eight-row `Usable`/`Terminal`/`Dispatchable`/`Coherent` lifecycle with its `Next()` flip adjacency, the `Advance` flip with its retry-ordinal edge, the identity-preserving `Complete`/`Fail` outcome transitions, and the coherence-gated `Rehydrate` decoder rail, the typed `Results` bag with the `Result`/`ResultMeasure` flat reads, the `Diagnostic` typed failure carrier over the `SolvePhase`/`FailureKind` axes, the `ResultBlob` heavy-artifact reference, the `DependsOn` upstream-receipt DAG set, and the enriched `Provenance`.
+- [02]-[ASSESSMENT_NODE]: `AssessmentPayload` keys the generic receipt on `Discipline`+`AnalysisRoute`+`InputKey` and carries the flat `Results` bag, the `Diagnostic` failure carrier over `SolvePhase`/`FailureKind`, the `ResultBlob` reference, the `DependsOn` upstream DAG set, and `Provenance`; `AssessmentOutcome` rows drive the lifecycle through `Advance`, the identity-preserving `Complete`/`Fail`, and the coherence-gated `Rehydrate`.
 
 ## [02]-[ASSESSMENT_NODE]
 
-- Owner: `AssessmentPayload` the generic discipline-keyed analysis receipt the `Node.Assessment` case wraps; `AnalysisRoute` the `[ValueObject<string>]` opaque route token (the route roster is `Rasm.Compute`'s, never the seam's); `AssessmentOutcome` the `[SmartEnum<string>]` lifecycle (`Pending`/`Queued`/`Running`/`Computed`/`Failed`/`Cancelled`/`Stale`/`Superseded`) carrying the `Usable`/`Terminal`/`Dispatchable` behavior columns, the per-row `Coherent` payload-shape law, and the delegate-deferred `Next()` flip adjacency; `Diagnostic` the `[ComplexValueObject]` typed failure carrier (`SolvePhase` pipeline-stage axis, `FailureKind` cause axis with its `Transient` column, the verbatim foreign `Message`, the optional foreign `Code` — an EnergyPlus exit code, an EC3 HTTP status); `Provenance` the who/when/tool/cost record carried on every assessment (`Author`/`Tool`/`Version`/`At` plus the solver-reported `Elapsed` `Duration`, the optional wall-clock `Window` `Interval`, and the optional projection-run `Correlation`).
-- Law: the lifecycle is closed by three rules the rows alone cannot state. DOUBLE-DISPATCH GUARD — the `Rasm.Compute` sweep's dedup predicate is the EXISTENCE of a non-terminal sibling node on the same `(Discipline, Route)`, never a flag on the stale node: a re-solve mints a FRESH node under the current `InputKey` and flips the old to `Superseded`, so the successor node IS the in-flight marker and the sweep skips any `Stale` row already carrying one. `Stale.Next() == Seq(Superseded)` is therefore correct and stays — a `Stale → Queued` edge would re-dispatch the OLD key, whose result is stale by definition. IDENTITY PRESERVATION — a solver that opened a node lands its outcome through the instance `Complete`/`Fail` transitions, which carry the `(Discipline, Route, InputKey)` triple and the `DependsOn` audit set forward by construction; the static `Pending`/`Computed`/`Failed` factories are the FRESH-mint entries a producer holding no prior node takes, and routing a write-back through them risks a re-spelled triple that keys a different node than the one the sweep is watching. RETRY ORDINAL — `Provenance.Attempt` increments on exactly one edge, the `Failed`/`Cancelled → Pending` re-request `Advance` runs, so the bounded `Diagnostic.Kind.Transient` retry gate in Compute reads a real attempt count off the receipt rather than its own memory.
-- Entry: `AssessmentPayload.Pending(discipline, route, inputKey, provenance, dependsOn)` opens an assessment a solver will fill — the trailing `Seq<NodeId> dependsOn` records the upstream Assessment receipts the `InputKey` was derived over (known pre-run, a pure function of the assessed inputs; empty for a leaf over raw model inputs); `Computed(discipline, route, inputKey, results, resultBlob, provenance, key, dependsOn)` records a completed result, `Fin<T>` railing `ElementFault.ValueRejected` on an empty result bag AND no blob; `Failed(discipline, route, inputKey, diagnostic, provenance, dependsOn)` records a solver failure carrying its admitted `Diagnostic`; `Diagnostic.Of(phase, kind, message, key)` admits the failure evidence once (trimmed, a blank foreign message railed); `Advance(next, key, diagnostic)` is the ONE in-place lifecycle transition — the flip is legal iff `next` is a member of the current row's `Next()` adjacency, a cancel REQUIRES its abort diagnostic and no other flip admits one, a re-request to `Pending` clears it and increments `Provenance.Attempt`; `Complete(results, resultBlob, provenance, key)` and `Fail(diagnostic, provenance, key)` are the INSTANCE outcome transitions an in-flight node (`Pending`/`Queued`/`Running` — the `!Terminal && !Usable` two-column read) lands its solver result through, preserving the identity triple and the `DependsOn` set and re-crossing the same `Coherent` gate; `Result(name)` reads a typed `PropertyValue` result flat and `ResultMeasure(name)` the dimensioned `MeasureValue` directly (the `Rasm.Compute` consumer reads a utilization ratio, a U-value, or a GWP figure as a measure without destructuring the `PropertyValue` union, the deleted per-call `is PropertyValue.Measure m` form); `IsStaleFor(currentInputKey)` tests whether the stored `InputKey` still matches the element's current inputs so a changed input marks the cached result stale; `AnalysisRoute.Of(token, key)` admits a normalized route token on the seam `Fin<T>` rail, a blank railing `ElementFault.ValueRejected` re-keyed to the caller's `Op` (the `Classification.Of` re-stamp discipline — a rejecting admission never rides the throwing `Create`). The `Pending`/`Computed`/`Failed` factories (plus `Advance`/`Rehydrate`) are the ONLY admission — the record constructor is PRIVATE and `Rehydrate(discipline, route, inputKey, outcome, results, diagnostic, resultBlob, provenance, key, dependsOn)` is the CROSS-ASSEMBLY decoder gate: it re-validates the persisted tuple against the row's `Coherent` column on the `Fin<T>` rail, so a malformed lifecycle (a `Pending` carrying results, a `Failed` with a populated bag, a `Computed` with a `Diagnostic` or an empty bag-and-blob, an in-flight flip skipping the adjacency) is UNREPRESENTABLE even off a tampered store — the `ContentAddress.Verify` distrust posture applied to the payload shape.
+- Owner: `AssessmentPayload` the generic discipline-keyed analysis receipt the `Node.Assessment` case wraps; `AnalysisRoute` the `[ValueObject<string>]` opaque route token (the route roster is `Rasm.Compute`'s, never the seam's); `AssessmentOutcome` the `[SmartEnum<string>]` lifecycle (`Pending`/`Queued`/`Running`/`Computed`/`Failed`/`Cancelled`/`Stale`/`Superseded`) carrying the `Usable`/`Terminal`/`Dispatchable` behavior columns, the per-row `Coherent` payload-shape law, and the delegate-deferred `Next()` flip adjacency; `Diagnostic` the `[ComplexValueObject]` typed failure carrier (`SolvePhase` pipeline-stage axis, `FailureKind` cause axis with its `Transient` column, the verbatim foreign `Message`, the optional foreign `Code` — an EnergyPlus exit code, an EC3 HTTP status); `Provenance` the who/when/tool/cost record carried on every assessment (`Author`/`Tool`/`Version`/`At`, the solver-reported `Elapsed` `Duration`, the optional wall-clock `Window` `Interval`, and the optional projection-run `Correlation`).
+- Law: DOUBLE-DISPATCH GUARD — the `Rasm.Compute` sweep's dedup predicate is the EXISTENCE of a non-terminal sibling node on the same `(Discipline, Route)`, never a flag on the stale node: a re-solve mints a FRESH node under the current `InputKey` and flips the old to `Superseded`, so the successor node IS the in-flight marker and the sweep skips any `Stale` row already carrying one. `Stale.Next()` therefore reaches `Superseded` alone — a `Stale → Queued` edge re-dispatches the OLD key, whose result is stale by definition. IDENTITY PRESERVATION — a solver that opened a node lands its outcome through the instance `Complete`/`Fail` transitions, which carry the `(Discipline, Route, InputKey)` triple and the `DependsOn` audit set forward by construction; the static `Pending`/`Computed`/`Failed` factories are the FRESH-mint entries a producer holding no prior node takes, and routing a write-back through them risks a re-spelled triple that keys a different node than the one the sweep is watching. RETRY ORDINAL — `Provenance.Attempt` increments on exactly one edge, the `Failed`/`Cancelled → Pending` re-request `Advance` runs, so the bounded `Diagnostic.Kind.Transient` retry gate in Compute reads a real attempt count off the receipt rather than its own memory.
+- Entry: `AssessmentPayload.Pending(discipline, route, inputKey, provenance, dependsOn)` opens an assessment a solver will fill — the trailing `Seq<NodeId> dependsOn` records the upstream Assessment receipts the `InputKey` was derived over (known pre-run, a pure function of the assessed inputs; empty for a leaf over raw model inputs); `Computed(discipline, route, inputKey, results, resultBlob, provenance, key, dependsOn)` records a completed result, `Fin<T>` railing `ElementFault.ValueRejected` on an empty result bag AND no blob; `Failed(discipline, route, inputKey, diagnostic, provenance, dependsOn)` records a solver failure carrying its admitted `Diagnostic`; `Diagnostic.Of(phase, kind, message, key)` admits the failure evidence once (trimmed, a blank foreign message railed); `Advance(next, key, diagnostic)` is the ONE in-place lifecycle transition — the flip is legal iff `next` is a member of the current row's `Next()` adjacency, a cancel REQUIRES its abort diagnostic and no other flip admits one, a re-request to `Pending` clears it and increments `Provenance.Attempt`; `Complete(results, resultBlob, provenance, key)` and `Fail(diagnostic, provenance, key)` are the INSTANCE outcome transitions an in-flight node (`Pending`/`Queued`/`Running` — the `!Terminal && !Usable` two-column read) lands its solver result through, preserving the identity triple and the `DependsOn` set and re-crossing the same `Coherent` gate; `Result(name)` reads a typed `PropertyValue` result flat and `ResultMeasure(name)` the dimensioned `MeasureValue` directly (the `Rasm.Compute` consumer reads a utilization ratio, a U-value, or a GWP figure as a measure without destructuring the `PropertyValue` union, the deleted per-call `is PropertyValue.Measure m` form); `IsStaleFor(currentInputKey)` tests whether the stored `InputKey` still matches the element's current inputs so a changed input marks the cached result stale; `AnalysisRoute.Of(token, key)` admits a normalized route token on the seam `Fin<T>` rail, a blank railing `ElementFault.ValueRejected` re-keyed to the caller's `Op` (the `Classification.Of` re-stamp discipline — a rejecting admission never rides the throwing `Create`). `AssessmentPayload` admits ONLY through the `Pending`/`Computed`/`Failed` factories, `Advance`, and `Rehydrate`; the record constructor is PRIVATE and `Rehydrate(discipline, route, inputKey, outcome, results, diagnostic, resultBlob, provenance, key, dependsOn)` is the CROSS-ASSEMBLY decoder gate: it re-validates the persisted tuple against the row's `Coherent` column on the `Fin<T>` rail, so a malformed lifecycle (a `Pending` carrying results, a `Failed` with a populated bag, a `Computed` with a `Diagnostic` or an empty bag-and-blob, an in-flight flip skipping the adjacency) is UNREPRESENTABLE even off a tampered store — the `ContentAddress.Verify` distrust posture applied to the payload shape.
 - Auto: the `(Discipline, Route, InputKey)` triple is the cache key — and the `Node.Assessment` id is the node's OWN content SELF-HASH `Graph/element#NODE_MODEL` `NodeId.Content(node.ToCanonicalBytes(tolerance))`, the `Node.Assessment` arm of `ToCanonicalBytes` writing its case ordinal then DELEGATING to the payload-owned `AssessmentPayload.CanonicalBytes` (the `Composition/material#MATERIAL_COMPOSITION` `MaterialComposition.CanonicalBytes` co-location discipline — each complex payload owns its own canonical contribution rather than the `Node` arm re-spelling it), which writes exactly that triple, NEVER `NodeId.OfContent(InputKey)` — the `InputKey` is a payload field the self-hash FOLDS, not a foreign id substituted for the node id, so the id is computable pre-run by a `Rasm.Compute` author and a rehydrated Compute-authored Assessment node passes the `Projection/address#CONTENT_ADDRESS` `Verify` re-hash dual (which recomputes `ContentHash.Of(node.ToCanonicalBytes(tolerance))` and compares to the stored id); two assessments of one route over identical inputs hash to one id and ARE one node: a solver computes `InputKey` from the assessed inputs' content (the `Composition/material#MATERIAL_COMPOSITION` plies, the geometry content hash, the load case) through the kernel `XxHash128`, and a `Rasm.Compute` route resolving the existing `Computed` node rather than re-solving is the cache hit; every payload factory and `Rehydrate` normalizes `DependsOn` through `Distinct()` before storage, so the `[UnorderedEquality]` member is a set in body as well as declaration and repeated upstream ids never inflate the audit receipt; because the outcome is NOT in the content key, every legal `Advance` flip mutates the SAME node in place without minting a new id; the three behavior columns partition the lifecycle for every consumer with zero per-state branches — `Usable` gates the consumable-value filter, `Terminal` marks the solver settled for this key, `Dispatchable` marks the row the `Rasm.Compute` sweep may dispatch (`Pending`/`Stale` true; the in-flight `Queued`/`Running` false, so the sweep never double-dispatches a live job) — and the typed `Results` bag carries each output as a `Properties/property#PROPERTY_VALUE` so a consumer reads `assessment.Result("Utilization")` without learning the solver's wire shape.
 - Receipt: an `Assessment` node is the analysis evidence a `Bake`-derived `Element` carries flat — `element.Assessments.Filter(a => a.Discipline == Discipline.Energy && a.Outcome.Usable)` reads every usable energy result, `assessment.ResultMeasure(name)` reads a dimensioned output as a `MeasureValue` directly (and `Result(name)` the raw `PropertyValue` for a non-measure output), `assessment.ResultBlob` fetches the heavy artifact by content key, `assessment.Diagnostic` reads a failure's phase/kind/message/code typed — a re-solve gate reads the diagnostic's `Kind.Transient` column and the dispatch sweep reads `Outcome.Dispatchable` off the row, two orthogonal column reads, never a message-text probe; `assessment.Provenance.Elapsed` reads the solve compute cost and `Provenance.Window` the wall-clock start→end so a route-cost report is a fold over receipts, never a log join; the `Rasm.Compute` analysis route writes the `Computed` node back keyed on `(InputKey, Route)`, and the seam carries the receipt without owning the solver — the discipline-specific input/result shapes, the FEA/EnergyPlus/EC3 runners, and the multi-ply `AssemblyAggregator` all live in Compute.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`/`[ValueObject<string>]`/`[ComplexValueObject]`/`[ValidationError<ElementFault>]`/`[UseDelegateFromConstructor]` the deferred `Next()` adjacency column), Generator.Equals (`[Equatable]` the payload's member-level diff + `[UnorderedEquality]` the order-insensitive `Results` bag and `DependsOn` set, so the `Graph/element#NODE_MODEL` `Node.Assessment` drill descends to `Nodes[id].Payload.Results[name]`), LanguageExt.Core (`Map`/`Option`/`Fin`/`Seq`), NodaTime (`Instant` the receipt stamp, `Duration` the solver-reported elapsed with `Duration.Zero` the request-time empty span, `Interval` the optional solve window), `Projection/address#CANONICAL_WRITER` (`CanonicalWriter` the `CanonicalBytes` projection writes through), `Rasm` (the kernel `Op` op-key + the content-key seed the `InputKey`/`ResultBlob` share).
@@ -34,7 +38,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Element.Assessment;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The analysis-route token a Rasm.Compute solver keys an assessment on — an OPAQUE seam value: the route
+// AnalysisRoute keys an assessment to the route a Rasm.Compute solver ran — an OPAQUE seam value: the route
 // ROSTER ("iso-6946-u", "energyplus-annual", "fea-utilization", "ec3-embodied") lives in Compute, NEVER on the
 // seam, the SAME neutrality Classification.System holds for the standards roster, so the (Discipline, Route,
 // InputKey) cache key is a typed triple rather than a raw string a caller can fat-finger or case-fork.
@@ -49,7 +53,7 @@ public sealed partial class AnalysisRoute {
   value = value.Trim().ToLowerInvariant();
  }
 
- // The seam-rail admission re-keyed to the CALLER's Op (the Classification.Of re-stamp discipline) — the
+ // Of re-keys the seam-rail admission to the CALLER's Op (the Classification.Of re-stamp discipline) — the
  // route is a REJECTING admission, so it rails like Diagnostic.Of, never the trim-only MaterialId shape.
  public static Fin<AnalysisRoute> Of(string token, Op key) =>
   Validate(token, null, out AnalysisRoute? route) is { } fault
@@ -59,8 +63,8 @@ public sealed partial class AnalysisRoute {
     : ElementFault.ValueRejected(key, "analysis route admission returned no value");
 }
 
-// The lifecycle read through three behavior columns plus a payload-shape and a flip-adjacency column, NOT a bare key: Usable gates
-// the consumer filter — MAY this value be consumed (Computed and the readable-but-drifted Stale yes; Superseded
+// AssessmentOutcome rows read through behavior columns beside a payload-shape and a flip-adjacency column, NOT a bare key: Usable
+// gates the consumer filter — MAY this value be consumed (Computed and the readable-but-drifted Stale yes; Superseded
 // false, its bag kept as history, so the old/new pair under a version re-key resolves to exactly ONE usable
 // node); Terminal marks the solver settled FOR THIS KEY (a Failed re-runs only through an explicit Pending
 // re-request or a Diagnostic.Kind.Transient policy in Compute, never the sweep);
@@ -69,8 +73,8 @@ public sealed partial class AnalysisRoute {
 // Next() is the legal in-place flip set as ROW DATA (delegate-deferred: rows reference later rows) — Advance
 // validates every flip against it, so the lifecycle DAG is recoverable from the declaration alone. Terminal
 // RESULTS (Computed/Failed) are absent from every adjacency: they land through the instance Complete/Fail outcome
-// transitions (or, for a producer holding no prior node, their static factories) as whole-payload write-backs under
-// the same content-keyed id, never through a flip — the outcome carries a payload the adjacency cannot validate.
+// transitions (or, for a producer holding no prior node, their static factories) as whole-payload write-backs
+// under the same content-keyed id, never through a flip — that outcome carries a payload the adjacency cannot validate.
 // Coherent is the row's PAYLOAD-SHAPE law over (hasResults, hasDiagnostic, hasBlob) — the same invariant the
 // factories and Advance guarantee by construction, restated as data so Rehydrate re-validates a persisted tuple
 // against the row instead of trusting the store (the flip PATH is history and stays unverifiable by nature).
@@ -104,7 +108,7 @@ public sealed partial class SolvePhase {
  public static readonly SolvePhase Publication = new("publication");
 }
 
-// The failure-cause class with its ONE policy column: Transient separates a cause a re-dispatch can clear
+// FailureKind classes the failure cause under ONE policy column: Transient separates a cause a re-dispatch can clear
 // (a missing binary/license, an exhausted budget) from a deterministic one (a rejected input, a divergent
 // solve, a deliberate abort) — the Compute retry gate reads the column, never the foreign message. Foreign
 // is the fail-closed default for unclassified provider text: never auto-retried.
@@ -120,7 +124,7 @@ public sealed partial class FailureKind {
  public bool Transient { get; }
 }
 
-// The typed failure carrier a Failed/Cancelled receipt drills — phase (where), kind (why, with its Transient
+// Diagnostic carries the typed failure a Failed/Cancelled receipt drills — phase (where), kind (why, with its Transient
 // column), the foreign solver's Message preserved verbatim (trimmed only), and the optional foreign Code (an
 // EnergyPlus exit code, an EC3 HTTP status, a solver error number). Receipt DATA on the node — never an
 // Expected-derived rail fault; the seam's own admission failures stay ElementFault.
@@ -139,14 +143,14 @@ public readonly partial struct Diagnostic {
   message = message.Trim();
  }
 
- // The seam-rail admission re-keyed to the CALLER's Op (the Classification.Of re-stamp discipline).
+ // Of re-keys the seam-rail admission to the CALLER's Op (the Classification.Of re-stamp discipline).
  public static Fin<Diagnostic> Of(SolvePhase phase, FailureKind kind, string message, Op key, Option<int> code = default) =>
   Validate(phase, kind, message, code, out Diagnostic value) is { } fault
    ? ElementFault.ValueRejected(key, fault.Message)
    : Fin.Succ(value);
 }
 
-// The who/when/tool/cost audit carried on every assessment — a SEPARATE additive axis the content key never
+// Provenance audits who/when/tool/cost on every assessment — a SEPARATE additive axis the content key never
 // folds (the graph-altitude OwnerHistory/StepHeader exclusion): Elapsed is the solver-reported compute cost
 // (Duration.Zero is the request-time empty span until a solve lands), Window the optional wall-clock start→end
 // Interval (staging + solve + extraction — distinct from Elapsed, which excludes queue/IO), Correlation the
@@ -175,22 +179,21 @@ public sealed partial record AssessmentPayload {
  [UnorderedEquality] public Map<PropertyName, PropertyValue> Results { get; }
  public Option<Diagnostic> Diagnostic { get; }
  public Option<UInt128> ResultBlob { get; }
- // The typed upstream-receipt set this assessment's InputKey was DERIVED over — the analysis DAG edge data (a
+ // DependsOn records the upstream receipts this assessment's InputKey was DERIVED over — analysis DAG edge data (a
  // foundation check consuming the load-takedown receipt, an energy model consuming the assembly U-value): each
- // entry is the upstream Assessment node's content-keyed NodeId, so the Compute sweep propagates staleness down
- // the recorded chain (an upstream flip marks exactly the dependents dispatchable) and a verdict's audit trail is
+ // entry is the upstream Assessment node's content-keyed NodeId, so the Compute sweep propagates staleness
+ // down the recorded chain (an upstream flip marks exactly the dependents dispatchable) and a verdict's audit trail is
  // payload DATA, not solver memory. Canon-EXCLUDED like Provenance: the deps only record HOW InputKey was derived
- // — the derivation already folds the upstream OUTPUT content into InputKey, so folding the id set would fork one
+ // — the derivation already folds the upstream OUTPUT content into InputKey, so folding the id set forks one
  // fact twice. Empty for a leaf (an assessment over raw model inputs alone).
  [UnorderedEquality] public Seq<NodeId> DependsOn { get; }
  public Provenance Provenance { get; }
 
- // PRIVATE ctor + GET-ONLY members — every admission crosses a factory, the adjacency-gated Advance (which lands
- // through the same Coherent gate), or the
+ // PRIVATE ctor + GET-ONLY members — every admission crosses a factory, the adjacency-gated Advance, or the
  // Coherent-gated Rehydrate, so a malformed lifecycle (a Pending carrying Results, a Failed with a populated
  // bag, a Computed carrying a Diagnostic, a flip skipping the Next() adjacency) is UNREPRESENTABLE — even off
  // a tampered store: no init/set survives for an external `with`/object-initializer to bypass (an `init`
- // accessor would re-open every invariant through `with` — the deleted form). Advance RECONSTRUCTS through
+ // accessor re-opens every invariant through `with` — the deleted form). Advance RECONSTRUCTS through
  // Rehydrate, so the flip result crosses the same Coherent gate a persisted tuple does.
  private AssessmentPayload(
   Discipline discipline, AnalysisRoute route, UInt128 inputKey, AssessmentOutcome outcome,
@@ -199,12 +202,12 @@ public sealed partial record AssessmentPayload {
   (Discipline, Route, InputKey, Outcome, Results, Diagnostic, ResultBlob, DependsOn, Provenance) =
    (discipline, route, inputKey, outcome, results, diagnostic, resultBlob, dependsOn, provenance);
 
- // The dependency set is KNOWN pre-run (InputKey is a pure function of the assessed inputs, upstream receipts
- // included), so every factory carries it from the opening request onward — a leaf passes none.
+ // Every factory carries the dependency set from the opening request onward — InputKey is a pure function of the
+ // assessed inputs, upstream receipts included, so the set is KNOWN pre-run and a leaf passes none.
  public static AssessmentPayload Pending(Discipline discipline, AnalysisRoute route, UInt128 inputKey, Provenance provenance, Seq<NodeId> dependsOn = default) =>
   new(discipline, route, inputKey, AssessmentOutcome.Pending, Map<PropertyName, PropertyValue>(), None, None, DependencySet(dependsOn), provenance);
 
- // A computed assessment MUST carry at least one flat result or a heavy-artifact reference — an empty computed
+ // Computed MUST carry at least one flat result or a heavy-artifact reference — an empty computed
  // result is a solver lie the rail rejects, so a downstream cache hit never resolves a Computed-but-empty node.
  public static Fin<AssessmentPayload> Computed(
   Discipline discipline, AnalysisRoute route, UInt128 inputKey,
@@ -213,13 +216,13 @@ public sealed partial record AssessmentPayload {
    ? ElementFault.ValueRejected(key, $"<assessment-computed-empty:{discipline.Key}:{route.Value}>")
    : Fin.Succ(new AssessmentPayload(discipline, route, inputKey, AssessmentOutcome.Computed, results, None, resultBlob, DependencySet(dependsOn), provenance));
 
- // A solver failure carries its evidence in the typed Diagnostic — NOT smuggled as a fake Results entry, so the
+ // Failed carries solver evidence in the typed Diagnostic — NOT smuggled as a fake Results entry, so the
  // bag stays the consumable-output store and Outcome.Usable=false reads true to its empty bag. The Diagnostic is
  // admitted upstream (Diagnostic.Of), so this factory is infallible.
  public static AssessmentPayload Failed(Discipline discipline, AnalysisRoute route, UInt128 inputKey, Diagnostic diagnostic, Provenance provenance, Seq<NodeId> dependsOn = default) =>
   new(discipline, route, inputKey, AssessmentOutcome.Failed, Map<PropertyName, PropertyValue>(), Some(diagnostic), None, DependencySet(dependsOn), provenance);
 
- // The railed re-hydration gate the Rasm.Persistence/Rasm.Bim decoders reconstruct a persisted payload through —
+ // Rehydrate gates every persisted payload the Rasm.Persistence/Rasm.Bim decoders reconstruct —
  // PUBLIC because those decoders live across the assembly boundary (the same-assembly internal-Seed shape of
  // Composition/material#MATERIAL_COMPOSITION cannot reach them), and RAILED because a persisted tuple is NOT
  // trusted truth (the ContentAddress.Verify posture): the row's Coherent column re-validates the payload shape,
@@ -237,14 +240,14 @@ public sealed partial record AssessmentPayload {
 
  private static Seq<NodeId> DependencySet(Seq<NodeId> dependsOn) => dependsOn.Distinct();
 
- // The dimensioned-result convenience the Rasm.Compute consumer reads a numeric assessment output through directly —
+ // ResultMeasure reads a dimensioned assessment output directly for the Rasm.Compute consumer —
  // a utilization ratio, a U-value, an embodied-carbon figure — without destructuring the PropertyValue union at the
  // call site. A non-Measure result (a Text/Boolean diagnostic carried in the bag) reads None, so the typed read is
  // total over the bag and honestly absent for a non-measure entry; it derives from the one Result(name) read.
  public Option<MeasureValue> ResultMeasure(PropertyName name) =>
   Result(name).Bind(static v => v is PropertyValue.Measure m ? Some(m.Value) : None);
 
- // The payload-owned canonical contribution the Node.ToCanonicalBytes assessment arm delegates to (case ordinal
+ // CanonicalBytes owns the payload contribution the Node.ToCanonicalBytes assessment arm delegates to (case ordinal
  // then this method — the MaterialComposition.CanonicalBytes co-location shape), so the node-id mint, the Verify
  // re-hash dual, and the diff share ONE projection. ONLY the (Discipline, Route, InputKey) triple is written: the
  // mutable Outcome/Results/Diagnostic/ResultBlob, the additive Provenance, and the DependsOn audit set (whose
@@ -253,21 +256,21 @@ public sealed partial record AssessmentPayload {
  public void CanonicalBytes(CanonicalWriter w) =>
   w.String(Discipline.Key).String(Route.Value).U128(InputKey);
 
- // A changed input content key marks the cached result stale WITHOUT deleting it — and without changing the node
- // id, which keys on (Discipline, Route, InputKey) not the outcome — so the next Bake surfaces a Stale assessment
- // the Compute sweep re-dispatches under the CURRENT inputs (a fresh key, a fresh node), the last-good value
- // staying readable until the re-solve.
+ // IsStaleFor marks a cached result stale on a changed input content key WITHOUT deleting it and without changing the
+ // node id, which keys on (Discipline, Route, InputKey) not the outcome — so the next Bake surfaces a Stale
+ // assessment the Compute sweep re-dispatches under the CURRENT inputs (a fresh key, a fresh node), the last-good
+ // value staying readable until the re-solve.
  public bool IsStaleFor(UInt128 currentInputKey) => InputKey != currentInputKey;
 
- // The ONE lifecycle transition — the flip topology is ROW DATA (Outcome.Next()), so the enumerated
+ // Advance runs the ONE lifecycle transition — the flip topology is ROW DATA (Outcome.Next()), so the enumerated
  // AsStale/AsQueued/AsRunning/AsCancelled sibling-method roster is the deleted form: one arity validates the edge
  // against the adjacency and the per-target shape (a cancel REQUIRES its abort Diagnostic, no other flip admits
  // one, a Pending re-request clears it — Failed/Cancelled sources carry empty bags by construction), then flips
  // in place under the SAME content-keyed id. A Superseded flip keeps bag and diagnostic as readable history.
  // Reconstruction routes the SAME Coherent gate Rehydrate runs: the adjacency proves the flip is legal, the row's
  // payload-shape law proves the RESULT is, and both verdicts come from one owner — a private ctor beside the gate
- // would let a legal flip land an incoherent payload (a Superseded whose target row forbids a carried bag) with no
- // signal, which is exactly the tampered-tuple shape Rehydrate exists to refuse.
+ // lets a legal flip land an incoherent payload (a Superseded whose target row forbids a carried bag) with no signal,
+ // exactly the tampered-tuple shape Rehydrate refuses.
  public Fin<AssessmentPayload> Advance(AssessmentOutcome next, Op key, Option<Diagnostic> diagnostic = default) =>
   !Outcome.Next().Exists(row => row == next)
    ? ElementFault.ValueRejected(key, $"<assessment-flip-illegal:{Outcome.Key}->{next.Key}>")
@@ -285,13 +288,13 @@ public sealed partial record AssessmentPayload {
  private Provenance Retried(AssessmentOutcome next) =>
   next == AssessmentOutcome.Pending ? Provenance with { Attempt = Provenance.Attempt + 1 } : Provenance;
 
- // The OUTCOME transitions an in-flight node lands its solver result through — the success path's counterpart to
+ // Complete/Fail land an in-flight node's solver result — the success path's counterpart to
  // Advance, which owns only the in-flight and supersession flips. Both preserve the (Discipline, Route, InputKey)
  // identity triple and the DependsOn audit set BY CONSTRUCTION, so the write-back mutates the node the sweep opened
  // rather than trusting a producer to re-spell a triple that keys the node id; the static Computed/Failed factories
  // stay the FRESH-mint entries for a producer holding no prior node. The in-flight set is the two-column read
  // (!Terminal && !Usable) — Pending/Queued/Running exactly — never a roster: a Stale row re-solves under a FRESH
- // InputKey and therefore a FRESH node (the DOUBLE-DISPATCH GUARD), so completing one in place would publish a new
+ // InputKey and therefore a FRESH node (the DOUBLE-DISPATCH GUARD), so completing one in place publishes a new
  // result under the stale key. Reconstruction routes Rehydrate, so the target row's Coherent law gates the landed
  // shape: a Computed carrying neither results nor a blob refuses here exactly as it refuses off a tampered store.
  public Fin<AssessmentPayload> Complete(

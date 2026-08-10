@@ -117,7 +117,7 @@ One operator vocabulary carries both engine suffixes: `*AsyncLinqToDB` forces th
 - Bridge surfaces operate on contexts admitted through the store-profile algebra.
 - Bulk-copy options and `BulkCopyRowsCopied` are profile receipts.
 - Interceptors and mapping schemas enter through an explicit `UseLinqToDB` `Action<LinqToDBContextOptionsBuilder>` declaration.
-- A lifted read stays out of the EF change tracker until `EnableChangeTracker` is set; `CreateLinqToDBConnectionDetached` is the change-tracker-free path for high-throughput reads.
+- Lifted reads stay out of the EF change tracker until `EnableChangeTracker` is set, and `CreateLinqToDBConnectionDetached` is the change-tracker-free path for high-throughput reads.
 
 [RAIL_LAW]:
 - Package: `linq2db.EntityFrameworkCore`

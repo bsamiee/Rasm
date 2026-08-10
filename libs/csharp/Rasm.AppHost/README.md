@@ -112,6 +112,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Serilog.Sinks.File` — composition-root sink projection.
 
 [OUTBOUND_TRANSPORT]:
+- `CloudNative.CloudEvents.AspNetCore` — request and response extensions alone; `Wire/companion#EVENT_INGRESS` owns the abuse-protection handshake.
 - `Microsoft.Extensions.Http.Resilience`
 - `Polly.Core`
 - `Polly.Extensions`
@@ -175,6 +176,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid`
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — message-envelope algebra the HTTP ingress admits and every outbox hop projects.
 
 [MACHINE_CONNECTIVITY]:
 - `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row.

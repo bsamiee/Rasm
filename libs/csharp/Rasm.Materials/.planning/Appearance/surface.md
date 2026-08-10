@@ -595,4 +595,4 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
 
 ## [06]-[RESEARCH]
 
-- (none)
+(none)

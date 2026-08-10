@@ -1,6 +1,6 @@
 # [TS_CORE_API_BUFBUILD_PROTOBUF]
 
-`@bufbuild/protobuf` owns the schema-first proto runtime under every contract `*Wire` decode and the descriptor-reflection engine the drift gate walks. A message is plain data branded by `$typeName`; every operation takes the descriptor first, and `create(schema, init?)` is the sole constructor.
+`@bufbuild/protobuf` owns the schema-first proto runtime under every contract `*Wire` decode and the descriptor-reflection engine the drift gate walks. Messages are plain data branded by `$typeName`; every operation takes the descriptor first, and `create(schema, init?)` is the sole constructor.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -181,7 +181,7 @@
 |  [20]   | `parseTextFormatEnumValue`                         | static  | parse a text-format enum value          |
 
 [ENTRYPOINT_SCOPE]: codegen boot — the generated-code side (`./codegenv2`, authored by `protoc-gen-es`, not hand-called)
-- a `_pb.ts` file calls these to reconstitute descriptors from an embedded base64 `FileDescriptorProto`; a `codec` page imports the resulting `GenMessage` const, never these functions.
+- Generated `_pb.ts` files call these to reconstitute descriptors from an embedded base64 `FileDescriptorProto`; a `codec` page imports the resulting `GenMessage` const, never these functions.
 
 | [INDEX] | [SURFACE]                           | [SHAPE] | [CAPABILITY]                                            |
 | :-----: | :---------------------------------- | :------ | :------------------------------------------------------ |
@@ -198,10 +198,10 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every operation reads `(schema, value, options?)` — descriptor first, the message plain data carrying only `$typeName`, and `create(schema, init?)` the sole constructor. A `codec/*` page imports the `GenMessage` from generated `_pb.ts`, `fromBinary(Schema, bytes)` infers `MessageShape<Schema>` with no annotation, and a decoded value discriminates by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
+- Every operation reads `(schema, value, options?)` — descriptor first, the message plain data carrying only `$typeName`, and `create(schema, init?)` the sole constructor. Each `codec/*` page imports the `GenMessage` from generated `_pb.ts`, `fromBinary(Schema, bytes)` infers `MessageShape<Schema>` with no annotation, and a decoded value discriminates by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
 - INT64/UINT64 fields are `bigint` (or `string` under long-as-string codegen), bridged by `protoInt64` — `.parse(s)` from a string, `.zero` the identity; `Number`-coercing a 64-bit field loses precision past 2^53.
 - `toBinary(schema, msg)` emits descriptor-ordered fields, but map insertion order and retained unknown-field order remain observable.
-- A byte-addressed identity retains producer octets; a semantic identity owns an explicit canonical projection above protobuf encoding.
+- Byte-addressed identity retains producer octets; semantic identity owns an explicit canonical projection above protobuf encoding.
 - `interchange/contract` reflects a decoded `FileDescriptorSet` through `createFileRegistry`; its typed walk mints `Contract.Drift` evidence, while unknown-field APIs preserve forward residue.
 - `reflect(desc, message)` yields a `ReflectMessage` reading/writing fields by `DescField` with no generated type — the `interchange/codec` content-key projection walks wire fields this way to compute parity, and `buildPath(schema)`/`parsePath(schema, path)` address a field-mask target; `ScalarType` + `scalarZeroValue` classify a leaf, `qualifiedName`/`protoCamelCase` canonicalize across the C#↔TS casing boundary.
 
@@ -209,7 +209,7 @@
 - `@connectrpc/connect`(`.api/connectrpc-connect.md`), `@connectrpc/connect-web`(`.api/connectrpc-connect-web.md`): this runtime IS the Connect message layer — a `DescMethod` carries `GenMessage` input/output schemas and the transport calls `toBinary`/`fromBinary` internally, while `interchange/invoke` picks the protocol axis (`connect` | `grpc-web`) and never re-implements the runtime.
 - `effect`(`libs/typescript/.api/effect.md`): `fromBinary` yields the WIRE shape and `Schema.decode(KernelSchema)(wire)` parses it into branded `kernel` vocabulary — proto is transport, `Schema` is domain, a proto message never a domain model; a synchronous codec call that throws on malformed bytes wraps in `Effect.try`, and `sizeDelimitedDecodeStream(desc, asyncIterable)` feeds `Stream.fromAsyncIterable` for backpressured framed decode.
 - `interchange/codec`: each wire-family row selects one codec; protobuf owns only descriptor-backed families.
-- `@bufbuild/protoc-gen-es`(same `catalog`): emits the `_pb.ts` `GenMessage` consts from the corpus-homed `.proto`; the generated file is build output the `codec/*` pages import.
+- `@bufbuild/protoc-gen-es`(same `catalog`): emits the `_pb.ts` `GenMessage` consts from the corpus-homed `.proto`; the generated file is build output the `codec/*` pages import, and `buf.yaml` holds lint and breaking alone, so the TypeScript branch build owns every generation row it consumes. `interchange_pb.ts` generates from the estate-owned `rasm.<family>.v1` sources under `tests/contracts/rasm/`, and `cloudevents_pb.ts` from the VENDORED publisher source at `tests/contracts/io/cloudevents/v1/cloudevents.proto`. That second row emits beside the first and never INTO it, because the CloudEvents generation carries a `CloudEvent` message whose name collides with the message-envelope class every consumer already imports — so `interchange/format`'s protobuf event row takes its descriptor as a qualified `cloudevents_pb` import while `Proto.registry` admits neither generation, a foreign publisher's descriptor reaching `frame`/`family` as an argument rather than a registered estate family.
 - `value/identity` (within-lib edge): producer octets are the byte-identity input; semantic identity uses its owned canonical projection.
 
 [LOCAL_ADMISSION]:

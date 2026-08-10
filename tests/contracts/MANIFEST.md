@@ -41,8 +41,12 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 |  [33]   | SCENE_DESCRIPTOR          | `scene-descriptor`          | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 |  [34]   | OPLOG_ENTRY               | `oplog-entry`               | infrastructure | `wire-bytes` + `digest`         | DESIGN-PIN |
 |  [35]   | TOLERANCE_WIRE            | `tolerance-wire`            | domain         | `wire-bytes` + `digest`         | REAL       |
+|  [36]   | CHANGEFEED_ENVELOPE       | `changefeed-envelope`       | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [37]   | JOURNAL_RELAY             | `journal-relay`             | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [38]   | TRANSMITTAL_NOTICE        | `transmittal-notice`        | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [39]   | CESQL_CONFORMANCE         | `cesql-conformance`         | infrastructure | `wire-bytes` + `digest`         | REAL       |
 
-Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared definition, [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json): the channel roster with its per-channel transfer, neutral, unit, mip policy, and minting branches; the ingest alias table; the transfer, normal-convention, alpha-mode, container, pack, plane-format, mip-policy, and KTX2-payload vocabularies; the three hex spellings; the level-ordered plane address; the egress grammar; and the spherical-harmonic band order with its golden vectors. Neither seam restates a row of it, and a document-local re-spelling is the fork the shared definition forecloses.
+Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared definition, `appearance-vocabulary.schema.json`: the channel roster with its per-channel transfer, neutral, unit, mip policy, and minting branches; the ingest alias table; the transfer, normal-convention, alpha-mode, container, pack, plane-format, mip-policy, and KTX2-payload vocabularies; the three hex spellings; the level-ordered plane address; the egress grammar; and the spherical-harmonic band order with its golden vectors. Neither seam restates a row of it, and a document-local re-spelling is the fork the shared definition forecloses.
 
 ## [02]-[ENTRIES]
 
@@ -99,12 +103,12 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Seam: `crdt-op-set`
 - Class: infrastructure
 - Minters: `csharp:Rasm.Persistence/Version/commits#CRDT_ALGEBRA`; `python:runtime/transport/wire#CRDT_CODEC`; `typescript:core/interchange/codec#LANDING_EVIDENCE`
-- Consumers: `typescript:core/interchange/format#MSGPACK_ENGINE` carries the envelope into `typescript:core/state/merge`; `python:runtime/evidence/reproduction#SEED_REPRODUCTION` reproduces every mint in the parity suite.
+- Consumers: `typescript:core/interchange/format#MSGPACK_ENGINE` carries the message envelope into `typescript:core/state/merge`; `python:runtime/evidence/reproduction#SEED_REPRODUCTION` reproduces every mint in the parity suite.
 - Payload: `wire-bytes`
 - Pin: DESIGN-PIN
-- Blocker: the envelope, the `Beat` encoding, and the ascending-by-origin vector-slot order the `write`/`maintain` arms carry are pinned at three minters — a flat array with slot 0 the integer union tag and every arm leading with `Field`, `Beat` carrying `(field, origin, state, physical_ticks, logical)` — so the C# flat-framing mint is the remaining pin and no frozen vector stands against the three.
+- Blocker: the message envelope, the `Beat` encoding, and the ascending-by-origin vector-slot order the `write`/`maintain` arms carry are pinned at three minters — a flat array with slot 0 the integer union tag and every arm leading with `Field`, `Beat` carrying `(field, origin, state, physical_ticks, logical)` — so the C# flat-framing mint is the remaining pin and no frozen vector stands against the three.
 - Shape: a `CrdtOpWire` MessagePack op multiset over the `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain | Beat | Leave` union with the `Hlc` 16-byte cell; the convergence law folds divergent-delivery permutations of the same op multiset to byte-identical state under the join-semilattice `Merge`. Every branch authors ops as well as merging them, so each mints the union in its own types.
-- Regenerate when: the `CrdtOp` union, the `Merge` algebra, or the envelope framing changes.
+- Regenerate when: the `CrdtOp` union, the `Merge` algebra, or the message-envelope framing changes.
 
 ### [02.6]-[GLB_BY_KEY]
 
@@ -143,9 +147,9 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Shape: Format stores `InterchangeFormat.Key`, schema projects `ReleaseVersion.Key`, and bytes remain the IFC payload.
 - Shape: At projects the producer mint `Instant`.
 - Shape: Content is `ContentAddress.OfGraph`, whose GraphKey proves cross-runtime semantic parity.
-- Parity: Byte equality proves C# host-local re-seal only.
-- Ownership: GeometryGym-backed IFC exchange remains the C# producer's domain capability.
-- Ownership: The Python IfcOpenShell peer decodes the raw bytes and projects its own graph.
+- Shape: Byte equality proves C# host-local re-seal only.
+- Shape: GeometryGym-backed IFC exchange remains the C# producer's domain capability.
+- Shape: Python's IfcOpenShell peer decodes the raw bytes and projects its own graph.
 - Regenerate when: the canonical authoring order, the `ContentAddress.OfGraph` law, or the pinned corpus payload changes.
 
 ### [02.9]-[DESCRIPTOR_DRIFT]
@@ -156,7 +160,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Consumers: each minter's gate reads the snapshot pair it owns; no branch reads a peer's verdict.
 - Payload: `descriptor-set`
 - Pin: DESIGN-PIN
-- Blocker: every source this entry rosters carries a landed `.proto` beside a frozen `FileDescriptorSet` snapshot minted at one parity setting — single file in the set, no `include_imports`, no `source_code_info`: each source stamping the `option csharp_namespace` its own package derives — `rasm.<family>.v1` spells `Rasm.<Family>` — so a family owns its generated identity and a later source stamps its own without re-deciding, where one namespace shared across packages would demand globally-unique message names estate-wide. Reachability closes with it: every peer decode of `rasm.element.v1` now resolves in a pool `typescript:core/interchange/format#WIRE_FAMILIES`, `codec`, and `python:runtime/transport/shapes#REGISTRY_AND_DRIFT` each compile the same source into. EXECUTION is the residual gap: `buf` mints all three snapshots at the corpus, while no branch source tree exists yet to run `Grpc.Tools`, `grpc_tools.protoc`, or `protoc-gen-es` over those sources and compare its own emission byte-for-byte, so the three-minter parity this pin graduates on holds by construction and stays unrun at every peer.
+- Blocker: every source this entry rosters carries a landed `.proto` beside a frozen `FileDescriptorSet` snapshot minted at one parity setting — single file in the set, no `include_imports`, no `source_code_info`: each source stamping the `option csharp_namespace` its own package derives — `rasm.<family>.v1` spells `Rasm.<Family>` — so a family owns its generated identity and a later source stamps its own without re-deciding, where one namespace shared across packages demands globally-unique message names estate-wide. Reachability closes with it: every peer decode of `rasm.element.v1` now resolves in a pool `typescript:core/interchange/format#WIRE_FAMILIES`, `codec`, and `python:runtime/transport/shapes#REGISTRY_AND_DRIFT` each compile the same source into. EXECUTION is the residual gap: `buf` mints all three snapshots at the corpus, while no branch source tree exists yet to run `Grpc.Tools`, `grpc_tools.protoc`, or `protoc-gen-es` over those sources and compare its own emission byte-for-byte, so the three-minter parity this pin graduates on holds by construction and stays unrun at every peer.
 - Blocker: the gate's rule half is CLOSED. Root `buf.yaml` declares `tests/contracts` as buf's one module under the v2 schema, `lint` holds `STANDARD` less the two rpc-naming rules `csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY` displaces and one path-scoped `RPC_REQUEST_RESPONSE_UNIQUE` waiver for the two types the suite deliberately shares, and `breaking` holds `FILE`. Every verb runs from `node_modules/.bin/buf` exactly as each workspace tool does, and `tests/contracts/.api/bufbuild-buf.md` owns the command, config, and rule surface.
 - Shape: each proto source emits a `FileDescriptorSet`; the gate gives `Identical`/`Additive`/`Breaking`; numbers only append, and removals reserve name and number. Each descriptor source is one mint unit, so a branch owning two sources carries two snapshot rows under one gate law and the forked-parity defect is two snapshots of one source. Each source's snapshot freezes beside it as `rasm/<family>/v1/<family>.descriptor.binpb`, minted by `buf build --path <source> --as-file-descriptor-set --exclude-imports --exclude-source-info`, so a later source lands into a spelled home rather than re-deciding the layout. That snapshot is the PARITY digest and never the breaking baseline: excluding imports is what makes three minters agree byte-for-byte without their protoc bundles' well-known-type descriptors entering the comparison, and the same exclusion leaves the set unresolvable as an image, so `buf breaking --against <snapshot>` refuses any importing source. FILE gating reads a git ref instead — `buf breaking --against '.git#branch=main' --against-config buf.yaml`, the config flag evaluating the baseline under the current rules so a rule edit takes effect on the same run.
 - Regenerate when: any owning `.proto` contract changes.
@@ -190,7 +194,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Seam: `capability-descriptor`
 - Class: domain
 - Producer: `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` pins the broker registry through `SuiteContracts.Schema`.
-- Consumer: `typescript:core/interchange/invoke#CAPABILITY_BIND` decodes and grades the producer document without transport coordinates.
+- Consumers: `typescript:core/interchange/invoke#CAPABILITY_BIND` decodes and grades the producer document without transport coordinates.
 - Payload: `canonical-json` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: DISCHARGED — `DescriptorPin.Of(registry, wire)` addresses one ordinal, fixed-field JSON document.
@@ -227,20 +231,20 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Shape: Each metric carries polarity, subject, band, and cost columns.
 - Shape: Polarity is `minimize | maximize`, projected from admitted `BenchmarkClaim.Polarity.Key`.
 - Shape: Duration rows minimize, while throughput and score rows can maximize through the same mint.
-- Shape: A bare subject is `{label, unit, modality}`.
-- Shape: A kernel subject adds tensor input, substrate, family, case, route, provider, corpus key, and artifact key.
+- Shape: Bare subjects are `{label, unit, modality}`.
+- Shape: Kernel subjects add tensor input, substrate, family, case, route, provider, corpus key, and artifact key.
 - Shape: Kernel subjects also carry equivalence deviation, tolerance class, and profile artifacts.
-- Admission: Bare and kernel subjects are distinct arms, so neither widens the other into optional fields.
+- Shape: Bare and kernel subjects are distinct arms, so neither widens the other into optional fields.
 - Shape: Sampling bands carry the raw vector, tick count, and full rung ladder.
 - Shape: Equivalence summaries carry median, p95, and deviation.
-- Admission: A grading policy names the rung it reads and refuses a pair missing that rung on either side.
-- Admission: An enrichment band the executing runtime cannot fill remains absent.
+- Shape: Grading policy names the rung it reads and refuses a pair missing that rung on either side.
+- Shape: Enrichment bands the executing runtime cannot fill remain absent.
 - Shape: Each harness owns its non-empty unit vocabulary, and grading compares unit verbatim as an equality axis.
 - Shape: Timing, render, and C# sweep units remain independent from the telemetry instrument census.
-- Admission: A claim whose host differs from the executing identity refuses before comparison.
-- Admission: Consumers never compare measurements across fingerprints or grade a peer runtime.
-- Parity: Each runtime branch mints its own claims, and parity across those mints is conformance.
-- Ownership: A branch whose benchmark evidence stays local mints no claim.
+- Shape: Claims whose host differs from the executing identity refuse before comparison.
+- Shape: Consumers never compare measurements across fingerprints or grade a peer runtime.
+- Shape: Each runtime branch mints its own claims, and parity across those mints is conformance.
+- Shape: Branches whose benchmark evidence stays local mint no claim.
 - Regenerate when: the subject union, the band ladder, or the host-admission gate changes.
 
 ### [02.15]-[HOST_FINGERPRINT]
@@ -275,9 +279,9 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` carries the family and `#LANDING_WIRE` lands it as `TextureSet`; `typescript:ui/viewer/scene#APPEARANCE_BIND` seats it through `Pbr.seat`/`Pbr.index` over the served asset directory; `python:runtime/transport/shapes#VOCABULARY` decodes it on the `texture_set_wire` row, decode-only.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
-- Blocker: the producer has pressed no concrete set — `Rasm.Materials` is a fences-only planning surface whose `Raster/` press estate holds no realized source, so no runtime mints the channel-ordered plane-digest preimage the set key streams over. The descriptor half is closed: [rasm/channels/v1/channels.proto](rasm/channels/v1/channels.proto) carries the texture messages both decode legs bind.
-- Shape: conforms to [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json) — the appearance-coupled BAKED set document, riding BEHIND the `AppearanceKey` the seam `AppearanceSummary` freezes over its seven-value preimage — the set key is a payload field, never a summary column, because widening `AppearanceSummary` forks the Bim dedup key and re-ids every appearance node. It carries NO kind discriminant: its one kind is the baked PBR set, and an environment or IBL product rides `[02.18]` instead. Field names are `camelCase` — the mechanical projection of the producer's own members under `JsonSerializerDefaults.Web`, never a third spelling — and every hex field carries the uppercase `ContentAddress` spelling the shared definition's `keySpelling` fixes. The document declares the set extent, its layer law and layer count, the ingest-source normal convention, the set-level alpha mode, the millimetre span the normalized `height` plane resolves against, the tiling coherence a synthesis gate proved, the Mari tile indices when the set is UDIM, the material and conductor identities, the capture provenance the appearance wire already owns, and one press receipt. Channel and pack rows each carry a LEVEL-ORDERED list of address triples under the shared `planeLevels` law: a self-pyramiding container holds one entry whatever the declared depth, and a container holding no pyramid of its own holds one entry per level, so a pyramid is addressed whole and every level is digested. Each row also carries its container beside its storage format, because the alpha-association conversion the shared definition fixes selects on the container and no other column recovers it; the payload column admits only the wire-legal KTX2 classes, and a desktop-native block payload refuses at decode. Baked bytes are ALWAYS CPU-minted: the press receipt's backend column reads `cpu` on every receipt reaching the wire, the GPU lane is an accelerator whose products carry no set and therefore no key, and its divergence column stays absent until a parity run measures it so a zero never reads as a perfect match. Plane bytes cross as content-addressed blobs in the write-once object store; the tessellation entry `[02.6]` stays untouched, because planes never embed in tiles and a texture edit never re-keys a tessellation. Baked appearance is the producer's domain capability, so peers decode the document, join its leaves to the served asset directory, and re-derive no address and no key.
-- Regenerate when: [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json) gains, drops, or re-values a row; the document's field roster changes; or the channel-ordered key preimage moves.
+- Blocker: the producer has pressed no concrete set — `Rasm.Materials` is a fences-only planning surface whose `Raster/` press estate holds no realized source, so no runtime mints the channel-ordered plane-digest preimage the set key streams over. Its descriptor half is closed: `rasm/channels/v1/channels.proto` carries the texture messages both decode legs bind.
+- Shape: conforms to `appearance-vocabulary.schema.json` — the appearance-coupled BAKED set document, riding BEHIND the `AppearanceKey` the seam `AppearanceSummary` freezes over its seven-value preimage — the set key is a payload field, never a summary column, because widening `AppearanceSummary` forks the Bim dedup key and re-ids every appearance node. It carries NO kind discriminant: its one kind is the baked PBR set, and an environment or IBL product rides `[02.18]` instead. Field names are `camelCase` — the mechanical projection of the producer's own members under `JsonSerializerDefaults.Web`, never a third spelling — and every hex field carries the uppercase `ContentAddress` spelling the shared definition's `keySpelling` fixes. Each document declares the set extent, its layer law and layer count, the ingest-source normal convention, the set-level alpha mode, the millimetre span the normalized `height` plane resolves against, the tiling coherence a synthesis gate proved, the Mari tile indices when the set is UDIM, the material and conductor identities, the capture provenance the appearance wire already owns, and one press receipt. Channel and pack rows each carry a LEVEL-ORDERED list of address triples under the shared `planeLevels` law: a self-pyramiding container holds one entry whatever the declared depth, and a container holding no pyramid of its own holds one entry per level, so a pyramid is addressed whole and every level is digested. Each row also carries its container beside its storage format, because the alpha-association conversion the shared definition fixes selects on the container and no other column recovers it; the payload column admits only the wire-legal KTX2 classes, and a desktop-native block payload refuses at decode. Baked bytes are ALWAYS CPU-minted: the press receipt's backend column reads `cpu` on every receipt reaching the wire, the GPU lane is an accelerator whose products carry no set and therefore no key, and its divergence column stays absent until a parity run measures it so a zero never reads as a perfect match. Plane bytes cross as content-addressed blobs in the write-once object store; the tessellation entry `[02.6]` stays untouched, because planes never embed in tiles and a texture edit never re-keys a tessellation. Baked appearance is the producer's domain capability, so peers decode the document, join its leaves to the served asset directory, and re-derive no address and no key.
+- Regenerate when: `appearance-vocabulary.schema.json` gains, drops, or re-values a row; the document's field roster changes; or the channel-ordered key preimage moves.
 
 ### [02.18]-[ASSET_SET_MANIFEST]
 
@@ -287,20 +291,20 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` carries the family and `#LANDING_WIRE` lands it; `typescript:runtime/browser/fetch#RUNNER_ENTRY` decodes it on the worker `Survey` arm and `#DEPOT_SCHEDULER` folds the dome the `typescript:ui/viewer/scene#ENVIRONMENT_FOLD` port composes; `csharp:Rasm.Materials/Raster/set#SET_INGEST` decodes it as a classification input through `SetIngest.Peer` and refuses a non-`pbr_set` kind.
 - Payload: `wire-bytes` + `digest`
 - Pin: REAL
-- Expectation: the frozen assets ride [asset-set-manifest/](asset-set-manifest/) — `asset_set_manifest.bin` (476 wire bytes, deterministic proto serialization, seed-zero digest `87aa8c48b73c71fc6d9d131a57331a77`), `asset_set_manifest.json` (the `preserving_proto_field_name` canonical projection), and the three byte-deriving planes under `planes/`. The byte input is settled-design-determined: 8×8 planes over `idx = y·8 + x` row-major — `base_color` u16 `((idx·1021) mod 65536, (idx·2039) mod 65536, (idx·4093) mod 65536)` as `png16`, `geometry_normal` the constant u16 neutral `(32768, 32768, 65535)` as `png16`, `height` float32 `idx/63` as `exr` — encoded through the pinned `imagecodecs` legs whose versions each map row's `tool_version` records. Frozen values the producer emit must reproduce: plane digests (policy-folded `texture-plane` namespace, lowercase `ContentKey` wire spelling) `base_color = 72b07d26416e03d501713d3781dd99c2` (134 B), `geometry_normal = 1cb09264272c513b6a78a6f83566ce47` (82 B), `height = 40f4dd4b6fbdf17d18f3d04bbac4e31b` (578 B); `manifest_key = adf06145b592fc08fedd963c5170f974`, the `texture-set` merkle over the three 16-byte little-endian digests in roster order; document facts `kind = pbr_set`, `normal_convention = gl`, `alpha_mode = none`, `height_scale = 10.0` mm, `license_class = permissive`, `ktx_payload = none` and `mips = 1` on every row. The landed instance schema-validates against [asset-set-manifest/contract.schema.json](asset-set-manifest/contract.schema.json), round-trips byte-identically through the generated message, and re-derives every digest and the manifest key from the landed plane bytes.
-- Shape: conforms to [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json) — the ingest-assembled and environment-assembled set manifest, the SECOND appearance producer, distinct from `[02.17]` by capability rather than by language rank: it discriminates `pbr_set`, `hdri`, and `ibl` on a kind column, records the ingest root or generator id, and carries the classification residue no alias claimed, none of which the baked document holds. Environment and IBL products ride HERE and never the baked document, which carries no environment kind. Field names are `snake_case` because the vocabulary row binds each declaration to its generated message under preserved proto field names — the declaration IS the wire contract, with no rename layer — and every digest carries the lowercase `ContentKey` spelling the shared definition's `keySpelling` fixes, so a consumer joining a key across the two documents lowers and never uppercases. Map and pack rows carry the same LEVEL-ORDERED address list, container column, and payload legality the baked document carries, plus the producing tool and its recorded version PER MAP, because one set legitimately mixes the spawned encode floor with an in-process acceleration leg and a set-level tool column would erase which leaf came from which. The environment leg carries the irradiance harmonics under the shared band order and layout, the equirect source, the roughness-indexed prefilter pyramid as address triples rather than a bare file roster, the split-sum BRDF table, the importance-sampling guide, and the read-side intensity and rotation — read-side because re-orienting or re-exposing a dome re-keys no blob and triggers no re-prefilter, and a producer baking either into the coefficients forks every consumer reading the same digest at another orientation. Ingest classification and environment assembly are the producer's domain capability; the C# consumer folds a decoded manifest into its own ingest intent and classifies nothing the manifest already resolved.
-- Regenerate when: [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json) gains, drops, or re-values a row; the document's field roster changes; or the roster-ordered merkle fold moves.
+- Shape: conforms to `appearance-vocabulary.schema.json` — the ingest-assembled and environment-assembled set manifest, the SECOND appearance producer, distinct from `[02.17]` by capability rather than by language rank: it discriminates `pbr_set`, `hdri`, and `ibl` on a kind column, records the ingest root or generator id, and carries the classification residue no alias claimed, none of which the baked document holds. Environment and IBL products ride HERE and never the baked document, which carries no environment kind. Field names are `snake_case` because the vocabulary row binds each declaration to its generated message under preserved proto field names — the declaration IS the wire contract, with no rename layer — and every digest carries the lowercase `ContentKey` spelling the shared definition's `keySpelling` fixes, so a consumer joining a key across the two documents lowers and never uppercases. Map and pack rows carry the same LEVEL-ORDERED address list, container column, and payload legality the baked document carries, beside the producing tool and its recorded version PER MAP, because one set legitimately mixes the spawned encode floor with an in-process acceleration leg and a set-level tool column erases which leaf came from which. Its environment leg carries the irradiance harmonics under the shared band order and layout, the equirect source, the roughness-indexed prefilter pyramid as address triples rather than a bare file roster, the split-sum BRDF table, the importance-sampling guide, and the read-side intensity and rotation — read-side because re-orienting or re-exposing a dome re-keys no blob and triggers no re-prefilter, and a producer baking either into the coefficients forks every consumer reading the same digest at another orientation. Ingest classification and environment assembly are the producer's domain capability; the C# consumer folds a decoded manifest into its own ingest intent and classifies nothing the manifest already resolved.
+- Expectation: the frozen assets ride `asset-set-manifest/` — `asset_set_manifest.bin` (476 wire bytes, deterministic proto serialization, seed-zero digest `87aa8c48b73c71fc6d9d131a57331a77`), `asset_set_manifest.json` (the `preserving_proto_field_name` canonical projection), and the three byte-deriving planes under `planes/`. Byte input is settled-design-determined: 8×8 planes over `idx = y·8 + x` row-major — `base_color` u16 `((idx·1021) mod 65536, (idx·2039) mod 65536, (idx·4093) mod 65536)` as `png16`, `geometry_normal` the constant u16 neutral `(32768, 32768, 65535)` as `png16`, `height` float32 `idx/63` as `exr` — encoded through the pinned `imagecodecs` legs whose versions each map row's `tool_version` records. Frozen values the producer emit must reproduce: plane digests (policy-folded `texture-plane` namespace, lowercase `ContentKey` wire spelling) `base_color = 72b07d26416e03d501713d3781dd99c2` (134 B), `geometry_normal = 1cb09264272c513b6a78a6f83566ce47` (82 B), `height = 40f4dd4b6fbdf17d18f3d04bbac4e31b` (578 B); `manifest_key = adf06145b592fc08fedd963c5170f974`, the `texture-set` merkle over the three 16-byte little-endian digests in roster order; document facts `kind = pbr_set`, `normal_convention = gl`, `alpha_mode = none`, `height_scale = 10.0` mm, `license_class = permissive`, `ktx_payload = none` and `mips = 1` on every row. That landed instance schema-validates against `asset-set-manifest/contract.schema.json`, round-trips byte-identically through the generated message, and re-derives every digest and the manifest key from the landed plane bytes.
+- Regenerate when: `appearance-vocabulary.schema.json` gains, drops, or re-values a row; the document's field roster changes; or the roster-ordered merkle fold moves.
 
 ### [02.19]-[MATERIAL_WIRE]
 
 - Seam: `material-wire`
 - Class: domain
 - Producer: `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE`
-- Consumers: `typescript:core/interchange/codec#LANDING_WIRE` lands `Material` and `PbrGroups` for `typescript:ui/viewer/scene#APPEARANCE_BIND`; `python:runtime/transport/shapes#VOCABULARY` decodes both on its appearance mirror rows, decode-only. The seam `AppearanceSummary` is NOT a shape of this crossing: no producer emits a standalone summary document — it crosses as the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (`csharp:Rasm.Element/Graph/wire#WIRE_CODEC`), and each peer's `AppearanceSummary` landing shape seats that payload, never a document from this codec.
+- Consumers: `typescript:core/interchange/codec#LANDING_WIRE` lands `Material` and `PbrGroups` for `typescript:ui/viewer/scene#APPEARANCE_BIND`; `python:runtime/transport/shapes#VOCABULARY` decodes both on its appearance mirror rows, decode-only. Seam `AppearanceSummary` is NOT a shape of this crossing: no producer emits a standalone summary document — it crosses as the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (`csharp:Rasm.Element/Graph/wire#WIRE_CODEC`), and each peer's `AppearanceSummary` landing shape seats that payload, never a document from this codec.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer has pinned no concrete material, so the appearance content hash carries no byte-deriving input.
-- Shape: the OpenPBR parameter algebra as it crosses — the layered surface projection, its group wire over the OpenPBR Surface 1.1 inputs, the conductor key, the capture receipt, and the appearance content hash the seam summary keys. The producer is SOLE: peers mirror the projection field for field and a peer-side lowering, conductor table, colour conversion, or key derivation is the cross-language drift defect this entry names — a decoded group carries verbatim onto a consumer's own material, and deriving one field from another is the standing defect the single-producer law forecloses. Colour crosses as the scene-linear triple the graph's working space fixes, never a display-encoded byte triple. The entry registers a PRE-EXISTING crossing rather than a new one: the typescript branch already decodes both shapes and the python branch already rosters them, so until this entry landed a shape crossed three branches with no contract binding it — convention-aligned interop that forks on first edit. Map and texture-transform fields stay OFF this document by ruling: a baked plane set is `[02.17]`, and widening the group wire with map digests would seat a second appearance producer behind one shape. Schema authority is the producer's MessagePack integer-keyed record roster — appended keys past the frozen block, mirrored structurally at each peer under the mirror-census law — and the family holds NO descriptor source under `[02.9]` because the wire is not proto-shaped.
+- Shape: the OpenPBR parameter algebra as it crosses — the layered surface projection, its group wire over the OpenPBR Surface 1.1 inputs, the conductor key, the capture receipt, and the appearance content hash the seam summary keys. Production is SOLE: peers mirror the projection field for field and a peer-side lowering, conductor table, colour conversion, or key derivation is the cross-language drift defect registered here — a decoded group carries verbatim onto a consumer's own material, and deriving one field from another is the standing defect the single-producer law forecloses. Colour crosses as the scene-linear triple the graph's working space fixes, never a display-encoded byte triple. Registration covers a PRE-EXISTING crossing rather than a new one: the typescript branch already decodes both shapes and the python branch already rosters them, so until this entry landed a shape crossed three branches with no contract binding it — convention-aligned interop that forks on first edit. Map and texture-transform fields stay OFF the group wire by ruling: a baked plane set is `[02.17]`, and widening the group wire with map digests seats a second appearance producer behind one shape. Schema authority is the producer's MessagePack integer-keyed record roster — appended keys past the frozen block, mirrored structurally at each peer under the mirror-census law — and the family holds NO descriptor source under `[02.9]` because the wire is not proto-shaped.
 - Regenerate when: the OpenPBR input roster, the conductor vocabulary, the capture-receipt columns, or the appearance content-hash preimage changes.
 
 ### [02.20]-[SIGNED_ARTIFACT]
@@ -324,16 +328,18 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Payload: `canonical-json` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer freezes no family vector — every family crosses as source-generated JSON with no pinned instance, so no family carries a byte-deriving input on either branch.
-- Shape: the AppHost runtime-evidence family set as ONE registration — `ReceiptEnvelopeWire`, `TenantContextWire`, `CommandAvailabilityWire`, `CredentialPemWire`, `BindingStatusWire`, `CoercedValueWire`, `WriteReceiptWire`, `WriteBackWire`, `MachineObservationWire`, `FlagVerdictWire`, `SupportCaptureWire` — each family one `[JsonSerializable]` row on the producer roster and one census row at the consumer, field names the mechanical `Web`-defaults projection of the producer's own members. Carriage is JSON by the producer's landed wire law, so the consumer census carries these rows under its `json` arm, never `proto` — no descriptor source exists or is owed under `[02.9]`. Families a sibling entry already owns register THERE and not here: `HlcStampWire` byte layout is `[02.7]`'s shape (this producer carries it as an envelope field), `CapabilityDescriptorWire` is `[02.12]`, `HostFingerprintWire` is `[02.15]`, and `BenchmarkClaimWire` is `[02.14]` with `csharp:Rasm.Compute` the minter — a census row sourcing it to AppHost mis-names the producer. Host runtime evidence is the producer's domain capability, so peers decode the families and re-author none.
+- Shape: the AppHost runtime-evidence family set as ONE registration — `ReceiptEnvelopeWire`, `TenantContextWire`, `CommandAvailabilityWire`, `CredentialPemWire`, `BindingStatusWire`, `CoercedValueWire`, `WriteReceiptWire`, `WriteBackWire`, `MachineObservationWire`, `FlagVerdictWire`, `SupportCaptureWire` — each family one `[JsonSerializable]` row on the producer roster and one census row at the consumer, field names the mechanical `Web`-defaults projection of the producer's own members. Carriage is JSON by the producer's landed wire law, so the consumer census carries these rows under its `json` arm, never `proto` — no descriptor source exists or is owed under `[02.9]`. Families a sibling entry already owns register THERE and not here: `HlcStampWire` byte layout is `[02.7]`'s shape (this producer carries it as a message-envelope field), `CapabilityDescriptorWire` is `[02.12]`, `HostFingerprintWire` is `[02.15]`, and `BenchmarkClaimWire` is `[02.14]` with `csharp:Rasm.Compute` the minter — a census row sourcing it to AppHost mis-names the producer. Host runtime evidence is the producer's domain capability, so peers decode the families and re-author none.
 - Regenerate when: a family's field roster changes, the producer roster gains or retires a family, or the `Web`-defaults naming projection moves.
 
 ### [02.22]-[APPUI_WIRE]
 
 - Seam: `appui-wire`
 - Class: domain
-- Producer: `csharp:Rasm.AppUi` mints command payload and gate families through `Shell/commands#TS_PROJECTION`.
-- Producer: `CommandInvocationWire` nests under the command payload family and carries `{key,payload}`.
-- Producer: The remaining AppUi families are owned by controls, solver, render pipeline, and diagnostics evidence.
+- Producer: `csharp:Rasm.AppUi/Shell/commands#TS_PROJECTION` mints the command payload and gate families.
+- Producer: `csharp:Rasm.AppUi/Shell/controls#TS_PROJECTION` mints the control-intent family.
+- Producer: `csharp:Rasm.AppUi/Shell/solver#TS_PROJECTION` mints the layout-constraint family.
+- Producer: `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` mints the geometry-residency family.
+- Producer: `csharp:Rasm.AppUi/Diagnostics/evidence#TS_PROJECTION` mints the evidence-timeline family.
 - Consumers: TypeScript core decodes AppUi families into `ControlIntent`, `LayoutProgram`, `CommandGate`, and `EvidenceTimeline`.
 - Consumers: TypeScript UI materializes shell families and reads timeline render evidence.
 - Consumers: TypeScript runtime consumes the residency manifest on its frame home.
@@ -354,61 +360,73 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Shape: Layout variable, term, and program wires are nested family members.
 - Shape: Viewpoint, residency tile, Meshopt stream, and meshlet wires are nested family members.
 - Shape: Nested AppUi family members never register as standalone entries.
-- Carriage: AppUi families use producer camelCase Strict JSON and the consumer `json` census arm.
-- Carriage: No AppUi descriptor source exists, so no AppUi family registers under `proto`.
-- Parity: `LayoutConstraintWire` binds introduction order, edit variables, and authored and resolved measurement suggestions.
-- Parity: Both tableaus re-solve the ordered program instead of trusting solved positions.
-- Ownership: AppUi product-shell vocabulary remains producer-owned, and peers only decode it.
+- Shape: AppUi families use producer camelCase Strict JSON and the consumer `json` census arm.
+- Shape: No AppUi descriptor source exists, so no AppUi family registers under `proto`.
+- Shape: `LayoutConstraintWire` binds introduction order, edit variables, and authored and resolved measurement suggestions.
+- Shape: Both tableaus re-solve the ordered program instead of trusting solved positions.
+- Shape: AppUi product-shell vocabulary remains producer-owned, and peers only decode it.
 - Regenerate when: a family's field roster changes, the producer roster gains or retires a family, or the camelCase Strict emission law moves.
 
 ### [02.23]-[BIM_WIRE]
 
 - Seam: `bim-wire`
 - Class: domain
-- Producer: `Review/issues#TS_PROJECTION` mints `BcfTopicWire` and its nested BCF family.
-- Producer: `Review/diff#MODEL_DIFF` mints the typed `ModelDiff` change set.
-- Producer: `Model/query#PREDICATE_WIRE` mints `PredicateWire` through `PredicateCodec.Seal` and `Admit`.
-- Producer: `Exchange/events#EVENTS` mints `BimEvent` through its CloudEvents envelope.
+- Producer: `csharp:Rasm.Bim/Review/issues#TS_PROJECTION` mints `BcfTopicWire` and its nested BCF family.
+- Producer: `csharp:Rasm.Bim/Review/diff#MODEL_DIFF` mints the typed `ModelDiff` change set.
+- Producer: `csharp:Rasm.Bim/Model/query#PREDICATE_WIRE` mints `PredicateWire` through `PredicateCodec.Seal` and `Admit`.
+- Producer: `csharp:Rasm.Bim/Exchange/events#EVENT_PROJECTION` announces each `BimFact` as one message envelope through the kernel mint.
 - Consumers: TypeScript core decodes the Bim coordination families.
 - Consumers: TypeScript UI materializes the BCF board, viewpoint, and diff.
 - Consumers: Python and TypeScript geospatial peers consume the separate raw GeoJSON text projection.
 - Payload: `canonical-json` + `digest`
 - Pin: DESIGN-PIN
-- Blocker: the producer freezes no family vector — every family crosses as source-generated or codec-sealed JSON with no pinned instance, so no family carries a byte-deriving input on either branch.
+- Blocker: the producer freezes no family vector — every family crosses as source-generated or codec-sealed JSON with no pinned instance, so no family carries a byte-deriving input on either branch; the announcement half carries none either, because `BimEventing.Observe` has no fire site until a source tree runs the hook rail.
 - Shape: Bim typed families are `BcfTopicWire`, `BcfViewpointWire`, `ModelDiff`, and `PredicateWire`.
 - Shape: `GeoFeatureWire` is absent because the producer emits raw GeoJSON text.
 - Shape: `ModelDiff` carries baseline, revision, changes, and unchangedCount.
 - Shape: `ElementChange` closes `added | removed | modified | moved | split | merged`.
-- Shape: `BimEvent` is CloudEvents JSON, never a registry proto family.
+- Shape: the announcement crosses as a CloudEvents message envelope under `[02.34]`'s payload-agnostic law, never a registry proto family.
+- Shape: `BimAnnounce` closes the announced roster and each row carries the kernel `EventType` and the hook point it observes.
+- Shape: `BimEventWire` is the flat camelCase payload half, one record per announced case under one source-generated `BimEventContext`.
+- Shape: `BimEventing.Mint` is total over `BimFact` — an announced case projects one `EventMint` and every other answers `None`.
+- Shape: `BimEventing.Admit` is the inverse a consuming ingress reaches after decode, re-proving `subject` against the admitted fact's own derivation.
+- Shape: the message envelope ANNOUNCES the fact and gains no authority — the owning rail's receipt stays the evidence truth and no event ledger lands beside it.
 - Shape: VerdictIssued carries specification, spec, model, tri-state outcome, severity, findings, and GlobalIds.
 - Shape: BCF comment, camera, and coloring wires are nested family members.
 - Shape: Value match, measure, bound, and node match wires are nested predicate members.
 - Shape: Per-arm diff records are nested `ModelDiff` family members.
 - Shape: Nested Bim family members never register as standalone entries.
-- Parity: A browser composes the same closed predicate algebra the model owner evaluates.
-- Admission: Unrostered predicate arms and matches refuse at both ends.
-- Admission: Pattern compilability, vocabulary membership, and measure dimension remain producer gates.
-- Ownership: The raw IFC artifact remains owned by `[02.8]`.
-- Ownership: `IdsAudit` is C# host-local and mints no TypeScript family.
-- Ownership: `IdsVerdict` is the Bim-owned companion-oracle row and mints no TypeScript family.
-- Regenerate when: a family's field roster changes, the producer roster gains or retires a family, or either dialect register's emission law moves.
+- Shape: Browsers compose the same closed predicate algebra the model owner evaluates.
+- Shape: Unrostered predicate arms and matches refuse at both ends.
+- Shape: Pattern compilability, vocabulary membership, and measure dimension remain producer gates.
+- Shape: Raw IFC artifacts remain owned by `[02.8]`.
+- Shape: `IdsAudit` is C# host-local and mints no TypeScript family.
+- Shape: `IdsVerdict` is the Bim-owned companion-oracle row and mints no TypeScript family.
+- Regenerate when: a family's field roster changes, the producer roster gains or retires a family, either dialect register's emission law moves, or the `BimAnnounce` roster gains or retires an announced fact.
 
 ### [02.24]-[ELEMENT_WIRE]
 
 - Seam: `element-wire`
 - Class: domain
-- Producer: `Rasm.Element/Graph/wire#WIRE_CODEC` mints the append-only `rasm.element.v1` protobuf family.
-- Consumer: TypeScript core decodes the graph, delta, node, relationship, and nested payload messages.
-- Consumer: Python runtime binds the `AppearanceWire` seam payload on its proto registry and leaves the graph envelopes outside its vocabulary.
+- Producer: `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` mints the append-only `rasm.element.v1` protobuf family.
+- Producer: `csharp:Rasm.Element/Graph/wire#EVENT_ENVELOPE` announces each crossing as one Protobuf-framed CloudEvents message envelope over that family.
+- Consumers: TypeScript core decodes the graph, delta, node, relationship, and nested payload messages.
+- Consumers: Python runtime binds the `AppearanceWire` seam payload on its proto registry and leaves the graph message envelopes outside its vocabulary.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
-- Blocker: execution route absent, source landed — `rasm/element/v1/element.proto` and its `element.descriptor.binpb` seat the family under `[02.9]`, so every peer decode resolves in a real pool, while no source tree exists to run `ElementWire.Encode` over a corpus model and freeze a byte-deriving instance; `[02.25]` `element-corpus` is that route and the DESIGN-PIN law forbids fabricated bytes.
-- Shape: `NodeWire.content_address` is the 16-byte big-endian address minted from node plus active header tolerance.
+- Blocker: execution route absent, source landed — `rasm/element/v1/element.proto` and its `element.descriptor.binpb` seat the family under `[02.9]`, so every peer decode resolves in a real pool, while no source tree exists to run `ElementWire.Encode` over a corpus model and freeze a byte-deriving instance, nor `GraphCrossing.Mint` over that instance to freeze its message envelope; `[02.25]` `element-corpus` is that route and the DESIGN-PIN law forbids fabricated bytes.
+- Shape: `NodeWire.content_address` is the 16-byte big-endian address minted from node with active header tolerance.
 - Shape: `Encode(GraphDelta,basis)` uses basis tolerance when no reheader exists.
-- Shape: A revision's before address uses basis tolerance and its after address uses revision tolerance.
+- Shape: Revisions take basis tolerance for their before address and revision tolerance for their after address.
 - Shape: `redaction.unstable_node_ids` marks carried node addresses ineligible for edit OCC.
 - Shape: Nested messages remain family members and never register as standalone entries.
-- Regenerate when: the message roster, a field number, node-address minting, or descriptor source changes.
+- Shape: `GraphEventType` closes the crossing roster at `snapshot` and `delta`, each row carrying its own `EventType` and producing `EventSource`.
+- Shape: the message envelope carries metadata alone under `[02.34]`'s payload-agnostic law and the protobuf message is its whole body.
+- Shape: `subject` renders through the kernel `EventKey` lowercase spelling, never the seam's own uppercase `ContentAddress` rendering.
+- Shape: `datacontenttype` derives from the encoded message's own descriptor, so a consumer selects its parser from the attribute rather than from the topic.
+- Shape: `dataclassification` derives from the egress scope's cleared-column roster, so a crossing cannot announce a grade its redaction state contradicts.
+- Shape: a streaming consumer folds length-prefixed bodies one frame per crossing and dedups on `(source, id)`.
+- Regenerate when: the message roster, a field number, node-address minting, the descriptor source, or the `GraphEventType` crossing roster changes.
 
 ### [02.25]-[ELEMENT_CORPUS]
 
@@ -431,7 +449,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Payload: `canonical-json` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: no frozen Ökobaudat sample declaration pins the byte-deriving input — the producer freezes one registry record per source row when the ingest lane executes; the DESIGN-PIN law forbids fabricated bytes.
-- Shape: one product declaration keyed to a material identity — issuer + registration the duplicate-check pair, declared unit admitted at its own functional unit, issue and expiry dates, and the per-indicator per-module impact map at declaration granularity (the frozen 13-indicator EN 15804+A2 roster over the 15-module EN 15978 roster) where KEY PRESENCE is the coverage census — an absent cell is undeclared absence, never a zero. Discriminating laws: a declared cell is a measured value with negative biogenic/avoided-burden carbon valid; the two resource fractions are optional scenario data, absent when undeclared; consumers band modules as their own seam requires (the C# leg sums declared cells onto its six-band `LifecycleStage` axis and constructs the full matrix only when every core indicator covers every band). The declaration semantic model is the python data branch's host-free ingestion capability; peers decode and re-author none.
+- Shape: one product declaration keyed to a material identity — issuer + registration the duplicate-check pair, declared unit admitted at its own functional unit, issue and expiry dates, and the per-indicator per-module impact map at declaration granularity (the frozen 13-indicator EN 15804+A2 roster over the 15-module EN 15978 roster) where KEY PRESENCE is the coverage census — an absent cell is undeclared absence, never a zero. Discriminating laws: a declared cell is a measured value with negative biogenic/avoided-burden carbon valid; the two resource fractions are optional scenario data, absent when undeclared; consumers band modules as their own seam requires (the C# leg sums declared cells onto its six-band `LifecycleStage` axis and constructs the full matrix only when every core indicator covers every band). Declaration semantics are the python data branch's host-free ingestion capability; peers decode and re-author none.
 - Regenerate when: the indicator or module roster, the declared-unit vocabulary, or the canonical key order changes.
 
 ### [02.27]-[HDF5_FIELD_CONTAINER]
@@ -454,7 +472,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Consumers: `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` — `GraduationEnvelope.Admit(HdfHandle)` re-running every Wellformed gate on the read roster.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
-- Blocker: no frozen envelope vector — the producer freezes one container when the fit lane executes; the DESIGN-PIN law forbids fabricated bytes.
+- Blocker: no frozen graduation-container vector — the producer freezes one container when the fit lane executes; the DESIGN-PIN law forbids fabricated bytes.
 - Shape: one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering parsed `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the `edges` float64[k] and `mass` float64[k+1] datasets (both outer bins covered — the consumer's half-open bisection addresses them), categorical bands the vlen-string `categories` and float64 `mass` datasets. Admission gates hold at BOTH ends: finite strictly-increasing edges, mass length edges+1, strictly positive mass summing to one within 1e-9, non-blank unique features and categories, non-zero evidence key. Reference mass is fitted by the python producer at graduation and never at the consumer; the reverse JSON `GraduationEvidence` leg keeps its own container.
 - Regenerate when: the group/attribute roster, a band case, or a Wellformed gate changes.
 
@@ -479,30 +497,31 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: no frozen bundle vector — the C# minter freezes one bundle beside its `BundleKey` when the mint lane executes.
-- Shape: `schemaVersion` `"1"`; `owners[]` of `{name, fields[]}`; `bundleKey` the bare 32-hex content-key render parsed `NumberStyles.HexNumber`, never a raw integer; the `kind` discriminator literals `scalar|array|nested|mapping|optional|union` and the `FieldScalar` rows `i32|i64|f64|bool|string|key|bytes|decimal` are the decode contract at both ends; the scalar leaf's payload property spells `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses to double-book.
+- Shape: `schemaVersion` `"1"`; `owners[]` of `{name, fields[]}`; `bundleKey` the bare 32-hex content-key render parsed `NumberStyles.HexNumber`, never a raw integer; the `kind` discriminator literals `scalar|array|nested|mapping|optional|union` and the `FieldScalar` rows `i32|i64|f64|bool|string|key|bytes|decimal` are the decode contract at both ends; the scalar leaf's payload property spells `"scalar"` because CamelCase seats it on the `"kind"` discriminator STJ refuses to double-book.
 - Regenerate when: the kind literals, the scalar rows, the bundle columns, or `SchemaVersion` change.
 
 ### [02.31]-[ENTITY_EDIT_WIRE]
 
 - Seam: `entity-edit`
 - Class: domain
-- Producer: `StructuralMerge.Patch` mints each base from the held node under the active graph tolerance.
-- Producer: `Members.patch` deterministically diffs exact before/after `NodeWire` ProtoJSON.
-- Producer: `EntityEditWire.Encode` emits the closed camelCase edit and RFC 6902 operation unions.
-- Producer: `PatchPolicy.OperationCeiling` is positive, caller-supplied, and shared with the crossing ingress policy.
-- Consumer: TypeScript core decodes the edit union and applies its closed patch document to exact `NodeWire` ProtoJSON.
-- Consumer: TypeScript state decodes the patched ProtoJSON through the existing node landing.
+- Producer: `csharp:Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` mints the edit union whole — `StructuralMerge.Patch`, the `Members` diff, `EntityEditWire.Encode`, and the `PatchPolicy` ceiling.
+- Consumers: TypeScript core decodes the edit union and applies its closed patch document to exact `NodeWire` ProtoJSON.
+- Consumers: TypeScript state decodes the patched ProtoJSON through the existing node landing.
 - Payload: `canonical-json` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: no merge corpus freezes base/target graphs and their edit union, so no branch carries a byte-deriving instance.
+- Shape: `StructuralMerge.Patch` mints each base from the held node under the active graph tolerance.
+- Shape: `EntityEditWire.Members` deterministically diffs exact before/after `NodeWire` ProtoJSON.
+- Shape: `EntityEditWire.Encode` emits the closed camelCase edit and RFC 6902 operation unions.
+- Shape: `PatchPolicy.OperationCeiling` is positive, caller-supplied, and shared with the crossing ingress policy.
 - Shape: Tombstone is `{kind:"tombstone",key,base}`.
 - Shape: Members is `{kind:"members",key,base,patch}`.
 - Shape: Patch closes `add | remove | replace | move | copy | test` with exact RFC 6902 fields.
 - Shape: Key is `NodeId.Value`; base is the canonical `ContentAddress` string.
-- Admission: Both arms require the producer-carried held-node address to equal base.
-- Admission: An over-ceiling member diff collapses to one root replacement of exact successor ProtoJSON.
-- Admission: Any node listed in `redaction.unstable_node_ids` is ineligible for edit OCC.
-- Ownership: Inserts remain on `EditOp.Insert` and `GraphDelta`; they never fabricate a held-node edit base.
+- Shape: Both arms require the producer-carried held-node address to equal base.
+- Shape: Over-ceiling member diffs collapse to one root replacement of exact successor ProtoJSON.
+- Shape: Any node listed in `redaction.unstable_node_ids` is ineligible for edit OCC.
+- Shape: Inserts remain on `EditOp.Insert` and `GraphDelta`; they never fabricate a held-node edit base.
 - Regenerate when: edit arms, patch operations, patch target, address minting, or canonical address spelling change.
 
 ### [02.32]-[ORGANIZATION_WIRE]
@@ -514,7 +533,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: no source tree runs `Layers.Ask`, so no host read has minted a byte-deriving instance and the DESIGN-PIN law forbids fabricated bytes; the descriptor half is closed, its source and `organization.descriptor.binpb` snapshot frozen at sibling parity under the `[02.9]` gate.
-- Shape: model organization as a HOST-FREE document, since the producer is a host-boundary package and `libs/.planning/ARCHITECTURE.md` `[03]-[UNIVERSAL_VS_CAPTURE]` forecloses publishing a host's own vocabulary through a seam. `EntityWire.key` is the 16-byte big-endian content key over the count-framed ancestor label chain, so one organizational address keys identically across source documents and a federated read unions them; the source key stays OUT of that preimage, since folding it in re-scopes a federation address to one file. `name` carries the leaf label alone and the ancestor chain is the containment walk, never a separator-joined path a peer re-splits. `ordinal` is the DENSE sibling rank the producer resolved, because a sparse host sort column pushes its own case-insensitive tie-break onto every peer and a codepoint-ordering peer inverts exactly the pairs UTF-16 ordering ranks the other way. `ContainmentWire` discriminates on the target's KEY SPACE through a oneof — `entity` in this document's address space, `member` in the federation space `authority` names — so a decoder routes each target without a relation column that erases which space resolves it. `ViewOverrideWire` rows land only where the producer PROVED a view carries settings, so row presence is the evidence and an unprobed view reads unmeasured rather than defaulted. Host identity never crosses: no session `Guid`, no table index and its miss sentinel, no joined path, no persistent-visibility column whose host read collapses three write states onto two.
+- Shape: model organization as a HOST-FREE document, since the producer is a host-boundary package and `libs/.planning/ARCHITECTURE.md` `[03]-[UNIVERSAL_VS_CAPTURE]` forecloses publishing a host's own vocabulary through a seam. `EntityWire.key` is the 16-byte big-endian content key over the count-framed ancestor label chain, so one organizational address keys identically across source documents and a federated read unions them; the source key stays OUT of that preimage, since folding it in re-scopes a federation address to one file. `name` carries the leaf label alone and the ancestor chain is the containment walk, never a separator-joined path a peer re-splits. `ordinal` is the DENSE sibling rank the producer resolved, because a sparse host sort column pushes its own case-insensitive tie-break onto every peer and a codepoint-ordering peer inverts exactly the pairs UTF-16 ordering ranks the other way. `ContainmentWire` discriminates on the target's KEY SPACE through a oneof — `entity` in the record's own address space, `member` in the federation space `authority` names — so a decoder routes each target without a relation column that erases which space resolves it. `ViewOverrideWire` rows land only where the producer PROVED a view carries settings, so row presence is the evidence and an unprobed view reads unmeasured rather than defaulted. Host identity never crosses: no session `Guid`, no table index and its miss sentinel, no joined path, no persistent-visibility column whose host read collapses three write states onto two.
 - Regenerate when: the message roster, a field number, the label-chain preimage, or the sibling-rank derivation changes.
 
 ### [02.33]-[SCENE_DESCRIPTOR]
@@ -533,13 +552,19 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 
 - Seam: `oplog-entry`
 - Class: infrastructure
-- Minters: `csharp:Rasm.Persistence/Version/ledger#CHANGEFEED`; `python:runtime/transport/wire#CRDT_CODEC`; `typescript:data/journal/append#ATOMIC_PUBLISH`
+- Minters: `csharp:Rasm.Persistence/Version/ledger#CHANGEFEED`; `csharp:Rasm/Domain/event#ENVELOPE_MINT`; `python:runtime/transport/wire#CRDT_CODEC`; `typescript:data/journal/append#ATOMIC_PUBLISH`
 - Consumers: `csharp:Rasm.Rhino/Document/events#STREAM_OWNER` taps sealed commits into host-vocabulary rows the store maps onto lanes; `typescript:core/state/causal#DELIVERY_BUFFER` orders and dedups the decoded entries.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the `OperationId` canonical preimage is pinned at three minters — framed lowercase-N origin text, little-endian counter, then the vector's own count-framed slots SORTED ascending by origin text — and no golden vector stands against it until the harness proof freezes concrete inputs.
-- Shape: the changefeed envelope carrying `sequence`, `OperationId`, model, entity key, lane, verb, payload, payload content key, trace slot, closure, actor, and the HLC halves. Operation identity is the `(origin, counter)` dot beside its pre-mint frontier and never the payload digest, so equal payloads stay distinct operations; `sequence` resumes a drain and orders nothing across stores. Replay dedup and compaction admission both read the identity, so a decoder dropping it keeps neither guarantee.
-- Regenerate when: the `OperationId` preimage layout, the envelope column set, or the `ColumnFamily` lane roster changes.
+- Blocker: the announcement half rests on the same gap — no minter has framed a message envelope over a concrete entry, so the attribute map carries no byte-deriving input at any branch.
+- Shape: the entry record is THIRTEEN wire slots in the producer's own member declaration order — sequence, operation identity, model, entity key, lane, verb, payload, payload content key, trace slot, closure, actor, and the HLC physical and logical halves as two slots. Slot ORDER is the frozen contract every peer decodes by position, so a transcriber folding the two HLC halves into one column shifts every slot past it and strands the logical half in no slot at all; the count the slots prove is thirteen and a page spelling twelve has already dropped one.
+- Shape: operation identity is the `(origin, counter)` dot beside its pre-mint frontier and never the payload digest, so equal payloads stay distinct operations; `sequence` resumes a drain and orders nothing across stores. Replay dedup and compaction admission both read the identity, so a decoder dropping it keeps neither guarantee.
+- Shape: every entry crossing a transport ANNOUNCES as a CloudEvents message envelope under the nine-attribute grammar `libs/.planning/ARCHITECTURE.md` `[14]-[EVENT_FABRIC]` fixes — `type` reading `rasm.<domain>.<subject>.<fact>.v<N>`, `source` the producing capability's URI-reference, `subject` the payload content key, `id` the producer's operation identity, `time` the occurrence instant, `recordedtime` the receiver's ingest instant, `dataschema` the registry subject and version, `datacontenttype` the serdes arrow's own row data, and extension names lowercase `[a-z0-9]` within twenty characters. Its fourteen-row extension roster hands at construction and at every decode, since a decoder without it reads a declared extension as an unknown string, and its alphabetical declaration order IS the published DSSE digest order under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
+- Shape: the message envelope's `(source, id)` uniqueness composite IS the entry's `(origin, counter)` dot rendered — `id` carries the dot and `subject` the payload content key — so a dedup reading the announcement and a replay reading the feed reach ONE decision, and an announcement keyed on payload bytes discards the second edit of identical bytes the feed keeps.
+- Shape: the message envelope ANNOUNCES and gains no authority — the entry and its codec-encoded payload stay the evidence truth, no message-envelope column enters this preimage, and a divergence between the two convicts the projection rather than the ledger.
+- Shape: this entry freezes the payload-agnostic announcement law alone; each branch-owned payload instantiating it registers its own `domain` entry at its own seam, and a second message-envelope mint inside one branch is the class's drift defect.
+- Regenerate when: the `OperationId` preimage layout, the entry slot set or its order, the `ColumnFamily` lane roster, the attribute grammar, or the extension roster changes.
 
 ### [02.35]-[TOLERANCE_WIRE]
 
@@ -552,6 +577,69 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Shape: one ISO 1101 feature-control frame as FRAMED BINARY, conforming to `tolerance-wire/contract.schema.json`. Every count, collection length, option arity, and token byte-length is a `u32` little-endian cell; every magnitude an IEEE-754 binary64 little-endian cell; every digest the `docs/laws/patterns.md` `[CONTENT_KEY]` law's 16 BIG-endian bytes at the lowercase `:x32` spelling; every token a `u32` byte-length then that many UTF-8 bytes. Field order IS `FeatureControl`'s member declaration order — magic, layout, id, source kind, source digest, characteristic, scope, zone kind, width, the kind-discriminated tail, modifiers, datums, material, composite — so a member the owner gains has one lawful seat and the layout cell bumps only when that order moves. Vocabulary KEYS cross where ordinals never do, so a roster reordered at either end re-maps nothing; `ContentKey` crosses WHOLE with egress kind ahead of digest, since two families over equal bytes mint equal digests and a digest-only join merges two specifications; a datum carries its OWN material condition and its precedence rides POSITION; the zone kind alone selects the second dimension, so no arm tag rides beside it; an `Option` frames as a count of 0 or 1, the same rule every collection follows; the composite lower segment crosses HERE as a second row of the same box, never as a second frame. Magnitudes cross EXACT and decimal presentation belongs to the consuming drawing standard — a producer-rounded string draws a sub-micron zone as an unachievable zero. Symbols never cross: each consumer resolves glyphs through its own standard and font. Geometric frames alone cross this encoder; `fit`, `texture`, `general`, and `chain` refuse by name. Model-space geometry stays OFF: datum targets and basic dimensions need a view transform this wire has no view to apply.
 - Expectation: the frozen asset rides `tolerance-wire/feature_control_frame.bin` — 210 wire bytes, seed-zero digest `78030538177c18bdf51d0f317ce6ef88`. `CorpusFrame` fixes that input at the producer: `Id = ContentHash.Of("tolerance-wire:corpus-a:characteristic")` = `7b4eae0da233186203c7e8a2248c73de`, `Source = ContentKey.Of(EgressKind.QualityRecord, "tolerance-wire:corpus-a")` = kind `quality-record` beside digest `5f21b69b4380b5c3b461668ed90d0c3a`, over the `position` characteristic on the `axis` scope with a `diameter` zone of `0.25` mm, modifiers `common-zone` then `free-state` in ordinal-ascending key order, the precedence-ordered datum system `(A, rfs) (B, mmc) (C, rfs)`, frame material `mmc`, and one composite lower segment of `0.08` mm over datum `A`. Frozen values the producer must reproduce: `47 44 54 46` at offset 0, the layout cell `1`, the two identities at offsets 8 and 42, the ordinal modifier order, and the trailing composite block, with the decode consuming all 210 bytes and leaving none.
 - Regenerate when: the `FeatureControl` member order, a crossing vocabulary roster, the `ContentKey` canonical form, the framing law, or the pinned `CorpusFrame` changes.
+
+### [02.36]-[CHANGEFEED_ENVELOPE]
+
+- Seam: `changefeed-envelope`
+- Class: domain
+- Producer: `csharp:Rasm.Persistence/Version/egress#EGRESS_SINK` — `Egress.Envelope` projects one durable `OpLogEntry` into the announcement each subscription's binding lowers.
+- Consumers: `python:runtime/transport/binding#BINDING` raises a delivered message back to a `MessageEnvelope`; `typescript:core/interchange/carrier#EVENT_ENVELOPE` decodes the whole roster and reports every peer name it does not hold; `typescript:core/state/causal#DELIVERY_BUFFER` orders and dedups on the announced `(source, id)`.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no source tree runs the egress pump, so `Egress.Envelope` has projected no concrete entry and `EventEnvelope.Encode` has framed no body — the announcement carries no byte-deriving input and the DESIGN-PIN law forbids fabricated bytes.
+- Shape: instantiates `[02.34]`'s payload-agnostic announcement law over the durable changefeed lanes, so the grammar, the extension roster, and the digest order arrive settled and this entry states the branch payload alone.
+- Shape: `id` re-renders the entry's dot and `subject` its payload content key, so the drain's dedup and the feed's replay resolve one identity.
+- Shape: `datacontenttype` and `dataschema` are row data off the serdes arrow the lane's own `SnapshotCodec` already chose, never a literal beside it.
+- Shape: `dataclassification` carries the grade the egress redaction scope resolved, and a binding that grade forbids refuses before delivery rather than after it.
+- Shape: a body past the row's `dataref` threshold externalizes to the content-keyed residence and the message envelope carries the reference alone, since every broker in the roster frames below an AEC payload.
+- Shape: the announcement projects the entry and holds no authority over it — the entry and its encoded payload stay the evidence truth `[02.34]` freezes, and a divergence convicts the projection.
+- Regenerate when: the entry slot set, the attribute grammar, the extension roster, or the per-binding `dataref` threshold derivation changes.
+
+### [02.37]-[JOURNAL_RELAY]
+
+- Seam: `journal-relay`
+- Class: domain
+- Producer: `typescript:data/journal/append#RELAY_ROWS` — `Journal.envelope` projects one claimed outbox deliverable through the branch's ONE mint entry.
+- Consumers: `typescript:core/interchange/carrier#EVENT_ENVELOPE` is the authenticated inverse `Journal.carrier` reaches; `python:runtime/transport/binding#BINDING` raises the delivered message; `csharp:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER` evaluates its filter AND-set over the decoded attributes.
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no source tree drains the relay, so `Journal.claimBatch` has claimed no deliverable and `Journal.envelope` has projected none — the announcement carries no byte-deriving input and the DESIGN-PIN law forbids fabricated bytes.
+- Shape: instantiates `[02.34]`'s law over the outbox — `id` the landed global `sequence`, `source` the stream key spelled as one URI path, `type` the event tag verbatim, `time` the write instant, `subject` the stored content key, `dataschema` the `(tag, event_version)` registry coordinate.
+- Shape: the app's event family spells its own tag as the estate grammar, since the tag IS the announced `type` and a tag outside it fails typed at the projection rather than at a subscription keying on it.
+- Shape: the landed `sequence` serves both roles it inhabits — `id` as operation identity and the `sequence` extension as the per-source position under the integer sequence domain — and both cross as decimal text, so no consumer arms the package's global JSON swap to move a 64-bit identity.
+- Shape: `partitionkey` is the stream triple, so a transport partitioning on it keeps one aggregate's announcements inside one ordering domain.
+- Shape: the two version axes stay disjoint — the `type` major moves on a breaking change while `event_version` moves on every generation — so neither consumer re-derives one from the other.
+- Shape: the announcement is a projection fold over the claimed deliverable and never a second record of truth; the outbox rows stay the evidence the relay drains.
+- Regenerate when: the outbox column set, the attribute grammar, the extension roster, or the registry-coordinate derivation changes.
+
+### [02.38]-[TRANSMITTAL_NOTICE]
+
+- Seam: `transmittal-notice`
+- Class: domain
+- Producer: `python:artifacts/delivery/notice#NOTICE` — `TransmittalNotice` is the observe subscriber over the `TRANSMITTAL_ISSUED` hook fact that answers one message envelope.
+- Consumers: `typescript:core/interchange/carrier#EVENT_ENVELOPE` decodes the roster and reports every dropped peer name; `csharp:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER` evaluates its filter AND-set over the decoded attributes.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no source tree fires `TRANSMITTAL_ISSUED`, so the projection has answered no message envelope and the format owner has framed no body — the notice carries no byte-deriving input and the DESIGN-PIN law forbids fabricated bytes.
+- Shape: instantiates `[02.34]`'s law over the settled ISO 19650 issue close — `type` under the `artifact` capability segment the receipt fold already records against, `source` that same producing capability, `id` the transmittal's pre-run aggregate key, `subject` the payload content key minted over the encoded fact bytes.
+- Shape: the payload IS the fired fact under one encode, so the announcement cannot disagree with the receipt it projects and no second projection re-spells the evidence.
+- Shape: `datacontenttype` stays absent because the format row that encodes names it, and a literal beside that row states a payload encoding the arrow already decided.
+- Shape: `partitionkey` is the transmittal id, `sequence` the revision ordinal under the integer domain so a consumer reads a gap as a missed revision, `authcontext` the issuing party, and `correlation` the issue-scope baggage id.
+- Shape: `dataclassification` resolves AT this boundary off the folded ISO 19650 confidentiality text, an unspelled or absent one reading the internal grade, since that resolved grade is what makes a binding refuse a broker the issue may not cross.
+- Shape: the issued register rides as its own content key rather than a re-spelled copy of its rows, since an unbounded row set defeats every frame budget the binding rows declare.
+- Regenerate when: the fired fact's field set, the attribute grammar, the extension roster, or the confidentiality keying changes.
+
+### [02.39]-[CESQL_CONFORMANCE]
+
+- Seam: `cesql-conformance`
+- Class: infrastructure
+- Minters: `csharp:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER`; `python:runtime/transport/filter#CESQL`; `typescript:runtime/work/filter#GRAMMAR_OWNER` — each compiles a vector once at admission and evaluates it per event through its own expression owner, and the 32-bit `Integer` width is branch-owned on every one: the C# guard reads a checked-arithmetic throw and the Python guard an explicit wrap where that runtime silently widens instead.
+- Consumers: each minter evaluates the vendored vectors through its own compiled expression owner and no branch reads a peer's verdict.
+- Payload: `wire-bytes` + `digest`
+- Pin: REAL
+- Shape: the CloudEvents CESQL conformance corpus as FROZEN PUBLISHER BYTES — the upstream TCK's own YAML vectors, each carrying an expression, its event context, and the value beside the error list a conforming evaluator must answer. Those bytes carve out of every estate lane that respells them: no formatter, no breaking gate, and no schema of this estate's authorship touches them, because a reformat proves this estate's spelling rather than the publisher's, and the seam therefore carries no `contract.schema.json` at all. Conformance is per-minter and total — every operator, function, and cast answers a value beside an accumulated error list, so a vector expecting a `MathError` proves the evaluator returned a defined value with the fault recorded rather than escaping. `Integer` is 32-bit and `ABS(-2147483648)` is the discriminating vector: the negation of the minimum has no representation, so an unchecked implementation throws where the corpus demands a fault row. Seven specification error types — parse, math, cast, missing attribute, missing function, function evaluation, and generic — close the answer vocabulary every vector grades against, and an evaluator collapsing two of them onto one passes the value half while failing the corpus. Each branch that mints an evaluator registers as a minter row here and parity across those verdict sets IS the conformance; a branch reaching CESQL only as a filter string it forwards mints nothing.
+- Expectation: the frozen assets ride `cesql-conformance/` — 18 vendored files totalling 30456 bytes, each digested seed-zero `XxHash128` as 16 big-endian bytes at the `:x32` lowercase spelling: `binary_comparison_operators.yaml` 2990 B `aeb978a214344236a0172f547219dc1d`; `binary_logical_operators.yaml` 1468 B `7b120b7c587f589bf0904c94660f62f8`; `binary_math_operators.yaml` 1705 B `bc67603c9f3e9591c85ea8e81874da4c`; `case_sensitivity.yaml` 444 B `034915a8184d0257c4e30d95ffa3eaed`; `casting_functions.yaml` 1649 B `a6c08f0ba457b55ddf736d7c8d741cd6`; `context_attributes_access.yaml` 1341 B `6728abf39e058f0f825c0332124875f7`; `exists_expression.yaml` 1421 B `fe51329c9c127d3cad40f7f196205314`; `in_expression.yaml` 2139 B `c5dad145320cd53669003c739061cd9d`; `integer_builtin_functions.yaml` 305 B `57fcdf509b14dff7ec14a69ae413a094`; `like_expression.yaml` 3764 B `91154fc6e00178def3f66038e9a9b677`; `literals.yaml` 765 B `68e74a588b4d0788450f11dbae1a7dc1`; `negate_operator.yaml` 471 B `21e6fa0a951c95184f0b33df20e667a8`; `not_operator.yaml` 501 B `f3974d7bdde9d1beb21d761324b10a68`; `parse_errors.yaml` 98 B `8533571af7e8f0feef72bbdf08455291`; `spec_examples.yaml` 2037 B `1d5ad501cce01bb1d9d51b9d03f6e6e7`; `string_builtin_functions.yaml` 3421 B `ebd3b971a64f4da6481effa878b07dc2`; `sub_expression.yaml` 238 B `e27b28752d21c9949d18674d2519597e`; `subscriptions_api_recreations.yaml` 5699 B `aae71619fa690c73fef808680f9ef11a`. Digests move only when the vendored bytes move, so a moved digest is a re-vendoring and never an estate edit.
+- Regenerate when: the vendored TCK release moves, or a minter joins the roster.
 
 ## [03]-[DEBT]
 

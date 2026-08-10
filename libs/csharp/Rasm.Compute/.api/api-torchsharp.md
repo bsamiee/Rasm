@@ -208,7 +208,7 @@
 
 [LOCAL_ADMISSION]:
 - Every `torch` computation enters Compute only wrapped in `using var scope = torch.NewDisposeScope();`, returning one promoted result through `Fin`; estimator math runs in `Float64` for IRLS/MLE stability.
-- `torch.lobpcg` is UNCOMPOSABLE at this pin on two independent counts, both measured at 0.107.0: the member is `private static`, and its body throws `NotImplementedException` when invoked (bound live through an `UnsafeAccessor` matching the decompiled signature over the nested `torch.LobpcgMethod` enum — the accessor resolved, the body ran, the call threw). A sparse iterative symmetric eigen route therefore has no substrate here, and the modal lane condenses to a reduced pencil for the dense `torch.linalg`/MathNet owner instead; re-opening on the strength of the member appearing in the assembly is the refuted move.
+- `torch.lobpcg` is UNCOMPOSABLE on two independent counts: the member is `private static`, and its body throws `NotImplementedException` when invoked (bound live through an `UnsafeAccessor` matching the decompiled signature over the nested `torch.LobpcgMethod` enum — the accessor resolved, the body ran, the call threw). `torch.linalg`/MathNet owns the eigen route with no sparse iterative symmetric substrate beside it, so the modal lane condenses to a reduced pencil there; re-opening on the strength of the member appearing in the assembly is the refuted move.
 - The native floor loads only with the consolidated payload directory on the platform dylib search path (`api-libtorch-cpu.md` `[OPENMP_THREADING_FLOOR]` carries the measured OpenMP install-name contract), so an ATen residency probe performs a real load and never a presence check.
 
 [RAIL_LAW]:

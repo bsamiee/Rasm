@@ -383,8 +383,7 @@ public static class WindowTitle {
 }
 ```
 
-Every row suppresses the platform frame; the six caption cells write only where the `[BASE]` column carries the
-Ursa caption surface, and elsewhere state what that row's own package renders under the suppressed frame.
+Every row suppresses the platform frame; a caption cell writes only where the `[BASE]` column carries the Ursa caption surface, and elsewhere states what that row's own package renders under the suppressed frame.
 
 | [INDEX] | [ROW]     | [BASE]                  | [MOUNT]           | [TITLE_BAR] | [MIN] | [RESTORE] | [FULLSCREEN] | [CLOSE] | [RESIZER] |
 | :-----: | :-------- | :---------------------- | :---------------- | :---------: | :---: | :-------: | :----------: | :-----: | :-------: |

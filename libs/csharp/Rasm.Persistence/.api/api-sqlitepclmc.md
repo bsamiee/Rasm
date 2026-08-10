@@ -42,7 +42,7 @@
 |  [03]   | `raw.sqlite3_rekey(sqlite3, ReadOnlySpan<byte>) -> int`           | static  | rekey the `main` schema          |
 |  [04]   | `raw.sqlite3_rekey_v2(sqlite3, utf8z, ReadOnlySpan<byte>) -> int` | static  | rekey a named or attached schema |
 
-- `raw.sqlite3_rekey`: an empty key strips the codec, rewriting the store as plaintext.
+- `raw.sqlite3_rekey`: strips the codec on an empty key, rewriting the store as plaintext.
 
 [ENTRYPOINT_SCOPE]: cipher parameters — SQL text the bound engine answers, unreachable from `SQLitePCL.raw`
 

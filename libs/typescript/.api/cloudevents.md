@@ -1,86 +1,111 @@
 # [TS_BRANCH_API_CLOUDEVENTS]
 
-`cloudevents` mints the validated CloudEvents 1.0 envelope and its HTTP/Kafka/MQTT `Binding`s, serializing extension attributes to `ce-`-prefixed transport headers in binary mode and the whole envelope to an `application/cloudevents+json` document in structured mode. Two branch tiers compose it from one contract: `interchange/carrier` owns the typed propagation value whose `cloudevents` dialect row this package realizes, and the outbox and webhook egress lanes construct the envelope those headers ride on.
+`cloudevents` accelerates the CloudEvents 1.0 JSON event format and the HTTP, Kafka, and MQTT protocol bindings. It owns neither the estate's attribute grammar nor its extension roster nor its format roster — the specification does, and `interchange/carrier` transcribes it — so this catalogue records what the distribution reaches and where its surface stops short of the specification the branch carries anyway.
+
+Barrel exports bound the admitted surface. Four HTTP header members and the `Detector` shape live in modules the barrel never re-exports, no `exports` map fences `dist/`, and the branch refuses the deep path reaching them; every such member is branch-owned instead.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudevents`
 - package: `cloudevents` (Apache-2.0)
-- module: single CJS `main` (`dist/index.js`), message bindings re-exported flat from the barrel, no deep subpath imports
-- runtime: the `CloudEvent`/`CONSTANTS`/extension-slot layer is dependency-light and isomorphic; the `Message`/`Binding`/`Emitter` layer references node `http`/`Buffer`/`events`, so binding serialization runs on a node/bun lane and `Message.headers` extends `IncomingHttpHeaders`
-- rail: interchange/carrier — envelope construction and transport-header projection
+- module: CJS `main` (`dist/index.js`) with `types` at `dist/index.d.ts` and NO `exports` map, so `dist/` deep paths physically resolve and the branch refuses them
+- runtime: node-declared — `engines` reads `node >=20 <=24`, `message` types reference `http`/`Buffer`, `parsers` reads `process.env`, and `event/cloudevent` reads `Date` and `uuid`
+- browser: `bundles/cloudevents.js` ships a webpack build no `browser` field selects, so bundler resolution takes the node entry and its `process`/`util` polyfills
+- rail: interchange/carrier — message-envelope mint, transport-header projection, JSON event format
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the envelope, the transport-agnostic message, and the per-transport bindings
+[PUBLIC_TYPE_SCOPE]: the barrel's exported type surface — the message envelope, the transport-agnostic frame, and the per-transport frames
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]  | [CAPABILITY]                                             |
-| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `CloudEventV1<T>` / `CloudEventV1Attributes<T>`     | envelope iface | spec-1.0 attribute contract; `[key:string]:unknown` slot |
-|  [02]   | `CloudEvent<T = undefined>`                         | envelope class | validating envelope over required + optional attributes  |
-|  [03]   | `ValidationError extends TypeError`                 | typed fault    | strict-validation failure; `errors?: ErrorObject[]`      |
-|  [04]   | `Message<T = string>`                               | wire frame     | transport-agnostic `headers`/`body` frame                |
-|  [05]   | `Binding<B, S>`                                     | codec contract | per-transport `binary`/`structured`/`toEvent`/`isEvent`  |
-|  [06]   | `Mode`                                              | encoding enum  | `BINARY`/`STRUCTURED`/`BATCH` serializer selector        |
-|  [07]   | `Serializer<M>` / `Deserializer` / `Detector`       | binding fns    | the `Binding` member function shapes                     |
-|  [08]   | `Headers extends IncomingHttpHeaders`               | header map     | `ce-`-prefixed transport header carrier                  |
-|  [09]   | `KafkaMessage<T>` / `KafkaEvent<T>`                 | kafka frame    | `key`/`value`/`timestamp`; `partitionkey`→`key`          |
-|  [10]   | `MQTTMessage<T>`                                    | mqtt frame     | `PUBLISH`/`payload`/`User Properties` aliases            |
-|  [11]   | `EmitterFunction` / `TransportFunction` / `Options` | emit fns       | per-call emit + transport function shapes                |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]    | [CAPABILITY]                                                       |
+| :-----: | :---------------------------------------------- | :--------------- | :----------------------------------------------------------------- |
+|  [01]   | `CloudEventV1<T>` / `CloudEventV1Attributes<T>` | message envelope | spec-1.0 attribute contract; `[key: string]: unknown` slot         |
+|  [02]   | `CloudEvent<T = undefined>`                     | message envelope | frozen validating class; implements `CloudEventV1<T>`              |
+|  [03]   | `ValidationError extends TypeError`             | typed fault      | `errors?: string[] \| ErrorObject[] \| null` from ajv              |
+|  [04]   | `Message<T = string>`                           | wire frame       | `headers: Headers` beside `body: T \| string \| Buffer \| unknown` |
+|  [05]   | `Headers extends IncomingHttpHeaders`           | header map       | `string \| string[] \| undefined` values, node-typed               |
+|  [06]   | `Binding<B, S>`                                 | codec contract   | `binary`/`structured`/`toEvent`/`isEvent` — FOUR members           |
+|  [07]   | `Serializer<M>` / `Deserializer`                | binding fns      | `Serializer` yields `M`; `Deserializer` yields one OR an array     |
+|  [08]   | `KafkaMessage<T>` / `KafkaEvent<T>`             | kafka frame      | `key: string \| Buffer`, `value`, `timestamp?`; `partitionkey`     |
+|  [09]   | `MQTTMessage<T>`                                | mqtt frame       | `PUBLISH`/`payload`/`User Properties` aliases over `Message`       |
+|  [10]   | `TransportFunction` / `EmitterFunction`         | emit fns         | `(message, options?)` and `(event, options?)`, both `Promise`      |
+|  [11]   | `Options`                                       | untyped bag      | `[key: string]: string \| Record<string, unknown> \| unknown`      |
 
-- `CloudEventV1<T>`: `id`, `source`, `type`, and `specversion` are required and every other attribute optional; the `[key: string]: unknown` slot admits the extension attributes the carrier folds write.
+- `dist/message/index.d.ts` declares `Detector`, the `Binding.isEvent` shape, and the barrel omits it, so a branch surface naming a detector declares its own predicate type.
+- `Mode` is a TypeScript `enum`, which `erasableSyntaxOnly` refuses in branch code; its three members reach the branch as an owned literal union and cross to `emitterFor` at the seam alone.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: envelope construction and clone, per-transport serialize/deserialize, header projection, and per-call emission
+[ENTRYPOINT_SCOPE]: barrel-reachable construction, per-transport serialize and deserialize, and per-call emission
 
-| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                                |
-| :-----: | :------------------------------------------------ | :------- | :---------------------------------------------------------- |
-|  [01]   | `new CloudEvent(props, strict?)`                  | ctor     | envelope from owned attributes + branded tracing extensions |
-|  [02]   | `event.cloneWith(options, strict?)`               | instance | immutable re-attribute; `<D>` overload retypes `data`       |
-|  [03]   | `event.toJSON()` / `.toString()` / `.validate()`  | instance | structured projection, stringify, explicit schema re-check  |
-|  [04]   | `CloudEvent.cloneWith(event, options, strict?)`   | static   | clone a raw `CloudEventV1` off the class                    |
-|  [05]   | `HTTP.binary(event)` / `HTTP.structured(event)`   | static   | `CloudEvent`→`Message`; binary emits `ce-` headers          |
-|  [06]   | `HTTP.toEvent(message)` / `HTTP.isEvent(message)` | static   | `Message`→`CloudEventV1` or `[]` batch; detect first        |
-|  [07]   | `Kafka.binary` / `Kafka.toEvent`                  | static   | Kafka record-header dialect; `partitionkey`↔`key`           |
-|  [08]   | `MQTT.binary` / `MQTT.toEvent`                    | static   | MQTT PUBLISH dialect; `MQTTMessageFactory` builder          |
-|  [09]   | `headersFor(event)` / `sanitize(headers)`         | static   | binary-header projection; lowercase-normalize a frame       |
-|  [10]   | `allowedContentTypes` / `requiredHeaders`         | static   | admitted binary content types; required `ce-*` literal set  |
-|  [11]   | `emitterFor(fn, { binding, mode })`               | factory  | per-call `EmitterFunction`; no shared singleton             |
-|  [12]   | `httpTransport(sink)`                             | factory  | `TransportFunction` POSTing the serialized `Message`        |
-|  [13]   | `CONSTANTS`                                       | const    | `ce-` header names, MIME types, `CE_USE_BIG_INT` env key    |
-|  [14]   | `V1` / `V03`                                      | const    | `specversion` literal; the branch mints `V1` only           |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :----------------------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `new CloudEvent(props, strict = true)`           | ctor     | freezes the instance; mints absent `id`/`time`/`specversion`    |
+|  [02]   | `event.cloneWith(options, strict = true)`        | instance | two overloads — preserve `T`, or retype `data` through `<D>`    |
+|  [03]   | `CloudEvent.cloneWith(event, options, strict?)`  | static   | `new CloudEvent(Object.assign({}, event, options), strict)`     |
+|  [04]   | `event.toJSON()` / `event.toString()`            | instance | plain object with `time` re-formatted; `toString` stringifies   |
+|  [05]   | `event.validate()`                               | instance | ajv re-check; wraps a foreign throw in `ValidationError`        |
+|  [06]   | `HTTP.binary` / `HTTP.structured`                | static   | `ce-` headers + raw body; `application/cloudevents+json` body   |
+|  [07]   | `HTTP.toEvent` / `HTTP.isEvent`                  | static   | binary, structured, AND batch decode; `isEvent` swallows throws |
+|  [08]   | `Kafka.binary` / `Kafka.structured`              | static   | `ce_` headers; `partitionkey` projects to `KafkaMessage.key`    |
+|  [09]   | `Kafka.toEvent` / `Kafka.isEvent`                | static   | binary, structured, and batch decode off the `ce_` header set   |
+|  [10]   | `MQTT.binary` / `MQTT.structured`                | static   | UNPREFIXED attribute spread into `User Properties`              |
+|  [11]   | `MQTT.toEvent` / `MQTT.isEvent`                  | static   | binary and structured only — no batch arm exists                |
+|  [12]   | `MQTTMessageFactory(contentType, headers, body)` | static   | builds `PUBLISH`/`payload`/`User Properties` over one body      |
+|  [13]   | `emitterFor(fn, options?)`                       | factory  | destructures `binding`/`mode` off an unchecked `Options` bag    |
+|  [14]   | `httpTransport(sink)`                            | factory  | `TransportFunction` POSTing the serialized `Message`            |
+|  [15]   | `Emitter.on` / `Emitter.emitEvent` / `emit()`    | static   | process-global `EventEmitter` singleton; the branch refuses it  |
+|  [16]   | `CONSTANTS`                                      | const    | header names, MIME types, and the `CE_USE_BIG_INT` env key      |
+|  [17]   | `V1` / `V03`                                     | const    | `"1.0"` and `"0.3"`; the branch mints `V1` alone                |
 
-- `event.cloneWith` carries three overloads — the default excludes `data` and preserves `T`, the `<D>` form retypes `data`, and the static form clones a raw `CloudEventV1`.
+- `headersFor`, `sanitize`, `allowedContentTypes`, and `requiredHeaders` are declared in `dist/message/http/headers.d.ts` and a second `headersFor` in `dist/message/kafka/headers.d.ts`; `message/http/index.d.ts` re-exports `HTTP` alone, so none reaches the barrel and each is branch-owned.
+- No `Binding` carries a batch serializer, so batch ENCODE is branch-owned at every transport while HTTP and Kafka decode a batch through `toEvent`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Tracing and baggage attributes ride the `[key:string]:unknown` extension slot as plain keys, never a typed SDK module.
-- Binary mode prefixes each extension attribute with `CONSTANTS.EXTENSIONS_PREFIX` (`ce-`), so `traceparent` rides as `ce-traceparent`; structured mode JSON-envelopes the whole event under `application/cloudevents+json`.
-- Extension attribute NAMES admit lowercase alphanumerics alone, so a dotted convention key bends at the projection and bends back at the read; the prefix and the bent key are two separate constraints and neither implies the other.
-- `new CloudEvent(props)` runs `ajv` strict validation and throws `ValidationError` (a `TypeError` carrying `errors?: ErrorObject[]`) on a malformed envelope; `strict:false` bypasses validation and re-hydrates already-validated bytes alone.
-- `HTTP.binary`/`HTTP.structured` return a transport-neutral `Message` whose body encodes to bytes exactly once upstream of any signature; framing never reserializes after a signature lands.
-- Emission composes `emitterFor(transportFn)` per call site; the static `Emitter` and `CloudEvent.emit` back a process-global `EventEmitter`, so two branch apps would share one registry.
+- Construction mints an absent `id` from `uuid.v4()`, an absent `time` from `new Date().toISOString()`, and an absent `specversion` from `V1`, so a mint that omits any of the three reads ambient randomness and the wall clock inside the SDK where no `Clock` or `Random` service can reach.
+- Construction ends at `Object.freeze(this)`, so a message envelope is immutable and every re-attribution is a `cloneWith` that re-runs the whole admission.
+- `strict` gates the extension gate ALONE: names match `/^[a-z0-9]+$/` and values pass `isValidType`, while the specification's 20-character ceiling appears in the thrown message and is never enforced.
+- `validateCloudEvent` RETURNS `false` for any `specversion` other than `V1` instead of throwing, so a `V03` message envelope passes strict construction unvalidated.
+- Cross-version guards over `specversion`/`schemaurl` and `specversion`/`dataschema` throw a bare `TypeError`, not a `ValidationError`, so a catch narrowing on `ValidationError` alone loses that arm.
+- Binary `data` auto-populates `data_base64` through `asBase64`, and an incoming `data_base64` auto-decodes to `data` as `Uint8Array`; `toJSON` drops `data` when both are present.
+- `toJSON` re-formats `time` through `new Date(time).toISOString()`, so a `time` no `Date` parses throws a `RangeError` out of `toString`, `HTTP.structured`, and `MQTT.structured`.
+- Attribute-name prefixing is PER TRANSPORT and no constant spans the three: HTTP prefixes `CONSTANTS.EXTENSIONS_PREFIX` (`ce-`), Kafka hard-codes `ce_`, and MQTT spreads attribute names UNPREFIXED into `User Properties`.
+- `Kafka.headersFor` prefixes EVERY own property except `data` and `data_base64`, applying no header map, so a Kafka header name joins `ce_` to the attribute name verbatim.
+- `HTTP.headersFor` stamps `ce-time` from `new Date(event.time).toISOString()` after the header map runs, so the wire instant is a re-formatting of the attribute rather than its transcription.
+- `JSONParser.parse` assigns the GLOBAL `JSON` binding — to `json-bigint` when `process.env.CE_USE_BIG_INT === "true"`, back to a captured reference otherwise — so the flag is a process-wide swap of `JSON.parse` for every consumer, never a per-call knob.
+- `HTTP.isEvent` and `Kafka.isEvent` implement detection by running the full deserialize inside `try`/`catch`, so a detect-then-decode pair parses the frame twice.
+- `emitterFor` reads `binding` and `mode` off an index-signature `Options` bag, so a misspelled key silently takes the `HTTP`/`BINARY` default and `Mode.BATCH` reaches a bare `TypeError` at emit rather than a compile error.
+- `Emitter` and `event.emit()` back one process-global `EventEmitter`, so two branch applications in one process share one registry.
 
 [STACKING]:
-- `interchange/carrier`(`core/.planning/interchange/carrier.md`): the carrier folds the W3C triple and the promoted tenancy member to strings and sets them as `CloudEvent` extension attributes, and this package's `binary` binding emits them as `ce-`-prefixed headers, realizing the dialect table's `cloudevents` row; the inverse read hands the envelope straight back to `Carrier.extract`.
-- `data/journal/append`(`data/.planning/journal/append.md`): the ONE member-level consumer in the branch — the outbox envelope projection constructs `CloudEvent` over a carrier-injected attribute record and its inverse decodes the same envelope back through the carrier, so core composes the package's CONTRACT (the dialect row) while the journal composes its MEMBERS. A second construction site is the split the one projection forecloses.
-- `runtime` webhook egress: `HTTP.binary`/`HTTP.structured` output lands on the hook payload's headers and body, the body encodes to bytes once, and the signing service signs those exact bytes.
-- `effect` `Schema`(`.api/effect.md`): `Binding.toEvent` yields `CloudEventV1<unknown>` or a batch array, and `Schema.decodeUnknown` decodes the `data` payload and the branded extensions into owned vocabulary, lifting a `ParseError` into the `Effect` error channel; a `BOUNDARY ADAPTER` lifts the construction throw through `Effect.try`.
-- `effect` `Match`/`Data`(`.api/effect.md`): `Mode` and the HTTP/Kafka/MQTT `Binding` selection dispatch through `Match.exhaustive`, so a transport is a table row, never an `if`/`switch` ladder over content-type strings.
-- `@bufbuild/protobuf`/`cbor-x`/`@msgpack/msgpack`(`core/.api/`): those own the `data` PAYLOAD codec, while `cloudevents` owns the ENVELOPE and its transport headers around that payload — the envelope codec never re-encodes the payload, the payload codec never mints an envelope.
-- `mqtt`(`runtime/.api/mqtt.md`): `MQTT.binary` publishes through `publishAsync`; `MQTT.toEvent` decodes `IPublishPacket`; `mqtt` owns connectivity.
-- `value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` journal evidence inside `Effect.try`; bare `TypeError` never crosses.
+- `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): the branch's ONE message-envelope owner — the attribute grammar, the extension roster, and the mint entry that supplies `id`, `time`, and `specversion` explicitly, lifts the construction throw onto the typed rail, and re-proves the extension-name ceiling the SDK only mentions; its `cloudevents` dialect row reads and writes an event's own UNPREFIXED attribute record, and each binding's prefix stays that binding's.
+- `core/interchange/format`(`core/.planning/interchange/format.md`): the event-format roster — JSON delegating to this package's structured mode, protobuf and Avro branch-owned because this distribution ships neither — with the batch sibling per format and the media-type-prefix framing every batch decode reads.
+- `core/interchange/codec`(`core/.planning/interchange/codec.md`): the wire registry excludes the message envelope by law, so no `Wire` family, landing class, or parity obligation names a CloudEvents shape.
+- `data/journal/append`(`data/.planning/journal/append.md`): projects each claimed outbox row through `Event.mint` — the addressed record decodes into `Event.Fact` first, so the grammar proof reaches the mint instead of dissolving in the widened attribute record injection returns — and decodes the authenticated inverse through `Carrier.extract`.
+- `runtime/serve/route`(`runtime/.planning/serve/route.md`): detects the frame off the media-type prefix and the binding's own specversion header, sanitizes the band, decodes ONCE through `HTTP.toEvent`, and admits each member at the core owner — it constructs nothing, so the double-parse `isEvent` forces never runs here.
+- `runtime/net/channel`(`runtime/.planning/net/channel.md`): mints its frame through `MQTTMessageFactory`, reads arity off the format roster before decoding through `MQTT.toEvent`, and publishes through `MQTT.binary` under the binding's own unprefixed User-Property namespace.
+- `effect` `Schema`(`.api/effect.md`): `Binding.toEvent` yields `CloudEventV1<unknown>` or an array of them, so the landing narrows the arity before `Schema.decodeUnknown` decodes `data` and the typed extensions; `Effect.try` lifts every construction throw.
+- `effect` `Match`(`.api/effect.md`): binding and content-mode selection dispatch through owned literal rows, since the package's `Mode` is an `enum` the branch cannot declare.
+- `@bufbuild/protobuf`/`cbor-x`/`@msgpack/msgpack`(`core/.api/`) and `avsc`(`runtime/.api/avsc.md`): those own the `data` PAYLOAD codec while this package owns the JSON message envelope and its transport headers around that payload.
+- `mqtt`(`runtime/.api/mqtt.md`): owns connectivity; `MQTTMessageFactory` builds the frame this package's binding shapes and `mqtt` publishes.
+- `runtime/net/pubsub`(`runtime/.planning/net/pubsub.md`): carries the message envelope as the fanout port's ONE payload — `Kafka.binary`/`Kafka.toEvent` own the `ce_` header band and the record key while the registry serde owns the data bytes, and the branch NATS binding composes `HTTP.binary`/`HTTP.toEvent` because the specification's NATS binding is the same `ce-` prefixed header set.
+- `runtime/work/deliver`(`runtime/.planning/work/deliver.md`): projects the stored announcement at claim time through the mode's own binding, seals the digested attribute set into `dssematerial`, and signs the encoded octets once before any reserialization.
+- `core/value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` evidence inside `Effect.try`; a bare `TypeError` from the cross-version guard folds onto the same rail.
 
 [LOCAL_ADMISSION]:
-- Strict `new CloudEvent(props)` runs in `Effect.try`; `ValidationError` maps to `Fault.Class`, while `strict:false` only rehydrates trusted bytes.
-- Set and read tracing and baggage extension attributes only through the carrier folds, never a raw `CloudEvent[key]` read.
-- Name headers through `CONSTANTS.EXTENSIONS_PREFIX`/`CONSTANTS.CE_HEADERS`; `CE_USE_BIG_INT` opts in only where a `data` payload carries i64 fidelity the JSON envelope drops.
-- Select `binary` or `structured` explicitly and carry the returned headers exactly; encode the body to bytes once, before any signature.
+- Supply `id`, `time`, and `specversion` at every mint, so no message envelope carries an SDK-minted identity or wall-clock instant.
+- Run strict construction inside `Effect.try` and catch `TypeError`, since `ValidationError` extends it and the cross-version guard throws the base class.
+- Read and write tracing, baggage, and every rostered extension through the carrier folds and the branch roster; a raw `CloudEvent[key]` read bypasses the only surface that knows the roster.
+- Leave `CE_USE_BIG_INT` unset: it swaps the process-wide `JSON` binding, so i64 fidelity rides the payload codec instead.
+- Decode with the arity narrowed first — `Deserializer` returns one message envelope or an array — and never route a batch content type down a single-message path.
+- Select the binding and the content mode as owned typed data above `emitterFor`, and never spell a `ce-`, `ce_`, or unprefixed header literal beside the binding that owns it.
+- Refuse `Emitter`, `event.emit()`, `strict: false` on untrusted bytes, and every `cloudevents/dist/*` deep path.
+- Encode the body to bytes once, before any signature, since `toString` and `toJSON` re-format `time` on every call.
 
 [RAIL_LAW]:
 - Package: `cloudevents`
-- Owns: the CloudEvents 1.0 envelope (`CloudEvent`/`CloudEventV1`, `cloneWith`/`toJSON`/`toString`/`validate`), `ValidationError`, the transport-agnostic `Message`/`Binding` contract, the HTTP/Kafka/MQTT binary+structured bindings, the `ce-`-prefixed extension-attribute header mapping with `headersFor`/`sanitize`/`allowedContentTypes`/`requiredHeaders`, the `emitterFor`/`httpTransport` per-call emission factory, and `CONSTANTS`/`V1`/`V03`
-- Accept: strict `Effect.try` construction; carrier extensions; `Match`-selected bindings; decoded payloads; `Fault.Class` evidence; per-call emission; pre-sign encoding
-- Reject: static `Emitter` singleton and `event.emit()`, raw `ValidationError` throw into a fold, bare SDK envelope in domain code, raw extension string bypassing the carrier folds, hand-rolled `ce-` header literals or a hand-built CloudEvents JSON envelope, `strict:false` on untrusted bytes, serialization after signing, `Message.body` read as bytes without narrowing
+- Owns: the frozen `CloudEvent` message envelope with `cloneWith`/`toJSON`/`toString`/`validate`, `ValidationError`, the `Message`/`Binding` contract, the HTTP/Kafka/MQTT binary and structured bindings with HTTP and Kafka batch decode, `MQTTMessageFactory`, the `emitterFor`/`httpTransport` per-call emission pair, and `CONSTANTS`/`V1`/`V03`
+- Accept: explicit `id`/`time`/`specversion`, `Effect.try` construction catching `TypeError`, carrier-folded extensions, arity-narrowed decode, typed binding and mode selection, per-call emission, pre-sign encoding
+- Reject: SDK-minted identity or instant, `Emitter` and `event.emit()`, `CE_USE_BIG_INT`, raw `ValidationError` into a fold, hand-spelled transport header literals, hand-built CloudEvents JSON, `strict: false` on untrusted bytes, `cloudevents/dist/*` deep imports, serialization after signing

@@ -15,7 +15,7 @@
 - Law: `ParametricAxis` carries its own `Native` column and every host direction argument reads it — `Surface.CreatePeriodicSurface`, `Surface.RebuildOneDirection`, and the solid rail's `Brep.ChangeSeam` all take the host's declared `0 = U, 1 = V` encoding off the row, so a key renumber can never silently mis-drive a native and the encoding is declared once instead of riding an ordinal cast at three call sites.
 - Law: one analytic vocabulary serves two representations — `AnalyticSeed.Build` dispatches the primitive once, while each `SurfaceForm` row supplies the four constructor delegates through `[UseDelegateFromConstructor]`; neither axis reconstructs the other.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NetContinuity {
@@ -245,7 +245,7 @@ public abstract partial record SumExtent {
 - Law: variable offsetting is corner-driven construction — `VariableOffset` carries the four corner distances plus optional interior `(uv, distance)` rows, the row set selects the host overload, and the offset tolerance derives from the domain absolute tolerance, never a payload literal.
 - Growth: a new freeform constructor is one case with its arm; the spine and every consumer read it with zero new surface.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SurfaceSlot {

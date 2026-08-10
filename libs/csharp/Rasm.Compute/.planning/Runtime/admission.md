@@ -42,9 +42,9 @@ public abstract partial record ComputeIntent {
     // tensor op does, so its deadline budget, element cap, cancel scope, and correlation bind before the
     // CaptureIngest channel holds it and a DropOldest shed lands as Backpressure evidence carrying the
     // dropped sample's own correlation. `Runtime/transport#BROKER_INGEST` mints the case off the pump and
-    // `Solver/clash#CLASH_AND_TWIN` `TwinLoop.Ingest` is the bound lane dispatch — a raw envelope pushed
+    // `Solver/clash#CLASH_AND_TWIN` `TwinLoop.Ingest` is the bound lane dispatch — a raw reading pushed
     // onto a channel beside `AdmittedIntent` forks the lane's admission law and strands that evidence.
-    public sealed record SensorAdmit(SensorEnvelope<TwinSignal> Envelope) : ComputeIntent;
+    public sealed record SensorAdmit(SensorReading<TwinSignal> Reading) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
 

@@ -34,7 +34,7 @@ Rasm.Bim/
 │   ├── Tessellation.cs    # Compute tessellation-companion bridge
 │   ├── Reconstruct.cs     # Scan-to-BIM reconstruction over dual-engine LAS/LAZ ingest
 │   ├── Wire.cs            # Host-free IFC interchange artifact the Python and TypeScript peers decode
-│   └── Events.cs          # BimEvent model-mutation fact union and its CloudEvents envelope
+│   └── Events.cs          # announced-fact roster, wire payloads, and the CloudEvents projection
 ├── Energy/                # Building-energy-model exchange
 │   ├── Exchange.cs        # Energy-op union apply over the exchange rail
 │   ├── Projector.cs       # Raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
@@ -65,7 +65,7 @@ Strata order the sub-domains under the acyclic law — every cross-stratum consu
 - S2 `Projection` — the seam arm: `SemanticProjector : IElementProjection` and `IfcLegality : IGraphConstraint` compose model and semantics.
 - S2 ports — the Materials-implemented `IIfcTypeReconciler` and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
 - S3 `Exchange` — the interchange codec: the `InterchangeFormat` axis, `IfcWire`, the `TessellationRequest`/`TessellationOutcome` bridge.
-- S3 events — the `BimEvent`/`BimEnvelope` fabric; case slots carry closed-vocabulary KEY strings, so S4 mint sites project down.
+- S3 events — the announcement projection over the `BimFact` roster; case slots carry closed-vocabulary KEY strings, so S4 fire sites project down.
 - S4 delivery — `Energy`: `EnergyProjector`, `EnergyArtifact`; `Planning`: `ScheduleNetwork`, `CostSchedule`.
 - S4 delivery — `Review`: `IdsSpecification`, `ModelDiff`, `IssueBoard`.
 
@@ -171,7 +171,7 @@ flowchart LR
     Model -->|"[PROJECTION]: BimOpenSchema"| Persistence
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Persistence
     Exchange <-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
-    Exchange -->|"[WIRE]: BimEvent"| Persistence
+    Exchange -->|"[EVENT]: CloudEvents announcement"| Persistence
     Review <-->|"[CONTENT_KEY]: CommitKey"| Persistence
     Review <-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Persistence
     Energy -->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
@@ -220,7 +220,7 @@ flowchart LR
     Model -->|"[PORT]: BimHooks"| AppHost
     Model -->|"[RECEIPT]: BimBenchReceipt"| AppHost
     Model -->|"[WIRE]: BrickGraph"| AppHost
-    Exchange -->|"[WIRE]: BimEvent"| AppHost
+    Exchange -->|"[EVENT]: CloudEvents announcement"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
     Semantics -->|"[WIRE]: GeoWire"| Data
     Model -->|"[WIRE]: PredicateWire"| Core
@@ -235,7 +235,7 @@ flowchart LR
 
 Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest.
 
-`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and the `BimPoint.Scopes` trace planes at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports. Span custody stays the kernel `SpanBand` that root owns and the meter scope stays `TelemetrySource.Bim`; neither grammar derives from the other.
+`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and the `BimPoint.Scopes` trace planes at its telemetry root, and binds the announced message envelope its `Exchange/events#EVENT_PROJECTION` subscription mints onto its broker transports. Span custody stays the kernel `SpanBand` that root owns and the meter scope stays `TelemetrySource.Bim`; neither grammar derives from the other.
 
 That same root owns the `BrickGraph` leg's other half — it supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport axis, so `Rasm.Bim` mints the operations topology and names no live transport.
 

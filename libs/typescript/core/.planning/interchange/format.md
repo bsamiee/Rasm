@@ -1,8 +1,8 @@
 # [CORE_FORMAT]
 
-`Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError` rail, four arms — protobuf, CBOR, MessagePack, JSON — publish bounded complete-payload codecs, and the closed RFC 6902 algebra applies patches prototype-safely. Module `core/src/interchange/format.ts` admits an encoding as one arm row, a descriptor family as one `_suite` key, and a MessagePack extension as one type-byte registration.
+`Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError` rail, four arms — protobuf, CBOR, MessagePack, JSON — publish bounded complete-payload codecs, the closed RFC 6902 algebra applies patches prototype-safely, and the announced-fact media roster names which arm renders each event format. Module `core/src/interchange/format.ts` admits an encoding as one arm row, a descriptor family as one `_suite` key, a MessagePack extension as one type-byte registration, and an event format as one media row.
 
-`Format` composes the `value` floor's `Shape` and `Clock.Hlc` beside the generated `interchange_pb.ts` descriptors, and hands `interchange/codec` the arm rows that select a family's codec, name its contract-compatibility token, and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
+`Format` composes the `value` floor's `Shape` and `Clock.Hlc` beside the generated `interchange_pb.ts` and `cloudevents_pb.ts` descriptors, and hands `interchange/codec` the arm rows that select a family's codec, name its contract-compatibility token, and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
 
 ## [01]-[INDEX]
 
@@ -13,6 +13,7 @@
 - [06]-[JSONPATCH_ENGINE]: typed operations and prototype-safe rooted application; `Format.Patch`.
 - [07]-[JSON_ENGINE]: bounded UTF-8 JSON and refused-octet rendering; `Format.json`.
 - [08]-[ARM_ROWS]: fits, admit, compatibility, self-description, render, and degrade per arm; `Format.arms`.
+- [09]-[EVENT_FORMAT]: announced-fact media rows, batch message envelopes, prefix framing, and batch encode; `Format.event`.
 
 ## [02]-[ENGINE_FOLD]
 
@@ -55,6 +56,7 @@ const _lifted = (
 - Law: protobuf parity is semantic; only frozen map and unknown-field posture fixtures may claim exact bytes.
 - Law: generated descriptors enter through `_suite`; no handwritten peer schema or second registry exists.
 - Law: `_suite` keys transcribe declared message names verbatim; a family owning no descriptor source rides a `codec` arm.
+- Law: `_suite` and `registry` hold estate-declared families alone; a foreign publisher's descriptor reaches `frame`/`family` as an argument, so the CloudEvents generation never enters this registry.
 - Packages: `@bufbuild/protobuf`; `effect`; `../value/schema.ts`; generated `./interchange_pb.ts`.
 
 ```typescript signature
@@ -84,8 +86,8 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
 
 // Keys TRANSCRIBE descriptor names verbatim — a key is the message a `.proto` declares and its value the generated
 // `<Name>Schema` protoc-gen-es derives from that same name — so the corpus mints every spelling and this registry
-// re-spells none. Rows group by declaring source: element the graph envelopes and their node and edge payloads,
-// channels the texture families, compute the suite service vocabulary, organization the containment envelope.
+// re-spells none. Rows group by declaring source: element the graph snapshots and their node and edge payloads,
+// channels the texture families, compute the suite service vocabulary, organization the containment message.
 // Compute's messages carry NO `Wire` suffix while element's carry it on every message, because that suffix breaks a
 // COLLISION rather than marking a projection — element seats a wire type beside a domain twin per message, where
 // nothing co-resident with compute's collides. `AssetSetManifest` reads unsuffixed for that one reason.
@@ -406,8 +408,8 @@ const Patch: Patch.Shape = {
 const _TEXT = { fatal: true } as const
 
 const _strict = new TextDecoder("utf-8", _TEXT)
-// The lossy twin exists for `text` alone: a quarantined frame renders where the strict pair already refused,
-// and no decode path reaches it.
+// `text` alone owns the lossy twin: a quarantined frame renders where the strict pair already refused, and no
+// decode path reaches it.
 const _render = new TextDecoder("utf-8")
 const _jsonEncoder = new TextEncoder()
 
@@ -485,8 +487,8 @@ const _decoded = (schema: Schema.Schema<unknown, Uint8Array>) => (octets: Uint8A
 const _armRows = {
   proto: {
     fits: "<schema-evolving-cross-language-payload-with-a-declared-descriptor>",
-    // The one arm whose admission can REFUSE: without its family's descriptor there is no schema to bind, and the
-    // three self-describing arms return the composition unconditionally.
+    // This arm alone can REFUSE its admission: without its family's descriptor no schema binds, where the three
+    // self-describing arms return the composition unconditionally.
     admit: (owned, descriptor) => Option.map(descriptor, (gen) => Proto.family(gen, owned)),
     compatibility: "binary",
     selfDescribing: false,
@@ -529,6 +531,110 @@ const _armRows = {
 
 type _ArmKind = Arm.Kind
 type _ArmRow = Arm.Row
+```
+
+## [09]-[EVENT_FORMAT]
+
+- Owner: `_eventFormatRows` carries the announced-fact media roster — one row per format, the batch message envelope it defines, the content modes it codes, the arm that renders it, and what the format forfeits.
+- Law: the roster is JSON, Protobuf, and Avro; CBOR, XML, and avro-compact are working drafts and no row admits one.
+- Law: `batch` and `binary` are CAPABILITY columns, not universal fields — the Avro format defines neither a batch message envelope nor a binary-mode payload codec, so its `batch` reads `Option.none()` and its `binary` reads false, and a consumer routing `application/cloudevents-batch+avro` addresses a media type the specification never minted.
+- Law: a row's `arm` names a core engine or stands empty, so the ONE format whose engine is host-bound declares that on its `degrade` rather than putting a `Buffer` in a core signature.
+- Law: `framed` reads the media-type PREFIX, so one read recovers both the format and the arity and a format's batch message envelope needs no second dispatch; a row carrying no batch message envelope is skipped by the batch pass rather than compared against a spelling it never publishes.
+- Law: `admit` binds an owned schema to the row's arm and is the ONE batch-encode owner, since no `Binding` the package ships carries a batch serializer at any transport.
+- Law: batch arity is the caller's schema, never a second entrypoint — a producer encoding a sequence passes `Schema.Array` and reads the row's own `batch` media type, which a format defining none refuses at the read.
+- Law: a producer past the transport budget splits before encoding, since a relay re-framing a batch cannot re-sign what it respelled.
+- Law: the JSON row delegates the message-envelope body to the package's own structured mode; the Protobuf row binds the generated CloudEvents descriptor, which the wire registry never admits.
+- Growth: a format is one row; a format gaining a core engine fills its `arm` and empties its `degrade`.
+- Boundary: content mode, transport headers, and per-binding thresholds seat at the consuming binding; this cluster owns the media roster and its framing alone.
+- Packages: `effect`; `@bufbuild/protobuf` (`DescMessage`); generated `./cloudevents_pb.ts`.
+
+```typescript signature
+const _eventFormats = ["avro", "json", "protobuf"] as const
+
+declare namespace EventFormat {
+  type Kind = (typeof _eventFormats)[number]
+  type Row = {
+    readonly media: string
+    readonly batch: Option.Option<string> // the batch message envelope this format defines; a format defining none reads none
+    readonly binary: boolean // whether this format codes a binary-mode payload, so a binding reads capability instead of attempting one
+    readonly arm: Option.Option<Arm.Kind>
+    readonly selfDescribing: boolean
+    readonly degrade: string
+  }
+  type Framing = { readonly format: Kind; readonly batch: boolean }
+  type _Rows<T extends { readonly [K in Kind]: Row } = typeof _eventFormatRows> = T
+}
+
+// Each defined batch message envelope spells its own format's media type with `-batch` before the `+suffix`, so the framing
+// read below recovers format and arity from one prefix comparison and no arity column exists on the row.
+const _eventFormatRows = {
+  // Avro alone carries a host-bound engine: `avsc` reads `Buffer`-only slice methods, which core forbids, so
+  // this arm stands empty and the node lane fills it rather than dragging a host type into S0. Its batch and
+  // binary cells are the SPECIFICATION's own silence — the Avro format defines one structured message envelope and
+  // nothing else — so no lane fills them and a peer asking for either reads the refusal off this row.
+  avro: {
+    media: "application/cloudevents+avro",
+    batch: Option.none<string>(),
+    binary: false,
+    arm: Option.none<Arm.Kind>(),
+    selfDescribing: false,
+    degrade: "<node-lane-engine-seat;structured-single-only>",
+  },
+  json: {
+    media: "application/cloudevents+json",
+    batch: Option.some("application/cloudevents-batch+json"),
+    binary: true,
+    arm: Option.some<Arm.Kind>("json"),
+    selfDescribing: true,
+    degrade: "<base64-inflated-binary-data>",
+  },
+  protobuf: {
+    media: "application/cloudevents+protobuf",
+    batch: Option.some("application/cloudevents-batch+protobuf"),
+    binary: true,
+    arm: Option.some<Arm.Kind>("proto"),
+    selfDescribing: false,
+    degrade: "<descriptor-required-per-decode>",
+  },
+} as const satisfies { readonly [K in EventFormat.Kind]: EventFormat.Row }
+
+// Batch prefixes test first, so a media type answering both comparisons resolves to the wider frame rather
+// than decoding a sequence as one message envelope; a format publishing no batch media type leaves the pass
+// with nothing to compare, so its structured media type is the only spelling this read can recover.
+const _framed = (contentType: string): Option.Option<EventFormat.Framing> =>
+  Option.orElse(
+    Option.map(
+      Array.findFirst(_eventFormats, (format) =>
+        Option.exists(_eventFormatRows[format].batch, (media) => contentType.startsWith(media))),
+      (format) => ({ format, batch: true }),
+    ),
+    () =>
+      Option.map(
+        Array.findFirst(_eventFormats, (format) => contentType.startsWith(_eventFormatRows[format].media)),
+        (format) => ({ format, batch: false }),
+      ),
+  )
+
+// ONE admission for both arities: the caller's schema carries the arity — a sequence passes `Schema.Array` — so a
+// second batch entrypoint would re-describe what the schema already states.
+const _eventAdmit = <A, I>(
+  format: EventFormat.Kind,
+  owned: Schema.Schema<A, I>,
+  descriptor: Option.Option<DescMessage>,
+): Option.Option<Schema.Schema<A, Uint8Array>> =>
+  Option.flatMap(_eventFormatRows[format].arm, (arm) => _armRows[arm].admit(owned, descriptor))
+
+const EventFormat: {
+  readonly formats: typeof _eventFormats
+  readonly rows: typeof _eventFormatRows
+  readonly framed: typeof _framed
+  readonly admit: typeof _eventAdmit
+} = {
+  formats: _eventFormats,
+  rows: _eventFormatRows,
+  framed: _framed,
+  admit: _eventAdmit,
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -537,31 +643,38 @@ declare namespace Format {
   namespace Arm {
     type Row = _ArmRow
   }
+  type Event = EventFormat.Kind
+  namespace Event {
+    type Row = EventFormat.Row
+    type Framing = EventFormat.Framing
+  }
   type Shape = {
     readonly arms: typeof _arms
-    readonly rows: { readonly arm: typeof _armRows }
+    readonly rows: { readonly arm: typeof _armRows; readonly event: typeof _eventFormatRows }
     readonly proto: typeof Proto
     readonly cbor: typeof Cbor
     readonly msgpack: typeof Pack
     readonly Patch: typeof Patch
     readonly json: typeof Json
+    readonly event: typeof EventFormat
   }
 }
 
 const Format: Format.Shape = {
   arms: _arms,
-  rows: { arm: _armRows },
+  rows: { arm: _armRows, event: _eventFormatRows },
   proto: Proto,
   cbor: Cbor,
   msgpack: Pack,
   Patch,
   json: Json,
+  event: EventFormat,
 }
 
 export { Format }
 ```
 
-## [09]-[RESEARCH]
+## [10]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -91,7 +91,7 @@
 
 [ENTRYPOINT_SCOPE]: `Object` — box construct, style, geometry, parent, edge-track
 
-`Object(value, position, page=, width=, height=, **style)` is the one box constructor, every style axis a keyword; `position`/`center_position`/`size` are the geometry surface (page-absolute, auto-rebased under a `parent`). Container parenting is one axis: `parent=` with `autosize_to_children`/`autocontract` expands the box to hug its children (how a `Swimlane` glyph lowers). A shape is a library-key string via `create_from_library`/`object_from_library`, never an `add_rect`/`add_ellipse` subtype family.
+`Object(value, position, page=, width=, height=, **style)` is the one box constructor, every style axis a keyword; `position`/`center_position`/`size` are the geometry surface (page-absolute, auto-rebased under a `parent`). Container parenting is one axis: `parent=` with `autosize_to_children`/`autocontract` expands the box to hug its children (how a `Swimlane` glyph lowers). Shapes resolve from a library-key string via `create_from_library`/`object_from_library`, never an `add_rect`/`add_ellipse` subtype family.
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]   | [CAPABILITY]                                        |
 | :-----: | :--------------------------------------------------------------- | :-------- | :-------------------------------------------------- |

@@ -168,7 +168,7 @@ Casts convert every pair among `vector`, `halfvec`, and `sparsevec` and admit `i
 - `UseVector` is the single admission root on both builders, so wire codecs, type mapping, and distance translation arrive together or not at all.
 - `VectorTypeMapping` over `Vector`/`HalfVector`/`SparseVector` is the mapping root for every vector column.
 - Distance ranking is a query fact inside profile queries: `VectorDbFunctionsExtensions` folds to `PgUnknownBinaryExpression` and the operator lands in the emitted SQL.
-- An exact brute-force scan is the standing correctness baseline; HNSW, ivfflat, and diskann are approximate routes the `store.vector.route` fact discriminates.
+- `store.vector.route` discriminates the exact brute-force scan — the standing correctness baseline — from the approximate HNSW, ivfflat, and diskann routes.
 
 [STACKING]:
 - `api-npgsql.md`: `VectorExtensions.UseVector` registers `VectorTypeInfoResolverFactory` through `INpgsqlTypeMapper.AddTypeInfoResolverFactory`, whose `CreateResolver`/`CreateArrayResolver` pair round-trips scalar and `Vector[]` columns with no hand-written reader; the sealed `NpgsqlDataSourceBuilder` is the receiver the tuple-capture recovers.

@@ -7,13 +7,13 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 ## [01]-[ROUTER]
 
 [ENERGY]:
-- [01]-[DERIVE](.planning/Energy/derive.md): BIM-to-BEM lower — honeybee envelope, dragonfly massing, and the OSM-centric translation matrix.
+- [01]-[DERIVE](.planning/Energy/derive.md): BIM-to-BEM lower — honeybee building envelope, dragonfly massing, and the OSM-centric translation matrix.
 - [02]-[EXCHANGE](.planning/Energy/exchange.md): `EnergyExchange.Apply` folding raise, lower, and translate onto content-keyed document carriers.
 - [03]-[PROJECTOR](.planning/Energy/projector.md): `EnergyProjector` raise landing every energy format in the shape the Compute runner reads.
 - [04]-[RESULTS](.planning/Energy/results.md): `EnergyResults.Admit` landing a run's typed receipt as producer-authored result bags on the graph.
 
 [EXCHANGE]:
-- [05]-[EVENTS](.planning/Exchange/events.md): `BimEvent` model-mutation fact union and its CloudEvents envelope with W3C trace continuity.
+- [05]-[EVENTS](.planning/Exchange/events.md): Announcement projection subscribing fired `BimFact` rows onto the kernel message-envelope owner.
 - [06]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one total codec switch over scene, IFC, COBie, and tile targets.
 - [07]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
 - [08]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
@@ -155,12 +155,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `NREL.OpenStudio.macOS-arm64` — the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — `BimEvent` emits lacing under a declared attribute roster; transport bindings stay app-tier.
-- `CloudNative.CloudEvents.SystemTextJson` — the shared `JsonEventFormatter` codec identity.
+- `CloudNative.CloudEvents` — message-envelope type the announcement projection mints through `Rasm/Domain/event`; transport bindings stay app-tier.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
 - `Generator.Equals` — structural equality and member diff behind the emit change derivation.
 
 [RUNTIME_INBOX]:
-- `System.Text.Json` — generated wire contexts behind the exchange envelopes, review records, and the GeoJSON seam.
+- `System.Text.Json` — generated wire contexts behind the exchange message envelopes, review records, and the GeoJSON seam.

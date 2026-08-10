@@ -54,7 +54,7 @@
 
 [PUBLIC_TYPE_SCOPE]: text model, DML format, image evidence (`pptx.text`, `pptx.dml`, `pptx.parts.image`)
 
-A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value per run with `color`/`fill` and the full appearance axis. One shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface grades every fill (solid/gradient/pattern/picture), outline, shadow, and RGB-or-theme color: `FillFormat` carries `solid()`/`gradient()`/`patterned()`/`background()` mode setters with `fore_color`/`back_color`/`pattern`/`gradient_stops`/`gradient_angle`/`type` (`MSO_FILL`).
+`TextFrame` owns a shape's paragraphs/runs and sizing; `Font` is one font value per run with `color`/`fill` and the full appearance axis. One shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface grades every fill (solid/gradient/pattern/picture), outline, shadow, and RGB-or-theme color: `FillFormat` carries `solid()`/`gradient()`/`patterned()`/`background()` mode setters with `fore_color`/`back_color`/`pattern`/`gradient_stops`/`gradient_angle`/`type` (`MSO_FILL`).
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]  | [CAPABILITY]                                                                                     |
 | :-----: | :------------- | :------------- | :----------------------------------------------------------------------------------------------- |
@@ -136,7 +136,7 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size and return the create
 
 [ENTRYPOINT_SCOPE]: text, style, chart-data, and table authoring
 
-A shape's `TextFrame` owns paragraphs/runs and fit; `Font` carries the full character appearance the `document/emit#DOCUMENT` RUN_FIDELITY law projects. `ChartData` builders feed `add_chart`/`insert_chart` and `Chart.replace_data` refreshes in place; categories precede series on `CategoryChartData`. `Table.cell` addresses the schedule grid.
+`TextFrame` owns a shape's paragraphs/runs and fit; `Font` carries the full character appearance the `document/emit#DOCUMENT` RUN_FIDELITY law projects. `ChartData` builders feed `add_chart`/`insert_chart` and `Chart.replace_data` refreshes in place; categories precede series on `CategoryChartData`. `Table.cell` addresses the schedule grid.
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                             |
 | :-----: | :------------------------------- | :--------------------------------------------------------------------------------------- |

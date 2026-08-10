@@ -18,7 +18,7 @@
 - `SceneCone` drops the kernel cone's model-unit apex — the stamp's own location already carries it, and two positions reconcile wrong.
 - `Sun.Vector` points sun-toward-scene and `Sun.North` bears north counter-clockwise off `+X` — `SunDerivation` negates and derotates.
 - Sealed-commit facts cross with NO operation identity — this plane holds no origin slot, so a dot minted here collides across two hosts.
-- `CommitSink.Sealing` rides the commit envelope's own `project` slot — a tap beside it publishes a record the seal then discards.
+- `CommitSink.Sealing` rides `DocumentCommit.Sealed`'s own `project` slot — a tap beside it publishes a record the seal then discards.
 - `Observation.Commit` admits `Delivery.Inline` alone — a deferred arm returns success before any subscriber saw the fact it may refuse.
 
 ## [03]-[COLLAPSE]

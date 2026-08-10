@@ -91,6 +91,13 @@
 - `OperationId.Counter` IS the origin's `VersionVector` slot — a second counter beside it drifts the moment either advances alone.
 - One `DotSource` per store mints every dot — the changefeed range and the authoring stamp reserving apart mint one counter twice.
 - `VersionVector` owns `Ordered`/`WriteTo` and every byte-deriving reader takes them — a caller enumerating `Slots` writes bucket order.
+- `Subscription` VALUES over `Binding` rows are the whole delivery-target family — a per-transport case re-mints the knob set the row carries.
+- `protocolsettings` admits against the binding row's OWN roster — a key accepted and ignored publishes governance no leg ever reads.
+- `id` renders the dot and `subject` the content key — collapsing them makes two peers' identical deltas one event and drops the second.
+- `datacontenttype` and `dataschema` are payload-arrow ROW DATA — a literal names the mint site's guess over a registry-framed body.
+- `Egress.Envelope` returns `Fin` — the owner's `Validate()` IS the mint boundary, so a malformed grammar value letters before a transport takes it.
+- CESQL evaluation is TOTAL — a value beside accumulated faults, so a runtime error withholds one event and never darkens a subscription.
+- CESQL grammars build ONCE as static parser values — a parser constructed per evaluation rebuilds the expression graph per event.
 
 ## [03]-[COLLAPSE]
 

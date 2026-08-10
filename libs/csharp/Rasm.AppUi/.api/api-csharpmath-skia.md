@@ -131,5 +131,5 @@
 [RAIL_LAW]:
 - Package: `CSharpMath.SkiaSharp`
 - Owns: TeX-subset math and mixed math-text layout, the painter knob surface (`LaTeX`, `FontSize`, `Magnification`, `TextColor`, `LineStyle`), measure and aligned `Draw` onto an `SKCanvas`, interactive editing through `MathKeyboard`, and the typed `Result`/`ErrorMessage` parse rail.
-- Accept: one painter per Math arm, its parse consumed through `Result<T>.Match`/`Deconstruct` or an observed `ErrorMessage` folded into the diagnostics rail's typed-fault envelope; `FontSize`/`Magnification` and the `PainterConstants` anchors parameterize size.
+- Accept: one painter per Math arm, its parse consumed through `Result<T>.Match`/`Deconstruct` or an observed `ErrorMessage` folded into the diagnostics rail's typed envelope; `FontSize`/`Magnification` and the `PainterConstants` anchors parameterize size.
 - Reject: a hand-rolled TeX box model or glyph layout; a private `SKPaint`/`SKFont` math path bypassing `SkiaCanvas`; a `try`/`catch` around `LaTeX` assignment; a literal font size.

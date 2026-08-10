@@ -13,7 +13,7 @@
 
 ## [02]-[RESOLVER]
 
-One function resolves an entire GraphQL operation: the public plpgsql `graphql.resolve` delegates to the private Rust resolver inside a `begin ... exception when others` block, returning the response envelope `{ "data": <jsonb>, "errors": [...] }` rather than raising.
+One function resolves an entire GraphQL operation: the public plpgsql `graphql.resolve` delegates to the private Rust resolver inside a `begin ... exception when others` block, returning the typed envelope `{ "data": <jsonb>, "errors": [...] }` rather than raising.
 
 `graphql.resolve(query text, variables jsonb, "operationName" text, extensions jsonb) -> jsonb`
 
@@ -27,7 +27,7 @@ Reflection derives the GraphQL schema from the live SQL schema with no schema-de
 |  [02]   | column          | field (typed by the column type)                                     | typed object field                 |
 |  [03]   | primary key     | `nodeId: ID!` (base64 `[schema,table,pk...]`) + `Query.node(nodeId)` | Relay global identity; PK required |
 |  [04]   | foreign key     | to-one field (referencing) + `<child>Collection` (referenced)        | relationship / connection field    |
-|  [05]   | collection      | `<Table>Connection { edges, pageInfo, totalCount?, aggregate? }`     | Relay connection envelope          |
+|  [05]   | collection      | `<Table>Connection { edges, pageInfo, totalCount?, aggregate? }`     | Relay pagination wrapper           |
 |  [06]   | collection args | `first`/`last`/`before`/`after`/`offset`, `filter`, `orderBy`        | cursor pagination, filter, order   |
 
 Collection results carry `<Table>Connection { edges { cursor, node }, pageInfo, totalCount?, aggregate? }`. `<Table>Filter` carries `nodeId`, `and`/`or`/`not`, and a per-column `<Type>Filter` exposing `eq`/`neq`/`gt`/`gte`/`lt`/`lte`/`in`/`is`; string adds `startsWith`/`like`/`ilike`/`regex`/`iregex`, list adds `contains`/`containedBy`/`overlaps`. Ordering is `[<Table>OrderBy!]` over `OrderByDirection { AscNullsFirst, AscNullsLast, DescNullsFirst, DescNullsLast }`. Mutations are `insertInto`/`update`/`deleteFrom<Table>Collection` returning `{ affectedCount, records }`.
@@ -80,5 +80,5 @@ Schema reflection caches and invalidates by version: two event triggers bump the
 [RAIL_LAW]:
 - Package: `pg_graphql` (Apache-2.0)
 - Owns: the in-PG GraphQL resolver — live schema reflection (tables/columns/FKs/comments → Relay GraphQL types) and `graphql.resolve(...)` → `jsonb` resolution
-- Accept: `CREATE EXTENSION pg_graphql` via `ServerExtension("pg_graphql")`, `graphql.resolve` driven through `FromSql`/`SqlQuery` with bound parameters, `@graphql` comment directives, the Relay connection/filter/order args, the `{data,errors}` envelope read from the `jsonb`
+- Accept: `CREATE EXTENSION pg_graphql` via `ServerExtension("pg_graphql")`, `graphql.resolve` driven through `FromSql`/`SqlQuery` with bound parameters, `@graphql` comment directives, the Relay connection/filter/order args, the `{data,errors}` typed envelope read from the `jsonb`
 - Reject: linking the extension into managed code, a runtime-concatenated GraphQL document, a hand-written GraphQL schema beside the reflected one, a `shared_preload_libraries` row, expecting `resolve` to raise on a query error, exposing a primary-key-less table without a surrogate-PK directive

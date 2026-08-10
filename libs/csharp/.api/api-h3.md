@@ -91,7 +91,7 @@
 | :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------------ |
 |  [01]   | `Geometry.Fill(int, VertexTestMode)`                         | instance | geometry covered under the cell-acceptance mode   |
 |  [02]   | `Geometry.Fill(int, Func<H3Index, bool>)`                    | instance | flood fill under a caller containment predicate   |
-|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)`           | instance | envelope-sharded concurrent fill; same cell set   |
+|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)`           | instance | bounding-envelope shards; same cell set           |
 |  [04]   | `LineString.Fill(int)`                                       | instance | polyline traversed as cells                       |
 |  [05]   | `Coordinate[].TraceCoordinates(int)`                         | instance | raw coordinate run traced as cells                |
 |  [06]   | `Geometry.IsTransMeridian() -> bool`                         | instance | antimeridian crossing detected ahead of a fill    |
@@ -157,7 +157,7 @@
 - `ProjNET`(`Rasm.Bim/.api/api-projnet.md`): cell construction takes SRID-4326 lat/lng, so a project-CRS `GeoFeature` reprojects through the `Rasm.Bim` `Semantics/georeference#GEODETIC_TRANSFORM` `MathTransform` leg into 4326 before `FromPoint`/`Fill` and the boundary reprojects back — the datum bridge is never a hand-rolled great-circle conversion.
 - `pgRouting`(`Rasm.Persistence/.api/api-pgrouting.md`): `GridPathCells` and `GridDistance` mint cell-id nodes and edge weights over the same id space `pgr_dijkstra` traverses in `Query/cypher`, so in-process and in-database routing share one node vocabulary.
 - Persistence consumer anchor: one pipeline folds `Fill` or `GridDiskDistancesSafe` through `CompactCells` into an `H3Cell[]` cover — `Element/identity` wraps each result as `H3Cell.Of(index)` and widens a radius through `IdentityFilter.Near`, `H3CellOps.Cover`/`Disk`/`Compact` lower `Geometry.Fill`/`GridDiskDistances`/`CompactCells` to the `FrozenSet<ulong>` the `h3_cell = ANY(@cells)` prefilter tests, and the `Query/lane` `SetPredicate.Spatial` leg runs its `Geometry` refine only over rows the cell-set membership test survived.
-- Bim consumer anchor: the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS keyer arm — `GeoFeature.Cell` mints `H3Index.FromPoint` over the Wgs84 centroid, `GeoModel.Bucket` keys the coarse `(ulong)` DGGS join beside the `STRtree` envelope broad-phase, and `GeoModel.Cover` lowers a probe region `Geometry.Fill` → `GridDiskDistances` → `CompactCells` into the `FrozenSet<ulong>` region key a regional query tests, never a per-feature scan.
+- Bim consumer anchor: the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS keyer arm — `GeoFeature.Cell` mints `H3Index.FromPoint` over the Wgs84 centroid, `GeoModel.Bucket` keys the coarse `(ulong)` DGGS join beside the `STRtree` bounding-envelope broad-phase, and `GeoModel.Cover` lowers a probe region `Geometry.Fill` → `GridDiskDistances` → `CompactCells` into the `FrozenSet<ulong>` region key a regional query tests, never a per-feature scan.
 
 [LOCAL_ADMISSION]:
 - Cell computation enters at `Rasm.Persistence` `Ingest/geospatial` and `Element/identity`, and at the `Rasm.Bim` geospatial-seam DGGS keyer arm; a spatial predicate lowers to a cell set ahead of any geometry test, and the persisted column carries the `H3Cell` ulong the identity Key axis owns.

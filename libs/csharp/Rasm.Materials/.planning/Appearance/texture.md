@@ -1207,4 +1207,4 @@ public static class PeriodProof {
 
 ## [04]-[RESEARCH]
 
-- (none)
+(none)

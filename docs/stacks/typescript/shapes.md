@@ -18,7 +18,7 @@ Choose the owner form before writing any field. The most specific matching row w
 |  [04]   | closed case family, process-local                    | `Data.taggedEnum`                       | none              | `_tag`     |
 |  [05]   | fault crossing a wire, logging, or joining a union   | `Schema.TaggedError`                    | encoded derives   | `_tag`     |
 |  [06]   | fault living and dying in-process                    | `Data.TaggedError`                      | none              | `_tag`     |
-|  [07]   | computation outcome crossing a wire                  | `Schema.Exit` / `Schema.Cause` envelope | per-channel       | `_tag`     |
+|  [07]   | computation outcome crossing a wire                  | `Schema.Exit` / `Schema.Cause`          | per-channel       | `_tag`     |
 |  [08]   | request carrying its own reply contract              | `Schema.TaggedRequest` case owner       | per-channel       | `_tag`     |
 |  [09]   | scalar invariant                                     | brand-in-field refinement               | inherited         | value      |
 |  [10]   | self-referential product or family                   | host form + `Schema.suspend` reference  | encoded derives   | structural |
@@ -270,9 +270,9 @@ The wire twin derives: `typeof Owner.Encoded` is the wire type, `Schema.encodedS
 - Reject: hand-written `toWire`/`fromWire` method pairs; a codec class beside an owner; two one-directional transforms for one twin; a version branch inside the owner where a read-boundary migration owns it.
 
 [OUTCOME_TRANSPORT]:
-- Law: a computation outcome crossing a wire is `Schema.Exit({ success, failure, defect })` — success carries the owner, failure carries the fault family, `Schema.Defect` normalizes thrown junk into transportable form, and the decoded side is a real `Exit.Exit<A, E>` a consumer folds with the ordinary outcome algebra; a hand-rolled `{ ok: boolean }` envelope re-invents that fold untyped.
+- Law: a computation outcome crossing a wire is `Schema.Exit({ success, failure, defect })` — success carries the owner, failure carries the fault family, `Schema.Defect` normalizes thrown junk into transportable form, and the decoded side is a real `Exit.Exit<A, E>` a consumer folds with the ordinary outcome algebra; a hand-rolled `{ ok: boolean }` carrier re-invents that fold untyped.
 - Law: `Schema.Cause({ error, defect })` transports the failure tree alone — interruption, defects, and composed failures survive the wire, so a remote failure reconstructs with its forensic structure intact instead of flattening to a message string.
-- Law: the `FromSelf` twins — `Schema.ExitFromSelf`, `Schema.CauseFromSelf` — compose inside owners whose encoded side stays in-process; the plain forms own the JSON-bound envelope.
+- Law: the `FromSelf` twins — `Schema.ExitFromSelf`, `Schema.CauseFromSelf` — compose inside owners whose encoded side stays in-process; the plain forms own the JSON-bound typed envelope.
 - Reject: a fault serialized as its `message` string; a bespoke result union restating what `Exit` already algebrizes.
 
 ```typescript conceptual

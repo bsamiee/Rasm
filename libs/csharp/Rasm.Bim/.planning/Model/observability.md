@@ -6,29 +6,33 @@ Wire posture: HOST-LOCAL, BCL-only. Point, instrument-spec, advice-bucket, contr
 
 ## [01]-[INDEX]
 
-- [02]-[HOOK_RAIL]: `BimPoint` closes the point vocabulary on its kernel `Modality` column and its derived `TraceScope` plane, `BimHooks` mints that roster as one per-composition registry record over the kernel point capsule, `BimFact` closes the payload family every point types over, and `StageMark` is the one stage-evidence carrier every native lane's roster projects.
+- [02]-[HOOK_RAIL]: `BimPoint` closes the point vocabulary on its kernel `Modality` column and its derived `TraceScope` plane, `BimHooks` mints that roster as one per-composition registry record over the kernel point capsule, `BimFact` closes the payload family every point types over, `GlobalIdSet`/`ContentKeySet`/`BimIssueMutation` close the set and mutation vocabularies its cases carry, and `StageMark` is the one stage-evidence carrier every native lane's roster projects.
 - [03]-[TELEMETRY_TAP]: `BimTelemetry` declares the `rasm.bim.<domain>.<measure>` roster as kernel `InstrumentSpec` rows, mints the contributor port, rails the tap subscriptions, and owns the span and attribution law over the kernel `SpanBand`.
 - [04]-[BENCH_RECEIPTS]: `BimBenchClaims` rosters the per-op kernel `BenchClaim` rows, `BimBenchReceipt` carries the run evidence, and the corpus-gate row admits a claim as standing.
 
 ## [02]-[HOOK_RAIL]
 
-- Owner: `BimPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.bim.<domain>.<point>` with the kernel `HookModality` column and the kernel `TraceScope` plane derived off the id's own head; `BimHooks` the per-composition registry record — one instance per app composition, so two apps built on the library never fight over hook slots and no process-global registry exists; `BimFact` the closed payload family every point types over. Point capsule, modality rows, detacher, and isolation are the kernel signal capsule composed as settled vocabulary.
-- Cases: point roster rows — `rasm.bim.exchange.progress` (observe, `BimFact.Progress` — the DWG/DXF decode lane's `StageMark` stream off ACadSharp `ICadReader.OnProgress`, the import lane's own stage roster projecting the mark), `rasm.bim.exchange.imported` (observe, `BimFact.Imported` — the `ModelLoad` receipt fact post-decode), `rasm.bim.exchange.exported` (observe, `BimFact.Exported` — the export-rail artifact emit), `rasm.bim.projection.lowered` (observe, `BimFact.Lowered` — the seam `GraphDelta` magnitude off the semantic projector), `rasm.bim.projection.legality` (veto, `BimFact.Admission` — an app policy refuses a graph delta before it lands), `rasm.bim.projection.emit` (veto, `BimFact.Egress` — the `Projection/egress#IFC_EGRESS` `Emit` fold consults it against the elected format and target schema BEFORE authoring, so a deliverable policy refuses on the exchange coordinates rather than on a delta that already landed), `rasm.bim.review.verdict` (replay, `BimFact.Verdict` — IDS-facet and template-audit outcomes, buffered so a late panel drains the recent window), `rasm.bim.energy.progress` (observe, `BimFact.Progress` — the energy translate lane's `StageMark` stream, its `TranslateStage` rows projecting the mark off OpenStudio `ProgressBar.onPercentageUpdated`), `rasm.bim.planning.progress` (observe, `BimFact.Progress` — the `Planning/schedule#SCHEDULE_NETWORK` calendar walk and the `Planning/cost#COST_ROLLUP` decomposition rollup projecting their own stage rosters over long networks), `rasm.bim.energy.emitted` (observe, `BimFact.Emitted` — the `EnergyReceipt` fact per artifact), `rasm.bim.exchange.textured` (observe, `BimFact.Textured` — the appearance channel census `MaterialFinish.Author` and `AppearanceProjection.TexturesOf` fire once per authored surface style, so the one exchange leg that drops payload by design is counted rather than silent), `rasm.bim.exchange.degrade` (observe, `BimFact.Degraded` — an exchange leg completing while shedding capability, its closed lane and reason keys banding the counter while the identifier-grade subject rides the fact alone).
+- Owner: `BimPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.bim.<domain>.<point>` with the kernel `HookModality` column and the kernel `TraceScope` plane derived off the id's own head; `BimHooks` the per-composition registry record — one instance per app composition, so two apps built on the library never fight over hook slots and no process-global registry exists; `BimFact` the closed payload family every point types over, and `GlobalIdSet`, `ContentKeySet`, and `BimIssueMutation` the set and mutation vocabularies its cases carry. Point capsule, modality rows, detacher, and isolation are the kernel signal capsule composed as settled vocabulary.
+- Cases: point roster rows — `rasm.bim.exchange.progress` (observe, `BimFact.Progress` — the DWG/DXF decode lane's `StageMark` stream off ACadSharp `ICadReader.OnProgress`, the import lane's own stage roster projecting the mark), `rasm.bim.exchange.imported` (observe, `BimFact.Imported` — the `ModelLoad` receipt fact post-decode), `rasm.bim.exchange.exported` (observe, `BimFact.Exported` — the export-rail artifact emit carrying the sealed content key), `rasm.bim.projection.lowered` (observe, `BimFact.Lowered` — the seam `GraphDelta` magnitude off the semantic projector), `rasm.bim.projection.legality` (veto, `BimFact.Admission` — an app policy refuses a graph delta before it lands), `rasm.bim.projection.emit` (veto, `BimFact.Egress` — the `Projection/egress#IFC_EGRESS` `Emit` fold consults it against the elected format and target schema BEFORE authoring, so a deliverable policy refuses on the exchange coordinates rather than on a delta that already landed), `rasm.bim.review.committed` (observe, `BimFact.Committed` — the `Review/versioning#VERSION_GRAPH` `BimRepository.Seal` funnel, the one point both `Commit` and `CommitMerge` reach), `rasm.bim.review.issue` (observe, `BimFact.IssueMutated` — the `Review/issues#BCF_ARCHIVE` board mutation under its closed `BimIssueMutation` key), `rasm.bim.review.verdict` (replay, `BimFact.Verdict` — IDS-facet and template-audit outcomes, buffered so a late panel drains the recent window), `rasm.bim.energy.progress` (observe, `BimFact.Progress` — the energy translate lane's `StageMark` stream, its `TranslateStage` rows projecting the mark off OpenStudio `ProgressBar.onPercentageUpdated`), `rasm.bim.planning.progress` (observe, `BimFact.Progress` — the `Planning/schedule#SCHEDULE_NETWORK` calendar walk and the `Planning/cost#COST_ROLLUP` decomposition rollup projecting their own stage rosters over long networks), `rasm.bim.energy.emitted` (observe, `BimFact.Emitted` — the `EnergyReceipt` fact per artifact under its `ArtifactKey` address), `rasm.bim.exchange.textured` (observe, `BimFact.Textured` — the appearance channel census `MaterialFinish.Author` and `AppearanceProjection.TexturesOf` fire once per authored surface style, so the one exchange leg that drops payload by design is counted rather than silent), `rasm.bim.exchange.degrade` (observe, `BimFact.Degraded` — an exchange leg completing while shedding capability, its closed lane and reason keys banding the counter while the identifier-grade subject rides the fact alone).
+- Law: `BimFact` is the branch's ONE domain-fact family and every announcement projects from it — `Exchange/events#EVENT_PROJECTION` subscribes the announced points as observe rows, so a second union over this fact space forks the address, the trace, and the vocabulary keys one fire already carries. Cases therefore hold the ADDRESS an announcement subjects on — the commit key, the artifact content key, the `ArtifactKey` text, the topic guid, the specification ordinal — because an address recomputed at a subscriber reads a second identity for the fact its emitter already named.
 - Entry: `BimHooks.Live()` mints the roster once at composition by seating one kernel point per `BimPoint` row; an emitting page fires its declared point value (`hooks.Imported.Fire(fact)`), so a name-resolved lookup surface never exists; `Veto`, `Observe`, and `Drain` are the capsule's subscriber entries, each returning the disposable detacher; `Points` hands the point set to `HookRegistry.Mount` at the app root, and `BimPoint.Scopes` enters that root's `SpanBand.Of(version, scopes)`.
 - Auto: fire order is the capsule's law — retention first, the veto fold second (the first refusal is the emitter's verdict AND parks on the evidence cell), observe taps forked and shielded last, so `Fire` returns without waiting on any tap; `BimIo.ImportGeometry` and `EnergyTranslate.Run` take `Option<BimHooks> hooks = default` — the optional slot every later fire-site entry repeats — so a hook-less composition pays one `IsNone` test and a fired point with zero subscribers costs one empty fold.
 - Receipt: a hook fire is the evidence event itself — the emitter's typed receipt already carries the fact, so a point mints nothing; the `Faults` cell (`Atom<Seq<IsolatedFault>>`) is the one registry evidence surface — veto refusals and shielded tap faults, point-attributed — drained by the composing app and projected onto the `[03]` rejects counter through the cell's `Change` tap.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm, BCL inbox.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm, Rasm.Element, BCL inbox.
 - Growth: a new point is one `BimPoint` row, one `BimHooks` field with its `Live()` seat, and one `BimFact` case, and a point on a new domain segment arms its span plane with no roster edit because the plane derives off the id; a new subscriber is one `Observe`/`Veto` call at composition; delivery semantics are the kernel modality rows; a new native lane keeps its OWN closed stage roster projecting `StageMark` — the carrier is this page's, the rows are the lane's, and a second mark shape or a free-text stage slot is the deleted form.
-- Boundary: point ids compose the kernel `HookId` grammar with the package segment pinned `bim`, so a Bim point joins any app-tier registry census unrenamed — Bim declares its points here and the composing app subscribes direct; ids and modalities live on the roster rows alone, so a `Live()` seat re-spelling either is the forked-vocabulary defect; the fire path is the one synchronous shape, and an effect-rail caller lifts `Fire` at its own composition seam; the payload closes at declaration — every `BimHooks` field types its point to one `BimFact` case, so a stringly payload cannot enter the rail; telemetry is a tap, never a producer — `[03]-[TELEMETRY_TAP]` subscribes as observe rows here.
+- Boundary: point ids compose the kernel `HookId` grammar with the package segment pinned `bim`, so a Bim point joins any app-tier registry census unrenamed — Bim declares its points here and the composing app subscribes direct; ids and modalities live on the roster rows alone, so a `Live()` seat re-spelling either is the forked-vocabulary defect; the fire path is the one synchronous shape, and an effect-rail caller lifts `Fire` at its own composition seam; the payload closes at declaration — every `BimHooks` field types its point to one `BimFact` case, so a stringly payload cannot enter the rail; cases carry the CLOSED vocabulary key a sibling owner published (`InterchangeFormat.Key`, `IdsOutcome.Key`, `RuleSeverity.Key`, `ArtifactKey.Value`) rather than that owner's type, so this S0 Model stratum consumes no Exchange, Energy, or Review sibling type and each announcement re-admits the key through its owning gate; telemetry is a tap, never a producer — `[03]-[TELEMETRY_TAP]` subscribes as observe rows here, and `Exchange/events#EVENT_PROJECTION` subscribes beside it under the same observe modality.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -38,7 +42,11 @@ namespace Rasm.Bim.Model;
 // Point roster keyed rasm.bim.<domain>.<point> — the kernel HookId four-segment grammar. Modality is the kernel
 // column deciding veto admission and replay retention; Plane is the id's own rasm.<pkg>.<domain> head, the
 // kernel KernelDomain derivation in this package's vocabulary, so a span scope can never fork from the point it
-// brackets and a new domain segment arms its scope with no second spelling.
+// brackets and a new domain segment arms its scope with no second spelling. Each `<domain>` segment doubles
+// as its `Exchange/events#EVENT_PROJECTION` `EventType` subject, so a point and the announcement projected off
+// it join one capability vocabulary rather than two rosters a rename can separate.
+
+
 [SmartEnum<string>]
 public sealed partial class BimPoint {
     public static readonly BimPoint ExchangeProgress = new("rasm.bim.exchange.progress", modality: HookModality.Observe);
@@ -47,6 +55,8 @@ public sealed partial class BimPoint {
     public static readonly BimPoint Lowered = new("rasm.bim.projection.lowered", modality: HookModality.Observe);
     public static readonly BimPoint Legality = new("rasm.bim.projection.legality", modality: HookModality.Veto);
     public static readonly BimPoint Egress = new("rasm.bim.projection.emit", modality: HookModality.Veto);
+    public static readonly BimPoint Committed = new("rasm.bim.review.committed", modality: HookModality.Observe);
+    public static readonly BimPoint IssueMutated = new("rasm.bim.review.issue", modality: HookModality.Observe);
     public static readonly BimPoint Verdict = new("rasm.bim.review.verdict", modality: HookModality.Replay);
     public static readonly BimPoint EnergyProgress = new("rasm.bim.energy.progress", modality: HookModality.Observe);
     public static readonly BimPoint PlanningProgress = new("rasm.bim.planning.progress", modality: HookModality.Observe);
@@ -69,20 +79,88 @@ public sealed partial class BimPoint {
     public static Seq<TraceScope> Scopes => toSeq(Planes.Value.Values).Distinct().Strict();
 }
 
+// GlobalIdSet closes the IFC GlobalId SET: the lexical law (22 glyphs over the buildingSMART base64 alphabet
+// 0-9, A-Z, a-z, `_`, `$`) AND the set law (sorted, distinct) in ONE owner, so no site re-spells the alphabet
+// beside a length check that drifts from it and no site re-spells the ordering probe beside a distinct probe
+// that disagrees about the comparer. `Of` NORMALIZES for the fire side — a rail holding a bag of ids gets a
+// canonical set — while `Admit` REFUSES for the wire side, because the wire contract IS sorted-distinct and
+// silently sorting a producer's malformed array hides a producer defect behind a well-formed announcement.
+[ValueObject<Seq<string>>]
+public sealed partial class GlobalIdSet {
+    const int Glyphs = 22;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<string> value) {
+        if (!value.ForAll(Admits)) {
+            validationError = new ValidationError("global-id-glyphs");
+            return;
+        }
+        value = toSeq(value.Distinct(StringComparer.Ordinal).OrderBy(static id => id, StringComparer.Ordinal));
+    }
+
+    public static GlobalIdSet Of(Seq<string> ids) => Create(ids);
+
+    // Wire admission proves ordered-distinct rather than imposing it, and the glyph law rides the same
+    // construction — through the TRY factory, because the throwing `Create` carries a producer's malformed
+    // array out of the typed rail as an exception at the exact boundary the rail exists to answer.
+    public static Fin<GlobalIdSet> Admit(ImmutableArray<string> values, Op key) =>
+        WireSet.Ordered(values) && TryCreate(toSeq(values), out GlobalIdSet? admitted) && admitted is { } set
+            ? Fin.Succ(set)
+            : Fin.Fail<GlobalIdSet>(Detail.EventSetMalformed.At(key, "globalIds"));
+
+    static bool Admits(string? value) =>
+        value is { Length: Glyphs } && value.All(static glyph =>
+            glyph is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_' or '$');
+}
+
+// ContentKeySet holds that same law over the content-key space: sorted-distinct at construction, with the wire
+// form the fixed-width 32-hex rendering `Rasm/Domain/event#EVENT_GRAMMAR` `EventKey` owns — hex-text ordering
+// agrees with the numeric ordering only because that rendering is fixed-width.
+[ValueObject<Seq<UInt128>>]
+public sealed partial class ContentKeySet {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<UInt128> value) =>
+        value = toSeq(value.Distinct().OrderBy(static k => k));
+
+    public static ContentKeySet Of(Seq<UInt128> keys) => Create(keys);
+}
+
+// Both admissions share ONE wire-side probe: distinct under the ordinal comparer AND already in ordinal order,
+// read on the ARRAY the producer sent — a set the producer sorted differently fails here rather than
+// re-sorting quietly into a shape the sender never emitted.
+static class WireSet {
+    public static bool Ordered(ImmutableArray<string> values) =>
+        values.Distinct(StringComparer.Ordinal).Count() == values.Length
+        && values.SequenceEqual(values.OrderBy(static value => value, StringComparer.Ordinal), StringComparer.Ordinal);
+}
+
+// Issue mutation keys live on one generated owner, so neither a fire site nor an announcement admission can
+// invent a sixth mutation.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BimIssueMutation {
+    public static readonly BimIssueMutation TopicOpened = new("topic-opened");
+    public static readonly BimIssueMutation TopicRevised = new("topic-revised");
+    public static readonly BimIssueMutation CommentAdded = new("comment-added");
+    public static readonly BimIssueMutation ViewpointAdded = new("viewpoint-added");
+    public static readonly BimIssueMutation StatusAdvanced = new("status-advanced");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
-// The ONE stage-evidence carrier every native lane's stage roster projects: Done the published fraction of the
+// Every native lane's stage roster projects ONE stage-evidence carrier: Done the published fraction of the
 // whole lane at the mark, Witness the lane-owned stage token. Rosters stay PLURAL per lane (the kernel
 // ArrangeStage is internal to Rasm.Meshing, so a cross-package roster owner would invert strata) — a discrete
 // ladder projects its declared rows, a continuous native callback mints marks with a live Done under one
-// witness. The fraction is REQUIRED: a declared stage always carries one, and a free-text stage with no
+// witness. Each mark REQUIRES its fraction: a declared stage always carries one, and a free-text stage with no
 // fraction is unrepresentable on the fact.
 public readonly record struct StageMark(double Done, string Witness);
 
 // One closed payload family every hook point types over: one Op-keyed case per fact shape, so a point's
-// fact type is a case and the tap reads typed evidence. Format, codec, leg, tier, and outcome slots carry
-// each CLOSED vocabulary KEY the firing page projects down (InterchangeFormat.Key, EnergyLeg key, verdict
-// row key) — so the S0 Model stratum consumes no Exchange/Energy/Review sibling type, and tag cardinality
-// stays bounded because every key originates in a closed vocabulary at the fire site.
+// fact type is a case and the tap reads typed evidence. Format, codec, leg, tier, outcome, and artifact slots
+// carry each CLOSED vocabulary KEY the firing page projects down (InterchangeFormat.Key, EnergyLeg key,
+// verdict row key, ArtifactKey.Value) — so the S0 Model stratum consumes no Exchange/Energy/Review sibling
+// type, and tag cardinality stays bounded because every key originates in a closed vocabulary at the fire
+// site. Each case also carries the ADDRESS its announcement subjects on, so the events projection re-derives
+// no identity its emitter already named.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BimFact {
     private BimFact(Op key) => Key = key;
@@ -91,15 +169,26 @@ public abstract partial record BimFact {
 
     public sealed record Progress(Op Key, string Domain, StageMark Stage) : BimFact(Key);
     public sealed record Imported(Op Key, string Format, string Codec, long Bytes, int Blocks, int Instances, Duration Elapsed) : BimFact(Key);
-    public sealed record Exported(Op Key, string Format, long Bytes, Duration Elapsed) : BimFact(Key);
+    public sealed record Exported(Op Key, UInt128 ContentKey, string Format, long Bytes, Duration Elapsed) : BimFact(Key);
     public sealed record Lowered(Op Key, string Projector, int Nodes, int Edges) : BimFact(Key);
     public sealed record Admission(Op Key, GraphDelta Delta) : BimFact(Key);
-    // The egress admission the Emit fold consults BEFORE authoring: format and target schema are the two facts
-    // an app policy refuses on, and Nodes is the scope magnitude a deliverable gate bounds — the fact is
-    // PRE-artifact, disjoint from Exported, which reports the artifact a passed emit produced.
+    // Egress carries the admission the Emit fold consults BEFORE authoring: format and target schema are the
+    // two facts an app policy refuses on, and Nodes is the scope magnitude a deliverable gate bounds — this
+    // fact is PRE-artifact, disjoint from Exported, which reports the artifact a passed emit produced.
     public sealed record Egress(Op Key, string Format, string Schema, int Nodes) : BimFact(Key);
-    public sealed record Verdict(Op Key, string Tier, string Outcome, int Findings) : BimFact(Key);
-    public sealed record Emitted(Op Key, string Leg, string Format, int Warnings) : BimFact(Key);
+    // Committed and IssueMutated close the review half of the fact space. Both were announcement-only shapes
+    // with no point to fire them, which left their five declared mints standing as law no producer reached;
+    // seating them here makes the rail that seals a commit and the rail that mutates a board fire the same
+    // way every other Bim producer does, and the announcement subscribes rather than emitting inline.
+    public sealed record Committed(Op Key, UInt128 CommitKey, ContentKeySet Parents, string Branch, int Elements) : BimFact(Key);
+    public sealed record IssueMutated(Op Key, string Topic, BimIssueMutation Mutation, Option<string> Comment, GlobalIdSet GlobalIds) : BimFact(Key);
+    // Specification and Spec ride together because IDS v1.0 spec names are NOT unique: the ordinal
+    // disambiguates two same-named specifications the `IdsAudit.Reconcile` join already separates, and a
+    // name-keyed verdict silently merges their findings into one.
+    public sealed record Verdict(
+        Op Key, string Specification, int Spec, ContentAddress Model, string Tier, string Outcome, string Severity,
+        int Findings, GlobalIdSet GlobalIds) : BimFact(Key);
+    public sealed record Emitted(Op Key, string Artifact, string Leg, string Format, int Warnings) : BimFact(Key);
     // Texture binding is the one exchange leg that drops payload BY DESIGN: a channel with no admitted
     // target, an unresolvable image reference, and a coordinate set the target format cannot carry all
     // fall out silently at the appearance projection. The three counts are disjoint by construction —
@@ -107,10 +196,11 @@ public abstract partial record BimFact {
     // resolved to bytes — so the sum is the authored channel census and a missing texture is attributable
     // to its cause rather than merely absent.
     public sealed record Textured(Op Key, string Format, int Bound, int Dropped, int Unresolved) : BimFact(Key);
-    // The exchange lane's NAMED degradation: a leg that completed while shedding capability — a codec falling
-    // back, a feature the target format cannot carry, a substituted approximation. Lane and Reason are CLOSED
-    // vocabulary keys the firing leg projects down, so the counter bands bounded; Subject is the identifier-grade
-    // element or artifact the degradation landed on and rides the fact for a reader, never a metric dimension.
+    // Degraded names the exchange lane's own degradation: a leg that completed while shedding capability — a
+    // codec falling back, a feature the target format cannot carry, a substituted approximation. Lane and
+    // Reason are CLOSED vocabulary keys the firing leg projects down, so the counter bands bounded; Subject
+    // names the identifier-grade element or artifact the degradation landed on and rides the fact for a
+    // reader, never a metric dimension.
     public sealed record Degraded(Op Key, string Lane, string Reason, string Subject) : BimFact(Key);
 }
 
@@ -125,6 +215,8 @@ public sealed record BimHooks(
     HookPoint<BimFact.Lowered> Lowered,
     HookPoint<BimFact.Admission> Legality,
     HookPoint<BimFact.Egress> Egress,
+    HookPoint<BimFact.Committed> Committed,
+    HookPoint<BimFact.IssueMutated> IssueMutated,
     HookPoint<BimFact.Verdict> Verdict,
     HookPoint<BimFact.Progress> EnergyProgress,
     HookPoint<BimFact.Progress> PlanningProgress,
@@ -141,6 +233,8 @@ public sealed record BimHooks(
             Seat<BimFact.Lowered>(BimPoint.Lowered, faults),
             Seat<BimFact.Admission>(BimPoint.Legality, faults),
             Seat<BimFact.Egress>(BimPoint.Egress, faults),
+            Seat<BimFact.Committed>(BimPoint.Committed, faults),
+            Seat<BimFact.IssueMutated>(BimPoint.IssueMutated, faults),
             Seat<BimFact.Verdict>(BimPoint.Verdict, faults),
             Seat<BimFact.Progress>(BimPoint.EnergyProgress, faults),
             Seat<BimFact.Progress>(BimPoint.PlanningProgress, faults),
@@ -152,8 +246,8 @@ public sealed record BimHooks(
 
     // Mount table the app root audits every registered point through.
     public Seq<IHookPoint> Points =>
-        Seq<IHookPoint>(ExchangeProgress, Imported, Exported, Lowered, Legality, Egress, Verdict, EnergyProgress,
-            PlanningProgress, Emitted, Textured, ExchangeDegrade);
+        Seq<IHookPoint>(ExchangeProgress, Imported, Exported, Lowered, Legality, Egress, Committed, IssueMutated,
+            Verdict, EnergyProgress, PlanningProgress, Emitted, Textured, ExchangeDegrade);
 
     static HookPoint<TFact> Seat<TFact>(BimPoint row, Atom<Seq<IsolatedFault>> faults) =>
         new(id: HookId.Create(value: row.Key), modality: row.Modality, faults: faults);
@@ -163,7 +257,7 @@ public sealed record BimHooks(
 ## [03]-[TELEMETRY_TAP]
 
 - Owner: `BimTelemetry` the one roster and projection owner — receipts stay billing truth, instruments are the lossy dashboard channel projected from them; rows are kernel `InstrumentSpec` declarations carrying kind, measurement form, and their closed `Dimensions` columns, advice bounds read the kernel `Buckets` holder, and the write capsule is the kernel `InstrumentSet`.
-- Cases: projection map — `rasm.bim.exchange.import.duration`/`import.size`/`instancing` off `BimFact.Imported` (duration, payload size, and instance placements sharing one evidence read), `rasm.bim.exchange.export.duration` off `BimFact.Exported`, `rasm.bim.projection.nodes`/`edges` off `BimFact.Lowered`, `rasm.bim.legality.rejects` off the `Faults` evidence cell through its `Change` tap (veto refusals and hook-tap isolations, banded by point and kernel fault category), `rasm.bim.review.verdicts` off `BimFact.Verdict`, `rasm.bim.energy.exchanges`/`warnings` off `BimFact.Emitted`, `rasm.bim.exchange.texture.drops` off `BimFact.Textured` banded by format and drop cause (the two loss causes write, the bound count does not — it is the artifact's own evidence), `rasm.bim.exchange.degrades` off `BimFact.Degraded` banded by lane and reason.
+- Cases: projection map — `rasm.bim.exchange.import.duration`/`import.size`/`instancing` off `BimFact.Imported` (duration, payload size, and instance placements sharing one evidence read), `rasm.bim.exchange.export.duration` off `BimFact.Exported`, `rasm.bim.projection.nodes`/`edges` off `BimFact.Lowered`, `rasm.bim.legality.rejects` off the `Faults` evidence cell through its `Change` tap (veto refusals and hook-tap isolations, banded by point and kernel fault category), `rasm.bim.review.commits` off `BimFact.Committed`, `rasm.bim.review.mutations` off `BimFact.IssueMutated` banded by the closed mutation key, `rasm.bim.review.verdicts` off `BimFact.Verdict`, `rasm.bim.energy.exchanges`/`warnings` off `BimFact.Emitted`, `rasm.bim.exchange.texture.drops` off `BimFact.Textured` banded by format and drop cause (the two loss causes write, the bound count does not — it is the artifact's own evidence), `rasm.bim.exchange.degrades` off `BimFact.Degraded` banded by lane and reason.
 - Entry: `BimTelemetry.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the string-scoped contributor port the composing root materializes, scope the kernel `TelemetrySource.Bim` identity and the semconv coordinate defaulting to the kernel pin; a root outside that fan binds `InstrumentSet.Of(cells, (meter, Rows))` directly against its own minted meter, never both. `BimTelemetry.Tap(BimHooks hooks, InstrumentSet set)` mounts the observe subscriptions at composition, so declaration and write calls live only inside this spine. `BimTelemetry.Traced<T>(SpanBand? band, BimPoint at, Op op, string model, Func<Fin<T>> body, params ReadOnlySpan<(string Slot, object? Value)> marks)` is the span wrapper every long-running entry composes over the composing root's kernel band, model identity a required argument so no Bim span exists unattributed and the band nullable so a composition admitting no scope runs the identical rail untraced.
 - Auto: every advised row ships its explicit-bucket bounds through the kernel's `InstrumentKind` x `MeasureForm` derivation, so this page names a bound row and never a create call; instrument identity de-duplicates by name inside the meter, so name, unit, kind, and description are declaration facts this roster carries once; tag values ride the typed fact's own vocabulary keys, never free text.
 - Receipt: none — the tap projects receipts and hook facts; a metric minted beside it is a second truth. Five points project NO series by design: the three `Progress` streams are operator feedback whose live fraction is span-and-panel material, not a bounded series, and the two veto points reach the rejects counter only through their parked refusals on the `Faults` cell — so an un-projected point is a stated posture, never an oversight. Every arm returns the kernel write rail and subscribes through the capsule's own rail-shaped `Observe`, which lifts the refusal and parks it point-attributed, so a folder-local rail-to-effect adapter has nothing to add; the rejects counter alone discards, because its park re-enters the cell it observes.
@@ -197,6 +291,8 @@ public static class BimTelemetry {
     public const string ProjectionNodes = "rasm.bim.projection.nodes";
     public const string ProjectionEdges = "rasm.bim.projection.edges";
     public const string LegalityRejects = "rasm.bim.legality.rejects";
+    public const string ReviewCommits = "rasm.bim.review.commits";
+    public const string ReviewMutations = "rasm.bim.review.mutations";
     public const string ReviewVerdicts = "rasm.bim.review.verdicts";
     public const string EnergyExchanges = "rasm.bim.energy.exchanges";
     public const string EnergyWarnings = "rasm.bim.energy.warnings";
@@ -216,11 +312,14 @@ public static class BimTelemetry {
     public const string PointSlot = "rasm.bim.point";
     public const string ProjectorSlot = "rasm.bim.projector";
     public const string TierSlot = "rasm.bim.review.tier";
+    // Board mutation is a five-row closed key, so it bands a counter safely; the topic guid it arrives beside
+    // stays identifier-grade and rides the fact alone for the same reason the model identity does.
+    public const string MutationSlot = "rasm.bim.review.mutation";
     // Drop cause is the whole point of this counter: a refused target and an unresolvable image are
     // different exchange defects, so one counter banded by cause replaces two counters that would drift.
     public const string ChannelSlot = "rasm.bim.exchange.texture.cause";
-    // A degradation's two BOUNDED axes. The fact's Subject stays off the series for the ModelSlot reason: it is
-    // identifier-grade and would multiply the counter by the elements a lane degraded.
+    // Degradation bands on two BOUNDED axes. Its Subject stays off the series for the ModelSlot reason: that
+    // slot is identifier-grade and would multiply the counter by the elements a lane degraded.
     public const string LaneSlot = "rasm.bim.exchange.lane";
     public const string ReasonSlot = "rasm.bim.exchange.reason";
 
@@ -239,6 +338,10 @@ public static class BimTelemetry {
             MeasureForm.Whole, Buckets.GraphCounts, TenantContext.TenantSlot, ProjectorSlot),
         InstrumentSpec.Count(LegalityRejects, "{reject}", "legality and hook rejections banded by point and fault category",
             MeasureForm.Whole, TenantContext.TenantSlot, PointSlot, KernelInstruments.CategorySlot),
+        InstrumentSpec.Count(ReviewCommits, "{commit}", "model commits sealed through the one repository funnel",
+            MeasureForm.Whole, TenantContext.TenantSlot),
+        InstrumentSpec.Count(ReviewMutations, "{mutation}", "issue-board mutations by closed mutation key",
+            MeasureForm.Whole, TenantContext.TenantSlot, MutationSlot),
         InstrumentSpec.Count(ReviewVerdicts, "{verdict}", "review verdicts by tier and outcome",
             MeasureForm.Whole, TenantContext.TenantSlot, TierSlot, OutcomeSlot),
         InstrumentSpec.Count(EnergyExchanges, "{exchange}", "energy artifacts by leg and format",
@@ -256,11 +359,11 @@ public static class BimTelemetry {
     // Telemetry-as-tap: the whole projection mounts as observe subscriptions — zero emit calls inside a
     // projector, codec arm, or review fold. The evidence cell taps through its Atom Change event, so a veto
     // refusal and an isolated tap fault land on the rejects counter banded by point and kernel fault category.
-    // The cursor claims the span BETWEEN the last counted length and the observed one inside a single CAS, so a
-    // batched swap appending several faults counts several and two racing swaps never double-count the same
-    // fault — reading held.Last counted exactly one per swap regardless of what the swap appended. The rejects
-    // write DISCARDS its rail on purpose: parking a refusal would append to the very cell this handler observes
-    // and re-enter Change without bound.
+    // Each cursor swap claims the span BETWEEN the last counted length and the observed one inside a single
+    // CAS, so a batched swap appending several faults counts several and two racing swaps never double-count
+    // one fault — reading held.Last counted exactly one per swap regardless of what that swap appended. That
+    // rejects write DISCARDS its rail on purpose: parking a refusal would append to the very cell this handler
+    // observes and re-enter Change without bound.
     public static Seq<IDisposable> Tap(BimHooks hooks, InstrumentSet set) {
         Atom<(int Counted, Seq<IsolatedFault> Fresh)> cursor = Atom((Counted: 0, Fresh: Seq<IsolatedFault>()));
         AtomChangedEvent<Seq<IsolatedFault>> rejected = held =>
@@ -276,7 +379,7 @@ public static class BimTelemetry {
     // write onto the IO error channel and parks it point-attributed beside every other tap fault — a folder-local
     // Fin-to-IO adapter re-mints exactly that lift and adds nothing the capsule does not already own.
     static Seq<IDisposable> Subscriptions(BimHooks hooks, InstrumentSet set) => Seq(
-        // The shared tag row is a PURE value, so it binds as a value ahead of the rail — a `Fin.Succ` query
+        // Shared tag rows are PURE values, so each binds as a value ahead of the rail — a `Fin.Succ` query
         // head sequences an effect or captures a pre-mutation read, and neither is what a tag array is.
         hooks.Imported.Observe(fact =>
             InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format), (CodecSlot, fact.Codec)) switch {
@@ -291,6 +394,10 @@ public static class BimTelemetry {
                 var tags => set.Write(ProjectionNodes, (long)fact.Nodes, tags)
                     .Bind(_ => set.Write(ProjectionEdges, (long)fact.Edges, tags)),
             }),
+        hooks.Committed.Observe(fact =>
+            set.Write(ReviewCommits, 1L, InstrumentSet.Tags(TenantContext.Current))),
+        hooks.IssueMutated.Observe(fact =>
+            set.Write(ReviewMutations, 1L, InstrumentSet.Tags(TenantContext.Current, (MutationSlot, fact.Mutation.Key)))),
         // Verdict is the one Replay point, and the capsule fans its held window to a fresh subscriber on attach —
         // so this counter is mounted at composition, before the first fire, where the window is provably empty.
         hooks.Verdict.Observe(fact =>
@@ -306,8 +413,8 @@ public static class BimTelemetry {
                     InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format), (ChannelSlot, "target-refused")))
                 .Bind(_ => set.Write(TextureDrops, (long)fact.Unresolved,
                     InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format), (ChannelSlot, "image-unresolved"))))),
-        // The degradation counter bands on the fact's two CLOSED axes alone — the Subject the fact carries for a
-        // reader is identifier-grade and never enters a series.
+        // Degradation counts band on the fact's two CLOSED axes alone — its Subject reads identifier-grade
+        // and never enters a series.
         hooks.ExchangeDegrade.Observe(fact =>
             set.Write(ExchangeDegrades, 1L, InstrumentSet.Tags(TenantContext.Current, (LaneSlot, fact.Lane), (ReasonSlot, fact.Reason)))));
 
@@ -338,8 +445,8 @@ public static class BimTelemetry {
 
 ## [04]-[BENCH_RECEIPTS]
 
-- Owner: `BimBenchClaims` the folder claim roster — `static readonly` kernel `BenchClaim` rows per the kernel law that claim rows live BESIDE the lanes they gate on their owning pages; every Rasm.Bim performance claim names its row and a folder-local claim type is the deleted form. `BimBenchReceipt` the typed run evidence a bench run mints per claim.
-- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportScene`, `ImportUsd`, `ImportDotbim` (foreign-bytes decode per `BimIo` codec arm), `EgressReauthor` (IFC re-author over an admitted graph), `QueryMedium`/`QueryLarge` (element-set predicate folds at the two corpus graph scales), `GeoVectorRead`/`GeoRasterRead` (geospatial-seam ingest), `TessellationRoundTrip` (tessellation-bridge companion round trip) — each row carrying its `Corpus` slug, the estate corpus artifact whose content fingerprint the receipt stamps. A row name never equals its lane owner's type name, so the `nameof` derivation resolves the type rather than the field beside it.
+- Owner: `BimBenchClaims` the folder claim roster — `static readonly` kernel `BenchClaim` rows per the kernel law that claim rows live BESIDE the lanes they gate on their owning pages; every Rasm.Bim performance claim names its row and a folder-local claim type is the deleted form. `BimBenchReceipt` carries the typed run evidence a bench run mints per claim.
+- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportScene`, `ImportUsd`, `ImportDotbim` (foreign-bytes decode per `BimIo` codec arm), `EgressReauthor` (IFC re-author over an admitted graph), `QueryMedium`/`QueryLarge` (element-set predicate folds at the two corpus graph scales), `GeoVectorRead`/`GeoRasterRead` (geospatial-seam ingest), `TessellationRoundTrip` (tessellation-bridge companion round trip) — each row carrying its `Corpus` slug, the estate corpus artifact whose content fingerprint the receipt stamps. Row keys never equal their lane owner's type name, so the `nameof` derivation resolves the type rather than the field beside it.
 - Entry: the bench project constructs `BimBenchReceipt` rows at its edge — one per claim per run — and the corpus-gate admission row below is the ONE path a receipt becomes a standing claim.
 - Auto: `CorpusFingerprint` derives through the one kernel content hasher over the corpus artifact bytes, so a claim binds to the exact input it measured and a corpus revision invalidates every dependent claim structurally, never by prose; a corpus-bound claim discharges `BenchLedger.Unproven` only through a proof pair whose fingerprint is present.
 - Receipt: `BimBenchReceipt` — claim, corpus fingerprint, median / p95 / interquartile wall duration, allocated bytes, operation count, instant; the column set IS the app-tier `BenchMeasurement` carrier the gate fold consumes, so a receipt lands whole rather than defaulting a spread the gate reads. Distribution truth, no verdict field — judging is the gate fold's, not the receipt's.

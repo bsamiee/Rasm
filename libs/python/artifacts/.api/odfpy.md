@@ -62,7 +62,7 @@ Every node is one `odf.element.Element`; the element factories (`Table`, `P`, `S
 
 [ENTRYPOINT_SCOPE]: document author, embed, and serialize
 
-A factory mints the `OpenDocument`; nodes attach through `doc.body.addElement` (or a flavor/part-container alias), never `OpenDocument.addElement`. `addPicture` with `content=None` registers a file by path (mediatype sniffed via `mimetypes`), else registers `content` bytes, returning the `Pictures/<uuid>.<ext>` href.
+`OpenDocument*` factories mint the `OpenDocument`; nodes attach through `doc.body.addElement` (or a flavor/part-container alias), never `OpenDocument.addElement`. `addPicture` with `content=None` registers a file by path (mediatype sniffed via `mimetypes`), else registers `content` bytes, returning the `Pictures/<uuid>.<ext>` href.
 
 | [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                             |
 | :-----: | :----------------------------------------------------- | :----------------------------------------------------------------------- |

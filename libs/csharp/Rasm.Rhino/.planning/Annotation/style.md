@@ -2,7 +2,7 @@
 
 `StyleField` is the drafting-schema authority: each row admits one exact payload family, reads and writes one catalogued `DimensionStyle.Field` pairing, and feeds the same patch fold into table styles and per-annotation overrides.
 
-Document spine component address `ResourceRef` resolves every Annotation table through its per-table `ResourceLens<T>` row, while `DraftPlan`, `DraftSpine`, and `DraftReceipt` carry every drafting mutation through the Document grant, the shared `DocumentCommit.Sealed` envelope, and the detached fact rail.
+Document spine component address `ResourceRef` resolves every Annotation table through its per-table `ResourceLens<T>` row, while `DraftPlan`, `DraftSpine`, and `DraftReceipt` carry every drafting mutation through the Document grant, the shared `DocumentCommit.Sealed`, and the detached fact rail.
 
 ## [01]-[INDEX]
 
@@ -853,14 +853,14 @@ public sealed record StyleSnapshot(
 
 ## [06]-[SPINE_AND_RECEIPTS]
 
-- Owner: `DraftSpine` — the one Annotation commit entry: it derives its needs through `SessionNeed.Mutation`, demands once, and commits through the Document spine's `DocumentCommit.Sealed` envelope with the `DraftReceipt` fold and undo-serial stamp as its carrier; `DraftSlot` `[SmartEnum<int>]` — the consequence vocabulary, each row carrying the body predicate it admits; `DraftBody` `[Union]` — the typed fact payloads; `DraftFacts` — the folder's mint surface as an extension block. `DraftFact` and `DraftReceipt` are ALIASES of the Document spine's `Fact<TSlot, TBody>`/`FactStream<TSlot, TBody>` closed over this folder's two vocabularies.
-- Law: the spine is the one commit entry for the namespace — style, text, dimension, hatch, linetype, and section commits share it verbatim, so undo, redraw, and grant semantics cannot drift between drafting rails; a rail re-spelling the demand/envelope sequence, or opening `UndoBracket.Begin` beside `Sealed`, is the deleted form.
+- Owner: `DraftSpine` — the one Annotation commit entry: it derives its needs through `SessionNeed.Mutation`, demands once, and commits through the Document spine's `DocumentCommit.Sealed` with the `DraftReceipt` fold and undo-serial stamp as its carrier; `DraftSlot` `[SmartEnum<int>]` — the consequence vocabulary, each row carrying the body predicate it admits; `DraftBody` `[Union]` — the typed fact payloads; `DraftFacts` — the folder's mint surface as an extension block. `DraftFact` and `DraftReceipt` are ALIASES of the Document spine's `Fact<TSlot, TBody>`/`FactStream<TSlot, TBody>` closed over this folder's two vocabularies.
+- Law: the spine is the one commit entry for the namespace — style, text, dimension, hatch, linetype, and section commits share it verbatim, so undo, redraw, and grant semantics cannot drift between drafting rails; a rail re-spelling the demand-and-seal sequence, or opening `UndoBracket.Begin` beside `Sealed`, is the deleted form.
 - Law: `DocumentCommit.Compensated` is the one compensating-transaction fold — land each element, roll back every landed key on the first refusal, settle source custody through its release policy on every outcome, preserve the initiating fault, and append rollback and release faults in order; a rail re-typing this fold or spelling a caller-local release cascade beside it is the deleted form.
 - Law: the stream MACHINERY is not this folder's — accumulation, the `Admits` cross-product gate, the undo-stamp projection, and `Project<T>` live once on the Document spine's `FactStream<TSlot, TBody>`, and this folder contributes exactly its slot vocabulary and its body union; a folder-local receipt, fact, gate, or projection beside the owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
 - Law: one fact stream — each `DraftSlot` row carries its own generated `Admits` predicate over `DraftBody`, so a slot cannot exist without declaring the bodies it emits, the stream factory refuses an illegal pairing with the slot named in the fault detail, and a body kind never doubles as a second vocabulary beside the union it discriminates.
 - Law: `Project<T>(slot, select)` is the receipt's one reader — a caller selects the demanded body case instead of growing a typed accessor per body.
 - Law: every receipt mint takes the operating key, so a fact carries the provenance of the arm that produced it rather than an anonymous root minted at the factory.
-- Law: the undo scalar is the spine's `UndoSerial` — the commit envelope mints it, every folder receipt carries it, and `Maybe` is the one zero projector, so an unrecorded program contributes no undo fact instead of one asserting record zero. A folder-local twin over the same `uint` is the forked form: two owners of one invariant drift the moment either changes.
+- Law: the undo scalar is the spine's `UndoSerial` — `DocumentCommit.Sealed` mints it, every folder receipt carries it, and `Maybe` is the one zero projector, so an unrecorded program contributes no undo fact instead of one asserting record zero. A folder-local twin over the same `uint` is the forked form: two owners of one invariant drift the moment either changes.
 - Growth: a new consequence class is one slot row with its predicate or one body case; every rail and every projection gains it for free.
 
 ```csharp signature

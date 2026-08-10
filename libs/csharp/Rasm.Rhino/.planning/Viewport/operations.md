@@ -16,7 +16,7 @@ Camera mutation has one `CameraOp` vocabulary and one `Cameras.Apply` entry. Ges
 - Law: `GestureRequest.Admit` owns complete case admission: keyed magnitudes are finite, row references are present, and dragged payloads pass the `ScreenDrag` storage seam before host projection. `CameraOp.Gesture` only lifts that admitted request.
 - Boundary: gestures are relative host edits with no meaningful inverse value; their receipt evidence is the post-edit `ChangeCounter` delta, not a pose echo.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -126,7 +126,7 @@ public abstract partial record GestureRequest {
 - Law: `IsometricCase` and `DefinedCase` are the Rhino 9 axonometric seam — `SetProjection(projection:, viewName:, updateConstructionPlane:)` — carried as first-class rows so an iso/axon view is a request value, never a command-script fallback.
 - Boundary: `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary and when the popped projection equals the current one — a benign no-op, never a failure — so the stack rows swallow the `bool` and the receipt's unchanged `ChangeCounter` pair is the no-move evidence; the stack depth is host state this rail never mirrors. Swallowing the verdict never means leaving the funnel: every stack arm still runs inside `Op.Catch`, so a host throw rides the rail the arm's own `Fin<Unit>` promises.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectionChange {
@@ -220,7 +220,7 @@ public abstract partial record StackVerb {
 - Law: clip attach/detach with `commit: false` batches inside one operation application and the rail's terminal redraw is the visibility edge; a per-plane commit-and-redraw loop is the collapsed form.
 - Boundary: `RestoreScope` touches process-global host settings; it composes only inside `Cameras.Apply`, whose session demand lands settings-scoped operations on the command thread so two concurrent scopes cannot interleave their capture/restore pairs. Complete pre-state capture precedes setup, every facet participates in setup and restoration, and restoration faults append to the primary fault.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RestorePace {
@@ -446,7 +446,7 @@ public sealed partial class RestoreScope {
 - Growth: a new camera capability is one `CameraOp` case plus one arm — the generated `Switch` breaks every dispatch site; a new gesture, pace, projection, or clip modality is one row on its section owner with zero rail change.
 - Boundary: every host mutation rides the lease's command-thread landing, so a background caller pays one marshal per static `Apply` while a paced frame pays none — every `FrameClock` row ticks on the command thread already, and both `HostThread.Run` and the session demand take their inline branch there — which is also why the pump gate is never held across a blocking host wait. No native handle leaves the rail.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RedrawWhat {

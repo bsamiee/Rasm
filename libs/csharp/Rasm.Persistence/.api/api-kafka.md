@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_KAFKA]
 
-`Confluent.Kafka` owns the librdkafka-backed Kafka client rail: builder-constructed typed producers and consumers, the message envelope over ordered headers, per-message delivery acknowledgement, the offset position algebra, and the codec slots every payload crosses. It carries the at-least-once, dead-letter-capable leg of the op-log changefeed egress — envelope shape rides the CloudEvents binding and payload shape the registry codecs, so produce, acknowledgement, commit, and native lifetime are this package's whole concern.
+`Confluent.Kafka` owns the librdkafka-backed Kafka client rail: builder-constructed typed producers and consumers, the message envelope over ordered headers, per-message delivery acknowledgement, the offset position algebra, and the codec slots every payload crosses. It carries the at-least-once, dead-letter-capable leg of the op-log changefeed egress — message-envelope shape rides the CloudEvents binding and payload shape the registry codecs, so produce, acknowledgement, commit, and native lifetime are this package's whole concern.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -236,10 +236,10 @@
 - Outcome types nest rather than branch: `Message<TKey, TValue>` derives from `MessageMetadata`, `DeliveryReport` extends `DeliveryResult` with `Error` and `TopicPartitionOffsetError`, and `ConsumeResult` carries the same position triple, so one position algebra spans produce, consume, and commit.
 
 [STACKING]:
-- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents-kafka.md`): `cloudEvent.ToKafkaMessage(ContentMode.Binary, formatter)` mints the exact `Message<string?, byte[]>` `ProduceAsync` takes and `message.ToCloudEvent(formatter, extensions)` inverts it at the consume leg, so envelope attributes ride `ce_*` `Headers` and this package never reads `Data`.
+- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents-kafka.md`): `cloudEvent.ToKafkaMessage(ContentMode.Binary, formatter)` mints the exact `Message<string?, byte[]>` `ProduceAsync` takes and `message.ToCloudEvent(formatter, extensions)` inverts it at the consume leg, so message-envelope attributes ride `ce_*` `Headers` and this package never reads `Data`.
 - `Confluent.SchemaRegistry.Serdes.*`(`.api/api-schemaregistry-serdes-json.md`): registry codecs realize `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` and mount straight on the async codec slots, `AsSyncOverAsync()` mounting them on a sync slot; the registry frames the schema id into the payload bytes this package treats as opaque.
 - `OpenTelemetry.Instrumentation.ConfluentKafka`(`libs/csharp/.api/api-otel-instrumentation-confluentkafka.md`): `AsInstrumentedProducerBuilder`/`AsInstrumentedConsumerBuilder` lift a fully configured builder, so `Build()` mints a span- and meter-emitting client with no call-site change and the drain trace continues to the broker ack.
-- `NATS.Net`/`RabbitMQ.Client`/`DotPulsar`(`libs/csharp/.api/api-nats.md`, `.api/api-rabbitmq.md`, `.api/api-dotpulsar.md`): peer `EgressSink` rows over the one op-log envelope, each folding its own provider outcome to the shared `DeliveryAck` vocabulary at its own adapter boundary.
+- `NATS.Net`/`RabbitMQ.Client`/`DotPulsar`(`libs/csharp/.api/api-nats.md`, `.api/api-rabbitmq.md`, `.api/api-dotpulsar.md`): peer binding rows over the one op-log message envelope, each folding its own provider outcome to the shared `DeliveryAck` vocabulary at its own adapter boundary.
 - Within the package, one built client carries the whole egress leg: the awaited `ProduceAsync` supersedes the `Produce` and `Poll` callback drive, `Flush` bounds shutdown, `InitTransactions`/`BeginTransaction`/`CommitTransaction` bracket a read-committed batch, and `SendOffsetsToTransaction` closes the consume-transform-produce loop when the source position is Kafka consumer-group metadata.
 
 [LOCAL_ADMISSION]:

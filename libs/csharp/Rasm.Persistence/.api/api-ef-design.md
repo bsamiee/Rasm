@@ -71,7 +71,7 @@
 
 [ENTRYPOINT_SCOPE]: migration operations (`MigrationsOperations`, internal API)
 
-Every row is a `MigrationsOperations` instance operation. A service deploy applies schema through `ScriptMigration` idempotent SQL or `MigrationsBundle`, never `UpdateDatabase`; `MigrationsScaffolder.ScaffoldMigration` (row [06]) is the scaffold behind `AddMigration`.
+Every row is a `MigrationsOperations` instance operation. `ScriptMigration` idempotent SQL or `MigrationsBundle` applies schema on a service deploy, never `UpdateDatabase`; `MigrationsScaffolder.ScaffoldMigration` (row [06]) is the scaffold behind `AddMigration`.
 
 | [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                          |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------------ |

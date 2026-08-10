@@ -15,7 +15,7 @@ Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, sessi
 - Entry: `ViewportTarget.Active` / `Named` / `Id` / `Page` / `Detail` / `Every` mint the durable address on the Document owner; `ViewportLease.Of(DocumentSession, ViewportTarget, Op?)` admits it; `Use<T>` and `UseAll<T>` resolve the current native rows through the Document address resolver during the borrow and reject missing or ambiguous scalar addresses.
 - Law: a detail edit is committed through `CommitViewportChanges` on the operations rail, not observed — the lease only proves which rows are details, reading the `DetailViewObject` the Document `ViewportRef` carries.
 - Law: durable identity is `DocKey` plus `ViewportTarget`; mutation identity is sampled from `RhinoViewport.ChangeCounter` by the operation that projects the value. A lease never stamps a native instance and therefore cannot become a stale handle cache.
-- Law: every borrow crosses the session capability rail through `HostThread.Run` over a `HostWork<T>.Session` — the HostUi seam whose closure capture carries the typed value while the demand's own result stays the session `DocKey` — so the session's result constraint holds without constraining consumer value types, and no parallel detachment envelope exists beside that seam. Broadcast redraw suppression restores the captured state on every exit, retries a rejected restore once, and combines primary and cleanup faults.
+- Law: every borrow crosses the session capability rail through `HostThread.Run` over a `HostWork<T>.Session` — the HostUi seam whose closure capture carries the typed value while the demand's own result stays the session `DocKey` — so the session's result constraint holds without constraining consumer value types, and no parallel detachment rail exists beside that seam. Broadcast redraw suppression restores the captured state on every exit, retries a rejected restore once, and combines primary and cleanup faults.
 - Boundary: the lease owns no host resource and is not `IDisposable`; each use re-resolves the address, executes, and discards every native reference before the host-thread closure returns.
 
 ```csharp signature
@@ -173,7 +173,7 @@ public sealed class ViewportLease : IDetachedDocumentResult {
 - Law: architectural view conventions are NOT pose recipes here — `Rasm.Drawing` `ViewConvention.Pose` computes the convention pose from a subject bounds through the kernel catalog rows, and this owner only admits and seats the projected `ViewPose`; a bounds-relative multiplier or elevation constant in this package is the killed `Architecture.cs` form.
 - Boundary: reading and writing cross the same lease; a pose is a value, so two reads of a mutated viewport differ by construction and no cached pose masquerades as live state.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 // Radians, FULL vertical view angle: both host carriers hold its half, so the read doubles and the seat halves.
 [ValueObject<double>]
@@ -673,7 +673,7 @@ public static class ViewTransforms {
 - Law: snapshot values feed three consumers with one shape — the operations rail's view stack, the capture specification's window mapping, and the motion compiler's keyframe sampling — so a per-consumer snapshot variant is the collapsed form.
 - Boundary: `Restore` is a host mutation and enters the operations rail through `CameraPose.Write`; the snapshot owner never seats a native viewport directly.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct FramePlaneQuad(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight);
 

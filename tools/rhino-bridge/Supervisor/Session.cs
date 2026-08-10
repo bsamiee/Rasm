@@ -327,7 +327,7 @@ internal static class SessionKernel {
                         stream.AddRange(collection: connection.Events);
                     }
                 }
-            } catch (SessionMachine.PhaseFaulted faulted) {
+            } catch (SessionMachine.PhaseFaultedException faulted) {
                 Phase(faulted.At, faulted.Fault.Status, fault: faulted.Fault);
                 projection = new SessionProjection(Final: Faulted(fault: faulted.Fault, at: faulted.At), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
             } catch (Exception error) when (error is RemoteRpcException or JsonException
@@ -471,7 +471,7 @@ internal static class SessionKernel {
             Task done = await Task.WhenAny(work, faultedGate.Task).ConfigureAwait(false);
             if (ReferenceEquals(objA: done, objB: faultedGate.Task)) {
                 await scope.CancelAsync().ConfigureAwait(false);
-                throw new PhaseFaulted(faulted: await faultedGate.Task.ConfigureAwait(false));
+                throw new PhaseFaultedException(faulted: await faultedGate.Task.ConfigureAwait(false));
             }
             return await work.ConfigureAwait(false);
         }
@@ -499,15 +499,15 @@ internal static class SessionKernel {
 
         // The faulted-gate sentinel: the one boundary throw the live path raises by design, converted
         // to the projection at the connection seam; conventional ctors satisfy the exception contract.
-        internal sealed class PhaseFaulted : Exception {
-            internal PhaseFaulted(SessionState.Faulted faulted) : base(message: faulted.Fault.Prescription) {
+        internal sealed class PhaseFaultedException : Exception {
+            internal PhaseFaultedException(SessionState.Faulted faulted) : base(message: faulted.Fault.Prescription) {
                 Fault = faulted.Fault;
                 At = faulted.At;
             }
 
-            internal PhaseFaulted() : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: "phase faulted"), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
-            internal PhaseFaulted(string message) : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: message), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
-            internal PhaseFaulted(string message, Exception innerException) : base(message: message, innerException: innerException) {
+            internal PhaseFaultedException() : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: "phase faulted"), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
+            internal PhaseFaultedException(string message) : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: message), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
+            internal PhaseFaultedException(string message, Exception innerException) : base(message: message, innerException: innerException) {
                 Fault = new BridgeFault.LaunchFailed(Detail: message);
                 At = SessionPhase.Connect;
             }

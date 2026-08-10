@@ -189,7 +189,7 @@
 - SQLite enters through the store-profile algebra: `UseSqlite` binds once on the profile row, and every provider knob stays row data rather than a public service family.
 - `SqliteValueGenerationStrategy.Autoincrement` and `UseSqlReturningClause` are the two SQLite-specific model knobs the schema layer sets; the fluent `TableBuilder` form is the design-time declaration and the `IConvention*` form the convention-tier override.
 - `SqliteEventId` is the provider diagnostic surface the EF logging path raises; the interceptor families register once on `DbContextOptionsBuilder` and span every provider, so the interception seam owns them.
-- A seed delegate enters through `UseSeeding`/`UseAsyncSeeding` at pooled-factory build.
+- `UseSeeding`/`UseAsyncSeeding` admit the seed delegate at pooled-factory build.
 - SQLite is one engine row whose capability columns (`vector:false`, `fullText:true`, `migrations:true`) gate which lanes a profile admits.
 
 [RAIL_LAW]:

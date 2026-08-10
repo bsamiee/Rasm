@@ -37,7 +37,7 @@
 |  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                      |
 |  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                  |
 
-- `Schema.SchemaString`: a public `string` carries the server schema-string; the `SchemaString` and `CompatibilityCheck` types stay `internal`, so `IsCompatibleAsync` returns a plain `bool`.
+- `Schema.SchemaString`: carries the server schema-string as a public `string`; the `SchemaString` and `CompatibilityCheck` types stay `internal`, so `IsCompatibleAsync` returns a plain `bool`.
 
 [PUBLIC_TYPE_SCOPE]: wire-id framing family
 
@@ -190,7 +190,7 @@
 
 [LOCAL_ADMISSION]:
 - `SubjectNameStrategy` is fixed at serde-config time: `Topic` (`<topic>-value`) for single-type topics; `TopicRecord`/`Record` for a multi-event-type op-log topic so a `BimCommitted` and a `GeometryRebaked` event coexist on one topic, each governed by its own subject.
-- A durable changefeed producer sets `AutoRegisterSchemas = false` and registers schemas out-of-band through `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level (`Backward`/`FullTransitive`), so an incompatible producer schema is rejected at deploy; the consumer pins reader behaviour through `GetLatestWithMetadataAsync` against a `Metadata` tag.
+- Durable changefeed producers set `AutoRegisterSchemas = false` and register schemas out-of-band through `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level (`Backward`/`FullTransitive`), so an incompatible producer schema is rejected at deploy; the consumer pins reader behaviour through `GetLatestWithMetadataAsync` against a `Metadata` tag.
 - Field-level encryption routes through the rule engine: a `DomainRule` of `RuleMode.WriteRead` naming a field-encryption `IRuleExecutor` (registered once via `RuleRegistry.RegisterRuleExecutor`) wraps/unwraps per-field DEKs, the `Metadata` sensitive-field set marking which fields it encrypts. `Element/identity#KMS_CUSTODY` owns the `KmsProvider` axis binding registry-governed encryption to the KMS authority.
 - Registry auth mints its token from the same runtime authority the Kafka SASL/OAUTHBEARER refresh uses; `AzureIMDSBearerAuthenticationHeaderValueProvider` is the managed-identity path for an Azure-hosted registry. Auth is configured once on the client, never per request.
 

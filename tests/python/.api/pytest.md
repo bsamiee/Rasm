@@ -99,7 +99,7 @@ def pytest_sessionstart(session: Session) -> None: ...                   # optio
 - `--import-mode=importlib` collects without mutating `sys.path`, so `pythonpath = ["."]` is the only import anchor and suites import by fully-qualified package path.
 - Closed marker set is declared in `markers`: `benchmark`, `mutation`, `network`, `property`, `subprocess`; `strict = true` rejects any undeclared marker.
 - Runtime plugin implements `pytest_configure` (registers the bench regression hook when pytest-benchmark loads), `pytest_collection_modifyitems` (auto-applies `network` from `socket_enabled` membership and `property` from `is_hypothesis_test`, then consumes each module's `COVERS`), and `pytest_sessionstart` (optional CPU sampler); the assay conftest adds `pytest_runtest_setup`/`pytest_runtest_teardown` to isolate SUT `ContextVar`s per test.
-- Assay `cli` fixture composes `capsysbinary` (the `bytes` `CaptureFixture` variant), `monkeypatch`, and `request` to run the CLI in-process and decode the stdout envelope; `tmp_path` (backed by `TempPathFactory`) roots the isolated harness so filesystem laws never touch the repo tree.
+- Assay `cli` fixture composes `capsysbinary` (the `bytes` `CaptureFixture` variant), `monkeypatch`, and `request` to run the CLI in-process and decode the stdout typed envelope; `tmp_path` (backed by `TempPathFactory`) roots the isolated harness so filesystem laws never touch the repo tree.
 - `otel_spans` and `log_events` are the runtime plugin's observability fixtures — an `InMemorySpanExporter` cleared per test and a structlog event list — so a span or log assertion reads structured records, never scraped stdout.
 
 [STACKING]:

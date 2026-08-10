@@ -11,22 +11,24 @@ runtime/
 │   ├── logging.py      # Structlog pipeline: shared chain, the OTLP wire projection, log-ship policy, terminal doors
 │   ├── metrics.py      # Instrument census, metric-stream view rows and tenant budget, the record mapping, and the instrumentor train
 │   ├── hooks.py        # Scoped hook registry: point rows, modalities, and telemetry taps
-│   ├── profiles.py     # Pyroscope push, benchmark receipts, and the offline-job envelope
+│   ├── profiles.py     # Pyroscope push, benchmark receipts, and the offline-job message envelope
 │   ├── telemetry.py    # Profile-gated OTLP install owner
 │   ├── bundle.py       # Pull-driven support-bundle capsule: fenced collectors and the content-keyed archive fold
 │   └── journal.py      # Durable fact stream: audit and meter records, retention classes, exact rating, crypto-shredding
 ├── reliability/        # One fault family and resilience policy every sibling returns through
 │   ├── faults.py       # Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate
-│   └── resilience.py   # Retry policy table, one row per retryable class
-├── transport/          # Resource roots, the companion server, the wire vocabulary, and the wire codec
+│   └── resilience.py   # Retry policy table, the per-dependency failure window, and the per-destination admission rate
+├── transport/          # Resource roots, the companion server, the wire codec, and the message-envelope owner with its bindings and filters
 │   ├── roots.py        # Resource roots and refs over fsspec and the remote transports
 │   ├── serve.py        # gRPC server lifecycle, route roster, capability invoke, and the daemon composition root
 │   ├── shapes.py       # Proto vocabulary and its descriptor drift gate
-│   └── wire.py         # Protobuf transcode, frame legs, and the CRDT-op codec
+│   ├── wire.py         # Protobuf transcode, frame legs, and the CRDT-op codec
+│   ├── event.py        # CloudEvents attribute grammar, the typed extension roster, the mint boundary, and the format contract with its batch leg
+│   └── binding.py      # Protocol binding rows, the fact emitter, and the broker lane owning each connection
 ├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
-│   ├── admission.py    # Runtime context, causal frames, and settings admission
+│   ├── admission.py    # Runtime context, causal frames, settings admission, and the trust rows a producer claim crosses
 │   ├── lanes.py        # Lane-policy task groups and the stage-plan DAG
-│   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote/device arms, the guest sandbox, the fenced lease, and supervision
+│   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote and device arms, the guest sandbox, lease, and supervision
 │   └── recipe.py       # Content-keyed recipe execution on the thread lane
 └── evidence/           # Logical time, content-addressing, the seed-parity corpus, and structural-surface evidence
     ├── clock.py        # HLC stamp, element id, tenant, and causal frame
@@ -51,6 +53,8 @@ flowchart TB
     accTitle: Runtime interior import rail
     accDescr: Transitive-reduced module import rail from serve down through the execution and install strata onto the faults root.
     Serve[serve]
+    Binding[binding]
+    Event[event]
     Bundle[bundle]
     Journal[journal]
     Profiles[profiles]
@@ -75,6 +79,11 @@ flowchart TB
     Serve r1@--> Recipe
     Serve r2@--> Bundle
     Serve r3@--> Wire
+    Serve r36@--> Binding
+    Binding r37@--> Event
+    Binding r38@--> Journal
+    Binding r39@--> Roots
+    Event r40@--> Admission
     Bundle r28@--> Profiles
     Bundle r29@--> Hooks
     Bundle r30@--> Shapes
@@ -115,7 +124,9 @@ flowchart TB
 - S4-S6 execution strata — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through it.
 - S4-S6 `wire` (`CrdtOp`) sits on shapes and clock; `telemetry` gates on admission and carries the `logging`-owned ship policy.
 - S4-S6 `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
-- S7-S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail over recipe, bundle, wire codec, and journal lifecycle.
+- S4-S6 `event` (`MessageEnvelope`) sits on admission, taking its `Correlation` adoption fold for the creation-time trace and its `Classification`.
+- S7-S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail over recipe, bundle, codec, journal, and binding fan.
+- S7-S9 `binding` (`BindingRow`/`Emitter`) composes the message envelope, the journal's `Retain` classes, and the store lane its `dataref` binds into.
 - S7-S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
 - S7-S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
 - S7-S9 `journal` (`Fact`) stamps through clock, registers hook points, reads its KEK at admission's secret boundary; `Ledger` binds at composition.
@@ -215,7 +226,7 @@ Each fence's home roster holds only the sub-domains carrying a seam with that pe
 
 Each sub-domain charter is the codemap comment; the boundary law below fixes the one ownership each holds, so a planned-but-empty sub-domain and a misplaced concern both read as gaps. Exact refusals and their enforcing mechanisms live on the owning implementation pages.
 
-- `observability` — produces local evidence only, never an AppHost envelope or health status.
+- `observability` — produces local evidence only, never an AppHost message envelope or health status.
 - One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every receipt folds through one attribute-keyed drain.
 - Metric-stream shaping is DATA at the instrument owner and SDK construction at the install root, so no SDK type enters below the composition root.
 - Every recorded measure holds an instrument row, and every emitted scope carries the fault root's one versioned semconv coordinate.
@@ -237,13 +248,15 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Erasure destroys per-subject key material and rewrites no row, so unreadable IS erased and the append-only plane survives whole.
 - Worker floors boot the parent-captured install post-spawn and drain at exit.
 - Kernel-grain cost records where it is spent, under the tenant the carrier promotes.
-- `reliability` — owns the one boundary-fault surface and the single retry policy; every failure returns as a typed fault, never a sentinel.
+- `reliability` — owns the one boundary-fault surface, the retry policy, the per-dependency failure window, and the per-destination admission rate.
+- Failure windows key on the dependency INSTANCE and trip on transience alone, so one dead peer never sheds a healthy sibling of the same class.
 - `execution` — admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
+- Ingress ADMITS producer claims against a composition-bound trust row and inherits nothing — a decoded fact carries no authority its transport held.
 - Concurrency stays bounded under `StagePlan` and the one scheduler owner, every lane draining to a `DrainReceipt`.
 - Every kernel leaves the loop as one `Kernel` value on the closed worker-kind family.
 - Warm pools, restart actuation, and the serve health-flip verdict projection stay the workers owner's.
 - Lane capacity projects from the admitted profile row.
 - `evidence` — keys identity through the Python implementation of the shared content-key contract.
 - Evidence catalogue and grammar surfaces emit what the `assay code` rail consumes.
-- The clock owner mints Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
+- `clock` mints Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
 - Every stamp's physical half samples the admitted local clock; its element id is the `(origin, logical)` identity.

@@ -19,7 +19,7 @@
 - Law: the lens seat performs no optics arithmetic — `LensAngle` is the FULL vertical view angle and `ViewportInfo.CameraAngle` holds its HALF (live-proven 13.4957 deg = atan(12/50) at 50mm, identical on `RhinoViewport.CameraAngle`), so the seat halves on write exactly as `Viewport/camera.md` doubles on read; the 35mm lens length reads back off `Camera35mmLensLength`, so the half-frame diagonal is the host's own constant rather than a transcribed literal this page could drift from, and the perspective target distance reads the pose's admitted target, never a magic depth.
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport rail; this frame ends at the projection compute.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectionFrame {
@@ -121,7 +121,7 @@ public abstract partial record ProjectionFrame {
 - Law: no drawing flag travels as a bare bool — the five `HiddenLineDrawingParameters` toggles are `DrawingFeature` rows carrying their own writer column and enter as one `FrozenSet`, so `Rig` folds `DrawingFeature.Items` once and a new host flag is one row; `AbsoluteTolerance` reads the regime, a tolerance knob beside the law is the deleted form, and the public occluding flag is `OccludingSectionOption` — the same-named list member is host-internal. Rejoin and threading are compute behavior rather than parameter state, so they stay their own two-row vocabularies; the per-subject occluding grant is NOT — it is one bit of parameter state the host reads off the `AddGeometry` argument, and a two-row class over it carries no column beyond the bit, so it travels as a named `bool` on the subject exactly as the sibling curve and mesh rails spell their two-state grants.
 - Law: pacing is ONE value and cancellation ONE spelling — `ProjectionPacing` fuses the token, optional progress, and the thread row, and `Outline` and `Draft` carry a bare `CancellationToken` whose `default` IS the host's own `CancellationToken.None`; an `Option<CancellationToken>` stacks a second absence on a value that already models it. Every short host overload delegates verbatim to its long form with `null` progress or planes and `CancellationToken.None`, so this page composes the long form alone and no arm branches to pick an overload.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DrawingFeature {
@@ -208,7 +208,7 @@ public sealed record DrawingLaw(
 - Boundary: geometric curve projection stays the curve rail — `CurveOp.Project` over `ProjectTarget` owns plane, brep, and mesh target projection with index maps; this rail begins where visibility classification does.
 - Growth: a new drawing modality is one `ProjectionOp` case with its arm; a new frame source is one `ProjectionFrame` case every verb reads.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ProjectionSlot {

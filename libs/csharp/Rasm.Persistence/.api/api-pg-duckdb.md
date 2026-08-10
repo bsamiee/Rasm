@@ -15,7 +15,7 @@ Each Postgres connection carries its own embedded DuckDB instance, so every reso
 
 ## [02]-[EXECUTION_MODEL]
 
-A query reaches DuckDB by touching a DuckDB-only feature — a `read_*` function, a `USING duckdb` table, or a remote `COPY` — or by `SET duckdb.force_execution = true` for a Postgres-only query; results cross back as `SETOF duckdb.row` projected through the `r['col']` subscript.
+Queries reach DuckDB by touching a DuckDB-only feature — a `read_*` function, a `USING duckdb` table, or a remote `COPY` — or by `SET duckdb.force_execution = true` for a Postgres-only query; results cross back as `SETOF duckdb.row` projected through the `r['col']` subscript.
 
 | [INDEX] | [SURFACE]            | [FORM]                               | [SEMANTICS]                        |
 | :-----: | :------------------- | :----------------------------------- | :--------------------------------- |
@@ -64,7 +64,7 @@ Each read function takes a `path` (`text` or `text[]`, glob or array) with optio
 
 ## [05]-[SETTINGS]
 
-A sealed columnar profile pins these `postgresql.conf` knobs; `[SCOPE]` names the change authority (`general` any session, `superuser` privileged, `restart` server-restart), and resource settings are per-connection because each connection carries its own embedded instance.
+Sealed columnar profiles pin these `postgresql.conf` knobs; `[SCOPE]` names the change authority (`general` any session, `superuser` privileged, `restart` server-restart), and resource settings are per-connection because each connection carries its own embedded instance.
 
 | [INDEX] | [SETTING]                                | [DEFAULT]                      | [SCOPE]   | [EFFECT]                           |
 | :-----: | :--------------------------------------- | :----------------------------- | :-------- | :--------------------------------- |

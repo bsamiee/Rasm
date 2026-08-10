@@ -42,7 +42,7 @@
 - Every declared `HookPoint` lands its FIRE SITE in the same change — a veto point nothing fires advertises an admission gate that admits everything.
 - `Rasm` `Deterministic` is the branch's ONE splitmix64 owner. [NOT] a frozen wire constant whose VALUES define a format and re-cut stored payloads.
 - Present-but-sealed upstream payloads bind through ONE `[UnsafeAccessor]` capsule at the boundary page, pinned to the manifest — never a re-parse.
-- Domain-carrier getter and setter bodies seat beside the CONSUMING egress leg — `TraceContext` declares shape and owns no header names.
+- Domain-carrier accessors seat with the field-name roster — the message-envelope owner, else the egress leg; `TraceContext` declares shape alone.
 - Bounded wire columns admit one shared ceiling at BOTH ends — `SearchLimit` and `LimitCeiling` are that pair, never per-end literals.
 - Unions crossing JSON declare their own `[JsonPolymorphic]` roster — the generator emits none, so an undeclared union serializes `{}` per case.
 - Mapperly source-side completeness proves only on reader-free mappings — a whole-source reader suppresses `RMG020`; target-side keeps full force.
@@ -83,6 +83,7 @@
 ## [04]-[STRUCTURE]
 
 - One package carries one `.api` catalogue at one tier, and the branch README carve decides that tier ahead of consumer count.
+- Protocol-binding catalogues seat at the tier their transport carrier holds — promotion above the carrier makes a branch row stack on a folder row.
 - Dual-homing a package across `libs/csharp/.api/` and a folder tier merges the losing rows whole and deletes that file — a redirect stub re-mints it.
 - `RhinoCommon` and `Eto` catalogue by namespace-and-subsystem, so the tier law binds the catalogued PARTITION and never the assembly.
 - Package tier and README section state one fact — registry packages appear under `[03]-[SUBSTRATE_PACKAGES]`, folder-local under `[02]`.

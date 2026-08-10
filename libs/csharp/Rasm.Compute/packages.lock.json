@@ -35,15 +35,11 @@
         "resolved": "2.0.0",
         "contentHash": "2X23RZxJrjRjOSZc20aqXY9jpmHLekDRy4PIMfrsi2LPNzxFYlnuqzX/nLdk77fbURHUeX+gMhUn2a1z9/wMTQ=="
       },
-      "CloudNative.CloudEvents.Mqtt": {
+      "CloudNative.CloudEvents": {
         "type": "Direct",
-        "requested": "[3.9.0, )",
-        "resolved": "3.9.0",
-        "contentHash": "EO++hQj48WHnr2Zwg0fkQpdpC/3SS9i1ua3a4THCzpQNXWMjFyldhgQtRbOmCCadFoV+EW5ZZK1VPm/x+aP9Sw==",
-        "dependencies": {
-          "CloudNative.CloudEvents": "2.9.0",
-          "MQTTnet": "4.3.7.1207"
-        }
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
       },
       "CommunityToolkit.HighPerformance": {
         "type": "Direct",
@@ -556,11 +552,6 @@
           "Aardvark.Base.IO": "[5.3.20, 5.4.0)"
         }
       },
-      "AMQPNetLite.Core": {
-        "type": "Transitive",
-        "resolved": "2.5.3",
-        "contentHash": "oFWIBOa6z2PPcOIh2mHct6mHT4QpzBljzYtA24bjCtuSaKwaKZFt9Uae4jLSEOdQB6If22CuktaCFTvXR9ex1w=="
-      },
       "Antlr4.Runtime.Standard": {
         "type": "Transitive",
         "resolved": "4.13.1",
@@ -644,14 +635,6 @@
         "type": "Transitive",
         "resolved": "2.6.0",
         "contentHash": "iF2dMiGpaya8Umwi0OfsGKtq3aMVgHVsBChwQL+NhShEsRorcoTinGf9FFNBnBMwJW2Vm0FqhtOaEBY0+74p6g=="
-      },
-      "Chr.Avro.Json": {
-        "type": "Transitive",
-        "resolved": "10.13.1",
-        "contentHash": "jF45pP53kG4uaerEzq2hj8iolctdwoIr/Z7zaVl1az4ZQMERoaN0dapDObfb2difb1b00krHI1LN6iOjde9pSA==",
-        "dependencies": {
-          "Chr.Avro": "10.13.1"
-        }
       },
       "ClosedXML.Parser": {
         "type": "Transitive",
@@ -1188,8 +1171,8 @@
       },
       "librdkafka.redist": {
         "type": "Transitive",
-        "resolved": "2.14.2",
-        "contentHash": "8GRCTOKqCfwAyMSWmJ8c/wJc4PYm1lXAnRUWKQhaUtkz+JJUnDygxwtWPDqBMgS2YMxcrkaubFPTkhddt3RPOQ=="
+        "resolved": "2.15.0",
+        "contentHash": "DzG2YcqWPT3Ly91aeDYsgsVcJXlOMiK9oqyRdPvQz9ZMbcV8Ob0rQA6fNUQ4sarmzFk4phqwPlVQxtZDGLP69w=="
       },
       "libsodium": {
         "type": "Transitive",
@@ -1633,15 +1616,6 @@
           "NetTopologySuite": "[2.0.0, 3.0.0-A)"
         }
       },
-      "Npgsql.NodaTime": {
-        "type": "Transitive",
-        "resolved": "10.0.3",
-        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
-        "dependencies": {
-          "NodaTime": "3.2.2",
-          "Npgsql": "10.0.3"
-        }
-      },
       "NSec.Cryptography": {
         "type": "Transitive",
         "resolved": "25.4.0",
@@ -1775,8 +1749,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.1.3",
-        "contentHash": "E/XxKN+lr/lcd2IWnWg/PQyToIi2k4pG8GtJrs0UlbmjWAm1VO2sRTZJqKuyJk7TQk/hnllwa1XYfchIcGqKTg=="
+        "resolved": "3.1.13",
+        "contentHash": "wqViG+Dl4Ln/X33IyfmciyGirm1ET+M7kjwbb+oJAbDXLP2u2hX1eOnaEgyIAerJNSP98BytyddcW3ZQH55wgw=="
       },
       "runtime.android-arm.runtime.native.System.IO.Ports": {
         "type": "Transitive",
@@ -2122,6 +2096,10 @@
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
+          "CloudNative.CloudEvents": "[2.9.0, )",
+          "CloudNative.CloudEvents.Avro": "[2.9.0, )",
+          "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
+          "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
@@ -2131,6 +2109,7 @@
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "NodaTime": "[3.3.3, )",
+          "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
@@ -2138,6 +2117,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
@@ -2152,12 +2132,15 @@
           "AspNetCore.HealthChecks.System": "[9.0.0, )",
           "AspNetCore.HealthChecks.Uris": "[9.0.0, )",
           "BACnet": "[4.0.0, )",
+          "CloudNative.CloudEvents": "[2.9.0, )",
+          "CloudNative.CloudEvents.AspNetCore": "[2.9.0, )",
           "Cronos": "[0.13.0, )",
           "Csp.Contracts": "[1.0.0, )",
           "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Generator.Equals": "[4.0.2, )",
+          "Google.Protobuf": "[3.35.1, )",
           "Grpc.AspNetCore": "[2.83.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
@@ -2207,6 +2190,7 @@
           "ModelContextProtocol.AspNetCore": "[2.0.0, )",
           "ModelContextProtocol.Core": "[2.0.0, )",
           "NodaTime": "[3.3.3, )",
+          "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "NuGet.Versioning": "[7.6.0, )",
           "OPCFoundation.NetStandard.Opc.Ua": "[1.5.378.156, )",
@@ -2254,6 +2238,7 @@
       "rasm.element": {
         "type": "Project",
         "dependencies": {
+          "CloudNative.CloudEvents": "[2.9.0, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.35.1, )",
@@ -2272,6 +2257,7 @@
       "rasm.persistence": {
         "type": "Project",
         "dependencies": {
+          "AMQPNetLite.Core": "[2.5.3, )",
           "AWSSDK.KeyManagementService": "[4.0.100.6, )",
           "AWSSDK.S3": "[4.0.101.4, )",
           "Aardvark.Data.E57": "[5.6.2, )",
@@ -2281,26 +2267,25 @@
           "Apache.Arrow.Adbc.Drivers.BigQuery": "[0.23.0, )",
           "Apache.Arrow.Compression": "[23.0.0, )",
           "Apache.Arrow.Flight": "[23.0.0, )",
+          "Apache.Arrow.Flight.AspNetCore": "[23.0.0, )",
           "Apache.Arrow.Flight.Sql": "[23.0.0, )",
           "Ara3D.BimOpenSchema": "[1.0.1, )",
           "Ara3D.BimOpenSchema.IO": "[1.0.1, )",
           "Azure.Security.KeyVault.Keys": "[4.10.0, )",
           "Azure.Storage.Blobs": "[12.29.1, )",
+          "Azure.Storage.Blobs.Batch": "[12.26.0, )",
           "Chr.Avro": "[10.13.1, )",
           "Chr.Avro.Binary": "[10.13.1, )",
-          "Chr.Avro.Confluent": "[10.13.1, )",
           "ClickHouse.Driver": "[1.3.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.Amqp": "[2.9.0, )",
           "CloudNative.CloudEvents.Kafka": "[3.9.0, )",
-          "CloudNative.CloudEvents.Mqtt": "[3.9.0, )",
-          "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Confluent.Kafka": "[2.14.2, )",
-          "Confluent.SchemaRegistry": "[2.14.2, )",
-          "Confluent.SchemaRegistry.Serdes.Avro": "[2.14.2, )",
-          "Confluent.SchemaRegistry.Serdes.Json": "[2.14.2, )",
-          "Confluent.SchemaRegistry.Serdes.Protobuf": "[2.14.2, )",
+          "Confluent.Kafka": "[2.15.0, )",
+          "Confluent.SchemaRegistry": "[2.15.0, )",
+          "Confluent.SchemaRegistry.Serdes.Avro": "[2.15.0, )",
+          "Confluent.SchemaRegistry.Serdes.Json": "[2.15.0, )",
+          "Confluent.SchemaRegistry.Serdes.Protobuf": "[2.15.0, )",
           "Csp.Contracts": "[1.0.0, )",
           "DeltaLake.Net": "[0.33.0, )",
           "DotPulsar": "[5.3.1, )",
@@ -2314,6 +2299,7 @@
           "JetBrains.Annotations": "[2026.2.0, )",
           "JsonSchema.Net": "[9.4.0, )",
           "K4os.Compression.LZ4": "[1.3.8, )",
+          "K4os.Compression.LZ4.Streams": "[1.3.8, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "LightningDB": "[0.22.0, )",
           "MPXJ.Net": "[16.6.0, )",
@@ -2339,6 +2325,7 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[10.0.3, )",
           "Npgsql.NetTopologySuite": "[10.0.3, )",
+          "Npgsql.NodaTime": "[10.0.3, )",
           "Npgsql.OpenTelemetry": "[10.0.3, )",
           "OpenTelemetry.Instrumentation.AWS": "[1.17.0, )",
           "OpenTelemetry.Instrumentation.ConfluentKafka": "[0.2.0-alpha.2, )",
@@ -2348,10 +2335,11 @@
           "ParquetSharp.Dataset": "[0.4.0, )",
           "Pgvector": "[0.3.2, )",
           "Pgvector.EntityFrameworkCore": "[0.3.0, )",
+          "Pidgin": "[3.5.1, )",
           "PollinationSDK": "[1.10.0, )",
           "Qdrant.Client": "[1.18.1, )",
           "QuikGraph": "[2.5.0, )",
-          "RabbitMQ.Client": "[7.2.1, )",
+          "RabbitMQ.Client": "[7.2.2, )",
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
@@ -2360,7 +2348,7 @@
           "Sep": "[0.15.1, )",
           "Speckle.Objects": "[2026.6.0, )",
           "Speckle.Sdk": "[2026.6.0, )",
-          "StackExchange.Redis": "[3.1.3, )",
+          "StackExchange.Redis": "[3.1.13, )",
           "System.Formats.Cbor": "[10.0.10, )",
           "System.IO.Hashing": "[10.0.10, )",
           "System.Numerics.Tensors": "[10.0.10, )",
@@ -2386,6 +2374,12 @@
           "Crc32.NET": "[1.2.0, 1.3.0)",
           "FSharp.Core": "8.0.100"
         }
+      },
+      "AMQPNetLite.Core": {
+        "type": "CentralTransitive",
+        "requested": "[2.5.3, )",
+        "resolved": "2.5.3",
+        "contentHash": "oFWIBOa6z2PPcOIh2mHct6mHT4QpzBljzYtA24bjCtuSaKwaKZFt9Uae4jLSEOdQB6If22CuktaCFTvXR9ex1w=="
       },
       "Apache.Arrow.Adbc": {
         "type": "CentralTransitive",
@@ -2439,6 +2433,16 @@
           "Apache.Arrow": "23.0.0",
           "Google.Protobuf": "3.31.1",
           "Grpc.Net.Client": "2.71.0"
+        }
+      },
+      "Apache.Arrow.Flight.AspNetCore": {
+        "type": "CentralTransitive",
+        "requested": "[23.0.0, )",
+        "resolved": "23.0.0",
+        "contentHash": "h+gMias/rlrppWSjhqw9XgmuO2w5BSD0iz2SajOGozfazeY3+PIwBGEV8Wm12IxwewvwicECy3ZxKNWTXsUEug==",
+        "dependencies": {
+          "Apache.Arrow.Flight": "23.0.0",
+          "Grpc.AspNetCore.Server": "2.71.0"
         }
       },
       "Apache.Arrow.Flight.Sql": {
@@ -2589,6 +2593,17 @@
           "Azure.Storage.Common": "12.28.0"
         }
       },
+      "Azure.Storage.Blobs.Batch": {
+        "type": "CentralTransitive",
+        "requested": "[12.26.0, )",
+        "resolved": "12.26.0",
+        "contentHash": "40u4LRCFfPsEGSwin//tgzG9l/WuADJ8J4ZzER4sQzqXA/29e7gY+dCu3uyj8hOLVerGcVWXS2mwPpEygNom4Q==",
+        "dependencies": {
+          "Azure.Core": "1.55.0",
+          "Azure.Storage.Blobs": "12.29.0",
+          "Azure.Storage.Common": "12.28.0"
+        }
+      },
       "BACnet": {
         "type": "CentralTransitive",
         "requested": "[4.0.0, )",
@@ -2616,18 +2631,6 @@
           "Chr.Avro": "10.13.1"
         }
       },
-      "Chr.Avro.Confluent": {
-        "type": "CentralTransitive",
-        "requested": "[10.13.1, )",
-        "resolved": "10.13.1",
-        "contentHash": "u3jGJL9Q9zzlZLlBuADUo8SiGDsjn+RUb5sz3/2tWrhJYtCoTKsgE+qrXe+NpiF09dIWcqA75ztD9EgdSZNViQ==",
-        "dependencies": {
-          "Chr.Avro.Binary": "10.13.1",
-          "Chr.Avro.Json": "10.13.1",
-          "Confluent.Kafka": "[2.14.0, 2.15.0)",
-          "Confluent.SchemaRegistry": "[2.14.0, 2.15.0)"
-        }
-      },
       "ClickHouse.Driver": {
         "type": "CentralTransitive",
         "requested": "[1.3.0, )",
@@ -2653,12 +2656,6 @@
           "SixLabors.Fonts": "[1.0.0, 3.0.0)"
         }
       },
-      "CloudNative.CloudEvents": {
-        "type": "CentralTransitive",
-        "requested": "[2.9.0, )",
-        "resolved": "2.9.0",
-        "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
-      },
       "CloudNative.CloudEvents.Amqp": {
         "type": "CentralTransitive",
         "requested": "[2.9.0, )",
@@ -2669,6 +2666,26 @@
           "CloudNative.CloudEvents": "2.9.0"
         }
       },
+      "CloudNative.CloudEvents.AspNetCore": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "EhXZtGGTgpqHbY40H1N9MWreIiejTBPqSDDOeHz54PI8IffDNbWeUP/27o5uSH692zCWenWVQd5mu1qD9e5gfQ==",
+        "dependencies": {
+          "CloudNative.CloudEvents": "2.9.0"
+        }
+      },
+      "CloudNative.CloudEvents.Avro": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "3CgETOHI2Df9mJ3hL/sh69bXeKw9QPmtfjvY+3WUpDr90O4i23eTKbTc9h//JWUeID/7L5juF7JussfthukhQQ==",
+        "dependencies": {
+          "Apache.Avro": "1.12.1",
+          "CloudNative.CloudEvents": "2.9.0",
+          "Newtonsoft.Json": "13.0.4"
+        }
+      },
       "CloudNative.CloudEvents.Kafka": {
         "type": "CentralTransitive",
         "requested": "[3.9.0, )",
@@ -2677,6 +2694,16 @@
         "dependencies": {
           "CloudNative.CloudEvents": "2.9.0",
           "Confluent.Kafka": "2.14.2"
+        }
+      },
+      "CloudNative.CloudEvents.Protobuf": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "uH4wCjp651282ePf7pnN/5SNoeuAeR95KJvmTVl27W3sWEWO4pIxqZvVi60EZXUkmVQS0/HtjioTre+7AM2kvA==",
+        "dependencies": {
+          "CloudNative.CloudEvents": "2.9.0",
+          "Google.Protobuf": "3.35.1"
         }
       },
       "CloudNative.CloudEvents.SystemTextJson": {
@@ -2690,54 +2717,54 @@
       },
       "Confluent.Kafka": {
         "type": "CentralTransitive",
-        "requested": "[2.14.2, )",
-        "resolved": "2.14.2",
-        "contentHash": "ngjb+jon9UvPig2zLWW2pQHZhWUUWgOdEdyK72UXGDs9waLghNC90mn4dd/ODESfHvBqW0s9+nUP6eb+/5HtBQ==",
+        "requested": "[2.15.0, )",
+        "resolved": "2.15.0",
+        "contentHash": "/BOEnIKAq1AHq6vPl+0RBDiKwI6L6tJaYBo1qH+OAUP5MFy0i0MhSfgtqKW9/M8J9dQPfb/izWU+R0Uc6DyW2w==",
         "dependencies": {
-          "librdkafka.redist": "2.14.2"
+          "librdkafka.redist": "2.15.0"
         }
       },
       "Confluent.SchemaRegistry": {
         "type": "CentralTransitive",
-        "requested": "[2.14.2, )",
-        "resolved": "2.14.2",
-        "contentHash": "tIy1DwZ0On58uaENl3c9z8/23ztauvTXlO8vwhtJQsaiQrgoZKp5TmIgt5/piTgjxqTnaLRtmvZ9PwnjQ4gPiQ==",
+        "requested": "[2.15.0, )",
+        "resolved": "2.15.0",
+        "contentHash": "sfd/lVraEozhEl6aNrE+qjP7KbSZVVc/zzdX//WqavUyqpzC8MvNFZ6e+fzPQmKI1KnGZMF4/9kUY66owUsbFQ==",
         "dependencies": {
-          "Confluent.Kafka": "2.14.2",
+          "Confluent.Kafka": "2.15.0",
           "Microsoft.Extensions.Caching.Memory": "8.0.1",
           "Newtonsoft.Json": "13.0.1"
         }
       },
       "Confluent.SchemaRegistry.Serdes.Avro": {
         "type": "CentralTransitive",
-        "requested": "[2.14.2, )",
-        "resolved": "2.14.2",
-        "contentHash": "8nrOhpYEtldOeAq6TERZ6vj4el5d4tJBB5Q6wOyPXsT9YSRy8IXSfB83JaTsZEN2hOJO5+As5HhqlP4LD+aJSQ==",
+        "requested": "[2.15.0, )",
+        "resolved": "2.15.0",
+        "contentHash": "50C2ENd0o4Wuanoo7NKyX3d+IxzgLecOw8AE2UVTXi//ZQ/Hj+bWl+Io5kuQrnhLclPjX05tpkfsmx2EDFVVVw==",
         "dependencies": {
           "Apache.Avro": "1.12.1",
-          "Confluent.Kafka": "2.14.2",
-          "Confluent.SchemaRegistry": "2.14.2"
+          "Confluent.Kafka": "2.15.0",
+          "Confluent.SchemaRegistry": "2.15.0"
         }
       },
       "Confluent.SchemaRegistry.Serdes.Json": {
         "type": "CentralTransitive",
-        "requested": "[2.14.2, )",
-        "resolved": "2.14.2",
-        "contentHash": "0mGMrsIldDSQwyHo+J7ddNhXWUKS9etT/DRyo8xA+odS1PlXAazPl029KIxSotOVO0XJkS9Ur6d1Qosv76lrkg==",
+        "requested": "[2.15.0, )",
+        "resolved": "2.15.0",
+        "contentHash": "zR/x3b+54y64EJ87OVo8a6jWI6xtm6WxxvszGq7CUiD/2ws+CnHblAYJWJs0lh714FoTEGqKueNRPOg3wa8zAg==",
         "dependencies": {
-          "Confluent.Kafka": "2.14.2",
-          "Confluent.SchemaRegistry": "2.14.2",
+          "Confluent.Kafka": "2.15.0",
+          "Confluent.SchemaRegistry": "2.15.0",
           "NJsonSchema.NewtonsoftJson": "11.0.2"
         }
       },
       "Confluent.SchemaRegistry.Serdes.Protobuf": {
         "type": "CentralTransitive",
-        "requested": "[2.14.2, )",
-        "resolved": "2.14.2",
-        "contentHash": "BOD4QTEVdGJaMLVowNJCnwmX3RZarA1NM+s2vZdn843SejcM918XwO2J1M6EPIxXk4mSE5ighr6S+trQPusrVw==",
+        "requested": "[2.15.0, )",
+        "resolved": "2.15.0",
+        "contentHash": "ZCyt4ZWNK3cM7bPiGJkuUsnFURzQjaPitCZ/JoIdJdjLp3Qa4RSfeuiNmC7cjk3spCWAEQjAAfgFwxgLgU2PCg==",
         "dependencies": {
-          "Confluent.Kafka": "2.14.2",
-          "Confluent.SchemaRegistry": "2.14.2",
+          "Confluent.Kafka": "2.15.0",
+          "Confluent.SchemaRegistry": "2.15.0",
           "Google.Protobuf": "3.26.1",
           "protobuf-net.Reflection": "3.2.12"
         }
@@ -3781,6 +3808,16 @@
           "Npgsql": "10.0.3"
         }
       },
+      "Npgsql.NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
+        "dependencies": {
+          "NodaTime": "3.2.2",
+          "Npgsql": "10.0.3"
+        }
+      },
       "Npgsql.OpenTelemetry": {
         "type": "CentralTransitive",
         "requested": "[10.0.3, )",
@@ -4088,6 +4125,12 @@
           "Pgvector": "0.3.2"
         }
       },
+      "Pidgin": {
+        "type": "CentralTransitive",
+        "requested": "[3.5.1, )",
+        "resolved": "3.5.1",
+        "contentHash": "zU7tkXlF3D6d2GLTjJDomAL3nnl4AwfZvSgSz8D4b+Ry21/clqedYlxBnEAkAU/bkGfEv6uRR7QCdWZUpKrB/g=="
+      },
       "pocketken.H3": {
         "type": "CentralTransitive",
         "requested": "[4.5.0.1, )",
@@ -4173,9 +4216,9 @@
       },
       "RabbitMQ.Client": {
         "type": "CentralTransitive",
-        "requested": "[7.2.1, )",
-        "resolved": "7.2.1",
-        "contentHash": "YKXEfg9fVQiTKgZlvIhAfPSFaamEgi8DsQmisCH0IAsU4FYLrtoguDrDj6JtJVGUt40QPnBLRH6fTQcAC4qsOg==",
+        "requested": "[7.2.2, )",
+        "resolved": "7.2.2",
+        "contentHash": "k4b6RnTXpLbsF96V93ooNYxgPMnoA2tEm24B6AXNJr1mG8wwNYdA1XJtgU66L5xqeGyveS7SJriRzlX3cbqQNA==",
         "dependencies": {
           "System.Threading.RateLimiting": "8.0.0"
         }
@@ -4360,12 +4403,12 @@
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
-        "requested": "[3.1.3, )",
-        "resolved": "3.1.3",
-        "contentHash": "6m3ca55rhCgR65y7xlCxXQE1CnMdfAuLQRzv8kveSmqIYxByZlHNQM5MBEFMigNNvsgGq2WG7T+oNyOaZ9/VzA==",
+        "requested": "[3.1.13, )",
+        "resolved": "3.1.13",
+        "contentHash": "OvhFdV2ucee2hnN2v2EOcOTMvIzGsq1PX4kAbIYC8cax+MyabSa7Eu3hWY6D//SbxzZQ/eYFvD8Tvg+pK+969g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.1.3",
+          "RESPite": "3.1.13",
           "System.IO.Hashing": "10.0.5"
         }
       },

@@ -19,6 +19,10 @@
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
+    <ItemGroup Label="Event Transport">
+        <PackageReference Include="CloudNative.CloudEvents" />
+    </ItemGroup>
+
     <ItemGroup Label="Wire Transcription">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />

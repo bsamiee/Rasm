@@ -39,7 +39,7 @@ data/
 - S1 `lane/tenant` — pins the tenancy write path over `Capability` and `Pg`, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
 - S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction; `retain` ages and `fact` meters inside the stratum.
-- S2 `append` mints the CloudEvents relay envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
+- S2 `append` mints the CloudEvents relay message envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
 - S3 `object` — every byte plane binds `Journal` custody under the one content identity; `store` roots, `stream` and `file` tap `Hook` at admission.
 - S4 `read` — consumption over everything below; `lane/olap` sits beside it composing `ObjectStore` and the `Pg.Profile` harvest band.
 
@@ -156,7 +156,7 @@ flowchart LR
     Core e20@-->|"[SHAPE]: Convention"| Stream
     Core e21@-->|"[SHAPE]: Convention"| Cache
     Core e22@-->|"[SHAPE]: Convention"| Olap
-    Append e23@-->|"[SHAPE]: Journal.envelope"| Runtime
+    Append e23@-->|"[SHAPE]: Journal.Deliverable.envelope"| Runtime
     Core e24@-->|"[SHAPE]: Tap.Point"| Append
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
@@ -171,6 +171,7 @@ flowchart LR
     Core e35@-->|"[SHAPE]: Convention"| Asset
     Rhino e36@-->|"[WIRE]: OrganizationWire"| Fold
     Core e36@-->|"[SHAPE]: Carrier.Context/Identity.Tenant"| Append
+    Core e37@-->|"[EVENT]: Event.Fact"| Append
 ```
 
 ## [04]-[INTERNAL]

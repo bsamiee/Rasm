@@ -115,7 +115,7 @@
 - Polymorphic bare-name forms (`spring_layout`, `topological_sort`, `node_link_json`, `union`) dispatch on graph type; a `graph_*` / `digraph_*` form binds only inside a single-graph-type kernel.
 - `_as_graph` folds the adjacency frame into a `PyDiGraph` once and the stable node index is the join key the resolved `Pos2DMapping` and the emitted `DiagramGlyph` both read; an empty frame returns the empty result before construction.
 - Every layout computes a `Pos2DMapping` (coordinates only, never SVG); the `LayoutPolicy` match selects the arm and a force `seed=` fixes the coordinate map, and thus the content key.
-- An AEC cross-reference owner rejecting a cycle at authoring time constructs a `PyDAG` (`check_cycle=True`) and folds `DAGWouldCycle`, never a post-hoc scan.
+- AEC cross-reference owners rejecting a cycle at authoring time construct a `PyDAG` (`check_cycle=True`) and fold `DAGWouldCycle`, never a post-hoc scan.
 - `node_link_json` supplies `node_attrs` / `edge_attrs` so two glyph-distinct graphs serialize distinctly; two layouts of one graph under distinct `LayoutPolicy` values key distinctly because the coordinate and route maps join the topology wire, so a diagram is content-addressable on its full laid-out form.
 
 [STACKING]:

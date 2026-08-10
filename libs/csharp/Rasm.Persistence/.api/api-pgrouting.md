@@ -63,7 +63,7 @@
 |  [27]   | `pgr_withPointsKSP(K, heap_paths, details)`         | MULTI-PATH | point-anchored K shortest paths       |
 |  [28]   | `pgr_withPointsVia(via vids, details)`              | VIA        | point-anchored waypoint route         |
 
-- `pgr_withPoints`: a `Points SQL` vertex enters the result as a negative `node` id, so one path sequence carries point ids beside vertex ids.
+- `pgr_withPoints`: emits each `Points SQL` vertex as a negative `node` id, so one path sequence carries point ids beside vertex ids.
 - `pgr_floydWarshall`/`pgr_johnson`: the all-pairs pair reads the whole graph — `(Edges SQL, directed)` is the entire call.
 
 [OUTPUT_SHAPES]:
@@ -100,7 +100,7 @@
 |  [16]   | `pgr_edgeDisjointPaths(source vid(s), sink vid(s))`    | MULTI-PATH | edge-disjoint paths over max flow     |
 |  [17]   | `pgr_maxCardinalityMatch`                              | `(edge)`   | maximum cardinality matching          |
 
-- `pgr_TSP`: a `*CostMatrix` built under `directed => false` yields the symmetric, fully-connected, triangle-obeying matrix the metric bound assumes.
+- `pgr_TSP`: takes the symmetric, fully-connected, triangle-obeying matrix the metric bound assumes, built by a `*CostMatrix` under `directed => false`.
 
 ## [05]-[GRAPH_ANALYSIS]
 

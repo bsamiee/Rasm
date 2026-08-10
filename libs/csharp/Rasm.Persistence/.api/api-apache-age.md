@@ -21,7 +21,7 @@
 |  [02]   | `LOAD 'age'`                                    | once per session  | load the shared library into the backend (before any Cypher)   |
 |  [03]   | `SET search_path = ag_catalog, "$user", public` | per session/txn   | resolve unqualified `cypher`/`agtype` (or `SET LOCAL` per txn) |
 
-A PL/pgSQL function running Cypher repeats `LOAD 'age'; SET search_path TO ag_catalog;` in its own body — the caller's session settings do not cross the function boundary.
+Session settings stop at the function boundary, so every PL/pgSQL function running Cypher repeats `LOAD 'age'; SET search_path TO ag_catalog;` in its own body.
 
 ## [03]-[CATALOG_SCHEMA]
 
@@ -64,7 +64,7 @@ AGE rejects a single Cypher statement that mutates and returns — split `CREATE
 
 ## [06]-[AGTYPE]
 
-`agtype` is AGE's single value type — a superset of `jsonb`'s binary format extended with the exact-number kinds (`integer`/`float`/`numeric`) and the graph entities `vertex`/`edge`/`path`. A vertex or edge renders `{id, label, properties}::vertex|edge`; a path is the alternating `[vertex, edge, …]::path`.
+`agtype` is AGE's single value type — a superset of `jsonb`'s binary format extended with the exact-number kinds (`integer`/`float`/`numeric`) and the graph entities `vertex`/`edge`/`path`. `agtype` renders a vertex or edge as `{id, label, properties}::vertex|edge` and a path as the alternating `[vertex, edge, …]::path`.
 
 | [INDEX] | [OPERATOR]    | [SIGNATURE]                               | [SEMANTICS]                              |
 | :-----: | :------------ | :---------------------------------------- | :--------------------------------------- |

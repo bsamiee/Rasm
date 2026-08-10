@@ -64,7 +64,7 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 - `effect`
 
 [WIRE_ENVELOPE]:
-- `cloudevents` — `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam, the branch's one member-level consumer.
+- `cloudevents` — `journal/append.md` projects the outbox message envelope at the claim seam through the core mint owner.
 
 [PLATFORM]:
 - `@effect/platform`

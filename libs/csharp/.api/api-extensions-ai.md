@@ -12,7 +12,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: chat contract, request policy, and response envelope
+[PUBLIC_TYPE_SCOPE]: chat contract, request policy, and response carriers
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]    | [CAPABILITY]                   |
 | :-----: | :--------------------------------------- | :--------------- | :----------------------------- |
@@ -23,7 +23,7 @@
 |  [05]   | `ChatMessage`                            | message model    | chat content carrier           |
 |  [06]   | `ChatRole`                               | struct           | message role vocabulary        |
 |  [07]   | `ChatOptions`                            | request options  | request policy carrier         |
-|  [08]   | `ChatResponse`                           | response model   | response envelope              |
+|  [08]   | `ChatResponse`                           | response model   | whole-response carrier         |
 |  [09]   | `ChatResponseUpdate`                     | streaming update | incremental response unit      |
 |  [10]   | `ChatFinishReason`                       | struct           | stop vocabulary                |
 |  [11]   | `ChatToolMode`                           | tool-mode base   | tool dispatch policy           |

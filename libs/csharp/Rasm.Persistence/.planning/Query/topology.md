@@ -4,15 +4,15 @@ Rasm.Persistence answers authoritative topology synchronously from one kind-filt
 
 ## [01]-[INDEX]
 
-- [02]-[GRAPH_TOPOLOGY]: the neutral `EdgeFilter` kind vocabulary, the `TypedEdge` relationship-carrying QuikGraph edge, the kind-filtered view built off the seam-frozen edge set and incidence index, the content-keyed memoized snapshot view boundary, and the `ProjectView` federated multi-graph lifting the per-model views over the durable `ModelLink` rows.
-- [03]-[TRAVERSAL]: the `TopologyQuery` request family, the `TopologyResult` typed receipt, the `TopologyFault` band, and the `Traversals` static surface composing the `AlgorithmExtensions` facade — containment ancestry/descent, connection adjacency, void resolution, nearest-common-container, shortest path, components, islands, topological order, anchors, and cycle detection — every result an `ElementSet`.
+- [02]-[GRAPH_TOPOLOGY]: `EdgeFilter` neutral kind vocabulary, the `TypedEdge` relationship-carrying QuikGraph edge, the kind-filtered view built off the seam-frozen edge set and incidence index, the content-keyed memoized snapshot view boundary, and the `ProjectView` federated multi-graph lifting the per-model views over the durable `ModelLink` rows.
+- [03]-[TRAVERSAL]: `TopologyQuery` request family, the `TopologyResult` typed receipt, the `TopologyFault` band, and the `Traversals` static surface composing the `AlgorithmExtensions` facade — containment ancestry/descent, connection adjacency, void resolution, nearest-common-container, shortest path, components, islands, topological order, anchors, and cycle detection — every result an `ElementSet`.
 
 ## [02]-[GRAPH_TOPOLOGY]
 
 - Owner: `EdgeFilter` is the neutral edge-kind selection vocabulary; `EdgeOrientation` projects the seam endpoints forward or ascending; `TypedEdge` carries the admitted `Relationship`; `TopologyView` is the snapshot-local reference owner for its `ModelId`, graph identity, and its mutable view memo; `GraphTopology.Build` is the polymorphic kind-and-orientation builder; `ProjectView` is the federation-altitude composition — `ProjectEdge` the `SetKey`-vertexed edge and `ProjectTie` its two-kind payload, one lifted seam relationship or one durable `ModelLink` row.
 - Cases: `EdgeFilter` rows are `All` (every edge — the full reachability/cycle/island graph), `Containment` (`Compose { SubKind: Contain }` only — the narrow `IfcRelContainedInSpatialStructure` element→placement edge a pure storey-membership query reads), `Spatial` (`Compose { SubKind: Contain | Aggregate }` — the FULL IFC spatial-structure tree the ancestry/descent/LCA/anchors walks climb, the `IfcRelAggregates` site→building→storey decomposition the storey→element containment hangs off), `Connection` (`Connect` only — MEP/path adjacency), `Void` (`Void` only — host→feature opening resolution), `Assignment` (`Assign` only — group/system/type membership); a `TypedEdge` carries its `Relationship` so a traversal filters by neutral edge kind without a parallel `RelationshipKind` enum the seam does not duplicate.
 - Entry: `GraphTopology.Build(ElementGraph, EdgeFilter, EdgeOrientation)` builds the admitted view once; `TopologyView.Of(ModelId, ElementGraph)` seats a model's view and `View(EdgeFilter, EdgeOrientation)` memoizes the result under both row keys, `Advance(GraphDelta, Op)` validates the next frozen snapshot through `ElementGraph.Apply` before cloning and patching every materialized filtered view; `ProjectView.Of(Seq<TopologyView>, Seq<ModelLink>)` seats the federated view, its `Expand` is the one-hop delegate the selection `Closure` fold threads, and its `Scope` projects the member roster a caller hands to `Evaluate`.
-- Auto: the view is built ONCE per read snapshot off the seam edge set — the live authoring/delta path uses the seam's `ImmutableDictionary`/HAMT structural-sharing form (`Graph/delta`, O(log n) edits) and the seam freezes the incidence index plus the kind-agnostic `SEdge` view at the read-snapshot boundary (`Graph/element#ELEMENT_GRAPH` `Of`/`Topology`), so this lane NEVER re-derives the incidence index — a degree read goes through `graph.EdgesAt(node)` and only the kind-FILTERED `TypedEdge` view is built here; `Advance` clones only already-demanded filter/orientation views, removes delta edges and vertices, then adds vertices and admitted projected edges, preserving isolated nodes and moving the memo to the next `ContentAddress.OfGraph` identity in `O(delta)` per active view; an untouched filter remains an unbuilt cache entry rather than paying an eager scan.
+- Auto: the view is built ONCE per read snapshot off the seam edge set — the live authoring/delta path uses the seam's `ImmutableDictionary`/HAMT structural-sharing form (`Graph/delta`, O(log n) edits) and the seam freezes the incidence index and the kind-agnostic `SEdge` view at the read-snapshot boundary (`Graph/element#ELEMENT_GRAPH` `Of`/`Topology`), so this lane NEVER re-derives the incidence index — a degree read goes through `graph.EdgesAt(node)` and only the kind-FILTERED `TypedEdge` view is built here; `Advance` clones only already-demanded filter/orientation views, removes delta edges and vertices, then adds vertices and admitted projected edges, preserving isolated nodes and moving the memo to the next `ContentAddress.OfGraph` identity in `O(delta)` per active view; an untouched filter remains an unbuilt cache entry rather than paying an eager scan.
 - Receipt: a view build rides `store.topology.build` carrying the filter key and the node/edge count; a memo hit rides `store.topology.memo` carrying the content address.
 - Packages: QuikGraph (`BidirectionalGraph`/`IEdge<TVertex>`/`AddVerticesAndEdge`/`AddVertexRange`), Rasm.Element (`ElementGraph`/`Relationship`/`Relationship.Compose`/`RelationshipKind`/`ComposeKind`/`NodeId`/`EdgesAt`/`ContentAddress.OfGraph`), Rasm.Persistence (`Element/graph#STORE_RAIL` `ModelId`/`ModelLink`/`LinkKind`; `Query/lane#ELEMENT_SET_ALGEBRA` `SetKey`/`SetScope`), CommunityToolkit.HighPerformance, System.Collections.Frozen, System.Collections.Immutable, BCL inbox.
 - Growth: a new edge filter is one `EdgeFilter` row carrying its `Relationship`-kind predicate; a new view orientation is the existing forward/reversed pair; `Advance` applies the same row predicates to delta edges, so growth needs no parallel incremental dispatcher; a new cross-model relationship class reaches the federated view as one `LinkKind` row with zero edits here; zero new surface — an external graph database for authoritative topology, a per-read whole-edge scan, or a SECOND incidence structure beside the one the seam snapshot freezes is the deleted form because the seam owns the incidence index (`EdgesAt`) and the kind-agnostic view (`Topology()`), this lane owns only the kind-filtered `TypedEdge` view, and `ProjectView` COMPOSES the per-model views off the one memo — lifting edges, never re-deriving incidence — adding only the durable link rows no seam incidence carries.
@@ -122,8 +122,8 @@ public static class GraphTopology {
     }
 }
 
-// The federated edge: an in-model seam relationship LIFTED under its owning model, or a durable cross-model
-// `ModelLink` row — the two tie kinds one project walk crosses without a second incidence structure.
+// `ProjectTie` carries the federated edge: an in-model seam relationship LIFTED under its owning model, or a
+// durable cross-model `ModelLink` row — the two tie kinds one project walk crosses with no second incidence structure.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectTie {
     private ProjectTie() { }
@@ -169,9 +169,9 @@ public sealed class ProjectView {
         return view;
     }
 
-    // The one-hop expansion the `Query/lane#ELEMENT_SET_ALGEBRA` `Closure` fold threads as `SetResolve.Expand`:
-    // out-neighbours over the full federated view, so a bounded walk crosses models exactly where a durable
-    // link row carries it.
+    // `Expand` is the one-hop expansion the `Query/lane#ELEMENT_SET_ALGEBRA` `Closure` fold threads as
+    // `SetResolve.Expand`: out-neighbours over the full federated view, so a bounded walk crosses models exactly
+    // where a durable link row carries it.
     public Fin<Seq<SetKey>> Expand(Seq<SetKey> frontier) {
         BidirectionalGraph<SetKey, ProjectEdge> all = View(EdgeFilter.All, EdgeOrientation.Forward);
         return Fin.Succ(toSeq(frontier.Filter(all.ContainsVertex).Bind(key => toSeq(all.OutEdges(key).Select(static e => e.Target)))).Distinct());
@@ -196,7 +196,7 @@ public sealed class ProjectView {
 - Auto: spatial ancestry runs `TreeBreadthFirstSearch` over the ascending `Spatial` view and descent over the forward view. Connection adjacency unions `OutEdges` and `InEdges` because `IfcRelConnectsElements` is an undirected join. Placement uses ascending `Containment`; membership uses ascending `Assignment`; void resolution uses forward `Void`. LCA folds `OfflineLeastCommonAncestor` over every forest root after an acyclicity gate. Shortest path uses unit-weight `ShortestPathsDijkstra`; metric routing remains in the `pgrouting` lane. Components and cycles share `StronglyConnectedComponents`; islands use `WeaklyConnectedComponents`; order uses gated `SourceFirstTopologicalSort`; redundancy diffs the spatial view against `ComputeTransitiveReduction`. Every reachability result projects to `ElementSet`.
 - Receipt: a traversal rides `store.topology.traverse` carrying the query case, the reached count, and the depth; a cycle detection rides `store.topology.cycle` carrying the cycle count; an absent-root rejection rides the `TopologyFault.RootAbsent` rail.
 - Packages: QuikGraph (`AlgorithmExtensions.TreeBreadthFirstSearch`/`OfflineLeastCommonAncestor`/`ShortestPathsDijkstra`/`StronglyConnectedComponents`/`WeaklyConnectedComponents`/`SourceFirstTopologicalSort`/`IsDirectedAcyclicGraph`/`ComputeTransitiveReduction`/`Roots`/`Sinks`, `BidirectionalGraph.OutEdges`/`InEdges`/`ContainsEdge`, `SEquatableEdge`/`TryFunc`), Rasm.Element, Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `WalkDepth`/`SelectionFault` — the admitted bounded-depth axis), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new traversal is one `TopologyQuery` case plus one `AlgorithmExtensions` composition reading the matching `EdgeFilter` view; zero new surface — a hand-rolled BFS/DFS, a recursive ltree CTE for in-memory ancestry, a second path solver, or a silent empty-result fallback is the deleted form because QuikGraph owns the graph algorithms, every result is an `ElementSet`, and an absent root rails the typed band.
+- Growth: a new traversal is one `TopologyQuery` case carrying one `AlgorithmExtensions` composition over the matching `EdgeFilter` view; zero new surface — a hand-rolled BFS/DFS, a recursive ltree CTE for in-memory ancestry, a second path solver, or a silent empty-result fallback is the deleted form because QuikGraph owns the graph algorithms, every result is an `ElementSet`, and an absent root rails the typed band.
 - Boundary: every traversal composes `AlgorithmExtensions`; generated `query.Switch(...)` dispatch remains exhaustive. `Rooted` and `Paired` convert unknown endpoints to `TopologyFault.RootAbsent`, while `IsDirectedAcyclicGraph` gates order, LCA, and reduction. `Placement`, `Members`, `Void`, and symmetric connection adjacency make every filter row operational. Topological distance remains in-process, metric distance remains in `pgrouting`, and both return `ElementSet`-compatible keys.
 
 ```csharp signature
@@ -392,7 +392,7 @@ public static class Traversals {
         return ElementSet.Of(toSeq(spatial.Roots().Concat(spatial.Sinks()).Select(view.Key)));
     }
 
-    // A DAG gate prevents source-first sorting from silently dropping cyclic remainders.
+    // `Topological` gates on the DAG check, so source-first sorting never silently drops cyclic remainders.
     static Fin<TopologyResult> Topological(TopologyView view) {
         BidirectionalGraph<NodeId, TypedEdge> graph = view.View(EdgeFilter.All, EdgeOrientation.Forward);
         return graph.IsDirectedAcyclicGraph()

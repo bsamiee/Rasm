@@ -24,17 +24,17 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Asserted flags, tenancy claims, and capability columns diverge silently the first time the surface they mirror moves, and nothing raises.
 - Boundary: This scar spans fence literals and prose claims alike — a comment asserting a behavior the member contradicts falls with the literal.
 - Boundary: Inference substituting for a declared fact falls with the asserted copy — total coverage never separates two states one probe reads alike.
-- Boundary: A transform resolved into a column applies once; an egress helper re-applying it over the resolved column is the defect both sites hide.
+- Boundary: Transforms resolved into a column apply once; an egress helper re-applying one over the resolved column is the defect both sites hide.
 
 [FORGED_ZERO]:
 - Law: Tallies, levels, and receipt fields publish measured values alone, and a construction reading zero for absent measurement spells absence.
 - Law: Measures an arm may not take ride an optional slot; a required slot with a zero, `inf`, or `nan` default is a type defect spelling no absence.
 - Law: Multiplicative scores fan each measured component onto its own dimension and COUNT refusals on their own series, never into the distribution.
-- Law: A policy or preset row never carries a slot only a mount can measure; the measured slot is a required argument on a mount-time factory.
+- Law: Policy and preset rows never carry a slot only a mount can measure; the measured slot is a required argument on a mount-time factory.
 - Trigger: Zero-fallback reads, retired-owner slots republishing a last value, and zero-filled receipts each read as a measurement no producer took.
 - Boundary: `libs/.planning/RULINGS.md` `[02]-[SHAPE]` owns the diagnostic-plane UNMEASURED shape, and this scar binds every other construction.
 - Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.
-- Boundary: A structurally-zero slot states why at its site, so a sweep tells structural from fabricated zeros without re-deriving the domain.
+- Boundary: Structurally-zero slots state why at their site, so a sweep tells structural from fabricated zeros without re-deriving the domain.
 - Boundary: Platform-gated counter projections OMIT the absent key, and process-constant counter binding spells that omission platform absence alone.
 
 [STRATA_TWIN]:
@@ -59,42 +59,42 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 
 [LAW_WITHOUT_PRODUCER]:
 - Law: Rows added to a data anchor land with their construction in the same edit.
-- Law: The inverse holds — a sole-construction entrypoint proves by its call site, and a producer no consumer reaches is inert whatever it declares.
+- Law: Inversion holds too — a sole-construction entrypoint proves by its call site, and a producer no consumer reaches is inert whatever it declares.
 - Trigger: Severed or partial writes leave columns half-landed and laws producer-less, each reading complete to a prose scan while inert.
 - Boundary: Construction and call sites on disk prove a producer; a declaration, census row, or exported type never does.
 - Boundary: Wire-complete chains prove at the owning evaluator's read — a column that evaluator never reads passes every producer census inert.
 
 [SEEDED_FROM_STRING_HASH]:
-- Law: A reproducible lane derives its seed from a declared ordinal, index, or literal — never a runtime hash of a name.
-- Trigger: A stream seeded from `string.GetHashCode()` or any per-process-randomized hash voids replay while reading stable within one run.
+- Law: Reproducible lanes derive their seed from a declared ordinal, index, or literal — never a runtime hash of a name.
+- Trigger: Streams seeded from `string.GetHashCode()` or any per-process-randomized hash void replay while reading stable within one run.
 
 [EXACT_ORACLE_INFERRED_FROM_RESULT]:
-- Law: A page owning an exact predicate decides degeneracy by that predicate on the inputs, never off a floating result's finiteness or magnitude.
-- Trigger: A cancelling denominator lands a finite wrong answer that every non-finiteness probe passes.
+- Law: Pages owning an exact predicate decide degeneracy by that predicate on the inputs, never off a floating result's finiteness or magnitude.
+- Trigger: Cancelling denominators land a finite wrong answer that every non-finiteness probe passes.
 
 [SUCCESS_ARM_RELEASE]:
 - Law: Release brackets the acquisition (`IO.Bracket`, `use`), never the outcome; release inside a result-rail `.Map`/`.Bind` leaks on every failure.
-- Trigger: The tuple-projection idiom `(fun(x.Dispose)(), y).Item2` reads as a release beside the value while binding release to success.
+- Trigger: Tuple projection `(fun(x.Dispose)(), y).Item2` reads as a release beside the value while binding release to success.
 
 [DECISION_UNDERIVABLE_FROM_STATE]:
-- Law: A lock-free transition's verdict rides in the swapped value — identical accepted/rejected states let no caller re-derive its outcome.
-- Trigger: A swap returning only the new value reports success to every contender, and the losing writer proceeds on a decision it never won.
+- Law: Lock-free transitions ride their verdict in the swapped value — identical accepted and rejected states let no caller re-derive an outcome.
+- Trigger: Swaps returning only the new value report success to every contender, and the losing writer proceeds on a decision it never won.
 
 [BAND_WIDENS_BOTH_BOUNDS]:
-- Law: A hysteresis band shifts one threshold of a half-open partition predicate; applied to both sides it destroys the partition.
-- Trigger: The two comparisons stop sharing one threshold and adjacent members both admit.
+- Law: Hysteresis bands shift one threshold of a half-open partition predicate; applied to both sides they destroy the partition.
+- Trigger: Both comparisons stop sharing one threshold and adjacent members both admit.
 
 [PRESENCE_AS_BREACH]:
-- Law: A budgeted resource gates on a rate against its own ceiling column; normal budget operation — eviction, retry, cache miss — is never a breach.
-- Trigger: A governor counting presence pins itself at its floor tier under ordinary load.
+- Law: Budgeted resources gate on a rate against their own ceiling column; normal budget operation — eviction, retry, cache miss — is never a breach.
+- Trigger: Governors counting presence pin themselves at their floor tier under ordinary load.
 
 [CONTIGUITY_ASSUMED_FROM_COUNT]:
 - Law: Rank and index bounds clamp against a vocabulary's measured extremes, never `Count - 1`.
 - Trigger: `Items.Count - 1` assumes contiguous zero-based keys, and the vocabulary's own declared growth move breaks it.
 
 [DISCARDED_DISCRIMINANT]:
-- Law: A predicate over a multi-valued foreign attribute carries the value with its verdict — a kept boolean forces fabrication of the dropped fact.
-- Trigger: A round-trip re-authors a declared choice as a constant, invisible to parse and diff — ingest kept a boolean, egress hardcoded the value.
+- Law: Predicates over a multi-valued foreign attribute carry the value with their verdict — a kept boolean forces fabrication of the dropped fact.
+- Trigger: Round-trips re-author a declared choice as a constant, invisible to parse and diff — ingest kept a boolean, egress hardcoded the value.
 
 [SNAPSHOT_FROZEN_GUARD]:
 - Law: Conditional writes state their whole condition where the engine re-evaluates it per row, never a sibling expression frozen at statement start.
@@ -104,16 +104,40 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: Refutation lands at the generating clause — a doctrine row recommending the chained form without the visibility law re-derives it.
 
 [REFUTED_MECHANISM_RECORD]:
-- Law: A mechanism disproved on its owning rail lands the refutation at the generating catalog clause, never in the receipt alone.
-- Trigger: An untouched generating clause re-derives the refuted prescription on the next pass.
+- Law: Mechanisms disproved on their owning rail land the refutation at the generating catalog clause, never in the receipt alone.
+- Trigger: Untouched generating clauses re-derive the refuted prescription on the next pass.
 
 [MANIFEST_NAMES_UNREALIZED_SURFACE]:
-- Law: A build manifest names only what its own compiled closure provides; a namespace the source estate has yet to realize belongs to the fence that consumes it.
-- Trigger: The row hard-fails the one consumer that cannot drop it while every sibling carries a removal row that reads as deliberate configuration.
-- Boundary: The law spans every injection kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
+- Law: Build manifests name only what their own compiled closure provides; a namespace the source estate has yet to realize belongs to the fence consuming it.
+- Trigger: That row hard-fails the one consumer that cannot drop it while every sibling carries a removal row reading as deliberate configuration.
+- Boundary: Injection spans every kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
+
+[PACKAGE_LIMIT_AS_LAW]:
+- Law: Specifications, standards, and domains own their semantics while an admitted package accelerates them, so a package's narrower surface states a fact about that package alone.
+- Trigger: Capability the specification defines and the package omits lands as an estate ceiling, and every later reader takes the omission for settled scope.
+- Boundary: Acceleration spans every kind — SDK, codec, helper roster, generated client — and a branch-owned leg carries what the package leaves.
+- Boundary: Package surfaces WIDER than the specification invert the same defect, since the estate then ships a shape no conforming peer resolves.
+
+[CITED_RULING_UNWRITTEN]:
+- Law: Decisions citing a ruling hold only where that ruling resolves on disk at the tier the citation names, an unresolvable citation carries no authority at all.
+- Trigger: Scope narrowed "by ruling" freezes for passes while the named registry holds no such row, so the decision reads settled and re-litigates the moment someone looks.
+- Boundary: Proof reads the named registry at the named tier — a recalled ruling, a peer page repeating it, and a receipt asserting it each prove nothing.
+- Boundary: Decisions surviving the miss land their ruling row in the same pass, and one that does not survive reverses whole with its ripples.
+
+[PROOF_DISCARDED_BY_WIDENING]:
+- Law: Narrowing proofs and their consumers share one type, so the expression taking a proved value takes the narrowed shape rather than a widened supertype.
+- Trigger: One expression proves a shape and the next hands it to a member returning the wide form, so the checker stops carrying the invariant and every later reader re-proves by hand or not at all.
+- Boundary: Narrowing devices all fall under it — a `satisfies` witness, a type guard, a refinement, an exhaustive arm — and the widened return erases each.
+- Boundary: Repair narrows the consuming signature, never a cast or a re-check at the call site, since both re-assert what the type system already proved.
+
+[FROZEN_FOREIGN_ARTIFACT]:
+- Law: Vendored publisher bytes carve out of every estate lane that respells them — formatter, breaking gate, generator, canonicalizer — so the copy stays byte-identical to what its publisher versions.
+- Trigger: Lanes reaching the vendored tree diff the estate's spelling rather than the publisher's, leaving re-vendoring indistinguishable from an estate edit.
+- Boundary: Each carve declares at its own lane's config, so a lane admitted later inherits no exemption and states its own.
+- Boundary: Readers modelling estate-emitted assets carve too, vendored corpus emit no producer asset and reads as awaiting emission under a model that assumes one.
 
 [DIGEST_OVER_UNORDERED_CONTAINER]:
-- Law: Digests, preimages, and wire arrays projected from a hash-keyed container read a canonical ORDER their owner publishes, never the container's own enumeration.
+- Law: Digests, preimages, wire arrays projected from a hash-keyed container read a canonical ORDER their owner publishes, never the container's own enumeration.
 - Trigger: Two runtimes derive different bytes from one logical value, and the fixture pinning them never freezes because neither side is wrong.
 - Boundary: Every unordered carrier a byte-deriving reader touches falls under it — a hash map, a set, a dictionary lowered to a JSON object, a record of counters.
 - Boundary: Order publishes ONCE on the owning value beside its writer; a reader sorting at its own call site desyncs the moment a second reader forgets.

@@ -36,10 +36,10 @@ artifacts/
 ├── specification/       # CSI construction-specification plane on the pub/print substrate
 │   ├── section.py       # CSI SectionFormat 3-part sections authored INTO DocumentNode; contributes the Spec receipt
 │   └── classify.py      # MasterFormat/UniFormat/OmniClass vocabularies and the drawing<->spec resolver; mints no receipt
-├── delivery/            # ISO 19650 delivery plane: container register, issue-for-construction transmittal, and wire notice
+├── delivery/            # ISO 19650 delivery plane: container register, issue-for-construction transmittal, and issue announcement
 │   ├── register.py      # ISO 19650 register, sheet-index, and container-metadata owner; contributes the Register receipt
 │   ├── transmittal.py   # issue-for-construction orchestrator over imposition, archive, credential, and conformance
-│   └── notice.py        # TransmittalNotice trace-continuous CloudEvents envelope sealing the settled issue close
+│   └── notice.py        # TransmittalNotice projection turning the issued fact into a runtime message envelope
 ├── graphic/             # 2D graphic-primitive toolkit every visual and document plane composes
 │   ├── raster/
 │   │   ├── io.py        # pillow/pyvips IO, convert, thumbnail, montage working surface
@@ -189,7 +189,7 @@ flowchart TB
 - S0 `core/plan` + `core/receipt` + `core/hooks` — the spine floor imports no artifacts sibling above it.
 - S0 seats `PipelinePlan`/`ArtifactWork`, the `ArtifactReceipt` union, and the `ARTIFACT_POINTS` hook rows; `hooks` composes the runtime registry.
 - S0 `receipt` composes runtime, the compute `HandoffAxis`, and the hooks `Production` fire — the one same-stratum interleave.
-- S0–S5 every plane composes the floor (`ArtifactWork`, `ArtifactReceipt`); the fence draws only each plane's discriminating imports.
+- S0-S5 every plane composes the floor (`ArtifactWork`, `ArtifactReceipt`); the fence draws only each plane's discriminating imports.
 - S1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone.
 - S1 seats `PositionedGlyphRun`, the metadata/credential/conformance boundary, the `Bundle` vocabulary, and the `SceneGrid` parse floor.
 - S2 `graphic` + `drawing` + `visualization` + `export` — one visual stratum, module-acyclic.
@@ -200,7 +200,7 @@ flowchart TB
 - S3 `document`, `media`, `composition`, `specification` — composer planes over the visual stratum.
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
 - S4 `delivery` then S5 `core/issue` — `issue` alone imports upward-named producers, so the spine is floor and conductor, never one stratum.
-- S4 `transmittal` composes the `notice` seal downward; `notice` fires the floor `Production` row, so the plane stays acyclic.
+- S4 `transmittal` fires its issued fact on the floor `Production` row and `notice` subscribes to it, so neither delivery page imports the other.
 - S5 `core/bench` rides the conductor stratum without conducting — no producer imports it or cycles through it.
 - S5 `bench` composes the package recipes, the receipt `ArtifactKind`, and `media/synthesis` replay; native-offload kernels arrive as caller values.
 
@@ -269,7 +269,7 @@ Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Pe
 
 `AssetSetManifest` is the python-minted set document: runtime `transport/shapes` declares the struct and its `PROTO_VOCABULARY` row, `graphic/texture/set` fills and emits it behind the merkle set key, and two peers read it — Rasm.Materials as classification input, typescript core as a census-and-landing pair. C#-minted `TextureSetWire` is a different document under its own producer and corpus entry, and python IBL and HDRI products ride this one, so no HDRI kind crosses on the C# document.
 
-Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. `TransmittalNotice` seals the settled close as a CloudEvents envelope whose transport stays the composing app's, so no broker edge joins this registry.
+Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. `TransmittalNotice` projects the issued fact onto `runtime/transport/event#MESSAGE`, so this folder mints no message envelope and joins no broker edge.
 
 ## [04]-[INTERNAL]
 
@@ -315,8 +315,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier.
 - Bench timing, quantiles, and instruments stay runtime-owned.
 - Each bench row's deterministic input is a typed `BenchFeed` edge; a regression is a graded verdict, never a fault.
-- `delivery/notice` seals the settled transmittal close as one trace-continuous CloudEvents envelope fired on the `NOTICE_ISSUED` hook row.
-- Notice envelope bytes end at the wire value.
+- `delivery/notice` is the plane's one `Project` row over the `TRANSMITTAL_ISSUED` fact, handed to the runtime emitter at the composition root.
+- Announcement ends at the message envelope value; lowering, format, and delivery are the runtime transport owner's.
 - Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.
 - Projection keys by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding.
 - Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.

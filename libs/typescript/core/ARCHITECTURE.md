@@ -28,7 +28,7 @@ core/
     │   ├── codec.ts      # Wire families over one keyed-decode registry and the closed family census
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and residency under Shape.Ingress ceilings
     │   ├── contract.ts   # Descriptor-drift diff into graded verdicts
-    │   ├── carrier.ts    # W3C propagation-context value, its total folds, and the closed per-transport dialect table
+    │   ├── carrier.ts    # W3C propagation-context value with its total folds, the closed per-transport dialect table, and the message envelope
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
         ├── convention.ts # Typed semconv, metric, and event vocabulary with wire-name translation, the metric-plane roster, and one instrument mount
@@ -45,6 +45,7 @@ core/
 - S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
 - S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`.
 - S2 `carrier` takes the same census union type-only, so its typed-metadata roster closes against the wire families with no value edge.
+- S2 `carrier` also seats the message envelope, since its extension slot IS a carrier frame and a second seat forks one attribute record.
 - S2 `format` reads the `Shape.Ingress` ceiling its framed lane applies to every admitted message.
 
 ```mermaid
@@ -94,6 +95,9 @@ flowchart TB
     CarrierP e19@-.->|"[TYPE]: Wire.Family"| Codec
     Format e20@-->|"[IMPORT]: Shape.Ingress"| Schema
     CarrierP e18@-->|"[IMPORT]: Identity.Tenant"| Identity
+    CarrierP e30@-->|"[IMPORT]: Digest.codecs"| Digest
+    CarrierP e31@-->|"[IMPORT]: Fault.Class"| Fault
+    CarrierP e32@-->|"[IMPORT]: Reliability.Alert.Severity"| Reliability
     Codec e2@-->|"[IMPORT]: Tally"| Evidence
     Invoke e3@-->|"[IMPORT]: Convention"| Convention
     Frame e4@-->|"[IMPORT]: Shape.Ingress"| Schema
@@ -192,6 +196,7 @@ flowchart LR
         Board[Dashboard]
         Tap[Hook rail]
         Carrier[Propagation carrier]
+        Event[Message envelope]
     end
     Runtime{{runtime}}
     Data[(data)]
@@ -227,6 +232,8 @@ flowchart LR
     Data e26@-->|"[SHAPE]: Board.Query.Target"| Board
     Board e27@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Data
     Iac e28@-->|"[PROJECTION]: Board.Query.Target"| Board
+    Event e30@-->|"[EVENT]: Event.Fact"| Data
+    Event e31@-->|"[EVENT]: Event.Fact"| Runtime
 ```
 
 ## [04]-[INTERNAL]

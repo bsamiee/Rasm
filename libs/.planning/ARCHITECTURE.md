@@ -289,17 +289,17 @@ Surface appearance crosses the runtimes as TWO domain documents under ONE frozen
 
 ## [14]-[EVENT_FABRIC]
 
-Domain facts cross the runtimes as CloudEvents envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Envelopes ANNOUNCE a fact and never gain authority over it — the producing receipt stays the evidence truth and the envelope projects it — so a consumer routes on attributes without opening the payload.
+Domain facts cross the runtimes as CloudEvents message envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Message envelopes ANNOUNCE a fact and never gain authority over it — the producing receipt stays the evidence truth and the announcement projects it — so a consumer routes on attributes without opening the payload.
 
 [AUTHORITY]: the specification is the semantic owner and an SDK is an admitted acceleration. Every binding, format, filter, and extension row derives from the specification, delegating to an SDK member where one exists and standing branch-owned where none does. Package surfaces narrower than the specification state a fact about that package, never a ceiling on what the estate carries.
 
-[KERNEL_BOUNDARY]: the envelope, the extension roster, the attribute grammar, and the format contract reach S0, and nothing else does. Bindings, filters, and subscriptions seat at their consuming owners under `[12]-[ADMISSION]`, carry no seam constraint, and reach the envelope as consumers of it.
+[KERNEL_BOUNDARY]: the message envelope, the extension roster, the attribute grammar, and the format contract reach S0, and nothing else does. Bindings, filters, and subscriptions seat at their consuming owners under `[12]-[ADMISSION]`, carry no seam constraint, and reach the message envelope as consumers of it.
 
 [SEATING]:
-- C# seats the envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
-- TypeScript lands the envelope as rows on the `core/interchange` owners it already carries, and mints no page beside them.
-- Python lands the envelope and every binding under `runtime/transport`, and mints no eventing sub-domain.
-- Sub-domains minted for the envelope fail the `[12]-[ADMISSION]` earn-test — their nouns are the identity, receipt, and wire nouns S0 already holds.
+- C# seats the message-envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
+- TypeScript lands the message envelope as rows on the `core/interchange` owners it already carries, and mints no page beside them.
+- Python lands the message envelope and every binding under `runtime/transport`, and mints no eventing sub-domain.
+- Sub-domains minted for the message envelope fail the `[12]-[ADMISSION]` earn-test — their nouns are the identity, receipt, and wire nouns S0 holds.
 
 [GRAMMAR]: one row per attribute, spelled in each branch's own casing law.
 
@@ -316,13 +316,14 @@ Domain facts cross the runtimes as CloudEvents envelopes under one attribute gra
 |  [09]   | extension names   | lowercase `[a-z0-9]` within 20 characters |
 
 - `<domain>` is the capability subject `[08]-[OBSERVABILITY_CONFORMANCE]` fixes for metric names, so a board and a subscription join one vocabulary.
+- That subject and the package segment a `[HOOK_PLANE]` id spells are two grammars, so a `type` derives from the roster, never the firing hook id.
 - `<fact>` reads past tense, and `v<N>` moves only on a breaking `dataschema` change, so a compatible widening leaves every subscription standing.
 - `source` names the producing capability, never a host, package, or deployment, since a redeployment re-authors the identity consumers keyed on.
 - `id` is operation identity and never a content digest, and `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
 - `time` mints at the branch clock owner and `recordedtime` at the receiver, so the pair measures the queue that collapsing them erases.
 - `subject` carries the content key in ONE spelling, the same spelling `dataref` publishes where the payload externalizes.
 - Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
-- Digests over the extension map read a canonical order the envelope owner publishes, under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
+- Extension-map digests read a canonical order the message-envelope owner publishes, under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
 
 [EXTENSION_ROSTER]: the roster is spelled once per branch and handed at construction and at every decode, since a decoder without it reads a declared extension as an unknown string. Where an SDK helper owns a row the branch composes that helper's own `AllAttributes`, never a hand-spelled twin beside it.
 
@@ -341,7 +342,7 @@ Domain facts cross the runtimes as CloudEvents envelopes under one attribute gra
 |  [11]   | `correlation`              | the causal chain a consumer joins on         |
 |  [12]   | `deprecation`              | the superseding `type` and its window        |
 |  [13]   | `authcontext`              | the producer's asserted principal            |
-|  [14]   | `dssematerial`             | the DSSE envelope over the attribute digests |
+|  [14]   | `dssematerial`             | the DSSE material over the attribute digests |
 
 [TWO_TRACE]: the distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
 
@@ -367,7 +368,7 @@ Domain facts cross the runtimes as CloudEvents envelopes under one attribute gra
 - Framing reads the batch media-type PREFIX, so a format's batch sibling needs no second dispatch.
 - Batches past the transport budget split at the producer, since a relay re-framing one cannot re-sign it.
 
-[HOOK_ORDER]: an envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold — `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
+[HOOK_ORDER]: a message-envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold — `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
 
 [AXIS_REFUSAL]: a binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
 
@@ -377,7 +378,7 @@ Domain facts cross the runtimes as CloudEvents envelopes under one attribute gra
 - Targets answer `WebHook-Allowed-Origin` beside `WebHook-Allowed-Rate`, and a target handling `OPTIONS` while declining validation answers 405.
 - `WebHook-Request-Origin` rides every delivery request, so a target re-reads the claimed origin per message rather than trusting one handshake.
 - Authorization uses the specification's own header field or query parameter, since a third scheme forks what every peer target implements.
-- Ingress ADMITS through the tenancy owner and inherits nothing, so a decoded envelope carries no authority its transport happened to hold.
+- Ingress ADMITS through the tenancy owner and inherits nothing, so a decoded message envelope carries no authority its transport happened to hold.
 - `source` and `authcontext` are producer CLAIMS verified against the trust row before any routing decision reads them.
 - `dataclassification` gates which binding a fact crosses, so a classification a binding cannot honor refuses at that binding.
 
@@ -386,7 +387,7 @@ Domain facts cross the runtimes as CloudEvents envelopes under one attribute gra
 - Divergent generations refuse at the CONSUMER on every decode, so a producer never negotiates a peer's pinned generation downward.
 - Retiring `type` values carry `deprecation` for a window that is a policy row, never a date literal a page goes stale against.
 
-[OWNERS]: one envelope owner per branch, and a second mint inside one branch is the `[07]-[CROSS_LANGUAGE_WIRE]` drift defect.
+[OWNERS]: one message-envelope owner per branch, and a second mint inside one branch is the `[07]-[CROSS_LANGUAGE_WIRE]` drift defect.
 
 | [INDEX] | [BRANCH]   | [ENVELOPE_SEAT]               | [BINDING_SEAT]             |
 | :-----: | :--------- | :---------------------------- | :------------------------- |

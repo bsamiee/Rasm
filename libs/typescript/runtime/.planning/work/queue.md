@@ -2,18 +2,19 @@
 
 Durable-work intake: restart-surviving job families on the native `DurableQueue`, durable keyed throttles on `DurableRateLimiter`, and the pg-composed lane policy over the data wave's outbox statements — claim admission, claim lease, urgency order, park ceiling, and operator replay as one verdict vocabulary spelled ONCE for every drain in the branch. Service-class pricing arrives settled from `entity#WORK_CLASS`.
 
-Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own persistence, dedup, and worker execution; the ordering-and-parking layer is pg-composed — the journal's `SKIP LOCKED` claim with an `ORDER BY` urgency term carries the queue engines' visibility-timeout and archive semantics as lease and park columns, the engines rejected as a second job-table paradigm — and no third layer exists. Dead-lettering lives here alone: a parked deliverable is typed evidence on the fact journal, replay an operator fold re-minting deliverables from that evidence. Its module ships on the `./server` subpath as `runtime/src/work/queue.ts`.
+Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own persistence, dedup, and worker execution, while the ordering-and-parking layer is pg-composed — the journal's `SKIP LOCKED` claim with an `ORDER BY` urgency term carries the queue engines' visibility-timeout and archive semantics as lease and park columns, and no third layer exists.
+
+Dead-lettering lives here alone: a parked deliverable is typed evidence on the fact journal, replay an operator fold re-minting deliverables from that evidence. Its module ships on the `./server` subpath as `runtime/src/work/queue.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[JOB_FAMILY]: the persisted job declaration law, dedup projection, class-priced workers; `Job`.
+- [02]-[JOB_FAMILY]: persisted job declaration law, dedup projection, class-priced workers; `Job`.
 - [03]-[THROTTLE]: durable keyed quotas — algorithm rows, tenant keys, cost weights; `Throttle`.
 - [04]-[LANE_POLICY]: claim lease, urgency order, batch geometry, claim admission, the verdict fold; `Lane`.
 - [05]-[PARK_REPLAY]: dead-letter evidence, the park ceiling, poison short-circuit, operator replay; `Lane`.
 
 ## [02]-[JOB_FAMILY]
 
-[JOB_FAMILY]:
 - Law: dedup identity is the payload projection — `idempotencyKey` derives from payload content exactly as `flow#FLOW_LAW`'s `executionId` does, so a re-enqueued equal payload joins the in-flight item instead of duplicating work; a caller-minted job id is the rejected form.
 - Law: a job body is `Step.run` material — the worker's handle composes the flow mint for its deadline geometry, so queue workers and workflow activities carry identical budget shapes and evidence; the family's declared `success` threads the handle's result through the step's persisted exit to the suspended `submit` caller, and the declared `error` unions the spec's fault schema with `StepFault` so a budget trip persists beside domain failure under one wire family — a family whose result is fire-and-forget declares `Schema.Void` as its `success` row, never a second void-only mint.
 - Law: fire-and-forget is a modality of the same family — a scoped caller may supervise `process` with `Effect.forkScoped`, while a request that must acknowledge durable admission keeps awaiting the declared success; an unscoped daemon fiber or a second "unawaited" queue declaration is unspellable.
@@ -21,7 +22,7 @@ Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own pe
 - Boundary: the queue's item store is the `PersistedQueueFactory` arm of the `entity#MAILBOX` tier row — a distinct store from the cluster envelope `MessageStorage` beside it, which `DurableQueue.worker`'s own requirement names by type and which `MessageStorage` cannot satisfy; the tier selection at the root is what makes every worker Layer composable, and no queue table, poll loop, or storage row exists on this page.
 - Packages: `@effect/workflow` (`DurableQueue`); `effect` (`Effect`, `Function`, `Schema`); `@rasm/ts/core` (`Fault.Budget`); `./entity.ts` (`WorkClass`).
 
-```typescript
+```typescript signature
 import { DurableQueue, DurableRateLimiter } from "@effect/workflow"
 import type { SqlClient, SqlError } from "@effect/sql"
 import { Array, Data, Duration, Effect, Function, Match, Option, Schema, Stream } from "effect"
@@ -78,16 +79,15 @@ const Job = { of: _job }
 
 ## [03]-[THROTTLE]
 
-[THROTTLE]:
 - Owner: `Throttle` — durable keyed quotas: `DurableRateLimiter.rateLimit({ name, algorithm, window, limit, key, tokens })` runs as an activity whose consumption survives replay, so a retried step never double-spends its quota. Each generic row carries its scope, algorithm, window, limit, compound-key projection, and cost projection; `Throttle.spend(row, subject)` is the one entry, so consumers cannot pass a key or token count inconsistent with the selected quota.
 - Law: cost is a parameter — a heavyweight item spends `tokens > 1` against the same row; a parallel "heavy" quota row for the same scope is the rejected form.
 - Law: a row states its FAN AXIS, never its projections — every quota keys tenant-then-axis and costs the subject's own weight, so one generator mints both closures from the axis name and a row carries scope, algorithm, window, limit, and that one word. Hand-written projections re-spell the subject shape once per closure and let a row drift its key grammar silently; the table closes against `Row<never>`, whose contravariant subject admits every row while still refusing a bad algorithm, a missing projection, or a mistyped cost.
-- Law: exhaustion delays, never refuses — the durable limiter's exceeded posture is a `DurableClock` sleep sized to the window turn, so a step that overdraws its quota parks durably and resumes past process death with the spend already consumed; the fault channel carries only `RateLimitStoreError` (`_tag: "RateLimiterError"` — the quota STORE failed), which classifies `unavailable` so a lane judge defers it on the lease. A hand-written wait-for-window loop, or a page modeling exhaustion as a refusal fault, contradicts the shipped posture and is unspellable.
+- Law: exhaustion delays and never refuses — the durable limiter's exceeded posture is a `DurableClock` sleep sized to the window turn, so a step that overdraws its quota parks durably and resumes past process death with the spend already consumed; the fault channel carries only `RateLimitStoreError` (`_tag: "RateLimiterError"` — the quota STORE failed), which classifies `unavailable` so a lane judge defers it on the lease; a hand-written wait-for-window loop, or a page modeling exhaustion as a refusal fault, contradicts the shipped posture and stays unspellable.
 - Law: process-plane admission pressure (request shedding, connection caps) is the serving gate's concern; a `Throttle` row prices durable work, and one concern appearing in both tables is the split the row's `scope` name makes visible at review.
 - Growth: a new quota is one table row; a new pacing shape is an `algorithm` value the shipped surface names.
 - Packages: `@effect/workflow` (`DurableRateLimiter`); `effect` (`Duration`).
 
-```typescript
+```typescript signature
 declare namespace Throttle {
   type Subject<Axis extends string> = { readonly tenant: string; readonly weight: number } & { readonly [K in Axis]: string }
   type Row<A> = {
@@ -130,10 +130,10 @@ const Throttle = { ..._rows, spend: _spend }
 
 ## [04]-[LANE_POLICY]
 
-[LANE_POLICY]:
 - Owner: `Lane` — the drain policy over the data journal's outbox statements. Data's wave owns the relation and the two statements (`Journal.claimBatch(sql, { app, take, leaseSeconds })` — `FOR UPDATE SKIP LOCKED` with attempt increment, `Journal.complete(sql, ids)` — the delivered mark); this page owns what a drain DOES with them: the lease width (`leaseSeconds` derived from the class row's per-attempt budget — the visibility-timeout semantic mined from the external queue engines, expressed as the claim statement's own re-claim predicate), the urgency term (the `ORDER BY` column populated from `WorkClass[clazz].urgency` at enqueue so interactive deliverables pass bulk ones under contention), the batch geometry (`take` sized by the drain's class row), the claim admission seam, and the verdict fold.
 - Law: `fits` is the coordinate a selector reads FIRST, so this plane states it rather than leaving it inferable from the verdict vocabulary — a lane suits durable work a lease may safely re-run: an outbox drain, a scheduled deliverable, any claim whose payload carries its own dedup projection. Work wanting an in-process answer, per-key ordering, or exactly-once execution is not a lane's and reads `net/pubsub#PORT_SHAPE` instead of bending a claim into one.
-- Law: admission happens at the lane seam, exactly once — `Lane.row(payload, drain)` is the one admission mint: it fuses a payload `Schema` with a domain drain so the data-owned raw claim `payload` decodes before any domain code runs, a decode failure folds to an `invalid`-classed park through the poison short-circuit, and the drain receives the admitted payload with the claim meta (`id`, `sequence`, `tag`, `attempts`) — a raw `payload: unknown` reaching a domain drain, or a drain-local decoder, is the consumer-local-admission defect this mint forecloses, and payload shape authority is always recoverable from the row that routed the tag.
+- Law: admission happens at the lane seam, exactly once — `Lane.row(payload, drain)` is the one admission mint: it fuses a payload `Schema` with a domain drain so the data-owned raw claim `payload` decodes before any domain code runs, a decode failure folds to an `invalid`-classed park through the poison short-circuit, and the drain receives the admitted payload beside the claim itself — a raw `payload: unknown` reaching a domain drain, or a drain-local decoder, is the consumer-local-admission defect this mint forecloses, and payload shape authority is always recoverable from the row that routed the tag.
+- Law: `Meta<Row>` subtracts the raw column and keeps every other one the data-owned claim decoded, so a drain needing a coordinate the statement already answered reads it off its own claim; a projection keyed by claim identity against a map built from the same batch re-proves a join the fold holds in hand and mints an absent-row verdict no input reaches.
 - Law: the verdict vocabulary is closed — `Settled` (the effect landed: `Journal.complete`), `Deferred` (transient fault: the row stays claimed and the lease expiry re-delivers it, attempts already incremented), `Parked` (the ceiling, a non-retryable class, a failed admission, or an unrouted stream: `[5]`'s evidence fold) — and every drain in the branch folds claims through `Lane.settle`, so retry-with-redelivery is spelled once and a drain-local retry loop is unspellable. `Lane.settle` answers the batch's verdict roster, so a relay meters its pass from the returned values instead of a second count.
 - Law: a store fault is not a verdict — `_judge` rules on a domain fault carrying `class` and `detail`, so the `SqlError` a claim discharge raises has no `LaneVerdict` to become and rides `Lane.settle`'s own error channel to the drain, where the budget gate grades it against the journal's published projection; widening it into the cause channel instead hands it to a grader that reads a `class` property no driver fault carries and refuses every replay, which is what puts the lease-IS-the-backoff law out of reach for the one fault the lease was shaped to absorb.
 - Law: defer is passive — no un-claim write, no backoff column; the lease IS the backoff, and its width is the class row's per-attempt budget, so redelivery pacing derives from the same geometry as in-process retry.
@@ -146,7 +146,7 @@ const Throttle = { ..._rows, spend: _spend }
 - Growth: a new lane dimension (deliver-at scheduling, a channel filter) is a deliverable column with a claim predicate on the data statement; a new drain family is one `Lane.row` handed to the route — the verdict fold never widens.
 - Packages: `@rasm/ts/data` (`Journal`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Match`, `Effect`, `Option`, `Schema`); `./entity.ts` (`WorkClass`).
 
-```typescript
+```typescript signature
 type LaneVerdict = Data.TaggedEnum<{
   Settled: {}
   Deferred: { readonly class: Fault.Class.Kind }
@@ -155,6 +155,8 @@ type LaneVerdict = Data.TaggedEnum<{
 const LaneVerdict = Data.taggedEnum<LaneVerdict>()
 
 declare namespace Lane {
+  // Claim statements answer this floor, never the whole row: a data-owned claim widens it with its own columns
+  // and `Row` carries them through admission, so no drain re-joins its own batch by identity to recover one.
   type Claim = {
     readonly id: bigint
     readonly sequence: bigint
@@ -162,8 +164,8 @@ declare namespace Lane {
     readonly payload: unknown
     readonly attempts: number
   }
-  type Meta = Omit<Claim, "payload">
-  type Admit<R> = (claim: Claim) => Effect.Effect<LaneVerdict, never, R>
+  type Meta<Row extends Claim = Claim> = Omit<Row, "payload">
+  type Admit<R, Row extends Claim = Claim> = (claim: Row) => Effect.Effect<LaneVerdict, never, R>
 }
 
 const _judge = (meta: Lane.Meta, clazz: WorkClass.Kind, fault: { readonly class: Fault.Class.Kind; readonly detail: string }): LaneVerdict =>
@@ -171,22 +173,19 @@ const _judge = (meta: Lane.Meta, clazz: WorkClass.Kind, fault: { readonly class:
     ? LaneVerdict.Deferred({ class: fault.class })
     : LaneVerdict.Parked({ class: fault.class, detail: fault.detail })
 
-const _row = <A, I, R>(
+const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
   payload: Schema.Schema<A, I>,
-  drain: (payload: A, meta: Lane.Meta) => Effect.Effect<LaneVerdict, never, R>,
-): Lane.Admit<R> =>
+  drain: (payload: A, meta: Lane.Meta<Row>) => Effect.Effect<LaneVerdict, never, R>,
+): Lane.Admit<R, Row> =>
 (claim) =>
   Schema.decodeUnknown(payload)(claim.payload).pipe(
     Effect.matchEffect({
       onFailure: (fault) => Effect.succeed(LaneVerdict.Parked({ class: "invalid", detail: `<${claim.tag}:${fault.message}>` })),
+      // Claims cross whole as `meta`: `Omit` hides the raw column at the type while every other coordinate the
+      // data-owned row decoded travels intact, so a projection reads its own claim rather than a keyed re-join.
       onSuccess: (value) =>
-        drain(value, {
-          id: claim.id,
-          sequence: claim.sequence,
-          tag: claim.tag,
-          attempts: claim.attempts,
-        }).pipe(
-          // the drain's `never` channel means its ONLY remaining failure is a defect, and this is the producer that
+        drain(value, claim).pipe(
+          // drains carry a `never` channel, so their ONLY remaining failure is a defect, and this is the producer that
           // gives the poison list its `defect` row: uncaught it would kill the pass and strand every peer claim on a
           // lease. Interrupts pass through untouched — a shutdown is not a poison verdict.
           Effect.catchAllDefect((residue) =>
@@ -196,11 +195,11 @@ const _row = <A, I, R>(
     }),
   )
 
-// A claim discharges the outbox row on both terminal verdicts and on neither transient one; `Deferred` writes nothing
+// Claims discharge the outbox row on both terminal verdicts and on neither transient one; `Deferred` writes nothing
 // at all, because the lease IS the backoff and an un-claim write would race the claimant the lease predicate protects.
-const _landed = <R2>(
-  park: (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
-  claim: Lane.Claim,
+const _landed = <R2, Row extends Lane.Claim>(
+  park: (claim: Row, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
+  claim: Row,
   verdict: LaneVerdict,
 ): Effect.Effect<Option.Option<bigint>, never, R2> =>
   Match.value(verdict).pipe(
@@ -210,13 +209,13 @@ const _landed = <R2>(
     Match.exhaustive,
   )
 
-const _settle = <R, R2>(
+const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
   sql: SqlClient.SqlClient,
   clazz: WorkClass.Kind,
-  route: (tag: string) => Option.Option<Lane.Admit<R>>,
-  park: (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
+  route: (tag: string) => Option.Option<Lane.Admit<R, Row>>,
+  park: (claim: Row, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
 ) =>
-(claims: ReadonlyArray<Lane.Claim>): Effect.Effect<ReadonlyArray<LaneVerdict>, SqlError.SqlError, R | R2> =>
+(claims: ReadonlyArray<Row>): Effect.Effect<ReadonlyArray<LaneVerdict>, SqlError.SqlError, R | R2> =>
   Effect.gen(function* () {
     const judged = yield* Effect.forEach(
       claims,
@@ -239,7 +238,6 @@ const _settle = <R, R2>(
 
 ## [05]-[PARK_REPLAY]
 
-[PARK_REPLAY]:
 - Owner: the dead-letter fold — a `Parked` verdict appends one typed evidence row through the data wave's fact rail (`Fact.record`): the deliverable's identity as the target, the dominant fault class and attempt count as `Change` rows, `operational` retention — so the dead set is queryable history on the record of truth, never a second table. `Lane.replay` is the operator entry: it folds a parked-evidence read (an audit projection the caller supplies) through the drain's own `remit` re-entry with attempts reset, and records the replay fact — replay is itself evidence.
 - Law: poison short-circuits — a non-retryable class (`invalid`, `malformed`, `denied`, `breached`, `defect`) parks on first failure regardless of the ceiling, because redelivering a deterministic failure spends lease windows to learn nothing; the judge fold above encodes this by reading the class table's `retryable` column, and a page-local poison list is unspellable.
 - Law: parking is terminal for the claim, never for the work — the outbox row completes so the drain set stays bounded; the evidence row is the work's continued existence, and replay is the one path back.
@@ -247,7 +245,7 @@ const _settle = <R, R2>(
 - Growth: a replay posture (selective by class, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
 - Packages: `@rasm/ts/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
-```typescript
+```typescript signature
 const _channel = (tag: string): string => tag.split(":", 1)[0] ?? tag
 
 const _park = (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) =>

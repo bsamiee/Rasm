@@ -2,13 +2,14 @@
 
 W3C propagation crosses the interchange plane as ONE typed `traceparent`/`tracestate`/`baggage` value, total parse/print folds, `rasm.tenant` promotion, a closed transport table, and the Connect `-bin` typed-metadata lane. HTTP, Connect, NATS, MQTT v5, CloudEvents, and Kafka inject and extract through one codec. Malformed input folds to absence under the restart posture, while ordered, bounded folds keep output byte-stable. Module `core/src/interchange/carrier.ts` admits a transport as one dialect row, a baggage axis as one member key, and a typed family as one name row.
 
-`Carrier` composes only the `value` floor's `Identity.Tenant` and hands dialect frames to the runtime wave as data. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
+One module seats both owners, since a message envelope's extension slot IS a carrier frame. `Carrier` composes only the `value` floor's `Identity.Tenant` and hands dialect frames to the runtime wave as data. `Event` composes `Digest.Key`, `observe`'s severity vocabulary, and the `cloudevents` message-envelope class, then publishes the grammar, the roster, and the ONE mint entry every producer reaches. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTEXT_VALUE]: the typed triple, its brands, the total parse/print folds, the span lift; `Carrier`.
-- [03]-[TENANT_BAGGAGE]: the `rasm.tenant` promotion and the scoped recovery decode; `Carrier`.
-- [04]-[DIALECT_TABLE]: the closed frame rows, inject/extract dispatch, the `-bin` typed-metadata lane; `Carrier`.
+- [02]-[CONTEXT_VALUE]: typed triple, brands, total parse/print folds, span lift; `Carrier`.
+- [03]-[TENANT_BAGGAGE]: `rasm.tenant` promotion and scoped recovery decode; `Carrier`.
+- [04]-[DIALECT_TABLE]: closed frame rows, inject/extract dispatch, `-bin` typed-metadata lane; `Carrier`.
+- [05]-[EVENT_ENVELOPE]: attribute grammar, closed extension roster, and the mint and read pair; `Event`.
 
 ## [02]-[CONTEXT_VALUE]
 
@@ -225,6 +226,7 @@ const _tenant = (context: Carrier.Context): Option.Option<Identity.Tenant> =>
 - Law: `Row.read` accepts W3C and B3 keys; `Row.write` accepts only `Carrier.Injected` W3C keys.
 - Law: `_BIN` maps a metadata name to its `Wire` family; `bin.set/get` carry that family's own octets and fold decode failure to absence.
 - Law: Dialect rows decide selection, injection, and `degrade` alone — tenancy realizes through `promote`, and a context's lifetime ends with the `Carrier.Current` scope its caller opened.
+- Law: Attribute-name prefixing is the BINDING's, per transport and never shared — HTTP prefixes `ce-`, Kafka `ce_`, MQTT nothing at all — so a binding seat spells its own and no constant here spans the three.
 - Law: Kafka and `Carrier.record` share one `TextEncoder` and `TextDecoder` kernel.
 - Law: `record.read` selects the first repeated value and detaches bytes.
 - Law: `record.write` emits a fresh string record without importing a host byte type.
@@ -235,7 +237,7 @@ const _tenant = (context: Carrier.Context): Option.Option<Identity.Tenant> =>
 ```typescript signature
 const _KEYS = ["traceparent", "tracestate", "baggage"] as const
 
-// The Zipkin ingress names, READ-only: the single-header form and the multi-header form the platform decoders parse.
+// Zipkin ingress names, READ-only: the single-header form and the multi-header form the platform decoders parse.
 const _B3 = ["b3", "x-b3-traceid", "x-b3-spanid", "x-b3-sampled", "x-b3-parentspanid"] as const
 
 declare namespace Carrier {
@@ -388,7 +390,7 @@ const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context
       ),
   )
 
-// The platform B3 decoders read a header frame, so the Zipkin names project off the row's own value codec into one
+// Platform B3 decoders read a header frame, so the Zipkin names project off the row's own value codec into one
 // `Headers` map — the dialect stays a value codec, and the two Zipkin grammars stay the platform's own parse.
 const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Headers.Headers =>
   Headers.fromInput(
@@ -462,13 +464,244 @@ const Carrier: Carrier.Shape = {
   span: _span,
   tenant: _tenant,
 }
+```
+
+## [05]-[EVENT_ENVELOPE]
+
+- Owner: `Event` owns the attribute grammar, the closed extension roster, the branch's ONE mint entry, and the typed read.
+- Owner: `_classes` closes the handling grades `dataclassification` names, carrying the redaction and broker-crossing gate each binding row reads.
+- Law: `mint` supplies `id`, `time`, and `specversion` at every call, so the package never reaches `uuid.v4()` or the wall clock from a constructor no `Clock` or `Random` service enters.
+- Law: `mint` catches `TypeError`, since `ValidationError` extends it and the package's cross-version guard throws the base class alone.
+- Law: `mint` writes the addressed attributes AFTER the injected carrier record, so a peer's `traceparent` can never shadow an addressed attribute.
+- Law: `type` reads `rasm.<domain>.<subject>.<fact>.v<N>` and its `<domain>` segment CLOSES against `Convention.domain`, so an announced fact and a board join one vocabulary by proof rather than by prose; `v<N>` moves only with a breaking `dataschema` generation, and `deprecation` names a superseding `type` through the same refinement.
+- Law: `id` is the producer's operation identity and never a digest, so `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
+- Law: `subject` and `dataref` publish the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched, so an externalized payload's reference IS the digest its residence resolves and one spelling crosses every peer.
+- Law: `datacontenttype` and `dataschema` arrive as row data off the caller's serdes arrow; a literal at either field states a payload encoding the arrow already decided.
+- Law: the roster IS the name ceiling — every row conforms to `[a-z0-9]` within 20 characters by declaration, since the package proves the alphabet alone and only names the ceiling inside the message it throws.
+- Law: `read` decodes the whole roster on every call and reports every peer name the roster does not hold, dropping it rather than faulting the message.
+- Law: `severity` admits the one branch severity vocabulary, so an announced fact's grade routes through the same rows an objective's burn does.
+- Law: `signed` marks every row the DSSE digest folds; `dssematerial` is the one exclusion, because a signature cannot cover the attribute carrying it.
+- Law: roster declaration order IS the published canonical digest order, alphabetical so three branches transcribe one sequence rather than each sorting its own map at signing time.
+- Law: binding and content-mode selection stays typed data at the consuming seat, since `emitterFor` reads both off an unchecked options bag where a misspelled key silently takes its HTTP-binary default.
+- Growth: an extension is one `_extensionRows` row; a handling grade is one `_classRows` row; an addressed attribute is one `Fact` field with its projection.
+- Boundary: bindings, content modes, batch framing, filters, and subscriptions seat at their consuming packages; this cluster owns the message envelope, the roster, and the grammar alone.
+- Packages: `cloudevents` (`CloudEvent`, `CloudEventV1`, `V1`); `effect`; `../observe/convention.ts` (`Convention`); `../observe/slo.ts` (`Reliability`); `../value/contentKey.ts` (`Digest`); `../value/fault.ts` (`Fault`); `../value/schema.ts` (`Shape`).
+
+```typescript signature
+import { CloudEvent, type CloudEventV1, V1 } from "cloudevents"
+import { DateTime, type ParseResult } from "effect"
+import { Reliability } from "../observe/slo.ts"
+import { Digest } from "../value/contentKey.ts"
+import { Fault } from "../value/fault.ts"
+import { Shape } from "../value/schema.ts"
+
+// `<domain>` is the capability subject `Convention` fixes for metric names, so a board and a subscription read one
+// vocabulary; `<fact>` reads past tense and `v<N>` moves only with a breaking `dataschema` generation.
+const _TYPE = /^rasm\.([a-z0-9]+)\.[a-z0-9]+\.[a-z0-9]+\.v[1-9][0-9]*$/
+const _SEQUENCE = /^-?(0|[1-9][0-9]*)$/
+
+// Grammar alone proves the SHAPE; closing the domain segment against the roster is what makes the join a fact rather
+// than a claim, so a type naming a segment no capability mints refuses at the mint instead of reaching a subscription
+// that keys on it and a board that can never answer it.
+const _EVENT_TYPE = Schema.String.pipe(
+  Schema.pattern(_TYPE),
+  Schema.filter((type: string) => Record.has(Convention.domain, _TYPE.exec(type)?.[1] ?? ""), {
+    message: () => "<type-domain-unrostered>",
+  }),
+)
+
+// BOUNDARY MAPPING: the event wire carries the content key in 32 LOWERCASE hex, because the C# `EventKey` renders
+// `x32` and the python `WireKey` admits `[0-9a-f]{32}` — one spelling reaches a `subject` join, a `dataref` tail, and
+// a dedup key, all compared as text. `Digest.codecs.content` ENCODES upper for the interchange frame, so mapping here
+// keeps the shared codec's own spelling intact; re-casing that row respells every appearance address the corpus
+// already froze. Decode lowercases exactly as the shared codec does, so the branded key stays one value.
+const _EVENT_KEY = Schema.transform(Schema.String.pipe(Schema.pattern(/^[0-9a-f]{32}$/)), Digest.Key.content, {
+  strict: true,
+  decode: (wire) => wire,
+  encode: (key) => key.toLowerCase(),
+})
+
+const _classKinds = ["public", "internal", "restricted", "secret"] as const
+const _classRows = {
+  public: { redact: false, broker: true },
+  internal: { redact: false, broker: true },
+  restricted: { redact: true, broker: true },
+  // Secret payloads cross no broker at all: a binding refuses this grade at admission and ships the `dataref`
+  // alone, so the classification gate is a row a binding reads rather than a check it re-implements.
+  secret: { redact: true, broker: false },
+} as const
+const _classes = Shape.vocabulary(_classKinds, _classRows)
+
+const _extensionNames = [
+  "authcontext", "baggage", "correlation", "dataclassification", "dataref", "deprecation", "dssematerial",
+  "expirytime", "partitionkey", "recordedtime", "sampledrate", "sequence", "sequencetype", "severity",
+  "traceparent", "tracestate",
+] as const
+
+// Declaration order IS the published canonical order the DSSE digest folds, spelled alphabetically so the C# and
+// Python rosters transcribe one sequence instead of each sorting an unordered map at its own signing seam.
+const _extensionRows = {
+  authcontext: { admit: Schema.NonEmptyString, signed: true },
+  baggage: { admit: Schema.String, signed: true },
+  correlation: { admit: Schema.NonEmptyString, signed: true },
+  dataclassification: { admit: _classes.schema, signed: true },
+  dataref: { admit: _EVENT_KEY, signed: true },
+  deprecation: { admit: _EVENT_TYPE, signed: true },
+  // No signature covers the attribute carrying it, so this row is the roster's ONE digest exclusion.
+  dssematerial: { admit: Schema.Uint8ArrayFromBase64, signed: false },
+  expirytime: { admit: Schema.DateTimeUtc, signed: true },
+  partitionkey: { admit: Schema.NonEmptyString, signed: true },
+  recordedtime: { admit: Schema.DateTimeUtc, signed: true },
+  sampledrate: { admit: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)), signed: true },
+  sequence: { admit: Schema.String.pipe(Schema.pattern(_SEQUENCE)), signed: true },
+  // Exactly one sequence domain is registered, so the value is a literal rather than an open string.
+  sequencetype: { admit: Schema.Literal("Integer"), signed: true },
+  severity: { admit: Reliability.Alert.Severity.schema, signed: true },
+  // W3C context arrives and leaves through the dialect row's own folds; these rows admit the printed text and
+  // leave the parse to `Carrier.parse`, so no second grammar exists beside it.
+  traceparent: { admit: Schema.String, signed: true },
+  tracestate: { admit: Schema.String, signed: true },
+} as const
+const _extensions = Shape.vocabulary(_extensionNames, _extensionRows)
+
+const _refusals = Fault.Class.family(["attribute", "envelope", "extension"] as const, {
+  attribute: { class: "invalid" },
+  envelope: { class: "invalid" },
+  extension: { class: "malformed" },
+})
+
+class EventRefusal extends Schema.TaggedError<EventRefusal>()("EventRefusal", {
+  reason: _refusals.schema,
+  detail: Schema.NonEmptyString,
+  attribute: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+}) {}
+
+class Fact extends Schema.Class<Fact>("Event.Fact")({
+  // Brands refine IN PLACE, so no branded scalar exports beside the owner that admits it.
+  id: Schema.NonEmptyString.pipe(Schema.brand("EventId")),
+  source: Schema.NonEmptyString.pipe(Schema.brand("EventSource")),
+  type: _EVENT_TYPE.pipe(Schema.brand("EventType")),
+  time: Schema.DateTimeUtc,
+  subject: Schema.optionalWith(_EVENT_KEY, { as: "Option" }),
+  dataschema: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  datacontenttype: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  data: Schema.Unknown,
+}) {}
+
+declare namespace Event {
+  type Class = (typeof _classKinds)[number]
+  type ClassRow = (typeof _classRows)[Class]
+  type Extension = (typeof _extensionNames)[number]
+  type Value<Name extends Extension> = Schema.Schema.Type<(typeof _extensionRows)[Name]["admit"]>
+  type Held = { readonly [Name in Extension]?: Value<Name> }
+  type Roster = { readonly [Name in Extension]: Option.Option<Value<Name>> }
+  type Read = { readonly roster: Roster; readonly dropped: ReadonlyArray<string> }
+  type Refusal = EventRefusal
+  type Shape = {
+    readonly Fact: typeof Fact
+    readonly Refusal: typeof EventRefusal
+    readonly classes: typeof _classes
+    readonly extensions: typeof _extensions
+    readonly digested: ReadonlyArray<Extension> // the signed rows in published order, the DSSE fold's own input
+    readonly mint: (fact: Fact, held: Held, context: Carrier.Context) => Effect.Effect<CloudEvent<unknown>, Refusal>
+    readonly at: <Name extends Extension>(envelope: CloudEventV1<unknown>, name: Name) => Option.Option<Value<Name>>
+    readonly read: (envelope: CloudEventV1<unknown>) => Read
+  }
+}
+
+// Each row's codec pair derives at the ONE table where its schema is still concrete, so no call site re-reads a
+// union of schemas and no arm spells its own encode.
+type _Printers = { readonly [Name in Event.Extension]: (value: unknown) => Effect.Effect<unknown, ParseResult.ParseError> }
+type _Readers = { readonly [Name in Event.Extension]: (value: unknown) => Option.Option<Event.Value<Name>> }
+const _printers = Record.map(_extensionRows, (row) => Schema.encodeUnknown(row.admit)) as unknown as _Printers
+const _readers = Record.map(_extensionRows, (row) => Schema.decodeUnknownOption(row.admit)) as unknown as _Readers
+
+const _held = (held: Event.Held): Effect.Effect<Record.ReadonlyRecord<string, unknown>, Event.Refusal> =>
+  Effect.map(
+    Effect.forEach(
+      Array.filterMap(_extensionNames, (name) =>
+        Option.map(Option.fromNullable(held[name]), (value) => [name, value] as const)),
+      ([name, value]) =>
+        Effect.mapBoth(_printers[name](value), {
+          onFailure: (issue) =>
+            new EventRefusal({ reason: "attribute", detail: issue.message, attribute: Option.some(name) }),
+          onSuccess: (encoded) => [name, encoded] as const,
+        }),
+    ),
+    Record.fromEntries,
+  )
+
+const _mint = (
+  fact: Fact,
+  held: Event.Held,
+  context: Carrier.Context,
+): Effect.Effect<CloudEvent<unknown>, Event.Refusal> =>
+  Effect.flatMap(_held(held), (extensions) =>
+    Effect.try({
+      // Every addressed attribute is supplied: an omitted `id` mints a v4 UUID and an omitted `time` reads the
+      // wall clock, both inside a constructor no service can reach, so absence here is an unowned identity.
+      // Addressed fields land LAST so an injected carrier key cannot shadow one.
+      try: () =>
+        new CloudEvent<unknown>({
+          ...Carrier.inject("cloudevents", context, extensions),
+          ...Record.getSomes({
+            datacontenttype: fact.datacontenttype,
+            dataschema: fact.dataschema,
+            subject: fact.subject,
+          }),
+          data: fact.data,
+          id: fact.id,
+          source: fact.source,
+          specversion: V1,
+          time: DateTime.formatIso(fact.time),
+          type: fact.type,
+        }),
+      // `ValidationError` extends `TypeError` and the specversion guard throws the base class, so the wider
+      // narrowing is the only one keeping both arms on the rail.
+      catch: (caught) =>
+        new EventRefusal({
+          reason: "envelope",
+          detail: caught instanceof Error ? caught.message : String(caught),
+          attribute: Option.none(),
+        }),
+    }))
+
+const _at = <Name extends Event.Extension>(
+  envelope: CloudEventV1<unknown>,
+  name: Name,
+): Option.Option<Event.Value<Name>> => _readers[name](envelope[name])
+
+// Construction writes `specversion`, `data`, and `data_base64` beside the fields `Fact` addresses, so the drop
+// census subtracts both owned sets and reports only names neither this roster nor `Fact` itself holds.
+const _addressed: ReadonlyArray<string> = ["data", "data_base64", "specversion", ...Record.keys(Fact.fields)]
+
+// Decoders without the roster read every declared extension as an unknown string, so the whole roster decodes
+// on every read and the drop list carries what the peer sent that this roster does not name.
+const _read = (envelope: CloudEventV1<unknown>): Event.Read => ({
+  roster: Record.map(_readers, (read, name) => read(envelope[name])) as unknown as Event.Roster,
+  dropped: Array.filter(
+    Object.keys(envelope),
+    (key) => !_extensions.is(key) && !Array.contains(_addressed, key),
+  ),
+})
+
+const Event: Event.Shape = {
+  Fact,
+  Refusal: EventRefusal,
+  classes: _classes,
+  extensions: _extensions,
+  digested: Array.filter(_extensionNames, (name) => _extensions.at(name).signed),
+  mint: _mint,
+  at: _at,
+  read: _read,
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Carrier }
+export { Carrier, Event }
 ```
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

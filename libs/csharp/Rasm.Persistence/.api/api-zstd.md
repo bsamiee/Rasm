@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_ZSTD]
 
-`ZstdSharp.Port` transpiles libzstd into managed C#, so Zstandard compression ships with no native runtime and no RID-specific asset. It owns the high-ratio half of the snapshot-compression axis: a reusable context tuned across the full advanced parameter surface, an `OperationStatus` pump for payloads past one contiguous buffer, and trained dictionaries for the small-similar-blob regime. A payload frames exactly once here, so a body its serializer or IPC stream already compressed pairs with an uncompressed policy row.
+`ZstdSharp.Port` transpiles libzstd into managed C#, so Zstandard compression ships with no native runtime and no RID-specific asset. It owns the high-ratio half of the snapshot-compression axis: a reusable context tuned across the full advanced parameter surface, an `OperationStatus` pump for payloads past one contiguous buffer, and trained dictionaries for the small-similar-blob regime. Framing happens exactly once here, so a body its serializer or IPC stream already compressed pairs with an uncompressed policy row.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -146,7 +146,7 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 
 [LOCAL_ADMISSION]:
 - `CompressionPolicy.Zstd` and `ZstdHigh` are the admitted rows, each a level with its archival flag; a further profile is one more row against the same frame helper.
-- A payload past one contiguous buffer rides `PackStream`/`UnpackStream`, and a one-shot destination stays bounded by `GetCompressBound`.
+- `PackStream`/`UnpackStream` carry a payload past one contiguous buffer, and `GetCompressBound` bounds a one-shot destination.
 - `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value rail.
 - Level, frame flags, dictionary id, and pledged size project as receipt data on the policy row.
 

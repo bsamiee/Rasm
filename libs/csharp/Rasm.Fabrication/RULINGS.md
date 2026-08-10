@@ -23,7 +23,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - Cut lanes ride `EngagementPolicy` as one `Option<TPolicy>` whose PRESENCE routes — a per-run demand flag makes two facts answer one question.
 - `Toolpath/surface` holds NO layout algorithm — the generator is injected, so a `SurfacePathReceipt` topology column fits one layout alone.
 - `GdtFrameWire` publishes frame-box facts ALONE — datum targets and basic dimensions need a view transform the tolerance seam has no view to apply.
-- `IToleranceEncoder` stays OPEN with one landed implementation per egress — a five-arm envelope crosses four arms no drawing consumer decodes.
+- `IToleranceEncoder` stays OPEN with one landed implementation per egress — a five-arm closed union crosses four arms no drawing consumer decodes.
 - Datum labels admit the ISO 5459 class alone — `I`, `O`, and `Q` read as digits, and a class the producer widens alone crosses as a consumer refusal.
 
 ## [03]-[COLLAPSE]

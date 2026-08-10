@@ -472,4 +472,4 @@ public static class AssessmentResolution {
 
 ## [04]-[RESEARCH]
 
-- (none)
+(none)

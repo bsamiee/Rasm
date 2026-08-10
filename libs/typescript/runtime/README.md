@@ -8,7 +8,7 @@
 - [02]-[NET](.planning/net/): Outbound egress — HTTP lanes off the core budget, framed byte channels, engine-blind fanout and coordination ports.
 - [03]-[OTEL](.planning/otel/): OTLP wire half of observability — sole egress under the ambient redaction scrub; vocabulary stays core's.
 - [04]-[SERVE](.planning/serve/): Libs export route, verb, and group data; the app assembles one `HttpApi` and CLI root; faults leave as `Problem`s.
-- [05]-[WORK](.planning/work/): `WorkClass` economy pricing every durable surface — actors, workflows, queues under the sole DLQ owner, cron.
+- [05]-[WORK](.planning/work/): `WorkClass` economy pricing actors, workflows, queues under the sole DLQ owner, cron, and subscription filtering.
 - [06]-[AI](.planning/ai/): Provider families on one capability-asymmetry table with ranked fallback, chunk-and-embed, and Schema-typed MCP tools.
 - [07]-[BROWSER](.planning/browser/): Browser condition — one boot graph per document, the PWA shell, the typed router carrying `Vault`.
 
@@ -28,7 +28,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
 - `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
-- `mqtt` — `net/channel.md` owns the MQTT v5 channel seam.
+- `mqtt` — `net/channel.md` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
+- `avsc` — fills the empty arm `core/interchange/format`'s Avro media row leaves for a host-bound codec.
+- `chevrotain` — `work/filter.md` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -115,7 +117,7 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 - `@effect/experimental`
 
 [WIRE_ENVELOPE]:
-- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope.
+- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/channel.md` and `net/pubsub.md` own MQTT, NATS, and Kafka.
 
 [BENCH]:
 - `mitata` — `proc/exec.md` owns the trial-engine route.

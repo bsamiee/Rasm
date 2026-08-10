@@ -10,6 +10,7 @@ The inbound serving counterpart to the outbound boundary: three `ModalityRow` ro
 - [05]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
 - [06]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
 - [07]-[HOST_BINDING]: OS x activation-source x address bind acquisition, reuse, and override.
+- [08]-[EVENT_INGRESS]: CloudEvents HTTP door — the abuse-protection handshake, per-delivery admission, and the semconv families every binding row stamps.
 
 ## [02]-[PROCESS_MODALITY]
 
@@ -870,6 +871,207 @@ stateDiagram-v2
     Released --> [*]
 ```
 
-## [08]-[RESEARCH]
+## [08]-[EVENT_INGRESS]
+
+- Owner: `WebhookOrigin` the abuse-protection handshake row family carrying each header field the specification fixes and the answer a target owes it; `IngressBinding` the `[SmartEnum<string>]` row per protocol this spine receives on, carrying its `messaging.system` value and the destination coordinate its semconv attributes read; `EventSemconv` the ONE attribute family every binding row stamps — the `cloudevents.*` envelope identity beside the `messaging.*` operation coordinates; `EventIngress` the door itself — the `OPTIONS` validation answer, the per-delivery admission, and the dispatch onto the one bus.
+- Cases: three handshake fields inbound (`WebHook-Request-Origin` required, `WebHook-Request-Callback` and `WebHook-Request-Rate` optional) against two outbound (`WebHook-Allowed-Origin`, `WebHook-Allowed-Rate`); binding rows `http`, `kafka`, `mqtt`, `amqp`, and `nats`, each naming the `messaging.system` value its deliveries carry; five `cloudevents.*` attributes and four `messaging.*` attributes per delivery.
+- Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` answers the `OPTIONS` validation request — an allowed origin echoes with the policy's rate ceiling and a declined one answers 405, never a silent 200; `EventIngress.Deliver(HttpRequest request, IngressPolicy policy, EventBus.Cell bus, Op key)` returns `IO<Fin<Delivery>>` — it re-reads the claimed origin, decodes through the package's own request extensions, verifies the DSSE material against the trust row, admits tenancy, dedups on the envelope's uniqueness composite, and dispatches each admitted envelope onto `EventBus.Dispatch`.
+- Law: the package ships `HttpRequestExtensions` and `HttpResponseExtensions` and NOTHING else — no handshake, no origin policy, no batch admission beyond the decode itself — so the whole abuse-protection exchange is BRANCH-OWNED around those two classes, and a page claiming the package performs it states a capability the assembly does not carry.
+- Law: `WebHook-Request-Origin` rides EVERY delivery request, not the handshake alone, so a target re-reads the claimed origin per message rather than trusting one validation forever; an origin the policy no longer allows refuses at that message without unregistering the whole subscription.
+- Law: signature verification reads the encoded bytes ONCE, before any reserialization — the DSSE material in `dssematerial` covers the digest preimage the kernel roster publishes in alphabetical order, and a re-encode between arrival and verification respells bytes the signer never saw.
+- Law: ingress ADMITS tenancy through `TenantAdoption` and inherits nothing, so a decoded envelope carries no authority its transport happened to hold; `source` and `authcontext` are producer CLAIMS verified against the trust row BEFORE any routing decision reads them, since routing on an unverified claim is the spoofing path the pair exists to close.
+- Law: dedup is the envelope's own `(source, id)` composite through the one `Runtime/resources#DEDUPE_WINDOW` window — the same window the bus subscriptions and the outbox relay admit against — so a redelivered webhook and a re-published outbox row collapse on one cell rather than three.
+- Auto: batch and single share ONE door — `IsCloudEventBatch` reads the media-type prefix and the matching decode runs, so a batch settles per event with accepted beside matched-duplicate as separate halves of one receipt and a single delivery is the one-member case of that same fold; every admitted envelope dispatches through `EventBus.Dispatch`, so the HTTP door and the outbox relay feed one bus rather than two.
+- Receipt: one `Delivery` per request carrying accepted, duplicate, refused, and externalized counts; a refused delivery carries the axis or claim that refused it, so a 4xx names its cause rather than a generic rejection; no parallel ingress receipt.
+- Packages: CloudNative.CloudEvents, CloudNative.CloudEvents.AspNetCore (`HttpRequestExtensions.IsCloudEventBatch`/`ToCloudEventAsync`/`ToCloudEventBatchAsync`, `HttpResponseExtensions.CopyToHttpResponseAsync` — the whole assembly), Microsoft.AspNetCore.App (shared framework), Rasm (the `Rasm/Domain/event` envelope algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new receive protocol is one `IngressBinding` row carrying its `messaging.system` value and destination coordinate, and every semconv stamp reads it untouched; a new handshake field is one `WebhookOrigin` row; a new refusal cause is one `Delivery` column, never a second door.
+- Boundary: this door DECODES and dispatches and owns nothing downstream — the bus fan, the durable outbox, and each sink's transport are their own owners, so an ingress writing a durable row directly bypasses the transactional boundary the outbox exists to hold; the format, framing, roster, and validator all belong to `Rasm/Domain/event`, so the package extensions receive the kernel formatter instance rather than one minted here; `dataclassification` gates which binding a fact may cross and this door refuses a class its own binding row cannot honor, since a `secret` payload arriving over a public endpoint is an exfiltration path a 200 confirms.
+
+| [INDEX] | [ATTRIBUTE]                     | [CARRIES]                                          |
+| :-----: | :------------------------------ | :------------------------------------------------- |
+|  [01]   | `cloudevents.event_id`          | the envelope `id`, the operation identity          |
+|  [02]   | `cloudevents.event_source`      | the producing capability reference                 |
+|  [03]   | `cloudevents.event_spec_version`| the specification version the envelope declares    |
+|  [04]   | `cloudevents.event_type`        | the fact identity a subscription filters on        |
+|  [05]   | `cloudevents.event_subject`     | the payload's own address                          |
+|  [06]   | `messaging.system`              | the binding row's own system value                 |
+|  [07]   | `messaging.operation.name`      | receive, process, or publish at this span          |
+|  [08]   | `messaging.destination.name`    | the topic, subject, queue, or route the row names  |
+|  [09]   | `messaging.message.id`          | the transport's own message identity               |
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using CloudNative.CloudEvents;
+using CloudNative.CloudEvents.AspNetCore;
+using LanguageExt;
+using Microsoft.AspNetCore.Http;
+using NodaTime;
+using Rasm.Domain;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.AppHost.Wire;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+// Handshake fields are ROWS rather than literals at a header write, so the request half and the answer half
+// cannot drift and a target that handles OPTIONS while declining validation answers 405 by row rather than by
+// remembering to. The specification fixes these five names; a sixth scheme forks what every peer implements.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WebhookOrigin {
+    public static readonly WebhookOrigin Requested = new("WebHook-Request-Origin", required: true);
+    public static readonly WebhookOrigin Callback = new("WebHook-Request-Callback", required: false);
+    public static readonly WebhookOrigin Rate = new("WebHook-Request-Rate", required: false);
+    public static readonly WebhookOrigin Allowed = new("WebHook-Allowed-Origin", required: false);
+    public static readonly WebhookOrigin AllowedRate = new("WebHook-Allowed-Rate", required: false);
+
+    public bool Required { get; }
+}
+
+// One row per protocol this spine RECEIVES on, carrying the semconv system value and the coordinate its
+// destination attribute reads. Stamping from a row is what keeps one binding's spans joinable to another's:
+// a per-leg literal spells `messaging.system` five ways and no query spans them.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class IngressBinding {
+    public static readonly IngressBinding Http = new("http", system: "http", destination: "route");
+    public static readonly IngressBinding Kafka = new("kafka", system: "kafka", destination: "topic");
+    public static readonly IngressBinding Mqtt = new("mqtt", system: "mqtt", destination: "topic");
+    public static readonly IngressBinding Amqp = new("amqp", system: "rabbitmq", destination: "address");
+    public static readonly IngressBinding Nats = new("nats", system: "nats", destination: "subject");
+
+    public string System { get; }
+
+    public string Destination { get; }
+}
+
+// --- [CONSTANTS] ----------------------------------------------------------------------------
+// Two semconv families cover every binding row, spelled ONCE. These names belong to the convention that mints
+// them rather than to this branch, which is exactly why `SignalGovernance.Rostered` carves unprefixed names
+// out of its roster gate — refusing them refuses the ports that spell them correctly.
+public static class EventSemconv {
+    public const string EventId = "cloudevents.event_id";
+    public const string EventSource = "cloudevents.event_source";
+    public const string SpecVersion = "cloudevents.event_spec_version";
+    public const string EventType = "cloudevents.event_type";
+    public const string EventSubject = "cloudevents.event_subject";
+    public const string System = "messaging.system";
+    public const string Operation = "messaging.operation.name";
+    public const string Destination = "messaging.destination.name";
+    public const string MessageId = "messaging.message.id";
+
+    // One stamp covers every binding and every direction: the envelope supplies its own five while the row
+    // supplies three coordinates a transport decides, so a new binding stamps a complete span with no edit.
+    public static Seq<(string Slot, object? Value)> Of(
+        CloudEvent envelope, IngressBinding binding, string operation, string destination, Option<string> message) =>
+        Seq<(string, object?)>(
+            (EventId, envelope.Id),
+            (EventSource, envelope.Source?.ToString()),
+            (SpecVersion, envelope.SpecVersion.VersionId),
+            (EventType, envelope.Type),
+            (EventSubject, envelope.Subject),
+            (System, binding.System),
+            (Operation, operation),
+            (Destination, destination))
+        .Append(message.Map(static id => (MessageId, (object?)id)).ToSeq());
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+// Batch settles PER EVENT, so accepted and matched-duplicate are separate halves rather than one total: a
+// caller that cannot tell a duplicate from a fresh delivery cannot tell an at-least-once redelivery from
+// genuine traffic, and `externalized` counts the members whose payload rode a `dataref` rather than a body.
+public sealed record Delivery(int Accepted, int Duplicate, int Refused, int Externalized);
+
+// Composition-supplied ingress policy: which origins this door admits, the rate ceiling it advertises, the
+// trust row producer claims verify against, its binding row, the shared dedupe window, and the tenancy
+// adoption class. Every value arrives from the composition root because trust, rate, and origin are all
+// deployment properties a library cannot know and a defaulted answer reads safest the day it was written.
+public sealed record IngressPolicy(
+    IngressBinding Binding,
+    Func<string, bool> Origin,
+    Option<string> Rate,
+    TenantAdoption Adoption,
+    DedupeWindow Dedupe,
+    Func<CloudEvent, Op, Fin<Unit>> Verify,
+    ClockPolicy Clocks);
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class EventIngress {
+    // Validation answers on the ROW set: an admitted origin echoes with the advertised ceiling, and a target
+    // that handles OPTIONS while declining validation answers 405 — never a silent 200, which a registering
+    // peer reads as consent this door never gave.
+    public static IResult Validate(HttpRequest request, HttpResponse response, IngressPolicy policy) =>
+        Claimed(request).Filter(policy.Origin).Match(
+            Some: origin => {
+                response.Headers[WebhookOrigin.Allowed.Key] = origin;
+                policy.Rate.Iter(rate => response.Headers[WebhookOrigin.AllowedRate.Key] = rate);
+                return Results.Ok();
+            },
+            None: static () => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
+
+    // Claimed origin re-reads on EVERY delivery, so a policy change takes effect at the next message rather
+    // than at the next registration; the package's own extensions own the decode and this fold owns
+    // everything the package does not ship.
+    public static IO<Fin<Delivery>> Deliver(HttpRequest request, IngressPolicy policy, EventBus.Cell bus, Op key) =>
+        Claimed(request).Filter(policy.Origin).Match(
+            None: () => IO.pure(Fin.Fail<Delivery>(new Fault.Refused(
+                Label: WebhookOrigin.Requested.Key, Requirement: "an admitted request origin", Key: Some(key)))),
+            Some: _ => IO.liftAsync(async () => await Decoded(request, key).ConfigureAwait(false))
+                .Bind(rail => rail.Match(
+                    Succ: envelopes => envelopes.Fold(
+                        IO.pure(new Delivery(0, 0, 0, 0)),
+                        (held, envelope) => held.Bind(tally => Admitted(envelope, policy, bus, key, tally)))
+                        .Map(Fin.Succ),
+                    Fail: error => IO.pure(Fin.Fail<Delivery>(error)))));
+
+    // ONE decode over both arities: the batch probe reads the media-type PREFIX the package already owns, so
+    // a single delivery is the one-member case of the batch fold and no caller carries an arity flag.
+    static async Task<Fin<Seq<CloudEvent>>> Decoded(HttpRequest request, Op key) =>
+        await key.CatchAsync(async () => Fin.Succ(request.IsCloudEventBatch()
+            ? toSeq(await request.ToCloudEventBatchAsync(EventFormat.Json.Formatter, EventRoster.Declared).ConfigureAwait(false))
+            : Seq(await request.ToCloudEventAsync(EventFormat.Json.Formatter, EventRoster.Declared).ConfigureAwait(false))))
+            .ConfigureAwait(false);
+
+    // Per-member admission runs in the one order the security law fixes: signature over the bytes as
+    // received, producer claims verified against the trust row, tenancy admitted rather than inherited, then
+    // dedup on the envelope's own uniqueness composite — so no routing decision reads an unverified claim and
+    // a redelivery collapses on the same cell the bus and the outbox relay share.
+    static IO<Delivery> Admitted(CloudEvent envelope, IngressPolicy policy, EventBus.Cell bus, Op key, Delivery tally) =>
+        policy.Verify(envelope, key).Match(
+            Fail: _ => IO.pure(tally with { Refused = tally.Refused + 1 }),
+            Succ: _ => policy.Dedupe.Admit($"{envelope.Source}\u0000{envelope.Id}", policy.Clocks.Now)
+                ? Dispatched(envelope, policy, bus, key, tally)
+                : IO.pure(tally with { Duplicate = tally.Duplicate + 1 }));
+
+    static IO<Delivery> Dispatched(CloudEvent envelope, IngressPolicy policy, EventBus.Cell bus, Op key, Delivery tally) =>
+        Raised(envelope, policy, key).Match(
+            Fail: _ => IO.pure(tally with { Refused = tally.Refused + 1 }),
+            Succ: evt => EventBus.Dispatch(bus, evt).Map(_ => tally with {
+                Accepted = tally.Accepted + 1,
+                Externalized = tally.Externalized + (Externalized(envelope, key) ? 1 : 0),
+            }));
+
+    // Raising an arriving envelope onto the bus carrier reuses the ONE projection `Wire/outbox#OUTBOX_FABRIC`
+    // owns, inverted — so an arriving fact and a locally produced one reach subscriptions as one shape and
+    // this door mints no second mapping.
+    static Fin<DomainEvent> Raised(CloudEvent envelope, IngressPolicy policy, Op key) =>
+        new OutboxRow(policy.Binding.Destination, envelope, DispatchStatus.Pending, Attempt: 0, TenantContext.Current)
+            .ToEvent(key);
+
+    // Members whose payload rode a reference rather than a body count on their own half, because a receipt
+    // folding them into `accepted` reports bytes this door never received.
+    static bool Externalized(CloudEvent envelope, Op key) =>
+        EventExtension.DataRef.Read<Uri>(envelope, key).Map(static held => held.IsSome).IfNone(false);
+
+    static Option<string> Claimed(HttpRequest request) =>
+        request.Headers.TryGetValue(WebhookOrigin.Requested.Key, out var values) && values.Count > 0
+            ? Optional(values[0])
+            : None;
+}
+```
+
+## [09]-[RESEARCH]
 
 (none)

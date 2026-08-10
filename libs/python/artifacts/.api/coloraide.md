@@ -186,7 +186,7 @@ Method rosters, `base` then the `ColorAll` additions:
 
 [LOCAL_ADMISSION]:
 - Color logic enters through `everything.ColorAll` aliased to `Color` at boundary scope; the base `from coloraide import Color` enters only where the all-plugins surface is provably unneeded, and module-level import is banned by the manifest import policy.
-- A new space/fit/filter/metric/CAT/CCT/interpolation enters as a registered plugin on the matching engine map, never a local conversion kernel.
+- Registration on the matching engine map admits every new space/fit/filter/metric/CAT/CCT/interpolation, never a local conversion kernel.
 
 [RAIL_LAW]:
 - Package: `coloraide`

@@ -44,12 +44,12 @@
 
 ## [03]-[WIRE_TYPES]
 
-[WIRE_TYPE_SCOPE]: response envelope and paging
-- note: search/statistics/list reads wrap the result in a generic envelope — the decoder reads `payload` for data and `meta.paging` for the streaming cursor; the by-UUID reads return the bare document.
+[WIRE_TYPE_SCOPE]: response message envelope and paging
+- note: search/statistics/list reads wrap the result in a generic message envelope — the decoder reads `payload` for data and `meta.paging` for the streaming cursor; the by-UUID reads return the bare document.
 
 | [INDEX] | [JSON_SHAPE]               | [FIELDS]                                              | [CONSUMER_NOTE]                                 |
 | :-----: | :------------------------- | :---------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | envelope                   | `payload`, `meta`                                     | the data field; `meta` drives paging + warnings |
+|  [01]   | message envelope           | `payload`, `meta`                                     | the data field; `meta` drives paging + warnings |
 |  [02]   | `meta.paging`              | `total_count:int`; `total_pages:int`; `page_size:int` | stop when `page_number > total_pages`           |
 |  [03]   | `meta.performance`         | `execution_time_ms:int`                               | server-side timing for the receipt              |
 |  [04]   | `meta.warnings[]`          | `message:str`; `code:str`; `field:str?`               | soft-degradation folded into the receipt        |

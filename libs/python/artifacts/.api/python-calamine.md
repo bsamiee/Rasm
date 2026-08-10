@@ -83,13 +83,13 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 
 [TOPOLOGY]:
 - `from_object` is the one shape-discriminating ingress and `load_tables=True` (xlsx only) the single knob, never a per-format open; introspection reads workbook structure before any grid, filtering a non-`WorkSheet` `SheetTypeEnum` or `Hidden`/`VeryHidden` `SheetVisibleEnum` at the boundary.
-- A cell is a native `CellValue` scalar in the row list — no `Cell` wrapper and no formula evaluation, calamine reading the stored value and decoding a date serial to `datetime` directly.
-- A module-scope `lazy import python_calamine` defers the PyO3 binding, and `_gated_recover` reifies it inside a worker process, so the native extension is paid only on an `XLSX_READ` op and only in the subprocess, trapping a Rust panic at the process seam.
+- Cells arrive as native `CellValue` scalars in the row list — no `Cell` wrapper and no formula evaluation, calamine reading the stored value and decoding a date serial to `datetime` directly.
+- `lazy import python_calamine` at module scope defers the PyO3 binding, and `_gated_recover` reifies it inside a worker process, so the native extension is paid only on an `XLSX_READ` op and only in the subprocess, trapping a Rust panic at the process seam.
 
 [STACKING]:
 - `document/lens#LENS` (READ): the `LensProvider.CALAMINE` `XLSX_READ` recover arm — `from_object(BytesIO)` → `get_sheet_*` → `to_python` folds each row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells, `merged_cell_ranges` into `TableNode.spans` and `start`/`end`/`height`/`width` into its bounds; `_gated_recover` re-resolves the `_ROUTES[XLSX_READ]` row and maps the `CalamineError` family to the read rail beside `pymupdf`/`pdfplumber`.
 - `core/receipt#RECEIPT`: each ingest contributes the `ArtifactReceipt.Introspection(key, nodes, text_len, images, hits)` case through the `ReceiptContributor` port, keyed by the `document/model` `node_digest` `xxhash` merkle through `ContentIdentity.of`.
-- `msoffcrypto-tool`: a `PasswordError` routes the workbook through its decrypt, and the decrypted `BytesIO` re-enters `from_object` — calamine never decrypts.
+- `msoffcrypto-tool`: `PasswordError` routes the workbook through its decrypt, and the decrypted `BytesIO` re-enters `from_object` — calamine never decrypts.
 - `fastexcel`: disjoint on the shared Rust core — `fastexcel` owns the calamine-to-Arrow PyCapsule/`pyarrow.RecordBatch` columnar path for `libs/python/data`, this owner the `to_python` document-tree path for artifacts.
 - universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeRail` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
 

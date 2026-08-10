@@ -100,9 +100,9 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 
 | [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                          |
 | :-----: | :----------------------------------------------------------------- | :------- | :---------------------------------------------------- |
-|  [01]   | `FeatureExtensions.CalculateBounds -> BoundingBox`                 | static   | a feature-subtree envelope (`Region`/`LookAt` source) |
+|  [01]   | `FeatureExtensions.CalculateBounds -> BoundingBox`                 | static   | feature-subtree bounding envelope (`Region`/`LookAt`) |
 |  [02]   | `FeatureExtensions.CalculateLookAt -> LookAt`                      | static   | camera framing a feature (default document viewpoint) |
-|  [03]   | `GeometryExtensions.CalculateBounds -> BoundingBox`                | static   | the envelope of one geometry                          |
+|  [03]   | `GeometryExtensions.CalculateBounds -> BoundingBox`                | static   | one geometry's bounding envelope                      |
 |  [04]   | `Serializer.Serialize(Element) -> string`                          | instance | raw XML emit under `KmlFile.Save`, or to a `Stream`   |
 |  [05]   | `Parser.Parse(Stream)` / `ParseString(string)`                     | instance | raw XML→element parse under `KmlFile.Load`            |
 |  [06]   | `KmlFactory.Register<T>(XmlComponent)`                             | static   | register a custom element type for the round-trip     |

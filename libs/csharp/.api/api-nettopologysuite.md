@@ -94,7 +94,7 @@
 |  [05]   | `HPRtree<TItem>`            | class         | Hilbert-packed static R-tree        |
 |  [06]   | `IItemVisitor<TItem>`       | interface     | streaming query sink                |
 |  [07]   | `IItemDistance`             | interface     | nearest-neighbour metric            |
-|  [08]   | `GeometryItemDistance`      | class         | envelope-to-geometry metric         |
+|  [08]   | `GeometryItemDistance`      | class         | bounding-envelope item metric       |
 |  [09]   | `GeometryFixer`             | class         | validity repair                     |
 |  [10]   | `IsValidOp`                 | class         | validity adjudication               |
 |  [11]   | `TopologyValidationError`   | class         | validity failure detail             |
@@ -206,12 +206,12 @@
 |  [09]   | `OverlayNGRobust.Overlay(Geometry, Geometry, SpatialFunction)`            | static   | robust binary overlay                 |
 |  [10]   | `OverlayNGRobust.OverlaySR(Geometry, Geometry, SpatialFunction)`          | static   | snap-rounded attempt, null on failure |
 |  [11]   | `OverlayNGRobust.Union(IEnumerable<Geometry>, GeometryFactory)`           | static   | robust bulk union                     |
-|  [11a]  | `OverlayNGRobust.Union(IEnumerable<Geometry>)`                            | static   | bulk union, default factory           |
+|  [12]   | `OverlayNGRobust.Union(IEnumerable<Geometry>)`                            | static   | bulk union, default factory           |
 |  [13]   | `UnaryUnionOp.Union(Geometry) -> Geometry`                                | static   | cascaded self-union                   |
 |  [14]   | `CoverageUnion.Union(Geometry[]) -> Geometry`                             | static   | edge-matched coverage union           |
 |  [15]   | `OffsetCurve.GetCurve(Geometry, double, int, JoinStyle, double)`          | static   | single-sided offset curve             |
 |  [16]   | `OffsetCurve.GetCurveJoined(Geometry, double) -> Geometry`                | static   | joined two-sided offset curve         |
-|  [15a]  | `new OffsetCurve(Geometry, double, BufferParameters)` + `.GetCurve()`     | instance | policy-carrying offset                |
+|  [17]   | `new OffsetCurve(Geometry, double, BufferParameters)` + `.GetCurve()`     | instance | policy-carrying offset                |
 |  [18]   | `ConcaveHull.ConcaveHullByLength(Geometry, double, bool)`                 | static   | concave hull at a max edge length     |
 |  [19]   | `ConcaveHull.ConcaveHullByLengthRatio(Geometry, double, bool)`            | static   | scale-free concave hull               |
 |  [20]   | `ConcaveHull.AlphaShape(Geometry, double, bool)`                          | static   | alpha shape                           |
@@ -284,7 +284,7 @@
 | :-----: | :--------------------------------------------------------------- | :------- | :-------------------------------- |
 |  [01]   | `STRtree<T>.Insert(Envelope, T)`                                 | instance | register a candidate              |
 |  [02]   | `STRtree<T>.Build()`                                             | instance | pack the tree, closing insertion  |
-|  [03]   | `STRtree<T>.Query(Envelope) -> IList<T>`                         | instance | envelope broad phase              |
+|  [03]   | `STRtree<T>.Query(Envelope) -> IList<T>`                         | instance | bounding-envelope broad phase     |
 |  [04]   | `STRtree<T>.Query(Envelope, IItemVisitor<T>)`                    | instance | streaming broad phase             |
 |  [05]   | `STRtree<T>.Remove(Envelope, T) -> bool`                         | instance | drop one candidate                |
 |  [06]   | `STRtree<T>.NearestNeighbour(IItemDistance) -> T[]`              | instance | closest pair inside the tree      |
@@ -341,13 +341,13 @@
 |  [07]   | `AffineTransformation.Transform(Geometry) -> Geometry`                                         | instance | mapped copy                 |
 |  [08]   | `GeometryEditor.Edit(Geometry, IGeometryEditorOperation)`                                      | instance | structure-preserving edit   |
 
-- `ICoordinateSequenceFilter.GeometryChanged` returning true drives the host geometry's cache invalidation at the end of the walk; a filter that mutates ordinates and returns false leaves a stale envelope behind.
+- `ICoordinateSequenceFilter.GeometryChanged` returning true drives the host geometry's cache invalidation at the end of the walk; a filter that mutates ordinates and returns false leaves a stale bounding envelope behind.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `NtsGeometryServices.Instance` fixes the overlay engine, relate engine, precision model, SRID, and coordinate-sequence factory for every factory, reader, and operation the process constructs; `CreateGeometryFactory` hands back cached factories off that one policy.
-- Constructive operations return new geometry, while coordinate filters and metadata setters mutate in place; `Geometry.GeometryChanged()` clears envelope and derived state after a rewrite.
+- Constructive operations return new geometry, while coordinate filters and metadata setters mutate in place; `Geometry.GeometryChanged()` clears the bounding envelope and derived state after a rewrite.
 - `PreparedGeometryFactory.Prepare` amortizes one fixed geometry's segment index across every candidate, so one-against-many is its only shape.
 - `IndexedPointInAreaLocator` is the POINT specialization of that same amortization and answers a three-valued `Location` where a prepared predicate answers `bool`, so an interior-versus-boundary decision is stated rather than folded into a tie-break; its index builds lazily on first query, which makes constructing one per candidate area free and querying one per point the only cost. A hand-rolled even-odd ray cast beside it re-implements the robust crossing count this class already owns.
 - `STRtree<T>` and `HPRtree<T>` pack on `Build()` or on the first `Query`, closing further insertion while query and `Remove` stay legal; `Quadtree<T>` admits interleaved insertion for a candidate set that keeps moving.

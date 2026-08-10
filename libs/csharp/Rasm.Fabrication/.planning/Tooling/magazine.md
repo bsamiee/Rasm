@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_TOOL_MAGAZINE]
 
-`ToolAssembly` is the provider-detached physical-tool owner. Stable `Identity` survives lifecycle refreshes; `Snapshot` changes with measurements, edges, status, process ranges, reconditioning, measured offset wear, and life evidence. `ToolMagazine` admits machine-specific layout data, kits crib tools into typed slot states, schedules changes against every reserve-adjusted life basis under one selection policy, derives one `ToolChangeEvidence` per exchange, and projects the holder envelope consumed by Guard.
+`ToolAssembly` is the provider-detached physical-tool owner. Stable `Identity` survives lifecycle refreshes; `Snapshot` changes with measurements, edges, status, process ranges, reconditioning, measured offset wear, and life evidence. `ToolMagazine` admits machine-specific layout data, kits crib tools into typed slot states, schedules changes against every reserve-adjusted life basis under one selection policy, derives one `ToolChangeEvidence` per exchange, and projects the `HolderEnvelope` footprint Guard consumes.
 
 MTConnect types stop at `ToolCatalog.Admit`, and this page is the package's ONLY provider decode: `ToolCatalog.Cutter` and `ToolCatalog.Evidence` project an admitted assembly onto the atoms floor's `CutterForm` and `ToolEvidence`, so no parallel measurement stack sits under the vocabulary floor. Every provider correspondence rides as a COLUMN on the owned row it targets and admits through one `Items`-derived index, so an unmapped provider value fails typed rather than defaulting to a domain row and no eager side table restates a vocabulary. `MetricDimension` rows own unit admission and canonical projection, so every measurement lands as one `ToolMetric` carrying its resolved canonical magnitude in millimetres, degrees, grams, or decimal fractions.
 
@@ -11,7 +11,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 - [02]-[TOOL_VOCABULARY]: `ToolKey`, `ToolEdgeKey`, `Magazine`, `MagazineBehavior`, `ArmSwing`, `ToolSelection`, `SlotKind`, `ToolAvailability`, `LifeBasisRow`, `MetricDimension`, `ToolMeasure`, and `ShortfallReason` — every provider correspondence carried as a column.
 - [03]-[TOOL_ASSEMBLY]: `SlotAddress`, `ToolTarget`, `LifeBudget`, `MetricBand`, `ToolMetric`, `ToolEdge`, `ToolSnapshot`, `ToolAssemblyIngress`, `ToolAssembly`, `MagazineLayout`, `SlotState`, `SlotMap`, `LifeDemand`, `WorkItem`, and `MagazinePolicy`.
 - [04]-[PROVIDER_CATALOG]: `CatalogSource`, `CatalogReceipt`, `ToolIngress`, `MagazineSlots`, `ToolAssemblyMap`, and the `ToolCatalog` decode, atoms-floor projection, refresh, and canonical-hash fold.
-- [05]-[KITTING_SCHEDULE]: `ToolChangeEvidence`, `KitShortfall`, `KittingReceipt`, `ToolChange`, and the `ToolMagazine` kitting, scheduling, and holder-envelope entries.
+- [05]-[KITTING_SCHEDULE]: `ToolChangeEvidence`, `KitShortfall`, `KittingReceipt`, `ToolChange`, and the `ToolMagazine` kitting, scheduling, and `HolderEnvelope` entries.
 
 ## [02]-[TOOL_VOCABULARY]
 
@@ -297,7 +297,7 @@ public sealed partial class ShortfallReason {
 
 ## [03]-[TOOL_ASSEMBLY]
 
-- Owner: `ToolKey` carries stable physical identity; `ToolSnapshot` carries mutable truth and owns metric and remaining-life lookup; `ToolAssemblyIngress` carries the admission columns and `ToolAssembly` composes them with `Tool` and the controller offset registers; `MagazineLayout` carries admitted capacity, pot envelope, index timing, and clearance; `SlotMap` owns total placement state and its reservation index; `MagazinePolicy` carries reserve, retract, controller behavior, and the selection row.
+- Owner: `ToolKey` carries stable physical identity; `ToolSnapshot` carries mutable truth and owns metric and remaining-life lookup; `ToolAssemblyIngress` carries the admission columns and `ToolAssembly` composes them with `Tool` and the controller offset registers; `MagazineLayout` carries admitted capacity, the pot's operating envelope, index timing, and clearance; `SlotMap` owns total placement state and its reservation index; `MagazinePolicy` carries reserve, retract, controller behavior, and the selection row.
 - Law: every boundary value enters through `Validate`/`Admit`, never a throwing `Create`. A generated `Create` treated as nullable made the whole decode rail escape as EXCEPTIONS past a `Fin`-declaring entry, so a malformed provider asset surfaced as a throw rather than a typed refusal.
 - Law: the reservation sweep runs ONCE at admission and its index is HELD. Reserve spans define intervals on a magazine's own position axis, so a sorted single pass proves the whole map and a single load or reservation checks the ONE changed slot against its neighbours in the index — the prior full cross product ran inside every rebuild a load or reservation triggered.
 - Law: `ToolMetric` carries its RESOLVED canonical magnitude as an admitted member. Deriving it per read re-parsed the unit on every lookup and had to answer an absence its own admission had already refused, which it did with a sentinel every downstream fold then propagated.
@@ -1244,7 +1244,7 @@ public static class ToolCatalog {
 
 ## [05]-[KITTING_SCHEDULE]
 
-- Owner: `ToolMagazine` owns kitting, scheduling, and the holder envelope; `ToolChangeEvidence` owns the exchange clock; `KittingReceipt` and `ToolChange` own their receipts.
+- Owner: `ToolMagazine` owns kitting, scheduling, and `HolderEnvelope`; `ToolChangeEvidence` owns the exchange clock; `KittingReceipt` and `ToolChange` own their receipts.
 - Law: `ToolChangeEvidence` is the ONE exchange clock and `Elapsed` is DERIVED — `Traverse + ArmSwing`, with the traverse read off the layout's own slot-index distance and the swing share off the `ArmSwing` row the policy's behaviours select. A caller-supplied elapsed literal is the deleted form, and the two halves stay separate columns because a consumer pricing an overlapped change reads which half it can hide.
 - Law: every exchange names a REAL ordinal pair. A change out of an empty spindle starts at the layout's declared `Park` — the changer station, which no pot may occupy — so its index distance is zero by that layout's own definition and the elapsed span collapses to the arm swing through the same arithmetic every other change takes. An absence carrier on the ordinal, or a sentinel standing for "no prior slot", would leave a consumer keying exchanges on an ordered pair holding two shapes for one fact.
 - Law: a refused reservation SURFACES. Silently returning the map unchanged left the receipt claiming a reservation the crib never held and the next demand competing for the same slot.

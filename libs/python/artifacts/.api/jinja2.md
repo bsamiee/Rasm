@@ -134,7 +134,7 @@
 - One `Environment` is the single engine owner; report policy defaults to `autoescape=select_autoescape(...)`, `undefined=StrictUndefined`, and `enable_async=True`, so a missing variable faults rather than rendering blank.
 - Every template source is a loader row on that one engine, never a parallel engine.
 - `render`/`render_async` is the one sync/async pair; `generate`/`stream` own chunked output for large reports; the render context carries the `VisualSpec`/`ExportPlan` projection and the runtime `ContentIdentity`, never a re-minted identity.
-- A template yielding a typed Python value binds `NativeEnvironment`/`NativeTemplate`, never `ast.literal_eval` over a string render; string reports stay on `Environment`.
+- `NativeEnvironment`/`NativeTemplate` binds every template yielding a typed Python value, never `ast.literal_eval` over a string render; string reports stay on `Environment`.
 - Custom tags, filters, tests, and globals are configuration rows on the mutable `Environment` registries via `add_extension`/`.filters`/`.tests`/`.globals` and the `pass_context`/`pass_environment`/`pass_eval_context` decorators, never a second engine.
 - Untrusted report source binds `ImmutableSandboxedEnvironment`; the sandbox attribute/operator filters are the security boundary and `SecurityError` is a typed fault on the rail.
 - `compile_templates(target)` feeds a parse-free `ModuleLoader` archive for sealed report sets; `FileSystemBytecodeCache`/`MemcachedBytecodeCache` caches a live engine for hot reload.

@@ -27,11 +27,14 @@ const _TRIANGLE_DIGEST = { canonical: '9462a71a5dd13dcfa3b1d6d225fcbe70', memory
 
 const _Pin = Schema.Literal('REAL', 'DESIGN-PIN');
 const _Payload = Schema.Literal('wire-bytes', 'canonical-json', 'digest', 'descriptor-set');
+const _Class = Schema.Literal('infrastructure', 'domain');
 
 class Fixture extends Schema.Class<Fixture>('Fixture')({
     fixture: Schema.NonEmptyString.pipe(Schema.pattern(/^[A-Z][A-Z0-9_]+$/)),
     seam: Schema.NonEmptyString.pipe(Schema.pattern(/^[a-z][a-z0-9-]*$/)),
-    producer: Schema.NonEmptyString,
+    // Ledger cell 4 is the `[CLASS]` column the corpus law closes; the ledger publishes no producer column at all,
+    // so a `producer` field here decoded the class under a name that made every reader believe a fourth column existed.
+    entryClass: _Class,
     payloads: Schema.NonEmptyArray(_Payload),
     pin: _Pin,
 }) {
@@ -40,6 +43,7 @@ class Fixture extends Schema.Class<Fixture>('Fixture')({
 
 type Asset = Data.TaggedEnum<{
     Emitted: { readonly fixture: Fixture; readonly pairs: Array.NonEmptyReadonlyArray<Corpus.Pair> };
+    Vendored: { readonly fixture: Fixture; readonly files: Array.NonEmptyReadonlyArray<string> };
     Awaiting: { readonly fixture: Fixture };
     Blocked: { readonly fixture: Fixture };
 }>;
@@ -92,7 +96,7 @@ const _rows = (markdown: string): ReadonlyArray<unknown> =>
                 Option.map((cells) => ({
                     fixture: _bare(cells[2]),
                     seam: _bare(cells[3]),
-                    producer: _bare(cells[4]),
+                    entryClass: _bare(cells[4]),
                     payloads: _tokens(cells[5] ?? ''),
                     pin: _bare(cells[6]),
                 })),
@@ -131,10 +135,16 @@ const _asset = (fixture: Fixture): Effect.Effect<Asset, CorpusFault, FileSystem.
             Effect.mapError((fault) => new CorpusFault({ reason: 'unreadable', detail: fault.message })),
         );
         const pairs = _pairs(emitted);
+        // A REAL seam holding files but no contract.schema.json carries VENDORED publisher bytes: the corpus law seats
+        // a definition at every estate seam and holds a DESIGN-PIN subtree empty, so those two facts together are the
+        // one disk-derived tell. Vendored bytes never arrive as message pairs, and reading their absence as Awaiting
+        // reports a producer that will never emit.
         return Array.isNonEmptyReadonlyArray(pairs)
             ? Asset.Emitted({ fixture, pairs })
             : fixture.pin === 'REAL'
-              ? Asset.Awaiting({ fixture })
+              ? Array.isNonEmptyReadonlyArray(emitted) && !Array.contains(emitted, _DEFINITION)
+                  ? Asset.Vendored({ fixture, files: emitted })
+                  : Asset.Awaiting({ fixture })
               : Asset.Blocked({ fixture });
     });
 

@@ -55,13 +55,13 @@ Test lanes are orthogonal to language; every suite declares its lane through the
 |  [05]   | benchmark   | measurement in a separate session, never inside unit runs  | `_benchmarks` switcher, `-m benchmark`, bench include glob  |
 |  [06]   | mutation    | assay-gated survivor discovery                             | assay routes over root Stryker configs + staged Python gate |
 
-Lane vocabulary reserves `integration` for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
+Lane vocabulary reserves `integration` for the real process/IO boundary. Tests running in-process with doubles are unit tests regardless of how many owners they span; calling one integration inflates the lane and hides the missing boundary proof.
 
 ## [03]-[PROOF_LAW]
 
-A test is an adversarial law with an independent oracle, never confirmation of current output. An oracle predicts behavior from an independent source: closed-form math, conservation, fixture geometry, a category contract, runtime observation, or documented external behavior. Grade the proof before writing it — Grade A is an independent prediction, Grade B a metamorphic or model relation, Grade C a durable failure-category rail, Grade D a shape-only inspection of values the test itself constructed. Grade D stands alone nowhere: it pairs with an A/B oracle or a C rail, or it is deleted.
+Every test is an adversarial law with an independent oracle, never confirmation of current output. Oracles predict behavior from an independent source: closed-form math, conservation, fixture geometry, a category contract, runtime observation, or documented external behavior. Grade the proof before writing it — Grade A is an independent prediction, Grade B a metamorphic or model relation, Grade C a durable failure-category rail, Grade D a shape-only inspection of values the test itself constructed. Grade D stands alone nowhere: it pairs with an A/B oracle or a C rail, or it is deleted.
 
-Every law family is witness-mandatory: registration carries a refuting witness the law must fail on. A witness the law survives exposes a tautology no mutant can violate, and that registration is itself the failure.
+Every law family is witness-mandatory: registration carries a refuting witness the law must fail on. Witnesses the law survives expose a tautology no mutant can violate, and that registration is itself the failure.
 
 [BANNED_SHAPES]:
 - Existence tests: asserting a symbol, export, case, or member exists — the compiler, importer, or type checker already proves it.
@@ -69,7 +69,7 @@ Every law family is witness-mandatory: registration carries a refuting witness t
 - Speculative-state tests: laws over states the production surface cannot construct.
 - Per-function spam: one thin test per function when a single generated domain covers the family.
 
-A failing law is evidence: investigate the production owner before weakening the test, and when the law found a real bug, fix the owner — never dilute the law into shape-only proof. Each language README carries the language spelling of these laws with its own bans.
+Failing laws are evidence: investigate the production owner before weakening the test, and when the law found a real bug, fix the owner — never dilute the law into shape-only proof. Each language README carries the language spelling of these laws with its own bans.
 
 ## [04]-[ARTIFACT_ROUTING]
 
@@ -127,7 +127,7 @@ Scenario proof flows through one route, content to verdict:
 1. Content: scenarios live in `tests/csharp/scenarios` as source-only `[RhinoScenario]` statics composing the `Rasm.ScenarioKit` SDK; the project is an `AssayTestShell`, so the routing closure keeps it out of unit-test runs.
 2. Closure: `uv run python -m tools.assay bridge build` compiles the bridge plugin and stages scenario content with its dependency closure for the host.
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
-4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge Envelope; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
+4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge `Envelope`; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
 Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md) carries the full lifecycle, tolerance, and admission law.
 
@@ -147,7 +147,7 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 ## [08]-[CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language contract corpus: each seam schema defines the contract, and the frozen assets prove it. An `infrastructure` entry names every branch that mints the shape; a `domain` entry names the one producer that emits it. [tests/contracts/README.md](contracts/README.md) carries the authority, layout, manifest, and regeneration law.
+`tests/contracts/` is the cross-language contract corpus: each seam schema defines the contract, and the frozen assets prove it. Each `infrastructure` entry names every branch that mints the shape, and a `domain` entry names the one producer that emits it. [tests/contracts/README.md](contracts/README.md) carries the authority, layout, manifest, and regeneration law.
 
 ## [09]-[TOOLING_AWARENESS]
 
@@ -163,4 +163,4 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
 |  [07]   | `tools/assay`                                        | gate rails across every claim; the CLI `--help` is the census                     |
 
-Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.
+Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. Rail changes without their spec change are incomplete changes.

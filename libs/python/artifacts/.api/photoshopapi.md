@@ -26,7 +26,7 @@
 
 [PUBLIC_TYPE_SCOPE]: layer node family
 
-`Layer_<bit>` is the abstract node base carrying every editor-panel attribute; the four leaf and group subclasses derive from it. A `layers` walk (root or group-scoped) yields `Layer_<bit>` references the consumer narrows with `isinstance`; the layered arm constructs the leaf subclass directly.
+`Layer_<bit>` is the abstract node base carrying every editor-panel attribute; the four leaf and group subclasses derive from it. `layers` walks root or group-scoped and yields `Layer_<bit>` references the consumer narrows with `isinstance`; the layered arm constructs the leaf subclass directly.
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                                                    |
 | :-----: | :----------------------- | :---------------- | :------------------------------------------------------------------------------ |
@@ -74,7 +74,7 @@
 
 [ENTRYPOINT_SCOPE]: layer placement and lookup
 
-A layer places at root via `LayeredFile.add_layer` or inside a group via `GroupLayer.add_layer(layered_file, layer)`, the document arg driving the duplicate-placement check. Lookup discriminates on input shape: `__getitem__` for a single root-level name (chainable through nested groups), `find_layer` for a `"Group/Sub/Leaf"` path; both raise `KeyError`/`ValueError` on miss.
+`LayeredFile.add_layer` places a layer at root and `GroupLayer.add_layer(layered_file, layer)` inside a group, the document arg driving the duplicate-placement check. Lookup discriminates on input shape: `__getitem__` for a single root-level name (chainable through nested groups), `find_layer` for a `"Group/Sub/Leaf"` path; both raise `KeyError`/`ValueError` on miss.
 
 | [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                       |
 | :-----: | :------------------------------------ | :------- | :------------------------------------------------- |

@@ -46,12 +46,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; the landed `libs/typescript/.api/mitata.md` substrate catalog, whose entrypoint and knob rows carry every member this modality composes.
 - Tension: `Trial.run`'s hand-bracketed sampler already re-derives the rung set the package ships, so the modality is a replacement of the local kernel rather than an enrichment beside it.
 
-[CLOUDEVENTS_ENVELOPE]-[QUEUED]: Delivery egress and serving intake speak verified CloudEvents HTTP bindings.
-- Capability: one CloudEvents codec pair — egress preserving structured content type, binary data bytes, and W3C extension attributes; intake auto-detecting binary versus structured mode with decode evidence on the `Problem` rail.
-- Shape: the egress codec on `libs/typescript/runtime/.planning/work/deliver.md` and the intake codec on `libs/typescript/runtime/.planning/serve/route.md`, each transcribing the settled codec law its page already carries.
-- Unlocks: standards-shaped event crossings on both HTTP directions without an unverified fence.
-- Anchors: `libs/typescript/.api/cloudevents.md` (the one substrate catalog); `work/deliver.md` `HookPayload` signing seam; `serve/route.md` `Problem` rail.
-
 [GRPC_LANE]-[BLOCKED]: Connect transport completes — the served handler mounts behind the one guard law.
 - Capability: the served Connect handler mounts behind `Seam.guard` with context continued before the handler. Egress print is settled elsewhere — `core:interchange/invoke#DIAL_AXIS`'s per-call lift already folds `Carrier.inject("connect", ...)` onto the call headers, so a client interceptor pair is the foreclosed form.
 - Shape: the guarded mount on `libs/typescript/runtime/.planning/serve/live.md`, gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
@@ -79,4 +73,5 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [BOARD_FEED]-[COMPLETE]: `meter.md` `[06]-[BOARD]` mints `Pulse.Board`/`Pulse.board`, and iac `operate/observe.md` admits `runtime.pulse` in `_PACKS` through the shared producer-pack ingest arm.
 [HOOK_DISPATCH]-[COMPLETE]: already landed — `emit.md` `Hooks.Dispatch` executes the core `Tap` vocabulary with app-scoped rails, pure veto fold, isolated delivery fibers, and the bounded replay ring.
 [CARRIER_CODEC_BINDING]-[COMPLETE]: `emit.md` `Propagation.current` and `pubsub.md` local, tab, NATS, and Kafka rows compose core `Carrier` with matching `fanout`, `nats`, and `kafka` dialects; `core/.planning/interchange/carrier.md` owns the exact table.
+[CLOUDEVENTS_ENVELOPE]-[COMPLETE]: both HTTP directions land on the core owner rather than a page-local codec — `serve/route.md` `Intake` detects the frame through `Format.event.framed` before decoding, sanitizes the header band, admits through `Event.Fact`/`Event.read`, and continues each member's creation-time trace, while `work/deliver.md` projects at claim time through `Hook.project`, seals the attribute set as `dssematerial`, and signs the encoded octets once; the abuse-protection handshake landed on both halves.
 [JOURNAL_ENVELOPE_CARRIAGE]-[COMPLETE]: `pubsub.md` keeps `Envelope` opaque and preserves the projected body and band; `data/.planning/journal/append.md` owns strict CloudEvents construction and inverse carrier decode, so runtime carries the value without duplicating its codec.

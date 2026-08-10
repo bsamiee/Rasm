@@ -13,7 +13,7 @@
 
 `MorphKind` is the sole deformation discriminant. `BendBehavior`, `FlowBehavior`, `TaperBehavior`, `MorphExtent`, and `MorphBehavior` replace positional booleans with bounded policy. Every concrete engine enters the same duplicate-morph-own kernel, including `MorphControl`.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class BendBehavior {
@@ -190,7 +190,7 @@ public abstract partial record MorphKind {
 
 `Following`, `UnrollLaw`, `SquishLaw`, `SquishSpring`, and `SquishFollowers` validate before native engines exist. `SquishBehavior` replaces topology, mapping, boundary, and diagnostic booleans with one policy value. `FollowingGeometryIndex` preserves source correlation for carried curves.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SquishBehavior {
@@ -400,7 +400,7 @@ public readonly partial struct SquishLaw {
 
 `DeformOp` is the sole operation algebra. Geometry products cross through `ModelGate`, while unrolled points, source indices, squished points, topology diagnostics, and labelled spring axes remain receipt evidence. `MeshUnwrapper`, `Unroller`, `Squisher`, and every concrete morph stay inside their consuming arm — the two `IDisposable` engines under a lease, `Unroller` as a plain managed value.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DeformSlot {

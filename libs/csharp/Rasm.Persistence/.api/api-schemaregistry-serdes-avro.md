@@ -80,4 +80,4 @@
 - Package: `Confluent.SchemaRegistry.Serdes.Avro`
 - Owns: registry-governed Avro encode/decode on the Kafka value/key slot — schema-id framing, `SubjectNameStrategy` derivation, generic and specific Avro `T`, and rule-engine field transforms during serialize/deserialize.
 - Accept: a build-time serde over the shared `ISchemaRegistryClient`, a generated `ISpecificRecord` `T` on the durable path, `AutoRegisterSchemas = false` with out-of-band registration, `NormalizeSchemas = true`, and CSFLE through the shared `RuleRegistry`.
-- Reject: a per-message serde instance, `AutoRegisterSchemas` on the durable producer, a `GenericRecord` `T` where the event shape is statically known, hand-rolled magic-byte framing, and double-framing through both this serde and `Chr.Avro.Confluent`.
+- Reject: a per-message serde instance, `AutoRegisterSchemas` on the durable producer, a `GenericRecord` `T` where the event shape is statically known, hand-rolled magic-byte framing, and a second registry frame beside this one.

@@ -83,7 +83,7 @@ Compiled source drives these built-in markup functions. `alt` rides the inner `i
 - `query`/`eval` run over THIS plan's own single-shot world, never a held head world that introspects the wrong document in a batch.
 - `pdf_standards` selects the archival PDF/A + accessible PDF/UA target; `UA_1` projects to `("ua-1",)` alone, an archival-plus-tagged deliverable projects the combined tuple, and archival conformance is a render row, never a signer path.
 - Lowering authors `image(.., alt: ..)` and `figure(.., caption: ..)`, Typst-string-escapes interpolated `alt`/`title`, wraps decorative content in `pdf.artifact`, and sets `mime-type:` on every `pdf.attach` under a PDF/A row.
-- A raised `TypstError` converts to the runtime `BoundaryFault` at the `async_boundary` capsule carrying its structured `.message`/`.diagnostic`/`.hints`/`.trace`; `TypstWarning` is collected by `compile_with_warnings` and counted onto the receipt, never raised.
+- `TypstError` raises into the `async_boundary` capsule, converting to the runtime `BoundaryFault` carrying its structured `.message`/`.diagnostic`/`.hints`/`.trace`; `compile_with_warnings` collects `TypstWarning` onto the receipt count, never raising it.
 - Each render captures source identity, output format, page/byte count, PDF standard, resolved font set, and warning count as a document receipt; `query`/`eval` capture the queried byte length.
 
 [STACKING]:

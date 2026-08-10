@@ -1,17 +1,17 @@
 # [PERSISTENCE_QUERY_CYPHER]
 
-Rasm.Persistence offers an optional self-hosted analytical graph lane over Apache AGE and `pgrouting`, below the authoritative in-process `Query/topology` owner. `GraphQuery` is the closed verb family, `GraphDdl` owns lifecycle, `Identifier` and `CypherClause` admit AGE structure, and `H3Cell` is the routing node identity. `GraphResult` preserves node, cell, point, edge, mutation, and partition spaces; projections return `Option` so an incompatible space never masquerades as an empty successful result.
+`CypherEnablement.SelfHosted` opens Rasm.Persistence's analytical graph lane over Apache AGE and `pgrouting`, seated below the authoritative in-process `Query/topology` owner. `GraphQuery` is the closed verb family, `GraphDdl` owns lifecycle, `Identifier` and `CypherClause` admit AGE structure, and `H3Cell` is the routing node identity. `GraphResult` preserves node, cell, point, edge, mutation, and partition spaces; projections return `Option` so an incompatible space never masquerades as an empty successful result.
 
 ## [01]-[INDEX]
 
-- [02]-[GRAPH_SESSION]: the `CypherEnablement` self-hosted gate, the `CypherFault` closed boundary band, the `GraphDdl` graph/label lifecycle surface, and the `GraphSession` owning the per-physical-connection `LOAD 'age'`+`search_path` init, the async daemon projection, and the `agtype`/path/Edges-SQL decode primitives both lanes compose.
-- [03]-[GRAPH_QUERY]: the ONE `GraphQuery` `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `ElementSet` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
+- [02]-[GRAPH_SESSION]: `CypherEnablement` self-hosted gate, the `CypherFault` closed boundary band, the `GraphDdl` graph/label lifecycle surface, and the `GraphSession` owning the per-physical-connection `LOAD 'age'`+`search_path` init, the async daemon projection, and the `agtype`/path/Edges-SQL decode primitives both lanes compose.
+- [03]-[GRAPH_QUERY]: `GraphQuery` the ONE `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `ElementSet` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
 
 ## [02]-[GRAPH_SESSION]
 
 - Owner: `CypherEnablement` is the closed `Disabled | SelfHosted` availability family and the lane's admission owner through `Admit`. `CypherClause` admits the dollar-quoted body. `GraphDdl` owns graph and label lifecycle. `GraphSession` owns connection initialization, rebuild, execution, decoding, and edge projection.
 - Cases: `CypherEnablement` is `Disabled` or `SelfHosted`; `CypherFault` is `Disabled`, `LaneUnrealizable`, `MatchFailed`, `RouteFailed`, or `Unresolvable`; `GraphDdl` carries `Create`, `Drop`, `VertexLabel`, `EdgeLabel`, `DropLabel`, `Rename`, `LoadVertices`, and `LoadEdges`; `DestructiveMode` supplies `Restrict` or `Cascade`; `VertexIdMode` supplies `Generated` or `Provided`.
-- Entry: `CypherEnablement.Admit(StoreProfile, CypherEnablement)` is the lane's one gate and every enablement value below reaches composition through it; `Provision` installs `LOAD 'age'` plus `search_path` through `UsePhysicalConnectionInitializer` when `CypherEnablement.SelfHosted`; `Rebuild(IDocumentStore)` starts the daemon and consumes `QueryLane.Cypher.WaitBudget`; `Define` lowers one `GraphDdl` case; `Decode` admits `properties.id`; `DecodePath` folds the registered `agtype`→`jsonb` path; `Vid` and `CellOf` preserve the `H3Cell` node space.
+- Entry: `CypherEnablement.Admit(StoreProfile, CypherEnablement)` is the lane's one gate and every enablement value below reaches composition through it; `Provision` installs `LOAD 'age'` and `search_path` through `UsePhysicalConnectionInitializer` when `CypherEnablement.SelfHosted`; `Rebuild(IDocumentStore)` starts the daemon and consumes `QueryLane.Cypher.WaitBudget`; `Define` lowers one `GraphDdl` case; `Decode` admits `properties.id`; `DecodePath` folds the registered `agtype`→`jsonb` path; `Vid` and `CellOf` preserve the `H3Cell` node space.
 - Auto: the lane is `Disabled` by construction so a deployment that has not provisioned `age`/`pgrouting` reads the in-process topology and never reaches for a missing extension; when `SelfHosted`, `Provision` registers the connection-init hook so every physical connection runs `LOAD 'age'` and sets `search_path` once at open (a PL/pgSQL Cypher wrapper repeats it in its own body per `api-apache-age#SESSION_SETUP`, but the managed lane pays it at the physical-connection seam, not per `cypher()` call); the AGE backing relations and the `pgrouting` network edge table materialize through the ONE `AgeGraphProjection` Marten async projection (`ProjectionLifecycle.Async`, registered at composition) folding committed `GraphDelta` events — the only steady-state producer, rebuilt from the one Marten stream so neither duplicates the event store, and `Rebuild` awaits exactly this projection's shard watermark; the Cypher read's OUTER `SELECT` extracts `(v->'properties'->>'id')` server-side through the registered `agtype` operators so `Decode` receives a PLAIN text column (the projection wrote the seam `NodeId.Value` beside the owning `ModelId` as the vertex `id`/`model` properties), making the decoded node the REAL model-qualified `SetKey`, never the AGE internal `graphid` integer and never a client-side hand-parse; a PATH-shaped read (`Reach`) RETURNs the whole path `p` and the outer `SELECT` casts `(p)::jsonb` through the REGISTERED cast so `DecodePath` receives one typed JSON document — the alternating vertex/edge array — rather than a comma-split of the `::path` text; `Define` runs the graph/label lifecycle through the same gate, and the role owning `ag_catalog` owns its idempotence; a bulk `LoadVertices`/`LoadEdges` stays coherent with later `*`-range traversals because the `age_invalidate_graph_cache()` trigger bumps the graph version on every direct backing-relation write; `Vid` reinterprets the `H3Cell` `long` (the `h3-pg` cell convention `Element/identity#ELEMENT_IDENTITY` already stamps) so the `pgrouting` Edges-SQL vertex id, the GiST/BRIN H3 index, and the in-process `pocketken.H3` cell agree bit-for-bit.
 - Receipt: every lane outcome rides the `ReceiptSinkPort` — a session provision rides `store.graph.provision` carrying the gate; a daemon rebuild rides `store.graph.rebuild` carrying the watermark and elapsed wait; a lifecycle define rides `store.graph.define` carrying the graph, the case, and the affected label.
 - Packages: Npgsql (`NpgsqlDataSourceBuilder.UsePhysicalConnectionInitializer`/`NpgsqlDataSource`/`NpgsqlConnection`), Marten (`IDocumentStore.BuildProjectionDaemonAsync`/`WaitForNonStaleProjectionDataAsync`), pocketken.H3 (`H3Index`), Rasm.Element (`NodeId`), Rasm.Persistence (`Element/identity#ELEMENT_IDENTITY` `H3Cell`, `Query/lane#READ_ROUTING` `StalenessWatermark`, `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile.Admits` — the lane-realizability axis), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.Text.Json, BCL inbox.
@@ -273,8 +273,9 @@ public static class GraphSession {
             : IO.pure(Fin<Unit>.Fail(new CypherFault.Disabled()));
 }
 
-// The ANALYTICAL MATERIALIZER: one Marten ASYNC projection (registered ProjectionLifecycle.Async) is the only
-// steady-state producer of the AGE backing relations and the pgrouting network_edge table — each committed
+// `AgeGraphProjection` is the ANALYTICAL MATERIALIZER: one Marten ASYNC projection (registered
+// ProjectionLifecycle.Async) is the only steady-state producer of the AGE backing relations and the pgrouting
+// network_edge table — each committed
 // GraphDelta event folds to vertex/edge MERGE-or-DELETE cypher carrying the seam NodeId.Value as the vertex
 // `id` property and the H3Cell Vid as the routing vertex id, so SelfHosted reads derive from the authoritative
 // Marten stream and GraphSession.Rebuild's daemon wait IS this projection's watermark; the GraphDdl
@@ -283,7 +284,7 @@ public sealed class AgeGraphProjection(NpgsqlDataSource source, Identifier graph
     public async Task ApplyAsync(IDocumentOperations operations, IReadOnlyList<StreamAction> streams, CancellationToken token) {
         await using NpgsqlConnection lane = await source.OpenConnectionAsync(token).ConfigureAwait(false);
         foreach (StreamAction stream in streams) {
-            // The stream id IS the `ModelId`, stamped as the vertex `model` property beside the seam `id`, so
+            // `stream.Id` IS the `ModelId`, stamped as the vertex `model` property beside the seam `id`, so
             // every decoded vertex lifts into the model-qualified selection currency with no second lookup.
             string model = stream.Id.ToString("D");
             foreach (GraphDelta delta in stream.Events.Select(static e => e.Data).OfType<GraphDelta>()) {
@@ -333,18 +334,18 @@ public abstract partial record GraphDdl {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                       | [BINDING]                                                           |
-| :-----: | :------------------ | :-------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | enablement          | `Disabled` default, `SelfHosted` opt          | QuikGraph is authoritative; extensions optional (`H5`)              |
-|  [02]   | driver              | raw `Npgsql` over `agtype`/`SETOF record`     | no managed AGE/`pgrouting` driver; never EF                         |
-|  [03]   | session-load        | `UsePhysicalConnectionInitializer`            | `LOAD 'age'`+`search_path` once per connection, never per query     |
-|  [04]   | AGE node id         | `properties.model`+`properties.id` → `SetKey` | the model-qualified seam key; never the `graphid` integer           |
-|  [05]   | `pgrouting` node id | the `h3-pg` `H3Cell` `long`                   | shared with the in-process `pocketken.H3` cell; never `GetHashCode` |
-|  [06]   | consistency stance  | async, `StalenessWatermark`                   | interactive correctness binds the synchronous topology              |
-|  [07]   | graph source        | async daemon projection off Marten            | rebuildable, never a second event store                             |
-|  [08]   | fault rail          | `CypherFault` off `FaultBand.Cypher + n`      | renamed off the graph collision; never `Error.New` or a decade      |
-|  [09]   | graph lifecycle     | `GraphDdl` → `ag_catalog` DDL                 | parameter-bound DDL + loaders; `ServerExtension.CreateSql` seam     |
-|  [10]   | lane admission      | `CypherEnablement.Admit` at composition       | `LaneUnrealizable` names the lane; `Disabled` the opt-out           |
+| [INDEX] | [POLICY]            | [VALUE]                                       | [BINDING]                                                       |
+| :-----: | :------------------ | :-------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | enablement          | `Disabled` default, `SelfHosted` opt          | QuikGraph is authoritative; extensions optional (`H5`)          |
+|  [02]   | driver              | raw `Npgsql` over `agtype`/`SETOF record`     | no managed AGE/`pgrouting` driver; never EF                     |
+|  [03]   | session-load        | `UsePhysicalConnectionInitializer`            | `LOAD 'age'`+`search_path` once per connection, never per query |
+|  [04]   | AGE node id         | `properties.model`+`properties.id` → `SetKey` | binds the model-qualified seam key, never the `graphid` integer |
+|  [05]   | `pgrouting` node id | `h3-pg` `H3Cell` `long`                       | shares the in-process `pocketken.H3` cell; never `GetHashCode`  |
+|  [06]   | consistency stance  | async, `StalenessWatermark`                   | interactive correctness binds the synchronous topology          |
+|  [07]   | graph source        | async daemon projection off Marten            | rebuildable, never a second event store                         |
+|  [08]   | fault rail          | `CypherFault` off `FaultBand.Cypher + n`      | renamed off the graph collision; never `Error.New` or a decade  |
+|  [09]   | graph lifecycle     | `GraphDdl` → `ag_catalog` DDL                 | parameter-bound DDL + loaders; `ServerExtension.CreateSql` seam |
+|  [10]   | lane admission      | `CypherEnablement.Admit` at composition       | `LaneUnrealizable` names the lane; `Disabled` the opt-out       |
 
 ## [03]-[GRAPH_QUERY]
 

@@ -145,7 +145,7 @@
 - resilience: the `grpcTimeout` ctor argument sets the per-call deadline and the channel's service config retries transient gRPC status codes, aligning Qdrant with the `Polly`-shaped engine retry the other transports carry.
 
 [LOCAL_ADMISSION]:
-- A write enters through `UpsertAsync` with `wait` set per the durability profile, and `UpdateResult.Status` is the receipt advancing the `Query/retrieval` ingest ledger.
+- Writes enter through `UpsertAsync` with `wait` set per the durability profile, and `UpdateResult.Status` is the receipt advancing the `Query/retrieval` ingest ledger.
 - Retrieval enters through the universal `QueryAsync`, so hybrid prefetch, fusion, and formula reranking compose in one round-trip; `SearchAsync` and `RecommendAsync` serve the single-stage dense and example-guided cases.
 - Payload `Filter` builds from the canonical query vocabulary and runs on the Qdrant node as server-side push-down.
 - Multitenancy rides `ShardKey`: a tenant's points carry the shard key and queries pass a `ShardKeySelector`, binding the collection to the `Element/identity` tenancy row.

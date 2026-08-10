@@ -50,7 +50,7 @@
 
 - Every static member resolves its host by SCANNING the loaded instances and THROWS `InvalidOperationException` on three distinct misses — no loaded host at all, no host whose `Identifier` matches, and more than one match — so `Show`, `Close`, `Pop`, `GetDialogSession`, and `IsDialogOpen` are all throwing reads before the host mounts and after it unmounts, and a consumer guards every crossing on a mount-bound presence fact rather than on a probe.
 - `Pop(identifier, content)` is the RAISE verb, not a retreat: it matches an open host by CONTENT REFERENCE, moves it to the end of the stack (which `CurrentSession` reads as the top), and re-presents it through a hide-then-show pair that re-runs the open transition. A null content matches nothing and the call is a no-op, and no single-argument overload exists — retreat is `DialogSession.Close(parameter)`, which routes through the vetoable close.
-- `IsDialogOpen(identifier, content)` additionally THROWS when the resolved host carries `IsMultipleDialogsEnabled` false, so the content-bearing probe is stack-only; the single-argument form reads the top session's `IsEnded` and never throws on that axis.
+- `IsDialogOpen(identifier, content)` THROWS when the resolved host carries `IsMultipleDialogsEnabled` false, so the content-bearing probe is stack-only; the single-argument form reads the top session's `IsEnded` and never throws on that axis.
 - `CurrentSession`/`CurrentSessions` are INSTANCE members with no static counterpart, so a stack-wide fold reaches them through the mounted control and never through the identifier surface.
 
 [SESSION_OPS]: methods and read-only properties on the resolved `DialogSession` and the routed event args

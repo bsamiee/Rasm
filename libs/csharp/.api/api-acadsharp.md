@@ -33,17 +33,17 @@
 
 [PUBLIC_TYPE_SCOPE]: the `CadDocument` model root, tables, and collections
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                                                             |
-| :-----: | :-------------------------------- | :------------ | :--------------------------------------------------------------------------------------- |
-|  [01]   | `CadDocument`                     | class         | `Entities`, `ModelSpace`/`PaperSpace`, `BlockRecords`, `Header`, `SummaryInfo`, `Layers` |
-|  [02]   | `BlockRecord`                     | class         | named entity container — `Entities` is the nested-block geometry an `Insert` references  |
-|  [03]   | `CadHeader`                       | class         | drawing units/version metadata; `InsUnits : UnitsType` the `$INSUNITS` slot              |
-|  [04]   | `ACadSharp.Types.Units.UnitsType` | enum          | the insertion-unit vocabulary of `InsUnits`                                              |
-|  [05]   | `CadSummaryInfo`                  | class         | title/author metadata (DWG gated by `DwgReaderConfiguration.ReadSummaryInfo`)            |
-|  [06]   | `CadObjectCollection<T>`          | collection    | `IEnumerable<T>` + `Count`/`this[int]` (NOT `List<T>`) — enumerate via `toSeq`           |
-|  [07]   | `CadDocument.Layers`              | layer table   | `LayersTable` — complete declared-layer census, including layers with zero entities      |
-|  [08]   | `CadSystemVariable`               | class         | drawing header variable                                                                  |
-|  [09]   | `ACadVersion`                     | enum          | drawing format version; the DWG write version-policy row                                 |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :-------------------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `CadDocument`                     | class         | `Entities`, `ModelSpace`/`PaperSpace`, `BlockRecords`, `Header`, `SummaryInfo`      |
+|  [02]   | `BlockRecord`                     | class         | nested-block container — `Entities` holds the geometry an `Insert` references       |
+|  [03]   | `CadHeader`                       | class         | drawing units/version metadata; `InsUnits : UnitsType` the `$INSUNITS` slot         |
+|  [04]   | `ACadSharp.Types.Units.UnitsType` | enum          | the insertion-unit vocabulary of `InsUnits`                                         |
+|  [05]   | `CadSummaryInfo`                  | class         | title/author metadata (DWG gated by `DwgReaderConfiguration.ReadSummaryInfo`)       |
+|  [06]   | `CadObjectCollection<T>`          | collection    | `IEnumerable<T>` + `Count`/`this[int]` (NOT `List<T>`) — enumerate via `toSeq`      |
+|  [07]   | `CadDocument.Layers`              | layer table   | `LayersTable` — complete declared-layer census, including layers with zero entities |
+|  [08]   | `CadSystemVariable`               | class         | drawing header variable                                                             |
+|  [09]   | `ACadVersion`                     | enum          | drawing format version; the DWG write version-policy row                            |
 
 [PUBLIC_TYPE_SCOPE]: mesh-bearing entity types — the Bim triangle-soup surface
 
@@ -127,22 +127,22 @@
 
 [PUBLIC_TYPE_SCOPE]: write authoring surface — style vocabulary, tables, and the WRITE-IO family
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [CAPABILITY]                          |
-| :-----: | :----------------------- | :----------------- | :------------------------------------ |
-|  [01]   | `Color`                  | color value        | ACI and true-color                    |
-|  [02]   | `Transparency`           | transparency value | alpha channel                         |
-|  [03]   | `LineWeightType`         | lineweight enum    | pen weight vocabulary                 |
-|  [04]   | `ObjectType`             | object type enum   | entity discriminant                   |
-|  [05]   | `Dimension`              | annotation entity  | dimension family root                 |
-|  [06]   | `Viewport`               | viewport entity    | paper-space viewport                  |
-|  [07]   | `Tables.Layer`           | table entry        | layer definition                      |
-|  [08]   | `Tables.LineType`        | table entry        | linetype definition                   |
-|  [09]   | `LineType.Segment`       | pattern row        | dash, gap, or dot                     |
-|  [10]   | `Tables.DimensionStyle`  | table entry        | dimension style                       |
-|  [11]   | `DwgWriter`              | IO writer          | DWG emit entry                        |
-|  [12]   | `DxfWriter`              | IO writer          | DXF emit entry, binary or text        |
-|  [13]   | `SvgWriter`              | IO writer          | SVG emit entry (`ACadSharp.IO.SVG`)   |
-|  [14]   | `DxfWriterConfiguration` | writer config      | DXF write options                     |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [CAPABILITY]                        |
+| :-----: | :----------------------- | :----------------- | :---------------------------------- |
+|  [01]   | `Color`                  | color value        | ACI and true-color                  |
+|  [02]   | `Transparency`           | transparency value | alpha channel                       |
+|  [03]   | `LineWeightType`         | lineweight enum    | pen weight vocabulary               |
+|  [04]   | `ObjectType`             | object type enum   | entity discriminant                 |
+|  [05]   | `Dimension`              | annotation entity  | dimension family root               |
+|  [06]   | `Viewport`               | viewport entity    | paper-space viewport                |
+|  [07]   | `Tables.Layer`           | table entry        | layer definition                    |
+|  [08]   | `Tables.LineType`        | table entry        | linetype definition                 |
+|  [09]   | `LineType.Segment`       | pattern row        | dash, gap, or dot                   |
+|  [10]   | `Tables.DimensionStyle`  | table entry        | dimension style                     |
+|  [11]   | `DwgWriter`              | IO writer          | DWG emit entry                      |
+|  [12]   | `DxfWriter`              | IO writer          | DXF emit entry, binary or text      |
+|  [13]   | `SvgWriter`              | IO writer          | SVG emit entry (`ACadSharp.IO.SVG`) |
+|  [14]   | `DxfWriterConfiguration` | writer config      | DXF write options                   |
 
 ## [03]-[ENTRYPOINTS]
 

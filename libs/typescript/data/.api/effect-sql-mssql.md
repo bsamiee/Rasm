@@ -26,7 +26,7 @@
 |  [05]   | `MssqlClientConfig.server` (required)                  | connection          | host or named endpoint; the one non-optional field  |
 |  [06]   | `MssqlClientConfig.database`/`.username`               | connection          | discrete target DB + login; `Config`-sourced        |
 |  [07]   | `MssqlClientConfig.domain`/`.instanceName`/`.authType` | auth shape          | Windows-domain and named-instance authentication    |
-|  [08]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | wire encryption + cert-trust policy                 |
+|  [08]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | `encrypt` defaults true, `trustServer` defaults false |
 |  [09]   | `MssqlClientConfig.password` (`Redacted.Redacted`)     | credential          | pool auth; never a literal                          |
 |  [10]   | `MssqlClientConfig.minConnections`/`.maxConnections`   | pool sizing         | per-app pool budget; `connectionTTL` a `Duration`   |
 |  [11]   | `MssqlClientConfig.parameterTypes`                     | type override       | `PrimitiveKind`→`DataType` seed the compiler binds  |
@@ -81,6 +81,7 @@
 [LOCAL_ADMISSION]:
 - Provide the layer at the app root only; interop rows yield the neutral `SqlClient` and reach the concrete `MssqlClient` Tag solely for construction and the `param`/`call` surface.
 - `password` rides `Config.redacted`; pool sizing, `encrypt`/`trustServer` TLS posture, and named-instance auth are `Config`/`iac` facts, never row literals.
+- Both TLS knobs stay unset: the driver's own defaults encrypt the wire and validate the certificate, so `encrypt: false` transmits the credential in cleartext and `trustServer: true` accepts any presented certificate.
 - Stored procedures compose `Procedure.make`→`param`/`outputParam`/`withRows`→`compile` and run via `MssqlClient.call`; inline typed values splice through `MssqlClient.param` naming a `MssqlTypes` `DataType`, never a raw string-built parameter.
 - `MssqlMigrator` is banned branch-wide — DDL is `iac`↔`data` declarative ensure, runtime never mutates.
 

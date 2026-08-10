@@ -1,21 +1,21 @@
 # [PERSISTENCE_QUERY_LANE]
 
-Rasm.Persistence routes every read by its consistency demand: interactive-correctness queries (clash, void-resolution, live QTO, containment) bind the synchronous authoritative lane — the inline `Element/graph` `GraphProjection` and the in-process `Query/topology` QuikGraph view — while analytical queries (aggregation, search, columnar rollup) bind the async watermarked columnar and cypher lanes. A query demanding correctness from an async view blocks on the projection daemon's non-stale wait before reading, so a read-your-writes interactive query is correct by construction and never touches a daemon-lagged projection.
+Rasm.Persistence routes every read by its consistency demand: interactive-correctness queries (clash, void-resolution, live QTO, containment) bind the synchronous authoritative lane — the inline `Element/graph` `GraphProjection` and the in-process `Query/topology` QuikGraph view — while analytical queries (aggregation, search, columnar rollup) bind the async watermarked columnar and cypher lanes. Any query demanding correctness from an async view blocks on the projection daemon's non-stale wait before reading, so a read-your-writes interactive query is correct by construction and never touches a daemon-lagged projection.
 
-`QueryLane` is the lane axis carrying each lane's wait policy; `ReadRequest` discriminates correctness and query modality without boolean products; `StalenessWatermark` measures projection lag as the event-log head sequence against the daemon shard's high-water mark. `ElementSet` is the universal content-addressed selection currency every clash/IDS/MVD/QTO surface consumes and produces — membership is the model-qualified `SetKey`, evaluation spans the caller-supplied `SetScope` model roster — `SetExpr` its selection-tree algebra and `SetPredicate` its closed typed leaf algebra, and `Closure` folds a bounded transitive walk over the `Query/topology` incidence. A retrieval-shaped read routes to the `Query/retrieval` fusion lane, which read-through-caches on the `ElementSet.Receipt` this owner mints. `NodeId`/`ElementGraph` arrive from `Rasm.Element`, `ModelId` from `Element/graph#STREAM_GRAIN`, and the inline projection and analytical lanes arrive from their owners.
+`QueryLane` is the lane axis carrying each lane's wait policy; `ReadRequest` discriminates correctness and query modality without boolean products; `StalenessWatermark` measures projection lag as the event-log head sequence against the daemon shard's high-water mark. `ElementSet` is the universal content-addressed selection currency every clash/IDS/MVD/QTO surface consumes and produces — membership is the model-qualified `SetKey`, evaluation spans the caller-supplied `SetScope` model roster — `SetExpr` its selection-tree algebra and `SetPredicate` its closed typed leaf algebra, and `Closure` folds a bounded transitive walk over the `Query/topology` incidence. `Query/retrieval` takes every retrieval-shaped read into its fusion lane and read-through-caches on the `ElementSet.Receipt` this owner mints. `NodeId`/`ElementGraph` arrive from `Rasm.Element`, `ModelId` from `Element/graph#STREAM_GRAIN`, and the inline projection and analytical lanes arrive from their owners.
 
 ## [01]-[INDEX]
 
-- [02]-[READ_ROUTING]: the consistency-demand routing law, the lane axis, the staleness watermark, and the daemon non-stale wait gate.
-- [03]-[ELEMENT_SET_ALGEBRA]: the composable content-addressed selection currency, the typed leaf algebra, and the stable receipt fold.
+- [02]-[READ_ROUTING]: consistency-demand routing law, the `QueryLane` axis, the staleness watermark, and the daemon non-stale wait gate.
+- [03]-[ELEMENT_SET_ALGEBRA]: `ElementSet` composable content-addressed selection currency, the typed leaf algebra, and the stable receipt fold.
 
 ## [02]-[READ_ROUTING]
 
 - Owner: `QueryLane` carries the composition-time wait policy; `ReadRequest` is the closed correctness/modality discriminant; `StalenessWatermark` is measured sequence evidence; `ReadPhase` is the registered latency-name vocabulary and `ReadLedger` its once-resolved token index; `ReadRouter` owns routing, non-stale admission, daemon-fan measurement, and the phase-ledger bracket; `GraphQlDocument` admits the web-native query document and `ReflectedRead` owns the in-database `graphql.resolve` door over the RLS-guarded identity relations.
-- Cases: `ReadRequest` is `Interactive | GraphAnalytic | Retrieval | Aggregate | Reuse | Reflected`; `QueryLane` is `Topology | Columnar | Cypher | Retrieval | Cache | Reflected`, and each row carries `Option<Duration> WaitBudget` plus its `TargetSessionAttributes` session demand instead of a parallel consistency vocabulary; `ReadPhase` is `Routed | Waited | Connected | Executed`, one registered checkpoint name per row beside the one `LanePivot` tag dimension the lane key fills.
-- Entry: `Route` folds `ReadRequest` directly to its lane; `AwaitNonStale` consumes the lane-carried wait budget and the production `IProjectionDaemon.WaitForNonStaleData`, returning the MEASURED elapsed wait the `store.query.wait` receipt seals; `Connect` resolves the lane's session demand off the one multihost source; `Observed` brackets one pooled `ILatencyContext` over the whole route-wait-execute run, stamping each `ReadPhase` checkpoint through its pre-resolved token, tagging the lane pivot, and draining the frozen `LatencyData` to the exporter before the release arm returns the context to its pool; `ReadLedger.Bind` resolves every token once at composition; `Measure` folds `EventStoreStatistics.EventSequenceNumber` against `ShardState.Sequence`, and its plural arm selects the worst shard; `public static IO<Fin<JsonElement>> ReflectedRead.Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, ProjectionContext frame)` runs ONE `graphql.resolve` call — the query document and its variables bind as parameters, the tenant GUC sets in-session so the identity tier's RLS partition applies, and the returned envelope's `errors` array folds to the typed fault because the resolver never raises.
+- Cases: `ReadRequest` is `Interactive | GraphAnalytic | Retrieval | Aggregate | Reuse | Reflected`; `QueryLane` is `Topology | Columnar | Cypher | Retrieval | Cache | Reflected`, and each row carries `Option<Duration> WaitBudget` with its `TargetSessionAttributes` session demand instead of a parallel consistency vocabulary; `ReadPhase` is `Routed | Waited | Connected | Executed`, one registered checkpoint name per row beside the one `LanePivot` tag dimension the lane key fills.
+- Entry: `Route` folds `ReadRequest` directly to its lane; `AwaitNonStale` consumes the lane-carried wait budget and the production `IProjectionDaemon.WaitForNonStaleData`, returning the MEASURED elapsed wait the `store.query.wait` receipt seals; `Connect` resolves the lane's session demand off the one multihost source; `Observed` brackets one pooled `ILatencyContext` over the whole route-wait-execute run, stamping each `ReadPhase` checkpoint through its pre-resolved token, tagging the lane pivot, and draining the frozen `LatencyData` to the exporter before the release arm returns the context to its pool; `ReadLedger.Bind` resolves every token once at composition; `Measure` folds `EventStoreStatistics.EventSequenceNumber` against `ShardState.Sequence`, and its plural arm selects the worst shard; `public static IO<Fin<JsonElement>> ReflectedRead.Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, ProjectionContext frame)` runs ONE `graphql.resolve` call — the query document and its variables bind as parameters, the tenant GUC sets in-session so the identity tier's RLS partition applies, and the returned message envelope's `errors` array folds to the typed fault because the resolver never raises.
 - Auto: an interactive-correctness query (clash narrow-phase, void-resolution, live QTO, containment ancestry) routes to the synchronous lane by construction so it reads the inline `GraphProjection` and QuikGraph view written in the append transaction, never a daemon-lagged async projection; an analytical query carries the `StalenessWatermark` so its consumer reads the lag; a re-run analytical clash demanding correctness from an async view calls `AwaitNonStale` first so the daemon catches up to the head before the read; the reflected door is the ZERO-RESOLVER web contract — `pg_graphql` reflects the live `element_identity`/`node_cell` schema (tables → object types, FKs → connection fields, comments → `@graphql` directives) into a Relay-paginated, introspectable GraphQL schema browser and mobile clients page through, recomputed lazily and DDL-invalidated by the extension's own event triggers, so a hand-written GraphQL schema or an out-of-process gateway beside the reflected one is the deleted form.
-- Receipt: a routed read rides `store.query.route` carrying the demand and the lane; an async-stale wait rides `store.query.wait` carrying the watermark and the elapsed wait; a reflected read rides `store.query.reflected` carrying the operation name and the envelope's error count.
+- Receipt: a routed read rides `store.query.route` carrying the demand and the lane; an async-stale wait rides `store.query.wait` carrying the watermark and the elapsed wait; a reflected read rides `store.query.reflected` carrying the operation name and the message envelope's error count.
 - Packages: Marten (`IProjectionDaemon.WaitForNonStaleData(TimeSpan)` the production non-stale block; `ShardState`/`ShardName`/`EventStoreStatistics`, `AdvancedOperations.FetchEventStoreStatistics`/`AllProjectionProgress`), Npgsql (`NpgsqlDataSource.CreateCommand`/`NpgsqlParameter` — the `graphql.resolve` door; `NpgsqlDbType.Jsonb`; `NpgsqlMultiHostDataSource.CreateConnection(TargetSessionAttributes)` — the lane-session multihost door, `LoadBalanceHosts` a provisioning-DSN fact), pg_graphql (`graphql.resolve(query, variables, operationName, extensions)` → `jsonb` per `api-pg-graphql` — server-side, no managed assembly), Microsoft.Extensions.Telemetry.Abstractions (`ILatencyContextProvider.CreateContext`, `ILatencyContextTokenIssuer.GetCheckpointToken`/`GetTagToken`, `ILatencyContext.AddCheckpoint`/`SetTag`/`Freeze`/`LatencyData`, `ILatencyDataExporter.ExportAsync` — the contract half an instrumented library binds; the `AddLatencyContext` activation and the `LatencyContextRegistrationOptions` name registration are AppHost composition surface), NodaTime (`Duration`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new read modality is one `ReadRequest` case and one generated `Route` arm; a new analytical wait posture is one `QueryLane` row value; a new timed phase is one `ReadPhase` row the registration projection and the ledger index both pick up with no record-site edit; a reflected-schema tuning is an `@graphql` comment directive riding the identity tier's reviewed-migration DDL, never a resolver code path.
 - Boundary: authoritative topology and containment stay synchronous and co-transactional (`C2`) — the inline `GraphProjection` in the write transaction, the in-process QuikGraph view — so a read-your-writes interactive query is correct by construction; that synchronous lane is NOT infallible, since the `Query/topology` `Traversals.Run` it binds returns `Fin<TopologyResult>` railing the typed `TopologyFault` band, so a router consumer composes the topology `Fin` into its OWN rail rather than assuming success and an absent-root containment query surfaces as an honest typed fault, never a silent empty result; AGE and DuckDB are ANALYTICAL ONLY with an explicit `StalenessWatermark`, and interactive-correctness queries block on `WaitForNonStaleData` and never route to an async projection without the wait — a clash reading a daemon-lagged AGE view is the deleted form, and the gate rides the production `IProjectionDaemon`, not a test-only symbol; staleness is a MEASURED sequence gap (`EventSequenceNumber` head against `ShardState.Sequence`), never `ShardState.Timestamp`, a daemon-side recording stamp (`DateTimeOffset.UtcNow` at row construction) that measures read-latency rather than producer-to-projection lag — a `Measure` returning `Duration.Zero` on a trailing shard is the illusory form this owner forbids; strong-consistency reads go through the inline projection and the synchronous topology, never the columnar aggregate, so the columnar lane stays the rollup/search lane and the topology lane the correctness lane; the reflected door executes wholly in-database over the RLS-guarded identity relations — AppHost hosts the web endpoint and maps its principal onto the tenant frame at the port boundary, Persistence owns only the parameterized `graphql.resolve` call, and the reflected mutation fields (`insertInto*/update*/deleteFrom*Collection`) are unexposed BY PRIVILEGE, not by prose — the resolve transaction pins `SET LOCAL ROLE` to the SELECT-only serving role (`ReflectedRead.ReadRole`, granted no INSERT/UPDATE/DELETE on any exposed relation), and pg_graphql reflects mutation fields only off writable relations, so schema reflection under the serving identity carries query fields alone; the identity tier's one write authority stays the `Element/graph#STORE_RAIL` rail; the phase ledger and the receipt are two rails over disjoint questions — the receipt answers how ONE read resolved and carries the watermark and the elapsed wait as typed fields, the ledger answers where EVERY read spends across its four phases — so a gap measure duplicated onto the ledger, or a phase duration lifted out of the ledger into a receipt field, is the deleted second owner; the pooled context never escapes its bracket, because `LatencyData` projects its spans over backing the pool re-leases on release, and its names never spell a literal at either end since an unregistered name resolves to a positionless token whose writes drop with nothing raised.
@@ -87,7 +87,7 @@ public sealed partial class QueryLane {
     }
 }
 
-// The lane's phase vocabulary. A latency name governs nothing unless the SAME spelling registers at composition
+// `ReadPhase` spells the lane's phase vocabulary. A latency name governs only where the SAME spelling registers at composition
 // and resolves at the record site: an unregistered name resolves to a POSITIONLESS token whose writes drop with
 // nothing raised (only `LatencyContextOptions.ThrowOnUnregisteredNames` promotes that lookup to a boot failure),
 // so a hand-spelled string at either end is a ledger that reads instrumented and reports nothing. The row IS the
@@ -101,14 +101,14 @@ public sealed partial class ReadPhase {
     public static readonly ReadPhase Connected = new("rasm.persistence.read.connected");
     public static readonly ReadPhase Executed = new("rasm.persistence.read.executed");
 
-    // The lane pivot is the one TAG dimension the ledger carries: a frozen set groups by lane without a token
+    // `LanePivot` is the one TAG dimension the ledger carries: a frozen set groups by lane with no token
     // per lane row, so a seventh QueryLane needs no registration edit.
     public const string LanePivot = "rasm.persistence.read.lane";
 
     public static Seq<string> Names => toSeq(Items).Map(static row => row.Key);
 }
 
-// The web-native query document: non-empty, NUL-free, bound as a parameter — never concatenated.
+// `GraphQlDocument` holds the web-native query text: non-empty, NUL-free, bound as a parameter — never concatenated.
 [ValueObject<string>]
 [ValidationError<SelectionFault>]
 public readonly partial struct GraphQlDocument {
@@ -157,10 +157,10 @@ public static class ReadRouter {
             }),
             None: static () => IO.pure(Duration.Zero));
 
-    // The whole read is ONE pooled ledger, not one measured phase: a read routes, waits on the daemon, reaches its
-    // lane session, and executes, and only the relative cost of those four says where a slow read is slow — the
-    // `store.query.wait` receipt answers how ONE read resolved and the ledger answers where every read spends, so
-    // the two rails coexist and neither re-derives the other. `Bracket` owns the pooled context on every exit path
+    // `Observed` measures the whole read as ONE pooled ledger, never one phase: a read routes, waits on the daemon,
+    // reaches its lane session, and executes, and only the relative cost of those four says where a slow read is
+    // slow — `store.query.wait` answers how ONE read resolved and the ledger answers where every read spends, so the
+    // two rails coexist and neither re-derives the other. `Bracket` owns the pooled context on every exit path
     // including failure, because a leaked context starves the pool for every later read. `AddCheckpoint` stamps
     // once per context, so a re-entrant phase records a measure rather than a second stamp.
     public static IO<T> Observed<T>(ILatencyContextProvider pool, ILatencyDataExporter drain, ReadLedger ledger,
@@ -182,9 +182,9 @@ public static class ReadRouter {
     static IO<Unit> Stamp(ILatencyContext cell, ReadLedger ledger, ReadPhase phase) =>
         IO.lift(() => { cell.AddCheckpoint(ledger.Phases[phase]); return unit; });
 
-    // The frozen set drains INSIDE the bracket: `LatencyData` projects its checkpoint, tag, and measure spans over
-    // the context's POOLED backing, so a set carried past the release arm reads storage the pool has already
-    // re-leased to another read and reports one read's phases under another's identity.
+    // `Sealed` drains the frozen set INSIDE the bracket: `LatencyData` projects its checkpoint, tag, and measure
+    // spans over the context's POOLED backing, so a set carried past the release arm reads storage the pool has
+    // already re-leased to another read and reports one read's phases under another's identity.
     static IO<Unit> Sealed(ILatencyContext cell, ILatencyDataExporter drain) =>
         IO.lift(() => { cell.Freeze(); return unit; })
             .Bind(_ => IO.liftAsync(async () => {
@@ -196,8 +196,8 @@ public static class ReadRouter {
     public static StalenessWatermark Measure(EventStoreStatistics head, ShardState projection) =>
         new(head.EventSequenceNumber, projection.Sequence);
 
-    // Daemon-fan staleness is the maximum shard gap; averaging masks stragglers.
-    // An empty fan projects sequence zero because no shard has advanced.
+    // Daemon-fan staleness is the maximum shard gap; averaging masks stragglers, and an empty fan projects
+    // sequence zero because no shard has advanced.
     public static StalenessWatermark Measure(EventStoreStatistics head, Seq<ShardState> shards) =>
         shards.IsEmpty
             ? new StalenessWatermark(head.EventSequenceNumber, 0L)
@@ -214,11 +214,11 @@ public static class ReadRouter {
             None: () => new StalenessWatermark(stats.EventSequenceNumber, 0L));
 }
 
-// The reflected door: one transaction pins the tenant GUC (RLS partition) and resolves the whole
-// GraphQL operation in-database; the resolver never raises, so the errors envelope folds typed.
+// `ReflectedRead` is the reflected door: one transaction pins the tenant GUC (RLS partition) and resolves the
+// whole GraphQL operation in-database; the resolver never raises, so the errors message envelope folds typed.
 public static class ReflectedRead {
-    // The SELECT-only serving role: reflection exposes mutation fields only off relations the executing role can
-    // write, so the privilege pin IS the mutation gate — RLS partitions rows, the role removes the write surface.
+    // `ReadRole` is the SELECT-only serving role: reflection surfaces mutation fields only off relations the
+    // executing role can write, so the privilege pin IS the mutation gate — RLS partitions rows, the role removes the write surface.
     const string ReadRole = "rasm_graphql_read";
 
     public static IO<Fin<JsonElement>> Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, Option<string> operation, ProjectionContext frame) =>
@@ -228,8 +228,8 @@ public static class ReflectedRead {
             try {
                 await using NpgsqlBatch batch = lane.CreateBatch();
                 NpgsqlBatchCommand role = new($"SET LOCAL ROLE {ReadRole}");
-                // The GUC key is the kernel `TenantContext.TenantSlot` and the value its one `Entry` text, so
-                // the RLS policy compares the same canonical spelling the durable column stores.
+                // `TenantContext.TenantSlot` is the GUC key and its one `Entry` text the value, so the RLS
+                // policy compares the same canonical spelling the durable column stores.
                 NpgsqlBatchCommand pin = new($"SELECT set_config('{TenantContext.TenantSlot}', @tenant, true)");
                 _ = pin.Parameters.AddWithValue("tenant", frame.Tenant.Entry);
                 NpgsqlBatchCommand door = new("SELECT graphql.resolve(@query, @variables, @operation, NULL)");
@@ -262,7 +262,7 @@ public static class ReflectedRead {
 |  [03]   | request routing         | one `ReadRequest` case                        | impossible combinations are absent                    |
 |  [04]   | non-stale gate          | `IProjectionDaemon.WaitForNonStaleData`       | the production runner member; not `TestingExtensions` |
 |  [05]   | watermark               | `EventSequenceNumber` vs shard `Sequence`     | sequence evidence; no synthetic wall duration         |
-|  [06]   | reflected door          | one `graphql.resolve` call, RLS tenant pinned | zero resolver code; errors envelope folds typed       |
+|  [06]   | reflected door          | one `graphql.resolve` call, RLS tenant pinned | zero resolver code; errors message envelope folds typed       |
 |  [07]   | phase ledger            | one pooled `ILatencyContext` per read         | bracketed; frozen set drains before the pool release  |
 |  [08]   | latency names           | the `ReadPhase` roster projection             | one vocabulary registers and records; no literal      |
 
@@ -271,7 +271,7 @@ public static class ReflectedRead {
 - Owner: `ElementSet` the polymorphic composable selection record carrying a stable content-addressed receipt; `SetKey` the model-qualified member with the one cross-runtime total order; `SetScope` the caller-supplied model roster evaluation resolves across; `SetPredicate` the closed leaf-predicate algebra; `SetExpr` the selection-tree algebra; `WalkDepth` the admitted bounded-depth `[ValueObject<int>]` every bounded walk carries — the `Closure` fold, the `Cell` ring, the `Query/topology` `Ancestry`/`Descent`, the `Query/cypher` `Reach` hops all consume this ONE axis; `SelectionFault` the closed admission band (846x off the `Element/graph#FAULT_TABLES` registry) an invalid bound rails; `ElementSetAlgebra` the static surface owning literal selection, the boolean/spatial/cell/property/classification combinators, and the stable-receipt fold.
 - Cases: `Spatial | Cell | Jsonpath | Classification | Containment | Material | Exists | Raster` on `SetPredicate` (the bounded operator within each typed — `SpatialOp` on `Spatial`, `JsonComparison` on `Jsonpath`, the admitted `WalkDepth` ring on `Cell`, `RasterOp` on `Raster`; `Containment` anchors on a model-qualified `SetKey`); `Literal | Predicate | ByRule | Union | Intersect | Difference | Closure` on `SetExpr`, `Literal` carrying `SetKey` members.
 - Entry: `public static Fin<ElementSet> Evaluate(SetExpr expr, SetScope scope, SetResolve resolve)` aborts on an index or expansion failure, rails a literal key outside the scope, and otherwise folds the expression tree into a stable key set; `Receipt` derives the content-addressed set identity over the framed distinct-sorted preimage; `Canonical` is the preimage the parity corpus freezes.
-- Auto: an element set is the universal BIM currency — clash, IDS, MVD, QTO, and rule surfaces all consume and produce `ElementSet` values, so a clash result is an `ElementSet`, an IDS pass-set is an `ElementSet`, and a QTO subject is an `ElementSet`; the set receipt is `XxHash128` over the FRAMED distinct-sorted `SetKey` preimage (a LE `int32` key count, then per key the fixed-width 16-byte big-endian model bytes and an LE `int32` node byte length with its UTF8 bytes) so two selections yielding the same members share one receipt AND two different key sets can never collide on an unframed concatenation; the boolean combinators fold over evaluated leaf sets, and the one `Predicate` leaf carries a `SetPredicate` — `Spatial` lowers to the GiST predicate the TYPED `SpatialOp` `.Key` (`ST_Intersects`/`ST_Within`/`ST_DWithin`/…) names so a typo is a missing vocabulary row at compile time rather than a silent sequential scan — the `Ranged` `ST_DWithin` row consumes the leaf's `Distance` radius, and a ranged op without `Some` rails `SelectionFault.Rejected` at leaf lowering rather than lowering a two-argument call the server rejects, `Cell` to the `h3-pg` grid-disk bucket predicate over the identity tier's cell column (`h3_grid_disk(anchor, k)` membership the cell index serves — the H3 counterpart of the `Spatial` GiST leaf, so a storey-band or proximity selection is index-served without a geometry decode), `Jsonpath` to a jsonb path predicate under the typed `JsonComparison` comparator, `Classification` to a tsvector/classification predicate, `Containment` to the containment-edge ancestry, `Material`/`Exists` to their jsonb existence forms, `Raster` to the `postgis_raster` in-db predicate the typed `RasterOp.Key` names — bare `ST_Intersects(rast, geom)` coverage membership, or the statistical `ST_SummaryStats(ST_Clip(rast, geom), band)` mean against the leaf `Threshold` — so a "sample the coverage under this footprint" selection pushes server-side onto the provisioned `postgis_raster` extension and never pays a full blob fetch plus in-process decode (the extension's `Degradable` rank folds this leaf out at admission when the cluster lacks it); every bounded walk carries the admitted `WalkDepth` — a raw `int` depth never crosses into the interior, so a negative bound is a typed `SelectionFault.Depth` at admission, never a silent empty selection the `<= depth` predicate fakes; the `Closure` arm is a GENUINE bounded transitive fold — it evaluates its `Seed` sub-expression then folds `Depth` one-hop `Expand` waves accumulating the reachable frontier to its fixpoint, never an opaque leaf identical to `Predicate`.
+- Auto: an element set is the universal BIM currency — clash, IDS, MVD, QTO, and rule surfaces all consume and produce `ElementSet` values, so a clash result is an `ElementSet`, an IDS pass-set is an `ElementSet`, and a QTO subject is an `ElementSet`; the set receipt is `XxHash128` over the FRAMED distinct-sorted `SetKey` preimage (a LE `int32` key count, then per key the fixed-width 16-byte big-endian model bytes and an LE `int32` node byte length with its UTF8 bytes) so two selections yielding the same members share one receipt AND two different key sets can never collide on an unframed concatenation; the boolean combinators fold over evaluated leaf sets, and the one `Predicate` leaf carries a `SetPredicate` — `Spatial` lowers to the GiST predicate the TYPED `SpatialOp` `.Key` (`ST_Intersects`/`ST_Within`/`ST_DWithin`/…) names so a typo is a missing vocabulary row at compile time rather than a silent sequential scan — the `Ranged` `ST_DWithin` row consumes the leaf's `Distance` radius, and a ranged op without `Some` rails `SelectionFault.Rejected` at leaf lowering rather than lowering a two-argument call the server rejects, `Cell` to the `h3-pg` grid-disk bucket predicate over the identity tier's cell column (`h3_grid_disk(anchor, k)` membership the cell index serves — the H3 counterpart of the `Spatial` GiST leaf, so a storey-band or proximity selection is index-served without a geometry decode), `Jsonpath` to a jsonb path predicate under the typed `JsonComparison` comparator, `Classification` to a tsvector/classification predicate, `Containment` to the containment-edge ancestry, `Material`/`Exists` to their jsonb existence forms, `Raster` to the `postgis_raster` in-db predicate the typed `RasterOp.Key` names — bare `ST_Intersects(rast, geom)` coverage membership, or the statistical `ST_SummaryStats(ST_Clip(rast, geom), band)` mean against the leaf `Threshold` — so a "sample the coverage under this footprint" selection pushes server-side onto the provisioned `postgis_raster` extension and never pays a full blob fetch and in-process decode (the extension's `Degradable` rank folds this leaf out at admission when the cluster lacks it); every bounded walk carries the admitted `WalkDepth` — a raw `int` depth never crosses into the interior, so a negative bound is a typed `SelectionFault.Depth` at admission, never a silent empty selection the `<= depth` predicate fakes; the `Closure` arm is a GENUINE bounded transitive fold — it evaluates its `Seed` sub-expression then folds `Depth` one-hop `Expand` waves accumulating the reachable frontier to its fixpoint, never an opaque leaf identical to `Predicate`.
 - Receipt: an evaluation rides `store.elementset.eval` carrying the leaf count and the result cardinality; the stable receipt is the reuse key the `Query/retrieval#FUSION_AND_REUSE` read-through caches on.
 - Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher, seed-zero `XxHash128` value-identical; `Expected` the band base), Rasm.Persistence (`Element/graph#STREAM_GRAIN` `ModelId` — the `SetKey` model half; `Element/identity#ELEMENT_IDENTITY` `H3Cell` — the `Cell` leaf anchor; `Element/graph#FAULT_TABLES` `FaultBand` — the `Selection` band registry row), System.Buffers (`ArrayBufferWriter`/`BinaryPrimitives`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NetTopologySuite, NodaTime, BCL inbox.
 - Growth: a new selection primitive is one `SetPredicate` case (lowered by the `Predicate` leaf) or one `SetExpr` tree case; a new spatial operator is one `SpatialOp` row, a new jsonb comparator one `JsonComparison` row; a new bounded walk consumes the ONE `WalkDepth` admission, never a second depth carrier; a new combinator is one fold arm; zero new surface — a per-discipline selection class, a saved-search table, a string-query DSL, a raw-string leaf, or a free-string operator on a typed leaf is the deleted form because the algebra is one composable tree the planner lowers, every leaf predicate is a typed case, and every bounded operator within a leaf is a vocabulary row.
@@ -382,8 +382,8 @@ public sealed partial class RasterOp {
 }
 
 // `SetKey` is the model-qualified member: the owning stream's `ModelId` beside the seam `NodeId`, ordered by
-// the model's RFC-4122 big-endian wire bytes then ordinal over the node text — ONE total order every runtime
-// derives from the same two byte sequences, never `Guid.CompareTo`'s field-wise order no peer reproduces.
+// model RFC-4122 big-endian wire bytes then ordinal over the node text — ONE total order every runtime derives
+// from the same two byte sequences, never `Guid.CompareTo`'s field-wise order no peer reproduces.
 public readonly record struct SetKey(ModelId Model, NodeId Node) : IComparable<SetKey> {
     public int CompareTo(SetKey other) {
         Span<byte> mine = stackalloc byte[16];
@@ -414,8 +414,8 @@ public abstract partial record SetPredicate {
     public sealed record Cell(H3Cell Anchor, WalkDepth Ring) : SetPredicate;
     public sealed record Jsonpath(SetPath Path, JsonComparison Cmp, Option<string> Value) : SetPredicate;
     public sealed record Classification(SetPath SystemPath, Option<string> Value) : SetPredicate;
-    // The ancestor names its model: a containment walk climbs ONE model's spatial tree, and the qualified
-    // key is what lets a project-scoped expression seat per-model containment leaves side by side.
+    // `Ancestor` names its own model: a containment walk climbs ONE model's spatial tree, and that qualified
+    // key lets a project-scoped expression seat per-model containment leaves side by side.
     public sealed record Containment(SetKey Ancestor, bool Subtree) : SetPredicate;
     public sealed record Material(Option<string> Value) : SetPredicate;
     public sealed record Exists(SetPath Path) : SetPredicate;
@@ -478,8 +478,8 @@ public static class ElementSetAlgebra {
 
     public static Fin<ElementSet> Evaluate(SetExpr expr, SetScope scope, SetResolve resolve) => expr.Switch(
         (Scope: scope, Resolve: resolve),
-        // A literal key naming a model outside the scope rails rather than silently contributing a member no
-        // leaf resolution would ever have admitted.
+        // `Evaluate` rails on a literal key naming a model outside the scope, keeping out every member no
+        // leaf resolution admits.
         literal: static (s, lit) => lit.Keys.Find(key => !s.Scope.Admits(key.Model)).Match(
             Some: foreign => Fin.Fail<ElementSet>(new SelectionFault.Scope($"<literal-model:{foreign.Model.Value}>")),
             None: () => Fin.Succ(ElementSet.Of(lit.Keys))),

@@ -85,7 +85,7 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 [LOCAL_ADMISSION]:
 - Persistence's Query-federation boundary owns parameter-map construction as the driver's sole admission path; the `adbc.*` key strings map to a typed connection record at the edge and never leak into an interior signature
 - auth-type and server-type are string discriminants (`SparkAuthTypeConstants.OAuth`, `SparkServerTypeConstants.Http`), mapped at the boundary through a `[SmartEnum<string>]` so the canonical token survives projection
-- a faulted statement surfaces as `HiveServer2Exception`; the boundary lifts `SqlState`/`NativeError` onto the canonical `Fin`/typed-failure rail, and no `AdbcException` crosses into domain logic
+- `HiveServer2Exception` carries every statement fault; the boundary lifts its `SqlState`/`NativeError` onto the canonical `Fin`/typed-failure rail, and no `AdbcException` crosses into domain logic
 - result `RecordBatch` streams are consumed through the base `IArrowArrayStream`, then projected to the canonical Arrow owner — the driver is a SOURCE adapter, not a data model
 
 [RAIL_LAW]:

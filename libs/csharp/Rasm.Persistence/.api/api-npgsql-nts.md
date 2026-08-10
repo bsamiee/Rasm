@@ -40,7 +40,7 @@ Both overloads carry the shared optional tuple `CoordinateSequenceFactory?`, `Pr
 [STACKING]:
 - `api-nts-ef`: `NpgsqlGeometryTypeMapping<TGeometry>` maps the columns whose binary bytes this codec round-trips; EF `UseNetTopologySuite` and this ADO admission pair, neither standing alone.
 - `api-nettopologysuite`: this codec reads and writes the `Geometry` object model, and `GeometryFactory`, `PrecisionModel`, and `Ordinates` parameterize the registered resolver factory.
-- Store profile: `NpgsqlDataSourceBuilder` admits the codec at provisioning; the geometry values it wires are the `Element/identity` footprint/boundary/envelope columns — the codec owns the wire round-trip, `Element/identity` owns the column.
+- Store profile: `NpgsqlDataSourceBuilder` admits the codec at provisioning; the geometry values it wires are the `Element/identity` `Bounds` footprint column — the codec owns the wire round-trip, `Element/identity` owns the column.
 
 [LOCAL_ADMISSION]:
 - PostgreSQL store profile admits `UseNetTopologySuite` on the data source before any spatial command opens a connection; `geographyAsDefault`, precision, coordinate-sequence, and ordinate handling are profile policy, never call-site literals.

@@ -277,9 +277,9 @@ public static class ContractComposition {
     static Fin<SchemaContract> Project(SchemaContractWire wire) =>
         Proof(wire).Match(Some: Fin.Fail<SchemaContract>, None: () => Mint(wire));
 
-    // The graph proof is reachable to the transport verifier because a foreign bundle carries exactly the same
-    // structural claims a locally composed one does; `Mint` is not, because it re-derives canonical bytes and a
-    // schema from this exporter and would bind every peer to one type system.
+    // `Proof` opens to the transport verifier because a foreign bundle carries the structural claims a locally
+    // composed one carries; `Mint` stays closed because re-deriving canonical bytes and schema from this
+    // exporter would bind every peer to one type system.
     internal static Option<ContractFault> Proof(SchemaContractWire wire) {
         FrozenSet<string> keys = wire.Artifacts
             .Select(static row => row.Key)
@@ -599,11 +599,11 @@ public static class BackendConformance {
                 && bundle.Instance.Span.SequenceEqual(Convert.FromBase64String(corpus.Canonical))
                 && bundle.Schema.Span.SequenceEqual(Convert.FromBase64String(corpus.JsonSchema))
                 && keysHeld;
-            // Corpus agreement proves the index; the CONTRACT is proved after it. The transported wire crosses
-            // the one composition proof — duplicate keys, out-of-set dependencies, cycles, and capability rows
-            // outside the closed vocabulary — and the decoded instance is then evaluated against the
-            // TRANSPORTED validator, so a foreign exporter satisfies the same law a local mint does while a
-            // bundle whose corpus agrees with an unprovable graph stops here instead of entering the merge.
+            // Corpus agreement proves the index alone, so the CONTRACT proof runs after it: the transported
+            // wire crosses one composition proof — duplicate keys, out-of-set dependencies, cycles, capability
+            // rows outside the closed vocabulary — then the TRANSPORTED validator evaluates the decoded
+            // instance. Foreign exporters satisfy the law a local mint does, and a bundle whose corpus agrees
+            // over an unprovable graph stops here instead of entering the merge.
             JsonSchema validator = JsonSchema.FromText(Encoding.UTF8.GetString(bundle.Schema.Span));
             using JsonDocument instance = JsonDocument.Parse(bundle.Instance);
             return !corpusHeld

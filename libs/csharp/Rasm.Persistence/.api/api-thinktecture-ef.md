@@ -66,7 +66,7 @@
 [TOPOLOGY]:
 - Registration reaches the model only through the extension methods; the convention plugin, options extension, and reflection probes stay internal, so a consumer never binds a plugin type.
 - `Configuration.Default` pairs `SmartEnumConfiguration.Default` with `KeyedValueObjectConfiguration.NoMaxLength` under `UseConstructorForRead`, and `Configuration.NoMaxLength` unbinds width on both axes; every carrier is `init`-only and `IEquatable`, so a policy value compares rather than mutates.
-- A strategy returns a `MaxLengthChange` whose `OverwriteExistingMaxLength` decides whether it displaces an existing `HasMaxLength`, and the memo keys on the strategy instance, so a strategy that is not value-equal recomputes.
+- `MaxLengthChange` carries the `OverwriteExistingMaxLength` deciding whether a strategy displaces an existing `HasMaxLength`, and the memo keys on the strategy instance, so a strategy that is not value-equal recomputes.
 - `Create` constrains `T : IObjectFactory<T, TKey, TValidationError>, IConvertible<TKey>`, and `useConstructorForRead` selects the generated constructor over the static factory on the read path.
 - `UseThinktectureValueConverters` applies during model finalization; `AddThinktectureValueConverters` applies the same converters imperatively inside `OnModelCreating` and skips a property already carrying a value converter.
 
@@ -80,7 +80,7 @@
 
 [LOCAL_ADMISSION]:
 - `Element/identity#ELEMENT_IDENTITY` mounts `UseThinktectureValueConverters(Configuration.Default)` on the one `ConverterRail.Compose` options composition, so every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column converts under a bounded key width; `Configuration.NoMaxLength` is rejected on key columns because an unbounded key column fractures the schema fingerprint.
-- A single declared member converts through the property, complex-type, or primitive-collection entry — one builder call per column, never a converter class.
+- Single declared members convert through the property, complex-type, or primitive-collection entry — one builder call per column, never a converter class.
 - Key-column width rides `Configuration`: the smart-enum and keyed-value-object strategies bound the `nvarchar(n)`/`varchar(n)` column as conversion metadata, never a per-entity `HasMaxLength` annotation.
 
 [RAIL_LAW]:

@@ -88,8 +88,8 @@
 
 [LOCAL_ADMISSION]:
 - `BenchmarkDotNet` binds only in a dedicated benchmark executable, never `Rasm.Persistence.csproj` — the process-global fork drags the runner into the boundary process it must own alone.
-- A design page cites `Statistics`/`GcStats`/`Measurement` as the transient measurement source and the `Query/cache` `BenchmarkRow` as persisted truth, never a `Stopwatch` loop or a prose performance assertion.
-- A new hot-path claim is a `BenchmarkFamily` row and a `[Benchmark]` method on the matching subject resolved through one `ModelResultIndex.Claim`, never a new exporter, profiler, or second index.
+- `Statistics`/`GcStats`/`Measurement` are the transient measurement source a design page cites, and the `Query/cache` `BenchmarkRow` the persisted truth — never a `Stopwatch` loop or a prose performance assertion.
+- `BenchmarkFamily` rows and `[Benchmark]` methods on the matching subject carry every new hot-path claim, resolved through one `ModelResultIndex.Claim`, never a new exporter, profiler, or second index.
 
 [RAIL_LAW]:
 - Package: `BenchmarkDotNet`

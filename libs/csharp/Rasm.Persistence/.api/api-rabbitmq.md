@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_RABBITMQ]
 
-`RabbitMQ.Client` owns the AMQP 0-9-1 routing-rich egress lane backing `EgressSink.RabbitMq`: async connection and channel lifecycle, publisher-confirm publish, ack-based consume, and exchange/queue/binding topology, every op `Task`/`ValueTask`-returning and `CancellationToken`-aware. Exchange routing across topic, direct, fanout, and headers types, per-message TTL and priority, and ack-based work-queue dispatch are its owned capability; the `CloudNative.CloudEvents` envelope rides the message body, owned here for publish, consume, and ack, never for its shape.
+`RabbitMQ.Client` owns the AMQP 0-9-1 routing-rich egress lane backing the `rabbitmq` binding row: async connection and channel lifecycle, publisher-confirm publish, ack-based consume, and exchange/queue/binding topology, every op `Task`/`ValueTask`-returning and `CancellationToken`-aware. Exchange routing across topic, direct, fanout, and headers types, per-message TTL and priority, and ack-based work-queue dispatch are its owned capability; the `CloudNative.CloudEvents` message envelope rides the body, owned here for publish, consume, and ack, never for its shape.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -131,11 +131,11 @@
 - Dead-lettered messages and shovel/backup snapshots share the object-store residence (`api-objectstore`/`Minio`) with the other egress sinks through the `Store/blobstore` lane.
 
 [LOCAL_ADMISSION]:
-- `EgressSink.RabbitMq` builds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled; the channel confirm policy is fixed at open, never per-publish.
+- `rabbitmq` binds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled; the channel confirm policy is fixed at open, never per-publish.
 - At-least-once egress: `BasicPublishAsync` awaits the confirm and a nack triggers the retry rail; `mandatory: true` with a `BasicReturnEventArgs` handler routes an unroutable message to dead-letter rather than dropping it.
 - `BasicQosAsync` prefetch and manual `BasicAckAsync`/`BasicNackAsync(requeue)` keep the ack from outrunning durable downstream apply; `autoAck` is rejected on the durable work-queue path.
 - Durable topology declares queues `durable: true` with `x-queue-type=quorum` and a dead-letter exchange in `arguments`, per-message TTL and priority riding `BasicProperties.Expiration`/`Priority`; the declaration is idempotent and replayed by topology recovery.
-- RabbitMQ owns routing-rich egress — topic and headers exchange, RPC `ReplyTo`, priority — and the partitioned append-log changefeed stays on Kafka (`api-kafka`); the two are distinct `EgressSink` rows, never collapsed.
+- RabbitMQ owns routing-rich egress — topic and headers exchange, RPC `ReplyTo`, priority — and the partitioned append-log changefeed stays on Kafka (`api-kafka`); the two are distinct binding roster rows, never collapsed.
 
 [RAIL_LAW]:
 - Package: `RabbitMQ.Client`

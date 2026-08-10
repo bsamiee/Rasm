@@ -130,7 +130,7 @@ Each `route_with_*(e, pts)` clamps the polyline tail/head to node bounding boxes
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Build `GrandalfVertex(node_index)` per `rustworkx` node and `GrandalfEdge(src, dst)` per edge, taking `GrandalfGraph(vertices, edges).C[0]` as the `SugiyamaLayout` component; the stable `rustworkx` integer node index lives on `Vertex.data`, the one key resolved coordinates and emitted glyph marks share and never re-key. An empty graph returns `({}, {})` before construction, a `graph_core` over zero vertices being degenerate.
+- Build `GrandalfVertex(node_index)` per `rustworkx` node and `GrandalfEdge(src, dst)` per edge, taking `GrandalfGraph(vertices, edges).C[0]` as the `SugiyamaLayout` component; the stable `rustworkx` integer node index lives on `Vertex.data`, the one key resolved coordinates and emitted glyph marks share and never re-key. Zero vertices return `({}, {})` before construction, a `graph_core` over them being degenerate.
 - Every vertex carries `view = VertexViewer(w, h)` and every edge `view = EdgeViewer()` before layout; `draw()` reads `view.w`/`view.h` for spacing and writes `view.xy` and `view.setpath(pts)`, and the owner reads `vertex.view.xy` into `LayoutMap` and `edge.view._pts` into `RouteMap` through `float(...)`, so raw grandalf vertices, edges, and viewers never cross into glyph or receipt shapes.
 - Import at boundary scope inside the offload kernel; alias `Vertex`/`Edge`/`Graph` to `GrandalfVertex`/`GrandalfEdge`/`GrandalfGraph` so the names never collide with the canonical `glyphset` shapes.
 

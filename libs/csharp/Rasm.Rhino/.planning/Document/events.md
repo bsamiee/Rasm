@@ -7,7 +7,7 @@
 - [02]-[FAMILY]: `EventFamily` binds host callbacks, cadence, and projection as data.
 - [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
 - [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
-- [05]-[STREAM_OWNER]: `DocumentStream`, `Watch`, and `CommitSink` own admission, attachment, delivery, the sealed-commit tap, and release.
+- [05]-[STREAM_OWNER]: `DocumentStream`, `Watch`, and `CommitSink` own admission, attachment, delivery, the sealed-commit contributor registry consuming `OPLOG_ENTRY`, and release.
 - [06]-[HOOK_REGISTRY]: `RhinoPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
 - [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
@@ -677,9 +677,20 @@ public abstract partial record EventOrigin {
     public sealed record Commit(string Record) : EventOrigin;
 }
 
-// One process-static commit-tap registry, fanned by the `Document/tables#COMMIT_ENVELOPE` railed `project` slot.
-// Registration IS the `Observation.Commit` attachment, so a closing watch detaches its tap under the same symmetric
-// release law every host family obeys; a per-folder sink beside this one publishes some commits and not others.
+// This host keeps ONE contributor registry over sealed-commit facts, fanned by the
+// `Document/tables#TRANSACTION_RAIL` railed `project` slot. Contributors register through `Observation.Commit` attachment, so a closing watch detaches
+// its own row under the same symmetric release law every host family obeys; a per-folder sink beside this one
+// publishes some commits and not others.
+//
+// Registration stays PROCESS-STATIC by host law rather than by convenience: RhinoCommon's document tables and
+// undo stack are process singletons, so a per-composition registry inside one `Rhino.exe` would let two co-resident
+// plugins each hold a partial view of one document's commits — the exact inverse of the per-composition law that
+// governs host-free packages, and stated here so the divergence reads as a decision.
+//
+// These facts are the host-local half of the estate's `OPLOG_ENTRY` contract: a contributor projecting them onto
+// that contract is a NAMED consumer of it, and the contract's own envelope — `Rasm/Domain/event#ENVELOPE_MINT`
+// minted at the durable owner — is what carries them past this process. This host mints no envelope of its own,
+// because a sealed commit crossing a boundary is an announcement the durable owner already publishes.
 public delegate Fin<Unit> CommitTap(DocKey Document, string Record, uint Serial, Seq<SealedMutation> Mutations);
 
 public static class CommitSink {
@@ -924,9 +935,11 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 
 ## [05]-[STREAM_OWNER]
 
-- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting; `CommitSink` owns the process-static sealed-commit tap registry and the `Sealing` projection the commit envelope composes.
+- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting; `CommitSink` owns the host's ONE contributor registry over sealed-commit facts and the `Sealing` projection `DocumentCommit.Sealed` composes.
 - Law: every source, delivery, policy, and source-specific value admits before the first attachment; sequential attachment rolls back the accumulated prefix on failure.
-- Law: sealed-commit facts enter through `CommitSink.Sealing`, composed as the `Document/tables#COMMIT_ENVELOPE` railed `project` continuation, so publication runs inside the undo bracket after the serial stamp and a tap refusing the change rolls the record back; a tap spelled beside the envelope publishes a record the seal then discards. `Observation.Commit` admits `Delivery.Inline` alone, because a deferred or paced arm returns success before any subscriber saw the fact and forfeits exactly that rollback.
+- Law: sealed-commit facts enter through `CommitSink.Sealing`, composed as the `Document/tables#TRANSACTION_RAIL` railed `project` continuation, so publication runs inside the undo bracket after the serial stamp and a tap refusing the change rolls the record back; a tap spelled beside `DocumentCommit.Sealed` publishes a record the seal then discards. `Observation.Commit` admits `Delivery.Inline` alone, because a deferred or paced arm returns success before any subscriber saw the fact and forfeits exactly that rollback.
+- Law: `CommitSink` is a NAMED consumer of the estate's `OPLOG_ENTRY` contract and never a producer of the message envelope carrying it — a contributor projects a sealed commit onto that contract at the durable owner, which mints the CloudEvents announcement through the one branch message envelope algebra, so this host publishes host facts and the durable owner publishes the fact's crossing. A message envelope minted here would announce from a process whose serials no peer replays.
+- Law: the contributor registry is PROCESS-STATIC by host law, not by convenience — RhinoCommon's document tables and undo stack are process singletons, so a per-composition registry inside one `Rhino.exe` gives two co-resident plugins a partial view each of one document's commits; the divergence from the per-composition registry law host-free packages obey is a decision this row states rather than an oversight.
 - Law: sealed facts cross in HOST vocabulary — `TableKind`, component identity, `ComponentTransition`, and the undo serial — carrying no operation identity, no clock, and no lane. This boundary references `Rasm` alone, holds no store origin slot and no observed frontier, and an identity minted here is a coordinate two hosts collide on; the store owning the origin mints it at the seam and maps these rows onto its own lanes. Serials stay host-local evidence, since no peer replays another host's undo stack.
 - Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
 - Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.

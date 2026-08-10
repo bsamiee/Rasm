@@ -122,7 +122,7 @@ flowchart LR
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
     RasmElement e12@-->|"[SHAPE]: GraphDelta"| Element
     RasmElement e13@-->|"[CONTENT_KEY]: ContentAddress"| Element
-    RasmElement e25@-->|"[SHAPE]: GraphEventEnvelope"| Version
+    RasmElement e25@-->|"[EVENT]: GraphCrossing"| Version
     Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
     Rasm e3@-->|"[CONTENT_KEY]: ContentHash"| Element
     Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
@@ -131,7 +131,7 @@ flowchart LR
     Bim e15@-->|"[CONTENT_KEY]: EnergyArtifact"| Store
     Bim e16@<-->|"[CONTENT_KEY]: ArtifactKey"| Store
     Bim e17@<-->|"[CONTENT_KEY]: CommitKey"| Version
-    Bim e18@-->|"[WIRE]: BimEvent"| Version
+    Bim e18@-->|"[EVENT]: CloudEvents announcement"| Version
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
     Bim e14@-->|"[WIRE]: GeoWire"| Ingest
     Ingest e30@<-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Bim

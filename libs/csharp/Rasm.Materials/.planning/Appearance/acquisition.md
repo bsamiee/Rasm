@@ -744,4 +744,4 @@ public static class Acquisition {
 
 ## [03]-[RESEARCH]
 
-- (none)
+(none)

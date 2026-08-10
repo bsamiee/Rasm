@@ -20,6 +20,8 @@
 - Rooted occurrence ids colliding across sources FAULT, never rename — content- and type-derived ids merge on equal payloads and fault on unequal.
 - Redacted crossings PRESERVE source content keys — redaction CLEARS protobuf field paths; re-deriving keys over them mints one space per policy.
 - Admission slots return the concrete `Validation<Error, _>` — C# bars interface targets from user-defined conversions, so the lift compiles nowhere.
+- Envelope attributes render through the kernel `EventKey` — `ContentAddress.ToValue()` is the protobuf upper-case spelling, forking the wire.
+- Crossing `id` arrives from the composing rail — this seam mints no operation identity, so a content key there merges two rails' announcements.
 
 ## [03]-[COLLAPSE]
 

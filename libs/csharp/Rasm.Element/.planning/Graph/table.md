@@ -115,7 +115,7 @@ public abstract partial record TableRow {
     // beside the three-axis census — the projection the kernel lattice publishes — never a north-up origin-and-cell-size
     // quadruple, which reports an axis-aligned fiction the moment the affine rotates or shears. Affine rides as a Seq
     // because its twelve cells expand positionally in the Cells arm, so the family's own arity proof is the length proof.
-    // The raster bytes ride the content key exactly as geometry does.
+    // Coverage carries raster bytes by content key exactly as geometry does.
     public sealed record Coverage(
         string Snapshot, string Element, string RasterKey, string Kind, string CrsResolution,
         Option<int> Epsg, string GeodeticDatum,
@@ -182,7 +182,7 @@ public abstract partial record TableRow {
             Whole(r.GradedSamples), Whole(r.ConsumableSamples), Real(r.Completeness),
             Real(r.MinimumSi), Real(r.MaximumSi), Real(r.MeanSi), Real(r.TotalSi),
             Text(r.Manufacturer), Text(r.Model), Text(r.Serial), Day(r.CalibratedAt)),
-        // The affine expands POSITIONALLY into its twelve declared cells, so the family's arity proof doubles as the
+        // Affine expands POSITIONALLY into its twelve declared cells, so the family's arity proof doubles as the
         // coefficient-count proof and no thirteenth column can slip in beside it.
         coverage: static r => Seq(
             Text(r.Snapshot), Text(r.Element), Text(r.RasterKey), Text(r.Kind), Text(r.CrsResolution),
@@ -320,7 +320,7 @@ public sealed partial class TableFamily {
             new TableColumn("appearance", TableType.Utf8, Nullable: true),
             new TableColumn("part_count", TableType.Int64, Nullable: false)));
 
-    // The co-applied standard references. Keying on the full (system, code, edition) triple is what makes a row unique
+    // Classification rows file the co-applied standard references. Keying on the full (system, code, edition) triple makes a row unique
     // per element: one element carries a Uniclass and an OmniClass reference at once, and two editions of one system
     // are two facts. No measure — a rollup over a classification code is a fabricated statistic.
     public static readonly TableFamily Classifications = new("element.classifications",
@@ -596,9 +596,9 @@ public static class GraphTable {
         element.Appearance.Map(static summary => ContentAddress.Of(summary.AppearanceKey).ToValue()),
         element.Parts.Count);
 
-    // The baked element's secondary references, already unioned with the inherited type's set by Bake and deduped
-    // there, so this projection files them without a second merge. The primary triple is not re-emitted here: it keys
-    // the object row, and duplicating it would make one classification two rows under two grains.
+    // Classifications files the baked element's secondary references, already unioned with the inherited type's set by
+    // Bake and deduped there, so this projection needs no second merge. The primary triple is not re-emitted here: it keys the
+    // object row, and duplicating it makes one classification two rows under two grains.
     static Seq<TableRow> Classifications(Element element, string snapshot) =>
         element.Classifications.Map(reference => (TableRow)new TableRow.Classification(
             snapshot, element.Id.Value, reference.System, reference.Code, reference.Edition,
@@ -660,7 +660,7 @@ public static class GraphTable {
     // parallel Switches restating the same case list — the repeated-arm collapse the graph's own `Ends` accessor makes.
     static Seq<TableRow> Edges(ElementGraph graph, FrozenSet<NodeId> scope, bool scoped, string snapshot, double tolerance) =>
         toSeq(graph.Edges)
-            // The scope probe is a hash lookup against the set built once for the whole fold, and the whole-graph fold
+            // Each scope probe hits a hash set built once for the whole fold, and the whole-graph fold
             // short-circuits the predicate entirely.
             .Filter(edge => !scoped || edge.Members.Exists(scope.Contains))
             .Map(edge => Edge(edge, snapshot, tolerance));
@@ -716,8 +716,8 @@ public static class GraphTable {
     // One row per BAND: the placement, the CRS identity, and the pyramid/timeline depths denormalize onto every band so
     // a spatial or role predicate needs no join. ByteLength reads the BASE level, the footprint a storage rollup means.
     // Placement crosses as the kernel lattice's OWN twelve coefficients and three-axis census — the exact index-to-world
-    // map a consumer inverts — rather than a derived origin-and-span pair, which is an axis-aligned reading the moment
-    // the affine rotates or shears and which the lattice owner names as the fiction it forbids. No host coordinate and
+    // map a consumer inverts — rather than a derived origin-and-span pair, which is an axis-aligned reading the moment the
+    // affine rotates or shears and which the lattice owner names as the fiction it forbids. No host coordinate and
     // no derived Vector3 reaches a cell; the coefficients are the neutral doubles the kernel publishes.
     static Seq<TableRow> Coverages(CoverageGrid grid, Element element, string snapshot) =>
         grid.Bands.Map(band => (TableRow)new TableRow.Coverage(
@@ -733,7 +733,7 @@ public static class GraphTable {
 
 ## [05]-[IMPLEMENTATION_LAW]
 
-- [DATASET_IS_A_CASE]: one dataset spells itself at two co-edited sites, coupled at RUNTIME and not by the compiler — a `TableRow` case carries the payload with its ordered `Cells` arm, its `TableFamily` row carries the matching `TableColumn` list, and `Conforms` is the ONLY proof of the pairing: an arity drift fails at `Batches` and a per-cell type drift names its column there. A single per-column declaration deriving both halves is refused for a reason, not skipped: a column projector over the union base takes `Func<TableRow, Option<PropertyValue>>`, which downcasts per cell and trades the generated `Switch`'s compile-time arm exhaustiveness — the one proof that actually catches a case gaining a field — for a runtime cast. The pairing therefore rides one edit at two sites under one runtime gate, and sibling row records with their own projection delegates are still the deleted form because they scatter the dataset across two independently-editable OWNERS with no gate at all.
+- [DATASET_IS_A_CASE]: one dataset spells itself at two co-edited sites, coupled at RUNTIME and not by the compiler — a `TableRow` case carries the payload with its ordered `Cells` arm, its `TableFamily` row carries the matching `TableColumn` list, and `Conforms` is the ONLY proof of the pairing: an arity drift fails at `Batches` and a per-cell type drift names its column there. One column projector over the union base takes `Func<TableRow, Option<PropertyValue>>`, downcasting per cell and trading the generated `Switch`'s compile-time arm exhaustiveness — the one proof catching a case that gains a field — for a runtime cast, so the per-column declaration deriving both halves never lands. That pairing therefore rides one edit at two sites under one runtime gate, and sibling row records with their own projection delegates stay the deleted form: they scatter the dataset across two independently-editable OWNERS with no gate at all.
 - [TEMPORAL_CATEGORY]: each family declares a temporal category, never a spine convenience. `element.assessments` is event-time and stamps the instant its work ran; every snapshot family is landing-time, since re-tabulating one frozen graph reproduces identical facts and the snapshot address already carries the version identity a consumer joins on. Tabulation instants on a snapshot re-date immutable evidence, and a receipt's arrival read as its work time inverts the same error.
 - [ELEMENT_MODALITY_CLOSURE]: every `Seq` a baked `Element` carries reaches a dataset — co-applied classification references, property and quantity bags, material bindings, computed assessments, measured observation series, coverage bands — so no consumer re-folds the graph for a modality the egress skipped. `Parts` is the one exception the object row already answers, carrying the part count while each part tabulates as its own element. `Graph/element#NODE_MODEL` admitting a node case lands its row family here in the same pass; scalar element columns stay on the object row, needing no grain of their own.
 - [PRODUCER_HALF]: `Rasm.Persistence` owns the branch's columnar plane, so this page hands a wire schema with typed rows and owns nothing physical. `TableType` mirrors the custodian's neutral token roster — token and the `Admits` predicate over `PropertyValue`, never a dialect spelling, an Arrow field, a binary-COPY wire type, or a plan literal.

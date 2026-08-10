@@ -55,7 +55,6 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `ifc4d` — Construction scheduling.
 - `ifcpatch` — Recipe transformation.
 - `ifcdiff` — Model revision comparison.
-- `lark` — IDS and selector grammar engine.
 
 [SCAN]:
 - `open3d` — Point-cloud registration and reconstruction.
@@ -117,6 +116,9 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [GRAPH_SUBSTRATE]:
 - `networkx`
+
+[PARSING_SUBSTRATE]:
+- `lark` — IDS and selector grammar engine; runtime's transport filter compiles CESQL over the same substrate.
 
 [WIRE_CODEGEN]:
 - `grpcio`

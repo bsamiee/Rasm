@@ -72,7 +72,6 @@
 
     <ItemGroup Label="Event Transport">
         <PackageReference Include="CloudNative.CloudEvents" />
-        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
     </ItemGroup>
 
     <ItemGroup Label="OpenStudio Native Runtime"

@@ -61,7 +61,6 @@
         <PackageReference Include="Ara3D.BimOpenSchema.IO" />
         <PackageReference Include="Chr.Avro" />
         <PackageReference Include="Chr.Avro.Binary" />
-        <PackageReference Include="Chr.Avro.Confluent" />
         <PackageReference Include="DuckDB.NET.Data.Full" />
         <PackageReference Include="FastCDC.Net" />
         <PackageReference Include="FlowtideDotNet.Substrait" />
@@ -83,9 +82,8 @@
 
     <ItemGroup Label="Event Transport">
         <PackageReference Include="CloudNative.CloudEvents" />
-        <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
-        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
         <PackageReference Include="NATS.Net" />
+        <PackageReference Include="Pidgin" />
     </ItemGroup>
 
     <ItemGroup Label="Geometry Interchange">

@@ -21,7 +21,7 @@
 |  [03]   | `GenericContainerBuilder`      | class                            | image-build variant via `fromDockerfile(ctx).build()`  |
 |  [04]   | `Environment` / `Labels`       | record type                      | `{ [k: string]: string }` — env + label rows           |
 |  [05]   | `HealthCheck`                  | type                             | `{ test; interval?; timeout?; retries? }` healthcheck  |
-|  [06]   | `ResourcesQuota`               | type                             | `{ memory?; cpu? }` — bounded resource envelope        |
+|  [06]   | `ResourcesQuota`               | type                             | `{ memory?; cpu? }` — bounded operating envelope       |
 |  [07]   | `ContentToCopy` / `FileToCopy` | type                             | seed content/files into the image (init SQL, fixtures) |
 
 ```ts signature

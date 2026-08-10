@@ -10,9 +10,9 @@ Narrow-phase triangle and closest-distance work rides `System.Numerics.Vector3` 
 
 ## [02]-[CLASH_AND_TWIN]
 
-- Owner: `AccelerationKind` `[SmartEnum<string>]` carries BVH/octree child arity; `AccelerationStructure` carries one decoded `(Bounds, Nodes, BuildParameter)` wire; `ClashKind` classifies hard · clearance · duplicate; `ClashScale` owns admission, traversal, intersection, and clearance; `DigitalTwin` owns residual-window scoring composed over the Stats detector and the `Update` FE-updating fold with its `ModelUpdatePolicy`/`UpdateVerdict` carriers; `TwinLoop` owns typed `SensorEnvelope<TwinSignal>` admission, revisioned atomic held-window scoring, anomaly control through the injected `Runtime/receipts#HOOK_POINTS` veto fold, and edge-consuming recalibration cadence.
+- Owner: `AccelerationKind` `[SmartEnum<string>]` carries BVH/octree child arity; `AccelerationStructure` carries one decoded `(Bounds, Nodes, BuildParameter)` wire; `ClashKind` classifies hard · clearance · duplicate; `ClashScale` owns admission, traversal, intersection, and clearance; `DigitalTwin` owns residual-window scoring composed over the Stats detector and the `Update` FE-updating fold with its `ModelUpdatePolicy`/`UpdateVerdict` carriers; `TwinLoop` owns typed `SensorReading<TwinSignal>` admission, revisioned atomic held-window scoring, anomaly control through the injected `Runtime/receipts#HOOK_POINTS` veto fold, and edge-consuming recalibration cadence.
 - Cases: `AccelerationKind` bvh · octree; `ClashKind` hard · clearance · duplicate; `ClashPair` carries a NON-NEGATIVE `Clearance` beside an `Intersecting` discriminant — a confirmed triangle-surface intersection is `Intersecting` at zero clearance and a clearance band is a positive distance, because the decoded surface wire carries no volumetric penetration domain and a signed scalar standing in for both reads a deeper overlap as a wider gap.
-- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id, a node two parents claim), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the `ClashSurvey` of confirmed pairs beside its candidate count and truncation flag, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg also ray-tests the surface, so a crossing between samples reports zero clearance AT THE CROSSING POINT rather than at an endpoint the tool merely passed through — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test over the same first-hit descent. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form. `TwinLoop.Of(baseline, detector, policy, suggested, clock, archive)` is the validated mint — an invalid `TwinLoopPolicy` fails before any held state constructs, and the optional archive pair (per-segment sink factory + `Runtime/codecs#HDF_ARCHIVE` policy) arms the durable observation tier — and `TwinLoop.Ingest(SensorEnvelope<TwinSignal> envelope)` is the typed telemetry entry; a caller enqueues each decoded envelope onto `WorkLane.CaptureIngest`, and the lane dispatch routes admitted signals here. `TwinLoop.ClaimRecalibration()` (`Fin<bool>` — a due claim also SEALS the accumulated observation segment as one create-only container, so the cadence edge is the archive boundary and a month-long twin is a segment series a re-fit reads whole) consumes each scoring-cadence edge once before composition drives `Update` with `Stats/signal` `Transform.Modal` measured modes.
+- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id, a node two parents claim), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the `ClashSurvey` of confirmed pairs beside its candidate count and truncation flag, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg also ray-tests the surface, so a crossing between samples reports zero clearance AT THE CROSSING POINT rather than at an endpoint the tool merely passed through — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test over the same first-hit descent. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form. `TwinLoop.Of(baseline, detector, policy, suggested, clock, archive)` is the validated mint — an invalid `TwinLoopPolicy` fails before any held state constructs, and the optional archive pair (per-segment sink factory + `Runtime/codecs#HDF_ARCHIVE` policy) arms the durable observation tier — and `TwinLoop.Ingest(SensorReading<TwinSignal> reading)` is the typed telemetry entry, weighting each admitted reading by its own `sampledrate` denominator; a caller enqueues each decoded message envelope onto `WorkLane.CaptureIngest`, and the lane dispatch routes admitted signals here. `TwinLoop.ClaimRecalibration()` (`Fin<bool>` — a due claim also SEALS the accumulated observation segment as one create-only container, so the cadence edge is the archive boundary and a month-long twin is a segment series a re-fit reads whole) consumes each scoring-cadence edge once before composition drives `Update` with `Stats/signal` `Transform.Modal` measured modes.
 - Auto: `Detect` walks the contiguous `[FirstChild, FirstChild+ChildCount)` child range as one hierarchical descent — a BVH node and an octree cell traverse identically, so the prior parallel `BvhPairs`/`OctreePairs` bodies collapse to one `NodeLinkPairs` fold and the Morton-cell decode that mis-read the node-link array as a per-element cell map is the deleted form; each overlapping leaf-pair runs the complete two-direction Möller–Trumbore test and the Ericson closest distance and bands by `ClashPolicy`. `DigitalTwin` pushes the `Surrogate` residual onto the bounded `TwinWindow` and reads the injected `Stats/estimator#ESTIMATOR_LANE` detector's last-row score and change flag into a verdict and a control suggestion — one anomaly owner, twin-local control only.
 - Receipt: the `Clash` `ComputeReceipt` case carries the index kind, candidate-pair count, confirmed hard-clash and clearance-violation counts, and total pairs, projected from the `ClashSurvey` so the counts and the candidate total come from ONE traversal; the survey's truncation flag rides the carrier beside them, the same way the optimizer's exact evidence rides its own result rather than claiming a slot the receipt owner does not declare. The `Twin` case carries the signal id, predicted-versus-measured residual, detector anomaly flag, and suggested control delta, so a twin loop is auditable and a machine-control suggestion is receipted before it leaves the boundary.
 - Packages: PureHDF (`H5File` graph assignment behind the twin segment seal — mechanics stay the `Runtime/codecs#HDF_ARCHIVE` owner), Generator.Equals (`[Equatable]` structural equality and the `Inequalities` diff on `UpdateVerdict`/`ModelUpdatePolicy`), System.Numerics (`Vector3`), System.Runtime.InteropServices (`MemoryMarshal`), CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter`), System.Numerics.Tensors (`TensorPrimitives.Dot`/`SumOfSquares` in the MAC), MathNet.Numerics (`Vector<double>`/`Matrix<double>` the LM contract carries), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), BCL inbox.
@@ -791,23 +791,26 @@ public sealed class TwinLoop {
                 return unit;
             }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<twin-segment-seal:{error.Message}>")));
 
-    public static Fin<TwinSignal> Admit(SensorEnvelope<TwinSignal> envelope) =>
-        !envelope.Data.Invalid
-            ? Fin.Succ(envelope.Data)
-            : Fin.Fail<TwinSignal>(ComputeFault.Create($"<twin-envelope-data:{envelope.Event.Id}>"));
+    public static Fin<TwinSignal> Admit(SensorReading<TwinSignal> reading) =>
+        !reading.Data.Invalid
+            ? Fin.Succ(reading.Data)
+            : Fin.Fail<TwinSignal>(ComputeFault.Create($"<twin-reading-data:{reading.Envelope.Id}>"));
 
-    public Fin<TwinVerdict> Ingest(SensorEnvelope<TwinSignal> envelope) =>
-        Admit(envelope).Bind(Score);
+    // Head sampling WEIGHTS the score rather than decorating it: a producer thinning its stream to one reading
+    // in N contributes N readings' worth of evidence, so a thinned stream and a full one drive one surrogate to
+    // the same confidence instead of the thinned one reading as a quiet sensor.
+    public Fin<TwinVerdict> Ingest(SensorReading<TwinSignal> reading) =>
+        Admit(reading).Bind(signal => Score(signal, reading.Sampled));
 
-    private Fin<TwinVerdict> Score(TwinSignal signal) =>
+    private Fin<TwinVerdict> Score(TwinSignal signal, int weight) =>
         Range(0, policy.CommitAttempts).Fold(
             Fin.Succ(Option<TwinVerdict>.None),
-            (settled, _) => settled.Bind(verdict => verdict.IsSome ? Fin.Succ(verdict) : TryCommit(signal)))
+            (settled, _) => settled.Bind(verdict => verdict.IsSome ? Fin.Succ(verdict) : TryCommit(signal, weight)))
         .Bind(verdict => verdict.Match(
             Some: won => won.Anomaly ? suggested(won) : Fin.Succ(won),
             None: () => Fin.Fail<TwinVerdict>(ComputeFault.Create("<twin-contention>"))));
 
-    private Fin<Option<TwinVerdict>> TryCommit(TwinSignal signal) {
+    private Fin<Option<TwinVerdict>> TryCommit(TwinSignal signal, int weight) {
         TwinState snapshot = held.Value;
         return DigitalTwin.Score(baseline, signal, snapshot.Window, detector, policy.Scoring, clock).Map(scored => {
             long ticket = Interlocked.Increment(ref tickets);
@@ -817,7 +820,10 @@ public sealed class TwinLoop {
                     // The winning commit appends its newest residual and anomaly flag to the live segment — the
                     // durable tier beneath the bounded window, sealed whole at the recalibration edge.
                     Segment = state.Segment.Add((scored.Window.Residuals.Last, scored.Verdict.Anomaly)),
-                    Scored = state.Scored + 1L,
+                    // Sampled evidence counts by its DENOMINATOR: a stream thinned one-in-N advances this
+                    // tally by N, so two producers publishing the same physical event rate reach the same
+                    // confidence whichever one thins, and an unsampled stream weights one exactly as before.
+                    Scored = state.Scored + weight,
                     Claimed = false,
                     Revision = state.Revision + 1L,
                     Commit = ticket,

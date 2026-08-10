@@ -41,5 +41,8 @@ Shared substrate consumed from the TypeScript registry; the registry owns the co
 - `@effect/platform`
 - `@effect/experimental` — `VariantSchema` projections and `Machine` state algebra.
 
+[WIRE_ENVELOPE]:
+- `cloudevents` — `interchange/carrier.md` seats the branch's one message-envelope mint over its `CloudEvent` class.
+
 [BENCHMARK_STATISTICS]:
 - `mitata`

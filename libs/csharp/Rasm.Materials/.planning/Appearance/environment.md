@@ -1760,4 +1760,4 @@ public sealed record EnvironmentLight(
 
 ## [06]-[RESEARCH]
 
-- (none)
+(none)

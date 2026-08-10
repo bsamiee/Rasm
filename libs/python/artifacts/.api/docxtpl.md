@@ -66,7 +66,7 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 [TOPOLOGY]:
 - One `DocxTemplate` owns load, render, and save; `template_file` (path, `PathLike`, or stream) is the constructor argument, never a per-source builder type, and `jinja_env`/`autoescape` are call rows on `render`, never parallel render entrypoints.
 - Styled content is a carrier placed in the context, never a hand-built `python-docx` run: `RichText`/`R` own inline runs, `RichTextParagraph`/`RP` styled paragraphs keyed by `parastyle`, `Listing` newline/page-break-preserving text, `InlineImage` inline images bound via `tpl`.
-- A bare `save` (no prior `render`) reloads the template and applies only the `replace_*` swaps, which are keyed by part kind, never a parallel template type per media class.
+- `save` without a prior `render` reloads the template and applies only the `replace_*` swaps, keyed by part kind, never a parallel template type per media class.
 - `build_url_id(url)` returns the `url_id` a `RichText.add(url_id=)` or `InlineImage(anchor=)` references, never an inline hyperlink string.
 - `DocxTemplate.docx` (via `get_docx`) is the underlying `python-docx` `Document`; structural work the template cannot express routes through it, never a hand-built OOXML string.
 

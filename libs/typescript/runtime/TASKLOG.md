@@ -54,12 +54,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `libs/typescript/.api/mitata.md` (`measure` five overloads, `do_not_optimize`, the `stats` rung set, the `k_options` batch and GC knobs, the lib-subpath default constants); `proc/exec.md` `[05]-[MEASURED_RUN]` `_band`, whose three `Option.none()` slots are exactly the engine's `gc`/`heap`/`counters` bands.
 - Atomic: the counters band stamps `Convention.rasm.benchCounterKind` with the mitata leaf (`cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses`) — five measures share one band value, so the series is unreadable without the leaf axis the convention row already declares.
 
-[CLOUDEVENTS_CODEC_ROWS]-[QUEUED]: verified CloudEvents codecs replace the egress and intake fences.
-- Capability: egress preserves structured content type, binary data bytes, and W3C extension attributes; intake auto-detects binary versus structured mode with decode evidence on the `Problem` rail; drives from IDEAS `[CLOUDEVENTS_ENVELOPE]`.
-- Shape: codec rows on `libs/typescript/runtime/.planning/work/deliver.md` and `libs/typescript/runtime/.planning/serve/route.md`, each page's settled codec law transcribed into its fence.
-- Unlocks: IDEAS.md [CLOUDEVENTS_ENVELOPE] — both HTTP binding directions verified.
-- Anchors: `.api/cloudevents.md` at the folder and branch tiers.
-
 [CONNECT_INTERCEPTOR_MOUNT]-[BLOCKED]: the guarded Connect mount lands over exact surfaces.
 - Capability: the `Seam.guard`-preserving server mount completes the settled transport dispatch; the egress print half is foreclosed at `core:interchange/invoke#DIAL_AXIS`; drives from IDEAS `[GRPC_LANE]`.
 - Shape: rows on `libs/typescript/runtime/.planning/serve/live.md` gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
@@ -93,5 +87,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [VITAL_CWV_COLLAPSE]-[COMPLETE]: `otel/vital.md` rebuilt on `web-vitals/attribution` — `_rows` carries source/fold/accrues columns with budgets projected from the shipped cutoff pairs, `_watched` dispatches one bracket over three capture sources, `_accounted` dedupes per kind and chains the session total across restore-minted instances, `_context` stamps the RUM incubating rows, and `Vital.Report` replaces the module-level stream so one document runs one capture; the `web-vitals` catalogue moved from `ui/.api/` and the ui floor dropped its capture, cutoff, rating, latest, board, and `longtask` rows.
 [HOOKS_DISPATCH]-[COMPLETE]: already realized — `emit.md` `Hooks.Dispatch` with app-keyed rails, the pure veto fold, `FiberSet`-isolated delivery, and the policy-bounded replay ring.
  [CARRIER_ROW_COMPOSITION]-[COMPLETE]: `emit.md` owns carried runtime context and `pubsub.md` composes the exact `fanout`, `nats`, and `kafka` rows from `core/.planning/interchange/carrier.md`; no engine borrows another dialect.
-[ENVELOPE_CODEC_DEDUP]-[COMPLETE]: `pubsub.md` preserves the opaque envelope body and band while `data/.planning/journal/append.md` owns strict CloudEvents projection and inverse carrier decode, eliminating the duplicate runtime codec.
+[CLOUDEVENTS_CODEC_ROWS]-[COMPLETE]: the codec rows landed as COMPOSITION of `core:interchange/carrier#EVENT_ENVELOPE` and `core:interchange/format#EVENT_FORMAT` rather than page-local fences — intake detects before decoding and never constructs, egress projects at claim time and signs once, while `net/channel.md` and `net/pubsub.md` took the same collapse so the branch carries one message-envelope owner across HTTP, MQTT, NATS, and Kafka; drives from IDEAS `[CLOUDEVENTS_ENVELOPE]`.
+[ENVELOPE_CODEC_DEDUP]-[COMPLETE]: `pubsub.md` preserves the opaque message-envelope body and band while `data/.planning/journal/append.md` owns strict CloudEvents projection and inverse carrier decode, eliminating the duplicate runtime codec.
 [CLOUD_PLACEMENT_TABLE]-[COMPLETE]: already realized — `emit.md` `_CLOUD` placement table (five aws arms + gcp), the `containerDetector` arm on `_placed`, and `browserDetector` on `_rum`.

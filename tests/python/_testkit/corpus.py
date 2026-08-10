@@ -18,7 +18,13 @@ _CLASS_VOCABULARY: frozenset[str] = frozenset({"infrastructure", "domain"})
 _PAYLOAD_KINDS: frozenset[str] = frozenset({"wire-bytes", "canonical-json", "digest", "descriptor-set"})
 _PIN_VOCABULARY: frozenset[str] = frozenset({"REAL", "DESIGN-PIN"})
 
-_ANCHOR = re.compile(r"csharp:([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+?)(?:#[A-Z0-9_]+)?`")
+# The roots `tests/contracts/README.md` `[02]-[LAYOUT]` names beside the seam directories: the corpus tool catalog,
+# the descriptor-source tree, and the vendored publisher-source tree. None is a seam, so none registers an entry.
+_NON_SEAM_ROOTS: frozenset[str] = frozenset({".api", "io", "rasm"})
+
+# Every branch anchor resolves the same way — `lang:<pkg>/<page>#<CLUSTER>` against `libs/<lang>/<pkg>/.planning/`.
+# A csharp-only reader left two thirds of every infrastructure entry's mint roster passing the audit unverified.
+_ANCHOR = re.compile(r"(csharp|python|typescript):([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+?)(?:#[A-Z0-9_]+)?`")
 _ENTRY_HEAD = re.compile(r"^### \[[0-9.]+\]-\[([A-Z0-9_]+)\]\s*$")
 _FIELD = re.compile(r"^- (Seam|Class|Minters|Producer|Consumers|Payload|Pin|Blocker|Shape|Expectation|Regenerate when): (.+)$")
 _CODE_SPAN = re.compile(r"`([^`]+)`")
@@ -125,7 +131,7 @@ class CorpusManifest(msgspec.Struct, frozen=True):
             defect
             for directory in on_disk
             for defect in (
-                f"{directory.name}: seam directory has no manifest entry" if directory.name not in seams else "",
+                f"{directory.name}: seam directory has no manifest entry" if directory.name not in seams | _NON_SEAM_ROOTS else "",
                 # A seam's own contract.schema.json is its DEFINITION, never an asset: the pin says the byte-deriving
                 # input is unfrozen, so the whole subtree below the definition is what an unfrozen pin must hold empty.
                 f"{directory.name}: DESIGN-PIN seam carries assets"
@@ -135,11 +141,11 @@ class CorpusManifest(msgspec.Struct, frozen=True):
             if defect
         )
         anchor_defects = (
-            f"{e.fixture}: {label} anchor csharp:{pkg}/{page} resolves to no planning page"
+            f"{e.fixture}: {label} anchor {lang}:{pkg}/{page} resolves to no planning page"
             for e in self.entries
             for label, cell in (("Minters", e.minters), ("Producer", e.producer))
-            for pkg, page in _ANCHOR.findall(cell)
-            if not (libs_root / "csharp" / pkg / ".planning" / f"{page}.md").is_file()
+            for lang, pkg, page in _ANCHOR.findall(cell)
+            if not (libs_root / lang / pkg / ".planning" / f"{page}.md").is_file()
         )
         return (*entry_defects, *ledger_defects, *missing_rows, *disk_defects, *anchor_defects)
 
