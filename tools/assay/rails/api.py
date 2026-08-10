@@ -10,18 +10,13 @@ import hashlib
 import re
 from typing import assert_never, ClassVar, override, TYPE_CHECKING
 
-from cyclopts.types import PositiveInt  # ruff:ignore[typing-only-third-party-import]  # Cyclopts evaluates Param dataclass annotations at runtime.
+from cyclopts.types import PositiveInt  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these types at runtime in @checked signatures
-)
-from tools.assay.composition.store import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these at runtime in @checked signatures
-    ArtifactScope,
-    ArtifactStore,
-)
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves these types at runtime in @checked signatures
+from tools.assay.composition.store import ArtifactScope, ArtifactStore  # beartype resolves these at runtime in @checked signatures
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -34,7 +29,7 @@ from tools.assay.core.model import (
     Fault,
     Match,
     RailStatus,
-    Report,  # ruff:ignore[typing-only-first-party-import]  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
+    Report,  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
     RESULT_CAP,
     SourceKind,
     SymbolShape,
@@ -47,12 +42,12 @@ from tools.assay.oracle import (
     host_sources,
     NAME_CAP as _NAME_CAP,
     nuget_source,
-    Oracle,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the adapter-port annotation at runtime
+    Oracle,  # beartype resolves the adapter-port annotation at runtime
     oracle_for,
     package_owner_index,
     packages,
     PATH_KINDS as _PATH_KINDS,
-    PathKind as _PathKind,  # ruff:ignore[typing-only-first-party-import]  # Cyclopts evaluates the ApiParams.kind annotation at runtime
+    PathKind as _PathKind,  # Cyclopts evaluates the ApiParams.kind annotation at runtime
     probe_ilspy,
     pydist_inventory_sources,
     rank_candidates,
@@ -60,9 +55,9 @@ from tools.assay.oracle import (
     rank_type,
     rhino_app,
     safe_key,
-    Source,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves report-projection annotations at runtime under PEP 649
+    Source,  # beartype resolves report-projection annotations at runtime under PEP 649
     split_arity,
-    Surface,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves report-projection annotations at runtime under PEP 649
+    Surface,  # beartype resolves report-projection annotations at runtime under PEP 649
     to_api_source,
     tsdecl_names,
     tsdecl_source,

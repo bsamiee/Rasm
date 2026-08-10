@@ -8,23 +8,21 @@ This analyzer enforces the doctrine's `[RULE_ENFORCEMENT]` laws from `docs/stack
 
 - Promotion: a rule exists only for an anti-pattern that is doctrine-breaking yet passes the compiler, `.editorconfig`, and every shipped analyzer. Style preferences, one-off review notes, and patterns an existing mechanical gate already rejects are out of scope.
 - Shape: a rule describes the semantic shape of the anti-pattern — trigger, predicate, exemption route — never namespaces, paths, or one-off symbols. Every row ships with positive spans that must fire and valid compact code that must not.
-- Register: the rule inventory is the code. Catalog array, release ledgers, and vocabulary data are the only inventory; no prose catalog of rules exists anywhere, including in this file.
+- Register: the rule inventory is the code — catalog array, release ledgers, and vocabulary data.
 - Finding: a diagnostic is architecture pressure. Fixing the shape in the product clears a true positive; refining the row clears a false positive or a fix that adds ceremony without improving the system.
 
 ## [02]-[SCOPE]
 
 A rule fires only inside the doctrine scope it targets. Scope resolves per analyzed symbol through `CompilationFacts.ScopeOf`, in priority order: a `[CspScope]` type marker, then the `csp.scope` per-tree config, then the `build_property.CspScope` MSBuild value or an assembly-level `[CspScope]` marker; an undeclared scope is `Domain`. `Directory.Build.props` derives `CspScope` from project classification — `Test` for test, testkit, and scenario-kit projects, `Boundary` for plugin and bridge projects, `Tooling` for benchmark and analyzer projects — and libraries and apps declare it explicitly.
 
-Each rule row carries a `ScopeGate` flag set; the driver gates the row against the resolved scope before the check runs, so a `DomainOrApplication` rule never fires at a boundary seam and an `Everywhere` rule fires across all seven scopes. `HotPath` stays domain-gated and admits only perf rules. `[BoundaryAdapter]` marks the one seam where foreign shapes are legal, and `[CspExempt(justification)]` is the explicit, justification-bearing escape; both ship from the one `Csp.Contracts` assembly every consumer references, so one type identity carries the markers everywhere.
+Each rule row carries a `ScopeGate` flag set; the driver gates the row against the resolved scope before the check runs, so a `DomainOrApplication` rule never fires at a boundary seam and an `Everywhere` rule fires across every declared scope. `HotPath` stays domain-gated and admits only perf rules. `[BoundaryAdapter]` marks the one seam where foreign shapes are legal, and `[CspExempt(justification)]` is the explicit, justification-bearing escape; both ship from the one `Csp.Contracts` assembly every consumer references, so one type identity carries the markers everywhere.
 
 ## [03]-[RULE_REGISTER]
 
-This register is three code surfaces, not prose.
-
 - Catalog (`Kernel/Catalog.cs`): `Catalog.All` is the single rule registry — one `ImmutableArray<RuleRow>` of `(Descriptor, Tier, ScopeGate, Bindings)` rows; `Catalog.Reserved` holds retired or reserved ids.
-- `Describe` builds each `DiagnosticDescriptor` — `Tier` maps to severity (`Law` error, `Pressure` warning, `Info` info), category to the `Category` axis, the doctrine anchor into the description; help links resolve to `tools/cs-analyzer/docs/rules/<id>.md`, and sync tests reject orphan rule prose.
+- `Describe` builds each `DiagnosticDescriptor` — `Tier` maps to severity (`Law` error, `Pressure` warning, `Info` info), category to the `Category` axis, the doctrine anchor into the description; `Catalog.HelpBase` composes each row's help URI, and `CatalogInvariants` rejects an orphan `[RuleSpec]` id.
 - Release ledgers (`AnalyzerReleases.Shipped.md`, `AnalyzerReleases.Unshipped.md`): the two `AdditionalFiles` consumed by the Microsoft release-tracking analyzer. They are the authoritative id-and-severity ledger; a row added to `Catalog.All` is reconciled here, and divergence between catalog and ledger is a build failure.
-- Vocabulary (`Kernel/Vocabulary.cs`): the data a rule discriminates against. `Prefixes` holds the operation-name prefix family that the modal-arity law rejects; `BannedSections` is a `DocumentationCommentId`-keyed map of forbidden host and BCL surfaces by section — `mutable-collections`, `time`, `ambient-state`, `admission-gate`, `admissible-types`. Rows resolve per compilation through `DocumentationCommentId.GetSymbolsForDeclarationId`; an unresolvable row stays inert rather than faulting.
+- Vocabulary (`Kernel/Vocabulary.cs`): the data a rule discriminates against. `Prefixes` holds the operation-name prefix family that the modal-arity law rejects; `BannedSections` is a `DocumentationCommentId`-keyed map of forbidden host and BCL surfaces by section. Rows resolve per compilation through `DocumentationCommentId.GetSymbolsForDeclarationId`; an unresolvable row stays inert rather than faulting.
 
 `Kernel/Row.cs` owns the row algebra: `RuleRow`, `RuleBinding` with its `Syntax` / `Operation` / `Symbol` / `SymbolStart` / `CompilationEnd` trigger factories (Roslyn `enum` kinds erased to `int` so the netstandard2.0 surface holds), and the `RuleContext` `ref struct` each check receives — carrying node, operation, symbol, the context-handed `SemanticModel`, resolved scope, and `CompilationFacts`. `Report` is the only diagnostic sink; it stamps `tier`, `doctrine`, and `scope` into SARIF properties.
 
@@ -38,4 +36,4 @@ This register is three code surfaces, not prose.
 
 `Directory.Build.props` wires the analyzer into every non-analyzer C# project as an `OutputItemType="Analyzer"` project reference with `ReferenceOutputAssembly="false"`; the analyzer, its test project, and `Csp.Contracts` carry `SkipLocalCSharpAnalyzerReference` to avoid self-reference, and `Csp.Contracts` is project-referenced by every consumer except the Roslyn component and itself.
 
-`Catalog.All` stays empty until a rule promotes — the rule-hosting machinery (scope resolution, bucketed dispatch, tier-to-severity mapping, vocabulary resolution, SARIF stamping, the release-ledger contract) hosts promoted rows without structural change. Each promotion lands as one `RuleRow` in `Catalog.All`, one ledger entry, any vocabulary additions, and the rule's positive and negative spans in `Csp.Analyzer.Tests`.
+Scope resolution, bucketed dispatch, tier-to-severity mapping, vocabulary resolution, SARIF stamping, and the release-ledger contract host rows without structural change. Each promotion lands as one `RuleRow` in `Catalog.All`, one ledger entry, any vocabulary additions, and the rule's positive and negative spans in `Csp.Analyzer.Tests`.

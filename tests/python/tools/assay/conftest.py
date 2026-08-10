@@ -25,7 +25,7 @@ from tests.python.tools.assay.kit import (
     install_cpu_double,
     RailProbe,
     read_one_envelope_from_bytes,
-    SeamExecutor,  # ruff:ignore[typing-only-first-party-import]  # fixture-signature annotation evaluated by pytest at runtime
+    SeamExecutor,  # fixture-signature annotation evaluated by pytest at runtime
     YakShape,
 )
 

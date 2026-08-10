@@ -23,7 +23,7 @@ from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.spec import assert_ok
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import AssayHarness  # ruff:ignore[typing-only-first-party-import]
+from tests.python.tools.assay.kit import AssayHarness
 from tools.assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
 from tools.assay.composition.store import ArtifactScope
 from tools.assay.core.exec import fan_out, run_check

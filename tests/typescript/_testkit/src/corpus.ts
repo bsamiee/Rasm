@@ -16,6 +16,7 @@ declare namespace Corpus {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _MANIFEST = 'MANIFEST.md';
+const _DEFINITION = 'contract.schema.json';
 const _EXTENSIONS = { bin: '.bin', json: '.json' } as const;
 
 // MESH_ADJACENCY_GOLDEN frozen expectation: the single-triangle canonical-adjacency stream and its seed-zero XxHash128 digest.
@@ -104,7 +105,8 @@ const _decoded = Schema.decodeUnknown(Schema.NonEmptyArray(Fixture), { errors: '
 const _pairs = (names: ReadonlyArray<string>): ReadonlyArray<Corpus.Pair> =>
     pipe(
         // A message name must precede the extension: an extension-only dotfile stray can never mint an empty-message pair.
-        Array.filter(names, (name) => /.\.(bin|json)$/.test(name)),
+        // The seam's contract.schema.json is its DEFINITION and never a message, so it mints no pair and unfreezes no pin.
+        Array.filter(names, (name) => name !== _DEFINITION && /.\.(bin|json)$/.test(name)),
         Array.groupBy((name) => name.replace(/\.(bin|json)$/, '')),
         (grouped) =>
             Array.map(Record.toEntries(grouped), ([message, files]) => ({

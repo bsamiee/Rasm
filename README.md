@@ -31,7 +31,7 @@ Each host row is `host` axis capability the owning branch supplies; a new host l
 |  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.       |
 |  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.      |
 |  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.    |
-|  [05]   | `tools/assay`        | Typed operator           | Static, test, bridge, package, code, docs, provision, and API evidence rails. |
+|  [05]   | `tools/assay`        | Typed operator           | Typed evidence rails across every claim; the CLI `--help` owns the roster.    |
 |  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
 |  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                      |
 |  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.          |
@@ -44,7 +44,7 @@ Each host row is `host` axis capability the owning branch supplies; a new host l
 
 ## [04]-[HOST_RUNTIME]
 
-RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
+RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output; those shared build properties own the roster.
 
 Live host evidence flows through the bridge plugin. Scenarios are source-only diagnostics under the relevant test or library mirror path; they do not carry `#r`, `#load`, or absolute build-output references. Its rail owns host-filtered reference projection, fresh artifact refs, scenario name injection, capture path injection, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity evidence.
 
@@ -56,10 +56,10 @@ Every root, tool, and library routes generated output through an owned store: `.
 
 - `tools/assay` is the repo operator: its registry owns public command shape, its envelopes own result interpretation, and it returns typed reports, artifacts, faults, routing notes, and evidence rather than stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 - `tools/assay provision` is the Rasm evidence envelope for Forge-provisioned server and native campaign facts. `Parametric_Forge` owns service composition, installed provisioning and scientific executables, Docker/Compose assets, credential and port policy, and native exports; Rasm owns the sanitized `ProvisionRun` facts, manifests, locks, `.api` catalogues, and evidence that consume those machine surfaces.
-- Rasm agents invoke Assay as `uv run python -m tools.assay provision <verb>`; the registry and per-claim `--help` own the verb census. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision`, `psql`, `paths`, `prune`, `self-test`, Docker/Compose, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
+- Rasm agents invoke Assay as `uv run python -m tools.assay provision <verb>`; the registry and per-claim `--help` own the verb census. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision` calls, Docker/Compose assets, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
 - `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
 - `tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
-- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. One root `biome.json` registers every rule at error, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
+- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. One root `biome.json` registers every rule with its path scope while each rule declares its own `severity` at `register_diagnostic`, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 - GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. Agent secrets arrive through the canonical `.claude/hooks/setup-env.sh` Doppler rail; custody law is the `secrets` skill.
 

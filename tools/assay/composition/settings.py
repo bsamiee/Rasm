@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
 import msgspec
 from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
-from pydantic_settings import (  # ruff:ignore[typing-only-third-party-import]  # Runtime annotations call the Pydantic source hook.
+from pydantic_settings import (  # Runtime annotations call the Pydantic source hook.
     BaseSettings,
     NoDecode,
     PydanticBaseSettingsSource,
@@ -26,10 +26,7 @@ from pydantic_settings import (  # ruff:ignore[typing-only-third-party-import]  
 from upath import UPath
 
 from tools.assay.composition.store import ArtifactStore, safe_segment
-from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # Settings/model field hooks evaluate these annotations at runtime.
-    ArtifactKind,
-    wire_safe,
-)
+from tools.assay.core.model import ArtifactKind, wire_safe  # Settings/model field hooks evaluate these annotations at runtime.
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -533,7 +530,7 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
         _ = (settings_cls, dotenv_settings, file_secret_settings)
         return (init_settings, env_settings)
 
-    @computed_field  # type: ignore[prop-decorator]  # mypy lacks computed_field+property support.
+    @computed_field
     @property
     def solution(self) -> UPath:
         """Resolve Workspace.slnx under the anchored root."""
@@ -558,7 +555,7 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
             case _:
                 return ""
 
-    @computed_field  # type: ignore[prop-decorator]  # mypy lacks computed_field+property support.
+    @computed_field
     @property
     def agent_context(self) -> dict[str, str]:
         """Build log and trace correlation tags."""

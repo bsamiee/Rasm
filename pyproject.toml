@@ -5,333 +5,340 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [GENERAL]
     "anyio",
-    "apscheduler",                                  # [RUNTIME]: cron, interval, and date triggers
-    "azure-identity",                               # [RUNTIME]: TokenCredential chain (DefaultAzureCredential) backing the Azure Key Vault SecretTier.cloud arm
-    "azure-keyvault-secrets",                       # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
+    "apscheduler",                                        # [RUNTIME]: cron, interval, and date triggers
+    "azure-identity",                                     # [RUNTIME]: TokenCredential chain (DefaultAzureCredential) backing the Azure Key Vault SecretTier.cloud arm
+    "azure-keyvault-secrets",                             # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
     "beartype",
-    "cloudpickle",                                  # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
-    "cryptography",                                 # [RUNTIME]: AES-GCM envelope and key-wrap primitives behind the journal's per-subject crypto-shredding
+    "cloudpickle",                                        # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
+    "cryptography",                                       # [RUNTIME]: AES-GCM envelope and key-wrap primitives behind the journal's per-subject crypto-shredding
     "cyclopts",
     "expression",
-    "google-cloud-secret-manager",                  # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
-    "google-crc32c",                                # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
-    "hvac",                                         # [RUNTIME]: HashiCorp Vault secret backend closing the SecretTier.cloud provider family beside the GCP arm
-    "jinja2",                                       # [ARTIFACTS]: report templating between visual and document outputs
-    "keyring",                                      # [RUNTIME]: OS keychain credential boundary
-    "lark",                                         # [GEOMETRY]: IDS and selector parsing grammar
-    "loky",                                         # [RUNTIME]: warm reusable crash-respawning process pool for the worker crossing
-    "lxml",                                         # [ARTIFACTS]: XML processing
+    "google-cloud-secret-manager",                        # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
+    "google-crc32c",                                      # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
+    "hvac",                                               # [RUNTIME]: HashiCorp Vault secret backend closing the SecretTier.cloud provider family beside the GCP arm
+    "jinja2",                                             # [ARTIFACTS]: report templating between visual and document outputs
+    "keyring",                                            # [RUNTIME]: OS keychain credential boundary
+    "lark",                                               # [GEOMETRY]: IDS and selector parsing grammar
+    "loky",                                               # [RUNTIME]: warm reusable crash-respawning process pool for the worker crossing
+    "lxml",                                               # [ARTIFACTS]: XML processing
     "msgspec",
     "opentelemetry-api",
-    "opentelemetry-exporter-otlp-proto-grpc",       # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
+    "opentelemetry-exporter-otlp-proto-grpc",             # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
-    "opentelemetry-instrumentation-asyncio",        # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker crossing
-    "opentelemetry-instrumentation-dbapi",          # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
-    "opentelemetry-instrumentation-grpc",           # [RUNTIME]: gRPC server/client span instrumentation for server/serve
-    "opentelemetry-instrumentation-httpx",          # [TRANSPORT]: httpx client spans carrying W3C trace context
-    "opentelemetry-instrumentation-jinja2",         # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
-    "opentelemetry-instrumentation-psycopg",        # [RUNTIME]: psycopg v3 DBAPI spans, composed by the runtime instrumentor train
-    "opentelemetry-instrumentation-sqlite3",        # [RUNTIME]: stdlib sqlite3 DBAPI spans, composed by the runtime instrumentor train
-    "opentelemetry-instrumentation-system-metrics", # [RUNTIME]: host and process gauges over psutil
-    "opentelemetry-instrumentation-threading",      # [RUNTIME]: cross-thread trace-context propagation
-    "opentelemetry-processor-baggage",              # [RUNTIME]: baggage-to-span-attribute promotion for the tenant dimension
-    "opentelemetry-resource-detector-containerid",  # [RUNTIME]: container.id resource detector for containerized daemon identity
+    "opentelemetry-instrumentation-asyncio",              # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker crossing
+    "opentelemetry-instrumentation-dbapi",                # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
+    "opentelemetry-instrumentation-grpc",                 # [RUNTIME]: gRPC server/client span instrumentation for server/serve
+    "opentelemetry-instrumentation-httpx",                # [TRANSPORT]: httpx client spans carrying W3C trace context
+    "opentelemetry-instrumentation-jinja2",               # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
+    "opentelemetry-instrumentation-psycopg",              # [RUNTIME]: psycopg v3 DBAPI spans, composed by the runtime instrumentor train
+    "opentelemetry-instrumentation-sqlite3",              # [RUNTIME]: stdlib sqlite3 DBAPI spans, composed by the runtime instrumentor train
+    "opentelemetry-instrumentation-system-metrics",       # [RUNTIME]: host and process gauges over psutil
+    "opentelemetry-instrumentation-threading",            # [RUNTIME]: cross-thread trace-context propagation
+    "opentelemetry-processor-baggage",                    # [RUNTIME]: baggage-to-span-attribute promotion for the tenant dimension
+    "opentelemetry-resource-detector-containerid",        # [RUNTIME]: container.id resource detector for containerized daemon identity
     "opentelemetry-sdk",
-    "opentelemetry-semantic-conventions",           # [RUNTIME]: Schemas roster the one branch schema-url pin reads, so a semconv bump moves the pin
-    "pebble",                                       # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
+    "opentelemetry-semantic-conventions",                 # [RUNTIME]: Schemas roster the one branch schema-url pin reads, so a semconv bump moves the pin
+    "pebble",                                             # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "psutil",
     "pydantic",
-    "pyroscope-io",                                 # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link rail
-    "pyroscope-otel",                               # [RUNTIME]: continuous-profiling span links beside the OTLP rails
+    "pyroscope-io",                                       # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link rail
+    "pyroscope-otel",                                     # [RUNTIME]: continuous-profiling span links beside the OTLP rails
     "pydantic-settings",
     "ruamel-yaml",
     "stamina",
     "structlog",
-    "tblib",                                        # [RUNTIME]: cross-process traceback fidelity for worker faults
+    "tblib",                                              # [RUNTIME]: cross-process traceback fidelity for worker faults
     "tomlkit",
-    "tree-sitter<0.26",                             # [TOOLING]: 0.26.0 Node ancestor-traversal use-after-free segfaults the assay TSDECL rail (py-tree-sitter #472)
+    "tree-sitter<0.26",                                   # [TOOLING]: 0.26.0 Node ancestor-traversal use-after-free segfaults the assay TSDECL rail (py-tree-sitter #472)
     "tree-sitter-python",
     "tree-sitter-typescript",
-    "trio",                                         # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
-    "wasmtime",                                     # [RUNTIME]: in-process WASM guest sandbox for the SANDBOXED worker kind
+    "trio",                                               # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
+    "wasmtime",                                           # [RUNTIME]: in-process WASM guest sandbox for the SANDBOXED worker kind
     "watchfiles",
-    "xxhash",                                       # [RUNTIME]: content identity hashes matching C# System.IO.Hashing
+    "xxhash",                                             # [RUNTIME]: content identity hashes matching C# System.IO.Hashing
     # --- [IO_TRANSPORT]
-    "asyncssh",                                     # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
-    "brotli",                                       # [ARTIFACTS]: compression
-    "cloudevents",                                  # [ARTIFACTS]: CloudEvents structured/binary bindings and distributed-tracing extension for the TransmittalNotice issue envelope
-    "detools",                                      # [ARTIFACTS]: binary-delta engine
-    "fsspec",                                       # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
-    "grpcio",                                       # [RUNTIME]: gRPC transport for ServerHost serve paths
-    "grpcio-health-checking",                       # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
-    "grpcio-tools",                                 # [RUNTIME]: gRPC protoc codegen companion
-    "hishel[httpx]",                                # [TRANSPORT]: RFC-9111 HTTP cache layer over the httpx transport legs with a persistent sqlite store
-    "httpx",                                        # [TRANSPORT]: approved HTTP client surface for typed adapters
-    "lz4",                                          # [ARTIFACTS]: compression
-    "obspec-utils",                                 # [DATA]: multi-store ObjectStoreRegistry companion to obstore
-    "obstore",                                      # [DATA]: object-store backend
-    "protobuf",                                     # [RUNTIME]: transport wire codec
+    "asyncssh",                                           # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
+    "brotli",                                             # [ARTIFACTS]: compression
+    "cloudevents",                                        # [ARTIFACTS]: CloudEvents envelope and the HTTP/Kafka/AMQP/MQTT binding set carrying the W3C trace-and-baggage extensions
+    "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because orjson compiles against pre-3.15 CPython internals
+    "detools",                                            # [ARTIFACTS]: binary-delta engine
+    "fastavro",                                           # [RUNTIME]: Avro codec under the Schema Registry serializer and the `parse_schema` validator the branch reads `.avsc` documents through
+    "fsspec",                                             # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
+    "grpcio",                                             # [RUNTIME]: gRPC transport for ServerHost serve paths
+    "grpcio-health-checking",                             # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
+    "grpcio-tools",                                       # [RUNTIME]: gRPC protoc codegen companion
+    "hishel[httpx]",                                      # [TRANSPORT]: RFC-9111 HTTP cache layer over the httpx transport legs with a persistent sqlite store
+    "httpx",                                              # [TRANSPORT]: approved HTTP client surface for typed adapters
+    "jsonschema",                                         # [RUNTIME]: validates a payload against a fetched JSON Schema document, the direction `msgspec.json.schema` emission cannot answer
+    "lz4",                                                # [ARTIFACTS]: compression
+    "nats-py",                                            # [RUNTIME]: NATS core and JetStream client for the subject-addressed transport arm
+    "obspec-utils",                                       # [DATA]: multi-store ObjectStoreRegistry companion to obstore
+    "obstore",                                            # [DATA]: object-store backend
+    "paho-mqtt",                                          # [RUNTIME]: MQTT client for the telemetry and edge-device transport arm
+    "pika",                                               # [RUNTIME]: blocking AMQP 0-9-1 client riding the `to_thread` arm, importing no asyncio
+    "protobuf",                                           # [RUNTIME]: transport wire codec
     "py7zr",
-    "stream-unzip",                                 # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
-    "stream-zip",                                   # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
-    "universal-pathlib",                            # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
-    "zlib-ng",                                      # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
-    "zstandard",                                    # [TOOLING]: zstd compression for tools.assay logging and cache payloads
+    "python-dateutil",                                    # [ARTIFACTS]: RFC-3339 `isoparse` the `cloudevents.core.bindings` and format modules import at module scope
+    "stream-unzip",                                       # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
+    "stream-zip",                                         # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
+    "universal-pathlib",                                  # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
+    "zlib-ng",                                            # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
+    "zstandard",                                          # [TOOLING]: zstd compression for tools.assay logging and cache payloads
     # --- [NUMERICS_SOLVERS]
-    "array-api-compat",                             # [COMPUTE]: array API portability shim
-    "array-api-extra",                              # [COMPUTE]: supplemental array API helpers
-    "clarabel",                                     # [COMPUTE]: Clarabel conic solver and cvxpy backend
-    "cvxpy<1.9",                                    # [COMPUTE]: disciplined convex optimization; 1.9 pulls sparsediffpy whose OpenMP CMake build fails (no cp315 wheel)
-    "diffrax; python_version<'3.15'",               # [COMPUTE]: JAX differential-equation solvers
-    "equinox; python_version<'3.15'",               # [COMPUTE]: JAX PyTree modules
-    "findiff",                                      # [COMPUTE]: finite-difference operators for solvers and sensitivity
-    "gmsh",                                         # [COMPUTE]: 1/2/3-D unstructured mesh generation with physical groups feeding scikit-fem assembly and the meshio round-trip
-    "highspy",                                      # [COMPUTE]: HiGHS LP/MIP/QP simplex + interior-point solver; cvxpy backend beside the Clarabel/SCS conic arms
-    "interpax; python_version<'3.15'",              # [COMPUTE]: JAX interpolation and splines
-    "jax; python_version<'3.15'",                   # [COMPUTE]: XLA accelerator; jax is pure-Python and the marker gates its mandatory jaxlib pin, which ships no cp315 wheel and no sdist at any release
-    "jaxtyping",                                    # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
-    "lineax; python_version<'3.15'",                # [COMPUTE]: JAX linear solvers
-    "mpmath",                                       # [COMPUTE]: arbitrary-precision real and complex math
-    "numba; python_version<'3.15'",                 # [COMPUTE]: LLVM JIT accelerator; setup.py refuses cp315
-    "numpy",                                        # [COMPUTE]: array substrate
-    "optax; python_version<'3.15'",                 # [COMPUTE]: first-order JAX optimizers for optimistix
-    "optimistix; python_version<'3.15'",            # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
-    "pint",                                         # [COMPUTE]: unit registry and quantity arithmetic
-    "python-flint",                                 # [COMPUTE]: Arb interval numerics
-    "pywavelets",                                   # [COMPUTE]: discrete and continuous wavelet transforms
-    "quadax; python_version<'3.15'",                # [COMPUTE]: JAX adaptive quadrature
-    "scikit-fem",                                   # [COMPUTE]: FEM assembly
-    "scipy",                                        # [COMPUTE]: numerical algorithms
-    "scs",                                          # [COMPUTE]: SCS first-order operator-splitting conic solver beside Clarabel; cvxpy SCS backend
-    "sectionproperties",                            # [GEOMETRY]: cross-section property solver enrichment
-    "sparse; python_version<'3.15'",                # [COMPUTE]: sparse n-D arrays; hard numba dep
-    "sympy",                                        # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
-    "uncertainties",                                # [COMPUTE]: first-order error propagation with correlated_values/unumpy
+    "array-api-compat",                                   # [COMPUTE]: array API portability shim
+    "array-api-extra",                                    # [COMPUTE]: supplemental array API helpers
+    "clarabel",                                           # [COMPUTE]: Clarabel conic solver and cvxpy backend
+    "cvxpy<1.9",                                          # [COMPUTE]: disciplined convex optimization; 1.9 pulls sparsediffpy whose OpenMP CMake build fails (no cp315 wheel)
+    "diffrax; python_version<'3.15'",                     # [COMPUTE]: JAX differential-equation solvers
+    "equinox; python_version<'3.15'",                     # [COMPUTE]: JAX PyTree modules
+    "findiff",                                            # [COMPUTE]: finite-difference operators for solvers and sensitivity
+    "gmsh",                                               # [COMPUTE]: 1/2/3-D unstructured mesh generation with physical groups feeding scikit-fem assembly and the meshio round-trip
+    "highspy",                                            # [COMPUTE]: HiGHS LP/MIP/QP simplex + interior-point solver; cvxpy backend beside the Clarabel/SCS conic arms
+    "interpax; python_version<'3.15'",                    # [COMPUTE]: JAX interpolation and splines
+    "jax; python_version<'3.15'",                         # [COMPUTE]: XLA accelerator; jax is pure-Python and the marker gates its mandatory jaxlib pin, which ships no cp315 wheel and no sdist at any release
+    "jaxtyping",                                          # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
+    "lineax; python_version<'3.15'",                      # [COMPUTE]: JAX linear solvers
+    "mpmath",                                             # [COMPUTE]: arbitrary-precision real and complex math
+    "numba; python_version<'3.15'",                       # [COMPUTE]: LLVM JIT accelerator; setup.py refuses cp315
+    "numpy",                                              # [COMPUTE]: array substrate
+    "optax; python_version<'3.15'",                       # [COMPUTE]: first-order JAX optimizers for optimistix
+    "optimistix; python_version<'3.15'",                  # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
+    "pint",                                               # [COMPUTE]: unit registry and quantity arithmetic
+    "python-flint",                                       # [COMPUTE]: Arb interval numerics
+    "pywavelets",                                         # [COMPUTE]: discrete and continuous wavelet transforms
+    "quadax; python_version<'3.15'",                      # [COMPUTE]: JAX adaptive quadrature
+    "scikit-fem",                                         # [COMPUTE]: FEM assembly
+    "scipy",                                              # [COMPUTE]: numerical algorithms
+    "scs",                                                # [COMPUTE]: SCS first-order operator-splitting conic solver beside Clarabel; cvxpy SCS backend
+    "sectionproperties",                                  # [GEOMETRY]: cross-section property solver enrichment
+    "sparse; python_version<'3.15'",                      # [COMPUTE]: sparse n-D arrays; hard numba dep
+    "sympy",                                              # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
+    "uncertainties",                                      # [COMPUTE]: first-order error propagation with correlated_values/unumpy
     # --- [STATISTICS_ML]
-    "arviz",                                        # [COMPUTE]: Bayesian diagnostics
-    "blackjax; python_version<'3.15'",              # [COMPUTE]: JAX NUTS/HMC samplers
-    "numpyro; python_version<'3.15'",               # [COMPUTE]: JAX NUTS sampler
-    "nutpie",                                       # [COMPUTE]: Rust NUTS sampler for PyMC
-    "onnx",                                         # [COMPUTE]: model graph IR
-    "onnxruntime; python_version<'3.15'",           # [COMPUTE]: model runtime
-    "pyDOE3",                                       # [COMPUTE]: classical DOE design matrices — factorial, fractional-factorial, Box-Behnken, central-composite, Plackett-Burman, and GSD response-surface designs beside the SALib samplers and scipy.qmc floors
-    "pymc<5.27",                                    # [COMPUTE]: probabilistic programming; ceiling holds pytensor 2 — pytensor 3 hard-requires numba
-    "salib",                                        # [COMPUTE]: global sensitivity analysis
-    "scikit-learn",                                 # [COMPUTE]: classical ML and ONNX export
-    "skl2onnx",                                     # [COMPUTE]: sklearn-to-ONNX converter
+    "arviz",                                              # [COMPUTE]: Bayesian diagnostics
+    "blackjax; python_version<'3.15'",                    # [COMPUTE]: JAX NUTS/HMC samplers
+    "numpyro; python_version<'3.15'",                     # [COMPUTE]: JAX NUTS sampler
+    "nutpie",                                             # [COMPUTE]: Rust NUTS sampler for PyMC
+    "onnx",                                               # [COMPUTE]: model graph IR
+    "onnxruntime; python_version<'3.15'",                 # [COMPUTE]: model runtime; wheels cap at cp314 and the project ships no sdist
+    "pyDOE3",                                             # [COMPUTE]: classical DOE design matrices — factorial, fractional-factorial, Box-Behnken, central-composite, Plackett-Burman, and GSD response-surface designs beside the SALib samplers and scipy.qmc floors
+    "pymc<6",                                             # [COMPUTE]: probabilistic programming; the 6 line moves to pytensor 3, which hard-requires numba
+    "salib",                                              # [COMPUTE]: global sensitivity analysis
+    "scikit-learn",                                       # [COMPUTE]: classical ML and ONNX export
+    "skl2onnx",                                           # [COMPUTE]: sklearn-to-ONNX converter
     # --- [DATAFRAMES_QUERY]
-    "connectorx; python_version<'3.15'",            # [DATA]: SQL-to-Arrow loader
-    "cubed",                                        # [DATA]: bounded-memory distributed arrays
-    "daft",                                         # [DATA]: distributed and streaming out-of-core engine
-    "dask",                                         # [DATA_COMPUTE]: out-of-core arrays and dataframes; passive array_namespace backend
-    "dataframely",                                  # [DATA]: polars-native declarative column rules with FailureInfo partition reporting
-    "datafusion",                                   # [DATA]: federation and streaming engine with Substrait plan interchange
-    "duckdb",                                       # [DATA]: analytical SQL engine
-    "fastexcel",                                    # [DATA]: calamine Rust Arrow Excel reader
-    "ibis-framework",                               # [DATA]: backend-agnostic SQL-expression IR
-    "narwhals",                                     # [DATA_COMPUTE]: dataframe-agnostic API; the compute DOE-frame lens
-    "pandas",                                       # [DATA]: dataframe substrate
-    "pandera",                                      # [DATA]: schema and quality-rule contracts
-    "pointblank",                                   # [DATA]: graded data-quality observability tier above pass/fail checks
-    "polars",                                       # [DATA]: dataframe engine
-    "sqlglot",                                      # [DATA]: SQL parser, transpiler, optimizer, and lineage engine
-    "substrait[extensions]",                        # [DATA]: typed Substrait plan IR — protobuf Plan model, extension registry, and validator gating Persistence plan bytes pre-execution
+    "connectorx; python_version<'3.15'",                  # [DATA]: SQL-to-Arrow loader; wheels cap at cp314 and the project ships no sdist
+    "cubed",                                              # [DATA]: bounded-memory distributed arrays
+    "daft",                                               # [DATA]: distributed and streaming out-of-core engine
+    "dask",                                               # [DATA_COMPUTE]: out-of-core arrays and dataframes; passive array_namespace backend
+    "dataframely",                                        # [DATA]: polars-native declarative column rules with FailureInfo partition reporting
+    "datafusion",                                         # [DATA]: federation and streaming engine with Substrait plan interchange
+    "duckdb",                                             # [DATA]: analytical SQL engine
+    "fastexcel",                                          # [DATA]: calamine Rust Arrow Excel reader
+    "ibis-framework",                                     # [DATA]: backend-agnostic SQL-expression IR
+    "narwhals",                                           # [DATA_COMPUTE]: dataframe-agnostic API; the compute DOE-frame lens
+    "pandas",                                             # [DATA]: dataframe substrate
+    "pandera",                                            # [DATA]: schema and quality-rule contracts
+    "pointblank",                                         # [DATA]: graded data-quality observability tier above pass/fail checks
+    "polars",                                             # [DATA]: dataframe engine
+    "sqlglot",                                            # [DATA]: SQL parser, transpiler, optimizer, and lineage engine
+    "substrait[extensions]",                              # [DATA]: typed Substrait plan IR — protobuf Plan model, extension registry, and validator gating Persistence plan bytes pre-execution
     # --- [ARROW_LAKEHOUSE]
-    "adbc-driver-flightsql",                        # [DATA]: Arrow Flight SQL distributed remote driver
-    "adbc-driver-manager",                          # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
-    "adbc-driver-postgresql",                       # [DATA]: native ADBC PostgreSQL driver — bulk COPY ingest and partitioned Arrow reads
-    "adbc-driver-snowflake",                        # [DATA]: native ADBC Snowflake driver — cloud warehouse federation, result-chunk partitioning, and Arrow bulk ingest
-    "adbc-driver-sqlite",                           # [DATA]: native ADBC SQLite driver — local-file federation and in-memory Arrow ingest
-    "arro3-compute",                                # [DATA]: Arrow compute kernels — closes the pa.table re-import hop on the materialize CDF path
-    "arro3-core",                                   # [DATA]: Arrow core bridge
-    "arro3-io",                                     # [DATA]: pyarrow-free Arrow IPC/Parquet/CSV/JSON/NDJSON readers-writers — the slim carrier-leg codec over the arro3.core memory model
-    "deltalake",                                    # [DATA]: lakehouse tables
-    "nanoarrow",                                    # [DATA]: Arrow C Data Interface interop
-    "pyarrow<24",                                   # [DATA]: Arrow C++ bridge; ceiling tracks the Forge arrow-cpp major
-    "pyiceberg",                                    # [DATA]: Apache Iceberg tables
-    "pylance",                                      # [DATA]: Lance columnar/vector format
+    "adbc-driver-flightsql",                              # [DATA]: Arrow Flight SQL distributed remote driver
+    "adbc-driver-manager",                                # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
+    "adbc-driver-postgresql",                             # [DATA]: native ADBC PostgreSQL driver — bulk COPY ingest and partitioned Arrow reads
+    "adbc-driver-snowflake",                              # [DATA]: native ADBC Snowflake driver — cloud warehouse federation, result-chunk partitioning, and Arrow bulk ingest
+    "adbc-driver-sqlite",                                 # [DATA]: native ADBC SQLite driver — local-file federation and in-memory Arrow ingest
+    "arro3-compute",                                      # [DATA]: Arrow compute kernels — closes the pa.table re-import hop on the materialize CDF path
+    "arro3-core",                                         # [DATA]: Arrow core bridge
+    "arro3-io",                                           # [DATA]: pyarrow-free Arrow IPC/Parquet/CSV/JSON/NDJSON readers-writers — the slim carrier-leg codec over the arro3.core memory model
+    "deltalake",                                          # [DATA]: lakehouse tables
+    "nanoarrow",                                          # [DATA]: Arrow C Data Interface interop
+    "pyarrow<24",                                         # [DATA]: Arrow C++ bridge; ceiling tracks the Forge arrow-cpp major
+    "pyiceberg",                                          # [DATA]: Apache Iceberg tables
+    "pylance",                                            # [DATA]: Lance columnar/vector format
     # --- [ARRAY_STORES]
-    "awkward",                                      # [DATA]: ragged arrays
-    "flox",                                         # [DATA]: vectorized and parallel grouped reductions for xarray
-    "h5netcdf",                                     # [DATA]: pure-h5py netCDF-4 engine for FieldEngine.H5NETCDF
-    "h5py",                                         # [DATA]: HDF5 arrays
-    "icechunk",                                     # [DATA]: versioned tensor store
-    "netcdf4",                                      # [DATA]: CFD and field IO
-    "numcodecs",                                    # [DATA]: zarr v3 filter and compressor codec registry
-    "tensorstore; python_version<'3.15'",           # [DATA]: high-throughput async zarr-v3 reader
-    "virtualizarr",                                 # [DATA]: archival reference aggregation into virtual Zarr
-    "xarray",                                       # [DATA_COMPUTE]: labelled field datasets; the compute DataTree/labelled-array arms
-    "zarr",                                         # [DATA]: chunked n-D arrays
+    "awkward",                                            # [DATA]: ragged arrays
+    "flox",                                               # [DATA]: vectorized and parallel grouped reductions for xarray
+    "h5netcdf",                                           # [DATA]: pure-h5py netCDF-4 engine for FieldEngine.H5NETCDF
+    "h5py",                                               # [DATA]: HDF5 arrays
+    "icechunk",                                           # [DATA]: versioned tensor store
+    "netcdf4",                                            # [DATA]: CFD and field IO
+    "numcodecs",                                          # [DATA]: zarr v3 filter and compressor codec registry
+    "tensorstore; python_version<'3.15'",                 # [DATA]: high-throughput async zarr-v3 reader; wheels cap at cp314 and the sdist needs bazel, absent from the Forge lane
+    "virtualizarr",                                       # [DATA]: archival reference aggregation into virtual Zarr
+    "xarray",                                             # [DATA_COMPUTE]: labelled field datasets; the compute DataTree/labelled-array arms
+    "zarr",                                               # [DATA]: chunked n-D arrays
     # --- [GEOSPATIAL]
-    "geoarrow-pyarrow",                             # [DATA]: pyarrow-native GeoArrow ExtensionType registration and geopandas/pandas ExtensionDtype interop bridge
-    "geoarrow-rust-compute",                        # [DATA]: GeoRust operations on GeoArrow memory
-    "geoarrow-rust-core",                           # [DATA]: GeoArrow geometry array memory model under the GeoRust compute kernels
-    "geoarrow-rust-io",                             # [DATA]: GeoArrow-native FlatGeobuf/GeoParquet/shapefile/GeoJSON readers-writers, the GDAL-free fast path
-    "geopandas",                                    # [DATA]: geospatial frames
-    "h3ronpy",                                      # [DATA]: Arrow-native H3 cell ops on polars frames
-    "kiss-matcher; python_version<'3.15'",          # [GEOMETRY]: global point-cloud registration
-    "laspy",                                        # [DATA]: LAS/LAZ point-cloud IO
-    "laszip",                                       # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
-    "lazrs",                                        # [DATA]: compressed-COPC LAZ backend for laspy.copc
-    "odc-stac",                                     # [DATA]: lazy dask cube from discovered STAC items
-    "pdal",                                         # [GEOMETRY]: point-cloud pipeline
-    "planetary-computer",                           # [DATA]: STAC URL signing for Client.open modifiers and odc.stac patch_url
-    "polars-st",                                    # [DATA]: spatial-typed polars frames for the DGGS/spatial-frame plane
-    "pye57; python_version<'3.15'",                 # [GEOMETRY]: E57 scan IO; sdist hardcodes /usr/local xerces-c (no cp315 wheel)
-    "pyogrio",                                      # [DATA]: GDAL vector IO
-    "pyproj",                                       # [DATA]: PROJ coordinate transforms
-    "pystac",                                       # [DATA]: STAC item and collection object model
-    "pystac-client",                                # [DATA]: STAC API search and discovery client
-    "rasterio",                                     # [DATA]: raster geospatial IO
-    "rioxarray",                                    # [DATA]: rasterio accessor bridging ndarray to CF DataArray and COG raster write
-    "shapely",                                      # [DATA]: planar operations
-    "stac-geoparquet; python_version<'3.15'",       # [DATA]: STAC item GeoParquet table interchange; hard orjson dep — orjson compiles against pre-3.15 CPython internals (no cp315 wheel)
-    "xarray-spatial; python_version<'3.15'",        # [DATA]: raster terrain analytics
-    "xvec",                                         # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
+    "geoarrow-pyarrow",                                   # [DATA]: pyarrow-native GeoArrow ExtensionType registration and geopandas/pandas ExtensionDtype interop bridge
+    "geoarrow-rust-compute",                              # [DATA]: GeoRust operations on GeoArrow memory
+    "geoarrow-rust-core",                                 # [DATA]: GeoArrow geometry array memory model under the GeoRust compute kernels
+    "geoarrow-rust-io",                                   # [DATA]: GeoArrow-native FlatGeobuf/GeoParquet/shapefile/GeoJSON readers-writers, the GDAL-free fast path
+    "geopandas",                                          # [DATA]: geospatial frames
+    "h3ronpy",                                            # [DATA]: Arrow-native H3 cell ops on polars frames
+    "kiss-matcher; python_version<'3.15'",                # [GEOMETRY]: global point-cloud registration; wheels cap at cp312
+    "laspy",                                              # [DATA]: LAS/LAZ point-cloud IO
+    "laszip",                                             # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
+    "lazrs",                                              # [DATA]: compressed-COPC LAZ backend for laspy.copc
+    "odc-stac",                                           # [DATA]: lazy dask cube from discovered STAC items
+    "pdal",                                               # [GEOMETRY]: point-cloud pipeline
+    "planetary-computer",                                 # [DATA]: STAC URL signing for Client.open modifiers and odc.stac patch_url
+    "polars-st",                                          # [DATA]: spatial-typed polars frames for the DGGS/spatial-frame plane
+    "pye57; python_version<'3.15'",                       # [GEOMETRY]: E57 scan IO; sdist hardcodes /usr/local xerces-c (no cp315 wheel)
+    "pyogrio",                                            # [DATA]: GDAL vector IO
+    "pyproj",                                             # [DATA]: PROJ coordinate transforms
+    "pystac",                                             # [DATA]: STAC item and collection object model
+    "pystac-client",                                      # [DATA]: STAC API search and discovery client
+    "rasterio",                                           # [DATA]: raster geospatial IO
+    "rioxarray",                                          # [DATA]: rasterio accessor bridging ndarray to CF DataArray and COG raster write
+    "shapely",                                            # [DATA]: planar operations
+    "stac-geoparquet; python_version<'3.15'",             # [DATA]: STAC item GeoParquet table interchange; hard orjson dep — orjson compiles against pre-3.15 CPython internals (no cp315 wheel)
+    "xarray-spatial; python_version<'3.15'",              # [DATA]: raster terrain analytics; numba-gated
+    "xvec",                                               # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
     # --- [GEOMETRY_CAD]
-    "cadquery-ocp; python_version<'3.15'",          # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel
-    "compas",                                       # [GEOMETRY]: algebra toolkit
-    "compas_dr",                                    # [GEOMETRY]: COMPAS dynamic relaxation
-    "compas_tna",                                   # [GEOMETRY]: COMPAS thrust-network analysis
-    "manifold3d",                                   # [GEOMETRY]: robust mesh booleans
-    "meshio",                                       # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
-    "open3d; python_version<'3.15'",                # [GEOMETRY]: point-cloud and mesh processing; wheels cap at cp312 (no cp315 wheel)
-    "probreg; python_version<'3.15'",               # [GEOMETRY]: probabilistic CPD/FilterReg/SVR/GMMTree/BCPD non-rigid registration; sdist-only native (Eigen/OpenMP/pybind11) build with a hard open3d dep (no cp315 wheel)
-    "python-fcl; python_version<'3.15'",            # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm
-    "rhino3dm",                                     # [DATA]: Rhino mesh and 3DM IO
-    "rtree",                                        # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
-    "small-gicp",                                   # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
-    "topologicpy",                                  # [GEOMETRY]: non-manifold topology graph modeling
+    "cadquery-ocp; python_version<'3.15'",                # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel; the release declares Requires-Python <3.15 and ships no sdist
+    "compas",                                             # [GEOMETRY]: algebra toolkit
+    "compas_dr",                                          # [GEOMETRY]: COMPAS dynamic relaxation
+    "compas_tna",                                         # [GEOMETRY]: COMPAS thrust-network analysis
+    "manifold3d",                                         # [GEOMETRY]: robust mesh booleans
+    "meshio",                                             # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
+    "open3d; python_version<'3.15'",                      # [GEOMETRY]: point-cloud and mesh processing; wheels cap at cp312 (no cp315 wheel)
+    "probreg; python_version<'3.15'",                     # [GEOMETRY]: probabilistic CPD/FilterReg/SVR/GMMTree/BCPD non-rigid registration; sdist-only native (Eigen/OpenMP/pybind11) build with a hard open3d dep (no cp315 wheel)
+    "python-fcl; python_version<'3.15'",                  # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm; wheels cap at cp314 and the project ships no sdist
+    "rhino3dm",                                           # [DATA]: Rhino mesh and 3DM IO
+    "rtree",                                              # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
+    "small-gicp",                                         # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
+    "topologicpy",                                        # [GEOMETRY]: non-manifold topology graph modeling
     "trimesh",
-    "usd-core; python_version<'3.15'",              # [ARTIFACTS]: USD/USDZ scene packaging; `pxr` imports live from the Forge python-overlay `.pth`, and the marker holds resolution until upstream ships a cp315 wheel
+    "usd-core; python_version<'3.15'",                    # [ARTIFACTS]: USD/USDZ scene packaging; the release declares Requires-Python <3.15 and ships no sdist, so `pxr` imports live from the Forge python-overlay `.pth`
     # --- [BIM_ENERGY]
-    "bcf-client",                                   # [GEOMETRY]: BCF 3.0 coordination XML
-    "dragonfly-core",                               # [GEOMETRY]: Dragonfly district and urban model object graph
-    "dragonfly-energy",                             # [GEOMETRY]: Dragonfly energy model aggregation and translation
-    "honeybee-core",                                # [GEOMETRY]: HBJSON base object model and validation companion
-    "honeybee-energy",                              # [GEOMETRY]: Honeybee energy model construction and simulation exchange
-    "honeybee-energy-standards",                    # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
-    "honeybee-openstudio",                          # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
-    "honeybee-standards",                           # [GEOMETRY]: baseline default construction/program/schedule standards for Honeybee energy models
-    "ifc4d",                                        # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange
-    "ifc5d",                                        # [GEOMETRY]: IFC 5D quantity and cost extraction
-    "ifcclash",                                     # [GEOMETRY]: IFC clash-detection sets
-    "ifccsv",                                       # [GEOMETRY]: IFC to CSV/ODS/XLSX/Pandas schedule round-trip
-    "ifcdiff",                                      # [GEOMETRY]: IFC revision diff
-    "ifcopenshell",                                 # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring
-    "ifcpatch",                                     # [GEOMETRY]: IFC patch and migration recipes
-    "ifctester",                                    # [GEOMETRY]: IDS validation over IFC models
-    "ladybug-comfort",                              # [GEOMETRY]: comfort-model calculations
-    "ladybug-core",                                 # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
-    "ladybug-geometry",                             # [GEOMETRY]: Ladybug planar and solid geometry primitives
-    "lbt-recipes",                                  # [RUNTIME]: Ladybug Tools recipe wrappers and simulation workflows
-    "pollination-handlers",                         # [RUNTIME]: Pollination job handler and recipe execution adapters
-    "pvlib",                                        # [ARTIFACTS]: solar position and irradiance modeling for the solar diagram owner
-    "queenbee",                                     # [RUNTIME]: recipe and workflow schema contract models
+    "bcf-client",                                         # [GEOMETRY]: BCF 3.0 coordination XML
+    "dragonfly-core",                                     # [GEOMETRY]: Dragonfly district and urban model object graph
+    "dragonfly-energy",                                   # [GEOMETRY]: Dragonfly energy model aggregation and translation
+    "honeybee-core",                                      # [GEOMETRY]: HBJSON base object model and validation companion
+    "honeybee-energy",                                    # [GEOMETRY]: Honeybee energy model construction and simulation exchange
+    "honeybee-energy-standards",                          # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
+    "honeybee-openstudio",                                # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
+    "honeybee-standards",                                 # [GEOMETRY]: baseline default construction/program/schedule standards for Honeybee energy models
+    "ifc4d",                                              # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange
+    "ifc5d",                                              # [GEOMETRY]: IFC 5D quantity and cost extraction
+    "ifcclash",                                           # [GEOMETRY]: IFC clash-detection sets
+    "ifccsv",                                             # [GEOMETRY]: IFC to CSV/ODS/XLSX/Pandas schedule round-trip
+    "ifcdiff",                                            # [GEOMETRY]: IFC revision diff
+    "ifcopenshell",                                       # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring
+    "ifcpatch",                                           # [GEOMETRY]: IFC patch and migration recipes
+    "ifctester",                                          # [GEOMETRY]: IDS validation over IFC models
+    "ladybug-comfort",                                    # [GEOMETRY]: comfort-model calculations
+    "ladybug-core",                                       # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
+    "ladybug-geometry",                                   # [GEOMETRY]: Ladybug planar and solid geometry primitives
+    "lbt-recipes",                                        # [RUNTIME]: Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                               # [RUNTIME]: Pollination job handler and recipe execution adapters
+    "pvlib",                                              # [ARTIFACTS]: solar position and irradiance modeling for the solar diagram owner
+    "queenbee",                                           # [RUNTIME]: recipe and workflow schema contract models
     # --- [LCA]
-    "bw-processing",                                # [DATA]: Brightway matrix-processing substrate
-    "bw2analyzer",                                  # [DATA]: Brightway contribution and comparison analysis on the solve leg
-    "bw2calc",                                      # [DATA]: Brightway LCA calculation engine
-    "bw2data",                                      # [DATA]: Brightway project, database, and storage layer
-    "bw2io",                                        # [DATA]: Brightway import/export and database ingestion
-    "epdx<1.0",                                     # [DATA]: EPDx environmental product declaration interchange; 1.x ships no mac wheel and a broken sdist
-    "olca-ipc",                                     # [DATA]: openLCA IPC client for foreground/background LCA interchange
-    "openepd",                                      # [DATA]: OpenEPD declarations and PCR material-impact payloads
-    "premise; python_version<'3.15'",               # [DATA]: prospective LCA scenario database transformer; numba-gated through sparse
+    "bw-processing",                                      # [DATA]: Brightway matrix-processing substrate
+    "bw2analyzer",                                        # [DATA]: Brightway contribution and comparison analysis on the solve leg
+    "bw2calc",                                            # [DATA]: Brightway LCA calculation engine
+    "bw2data",                                            # [DATA]: Brightway project, database, and storage layer
+    "bw2io",                                              # [DATA]: Brightway import/export and database ingestion
+    "epdx<1.0",                                           # [DATA]: EPDx environmental product declaration interchange; 1.x wheels are linux-only and the sdist omits project.version
+    "olca-ipc",                                           # [DATA]: openLCA IPC client for foreground/background LCA interchange
+    "openepd",                                            # [DATA]: OpenEPD declarations and PCR material-impact payloads
+    "premise; python_version<'3.15'",                     # [DATA]: prospective LCA scenario database transformer; numba-gated through sparse
     # --- [PLOTTING_VIZ]
     "altair",
-    "great-tables",                                # [ARTIFACTS]: publication-quality display tables
-    "lets-plot; python_version<'3.15'",            # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
-    "matplotlib",                                  # [ARTIFACTS]: plotting
-    "pyvista; python_version<'3.15'",              # [ARTIFACTS]: 3D scientific visualization; `pyvista` imports live from the Forge python-overlay `.pth` beside its vtk engine, and the marker holds resolution until upstream ships a cp315-compatible release
-    "vegafusion",                                  # [ARTIFACTS]: server-side Vega transform and pre-transform export
+    "great-tables",                                       # [ARTIFACTS]: publication-quality display tables
+    "lets-plot; python_version<'3.15'",                   # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf; wheels cap at cp314 and the project ships no sdist
+    "matplotlib",                                         # [ARTIFACTS]: plotting
+    "pyvista; python_version<'3.15'",                     # [ARTIFACTS]: 3D scientific visualization; pure-Python itself, the marker holds it beside its vtk engine, and `pyvista` imports live from the Forge python-overlay `.pth`
+    "vegafusion",                                         # [ARTIFACTS]: server-side Vega transform and pre-transform export
     "vl-convert-python",
-    "vtk; python_version<'3.15'",                  # [ARTIFACTS]: VTK engine for pyvista; `vtk` imports live from the Forge python-overlay `.pth`, and the marker holds resolution until upstream ships a cp315 wheel
+    "vtk; python_version<'3.15'",                         # [ARTIFACTS]: VTK engine for pyvista; wheels cap at cp314 with no sdist, so `vtk` imports live from the Forge python-overlay `.pth`
     # --- [PDF]
-    "ocrmypdf",                                    # [ARTIFACTS]: OCR-to-PDF/A with sidecar text
-    "pdf-oxide",                                   # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
-    "pdfimpose",                                   # [ARTIFACTS]: press signatures, creep, cuts, and folds
-    "pdfplumber",                                  # [ARTIFACTS]: ruled-table extraction over pdfminer.six
+    "ocrmypdf",                                           # [ARTIFACTS]: OCR-to-PDF/A with sidecar text
+    "pdf-oxide",                                          # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
+    "pdfimpose",                                          # [ARTIFACTS]: press signatures, creep, cuts, and folds
+    "pdfplumber",                                         # [ARTIFACTS]: ruled-table extraction over pdfminer.six
     "pikepdf",
-    "pyhanko",                                     # [ARTIFACTS]: PDF digital signing and PAdES
+    "pyhanko",                                            # [ARTIFACTS]: PDF digital signing and PAdES
     "pymupdf",
     "pypdf",
     "pypdfium2",
     "reportlab",
-    "typst",                                       # [ARTIFACTS]: Typst PDF typesetting
+    "typst",                                              # [ARTIFACTS]: Typst PDF typesetting
     "weasyprint",
     # --- [OFFICE_NOTEBOOKS]
-    "docxtpl",                                     # [ARTIFACTS]: template-driven docx authoring
-    "jupytext",                                    # [ARTIFACTS]: notebook round-trip text source
-    "msoffcrypto-tool",                            # [ARTIFACTS]: ECMA-376 Office decrypt/encrypt boundary
-    "nbclient",                                    # [ARTIFACTS]: headless notebook execution client
-    "nbconvert",                                   # [ARTIFACTS]: executed-notebook export to HTML and Markdown
-    "odfpy",                                       # [ARTIFACTS]: ODF write for OpenDocument text, spreadsheet, and presentation trees
+    "docxtpl",                                            # [ARTIFACTS]: template-driven docx authoring
+    "jupytext",                                           # [ARTIFACTS]: notebook round-trip text source
+    "msoffcrypto-tool",                                   # [ARTIFACTS]: ECMA-376 Office decrypt/encrypt boundary
+    "nbclient",                                           # [ARTIFACTS]: headless notebook execution client
+    "nbconvert",                                          # [ARTIFACTS]: executed-notebook export to HTML and Markdown
+    "odfpy",                                              # [ARTIFACTS]: ODF write for OpenDocument text, spreadsheet, and presentation trees
     "openpyxl",
-    "papermill",                                   # [ARTIFACTS]: parameterized notebook runs
-    "python-calamine",                             # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
+    "papermill",                                          # [ARTIFACTS]: parameterized notebook runs
+    "python-calamine",                                    # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
     "python-docx",
     "python-pptx",
-    "xlsxwriter",                                  # [ARTIFACTS]: streaming write-only xlsx
+    "xlsxwriter",                                         # [ARTIFACTS]: streaming write-only xlsx
     # --- [IMAGING_MEDIA]
-    "av",                                          # [ARTIFACTS]: PyAV video/audio mux and encode
-    "imagecodecs",                                 # [ARTIFACTS]: native codec substrate — EXR, rgbe, 16-bit PNG, float TIFF, JXL, AVIF, WebP, lcms2 ICC, BCn/DDS decode, meshopt
-    "openexr",                                     # [ARTIFACTS]: named-channel, multi-part, and tiled EXR documents the flat imagecodecs EXR leg cannot address
-    "PhotoshopAPI; python_version<'3.15'",         # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
-    "pillow",                                      # [ARTIFACTS_GEOMETRY]: image IO; WebP plane decode for the SOG gaussian-splat container
-    "psd-tools",                                   # [ARTIFACTS]: PSD read/inspect plus pixel author
-    "psdtags",                                     # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
-    "pyktx",                                       # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
-    "pysubs2",                                     # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
-    "pyvips",                                      # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
-    "scikit-image; python_version<'3.15'",         # [ARTIFACTS]: image processing; pythran lowers through gast 0.6.0, which breaks on the 3.15 AST, and meson exposes no pythran toggle
-    "simpleidml",                                  # [ARTIFACTS]: IDML package mutation and composition
-    "tifffile",                                    # [ARTIFACTS]: TIFF container IO and extratag authoring
+    "av",                                                 # [ARTIFACTS]: PyAV video/audio mux and encode
+    "imagecodecs",                                        # [ARTIFACTS]: native codec substrate — EXR, rgbe, 16-bit PNG, float TIFF, JXL, AVIF, WebP, lcms2 ICC, BCn/DDS decode, meshopt
+    "openexr",                                            # [ARTIFACTS]: named-channel, multi-part, and tiled EXR documents the flat imagecodecs EXR leg cannot address
+    "PhotoshopAPI; python_version<'3.15'",                # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
+    "pillow",                                             # [ARTIFACTS_GEOMETRY]: image IO; WebP plane decode for the SOG gaussian-splat container
+    "psd-tools",                                          # [ARTIFACTS]: PSD read/inspect plus pixel author
+    "psdtags",                                            # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
+    "pyktx",                                              # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
+    "pysubs2",                                            # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
+    "pyvips",                                             # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
+    "scikit-image; python_version<'3.15'",                # [ARTIFACTS]: image processing; pythran lowers through gast 0.6.0, which breaks on the 3.15 AST, and meson exposes no pythran toggle
+    "simpleidml",                                         # [ARTIFACTS]: IDML package mutation and composition
+    "tifffile",                                           # [ARTIFACTS]: TIFF container IO and extratag authoring
     # --- [TYPOGRAPHY_COLOR]
-    "blackrenderer",                               # [ARTIFACTS]: COLRv1 color-glyph SVG rasterization
-    "coloraide",                                   # [ARTIFACTS]: oklch gamut mapping and CVD filters
-    "colour-cxf",                                  # [ARTIFACTS]: CxF3 spot/spectral color exchange
-    "colour-science",                              # [ARTIFACTS]: CIE, spectral, and appearance color models
-    "fonttools",                                   # [ARTIFACTS]: font subsetting, instancing, and shaping metadata
-    "opencolorio",                                 # [ARTIFACTS]: OCIO config, colorspace, and CPU/GPU processor transforms over the ACES scene-linear working space
-    "opentype-feature-freezer",                    # [ARTIFACTS]: freeze OpenType features into the default glyph set
-    "PyICU",                                       # [ARTIFACTS]: ICU locale line-break/bidi/collation; sdist-only, icu rides the Forge scientific substrate
-    "pyphen",                                      # [ARTIFACTS]: language-aware hyphenation dictionaries
-    "python-bidi",                                 # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
-    "uharfbuzz",                                   # [ARTIFACTS]: HarfBuzz text-shaping bindings
-    "uniseg",                                      # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
-    "vharfbuzz",                                   # [ARTIFACTS]: HarfBuzz shaping QA and buffer-diff
+    "blackrenderer",                                      # [ARTIFACTS]: COLRv1 color-glyph SVG rasterization
+    "coloraide",                                          # [ARTIFACTS]: oklch gamut mapping and CVD filters
+    "colour-cxf",                                         # [ARTIFACTS]: CxF3 spot/spectral color exchange
+    "colour-science",                                     # [ARTIFACTS]: CIE, spectral, and appearance color models
+    "fonttools",                                          # [ARTIFACTS]: font subsetting, instancing, and shaping metadata
+    "opencolorio",                                        # [ARTIFACTS]: OCIO config, colorspace, and CPU/GPU processor transforms over the ACES scene-linear working space
+    "opentype-feature-freezer",                           # [ARTIFACTS]: freeze OpenType features into the default glyph set
+    "PyICU",                                              # [ARTIFACTS]: ICU locale line-break/bidi/collation; sdist-only, icu rides the Forge scientific substrate
+    "pyphen",                                             # [ARTIFACTS]: language-aware hyphenation dictionaries
+    "python-bidi",                                        # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
+    "uharfbuzz",                                          # [ARTIFACTS]: HarfBuzz text-shaping bindings
+    "uniseg",                                             # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
+    "vharfbuzz",                                          # [ARTIFACTS]: HarfBuzz shaping QA and buffer-diff
     # --- [GRAPHS_VECTOR]
-    "drawpyo",                                     # [ARTIFACTS]: draw.io / diagrams.net export
-    "drawsvg",                                     # [ARTIFACTS]: hierarchical named-layer SVG authoring
-    "ezdxf",                                       # [ARTIFACTS]: DXF read/write/render for export/dxf
-    "fast-sugiyama",                               # [ARTIFACTS]: fast Sugiyama layered placement replacing grandalf placement
-    "grandalf",                                    # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
-    "igraph",                                      # [DATA]: C-core Leiden/Louvain/Infomap community detection
-    "kiwisolver",                                  # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
-    "latex2mathml",                                # [ARTIFACTS]: LaTeX-to-MathML front-end ziamath drives; composed directly at the commands.FUNCTIONS operator registry
+    "drawpyo",                                            # [ARTIFACTS]: draw.io / diagrams.net export
+    "drawsvg",                                            # [ARTIFACTS]: hierarchical named-layer SVG authoring
+    "ezdxf",                                              # [ARTIFACTS]: DXF read/write/render for export/dxf
+    "fast-sugiyama",                                      # [ARTIFACTS]: fast Sugiyama layered placement replacing grandalf placement
+    "grandalf",                                           # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
+    "igraph",                                             # [DATA]: C-core Leiden/Louvain/Infomap community detection
+    "kiwisolver",                                         # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
+    "latex2mathml",                                       # [ARTIFACTS]: LaTeX-to-MathML front-end ziamath drives; composed directly at the commands.FUNCTIONS operator registry
     "networkx",
-    "pyelk",                                       # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
-    "resvg-py",                                    # [ARTIFACTS]: in-process SVG-to-PNG rasterization (embedded Rust resvg)
-    "rustworkx",                                   # [DATA_ARTIFACTS]: graph algorithms
-    "schemdraw",                                   # [ARTIFACTS]: native-SVG schematic diagrams
-    "skia-pathops",                                # [ARTIFACTS]: vector boolean/offset/stroke-to-outline
-    "svgelements",                                 # [ARTIFACTS]: SVG geometry, transform, and parse helpers
-    "ziafont",                                     # [ARTIFACTS]: font glyph text-to-SVG-path
-    "ziamath",                                     # [ARTIFACTS]: math-to-SVG rendering
+    "pyelk",                                              # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
+    "resvg-py",                                           # [ARTIFACTS]: in-process SVG-to-PNG rasterization (embedded Rust resvg)
+    "rustworkx",                                          # [DATA_ARTIFACTS]: graph algorithms
+    "schemdraw",                                          # [ARTIFACTS]: native-SVG schematic diagrams
+    "skia-pathops",                                       # [ARTIFACTS]: vector boolean/offset/stroke-to-outline
+    "svgelements",                                        # [ARTIFACTS]: SVG geometry, transform, and parse helpers
+    "ziafont",                                            # [ARTIFACTS]: font glyph text-to-SVG-path
+    "ziamath",                                            # [ARTIFACTS]: math-to-SVG rendering
     # --- [CODES_METADATA]
-    "c2pa-python",                                 # [ARTIFACTS]: cross-format C2PA content credentials
-    "puremagic",                                   # [ARTIFACTS]: pure-Python format sniffer, default detect path beside libmagic
-    "pyexiftool",                                  # [ARTIFACTS]: richest cross-format descriptive metadata read/write over the exiftool binary, replaces abandoned exif
-    "python-barcode",                              # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
-    "python-magic",                                # [ARTIFACTS]: libmagic broad-database fallback behind the puremagic in-process default detect sniffer (retained for niche leaf signatures magic_data.json lacks, never the default path)
-    "segno",                                       # [ARTIFACTS]: QR and Micro-QR vector codes
-    "zxing-cpp",                                   # [ARTIFACTS]: 2D matrix codes encode and decode
+    "c2pa-python",                                        # [ARTIFACTS]: cross-format C2PA content credentials
+    "puremagic",                                          # [ARTIFACTS]: pure-Python format sniffer, default detect path beside libmagic
+    "pyexiftool",                                         # [ARTIFACTS]: richest cross-format descriptive metadata read/write over the exiftool binary, replaces abandoned exif
+    "python-barcode",                                     # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
+    "python-magic",                                       # [ARTIFACTS]: libmagic broad-database fallback behind the puremagic in-process default detect sniffer (retained for niche leaf signatures magic_data.json lacks, never the default path)
+    "segno",                                              # [ARTIFACTS]: QR and Micro-QR vector codes
+    "zxing-cpp",                                          # [ARTIFACTS]: 2D matrix codes encode and decode
 ]
 
 [dependency-groups]
 dev = [
-    "annotated-types",              # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
+    "annotated-types",  # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
     "brotli-stubs",
     "coverage",
     "dirty-equals",
@@ -350,11 +357,11 @@ dev = [
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",
-    "ruff>=0.15.20,<0.16",          # preview rule set moves per minor; the band holds the vetted gate stable
-    "s3fs",                         # object-store testkit backend over moto S3
+    "ruff>=0.16.2",
+    "s3fs",             # object-store testkit backend over moto S3
     "scipy-stubs",
-    "sniffio",                      # async-flavor detection the testkit env/seams doubles import directly
-    "sqlfluff",                     # SQL format/lint rail; squawk keeps the migration-safety lane
+    "sniffio",          # async-flavor detection the testkit env/seams doubles import directly
+    "sqlfluff",         # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
     "types-defusedxml",
@@ -377,16 +384,14 @@ mutation = ["mutmut"]
 
 [tool.uv.sources]
 # 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev is current main past the fix, unreleased as of 0.22.9.
-beartype = { git = "https://github.com/beartype/beartype.git", rev = "b1e2b1392eb79407ae501eb6b827b59a621e00d6" }
+beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79dfb7f595457a85c82398601c17b2f1" }
 
 [tool.uv]
 package = false
 default-groups = ["dev", "mutation"]
-no-binary-package = ["pyvips"] # the py3-none-any ABI-loader wheel must not win over the source API-mode build against the Forge vips
 
 # TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
 [tool.uv.config-settings-package]
-python-flint = { setup-args = "-Dflint_version_check=false" }
 scipy = { setup-args = "-Duse-pythran=false" }
 
 # opencolorio drives cmake from a setuptools shim that reads CMAKE_ARGS off the environment, so the knob is a build variable rather than a config setting.
@@ -429,20 +434,20 @@ requires-dist = [
 ]
 provides-extras = ["docs", "meshing", "optional"]
 
-# substrait 0.29.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
+# substrait 0.30.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
 [[tool.uv.dependency-metadata]]
 name = "substrait"
-version = "0.29.0"
+version = "0.30.0"
 requires-python = ">=3.10"
 requires-dist = [
     "protobuf<7,>=5",
-    "substrait-protobuf==0.85.0",
-    "substrait-extensions==0.85.0",
-    "antlr4-python3-runtime; extra == 'extensions'",
-    "substrait-antlr==0.85.0; extra == 'extensions'",
+    "substrait-protobuf==0.99.0",
+    "substrait-antlr==0.99.0; extra == 'extensions'",
     "pyyaml; extra == 'extensions'",
+    "sqloxide; extra == 'sql'",
+    "deepdiff; extra == 'sql'",
 ]
-provides-extras = ["extensions"]
+provides-extras = ["extensions", "sql"]
 
 # --- [TY] -------------------------------------------------------------------------------
 
@@ -505,6 +510,7 @@ enable_error_code = [
     "truthy-iterable",
     "unused-awaitable",
 ]
+disable_error_code = ["prop-decorator"] # mypy cannot model pydantic computed_field over @property; ty checks the same surface without the gap
 exclude = [
     "(^|/)(\\.archive|_archive|scratch|\\.scratch|_tmp|\\.tmp|\\.cache|\\.history)/",
     "^\\.artifacts/",
@@ -603,13 +609,13 @@ branch = true
 relative_files = true # subprocess coverage combines through relative repo paths
 source = ["tools/assay"]
 data_file = ".cache/coverage/.coverage"
-core = "sysmon" # CPython 3.15 beta lacks coverage's compiled C tracer
+core = "sysmon"       # CPython 3.15 beta lacks coverage's compiled C tracer
 patch = [
     "subprocess",
 ] # children auto-measure via COVERAGE_PROCESS_CONFIG + shipped pth; forces parallel data files, so reporting requires a combine step
 
 [tool.coverage.report]
-fail_under = 90                                                                                     # sysmon captures fewer arcs than the unavailable C core; 90 keeps the floor real instead of binding on precision-0 rounding
+fail_under = 90  # sysmon captures fewer arcs than the unavailable C core; 90 keeps the floor real instead of binding on precision-0 rounding
 show_missing = true
 skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "assert_never\\(", "\\.\\.\\.$", "if __name__ == .__main__.:"]
@@ -654,8 +660,7 @@ timeout_constant = 5.0
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
 [tool.importlinter]
 root_packages = ["tools.assay"]
-# TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
-exclude_type_checking_imports = true
+exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
 
 [[tool.importlinter.contracts]]
 name = "assay strata: model -> diagnostics -> store -> settings/aspect -> _logging -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation -> __main__"
@@ -703,7 +708,7 @@ ignore_imports = ["tools.assay.rails.package -> tools.assay.rails.bridge"]
 cache-dir = ".cache/ruff"
 preview = true
 line-length = 150
-required-version = ">=0.15.20,<0.16"
+required-version = ">=0.16.2"
 target-version = "py315"
 extend-exclude = [
     "**/.archive/**",
@@ -721,7 +726,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
-exclude = ["*.md"]               # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
+exclude = ["*.md"]  # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
 line-ending = "lf"
 docstring-code-format = true
 skip-magic-trailing-comma = true
@@ -730,85 +735,73 @@ skip-magic-trailing-comma = true
 select = ["ALL"]
 ignore = [
     # --- [FORMATTER]
-    "COM812", # ruff format owns trailing commas
-    "ISC001", # ruff format owns implicit string concatenation
+    "missing-trailing-comma",                    # ruff format owns trailing commas
+    "single-line-implicit-string-concatenation", # ruff format owns implicit string concatenation
     # --- [MATCH_DISPATCH]
-    "RET504", # named intermediates keep flow pipelines readable
-    "RET505", # explicit match dispatch keeps exhaustive arms visible
-    "RET506", # explicit error branches keep ROP rails visible
-    "SIM108", # match/case owns dispatch, not ternaries
-    "SIM114", # match/case owns dispatch, not merged if arms
+    "unnecessary-assign",                        # named intermediates keep flow pipelines readable
+    "superfluous-else-return",                   # explicit match dispatch keeps exhaustive arms visible
+    "superfluous-else-raise",                    # explicit error branches keep ROP rails visible
+    "if-else-block-instead-of-if-exp",           # match/case owns dispatch, not ternaries
+    "if-with-same-arms",                         # match/case owns dispatch, not merged if arms
     # --- [DENSITY]
-    "PLR0911", # a total match over a closed tagged union returns per arm; a return cap pressures the doctrine's own dispatch form
-    "PLR0912", # one dispatch surface owns every branch; a branch cap pressures arm extraction
-    "PLR0914", # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
-    "PLR0915", # one surface owns every arm; a statement cap never justifies splitting a closed union
-    "PLR0916", # dense dispatch predicates stay on the owning surface; a boolean-expression cap pressures fragmentation
+    "too-many-return-statements",                # a total match over a closed tagged union returns per arm; a return cap pressures the doctrine's own dispatch form
+    "too-many-branches",                         # one dispatch surface owns every branch; a branch cap pressures arm extraction
+    "too-many-locals",                           # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
+    "too-many-statements",                       # one surface owns every arm; a statement cap never justifies splitting a closed union
+    "too-many-boolean-expressions",              # dense dispatch predicates stay on the owning surface; a boolean-expression cap pressures fragmentation
     # --- [ERROR_RAILS]
-    "EM101",  # frozen errors carry inline messages
-    "EM102",  # error constructors carry formatted context
-    "TRY003", # domain errors carry descriptive messages
-    "TRY301", # `@safe` ROP boundaries may raise inside the guarded call
-    "TRY400", # structlog `.error()` is valid outside exception handlers
+    "raw-string-in-exception",                   # frozen errors carry inline messages
+    "f-string-in-exception",                     # error constructors carry formatted context
+    "raise-vanilla-args",                        # domain errors carry descriptive messages
+    "raise-within-try",                          # `@safe` ROP boundaries may raise inside the guarded call
+    "error-instead-of-exception",                # structlog `.error()` is valid outside exception handlers
+    # --- [TYPE_RESOLUTION]
+    "typing-only-first-party-import",
+    "typing-only-third-party-import",
+    "typing-only-standard-library-import",
     # --- [DOCSTRINGS]
-    "DOC502", # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
+    "docstring-extraneous-exception",            # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
     # --- [SEMANTIC_ORDER]
-    "RUF022", # semantic public-surface order beats alphabetical `__all__`
-    "RUF023", # semantic slot order beats alphabetical `__slots__`
+    "unsorted-dunder-all",                       # semantic public-surface order beats alphabetical `__all__`
+    "unsorted-dunder-slots",                     # semantic slot order beats alphabetical `__slots__`
     # --- [WORKFLOW]
-    "TD003",  # TODO links are not required for local maintenance notes
-    "FIX002", # TODO comments are accepted source markers
-    "INP001", # monorepo packages may be implicit namespaces
-    "CPY001", # top-level LICENSE owns copyright notice
+    "missing-todo-link",                         # TODO links are not required for local maintenance notes
+    "line-contains-todo",                        # TODO comments are accepted source markers
+    "implicit-namespace-package",                # monorepo packages may be implicit namespaces
+    "missing-copyright-notice",                  # top-level LICENSE owns copyright notice
     # --- [SECTION_DIVIDERS]
-    "ERA001", # compact `# --- [LABEL]` subsection dividers are source structure
+    "commented-out-code",                        # compact `# --- [LABEL]` subsection dividers are source structure
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
+"__init__.py" = ["unused-import"]
 "**/.claude/**" = [
-    "TC003",
-    "ANN001",
-    "ANN401",
-    "B905",
-    "C901",
-    "E501",
-    "ERA001",
-    "EXE001",
-    "FBT001",
-    "PLC0415",
-    "PLC2701",
-    "PLC3002",
-    "PLR0911",
-    "PLR6201",
-    "PLW1510",
-    "PTH109",
-    "S105",
-    "S310",
-    "S404",
-    "S603",
-    "S607",
-    "TID251",
-    "TRY300",
+    "banned-api",
+    "boolean-type-hint-positional-argument",
+    "complex-structure",
+    "hardcoded-password-string",
+    "line-too-long",
+    "literal-membership",
+    "os-getcwd",
+    "shebang-not-executable",
+    "start-process-with-partial-path",
+    "subprocess-without-shell-equals-true",
+    "suspicious-subprocess-import",
 ]
 "tests/**" = [
-    "S101",
-    "PT018",
-    "PLR2004",
-    "PLR0913",
-    "ARG001",
-    "ARG002",
-    "ANN201",
-    "ANN401",
-    "D101",
-    "D102",
-    "D103",
-    "SLF001",
-    "PLC2701",
+    "assert",
+    "pytest-composite-assertion",
+    "magic-value-comparison",
+    "too-many-arguments",
+    "unused-function-argument",
+    "undocumented-public-class",
+    "undocumented-public-method",
+    "undocumented-public-function",
+    "private-member-access",
+    "import-private-name",
 ] # PLC2701: specs import the private-by-design _testkit package
-"**/adapters/**" = ["ANN401"]
-"**/conftest.py" = ["E402", "F401", "ARG001"]
-"tests/python/_testkit/runtime.py" = ["E402"] # Hypothesis environment gates must precede imports
+"**/conftest.py" = ["module-import-not-at-top-of-file"]
+"tests/python/_testkit/runtime.py" = ["module-import-not-at-top-of-file"] # Hypothesis environment gates must precede imports
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = false
@@ -831,7 +824,15 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.flake8-builtins]
-ignorelist = ["id", "type", "input", "format", "hash"]
+ignorelist = [
+    "format",
+    "hash",
+    "id",
+    "input",
+    "list",
+    "quit",
+    "type",
+] # CLI verb vocabulary: a rail handler's own name is the verb the registry dispatches on
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
 "dask.array" = "da"

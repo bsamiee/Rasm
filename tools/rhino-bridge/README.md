@@ -63,11 +63,7 @@ A direct supervisor call accepts `status`, `quit`, `redeploy <package>`, and `ve
 - Stderr does not replace the stdout envelope.
 
 [STATUS]:
-- `ok` and `skipped` exit `0`.
-- `degraded` exits `2`.
-- `unsupported` exits `3`.
-- `failed` exits `1`.
-- `timeout` and `busy` exit `5`.
+- Status tokens project to exit codes through the Assay wire contract; `tools/assay/README.md` routes to its owner.
 - Supervisor usage errors exit `2`.
 
 [READ_ORDER]:
@@ -137,50 +133,7 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 - `Supervisor`: `StreamJsonRpc` drives the pipe client; `System.IO.Hashing` `XxHash3` keys the staged closure into the `refs/<contentHash>` reference stage. Unload-leak forensics shells out to the `dotnet-gcdump` local tool.
 - `Cargo`, `Gate`, and `Stub` reference no packages directly: Cargo composes `Rasm.ScenarioKit` and the Contract closure, Gate rides the Supervisor closure, and Stub stays dependency-zero.
 
-## [07]-[FILES]
-
-[ROOT]:
-- `tools/rhino-bridge/README.md`
-
-[CARGO]:
-- `tools/rhino-bridge/Cargo/Cargo.csproj`
-- `tools/rhino-bridge/Cargo/CargoHost.cs`
-- `tools/rhino-bridge/Cargo/Gh2Lane.cs`
-- `tools/rhino-bridge/Cargo/Spool.cs`
-- `tools/rhino-bridge/Cargo/packages.lock.json`
-
-[CONTRACT]:
-- `tools/rhino-bridge/Contract/Contract.csproj`
-- `tools/rhino-bridge/Contract/Rpc.cs`
-- `tools/rhino-bridge/Contract/Wire.cs`
-- `tools/rhino-bridge/Contract/packages.lock.json`
-
-[GATE]:
-- `tools/rhino-bridge/Gate/Gate.csproj`
-- `tools/rhino-bridge/Gate/Program.cs`
-- `tools/rhino-bridge/Gate/packages.lock.json`
-
-[SHELL]:
-- `tools/rhino-bridge/Shell/CargoGate.cs`
-- `tools/rhino-bridge/Shell/IdlePump.cs`
-- `tools/rhino-bridge/Shell/Shell.csproj`
-- `tools/rhino-bridge/Shell/ShellHost.cs`
-- `tools/rhino-bridge/Shell/packages.lock.json`
-
-[STUB]:
-- `tools/rhino-bridge/Stub/Stub.cs`
-- `tools/rhino-bridge/Stub/Stub.csproj`
-- `tools/rhino-bridge/Stub/packages.lock.json`
-
-[SUPERVISOR]:
-- `tools/rhino-bridge/Supervisor/Evidence.cs`
-- `tools/rhino-bridge/Supervisor/HostControl.cs`
-- `tools/rhino-bridge/Supervisor/Program.cs`
-- `tools/rhino-bridge/Supervisor/Session.cs`
-- `tools/rhino-bridge/Supervisor/Supervisor.csproj`
-- `tools/rhino-bridge/Supervisor/packages.lock.json`
-
-## [08]-[FAILURE_READING]
+## [07]-[FAILURE_READING]
 
 Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, `reportDir`, and spool artifacts from the same `SessionEnvelope`; when relayed events and durable spool counts diverge, the spool owns evidence through the last decoded JSONL line.
 
@@ -207,11 +160,11 @@ Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, 
 |  [08]   | `rhino-crash`         | host exit                | Crash      |
 |  [09]   | `evidence.divergence` | relay and spool mismatch | Evidence   |
 
-## [09]-[SCENARIO_CONTRACT]
+## [08]-[SCENARIO_CONTRACT]
 
 Typed scenario entrypoints carry `[RhinoScenario("<theme>")]` and accept one `ScenarioContext`. That entrypoint returns `Fin<Unit>`, emits facts through `ScenarioContext.Fact`/`Note`, asserts through `Require` or `Expect`, certifies reference facts through `Certify`, and obtains bridge-indexed captures through `Capture.Snapshot`.
 
-Capability requirements live on the attribute as `Requires`. Cargo probes `cargo.hotswap`, `eventpipe`, `exception.tap`, `gh2.dataflow`, and `gh2.render`, then rejects scenarios whose required capability is not `ok`.
+Capability requirements live on the attribute as `Requires`. `CargoHost`'s capability statics are the register Cargo probes; a scenario whose required capability is not `ok` is rejected.
 
 Scenario code does not write `#r`, `#load`, absolute build-output paths, local report paths, direct MCP calls, or direct bitmap/capture files. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
 
@@ -219,7 +172,7 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, local r
 
 Verify over a root with no reviewed corpus reports `unpromoted` and degrades; a promoted root with a missing or mismatched reference fails. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
 
-## [10]-[INTEGRATIONS]
+## [09]-[INTEGRATIONS]
 
 [RHINO_WIP]:
 - Bundle discovery uses `RHINO_WIP_APP_PATH` when set; otherwise it admits the newest `/Applications/Rhino*.app` by `CFBundleVersion`.
@@ -267,7 +220,7 @@ Bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhin
 - Their relationship is `additive_external`. McNeel's platform is interactive and conversational; the bridge is deterministic typed verification.
 - Neither replaces the other: the platform drives exploratory host interaction, the bridge drives reproducible `[RhinoScenario]` closure, and `bridge status` is the single seam that reports both as capability facts.
 
-## [11]-[BOUNDARIES]
+## [10]-[BOUNDARIES]
 
 - Keep `Contract` additive: existing fields, union discriminators, status ranks, and exit codes are not renamed or reused.
 - Keep `Stub` dependency-zero outside Rhino host assemblies.

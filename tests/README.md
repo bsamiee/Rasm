@@ -161,6 +161,6 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                   |
 |  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                   |
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
-|  [07]   | `tools/assay`                                        | gate rails: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision`    |
+|  [07]   | `tools/assay`                                        | gate rails across every claim; the CLI `--help` is the census                     |
 
 Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

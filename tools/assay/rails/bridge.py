@@ -11,11 +11,9 @@ from expression import Error, Ok, Result
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves public rail annotations at runtime
-)
+from tools.assay.composition.settings import AssaySettings  # beartype resolves public rail annotations at runtime
 from tools.assay.composition.store import ArtifactScope  # beartype resolves public rail annotations at runtime
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     Artifact,
@@ -24,7 +22,7 @@ from tools.assay.core.model import (
     BridgeLifecycle,
     Check,
     Claim,
-    Completed,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
+    Completed,  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
     Diagnostic,
     Fault,
     Language,
@@ -32,7 +30,7 @@ from tools.assay.core.model import (
     Mode,
     RailStatus,
     receipt,
-    Report,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
+    Report,  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
     Tool,
     ToolArgs,
     VerifySummary,
@@ -944,7 +942,7 @@ def status(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, 
     return _lifecycle(settings, "status", executor=executor)
 
 
-def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:  # ruff:ignore[builtin-variable-shadowing]
+def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:
     """Terminate the bridge host under the live host lease.
 
     Returns:

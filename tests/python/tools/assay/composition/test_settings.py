@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 from typing import Final, override, Self, TYPE_CHECKING
-import uuid  # ruff:ignore[typing-only-standard-library-import]  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
+import uuid  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec
@@ -21,7 +21,7 @@ from upath import UPath
 import zstandard
 
 from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
-from tests.python.tools.assay.kit import (  # ruff:ignore[typing-only-first-party-import]  # runtime use: instantiated in fixture bodies, not annotation-only
+from tests.python.tools.assay.kit import (  # runtime use: instantiated in fixture bodies, not annotation-only
     AssayHarness,
     make_history_envelope,
     WIRE_ENCODER,
@@ -93,7 +93,7 @@ _CPU_ABOVE: Final = 300
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
-class _StubWriter(contextlib.AbstractContextManager[object]):
+class _StubWriter(contextlib.AbstractContextManager["_StubWriter"]):
     """Autocommit-deferred write handle that commits only on clean exit."""
 
     def __init__(self, data: dict[str, bytes], path: str, *, fail: bool = False) -> None:
@@ -198,7 +198,7 @@ class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # fu
                 return None
 
     @override
-    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[object]:
+    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[_StubWriter]:
         # _write_at must route through the autocommit-aware handle, not mutate storage directly.
         return _StubWriter(self._data, path, fail=self._write_fails)
 

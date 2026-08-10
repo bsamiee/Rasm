@@ -4,7 +4,12 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- CloudEvents semantics belong to the specification and an SDK accelerates it — a narrower package surface written as law forecloses spec capability.
+- `CloudNative.CloudEvents.Mqtt` rejected — it pins MQTTnet 4.x against the estate's 5.x, reads a set-only `PayloadSegment`, and is structured-only.
+- `CloudNative.CloudEvents.NATS` rejected — it targets net6.0 on the retired `NATS.Client` v1, so the NATS binding stays branch-owned in all three.
+- `CloudNative.CloudEvents.AvroEventFormatter` never lands — the `.Avro` namespace formatter is the one Avro codec, and the shim ships obsolete.
+- `CloudNative.CloudEvents.NewtonsoftJson` rejected — the System.Text.Json formatter owns JSON, and a second formatter forks the codec identity.
+- Python Kafka is `confluent-kafka` — one librdkafka engine serves all three branches, and a pure-Python client forks semantics peers prove against.
 
 ## [02]-[SHAPE]
 
@@ -14,12 +19,12 @@
 - Branch prose states its own domain and never a peer's ceiling — a graduation rail names what crosses and leaves policy to whoever reads it.
 - PostgreSQL extension rosters stay branch-owned deployment state — no corpus entry defines the set, so a parity demand manufactures meaning.
 - Backend artifact dependency validation homes at each branch's projection funnel, never its sort — artifact key order is the whole wire order.
-- Library tiers stay app-neutral — instrumentation binds the API surface alone, and no exporter or ambient sink enters below the composition root.
+- Library tiers stay app-neutral — instrumentation binds the API surface alone, and no exporter, broker, or sink enters below the composition root.
 - Columnar-lake query ends ride ONE Flight plane per runtime, Flight SQL layered as a dialect — a sidecar transport re-derives admission and typing.
 - Retrieval fusion stays host-local — each end folds reciprocal-rank fusion in one database statement, and no cross-runtime projection exists.
 - Reliability-indicator vocabulary is one algebra spelled twice — `Sli`, burn row, severity, and panel kind land in BOTH branch spellings.
 - Success share rides one tag-partitioned counter as an indicator case — a twin carrying the numerator strands its denominator on any emission edit.
-- Telemetry domain segments name capability subjects and stay branch-declared — a segment minted per emitter forks the series a board joins across.
+- Telemetry and event domain segments name capability subjects and stay branch-declared — a segment minted per emitter forks the series a board joins.
 - Telemetry conformance proves through `TELEMETRY_CONVENTION` alone — parity across the three mints IS the proof; naming similarity gates nothing.
 - OTLP is the ONE metrics-store ingest door and remote-write is declined estate-wide — a second leg forks the ingest contract per store.
 - Analytics-residence families add no descriptor column and foreclose `cap` — unbounded dimensionality is exactly what a cardinality budget destroys.
@@ -29,13 +34,13 @@
 - `order` carries the ordering domain beside the key member selecting it — a partition key IS that member, never a column standing beside it.
 - Transports state a missing coordinate on `degrade` — replay, backpressure, and settlement each go absent on engines the estate already ships.
 - Operation identity derives apart from payload identity — equal payloads stay distinct operations, so a causal log never keys an entry on content.
-- Generated-schema wires pinning divergent generations refuse at the CONSUMER — proto3 files a retired field into the unknown set rather than raising.
+- Wires pinning divergent schema or `dataschema` generations refuse at the CONSUMER — proto3 files a retired field to the unknown set, never a raise.
 - One descriptor source carries ONE minter — a peer's messages seated in another family couple two release cadences under one breaking gate.
 - Host-boundary producers name their family for the host-free concept — a host-spelled family binds every peer's generated bindings to that host.
 - Every branch shipping a diagnostic archive carries a BACKEND-FREE read plane — an archive is pulled exactly when the egress is what failed.
 - Unmeasured instruments read UNMEASURED, never zero — a fabricated zero and a dead producer are the two states an operator needs separated.
 - Unbounded append retry admits only behind content-keyed idempotence AND a rail whose faults are transient by TYPE — both are preconditions.
-- Landings report accepted beside matched-duplicate as separate halves — one merged tally cannot tell zero redelivery from a wedged retry.
+- Landings and batch settlements split accepted from matched-duplicate — one merged tally cannot tell zero redelivery from a wedged retry.
 - Never-shedding planes close by FLUSHING — cancelling the consumer at teardown abandons the window in flight and everything queued behind it.
 - Unlanded rows stay readable as a roster settled by identity — a tally names nothing to re-offer, and clearing on first success sheds the debt.
 - Evidence planes settle on their own stamped coordinate, never a storage write clock — that stamp lifts into its own indexed column.
@@ -55,7 +60,7 @@
 - Commutation is ONE `Ordered | Commutative | Semilattice` triple per mutation kind — a lone convergent flag counts a lost total order as convergence.
 - Compaction admits only where the entry's causal context DOMINATES its declared horizon — a state fold holds no frontier and refuses nothing.
 - Op-log entries carry no descriptor family — the msgpack roster IS canonical, and a proto envelope over opaque payload bytes types nothing.
-- Scene descriptors REFERENCE the tessellated body by key — re-carrying GLB octets mints a second producer for the entry that owns them.
+- Scene descriptors and event payloads REFERENCE bulk bodies by key — re-carrying the octets mints a second producer for the entry that owns them.
 - Descriptor lengths cross in METRES with the host unit as provenance — a peer-side rescale forks one conversion across three decoders.
 - Solved solar angles cross as `[0,360)` azimuth EAST OF NORTH beside `[-90,90]` altitude — a renderer's own convention converts at its edge.
 - Descriptor angles ARE the derivation — a consumer re-solving them substitutes a second almanac's answer for the same instant.
@@ -68,6 +73,17 @@
 - Composite identities cross WHOLE, discriminating components beside the digest — a digest-only join merges two identities minted over equal bytes.
 - Framed-binary wires frame an `Option` as a count of 0 or 1 — presence on the collection rule leaves an absent field no second spelling to fork on.
 - Kind-discriminated payload tails carry NO arm tag — the discriminant in hand fixes the tail, and a second spelling of it can contradict the first.
+- One envelope owner per branch mints the attribute map — a second mint inside one branch is the `[07]` drift defect the corpus class forecloses.
+- Format roster is JSON, Protobuf, and Avro with each `-batch` sibling — CBOR, XML, and avro-compact stay drafts no peer decode is held to.
+- CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house envelope legs — no spec binding exists to name them by.
+- Subscriptions and all seven filter dialects land, `sql` being CESQL — reading CESQL as the filter concept collapses six dialects into one arm.
+- CESQL evaluation is TOTAL — every operator returns a value beside an accumulated error list, so the rail accumulates rather than short-circuits.
+- CESQL parses through a parser-combinator or table-driven expression owner — recursive descent over mutable state and downloading codegen refuse.
+- Signing is DSSE over the attribute digests, never JWS — the format registry carries no JWS member, so a signed event rides a type nothing resolves.
+- Event identity rides `id` and content identity `subject` and `dataref` — `(source, id)` is the uniqueness composite, so no dedup keys on bytes.
+- `dataschema` binds the registry subject and version, `datacontenttype` is row data off the serdes arrow — a literal content type forks codec choice.
+- Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
+- Hook points are the in-process best-effort tap and envelopes the durable cross-process fact — re-firing an envelope as a hook merges two custodies.
 
 ## [03]-[COLLAPSE]
 
@@ -82,7 +98,8 @@
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
 - `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/MANIFEST.md` is the one federation index, pin authority, and fixture registry.
+- Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
 
 ## [05]-[PROCESS]
 
-- (none)
+- Refuted `[COMPLETE]` cards delete and re-author as a new open card under a new slug with all four fields — no re-open mechanic exists at any tier.

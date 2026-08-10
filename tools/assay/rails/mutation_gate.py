@@ -192,9 +192,11 @@ def _diff(name: str) -> str:
         Unified diff text, or an empty string when mutmut cannot re-read the mutant.
     """
     # Redirected stdout preserves the one-line TestRun wire contract.
-    with contextlib.suppress(Exception), contextlib.redirect_stdout(io.StringIO()):  # ruff:ignore[banned-api]  # best-effort diff boundary adapter
-        return get_diff_for_mutant(name)
-    return ""
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return get_diff_for_mutant(name)
+    except Exception:  # ruff:ignore[blind-except]  # mutmut boundary: any re-read fault degrades to an empty diff and never contaminates stdout
+        return ""
 
 
 def _location(node: ast.FunctionDef | ast.AsyncFunctionDef) -> SchemaLocation:

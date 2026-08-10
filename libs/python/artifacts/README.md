@@ -217,6 +217,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 [DELIVERY]:
 - `cloudevents` — structured/binary envelope with the W3C trace-and-baggage extensions.
+- `python-dateutil` — RFC-3339 `isoparse` the CloudEvents binding and format modules import at module scope.
 
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation.

@@ -3,12 +3,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import cmath
-from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # msgspec.Struct resolves annotations at runtime
-    Callable,
-    Iterable,
-    Mapping,
-    Sequence,
-)
+from collections.abc import Callable, Iterable, Mapping, Sequence  # msgspec.Struct resolves annotations at runtime
 from contextlib import nullcontext
 import dataclasses
 from decimal import Decimal
@@ -165,7 +160,8 @@ def _rail_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: st
             return f"{path}: rail tags differ: {a!r} != {b!r}"
 
 
-def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:  # ruff:ignore[too-many-return-statements]  # one arm per data shape; the closed dispatch owns every return
+# One arm per data shape; the closed dispatch owns every return.
+def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
     """Locate the first tolerance divergence between two values.
 
     Returns:

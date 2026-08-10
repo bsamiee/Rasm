@@ -7,18 +7,16 @@ status/event stamping, and recent-event ring projection.
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]  # runtime annotation
+from collections.abc import Callable  # runtime annotation
 from typing import Annotated
 
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
-from expression import Error, Ok, Result  # ruff:ignore[typing-only-third-party-import]  # Hom rail annotation
+from expression import Error, Ok, Result  # Hom rail annotation
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
-)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
 import pytest
 from structlog.contextvars import get_contextvars
 
@@ -28,9 +26,9 @@ from tools.assay.core.aspect import (
     checked,
     checked_call,
     compose,
-    Hom,  # ruff:ignore[typing-only-first-party-import]  # runtime woven-Hom annotation
+    Hom,  # runtime woven-Hom annotation
     Inversion,
-    Layer,  # ruff:ignore[typing-only-first-party-import]  # runtime layer-tuple annotation
+    Layer,  # runtime layer-tuple annotation
     logged,
     RING,  # ring seam seeded directly for projection laws
     ring_processor,
@@ -38,7 +36,7 @@ from tools.assay.core.aspect import (
     Slot,
     traced,
 )
-from tools.assay.core.model import Claim, Fault, RailStatus, Report  # ruff:ignore[typing-only-first-party-import]  # Hom rail annotation
+from tools.assay.core.model import Claim, Fault, RailStatus, Report  # Hom rail annotation
 from tools.assay.diagnostics import fold
 
 

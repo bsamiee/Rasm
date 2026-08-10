@@ -24,9 +24,7 @@ from hypothesis import given, HealthCheck, settings as hyp_settings, strategies 
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
-)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
 import psutil
 import pytest
 from upath import UPath
@@ -34,7 +32,7 @@ from upath import UPath
 from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness  # ruff:ignore[typing-only-first-party-import]
+from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
 from tools.assay.core.exec import run_check

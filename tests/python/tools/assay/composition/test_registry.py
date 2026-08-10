@@ -9,18 +9,14 @@ import time
 from typing import TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
-from expression import (  # ruff:ignore[typing-only-third-party-import]  # Result appears in inner-function annotations evaluated at runtime
-    Error,
-    Ok,
-    Result,
-)
+from expression import Error, Ok, Result  # Result appears in inner-function annotations evaluated at runtime
 import msgspec
 import msgspec.structs
 from pydantic import BaseModel, ValidationError
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python.tools.assay.kit import (  # ruff:ignore[typing-only-first-party-import]  # fixture annotation resolved at collection time, not import time
+from tests.python.tools.assay.kit import (  # fixture annotation resolved at collection time, not import time
     AssayHarness,
     make_history_envelope,
     pipe_history,

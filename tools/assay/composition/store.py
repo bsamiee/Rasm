@@ -28,6 +28,13 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
+class ByteSink(Protocol):
+    """Writable half of a backend file handle."""
+
+    def write(self, data: bytes, /) -> object:
+        """Write bytes to the open handle."""
+
+
 @runtime_checkable  # Backends satisfy the consumed fsspec subset structurally; no adapter layer is needed.
 class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
@@ -56,7 +63,7 @@ class ArtifactFileSystem(Protocol):
     def rm(self, path: str, *, recursive: bool = False) -> object:
         """Remove a backend path."""
 
-    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[object]:
+    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[ByteSink]:
         """Open a backend file.
 
         `autocommit=False` defers writes to the active backend transaction.
@@ -337,8 +344,7 @@ class ArtifactStore:
                 raise FileExistsError(path)
             # autocommit=False only materializes under a backend transaction; standalone writes commit directly.
             with self.fs.open(path, "wb", autocommit=not transaction) as fh:
-                # Protocol returns object so backends can expose their native fsspec file handle.
-                fh.write(payload)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                fh.write(payload)
         return path
 
     def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:

@@ -19,6 +19,7 @@ import itertools
 import operator
 from pathlib import Path
 import re
+from types import ModuleType
 from typing import override, Protocol, runtime_checkable, TYPE_CHECKING, TypeAliasType
 import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local MSBuild XML, never network-sourced
 
@@ -28,13 +29,9 @@ from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves adapter annotations at runtime
-)
-from tools.assay.composition.store import (
-    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves adapter annotations at runtime
-)
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves adapter annotations at runtime
+from tools.assay.composition.store import ArtifactScope  # beartype resolves adapter annotations at runtime
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -1512,16 +1509,14 @@ def _live_surface(obj: object, symbol: str) -> str:
 
 def _signature(obj: object) -> str:
     try:
-        return str(
-            inspect.signature(
-                obj,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable -> TypeError arm
-                annotation_format=annotationlib.Format.STRING,
-            )
-        )
+        return str(inspect.signature(obj, annotation_format=annotationlib.Format.STRING)) if callable(obj) else _annotated_signature(obj)
     except ValueError, TypeError:
-        annotations = _annotations(obj)
-        params = tuple(f"{name}: {kind}" for name, kind in annotations.items() if name != "return")
-        return f"({', '.join(params)})" if params else "(...)"
+        return _annotated_signature(obj)
+
+
+def _annotated_signature(obj: object) -> str:
+    params = tuple(f"{name}: {kind}" for name, kind in _annotations(obj).items() if name != "return")
+    return f"({', '.join(params)})" if params else "(...)"
 
 
 def _annotations(obj: object) -> dict[str, str]:
@@ -1533,8 +1528,8 @@ def _annotations(obj: object) -> dict[str, str]:
 
 def _object_source(obj: object) -> str:
     try:
-        # resolved symbol; C-builtin or unreadable object -> TypeError
-        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        # C-builtin or unreadable callable -> TypeError; a non-callable non-module carries no source.
+        return inspect.getsource(obj) if isinstance(obj, ModuleType) or callable(obj) else ""
     except OSError, TypeError:
         return ""
 

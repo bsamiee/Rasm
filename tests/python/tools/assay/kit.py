@@ -2,10 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # runtime: Protocol and msgspec fields resolve these annotations
-    Callable,
-    Generator,
-)
+from collections.abc import Callable, Generator  # runtime: Protocol and msgspec fields resolve these annotations
 from pathlib import Path
 import re
 from types import SimpleNamespace

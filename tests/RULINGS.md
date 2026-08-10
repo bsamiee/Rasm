@@ -20,7 +20,9 @@
 ## [04]-[STRUCTURE]
 
 - `tests/contracts/` seats sources this estate MINTS — `grpc.health.v1` and `google.rpc.Status` bind through their package-shipped clients.
-- Vendored upstream contracts fork the publisher that versions them — a wire roster names one as bound client surface, never a declared row.
+- Foreign shapes a branch reaches as bound client surface bind through that client — a vendored copy forks the publisher that versions it.
+- Definitions and conformance corpora no branch reaches as client surface seat here as frozen publisher bytes — a transcription grades its own copy.
+- Vendored bytes stay byte-identical and carve out of every formatter and breaking lane — a reformat proves the estate's spelling, not the publisher's.
 - `tests/contracts/` seats a contract only where a PEER runtime decodes it — a single-branch golden homes at that branch's own test tree.
 
 ## [05]-[PROCESS]

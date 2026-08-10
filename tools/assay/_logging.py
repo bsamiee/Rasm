@@ -20,9 +20,7 @@ from structlog.contextvars import merge_contextvars
 from structlog.dev import ConsoleRenderer
 from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
 from structlog.stdlib import ProcessorFormatter
-from structlog.typing import (
-    Processor,  # ruff:ignore[typing-only-third-party-import]  # beartype claw resolves the _chain return annotation at runtime
-)
+from structlog.typing import Processor  # beartype claw resolves the _chain return annotation at runtime
 
 from tools.assay.composition.settings import AssaySettings, LogFormat
 from tools.assay.core.aspect import ring_processor

@@ -2,9 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (
-    Callable,  # ruff:ignore[typing-only-standard-library-import]  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
-)
+from collections.abc import Callable  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
 from datetime import timedelta
 import enum
 import functools
@@ -20,6 +18,7 @@ import msgspec
 import pytest
 
 from tests.python._testkit.runtime import REPO_ROOT
+lazy from tests.python._testkit.strategies import resolve  # strategies imports this module; the lazy binding breaks the cycle at first draw
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -175,8 +174,6 @@ def spec[**P](
 
         match given:
             case True:
-                from tests.python._testkit.strategies import resolve  # ruff:ignore[import-outside-top-level]  # deferred to break import cycle
-
                 # The registration algebra matches the resolver's: classes, PEP 695 aliases, and
                 # parameterized forms (unions, Literal, Annotated) all inject; bare callables refuse.
                 if not _resolvable(subject):

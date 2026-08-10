@@ -14,20 +14,14 @@ from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local .csproj XML from source.read, never network-sourced
 
 import anyio
-from expression import (  # ruff:ignore[typing-only-third-party-import]  # beartype resolves routing Result annotations at runtime (PEP 649)
-    Error,
-    Ok,
-    Result,
-)
+from expression import Error, Ok, Result  # beartype resolves routing Result annotations at runtime (PEP 649)
 import msgspec
 import structlog
 from upath import UPath
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves route/target_files settings annotations at runtime
-)
-from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # msgspec needs Language/Tool annotations at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves route/target_files settings annotations at runtime
+from tools.assay.core.model import (  # msgspec needs Language/Tool annotations at runtime
     Base,
     Check,
     Claim,

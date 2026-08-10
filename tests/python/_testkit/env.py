@@ -156,7 +156,7 @@ def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
         # to a later provision — a cached instance would then carry the dead server's dircache.
         fs = s3fs.S3FileSystem(
             key="testing",  # static moto double credential, not a secret
-            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]
+            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]  # the moto double's fixed credential pair, not a secret
             endpoint_url=endpoint,
             client_kwargs={"region_name": spec.region},
             skip_instance_cache=True,

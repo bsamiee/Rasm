@@ -57,6 +57,12 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `stamina`
 - `opentelemetry-instrumentation-grpc`
 - `grpcio-health-checking`
+- `confluent-kafka[schemaregistry,avro,json,protobuf]` — librdkafka client and the Schema Registry serializer family.
+- `nats-py` — NATS core and JetStream client for the subject-addressed arm.
+- `paho-mqtt` — MQTT client for the telemetry and edge-device arm.
+- `pika` — blocking AMQP 0-9-1 client on the `to_thread` arm.
+- `fastavro` — Avro codec under the registry serializer and the `.avsc` schema validator.
+- `jsonschema` — payload validation against a fetched JSON Schema document.
 
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.

@@ -22,11 +22,12 @@ from opentelemetry import propagate, trace
 import stamina
 import structlog
 from upath import UPath
+lazy import asyncssh  # ~83ms cold start; materializes when a retry classifier or remote path first touches asyncssh.Error
 
 from tools.assay.composition.catalog import launch
 from tools.assay.composition.settings import AssaySettings, Local, Ssh  # unconditional: beartype resolves forward refs at import time
 from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.aspect import CHECKED_LAYER, compose, traced
+from tools.assay.core.aspect import checked, compose, traced
 from tools.assay.core.govern import (
     Captured,
     captured_outputs,
@@ -47,7 +48,7 @@ from tools.assay.core.govern import (
     stream_artifacts,
     touched,
 )
-from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
+from tools.assay.core.model import (  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
     Check,
     Completed,
     Fault,
@@ -397,8 +398,6 @@ def _is_match_document(raw: bytes) -> bool:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
-    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
-
     t0 = time.monotonic()
     attempts = [1]
     argv: tuple[str, ...] = (check.tool.name,)
@@ -579,7 +578,6 @@ def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseExcep
     Returns:
         A predicate that retries connection/OS faults on non-direct runners while budget remains, never spawn/value/timeout faults.
     """
-    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: classify's match arm references asyncssh.Error; must bind before the closure captures it
 
     def within_budget() -> bool:
         left = remaining(deadline)
@@ -617,7 +615,7 @@ def _spawn(check: Check, settings: AssaySettings) -> _Woven:
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
         agent=lambda *_a, **_k: settings.agent_context,
     )
-    weave: Callable[[_Woven], _Woven] = compose(CHECKED_LAYER, span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # async _Woven vs sync Hom[P, T]; the comment above owns the seam
     return weave(_guarded)
 
 

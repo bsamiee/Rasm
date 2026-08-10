@@ -96,3 +96,8 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `carrier slot`: names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
 - `host slot`: addresses one live host session every document-touching tool binds to.
 - `layout slot`: fixes an object's attribute table at declaration, replacing per-instance dictionary storage.
+- `envelope`: refuses bare use, and every site spells one qualified sense below.
+- `message envelope`: wraps a domain fact in the attributes a transport routes on, so a consumer routes without opening the payload.
+- `building envelope`: separates a building's conditioned interior from its exterior, and its tightness bounds the air a zone leaks.
+- `operating envelope`: bounds the conditions one machine or process admits, so a demand outside it refuses rather than degrades.
+- `swept envelope`: encloses the volume a moving body occupies across its whole motion, and a clearance test runs against that solid.

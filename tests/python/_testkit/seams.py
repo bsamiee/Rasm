@@ -4,8 +4,9 @@
 
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
-from types import TracebackType  # ruff:ignore[typing-only-standard-library-import]  # Protocol dunder __aexit__ annotation requires runtime presence
+from types import TracebackType  # Protocol dunder __aexit__ annotation requires runtime presence
 from typing import Protocol, Self, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
@@ -331,7 +332,7 @@ def autospec_proc(spec: type, *, fields: Mapping[str, object] = {}, methods: Map
 
 
 def psutil_module_double[E: BaseException](
-    real: object, procs: Mapping[int | None, MagicMock], *, not_found: Callable[[int | None], E], extra: Mapping[str, object] = {}
+    real: object, procs: Mapping[int | None, MagicMock], *, not_found: Callable[[int], E], extra: Mapping[str, object] = {}
 ) -> MagicMock:
     """Build a psutil module double whose ``Process`` factory dispatches by pid.
 
@@ -344,7 +345,8 @@ def psutil_module_double[E: BaseException](
     def process_factory(pid: int | None = None) -> MagicMock:
         match procs.get(pid):
             case None:
-                raise not_found(pid)
+                # psutil.Process(None) binds the current pid before failing, so the miss raise carries a concrete pid like the real module.
+                raise not_found(pid if pid is not None else os.getpid())
             case proc if getattr(proc, "_dead", False):
                 raise not_found(proc.pid)
             case proc:

@@ -23,13 +23,9 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these at import time, not under TYPE_CHECKING
-)
-from tools.assay.composition.store import (
-    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these at import time, not under TYPE_CHECKING
-)
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves these at import time, not under TYPE_CHECKING
+from tools.assay.composition.store import ArtifactScope  # beartype resolves these at import time, not under TYPE_CHECKING
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.govern import leased, proc_dead
 from tools.assay.core.model import (
     ArtifactKind,
@@ -45,7 +41,7 @@ from tools.assay.core.model import (
     Mode,
     PackageRun,
     RailStatus,
-    Report,  # ruff:ignore[typing-only-first-party-import]  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
+    Report,  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
     Step,
     Tool,
     ToolArgs,
@@ -717,9 +713,7 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams
     return _lifecycle(settings, scope, params, "publish", executor)
 
 
-def list(  # ruff:ignore[builtin-variable-shadowing]
-    settings: AssaySettings, scope: ArtifactScope, params: PackageParams, executor: Executor
-) -> Result[Report, Fault]:
+def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, executor: Executor) -> Result[Report, Fault]:
     """List package projects and slugs.
 
     Returns:

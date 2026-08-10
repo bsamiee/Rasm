@@ -75,7 +75,7 @@ def _size(node: object, cap: int) -> _Size:
 
 
 # msgspec exposes timezone policy as a tri-state field, not a boolean flag.
-def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ignore[boolean-type-hint-positional-argument]
+def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ignore[boolean-type-hint-positional-argument]  # mirrors the msgspec tri-state field
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
@@ -119,7 +119,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 # One polymorphic surface over the closed msgspec node taxonomy.
-def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure, too-many-return-statements]
+def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]  # one arm per msgspec node kind; the taxonomy sets the width
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
 
     Returns:
@@ -248,7 +248,7 @@ def _unwrap(schema: _Schema) -> _Schema:
 
 
 # One polymorphic surface over the pydantic-core schema algebra.
-def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure, too-many-return-statements]
+def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]  # one arm per pydantic-core schema kind
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
 
     Args:

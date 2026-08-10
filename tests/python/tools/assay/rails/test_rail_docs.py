@@ -4,7 +4,7 @@
 
 from typing import TYPE_CHECKING
 
-from expression import Error, Ok, Result  # ruff:ignore[typing-only-third-party-import]  # canned executor lanes return Result instances at runtime
+from expression import Error, Ok, Result  # canned executor lanes return Result instances at runtime
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_ok

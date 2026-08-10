@@ -9,10 +9,7 @@ from typing import Annotated, assert_never
 
 from msgspec import json, Meta, Raw
 
-from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # runtime msgspec field; deferring breaks struct resolution
-    Base,
-    Claim,
-)
+from tools.assay.core.model import Base, Claim  # runtime msgspec field; deferring breaks struct resolution
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -119,7 +116,7 @@ _ENCODE = json.Encoder(order="deterministic")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(node: Trigger | Action) -> str:  # ruff:ignore[too-many-return-statements]
+def describe(node: Trigger | Action) -> str:
     """Render a compact label for automation telemetry.
 
     Returns:

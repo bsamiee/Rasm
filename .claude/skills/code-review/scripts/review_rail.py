@@ -994,7 +994,8 @@ def round_context(repo: Path, round_no: int | None, /) -> Result[Context, Fault]
     if found is None:
         wanted = f"round {round_no}" if round_no is not None else "any round-*"
         return Error(Fault(code="no-round", detail=f"{wanted} not under {repo / STATE_DIR}; launch first"))
-    return run_loaded(found).map(lambda run: Context(repo=repo, round_dir=found, run=run))
+    active = found
+    return run_loaded(active).map(lambda run: Context(repo=repo, round_dir=active, run=run))
 
 
 def context_resolved(directory: Path | None, round_no: int | None, /) -> Result[Context, Fault]:
@@ -1493,9 +1494,10 @@ def prior_pool(repo: Path, current: int, dedup_against: int | None, /) -> Result
     found = repo / STATE_DIR / f"round-{dedup_against:03d}" if dedup_against is not None else (candidates[-1] if candidates else None)
     if found is None:
         return Ok(Nothing)
-    held = found / FINDINGS_NAME
+    pool = found
+    held = pool / FINDINGS_NAME
     # A prior round that qualifies must decode loudly: a swallowed decode fault here is a silently empty provenance histogram downstream.
-    return read_bytes(held).bind(lambda payload: decoded(payload, tuple[Finding, ...], str(held))).map(lambda rows: Some((found, rows)))
+    return read_bytes(held).bind(lambda payload: decoded(payload, tuple[Finding, ...], str(held))).map(lambda rows: Some((pool, rows)))
 
 
 def provenanced(rows: tuple[Finding, ...], prior: Option[tuple[Path, tuple[Finding, ...]]], /) -> tuple[Finding, ...]:

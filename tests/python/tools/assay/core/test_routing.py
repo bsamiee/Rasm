@@ -12,9 +12,7 @@ import pytest
 from upath import UPath
 
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
-from tests.python.tools.assay.kit import (
-    AssayHarness,  # ruff:ignore[typing-only-first-party-import]  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
-)
+from tests.python.tools.assay.kit import AssayHarness  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
 from tools.assay.composition.catalog import select
 from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
 from tools.assay.core.routing import (  # private probes for read/parse degradation arms

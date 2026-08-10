@@ -1,6 +1,6 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Command surfaces, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census.
+`tools.assay` is the Rasm polyglot quality operator, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Claims, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census; a claim carrying more than one verb requires it, so a bare invocation of such a claim faults at parse.
 
 ## [01]-[SCOPE]
 
@@ -10,7 +10,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 - `static` diagnoses by default and mutates only under `--fix`; even then it never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
 - Python's mutation lane is a staged gate scored against a kill-floor by `rails/mutation_gate.py`, which also emits a `mutation-testing-report-schema` JSON under `.artifacts/python/mutmut/`; mutmut runs copy-staged with `cwd=.artifacts/python/mutmut/work`, so a root `mutants/` directory is forbidden litter.
-- Every `.config/dotnet-tools.json` row carries a named owner — `ilspycmd` the api decompile port, `dotnet-stryker` the C# mutation lane, `dotnet-gcdump` the rhino-bridge unload forensics, `dotnet-ef` the `Rasm.Persistence` design-time surface (`.api/api-ef-design.md`) — and a row leaves the manifest only with its owner. Package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
+- Every `.config/dotnet-tools.json` row carries a named owner, and a row leaves the manifest only with its owner; the manifest is the register. Package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
 
 ## [02]-[FIRST_COMMAND]
 
@@ -70,7 +70,6 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Schema route: the field-by-field `Envelope` schema and the status algebra live in `core/model.py`.
 
 [STATUS_MODEL]:
-- Tokens and exit codes (`core/model.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `degraded`/`candidate`/`faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `RailStatus.dominant`/`RailStatus.fold`.
 - Completed channel: process success, skip, empty, unsupported, or tool-found defects. Fault channel: operational failure under `Envelope.error` with `Envelope.error_context` diagnostic.
 - `--strict` promotes otherwise non-error states into a fault for that invocation.
 
@@ -82,7 +81,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 ## [05]-[ARTIFACTS_AND_HISTORY]
 
 - Default local root: `.artifacts/assay`. `composition/store.py` `ArtifactStore` owns read, write, list, find, show, cache, zstd history, and full-report artifact behavior; read `report.artifacts` before assuming a file exists, and trust emitted artifact paths over inferred directory shapes.
-- Per-run scopes live under the claim/run id. Opening an `ArtifactScope` computes its path without materializing the directory; `ArtifactScope.ensure()` routes the one `makedirs` through the store boundary. `ArtifactStore.retain_scopes(claim, keep)` prunes per-claim scope run-dirs oldest-first, bounded by `ASSAY_ARTIFACT_RETENTION` (default 50), mirroring history retention.
+- Per-run scopes live under the claim/run id. Opening an `ArtifactScope` computes its path without materializing the directory; `ArtifactScope.ensure()` routes the one `makedirs` through the store boundary. `ArtifactStore.retain_scopes(claim, keep)` prunes per-claim scope run-dirs oldest-first, bounded by `ASSAY_ARTIFACT_RETENTION`, mirroring history retention.
 - Registry invocations persist compact envelope JSON and full report artifacts by `run_id`; `delta` reloads full report artifacts when compact history was clipped. Retained history serves comparisons, never a substitute for rerunning the rail.
 - Storage is fsspec-shaped: `UPath` routes the artifact root, and `storage_options`/`protocol=` resolution is load-bearing for the memory and object-store backends. Artifact storage is the only fsspec-routed surface — routing, leases, package staging, and history require real local or shared paths.
 - structlog writes stderr; stdout remains the machine contract. OTel tracing is endpoint-gated: no configured OTLP endpoint means no-op tracing; CLI exit drains by force-flush then provider shutdown after envelope dispatch.
@@ -100,7 +99,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Working-tree push: before the remote exec, `core/remote.py` pushes the lane-scoped build closure to `<workroot>/<run_id>` over the pooled SFTP connection; `git ls-files` is the source universe and gitignored roots never cross. Push and pull each run under their own shielded budget while the bracketed exec stays cancellable by the check deadline. Build argv scope paths rebase from host-absolute to `<workroot>/<run_id>/...` before remote argv composition.
 - Toolchain pre-flight: the exec probes the remote `PATH` for the runner's leading tool (`uv`, `dotnet`) under the injected fixed Linux toolchain prefix; an absent tool returns a typed `unsupported` receipt. An agent's local `PATH` never crosses.
 - Artifact pull-back: `sftp` is the sole `TRANSFER` backend, derived from the SSH host and pinned under `<workroot>/<run_id>/.artifacts/assay`; a shielded post-exit download lands scope artifacts locally, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run. A once-per-fan sweep prunes all but `artifact_retention` newest of this host's own remote run dirs.
-- Cloud posture: `s3`, `gs`, and `gcs` are admitted `SHARED` backends — the remote tool writes and the agent reads the same universal object-store paths, so the pull transfers zero bytes.
+- Cloud posture: an object-store backend is admitted `SHARED` — the remote tool writes and the agent reads the same universal paths, so the pull transfers zero bytes; `composition/settings.py` owns the admitted scheme set.
 
 [PROVISIONING_BOUNDARY]:
 - `provision` delegates to the Forge-owned `forge-provision`/`forge-scientific-env` executables on `PATH` and projects sanitized schema-v3 JSON into `ProvisionRun` evidence; assay pins no version, and a missing executable is a process fault.

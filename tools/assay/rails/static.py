@@ -1,8 +1,6 @@
 """Run one polyglot static lane: diagnose, restore, then build; ``--fix`` prepends the write-mode fixer rows."""
 
-from collections.abc import (
-    Callable,  # ruff:ignore[typing-only-standard-library-import]  # runtime: callable annotation is resolved through the rail layer
-)
+from collections.abc import Callable  # runtime: callable annotation is resolved through the rail layer
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
@@ -18,14 +16,9 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # runtime: public rail signatures are inspected
-)
+from tools.assay.composition.settings import AssaySettings  # runtime: public rail signatures are inspected
 from tools.assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE  # runtime: public rail signatures are inspected
-from tools.assay.core.exec import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
-    argv_for,
-    Executor,
-)
+from tools.assay.core.exec import argv_for, Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.govern import leased, resource_projection
 from tools.assay.core.model import (
     Artifact,
@@ -39,11 +32,11 @@ from tools.assay.core.model import (
     Mode,
     RailStatus,
     receipt,
-    Report,  # ruff:ignore[typing-only-first-party-import] - beartype resolves runtime annotations
+    Report,
     Runner,
     StaticRun,
     Step,
-    Tool,  # ruff:ignore[typing-only-first-party-import] - runtime: Tool participates in public check expansion annotations
+    Tool,
     ToolArgs,
 )
 from tools.assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles

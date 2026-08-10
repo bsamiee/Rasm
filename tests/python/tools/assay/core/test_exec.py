@@ -15,15 +15,13 @@ import anyio
 from expression import Error, Ok
 from hypothesis import given, strategies as st
 import msgspec
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
-)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import AssayHarness  # ruff:ignore[typing-only-first-party-import]
+from tests.python.tools.assay.kit import AssayHarness
 import tools.assay.core.exec as exec_mod
 from tools.assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
 import tools.assay.core.govern as govern_mod

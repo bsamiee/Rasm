@@ -18,7 +18,7 @@ HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_dir
 os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ruff:ignore[banned-api]  # precedes hypothesis import in subprocess workers
 
 # Must precede any Hypothesis import; the observability callback is installed on first internal import.
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]  # precedes the observability module import
     os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ruff:ignore[banned-api]  # must precede observability module import
 
 from contextlib import contextmanager
@@ -38,6 +38,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 import pytest
 import structlog
 from structlog.testing import capture_logs
+
+lazy from tests.python._testkit.laws import consume_covers  # laws imports runtime; the lazy binding breaks the cycle at first collection
 
 
 if TYPE_CHECKING:
@@ -171,7 +173,7 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 # Redirect Hypothesis observations to repo artifacts without replacing its built-in callback.
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]  # the callback installs before any settings model exists
     _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
     def _deliver_to_artifacts(observation: object, _thread_id: int) -> None:
@@ -196,8 +198,6 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Auto-apply ``network``/``property`` markers and consume each module's declarative ``COVERS`` tuple."""
-    from tests.python._testkit.laws import consume_covers  # ruff:ignore[import-outside-top-level]  # laws imports runtime; deferral breaks the cycle
-
     network = pytest.mark.network
     property_ = pytest.mark.property
     modules: dict[int, object] = {}

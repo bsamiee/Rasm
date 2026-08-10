@@ -15,11 +15,17 @@ from beartype.claw import beartype_this_package
 from opentelemetry.sdk.resources import Resource
 from pydantic import ValidationError
 
+# Tracing installs only on a configured endpoint, so the OTLP closure resolves on first attribute use.
+lazy from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+lazy from opentelemetry.sdk.trace import TracerProvider
+lazy from opentelemetry.sdk.trace.export import BatchSpanProcessor
+lazy from opentelemetry.trace import set_tracer_provider
+
 import tools.assay.core.aspect
 
 
-# AssaySettings loads after claw; the import-time gate must read the environment directly.
-match os.environ.get("ASSAY_CLAW", ""):  # ruff:ignore[banned-api]
+# AssaySettings loads after claw; the import-time gate reads the raw process environment because settings cannot exist yet.
+match os.environ.get("ASSAY_CLAW", ""):  # ruff:ignore[banned-api]  # bootstrap prelude: the settings model this ban routes to imports the package it gates
     case "1":
         beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))
     case _:
@@ -53,12 +59,6 @@ def install_tracing(endpoint: str) -> None:
         case "":
             pass
         case target:
-            # OTLP imports stay on the endpoint-set path to keep tracing-disabled startup lean.
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # ruff:ignore[import-outside-top-level]
-            from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # ruff:ignore[import-outside-top-level]
-            from opentelemetry.trace import set_tracer_provider  # ruff:ignore[import-outside-top-level]
-
             # Exporter connects on force_flush, not construction; a stale endpoint fails silently until flush time.
             provider = TracerProvider(resource=Resource.create(_SERVICE))
             provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=target), schedule_delay_millis=DRAIN_MS))

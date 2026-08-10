@@ -286,3 +286,110 @@ Surface appearance crosses the runtimes as TWO domain documents under ONE frozen
 - Accelerator lanes produce preview products that carry no key.
 - Ingest CLASSIFIES and never infers, so an unclaimed name accumulates as recorded residue.
 - Defaulted conventions commit the silent-inversion defect the frozen alias table forecloses.
+
+## [14]-[EVENT_FABRIC]
+
+Domain facts cross the runtimes as CloudEvents envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Envelopes ANNOUNCE a fact and never gain authority over it — the producing receipt stays the evidence truth and the envelope projects it — so a consumer routes on attributes without opening the payload.
+
+[AUTHORITY]: the specification is the semantic owner and an SDK is an admitted acceleration. Every binding, format, filter, and extension row derives from the specification, delegating to an SDK member where one exists and standing branch-owned where none does. Package surfaces narrower than the specification state a fact about that package, never a ceiling on what the estate carries.
+
+[KERNEL_BOUNDARY]: the envelope, the extension roster, the attribute grammar, and the format contract reach S0, and nothing else does. Bindings, filters, and subscriptions seat at their consuming owners under `[12]-[ADMISSION]`, carry no seam constraint, and reach the envelope as consumers of it.
+
+[SEATING]:
+- C# seats the envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
+- TypeScript lands the envelope as rows on the `core/interchange` owners it already carries, and mints no page beside them.
+- Python lands the envelope and every binding under `runtime/transport`, and mints no eventing sub-domain.
+- Sub-domains minted for the envelope fail the `[12]-[ADMISSION]` earn-test — their nouns are the identity, receipt, and wire nouns S0 already holds.
+
+[GRAMMAR]: one row per attribute, spelled in each branch's own casing law.
+
+| [INDEX] | [ATTRIBUTE]       | [CARRIES]                                |
+| :-----: | :---------------- | :--------------------------------------- |
+|  [01]   | `type`            | `rasm.<domain>.<subject>.<fact>.v<N>`    |
+|  [02]   | `source`          | the producing capability's URI-reference |
+|  [03]   | `subject`         | the payload's content key                |
+|  [04]   | `id`              | the producer's operation identity        |
+|  [05]   | `time`            | the occurrence instant, RFC 3339         |
+|  [06]   | `recordedtime`    | the receiver's ingest instant            |
+|  [07]   | `dataschema`      | the registry subject and version         |
+|  [08]   | `datacontenttype` | the serdes arrow's own row data          |
+|  [09]   | extension names   | lowercase `[a-z0-9]` within 20 characters |
+
+- `<domain>` is the capability subject `[08]-[OBSERVABILITY_CONFORMANCE]` fixes for metric names, so a board and a subscription join one vocabulary.
+- `<fact>` reads past tense, and `v<N>` moves only on a breaking `dataschema` change, so a compatible widening leaves every subscription standing.
+- `source` names the producing capability, never a host, package, or deployment, since a redeployment re-authors the identity consumers keyed on.
+- `id` is operation identity and never a content digest, and `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
+- `time` mints at the branch clock owner and `recordedtime` at the receiver, so the pair measures the queue that collapsing them erases.
+- `subject` carries the content key in ONE spelling, the same spelling `dataref` publishes where the payload externalizes.
+- Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
+- Digests over the extension map read a canonical order the envelope owner publishes, under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
+
+[EXTENSION_ROSTER]: the roster is spelled once per branch and handed at construction and at every decode, since a decoder without it reads a declared extension as an unknown string. Where an SDK helper owns a row the branch composes that helper's own `AllAttributes`, never a hand-spelled twin beside it.
+
+| [INDEX] | [EXTENSION]                | [CARRIES]                                    |
+| :-----: | :------------------------- | :------------------------------------------- |
+|  [01]   | `traceparent` `tracestate` | the creation-time W3C trace                  |
+|  [02]   | `baggage`                  | the creation-time W3C baggage                |
+|  [03]   | `partitionkey`             | the member a transport partitions on         |
+|  [04]   | `sequence` `sequencetype`  | the per-source position and its domain       |
+|  [05]   | `sampledrate`              | the producer's sampling denominator          |
+|  [06]   | `dataref`                  | the externalized payload's content key       |
+|  [07]   | `dataclassification`       | the handling class gating each binding       |
+|  [08]   | `recordedtime`             | the receiver's ingest instant                |
+|  [09]   | `expirytime`               | the instant past which delivery is moot      |
+|  [10]   | `severity`                 | the fact's own operational grade             |
+|  [11]   | `correlation`              | the causal chain a consumer joins on         |
+|  [12]   | `deprecation`              | the superseding `type` and its window        |
+|  [13]   | `authcontext`              | the producer's asserted principal            |
+|  [14]   | `dssematerial`             | the DSSE envelope over the attribute digests |
+
+[TWO_TRACE]: the distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
+
+[VARIATION]: format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
+
+[DATAREF]: one policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` IS the digest under `docs/laws/patterns.md` `[CONTENT_KEY]`, published under the addressing law `[13]-[APPEARANCE]` states for a content-keyed set.
+
+| [INDEX] | [COLUMN]    | [ANSWERS]                               |
+| :-----: | :---------- | :-------------------------------------- |
+|  [01]   | `threshold` | the binding's own negotiated limit      |
+|  [02]   | `residence` | the content-keyed store bound as a port |
+|  [03]   | `ref`       | the content key in the chosen spelling  |
+|  [04]   | `retain`    | the declared retention class            |
+|  [05]   | `dual`      | whether the reference ships alone       |
+
+- `residence` binds at the composition root as a port, and an unbound port refuses at admission rather than shipping a reference nothing resolves.
+- `retain` declares a class and never a window, ledger, or groom, so the producing folder's standing obligation reaches the wire unchanged.
+- `dual` gates reference-alone shipping on the subscription's `protocolsettings`, since the specification carries no capability negotiation.
+
+[BATCH]:
+- Batches settle per event, and the receipt carries accepted beside matched-duplicate as separate halves.
+- `sequence` survives batching, and no re-batch reorders events inside one `source`.
+- Framing reads the batch media-type PREFIX, so a format's batch sibling needs no second dispatch.
+- Batches past the transport budget split at the producer, since a relay re-framing one cannot re-sign it.
+
+[HOOK_ORDER]: an envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold — `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
+
+[AXIS_REFUSAL]: a binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
+
+[SECURITY]: signing is DSSE over SHA-256 digests of the core and extension attribute sets, carried in the `dssematerial` binary extension — the format registry carries no JWS member, so a signature travels as an attribute or not at all.
+- Webhook legs sign the encoded bytes ONCE, before any reserialization, since a re-encode respells what the signer never saw.
+- Abuse protection is the HTTP `OPTIONS` handshake: `WebHook-Request-Origin` required, `WebHook-Request-Callback` and `WebHook-Request-Rate` optional.
+- Targets answer `WebHook-Allowed-Origin` beside `WebHook-Allowed-Rate`, and a target handling `OPTIONS` while declining validation answers 405.
+- `WebHook-Request-Origin` rides every delivery request, so a target re-reads the claimed origin per message rather than trusting one handshake.
+- Authorization uses the specification's own header field or query parameter, since a third scheme forks what every peer target implements.
+- Ingress ADMITS through the tenancy owner and inherits nothing, so a decoded envelope carries no authority its transport happened to hold.
+- `source` and `authcontext` are producer CLAIMS verified against the trust row before any routing decision reads them.
+- `dataclassification` gates which binding a fact crosses, so a classification a binding cannot honor refuses at that binding.
+
+[EVOLUTION]:
+- `dataschema` resolves the registry subject and its version, and the `type` major `v<N>` moves with that version rather than beside it.
+- Divergent generations refuse at the CONSUMER on every decode, so a producer never negotiates a peer's pinned generation downward.
+- Retiring `type` values carry `deprecation` for a window that is a policy row, never a date literal a page goes stale against.
+
+[OWNERS]: one envelope owner per branch, and a second mint inside one branch is the `[07]-[CROSS_LANGUAGE_WIRE]` drift defect.
+
+| [INDEX] | [BRANCH]   | [ENVELOPE_SEAT]               | [BINDING_SEAT]             |
+| :-----: | :--------- | :---------------------------- | :------------------------- |
+|  [01]   | C#         | `csharp:Rasm/Domain`          | its consuming package      |
+|  [02]   | Python     | `python:runtime/transport`    | `python:runtime/transport` |
+|  [03]   | TypeScript | `typescript:core/interchange` | its consuming package      |

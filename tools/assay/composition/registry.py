@@ -30,7 +30,7 @@ import structlog
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.composition.store import ArtifactScope, prune_python_artifacts
-from tools.assay.core.aspect import CHECKED_LAYER, compose, Layer, logged, RING, traced
+from tools.assay.core.aspect import checked_call, compose, Layer, logged, RING, Slot, traced
 from tools.assay.core.exec import EngineExecutor, Executor
 from tools.assay.core.govern import measure, RESOURCE
 from tools.assay.core.model import (
@@ -574,8 +574,8 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 # compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
-# PEP 696: the aspect-owned checked layer's free vars do not unify with ReportLayer; same seam as engine._spawn's compose.
-_CHECKED: ReportLayer = CHECKED_LAYER  # ty: ignore[invalid-assignment]
+# The lambda monomorphizes checked_call's ParamSpec at the rail signature; the polymorphic checked() layer's free vars refuse direct unification.
+_CHECKED: ReportLayer = (Slot.checked, lambda fn: checked_call(fn))  # ruff:ignore[unnecessary-lambda]
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (_CHECKED, logged(event="rail", keys=_correlate), traced(span="assay.rail", attrs=_correlate))
 
 REGISTRY: Final[tuple[Bind, ...]] = (

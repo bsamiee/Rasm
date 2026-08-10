@@ -56,7 +56,7 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: use `openaiDeveloperDocs` MCP when working on Codex configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: use `uv run python -m tools.assay static` for static quality `.py`, `.ts/.tsx`, and `.cs` files (ruff/ty/mypy, tsc/biome, dotnet format/build).
-- [ALWAYS]: use `tools.assay provision` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence before an availability claim lands.
+- [ALWAYS]: use `uv run python -m tools.assay provision <verb>` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence.
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

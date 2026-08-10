@@ -5,33 +5,29 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import TYPE_CHECKING
 
-from expression import Result  # ruff:ignore[typing-only-third-party-import]  # beartype resolves return annotations at import time
+from expression import Result  # beartype resolves return annotations at import time
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at import time
-)
-from tools.assay.composition.store import (
-    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at import time
-)
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves rail annotations at import time
+from tools.assay.composition.store import ArtifactScope  # beartype resolves rail annotations at import time
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ArtifactKind,
     BaseParams,
     Check,
     Claim,
-    Completed,  # ruff:ignore[typing-only-first-party-import]  # _findings/_outcomes annotate the ordered fan-out outcomes
-    Fault,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Result[Report, Fault] under PEP 649 at import time
-    InprocThunk,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the _planning return annotation at import time
+    Completed,  # _findings/_outcomes annotate the ordered fan-out outcomes
+    Fault,  # beartype resolves Result[Report, Fault] under PEP 649 at import time
+    InprocThunk,  # beartype resolves the _planning return annotation at import time
     Language,
     Match,
     Mode,
     RailStatus,
     receipt,
-    Report,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Report in return annotations at import time
+    Report,  # beartype resolves Report in return annotations at import time
     Runner,
     ToolArgs,
 )

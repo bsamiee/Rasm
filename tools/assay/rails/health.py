@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import time
 from typing import Final, TYPE_CHECKING
+lazy import shutil  # materializes on the probe paths alone; non-probe verbs never pay the load
 
 import msgspec
 import psutil
@@ -109,8 +110,6 @@ def _uv_run_program(argv: tuple[str, ...]) -> str | None:
 
 
 def _probe_token(argv: tuple[str, ...]) -> str | None:
-    import shutil  # ruff:ignore[import-outside-top-level]  # deferred: avoids module-load cost on non-probe paths
-
     def mtime(path: str | None) -> int | None:
         try:
             return Path(path).stat().st_mtime_ns if path is not None else None
@@ -261,8 +260,6 @@ def yak_ready() -> bool:
         True when a catalogued PACKAGE-claim yak row exists and ``yak`` resolves on PATH.
     """
     # shutil.which mirrors DIRECT execvp lookup; os.access would check CWD-relative paths.
-    import shutil  # ruff:ignore[import-outside-top-level]  # deferred: executed only on --rhino path
-
     return any(t.name == "yak" and t.claim is Claim.PACKAGE for t in TOOLS) and shutil.which("yak") is not None
 
 

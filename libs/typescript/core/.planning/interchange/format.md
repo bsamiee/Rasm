@@ -90,9 +90,6 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
 // COLLISION rather than marking a projection — element seats a wire type beside a domain twin per message, where
 // nothing co-resident with compute's collides. `AssetSetManifest` reads unsuffixed for that one reason.
 //
-// Families enter only where THIS branch decodes them: `rasm.scene.v1` declares a landed source whose consumer is the
-// python energy owner, so a row for it mounts a reader against bytes no browser receives.
-//
 // Families owning no descriptor source stay absent BY LAW and ride their own `interchange/codec` arm: the AppHost
 // runtime-evidence set ([02.21]) and the AppUi product-shell set ([02.22]) owe none under [02.9]; the appearance
 // families mint their wire as the producer's MessagePack integer-keyed roster; `HlcStampWire` carries the [02.7]

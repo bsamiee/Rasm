@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     def _cron_from_crontab(expr: str, timezone: ZoneInfo) -> _CronTrigger: ...
 
 else:
-    from apscheduler.triggers.cron import CronTrigger as _CronTrigger  # type: ignore[import-untyped]  # APScheduler ships no py.typed marker.
+    from apscheduler.triggers.cron import CronTrigger as _CronTrigger
 
     def _cron_from_crontab(expr: str, timezone: ZoneInfo) -> _CronTrigger:
         return _CronTrigger.from_crontab(expr, timezone=timezone)

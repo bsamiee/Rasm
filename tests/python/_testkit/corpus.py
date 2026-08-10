@@ -2,7 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]  # msgspec resolves fold annotations at runtime
+from collections.abc import Callable  # msgspec resolves fold annotations at runtime
 from pathlib import Path
 import re
 
@@ -13,12 +13,14 @@ lazy import pytest
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _MANIFEST_NAME = "MANIFEST.md"
+_SEAM_DEFINITION = "contract.schema.json"
+_CLASS_VOCABULARY: frozenset[str] = frozenset({"infrastructure", "domain"})
 _PAYLOAD_KINDS: frozenset[str] = frozenset({"wire-bytes", "canonical-json", "digest", "descriptor-set"})
 _PIN_VOCABULARY: frozenset[str] = frozenset({"REAL", "DESIGN-PIN"})
 
 _ANCHOR = re.compile(r"csharp:([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+?)(?:#[A-Z0-9_]+)?`")
 _ENTRY_HEAD = re.compile(r"^### \[[0-9.]+\]-\[([A-Z0-9_]+)\]\s*$")
-_FIELD = re.compile(r"^- (Seam|Producer|Consumers|Payload|Pin|Blocker|Shape|Expectation|Regenerate when): (.+)$")
+_FIELD = re.compile(r"^- (Seam|Class|Minters|Producer|Consumers|Payload|Pin|Blocker|Shape|Expectation|Regenerate when): (.+)$")
 _CODE_SPAN = re.compile(r"`([^`]+)`")
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -29,6 +31,8 @@ class CorpusEntry(msgspec.Struct, frozen=True):
 
     fixture: str
     seam: str
+    entry_class: str
+    minters: str
     producer: str
     consumers: str
     payload: frozenset[str]
@@ -73,9 +77,10 @@ class CorpusManifest(msgspec.Struct, frozen=True):
     def audit(self, libs_root: Path) -> tuple[str, ...]:
         """Fold the corpus-honesty defects the contracts law names.
 
-        Pin-state honesty, payload vocabulary, ledger-entry coherence, seam-directory
-        registration, DESIGN-PIN emptiness, and producer-anchor page resolution fold into one
-        defect stream; an empty return is the clean verdict.
+        Pin-state honesty, class vocabulary and its exclusive minter/producer maps, payload
+        vocabulary, ledger-entry coherence, seam-directory registration, DESIGN-PIN asset
+        emptiness, and mint-anchor page resolution fold into one defect stream; an empty return
+        is the clean verdict.
 
         Returns:
             One human-readable defect string per violation.
@@ -90,6 +95,11 @@ class CorpusManifest(msgspec.Struct, frozen=True):
             for e in self.entries
             for defect in (
                 f"{e.fixture}: pin {e.pin!r} outside {sorted(_PIN_VOCABULARY)}" if e.pin not in _PIN_VOCABULARY else "",
+                f"{e.fixture}: class {e.entry_class!r} outside {sorted(_CLASS_VOCABULARY)}" if e.entry_class not in _CLASS_VOCABULARY else "",
+                f"{e.fixture}: infrastructure entry names no Minters" if e.entry_class == "infrastructure" and not e.minters else "",
+                f"{e.fixture}: infrastructure entry names a Producer" if e.entry_class == "infrastructure" and e.producer else "",
+                f"{e.fixture}: domain entry names no Producer" if e.entry_class == "domain" and not e.producer else "",
+                f"{e.fixture}: domain entry names Minters" if e.entry_class == "domain" and e.minters else "",
                 f"{e.fixture}: REAL entry missing Expectation" if e.pin == "REAL" and not e.expectation else "",
                 f"{e.fixture}: REAL entry carries Blocker" if e.pin == "REAL" and e.blocker else "",
                 f"{e.fixture}: DESIGN-PIN entry missing Blocker" if e.pin == "DESIGN-PIN" and not e.blocker else "",
@@ -116,16 +126,19 @@ class CorpusManifest(msgspec.Struct, frozen=True):
             for directory in on_disk
             for defect in (
                 f"{directory.name}: seam directory has no manifest entry" if directory.name not in seams else "",
+                # A seam's own contract.schema.json is its DEFINITION, never an asset: the pin says the byte-deriving
+                # input is unfrozen, so the whole subtree below the definition is what an unfrozen pin must hold empty.
                 f"{directory.name}: DESIGN-PIN seam carries assets"
-                if directory.name in seams - real_seams and any(p.is_file() for p in directory.iterdir())
+                if directory.name in seams - real_seams and any(p.is_file() and p != directory / _SEAM_DEFINITION for p in directory.rglob("*"))
                 else "",
             )
             if defect
         )
         anchor_defects = (
-            f"{e.fixture}: producer anchor csharp:{pkg}/{page} resolves to no planning page"
+            f"{e.fixture}: {label} anchor csharp:{pkg}/{page} resolves to no planning page"
             for e in self.entries
-            for pkg, page in _ANCHOR.findall(e.producer)
+            for label, cell in (("Minters", e.minters), ("Producer", e.producer))
+            for pkg, page in _ANCHOR.findall(cell)
             if not (libs_root / "csharp" / pkg / ".planning" / f"{page}.md").is_file()
         )
         return (*entry_defects, *ledger_defects, *missing_rows, *disk_defects, *anchor_defects)
@@ -148,24 +161,29 @@ def load_manifest(root: Path) -> CorpusManifest:
         if cells[0] != "[INDEX]"
     )
     entries: list[CorpusEntry] = []
-    fields: dict[str, str] = {}
+    fields: dict[str, list[str]] = {}
     fixture = ""
 
+    # A label repeats freely — `Shape`, `Producer`, and `Blocker` all carry several lines per entry — so every
+    # occurrence joins into one cell; assignment would discard all but the last and hide whole anchors from the audit.
+    def _cell(label: str) -> str:
+        return " ".join(fields.get(label, ()))
+
     def _seal() -> None:
-        payload = frozenset(_CODE_SPAN.findall(fields.get("Payload", "")))
-        seam = _CODE_SPAN.sub(r"\1", fields.get("Seam", "")).strip()
         entries.append(
             CorpusEntry(
                 fixture=fixture,
-                seam=seam,
-                producer=fields.get("Producer", ""),
-                consumers=fields.get("Consumers", ""),
-                payload=payload,
-                pin=fields.get("Pin", "").strip(),
-                shape=fields.get("Shape", ""),
-                blocker=fields.get("Blocker", ""),
-                expectation=fields.get("Expectation", ""),
-                regenerate=fields.get("Regenerate when", ""),
+                seam=_CODE_SPAN.sub(r"\1", _cell("Seam")).strip(),
+                entry_class=_cell("Class").strip(),
+                minters=_cell("Minters"),
+                producer=_cell("Producer"),
+                consumers=_cell("Consumers"),
+                payload=frozenset(_CODE_SPAN.findall(_cell("Payload"))),
+                pin=_cell("Pin").strip(),
+                shape=_cell("Shape"),
+                blocker=_cell("Blocker"),
+                expectation=_cell("Expectation"),
+                regenerate=_cell("Regenerate when"),
             )
         ) if fixture else None
 
@@ -177,7 +195,7 @@ def load_manifest(root: Path) -> CorpusManifest:
             continue
         field = _FIELD.match(line)
         if field is not None and fixture:
-            fields[field.group(1)] = field.group(2)
+            fields.setdefault(field.group(1), []).append(field.group(2))
     _seal()
     return CorpusManifest(root=root, entries=tuple(entries), ledger=ledger)
 

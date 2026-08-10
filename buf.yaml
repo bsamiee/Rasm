@@ -5,6 +5,12 @@
 version: v2
 modules:
   - path: tests/contracts
+    # `tests/RULINGS.md` `[04]-[STRUCTURE]` seats a publisher's own definition as frozen bytes where no branch reaches
+    # it as client surface, and carves those bytes out of every formatter and breaking lane. `io/cloudevents/v1` is the
+    # CloudEvents publisher's source: upstream versions it, upstream's spelling is the proof, and a gate reformatting
+    # or diffing it would grade the estate's copy instead.
+    excludes:
+      - tests/contracts/io
 lint:
   # STANDARD over BASIC/MINIMAL: the package-layout, enum, field, and service rules all bind here, and the two rules
   # the estate's own ruled vocabulary displaces are named below rather than dropped by lowering the category.

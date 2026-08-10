@@ -1,10 +1,7 @@
 """Run test, discovery, coverage, and mutation rails."""
 
 from collections import Counter
-from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # _MUTATION_SCOPE binds the projection type at import time
-    Callable,
-    Iterable,
-)
+from collections.abc import Callable, Iterable  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
@@ -12,9 +9,7 @@ from typing import Annotated, override, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local Workspace.slnx XML from the repo root
 
 from cyclopts import Parameter
-from cyclopts.types import (
-    NonNegativeInt,  # ruff:ignore[typing-only-third-party-import]  # cyclopts resolves Param-annotated dataclass fields at runtime
-)
+from cyclopts.types import NonNegativeInt  # cyclopts resolves Param-annotated dataclass fields at runtime
 from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
@@ -22,10 +17,8 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (
-    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at runtime
-)
-from tools.assay.composition.store import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
+from tools.assay.composition.settings import AssaySettings  # beartype resolves rail annotations at runtime
+from tools.assay.composition.store import (  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
     ArtifactScope,
     ArtifactStore,
     CS_ARTIFACT_ROOTS,
@@ -33,7 +26,7 @@ from tools.assay.composition.store import (  # ruff:ignore[typing-only-first-par
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
 )
-from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     Artifact,
@@ -41,7 +34,7 @@ from tools.assay.core.model import (
     BaseParams,
     Check,
     Claim,
-    Completed,  # ruff:ignore[typing-only-first-party-import]  # _roster_matches uses Completed as a runtime type in the tuple annotation
+    Completed,  # _roster_matches uses Completed as a runtime type in the tuple annotation
     Counts,
     Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Input,
@@ -52,7 +45,7 @@ from tools.assay.core.model import (
     MutationLane,
     RailStatus,
     receipt,
-    Report,  # ruff:ignore[typing-only-first-party-import]  # beartype @checked resolves the rail's forward-ref (PEP 649)
+    Report,  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
     TestRun,
     Tool,
@@ -691,7 +684,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams, execu
     return _thin_rail(settings, scope, params, executor, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
-def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:  # ruff:ignore[builtin-variable-shadowing]
+def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:
     """List discovered tests.
 
     The name must match the registry-bound Handler name for verb dispatch.

@@ -12,7 +12,7 @@ from enum import IntEnum
 from functools import wraps
 import inspect
 from operator import itemgetter
-from typing import assert_never, Final, Protocol, TYPE_CHECKING
+from typing import Final, Protocol, TYPE_CHECKING
 
 from beartype import beartype, BeartypeConf, BeartypeStrategy, BeartypeViolationVerbosity
 from expression import Ok, Result
@@ -85,7 +85,7 @@ _TRACER: Final = trace.get_tracer("assay.core")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # ruff:ignore[unused-function-argument]
+def ring_processor(_logger: object, method_name: str, event_dict: EventDict) -> EventDict:
     """Record the event in the context-local ring and stamp active trace IDs.
 
     Returns:
@@ -176,8 +176,6 @@ def compose[**P, T: HasStatus](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Ho
                 return woven
             case Result(error=inv):
                 raise TypeError(inv)
-            case never:  # pragma: no cover
-                assert_never(never)
 
     return weave
 
@@ -185,9 +183,6 @@ def compose[**P, T: HasStatus](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Ho
 def checked[**P, T: HasStatus](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     """Return a Layer tuple for the Slot.checked position."""
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
-
-
-CHECKED_LAYER = checked()  # type: ignore[var-annotated]  # Layer[**P, T] PEP 696 vars cannot be inferred at module-level singleton instantiation
 
 
 def logged[**P, T: HasStatus](*, event: str, keys: Bind[P]) -> Layer[P, T]:
@@ -293,7 +288,6 @@ __all__ = [
     "Inversion",
     "Layer",
     "Slot",
-    "CHECKED_LAYER",
     "RING",
     "assemble",
     "checked",

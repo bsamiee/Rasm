@@ -2,19 +2,13 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (
-    Callable,  # ruff:ignore[typing-only-standard-library-import]  # Callable annotation in parametrize parameter evaluated at collection time
-)
+from collections.abc import Callable  # Callable annotation in parametrize parameter evaluated at collection time
 from dataclasses import dataclass
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING
 
-from expression import (  # ruff:ignore[typing-only-third-party-import]  # Result appears in parametrize annotations evaluated at collection time
-    Error,
-    Ok,
-    Result,
-)
+from expression import Error, Ok, Result  # Result appears in parametrize annotations evaluated at collection time
 import msgspec.structs
 import pytest
 
