@@ -41,8 +41,9 @@ declare namespace GlbViewport {
   // `sets` join it on `TextureSet.appearanceKey`, `worn` carries the element-side pairing no appearance wire holds,
   // and `planes` resolves one addressed leaf — `[setKey, file]`, the pair `Glb.assetPath` already derives from.
   // `materials` carries each override BESIDE the appearance key it was fetched under, because the wire nests the
-  // whole OpenPBR vector inline (`Material.openPbr`) and carries NO key column — the payload rides BEHIND the key
-  // at transport, so the fetch coordinate is the pairing fact and only the carrier can state it
+  // whole OpenPBR vector inline (`Material.openPbr`) and carries NO key column — `Material.id` is the seam
+  // `family.name` identity string, never a digest — the payload rides BEHIND the key at transport, so the fetch
+  // coordinate is the pairing fact and only the carrier can state it
   type Appearance = {
     readonly summaries: ReadonlyArray<AppearanceSummary>
     readonly materials: ReadonlyArray<readonly [appearance: Digest.Key<"content">, override: Material]>
@@ -152,14 +153,18 @@ declare namespace Glb {
     compileEquirectangularShader(): void | Promise<void>
     dispose(): void
   }
-  // one acquisition record serves every downstream lane — backend, device seam, prefilter, and the settled sampling
-  // cap all read off this shape, so no lane re-probes `navigator.gpu`, no second prefilter is ever constructed, and
-  // no texture stamp re-asks a maximum the two backend classes spell under two different member paths
+  // one acquisition record serves every downstream lane — backend, device seam, prefilter, codecs, and the settled
+  // sampling cap all read off this shape, so no lane re-probes `navigator.gpu`, no second prefilter is ever
+  // constructed, and no texture stamp re-asks a maximum the two backend classes spell under two different member
+  // paths. Codecs ride the ACQUISITION because the transcoder is renderer-bound: `detectSupport` cannot rebind a
+  // live pool — spawned workers hold their first config forever and the parse cache keys on buffer alone — so a
+  // backend swap rebuilds the codec record with the renderer and the displaced pool dies with it.
   type Acquired = {
     readonly renderer: WebGLRenderer | WebGPURenderer
     readonly device: Option.Option<GPUDevice>
     readonly prefilter: Glb.Prefilter
     readonly anisotropy: number
+    readonly codecs: Glb.Codecs
   }
   // the acquisition held as a resource cell rather than a value: a re-init SETS it, so the successor acquires
   // before the displaced renderer releases and no lane ever reads a disposed handle out of a captured record
@@ -174,8 +179,8 @@ declare namespace Glb {
   // the renderer-BOUND plane, gathered once so the acts re-derive it in one place instead of four
   type Plane = {
     readonly canvas: HTMLCanvasElement
+    readonly served: Glb.Served
     readonly backplane: Glb.Backplane
-    readonly codecs: Glb.Codecs
     readonly loop: Glb.Loop
     readonly root: Scene
     readonly camera: PerspectiveCamera
@@ -232,7 +237,7 @@ const _lit = (root: Scene): Scene => {
   return rows.reduce((held, light) => held.add(light), root)
 }
 
-const _renderer = (canvas: HTMLCanvasElement): Effect.Effect<Glb.Acquired, never, Scope.Scope> =>
+const _renderer = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect<Glb.Acquired, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.gen(function* () {
       const acquired = globalThis.navigator.gpu === undefined
@@ -271,10 +276,12 @@ const _renderer = (canvas: HTMLCanvasElement): Effect.Effect<Glb.Acquired, never
           _SAMPLING.anisotropy,
           legacy ? built.capabilities.getMaxAnisotropy() : built.getMaxAnisotropy(),
         ),
+        codecs: _codecs(served, built),
       } satisfies Glb.Acquired
     }),
-    ({ prefilter, renderer }) => Effect.sync(() => {
-      // BOUNDARY ADAPTER — the prefilter releases before the renderer that backs it
+    ({ codecs, prefilter, renderer }) => Effect.sync(() => {
+      // BOUNDARY ADAPTER — the transcoder pool and the prefilter release before the renderer that backs them
+      codecs.ktx2.dispose()
       prefilter.dispose()
       renderer.dispose()
     }),
@@ -282,8 +289,8 @@ const _renderer = (canvas: HTMLCanvasElement): Effect.Effect<Glb.Acquired, never
 
 // the swap-in-place cell: `set` acquires the successor and releases the displaced renderer only after the swap
 // commits, so a lane reading between the two never observes a torn backend and no consumer holds a dead handle
-const _backplane = (canvas: HTMLCanvasElement): Effect.Effect<Glb.Backplane, never, Scope.Scope> =>
-  ScopedRef.fromAcquire(_renderer(canvas))
+const _backplane = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect<Glb.Backplane, never, Scope.Scope> =>
+  ScopedRef.fromAcquire(_renderer(canvas, served))
 
 const _phases = ["booting", "ready", "degraded", "lost", "reviving"] as const
 
@@ -353,11 +360,9 @@ const _watched = (device: GPUDevice, send: Glb.Turn["send"]): Effect.Effect<void
 const _ACTS: { readonly [K in Glb.Act]: (turn: Glb.Turn) => Effect.Effect<void> } = {
   arm: ({ forkReplace, plane, send }) =>
     Effect.gen(function* () {
+      // the fresh acquisition constructed its own transcoder against the live backend, so the arm re-reads
+      // nothing: the prefiltered target died with its renderer, the decoded source did not, the dome re-derives
       const acquired = yield* ScopedRef.get(plane.backplane)
-      // the ONE transcoder re-reads the fresh backend: a second instance is the ruling's named defect, so
-      // re-configuring the held one is the only spelling a re-init has for the transcode target
-      yield* Effect.sync(() => void plane.codecs.ktx2.detectSupport(acquired.renderer))
-      // the prefiltered target died with its renderer; the decoded source did not, so the dome re-derives
       yield* plane.loop.rebind(acquired)
       // forkReplace interrupts the incumbent draw fiber, and ITS scope finalizer is the park — one park path
       // serves the hidden stance and the dead renderer alike, and `Effect.never` is what keeps the scope open
@@ -381,7 +386,7 @@ const _ACTS: { readonly [K in Glb.Act]: (turn: Glb.Turn) => Effect.Effect<void> 
   chase: ({ forkOne, plane, send }) =>
     forkOne(
       Effect.gen(function* () {
-        yield* ScopedRef.set(plane.backplane, _renderer(plane.canvas))
+        yield* ScopedRef.set(plane.backplane, _renderer(plane.canvas, plane.served))
         const fresh = yield* ScopedRef.get(plane.backplane)
         yield* send(new Advance({ signal: Option.isSome(fresh.device) ? "settled" : "floored" }))
       }),
@@ -440,7 +445,8 @@ import { Convention } from "@rasm/ts/core"
 import { Context, Effect, HashMap, Metric, Option, Queue, Record, Ref, Schema, Scope, ScopedRef, Stream, SubscriptionRef } from "effect"
 import { preinit, preinitModule, preload, type PreloadOptions } from "react-dom"
 import {
-  AnimationMixer, BufferGeometry, LoadingManager, LoopRepeat, Mesh, MeshPhysicalMaterial, Points, Scene, Texture,
+  AnimationMixer, BufferGeometry, LoadingManager, LoopRepeat, Mesh, MeshPhysicalMaterial, MeshStandardMaterial,
+  Points, Scene, Texture,
 } from "three"
 import type { Material, Object3D, PerspectiveCamera } from "three"
 import type { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js"
@@ -480,6 +486,14 @@ declare namespace Glb {
   // one codec record publishes the transcoder beside the loader consuming it, because the dome's deep-store
   // container decodes through that same configured instance and a second one owns a second worker pool
   type Codecs = { readonly gltf: GLTFLoader; readonly ktx2: KTX2Loader }
+  // renderer-INDEPENDENT decode capability resolved once per viewport: the tapped manager, the warmed draco pool,
+  // and the meshopt module are backend-blind, while the KTX2 transcoder is renderer-BOUND and rides `Acquired`
+  type Served = {
+    readonly manager: LoadingManager
+    readonly draco: DRACOLoader
+    readonly ktx2Dir: string
+    readonly meshopt: Option.Option<typeof MeshoptDecoder>
+  }
   type Codec = (typeof _codecSlugs)[number]
   type Address = (typeof _addresses)[number]
   type Warm = (typeof _warms)[number]
@@ -720,10 +734,14 @@ const _splat = (graft: Glb.Graft, acquired: Glb.Acquired): Effect.Effect<void> =
   // The WebGL floor therefore keeps the material the parse gave it: one arm, never a second material family.
   acquired.renderer instanceof WebGPURenderer
     ? Effect.sync(() => {
-        // BOUNDARY ADAPTER — the node material is a mutable platform record and the swap is one assignment
+        // BOUNDARY ADAPTER — the node material is a mutable platform record and the swap is one assignment.
+        // Compositing is straight-alpha over-blend: the wire crosses sigmoid STRAIGHT alpha (`StreamFilter.None`,
+        // the renderer's direct input) with no baked order, and the encoding's draw obligation is back-to-front
+        // per view — `depthWrite: false` keeps the composite from self-occluding, and the fixed-pixel Points
+        // floor composites UNSORTED as its declared forfeit, never a premultiplied or additive re-read.
         graft.drawn.forEach((drawn) => {
           if (!(drawn instanceof Points)) return
-          const bound = new PointsNodeMaterial({ transparent: true })
+          const bound = new PointsNodeMaterial({ transparent: true, depthWrite: false })
           bound.colorNode = vertexColor()
           const worn = Array.isArray(drawn.material) ? drawn.material : [drawn.material]
           drawn.material = bound

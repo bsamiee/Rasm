@@ -116,7 +116,7 @@
 |  [06]   | `resolver.execute`/`.cacheInvalidate`         | dispatch/cache | run a batched request; seed/evict the per-resolver cache           |
 
 [ENTRYPOINT_SCOPE]: the `Model` domain class and its repository/loader helpers
-- `Model.Class<Self>(id)(fields)` yields `.select`/`.insert`/`.update`/`.json`/`.jsonCreate`/`.jsonUpdate` schemas, accessed as `Row.insert`/… and `Model.fields(Row)`; variant builders are `Field`/`FieldOnly`/`FieldExcept`/`Struct`/`Union`/`extract`.
+- `Model.Class<Self>(id)(fields)` yields `.select`/`.insert`/`.update`/`.json`/`.jsonCreate`/`.jsonUpdate` schemas accessed as `Row.insert`/…; `Row.fields` is the resolved select-variant schema record (`Schema.Struct`-composable), while `Model.fields(Row)` returns the variant `Field` record `Schema.Struct` refuses; variant builders are `Field`/`FieldOnly`/`FieldExcept`/`Struct`/`Union`/`extract`.
 - `Model.makeRepository(Row, { tableName, spanPrefix, idColumn })` and `Model.makeDataLoaders(Row, { …, window, maxBatchSize? })` serve projection, snapshot, and idempotency-ledger tables, spanning `<spanPrefix>.<op>` / `<spanPrefix>/<op>`; the append-only journal issues no UPDATE/DELETE, so neither backs it.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                               |

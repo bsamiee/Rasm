@@ -401,7 +401,7 @@ const Camera: Camera.Shape = {
 - Law: the DGGS cell family is ONE scheme-keyed table — `S2Layer.getS2Token`, `QuadkeyLayer.getQuadkey`, `GeohashLayer.getGeohash`, `A5Layer.getPentagon`, `H3ClusterLayer.getHexagons` specialize one `GeoCellLayer` pattern by index accessor, with `H3HexagonLayer` the high-precision GPU sibling; a new grid is one table row, and the GeoArrow cell mirrors take over when the index column is an Arrow batch.
 - Law: the LAS descriptor is picked by point-record format, never by extension — `LASLoader` is the package's own alias for `LAZPerfLoader`, the sync-capable common path whose header declines LAS 1.4, and `LAZRsLoader` reads the 1.4 extended formats; the grade is therefore a COLUMN on the scan policy rather than a parameter beside it, because the format that picks the descriptor also picks the decimation and precision the same row carries, and a caller holding a policy holds the whole decision.
 - Law: the LAS option bag is four policy rows under one `las` key — `skip` is the LOD decimation the zoom row supplies, `fp64` and `colorDepth` are precision rows, and `workerUrl` resolves through the `Glb.assetDir` roster (`scene#RESIDENCY_GRAFT`) because the shipped default fetches its worker from unpkg and every CSP the estate serves refuses it; an unset `workerUrl` is the named defect, not a default. `las.shape` is never spelled — the descriptor already fixes the output, and the option is inert.
-- Law: the scan's Arrow egress is a SECOND envelope, not the bus frame — `LASArrowLoader.parse` answers the loaders.gl `ArrowTable` the loader declares as its `dataType`, which is not the `apache-arrow` `Table` `Geo.decoded` mints, so the row states the loader's own return and the projection onto the bus is the page's one open member rather than an asserted identity; the loader's spread-inherited `parseSync` is never spelled, because it returns the mesh shape its name does not promise, and `parse` itself takes no option bag — the `las` rows reach it through `load`, never a second argument.
+- Law: the scan's Arrow egress lands the bus frame on the envelope's `data` member — `LASArrowLoader.parse` answers the loaders.gl `ArrowTable` `{ shape: "arrow-table", schema?, data }` whose `data` column IS the `apache-arrow` `Table` (a hard dependency of the schema package, never a structural stand-in), so `_scanned` projects `.data` and joins the `Geo.decoded` bus type with no cast; the loader parses on the main thread (`worker: false`), its spread-inherited `parseSync` is never spelled because it returns the mesh shape its name does not promise, and `LASLoader`'s declared `las.shape: "arrow-table"` option is DEAD in the shipped release — the conversion call is commented out, so the option route silently answers a mesh and is never spelled; `parse` itself takes no option bag — the `las` rows reach it through `load`, never a second argument.
 - Law: the tile-content vocabulary is a bounded row table, never a render branch this page owns — `TILE3D_TYPE` discriminates a decoded payload across composite, point-cloud, batched, instanced, geometry, vector, and glTF, and each row names which peer surfaces it: the batched and instanced rows hand off at `scene#INSTANCED_ROWS`, the point-cloud row lands on the same binary attribute seam the LAS scan takes, and the composite row is a container whose members re-enter the table. Deck's own traversal picks the sublayer; this table is what `onTileLoad` reads to route evidence and appearance, so a hand-written render switch beside it restates the tileset engine.
 - Law: motion is an animated row reading the ONE clock — `TripsLayer` binds `getTimestamps` against `currentTime` taken from `Clock.Frame.now` (`[03]-[FRAME_CLOCK]`) with `_animate` set on the overlay; `trailLength`/`fadeTrail` are the decay policy, and `scene#INSTANCED_ROWS`' `_animations` reads the same frame — one time coordinate across every animated surface, so a construction-sequence scrub moves trips and mixers together.
 - Law: layer assembly admits through `Planar.admit` (`[08]`) — a `geographic` collection feeds a layer directly, a `projected` one crosses `toWgs84` exactly once at that boundary, and an SRID `Wire.GeoFeature.Crs.of` cannot resolve refuses `crs-unresolved` so the layer renders nothing and the refusal surfaces as evidence; per-feature projection inside an accessor is the named defect because an accessor re-runs the crossing every draw.
@@ -598,6 +598,8 @@ const _scan = (id: string, href: string, policy: Scan.Policy): PointCloudLayer =
     material: true,
   })
 
+// the loaders.gl envelope: `data` IS the apache-arrow `Table` — arrow is a hard dependency of the schema package —
+// and the `shape` discriminant goes unread here because the loader's own `dataType` already fixes it
 type _ArrowEgress = Awaited<ReturnType<typeof LASArrowLoader.parse>>
 
 // the fused fetch-and-decode call can fail on either truth, so the caught value is triaged rather than assigned one reason:
@@ -608,12 +610,15 @@ const _scanFault: (defect: unknown) => GeoFault = pipe(
   Match.orElse((defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) })),
 )
 
-const _scanned = (href: string, policy: Scan.Policy): Effect.Effect<_ArrowEgress, GeoFault> =>
-  Effect.tryPromise({
-    // the loader's OWN return, never a cast onto the bus frame: `parse` takes no option bag, so the las rows ride `load`
-    try: (signal) => load(href, LASArrowLoader, { ..._scanOptions(policy), fetch: { signal } }),
-    catch: _scanFault,
-  })
+const _scanned = (href: string, policy: Scan.Policy): Effect.Effect<Table, GeoFault> =>
+  Effect.map(
+    Effect.tryPromise({
+      // the loader's OWN envelope projected at this seam: `parse` takes no option bag, so the las rows ride `load`
+      try: (signal) => load(href, LASArrowLoader, { ..._scanOptions(policy), fetch: { signal } }),
+      catch: _scanFault,
+    }),
+    (egress: _ArrowEgress) => egress.data,
+  )
 
 declare namespace Cell {
   type Scheme = keyof typeof _cells
@@ -665,6 +670,8 @@ const _push = (surface: Geo.Surface, layers: LayersList, effects: _Passes): void
 - Law: options versus props is the discriminant — constructor options are static shader-compilation switches set once at construction; the injected props are per-frame runtime values pushed through the same `setProps` sink, and an extension accessor closing over an atom value names its `updateTriggers` key exactly like a layer's own accessor.
 - Law: a cross-layer capability is an extension instance in the array, NEVER a layer subclass or a forked prop; extensions stack — each owns a disjoint shader-module injection.
 - Law: the pass module is viewer-authored and its CONSTRAINT derives from deck — the pinned `@luma.gl/shadertools` ships no post-process pass and `@luma.gl/effects` is unadmitted, so no shipped eye-dome exists to compose; the pass type therefore reads off `PostProcessEffect`'s own constructor rather than a direct luma import, which the deck substrate rule forbids, and the authored module is admitted through exactly the surface deck already publishes.
+- Law: the module lands FOUR members — `name`, `fs`, `uniformTypes`, `passes` — on luma's `ShaderPass` shape: `passes` is the sub-pass array deck's pass builder maps UNGUARDED, so its absence throws at mount, and `uniformTypes` order matches the `layout(std140)` block declaration by the shadertools position contract. Deck SYNTHESIZES `main()` from the sub-pass flag — `filter: true` calls `<name>_filterColor_ext(vec4, vec2, vec2)`, `sampler: true` calls `<name>_sampleColor(sampler2D, vec2, vec2)` — while the declared `action` field goes unread; a module `vs` is ignored because the clip-space model owns the geometry, `texSrc` is template-declared and never redeclared in the module `fs`, runtime props arrive keyed under the module NAME merged over each sub-pass's static `uniforms`, and `screen` is a reserved name the auto-mounted screen-uniforms module already holds.
+- Law: the pass samples the composited COLOUR frame alone — `texSrc` is the template's one bound sampler and no depth attachment reaches a screen pass — so the discontinuity measure is a luminance ring over composited colour, and a depth-buffer EDL is unspellable on this surface rather than a stronger variant this row declined.
 - Law: the sampling ring is a device-pixel distance — the policy carries a CSS-pixel radius and the row scales it by the surface's pixel ratio, because an unscaled radius shades a retina surface at half its intended reach and reads as a weaker effect rather than a wrong one.
 - Growth: a new per-layer capability is one factory row and every layer inherits it by concatenation; a new screen-space pass is one policy shape plus one row on the same sink.
 
@@ -693,11 +700,41 @@ declare namespace Screen {
 
 const _DEPTH: Screen.Depth = { strength: 1.2, radius: 2 }
 
-const _depth = <Pass extends Screen.Pass & { readonly props: Screen.Depth }>(
-  pass: Pass,
-  policy: Screen.Depth,
-  pixelRatio: number,
-): PostProcessEffect<Pass> => new PostProcessEffect(pass, { strength: policy.strength, radius: policy.radius * pixelRatio })
+// the authored pass: the sub-pass is `sampler` because the ring taps its own neighbours, so deck's generated
+// main() calls `eyedome_sampleColor(texSrc, screen.texSize, coordinate)`; the std140 block order IS the
+// uniformTypes order, the shade folds the luminance drop against the brightest ring neighbour — the colour-frame
+// reading of the eye-dome discontinuity, since no depth attachment reaches a screen pass — and `radius` arrives
+// already scaled to device pixels so the shader divides by texSize alone
+const _EYEDOME = {
+  name: "eyedome",
+  fs: `\
+layout(std140) uniform eyedomeUniforms {
+  float strength;
+  float radius;
+} eyedome;
+
+const vec2 eyedome_ring[4] = vec2[4](vec2(1.0, 0.0), vec2(-1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, -1.0));
+
+float eyedome_luma(sampler2D source, vec2 texCoord) {
+  return dot(texture(source, texCoord).rgb, vec3(0.2126, 0.7152, 0.0722));
+}
+
+vec4 eyedome_sampleColor(sampler2D source, vec2 texSize, vec2 texCoord) {
+  vec4 centre = texture(source, texCoord);
+  float here = dot(centre.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float peak = here;
+  for (int at = 0; at < 4; at++) {
+    peak = max(peak, eyedome_luma(source, texCoord + eyedome_ring[at] * eyedome.radius / texSize));
+  }
+  float shade = exp(-eyedome.strength * max(peak - here, 0.0));
+  return vec4(centre.rgb * shade, centre.a);
+}`,
+  uniformTypes: { strength: "f32", radius: "f32" },
+  passes: [{ sampler: true }],
+} as const satisfies Screen.Pass
+
+const _depth = (policy: Screen.Depth, pixelRatio: number): PostProcessEffect<typeof _EYEDOME> =>
+  new PostProcessEffect(_EYEDOME, { strength: policy.strength, radius: policy.radius * pixelRatio })
 ```
 
 ## [08]-[PLANAR_OPS]

@@ -169,7 +169,7 @@ declare namespace Clock {
 export { Clock }
 ```
 
-## [06]-[RESEARCH]
+## [02]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

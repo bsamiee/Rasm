@@ -19,6 +19,7 @@ One authorization owner: the entitlement vocabulary a verified token resolves in
 ```typescript
 import { Identity, Convention, Fault } from "@rasm/ts/core"
 import { Array, Config, Context, Data, Effect, HashMap, HashSet, Metric, Option, Request, type RequestResolver, Schema } from "effect"
+import type { ApiKeyRecord } from "../authn/credential.ts"
 import { AccessClaims } from "../crypt/sign.ts"
 import { SecurityFact, Witness } from "./audit.ts"
 import { type Principal, TenantScope } from "./tenant.ts"
@@ -74,24 +75,35 @@ class ClaimStore extends Context.Tag("security/access/ClaimStore")<ClaimStore, {
 
 [CLAIM_RESOLUTION]:
 - Law: roles are read once per request into the `ClaimSet`, never re-derived at each policy check; the tenant flows through the `TenantScope` reference, not a parameter; a `tid` that fails to decode falls to the configured default tenant, and only a store failure is a `ClaimFault`.
+- Law: `resolve` is the one entitlement door and it discriminates on the presented shape — a verified `AccessClaims` and a resolved `ApiKeyRecord` both fold into one `ClaimSet`, the machine arm projecting subject and scopes off the record with roles read from the same store, so machine callers hit RBAC/ReBAC policy identically to token callers and no guard seam grows a parallel claims path.
 - Receipt: `ClaimSet` — the immutable resolved claim the policy fold reads; `Principal` — the ambient tenancy the reference carries.
-- Growth: a new claim source (an API-key principal) resolves into the same `ClaimSet` and binds through the same `Principal`.
+- Growth: a new claim source is one arm on the `resolve` input union binding through the same `Principal`.
 
 ```typescript
 class Claim extends Effect.Service<Claim>()("security/access/Claim", {
   effect: Effect.gen(function* () {
     const store = yield* ClaimStore
-    const fallback = yield* Config.option(Config.string("DEFAULT_TENANT"))
-    const _tenantOf = (claims: AccessClaims): Effect.Effect<Option.Option<Identity.Tenant.Key>> =>
-      Option.match(claims.tid, {
-        onSome: (raw) => Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(Effect.option),
-        onNone: () => Option.match(fallback, { onSome: (raw) => Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(Effect.option), onNone: () => Effect.succeed(Option.none()) }),
+    const fallback = yield* Config.option(Config.string("DEFAULT_TENANT").pipe(
+      Config.withDescription("tenant key an undecodable or absent tid falls to; absent leaves the claim untenanted"),
+    ))
+    const _decoded = (raw: string): Effect.Effect<Option.Option<Identity.Tenant.Key>> =>
+      Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(Effect.option)
+    const _tenantOf = (tid: Option.Option<string>): Effect.Effect<Option.Option<Identity.Tenant.Key>> =>
+      Option.match(tid, {
+        onSome: _decoded,
+        onNone: () => Option.match(fallback, { onSome: _decoded, onNone: () => Effect.succeed(Option.none()) }),
       })
-    const resolve = (claims: AccessClaims): Effect.Effect<ClaimSet, ClaimFault> =>
+    // One entitlement door: the input shape is the discriminant — a verified token carries `sub`, a resolved
+    // machine key carries `subject` — so both principal sources fold into ONE ClaimSet and machine callers meet
+    // the same RBAC/ReBAC policy as token callers.
+    const resolve = (presented: AccessClaims | ApiKeyRecord): Effect.Effect<ClaimSet, ClaimFault> =>
       Effect.gen(function* () {
-        const tenant = yield* _tenantOf(claims)
-        const roles = yield* store.rolesOf(claims.sub, tenant)
-        return new ClaimSet({ subject: claims.sub, tenant, roles, scopes: HashSet.fromIterable(claims.scope) })
+        const shaped = "sub" in presented
+          ? { subject: presented.sub, tid: presented.tid, scopes: presented.scope }
+          : { subject: presented.subject, tid: Option.none<string>(), scopes: presented.scopes }
+        const tenant = yield* _tenantOf(shaped.tid)
+        const roles = yield* store.rolesOf(shaped.subject, tenant)
+        return new ClaimSet({ subject: shaped.subject, tenant, roles, scopes: HashSet.fromIterable(shaped.scopes) })
       }).pipe(Effect.withSpan("security.claim.resolve"))
     const principal = (identity: Identity.App, claims: ClaimSet): Principal =>
       ({ context: Option.map(claims.tenant, (tenant) => identity.scoped(tenant)), subject: Option.some(claims.subject) })

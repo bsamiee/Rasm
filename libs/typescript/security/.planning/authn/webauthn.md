@@ -1,6 +1,6 @@
 # [SECURITY_WEBAUTHN]
 
-Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. One options→verify pattern spans registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. Ceremony position is type-witnessed data: `CeremonyPhase` is a `Schema.Class` carrying the intent (`enroll`/`assert`), the challenge, and its expiry, sealed into the `ChallengeStore` single-use port at start and consumed exactly once at finish — an intent mismatch, a stale phase, and a missing phase are each a typed `challenge` fault, so an enroll challenge can never complete an assert and the protocol order is enforced by data, not by convention. Policy is pinned, not defaulted: the COSE allow-list is the `[-8, -7]` (EdDSA, ES256) roster mirroring the `Jwt` `algorithms` pin, `authenticatorSelection` demands discoverable credentials and user verification as config rows, and the challenge mints through `crypt/sign`'s `Crypto.token` so the folder holds one RNG owner. Attestation trust is exploited end to end: `SettingsService` pins the root certificates, `MetadataService` loads the FIDO MDS blob, and `enrollFinish` projects `getStatement(aaguid)` onto the `Passkey` as the authenticator `model` — trust anchors that are read, not merely initialized; the trust anchors are process-wide simplewebauthn singletons, so one attestation policy governs a process and a divergent-policy tenant is a deployment split, never a Layer split. A non-increasing-counter check is the clone/replay defense and it is loud — the `clone` row lands on the folder reject stream and the error log lands before the `breached`-class fault surfaces — every consumed-challenge refusal lands the `ceremony` row beside it, and `assertFinish` runs under a per-subject store-backed `RateLimiter`. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
+Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. One options→verify pattern spans registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. Ceremony position is type-witnessed data: `CeremonyPhase` is a `Schema.Class` carrying the intent (`enroll`/`assert`), the challenge, and its expiry, sealed into the `ChallengeStore` single-use port at start and consumed exactly once at finish — an intent mismatch, a stale phase, and a missing phase are each a typed `challenge` fault, so an enroll challenge can never complete an assert and the protocol order is enforced by data, not by convention. Policy is pinned, not defaulted: the COSE allow-list is the `[-8, -7]` (EdDSA, ES256) roster mirroring the `Jwt` `algorithms` pin, `authenticatorSelection` demands discoverable credentials and user verification as config rows, and the challenge mints through `crypt/sign`'s `Crypto.token` so the folder holds one RNG owner. Attestation trust is exploited end to end: `SettingsService` pins the root certificates, `MetadataService` loads the FIDO MDS blob, and `enrollFinish` projects `getStatement(aaguid)` onto the `Passkey` as the authenticator `model` — trust anchors that are read, not merely initialized; the trust anchors are process-wide simplewebauthn singletons, so one attestation policy governs a process and a divergent-policy tenant is a deployment split, never a Layer split. A non-increasing-counter check is the clone/replay defense and it is loud — the `clone` row lands on the folder reject stream and the error log lands before the `breached`-class fault surfaces — every consumed-challenge refusal lands the `ceremony` row beside it, and `assertFinish` runs under the folder `Curb` `webauthn` row keyed by subject. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 ## [02]-[ATTESTATION_TRUST]
 
 [ATTESTATION_TRUST]:
-- Owner: `Passkey` is the stored credential (id, subject, public key, counter, transports, and the MDS-projected authenticator `model`), `WebAuthnFault` the folder fault shape closed at the core family seam, `CeremonyPhase` the type-witnessed protocol position, `WebAuthnTrust` the trust-anchor Layer that configures `SettingsService` root certificates, initializes `MetadataService` from the FIDO MDS, and carries the pinned ceremony policy rows. `WebAuthnStore` holds credentials, `ChallengeStore` the single-use phase.
+- Owner: `Passkey` is the stored credential (id, subject, public key, counter, transports, and the MDS-projected authenticator `model`), `WebAuthnFault` the folder fault shape closed at the core family seam, `CeremonyPhase` the type-witnessed protocol position, `WebAuthnTrust` the folder's one `WEBAUTHN_` decode site — a described record resolving trust anchors, RP identity, the authenticator-type preference, and the ceremony TTL at layer construction — configuring `SettingsService` root certificates and initializing `MetadataService` from the FIDO MDS. `WebAuthnStore` holds credentials, `ChallengeStore` the single-use phase.
 - Law: attestation policy is a config row — `none` accepts any authenticator, `direct`/`enterprise` demand a validated cert chain; `WebAuthnTrust` sets the per-format root certs (`SettingsService.setRootCertificates`) and initializes MDS with a `strict`/`permissive` unregistered-AAGUID policy once at layer construction, so the format verifier validates provenance and the attestation type is a policy value the verify legs read, never a per-ceremony switch; the simplewebauthn trust services are process-global, so exactly one attestation policy exists per process — the folder law a multi-policy deployment answers with separate workloads.
 - Law: `CeremonyPhase` is the transition payload — start seals `{ intent, challenge, expiresAt }` under the ceremony TTL, finish consumes it single-use and gates intent and freshness, so `*Finish` before `*Start`, cross-ceremony completion, and challenge replay are all unspellable at the store contract; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract.
 - Law: one alphabet spans the whole WebAuthn wire — the verified `WebAuthnCredential.publicKey` bytes render base64url-noPadding exactly as the credential id, the challenge, and every response coordinate do, so `Passkey.publicKey` admits through `Schema.Uint8ArrayFromBase64Url` and a journalled row round-trips back into verification under one encoding; a standard-base64 field here is the folder's lone exception to its own stated base64url law and decodes a `+`/`/` payload the authenticator never emitted.
@@ -19,7 +19,6 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 - Boundary: `@simplewebauthn/server` dispatches the format verifier internally; the browser half collects the response; `authn/session` establishes the session; the trust anchors are config/fetch-sourced at boot.
 
 ```typescript
-import * as RateLimiter from "@effect/experimental/RateLimiter"
 import {
   generateAuthenticationOptions, generateRegistrationOptions, MetadataService, SettingsService,
   verifyAuthenticationResponse, verifyRegistrationResponse,
@@ -30,7 +29,7 @@ import { Fault } from "@rasm/ts/core"
 import { Config, Context, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, type SingleUse } from "../crypt/sign.ts"
-import { Reject } from "../crypt/verify.ts"
+import { Curb, Reject } from "../crypt/verify.ts"
 import { CredentialRef, type SessionFault, type Subject, Token, type TokenPair } from "./session.ts"
 
 const _transports = ["ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb"] as const
@@ -85,25 +84,67 @@ class WebAuthnStore extends Context.Tag("security/authn/WebAuthnStore")<WebAuthn
 
 class ChallengeStore extends Context.Tag("security/authn/ChallengeStore")<ChallengeStore, SingleUse<CeremonyPhase, WebAuthnFault>>() {}
 
+// The folder's one WEBAUTHN_ decode site: every namespace row resolves in this record at layer construction, so a
+// malformed environment fails the boot line and no second decode site can fork the namespace.
+const _setting = Config.unwrap({
+  attestationType: Config.literal("none", "direct", "enterprise")("WEBAUTHN_ATTESTATION").pipe(
+    Config.withDefault("none" as const),
+    Config.withDescription("attestation posture; direct/enterprise arm MDS and demand a validated cert chain"),
+  ),
+  roots: Config.array(Config.string(), "WEBAUTHN_ROOT_CERTS").pipe(
+    Config.withDefault([]),
+    Config.withDescription("per-format attestation root certificates"),
+  ),
+  mode: Config.literal("strict", "permissive")("WEBAUTHN_MDS_MODE").pipe(
+    Config.withDefault("permissive" as const),
+    Config.withDescription("unregistered-AAGUID policy the MDS initialization pins"),
+  ),
+  residentKey: Config.literal("required", "preferred", "discouraged")("WEBAUTHN_RESIDENT_KEY").pipe(
+    Config.withDefault("required" as const),
+    Config.withDescription("discoverable-credential demand on the options mint"),
+  ),
+  userVerification: Config.literal("required", "preferred", "discouraged")("WEBAUTHN_USER_VERIFICATION").pipe(
+    Config.withDefault("required" as const),
+    Config.withDescription("user-verification demand on the options mint"),
+  ),
+  preferred: Config.option(Config.literal("securityKey", "localDevice", "remoteDevice")("WEBAUTHN_PREFERRED_AUTHENTICATOR").pipe(
+    Config.withDescription("authenticator-type hint the registration options carry; absent states no preference"),
+  )),
+  rpID: Config.string("WEBAUTHN_RP_ID").pipe(Config.withDescription("relying-party id every ceremony verifies against")),
+  rpName: Config.string("WEBAUTHN_RP_NAME").pipe(Config.withDescription("relying-party display name on the registration options")),
+  origin: Config.string("WEBAUTHN_ORIGIN").pipe(Config.withDescription("expected web origin every response verifies against")),
+  ceremonyTtl: Config.duration("WEBAUTHN_CEREMONY_TTL").pipe(
+    Config.withDefault(Duration.minutes(5)),
+    Config.withDescription("one window for the authenticator dialog and the stashed phase"),
+  ),
+})
+
 class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthnTrust, {
   readonly attestationType: "none" | "direct" | "enterprise"
   readonly selection: AuthenticatorSelectionCriteria
+  readonly preferred: Option.Option<"securityKey" | "localDevice" | "remoteDevice">
+  readonly rpID: string
+  readonly rpName: string
+  readonly origin: string
+  readonly ceremonyTtl: Duration.Duration
 }>() {
   static readonly Live: Layer.Layer<WebAuthnTrust> = Layer.effect(
     WebAuthnTrust,
     Effect.gen(function* () {
-      const attestationType = yield* Config.literal("none", "direct", "enterprise")("WEBAUTHN_ATTESTATION").pipe(Config.withDefault("none" as const))
-      const roots = yield* Config.array(Config.string(), "WEBAUTHN_ROOT_CERTS").pipe(Config.withDefault([]))
-      const mode = yield* Config.literal("strict", "permissive")("WEBAUTHN_MDS_MODE").pipe(Config.withDefault("permissive" as const))
-      const residentKey = yield* Config.literal("required", "preferred", "discouraged")("WEBAUTHN_RESIDENT_KEY").pipe(Config.withDefault("required" as const))
-      const userVerification = yield* Config.literal("required", "preferred", "discouraged")("WEBAUTHN_USER_VERIFICATION").pipe(Config.withDefault("required" as const))
-      yield* attestationType === "none"
+      const setting = yield* _setting
+      yield* setting.attestationType === "none"
         ? Effect.void
         : Effect.gen(function* () {
-            SettingsService.setRootCertificates({ identifier: "mds", certificates: [...roots] })
-            yield* Effect.tryPromise({ try: () => MetadataService.initialize({ verificationMode: mode }), catch: (cause) => new WebAuthnFault({ reason: "attestation", detail: String(cause) }) }).pipe(Effect.orDie)
+            SettingsService.setRootCertificates({ identifier: "mds", certificates: [...setting.roots] })
+            yield* Effect.tryPromise({ try: () => MetadataService.initialize({ verificationMode: setting.mode }), catch: (cause) => new WebAuthnFault({ reason: "attestation", detail: String(cause) }) }).pipe(Effect.orDie)
           })
-      return { attestationType, selection: { residentKey, userVerification } }
+      return {
+        attestationType: setting.attestationType,
+        selection: { residentKey: setting.residentKey, userVerification: setting.userVerification },
+        preferred: setting.preferred,
+        rpID: setting.rpID, rpName: setting.rpName, origin: setting.origin,
+        ceremonyTtl: setting.ceremonyTtl,
+      }
     }),
   )
 }
@@ -114,14 +155,14 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
 [RP_VERIFICATION]:
 - Owner: `WebAuthn.enrollStart`/`enrollFinish` register a passkey, `WebAuthn.assertStart`/`assertFinish` authenticate one. Its `verified` discriminant is matched so the credential is extracted only on the true arm, `newCounter` is the replay defense, and `enrollFinish` enriches the stored `Passkey` with the MDS `getStatement` projection when an attestation policy is active.
 - Law: the challenge is minted server-side through `Crypto.token` — one RNG owner across the folder — sealed as a `CeremonyPhase` under the ceremony TTL, and consumed single-use on the rail at finish with intent and freshness gated, every refusal landing `Reject.mark("ceremony")` beside a `Ceremony` fact through `Witness` so challenge replay is counted with the same weight as the oauth state replay and rides the audit rail as receipt-truth; the response is `Schema`-decoded before verify; the resolved passkey belongs to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
-- Law: policy is pinned at the options mint — `supportedAlgorithmIDs` spreads the `_ALGORITHMS` `[-8, -7]` roster on both registration and verification so an algorithm-confusion downgrade is unspellable, and `authenticatorSelection` carries the trust row's discoverable-credential and user-verification demands; the caller never writes the format switch — attestation dispatches inside the verifier keyed by the decoded `fmt`, parameterized by `WebAuthnTrust.attestationType` and the pinned root certs.
+- Law: policy is pinned at the options mint — `supportedAlgorithmIDs` spreads the `_ALGORITHMS` `[-8, -7]` roster on both registration and verification so an algorithm-confusion downgrade is unspellable, `authenticatorSelection` carries the trust row's discoverable-credential and user-verification demands, and the `preferred` trust row spreads `preferredAuthenticatorType` onto the registration mint only when a deployment states one — absent is no preference, never a defaulted steer; the caller never writes the format switch — attestation dispatches inside the verifier keyed by the decoded `fmt`, parameterized by `WebAuthnTrust.attestationType` and the pinned root certs.
 - Law: one TTL governs the whole ceremony window — both option bags carry `timeout: Duration.toMillis(ceremonyTtl)` off the same resolved config value the `CeremonyPhase` expiry reads, so the authenticator dialog and the stashed server phase close together; leaving the library's 60-second default in place moves one half of one window on a config change and fails a ninety-second user at the authenticator while a live phase still sits in the store.
 - Law: both finishes carry the ceremony denominator — `enrollFinish` and `assertFinish` compose `Reject.measured("ceremony")` under the same kind their challenge refusals mark, so the passkey plane publishes an assertion success rate and a ceremony wall span beside its refusals; the `clone` breach row deliberately has no admission twin, because a counter regression is read absolutely and its denominator is the enclosing assertion's own kind.
-- Law: a non-increasing counter is a cloned authenticator — `Reject.mark("clone")` lands on the folder reject stream, the `breached`-class `Clone` fact publishes through `Witness`, and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the per-subject token-bucket budget and an exhausted budget is `throttled`.
+- Law: a non-increasing counter is a cloned authenticator — `Reject.mark("clone")` lands on the folder reject stream, the `breached`-class `Clone` fact publishes through `Witness`, and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the `Curb` `webauthn` row keyed by subject and an exhausted budget folds to `throttled` at the guard.
 - Receipt: `Passkey` on registration, `TokenPair` on assertion — never a raw `VerifiedRegistrationResponse` past the seam.
 - Growth: a new transport hint is one `_transports` entry; a new ceremony option is one options-bag field.
-- Boundary: `WebAuthnTrust` supplies the attestation and selection policy; the browser half collects the response; `authn/session` `Token.establish` mints the session; the ports carry state; the `RateLimiter` store is data-wave-satisfied.
-- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`); `@effect/experimental` (`RateLimiter`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`); `access/audit` (`Witness`, `SecurityFact`); `authn/session` (`Token.establish`, `CredentialRef`).
+- Boundary: `WebAuthnTrust` supplies the resolved `WEBAUTHN_` policy record; the browser half collects the response; `authn/session` `Token.establish` mints the session; the ports carry state; `crypt/verify`'s `Curb` owns the assertion budget row.
+- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`, `preferredAuthenticatorType`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`, `Curb`); `access/audit` (`Witness`, `SecurityFact`); `authn/session` (`Token.establish`, `CredentialRef`).
 
 ```typescript
 const _ALGORITHMS: ReadonlyArray<number> = [-8, -7]
@@ -135,13 +176,8 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
     const challenges = yield* ChallengeStore
     const trust = yield* WebAuthnTrust
     const token = yield* Token
-    const limit = yield* RateLimiter.makeWithRateLimiter
-    const rpID = yield* Config.string("WEBAUTHN_RP_ID")
-    const rpName = yield* Config.string("WEBAUTHN_RP_NAME")
-    const origin = yield* Config.string("WEBAUTHN_ORIGIN")
-    const ceremonyTtl = yield* Config.duration("WEBAUTHN_CEREMONY_TTL").pipe(Config.withDefault(Duration.minutes(5)))
-    const window = yield* Config.duration("WEBAUTHN_RATE_WINDOW").pipe(Config.withDefault(Duration.minutes(5)))
-    const budget = yield* Config.integer("WEBAUTHN_RATE_LIMIT").pipe(Config.withDefault(10))
+    const curb = yield* Curb
+    const { ceremonyTtl, origin, rpID, rpName } = trust
     const _stash = (subject: string, intent: "enroll" | "assert", challenge: string): Effect.Effect<void, WebAuthnFault> =>
       Effect.flatMap(DateTime.now, (now) =>
         challenges.stash(subject, new CeremonyPhase({ intent, challenge, expiresAt: DateTime.addDuration(now, ceremonyTtl) }), ceremonyTtl))
@@ -171,6 +207,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           try: () => generateRegistrationOptions({
             rpName, rpID, userName, challenge, userID: _utf8.encode(subject),
             attestationType: trust.attestationType, authenticatorSelection: trust.selection,
+            ...(Option.isSome(trust.preferred) && { preferredAuthenticatorType: trust.preferred.value }),
             supportedAlgorithmIDs: [..._ALGORITHMS],
             timeout: Duration.toMillis(ceremonyTtl), // one config value drives both halves of the window; the library default would expire the dialog four minutes before the phase
             excludeCredentials: existing.map((passkey) => ({ id: passkey.id })),
@@ -223,7 +260,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
         return options
       }).pipe(Effect.withSpan("security.webauthn.assertStart"))
     const assertFinish = (subject: Subject["id"], response: AuthenticationResponseJSON): Effect.Effect<TokenPair, WebAuthnFault | SessionFault> =>
-      limit({ algorithm: "token-bucket", onExceeded: "fail", window, limit: budget, key: `webauthn:${subject}` })(
+      curb.guard("webauthn", subject, (detail: string): WebAuthnFault | SessionFault => new WebAuthnFault({ reason: "throttled", detail }))(
         Effect.gen(function* () {
           const passkey = yield* Effect.flatMap(store.byId(response.id), Option.match({
             onNone: () => Effect.fail(new WebAuthnFault({ reason: "verification", detail: response.id })),
@@ -257,16 +294,12 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           return yield* token.establish(new CredentialRef({ kind: "webauthn", key: passkey.id }), ["openid"], { tenant: Option.none(), verified: true })
         }),
       ).pipe(
-        Effect.catchTags({
-          RateLimitExceeded: () => Effect.fail(new WebAuthnFault({ reason: "throttled", detail: subject })),
-          RateLimitStoreError: (error) => Effect.fail(new WebAuthnFault({ reason: "throttled", detail: String(error) })),
-        }),
         Reject.measured("ceremony"),
         Effect.withSpan("security.webauthn.assertFinish"),
       )
     return { enrollStart, enrollFinish, assertStart, assertFinish } as const
   }),
-  dependencies: [Crypto.Default, Token.Default, WebAuthnTrust.Live],
+  dependencies: [Crypto.Default, Curb.Default, Token.Default, WebAuthnTrust.Live],
   accessors: true,
 }) {}
 ```
@@ -275,7 +308,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
 
 [BROWSER_CEREMONY]:
 - Law: the reason vocabulary is closed and the package's own codes map onto it, never through it — `_CODES` is a `Record<WebAuthnErrorCode, PasskeyFault.Reason>` whose stated annotation demands the package's whole twelve-code union, so a minor line adding a code breaks the mapping at compile time; the codes collapse to what a consumer can act on (`aborted` a user cancel or superseded ceremony, `origin` an RP-id or domain misconfiguration, `options` an RP-built options defect, `authenticator` a device refusal, `enrolled` a credential this authenticator already holds, `passthrough` the package deferring to `cause`) beside the one folder-local `unsupported` row the capability gate raises before any call. A free-string `code` field carries no class, forces every consumer to re-parse the package's spelling, and is the shape this family deletes.
-- Law: the ceremony is gated before the call — `browserSupportsWebAuthn` short-circuits an unsupported browser to a typed capability fault, and `autofill` demands `browserSupportsWebAuthnAutofill` as its second gate; a ceremony entry is never called without its probe.
+- Law: the ceremony is gated before the call — `browserSupportsWebAuthn` short-circuits an unsupported browser to a typed capability fault, and `autofill` demands `browserSupportsWebAuthnAutofill` as its second gate; a ceremony entry is never called without its probe. `verifyBrowserAutofillInput` pins TRUE explicitly on the autofill call — the package's suitable-`<input>` check is policy here, so a library default flip can never silently drop the gate and a page missing its autofill field fails as the package's typed refusal, not a dead prompt.
 - Law: `WebAuthnAbortService` enforces the single-live-ceremony law — each ceremony auto-arms a fresh `AbortSignal` and a new call cancels the prior, and `Passkeys.cancel` fires on a client-route change; the v13 `{ optionsJSON }` object form is the only call shape, never the pre-12 positional form; `register` carries the `useAutoRegister` conversion affordance so a just-signed-in password upgrades to a passkey without a second ceremony surface.
 - Law: the browser never verifies — it invokes the authenticator and returns the response JSON; a `Schema` per JSON shape decodes both the inbound options and the outbound response at the fetch seam the ui folder owns; conditional-UI autofill (`useBrowserAutofill: true`) is a browser-only affordance the ui edge mounts on a login field.
 - Receipt: the `RegistrationResponseJSON`/`AuthenticationResponseJSON` the caller POSTs back to `WebAuthn.*Finish`; the browser collects the signed response, never a verdict.
@@ -356,7 +389,8 @@ const Passkeys = {
   autofill: (optionsJSON: PublicKeyCredentialRequestOptionsJSON): Effect.Effect<AuthenticationResponseJSON, PasskeyFault> =>
     Effect.flatMap(
       Effect.promise(() => browserSupportsWebAuthnAutofill()),
-      (ready) => _lift(browserSupportsWebAuthn() && ready, () => startAuthentication({ optionsJSON, useBrowserAutofill: true })),
+      // The input check pins TRUE as policy: a missing conditional-UI field refuses typed instead of arming a prompt no field anchors.
+      (ready) => _lift(browserSupportsWebAuthn() && ready, () => startAuthentication({ optionsJSON, useBrowserAutofill: true, verifyBrowserAutofillInput: true })),
     ),
   probe: (): Effect.Effect<{ readonly platform: boolean; readonly autofill: boolean }> =>
     Effect.all({

@@ -32,6 +32,10 @@
 - Backend-plane families key on `signals` alone; `admit` seats on the `_Plane` floor per family shape — re-declaring below forks one coordinate.
 - Durability derives from `topology` at BOTH planes through `Profile.recoveryOf` — a stored spec field forks the runner's target off the boot row's.
 - Recovery objectives cross STRUCTURALLY — an S2 grader reaches no S3 schema, and `Converge.Profile` naming a spec type refuses every foreign root.
+- Env custody is the `Setting` family form — one described record per namespace resolved at its owning construction; a second decode site forks it.
+- Config rows resolve at the boot line, never first use — a roster row picks which rows resolve, so optional capability never defers the proof.
+- Package-owned config records (`layerConfig`, `Config.Config.Wrap`, CLI fallbacks) satisfy the family at the package seam — a folder restatement forks it.
+- `iac` mints no `Setting` group — deploy-host env has its own record owners, shape crosses as decoded `StackSpec`, material as in-graph Doppler rows.
 
 ## [03]-[COLLAPSE]
 
@@ -45,6 +49,7 @@ Retired surfaces fill their gap from the durable owner named, never by re-mintin
 
 - `dataflow-system.md` does NOT re-enter — every spine law lives at its folder owner and the branch `ARCHITECTURE.md` carries the spine as diagrams.
 - `work/` at top level does NOT re-enter — delivery, report, queue, flow, schedule, and actor capability re-homed into `runtime/.planning/work/`.
+- A core `VariantSchema` seat does NOT enter — derivation law is shapes doctrine and each folder seats `Model.Class`/`VariantSchema.make` at its owning declaration.
 
 ## [05]-[PROCESS]
 

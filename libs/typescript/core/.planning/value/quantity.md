@@ -184,7 +184,7 @@ namespace Quantity {
 export { Quantity }
 ```
 
-## [04]-[RESEARCH]
+## [02]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

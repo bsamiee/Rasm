@@ -428,7 +428,7 @@ const _stamped = (op: Extract<CrdtOp, { readonly physicalTicks: bigint }>): Cloc
 - Boundary: raw GeoJSON text and CloudEvents remain outside the registry because no typed family crosses.
 
 ```typescript signature
-import * as VariantSchema from "@effect/experimental/VariantSchema"
+import { VariantSchema } from "@effect/experimental"
 import { Context, Layer } from "effect"
 
 const _reasons = [

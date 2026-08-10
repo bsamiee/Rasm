@@ -1,6 +1,6 @@
 # [SECURITY_VERIFY]
 
-External-signature ingress and the folder's admission ledger: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. That plane lives here: `Reject` is the folder-wide authenticity ledger over ONE closed `kind` discriminant and bounded dialect/surface/reason facets — `mark` counts a refusal, `admit` counts the same kind's success, and `measured` is the ceremony aspect that times the wall span and admits on the success arm — so refusals, their denominator, and their latency are three `Convention`-named series joined on one key, every ratio the plane exists to answer is queryable, and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape over one core `Fault.Class.family` mint, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
+External-signature ingress and the folder's admission and throttle planes: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under the folder's one auth-throttle owner keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. Both folder-wide planes live here: `Curb` is the store-backed brute-force budget every credential-verify ceremony draws its policy row from, and `Reject` is the folder-wide authenticity ledger over ONE closed `kind` discriminant and bounded dialect/surface/reason facets — `mark` counts a refusal, `admit` counts the same kind's success, and `measured` is the ceremony aspect that times the wall span and admits on the success arm — so refusals, their denominator, and their latency are three `Convention`-named series joined on one key, every ratio the plane exists to answer is queryable, and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape over one core `Fault.Class.family` mint, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
 
 ## [01]-[INDEX]
 
@@ -8,6 +8,7 @@ External-signature ingress and the folder's admission ledger: one closed dialect
 - [03]-[DIALECT_TABLE]: the signing-convention rows and their header parse folds; `Verify`.
 - [04]-[VERIFY_FOLD]: the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware; `Verify`, `Intake`.
 - [05]-[ADMISSION_LEDGER]: the folder-wide authenticity ledger: refusal counter, admission twin, ceremony histogram, kind discriminant, bounded facets; `Reject`.
+- [06]-[THROTTLE]: the folder-wide auth-throttle owner: per-surface budget rows, the store-backed token-bucket guard; `Curb`.
 
 ## [02]-[VERIFY_FAULT]
 
@@ -18,7 +19,7 @@ External-signature ingress and the folder's admission ledger: one closed dialect
 - Packages: `effect` (`Schema`); `@rasm/ts/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
 
 ```typescript
-import * as RateLimiter from "@effect/experimental/RateLimiter"
+import { RateLimiter } from "@effect/experimental"
 import { HttpApiMiddleware } from "@effect/platform"
 import {
   decodeIEEEP1363ECDSASignature, decodePKIXECDSAPublicKey, decodePKIXECDSASignature, decodeSEC1PublicKey,
@@ -155,13 +156,13 @@ const _dialects = {
 [VERIFY_FOLD]:
 - Owner: `Verify` — the assembled owner: `verify` runs a dialect over held octets against a resolved key into a `Verified` receipt under the per-key rate budget, and `PublicKeyStore` is the `Context.Tag` registry the asymmetric dialects resolve a partner or attestation public key from by `kid`. `PublicKey` is the tagged key family — `Ecdsa` carries `bytes`, the pinned `curve`, and the `encoding` axis (`sec1` raw point or `pkix` SPKI-DER), `Rsa` carries `bytes` and its `pkcs1`/`pkix` encoding — and `$match` drives the asymmetric dispatch, so a scheme/key family mismatch is the residue arm, never an if-ladder. `Intake` is the `HttpApiMiddleware` Tag the runtime serve wave implements over the raw request octets before any body parse.
 - Law: the compare runs over the exact admitted bytes — the payload is the held request octets, the prefix rides the row, and freshness is checked before the signature (a stale stamp short-circuits to `stale` under the caller's tolerance `Duration`), so a replay outside the window never reaches the compare.
-- Law: every verify is throttled — the fold body runs under `RateLimiter.makeWithRateLimiter` keyed `<dialect>:<kid|dialect>` with `onExceeded: "fail"`, `RateLimitExceeded` folds to `throttled`, and the store-backed limiter holds the budget across every app sharing the library; every fault lands `Reject.mark("verify", { dialect, reason })` and every admitted signature lands its `verify`-kinded twin and wall span through `Reject.measured`, so the dialect's reject ratio is queryable rather than inferred from traffic.
+- Law: every verify is throttled — the fold body runs under the `Curb` `verify` row keyed `<dialect>:<kid|dialect>`, an exhausted budget folds to `throttled` at the guard, and the store-backed limiter holds the budget across every app sharing the library; every fault lands `Reject.mark("verify", { dialect, reason })` and every admitted signature lands its `verify`-kinded twin and wall span through `Reject.measured`, so the dialect's reject ratio is queryable rather than inferred from traffic.
 - Law: every asymmetric candidate resolves its key first — the registry key is the presented `kid` or the dialect name for a kid-less row, and a miss is `unknownKey`, never a silent skip; the ECDSA arm decodes SEC1 or PKIX keys over the `p256`/`p384`/`p521` roster the registry pins per key and PKIX-DER or IEEE-P1363 signatures per the row's `sigForm`; the RSA arm decodes PKCS1/PKIX keys and checks RSASSA-PKCS1-v1_5 or PSS with the SHA-256 OID; the oslo decoders throw on malformed DER, so the per-candidate verify runs inside `Either.try` and a candidate whose signature refuses to decode verifies `false` — a structurally garbage presented signature is `mismatch`, never a defect.
 - Law: the HMAC fold tries every candidate under one `Crypto.matches` `Mac` probe and folds a primitive throw to `malformed`; a non-empty candidate set that matches none is `mismatch`.
 - Receipt: `Verified` — the `dialect`, the resolved `kid` when asymmetric, and the verified octet length, so the admitting edge enqueues exactly what was verified; `verify` returns `Verified` or a `VerifyFault`, never a boolean.
 - Growth: a new scheme is one `$match` arm; a new key roster is a registry row; the HMAC path never changes when an asymmetric row lands.
-- Boundary: the edge holds the octets and lifts the header/signature into the fold; `crypt/sign` owns the HMAC compare and the SHA-256 primitive; the registry is satisfied by a config-sourced or fetched key set the composition root wires; the `RateLimiter` store is a data-wave-satisfied Layer; the runtime serve wave implements `Intake` and mounts it on ingress routes.
-- Packages: `@oslojs/crypto` (verify + decode primitives, curve roster); `crypt/sign` (`Crypto.matches`); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`); `effect` (`Context`, `Schema`, `Effect`, `Metric`).
+- Boundary: the edge holds the octets and lifts the header/signature into the fold; `crypt/sign` owns the HMAC compare and the SHA-256 primitive; the registry is satisfied by a config-sourced or fetched key set the composition root wires; `Curb` owns the budget row; the runtime serve wave implements `Intake` and mounts it on ingress routes.
+- Packages: `@oslojs/crypto` (verify + decode primitives, curve roster); `crypt/sign` (`Crypto.matches`); `@effect/platform` (`HttpApiMiddleware`); `effect` (`Context`, `Schema`, `Effect`, `Metric`).
 
 ```typescript
 type MacKey = Redacted.Redacted<Uint8Array>
@@ -228,9 +229,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
   effect: Effect.gen(function* () {
     const cipher = yield* Crypto
     const keys = yield* PublicKeyStore
-    const limit = yield* RateLimiter.makeWithRateLimiter
-    const window = yield* Config.duration("VERIFY_RATE_WINDOW").pipe(Config.withDefault(Duration.minutes(1)))
-    const budget = yield* Config.integer("VERIFY_RATE_LIMIT").pipe(Config.withDefault(60))
+    const curb = yield* Curb
     const verify = (
       dialect: Verify.Dialect,
       octets: Uint8Array,
@@ -251,7 +250,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
         yield* _fresh(parsed.stamp, tolerance)
         const keyId = Option.getOrElse(parsed.kid, () => dialect)
         const payload = new Uint8Array([...row.prefix(parsed.stamp), ...octets])
-        const matched = yield* limit({ algorithm: "token-bucket", onExceeded: "fail", window, limit: budget, key: `${dialect}:${keyId}` })(
+        const matched = yield* curb.guard("verify", `${dialect}:${keyId}`, (detail) => new VerifyFault({ reason: "throttled", detail }))(
           row.scheme === "hmac"
             ? Effect.flatMap(
                 Option.match(mac, { onNone: () => Effect.fail(new VerifyFault({ reason: "malformed", detail: "hmac key absent" })), onSome: Effect.succeed }),
@@ -268,10 +267,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
                 const digest = sha256(payload)
                 return Array.some(parsed.marks, (mark) => _verifyAsym(row.scheme, _sigForm(row), key, digest, mark))
               }),
-        ).pipe(Effect.catchTags({
-          RateLimitExceeded: () => Effect.fail(new VerifyFault({ reason: "throttled", detail: `${dialect}:${keyId}` })),
-          RateLimitStoreError: (error) => Effect.fail(new VerifyFault({ reason: "throttled", detail: String(error) })),
-        }))
+        )
         return matched
           ? new Verified({ dialect, kid: parsed.kid, length: octets.byteLength })
           : yield* Effect.fail(new VerifyFault({ reason: "mismatch", detail: dialect }))
@@ -282,7 +278,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
       )
     return { verify } as const
   }),
-  dependencies: [Crypto.Default],
+  dependencies: [Crypto.Default, Curb.Default],
   accessors: true,
 }) {}
 ```
@@ -371,14 +367,73 @@ const Reject = {
         Effect.tap(() => Reject.admit(kind, facet)),
       ),
 } as const
+```
+
+## [06]-[THROTTLE]
+
+[THROTTLE]:
+- Owner: `Curb` — the folder's one auth-throttle posture: `_CURB` is the per-surface budget table resolved as one described record at the boot line, and `guard(surface, key, exhausted)` runs a ceremony body under that surface's store-backed token bucket, folding `RateLimitExceeded` and `RateLimitStoreError` onto the caller's own fault family exactly once. Session refresh, OTP verify, recovery redeem, api-key resolve, webauthn assert-finish, and this page's signature verify each key one row — a new throttled ceremony is a row and a `guard` line, never a sixth hand-wiring.
+- Law: auth throttling REFUSES — `onExceeded: "fail"` on every row, so an exhausted budget is a typed `throttled` verdict the caller's family classes `exhausted`; the branch's delaying postures stay distinct owners, and each ceremony keeps its own `Reject` mark and `measured` denominator beside the guard, so the collapse erases no counting.
+- Law: the budget key is `<surface>:<caller key>` — the caller supplies the amortizing index its own page law names (a subject, a prefix, a sid, a dialect-kid pair), so one store-backed limiter bounds a guessing campaign across every app sharing the library under one key grammar.
+- Growth: a new throttled ceremony is one `_curbed` entry with its `_budget` row and one `guard` composition at its entrypoint.
+- Boundary: the `RateLimiter` store is a data-wave-satisfied Layer; each ceremony supplies its own `throttled` constructor, so no fault family crosses this seam.
+- Packages: `@effect/experimental` (`RateLimiter.makeWithRateLimiter`); `effect` (`Config`, `Duration`).
+
+```typescript
+const _curbed = ["apikey", "otp", "recovery", "refresh", "verify", "webauthn"] as const
+
+declare namespace Curb {
+  type Surface = (typeof _curbed)[number]
+}
+
+const _budget = (surface: string, window: Duration.DurationInput, limit: number) =>
+  Config.all({
+    window: Config.duration(`CURB_${surface}_WINDOW`).pipe(
+      Config.withDefault(Duration.decode(window)),
+      Config.withDescription(`token-bucket window bounding the ${surface.toLowerCase()} surface`),
+    ),
+    limit: Config.integer(`CURB_${surface}_LIMIT`).pipe(
+      Config.withDefault(limit),
+      Config.withDescription(`presentations admitted per window on the ${surface.toLowerCase()} surface`),
+    ),
+  })
+
+// One described record per namespace: every budget row resolves at this boot line, so an optional surface never
+// defers its proof and a malformed environment fails the layer, not the first guarded ceremony.
+const _CURB = Config.unwrap({
+  apikey: _budget("APIKEY", "1 minute", 30),
+  otp: _budget("OTP", "5 minutes", 5),
+  recovery: _budget("RECOVERY", "5 minutes", 5),
+  refresh: _budget("REFRESH", "1 minute", 10),
+  verify: _budget("VERIFY", "1 minute", 60),
+  webauthn: _budget("WEBAUTHN", "5 minutes", 10),
+} satisfies Record<Curb.Surface, ReturnType<typeof _budget>>)
+
+class Curb extends Effect.Service<Curb>()("security/crypt/Curb", {
+  effect: Effect.gen(function* () {
+    const rows = yield* _CURB
+    const limit = yield* RateLimiter.makeWithRateLimiter
+    // The exhausted fold happens ONCE here: each ceremony hands its own `throttled` constructor, so the store
+    // fault and the budget refusal collapse onto the caller's fault family without a per-page catchTags pair.
+    const guard = <E>(surface: Curb.Surface, key: string, exhausted: (detail: string) => E) =>
+      <A, R>(body: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+        limit({ algorithm: "token-bucket", onExceeded: "fail", window: rows[surface].window, limit: rows[surface].limit, key: `${surface}:${key}` })(body).pipe(
+          Effect.catchTags({
+            RateLimitExceeded: () => Effect.fail(exhausted(key)),
+            RateLimitStoreError: (error) => Effect.fail(exhausted(String(error))),
+          }))
+    return { guard } as const
+  }),
+  accessors: true,
+}) {}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Intake, PublicKey, PublicKeyStore, Reject, Verified, Verify, VerifyFault }
+export { Curb, Intake, PublicKey, PublicKeyStore, Reject, Verified, Verify, VerifyFault }
 export type { MacKey }
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

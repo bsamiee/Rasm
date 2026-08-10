@@ -12,7 +12,7 @@ OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as on
 
 [PROVIDER_ROSTER]:
 - Owner: `Provider` is the closed provider table — each row carries `scopes`, a PKCE flag, and one `bind` effect resolving exactly the credential fields the provider demands into a `Bound`: the client id, the uniform four-leg arctic closure, the OIDC descriptor as an `Option`, and the refresh/revoke capability flags; `OAuthFault` is the folded fault; `Departed` is the serializable ceremony snapshot; `OAuthStateStore` is the `SingleUse<Departed>` port.
-- Law: the 60-plus arctic provider classes share the ceremony shape, so a row is data over `createAuthorizationURL`/`validateAuthorizationCode`/`refreshAccessToken`/`revokeToken`; the row's `Config` is its whole credential contract — Apple's `teamId`/`keyId`/`pkcs8`, Microsoft's `tenant`, the generic row's `issuer` URL are per-row fields, so an unconfigured provider fails at first use with a precise `ConfigError` and no provider reads another's knobs.
+- Law: the 60-plus arctic provider classes share the ceremony shape, so a row is data over `createAuthorizationURL`/`validateAuthorizationCode`/`refreshAccessToken`/`revokeToken`; the row's `Config` is its whole credential contract — Apple's `teamId`/`keyId`/`pkcs8`, Microsoft's `tenant`, the generic row's `issuer` URL are per-row fields, so no provider reads another's knobs; the `OAUTH_PROVIDERS` roster decides which rows resolve, every enabled bag resolves at the service boot line, a kind outside the roster refuses `provider` typed, and only the generic row's discovery leg stays a runtime read.
 - Law: `Bound` holds every RESOLVED fact and the row holds only what the deployment declares, because an issuer's endpoints, JWKS URI, signing roster, and revocation capability are readable and a hand-asserted copy of a readable value drifts the first time the issuer moves. A pinned row states them as literals under its own vendor contract; the generic row reads them once at bind through `discovery`'s `serverMetadata()` — self-hosted Keycloak, Authentik, and Okta each serve the authorization, token, and revocation legs off unrelated paths, so `new URL("/authorize", issuer)` is wrong for all three and fails as a 404 at ceremony time rather than at bind. A missing authorization or token endpoint is `provider` at bind, an absent `revocation_endpoint` lowers `hasRevoke` to the typed lifecycle refusal instead of dialing a URL the issuer never published, and the signing roster is the advertised set intersected with the folder's own `KeyAlg` table so an unverifiable issuer refuses before its first id_token.
 - Law: `Departed` is a `Schema.Class` so the ceremony snapshot is wire-serializable — the state store persists it across the redirect and any process restart, the single-use consume is the transition witness, and the TTL is stamped as `expiresAt` data checked on land; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract, never a hand-rolled map.
 - Growth: a new provider is one row and its `_kinds` entry; a self-hosted issuer reaches the generic row with zero endpoint knowledge; a multi-leg enrollment ceremony (device onboarding across restarts) is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same store.
@@ -48,10 +48,12 @@ type Bound = {
   readonly hasRefresh: boolean
   readonly hasRevoke: boolean
 }
+// `bind` is a Config OF an effect: the credential bag resolves at the service boot line for every enabled kind,
+// while the effect inside runs at first ceremony — so only a genuinely runtime leg (discovery) stays runtime.
 type ProviderRow = {
   readonly scopes: ReadonlyArray<string>
   readonly pkce: boolean
-  readonly bind: Effect.Effect<Bound, OAuthFault>
+  readonly bind: Config.Config<Effect.Effect<Bound, OAuthFault>>
 }
 
 const _family = Fault.Class.family(["provider", "transport", "shape", "state", "idToken", "lifecycle"] as const, {
@@ -84,10 +86,8 @@ const _cfg = (name: string) => ({
   redirect: Config.string(`OAUTH_${name}_REDIRECT`),
 })
 
-// A credential the deployment never stamped is a boot defect, not a runtime arm, so every row folds its Config the
-// same way and only a genuinely runtime leg (discovery) reaches the typed channel.
-const _bound = <A>(config: Config.Config<A>, make: (values: A) => Bound): Effect.Effect<Bound, OAuthFault> =>
-  Effect.map(Effect.orDie(config), make)
+const _bound = <A>(config: Config.Config<A>, make: (values: A) => Bound): Config.Config<Effect.Effect<Bound, OAuthFault>> =>
+  Config.map(config, (values) => Effect.sync(() => make(values)))
 
 const _metadataFault = (cause: unknown): OAuthFault =>
   cause instanceof ResponseBodyError
@@ -177,8 +177,8 @@ const _rows = {
   },
   generic: {
     scopes: ["openid", "email", "profile"], pkce: true,
-    bind: Effect.flatMap(
-      Effect.orDie(Config.all({ ..._cfg("GENERIC"), secret: Config.redacted("OAUTH_GENERIC_SECRET"), issuer: Config.string("OAUTH_GENERIC_ISSUER") })),
+    bind: Config.map(
+      Config.all({ ..._cfg("GENERIC"), secret: Config.redacted("OAUTH_GENERIC_SECRET"), issuer: Config.string("OAUTH_GENERIC_ISSUER") }),
       ({ clientId, issuer, redirect, secret }) =>
         Effect.gen(function* () {
           // A self-hosted issuer publishes its own endpoints: Keycloak, Authentik, and Okta each serve the code, token,
@@ -246,7 +246,7 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 ## [03]-[CEREMONY]
 
 [CEREMONY]:
-- Owner: `OAuth.authorize` mints `state`+`verifier`, seals the `Departed` snapshot under the ceremony TTL, and returns the redirect `URL`; `OAuth.callback` consumes the snapshot exactly once, gates kind and expiry, exchanges the code under the resilient leg, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`; the row's `Config` resolves and the arctic client constructs once per kind under `Effect.cachedFunction`.
+- Owner: `OAuth.authorize` mints `state`+`verifier`, seals the `Departed` snapshot under the ceremony TTL, and returns the redirect `URL`; `OAuth.callback` consumes the snapshot exactly once, gates kind and expiry, exchanges the code under the resilient leg, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`; every enabled row's `Config` resolves at the service head and the bound client constructs once per kind under `Effect.cachedFunction`.
 - Law: the state is consumed single-use so a replayed or foreign state is `OAuthFault.state`, a stale snapshot is `OAuthFault.state` on the expiry gate, and both land `Reject.mark("state")` while a completed callback lands its `state`-kinded admission and ceremony span through `Reject.measured` — the redirect surface's replay rate reads against its own completion rate; the verifier is never client-readable.
 - Law: `decodeIdToken` is never verification — `Jwt.verify(token, issuer)` pins issuer/audience/algorithms against the row's `oidc`; the throwing `idToken()` read is `Option`-lifted at the seam, so an OIDC row whose exchange returns no `id_token` is `OAuthFault.idToken`, never a defect; a non-OIDC row resolves its subject through the caller's `resolveSubject`, so every path lands a verified `CredentialRef`; `accessTokenExpiresAt`/`scopes` seed the session so the granted scope, not the requested scope, is authoritative.
 - Receipt: `URL` on authorize (the edge redirects), `TokenPair` on callback (the edge frames it) — never a raw `OAuth2Tokens`.
@@ -269,8 +269,20 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
     const jwt = yield* Jwt
     const token = yield* Token
     const states = yield* OAuthStateStore
-    const ceremonyTtl = yield* Config.duration("OAUTH_CEREMONY_TTL").pipe(Config.withDefault(Duration.minutes(10)))
-    const legDeadline = yield* Config.duration("OAUTH_LEG_DEADLINE").pipe(Config.withDefault(Duration.seconds(10)))
+    const ceremonyTtl = yield* Config.duration("OAUTH_CEREMONY_TTL").pipe(
+      Config.withDefault(Duration.minutes(10)),
+      Config.withDescription("Departed snapshot lease bounding the redirect round trip"),
+    )
+    const legDeadline = yield* Config.duration("OAUTH_LEG_DEADLINE").pipe(
+      Config.withDefault(Duration.seconds(10)),
+      Config.withDescription("per-leg provider deadline before the transport retry re-drives"),
+    )
+    const enabled = yield* Config.array(Config.literal(..._kinds)(), "OAUTH_PROVIDERS").pipe(
+      Config.withDefault([]),
+      Config.withDescription("enabled provider kinds; each named row's credential bag resolves at this boot line"),
+    )
+    // every enabled bag resolves HERE, so a missing credential fails the root proof, not the first user's redirect
+    const binds = new Map(Array.zip(enabled, yield* Config.all(Array.map(enabled, (kind) => _rows[kind].bind))))
     const _leg = <A>(run: () => Promise<A>): Effect.Effect<A, OAuthFault> =>
       Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
         Effect.timeoutFail({ duration: legDeadline, onTimeout: () => new OAuthFault({ reason: "transport", detail: "provider deadline" }) }),
@@ -278,7 +290,11 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         // the arm the hand predicate named — and brings the quiet-reset and elapsed ceiling that predicate dropped.
         Effect.retry(Fault.Budget.schedule("pulse")),
       )
-    const _binding = yield* Effect.cachedFunction((kind: Provider.Kind) => _rows[kind].bind)
+    const _binding = yield* Effect.cachedFunction((kind: Provider.Kind) =>
+      Option.match(Option.fromNullable(binds.get(kind)), {
+        onNone: () => Effect.fail(new OAuthFault({ reason: "provider", detail: `${kind} not enabled` })),
+        onSome: (bind) => bind,
+      }))
     const _row = (kind: Provider.Kind): ProviderRow => _rows[kind]
     const authorize = (kind: Provider.Kind): Effect.Effect<URL, OAuthFault> =>
       Effect.gen(function* () {

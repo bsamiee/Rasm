@@ -6,9 +6,10 @@
 
 - [02]-[CLIENT_SEAM]: scoped client, one typed send, fault fold, config, engine table.
 - [03]-[CONDITIONAL]: put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads.
-- [04]-[REFERENCE_GC]: reference ledger, derived retention tag, If-Match CAS sweep, archive ladder and lifecycle, multipart reap, restore deferral.
+- [04]-[REFERENCE_GC]: reference ledger, owner namespace contract, derived retention tag, If-Match CAS sweep, archive ladder and lifecycle, multipart reap, restore deferral.
 - [05]-[INSTRUMENT_ROWS]: Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
 - [06]-[GRANT_MINT]: one presign entry, TTL narrowing, header policy, typed grant.
+- [07]-[CUSTODY_CONTRACT]: the object plane's backend-generation half — custody descriptor artifact, capability rows, realized-state observation.
 
 ## [02]-[CLIENT_SEAM]
 
@@ -420,7 +421,10 @@ const _settled = (client: S3Client, bucket: string, key: Digest.Key<"content">, 
 - Law: the sweep is CAS end to end — probe the candidate's ETag, re-check the ledger inside the same pass, delete with `IfMatch: etag`, then settle the delete through `waitUntilObjectNotExists` so a lagging-consistency engine cannot re-list a half-dead key into the next pass — a re-mint racing the sweep wins structurally: the re-put lands 412-noop against the still-present object or recreates it after the delete, and the guarded delete refuses when bytes changed under the probe.
 - Law: the reap closes the crash window the bracket cannot — a process death between `CreateMultipartUpload` and its abort leaves invisible parts billing forever; `reap(age)` walks `ListMultipartUploadsCommand` pages by `KeyMarker`/`UploadIdMarker`, aborts every upload whose `Initiated` predates the age floor, and the tus staging band's own groom (its ids ride the staging prefix) stays untouched because age, not prefix, selects.
 - Law: derivative references are owned rows — a derivative's ledger row names its source key as `owner`, so sweeping a source cascades through ordinary reference release, never a prefix guess.
-- Law: retention classes gate the sweep — a `permanent` reference never sweeps, windowed classes sweep past `Retain.Policy[class].window`, and subject-sealed payload objects fall to crypto-shredding upstream (key destruction makes the bytes unreadable; the sweep merely reclaims them).
+- Law: `object_ref.owner` is a stated `<producer>:<coordinate>` namespace this contract CLOSES — `disk:<path>` and `derivative:<sourceKey>` from the file plane, `tus:<staging>` from the stream rail, `remote:<origin>` from the remote plane, `subject:<app>:<tenant>:<subject>` minted only by the custody key's own projection, `lake:<catalog>` for the analytical cold tail's Parquet objects, and `stash:<topic>` for the fanout blob lane; `derivative:` alone drives the GC cascade (its coordinate IS the source key the release scan matches), `subject:` alone drives the DSAR scan and the hold join, and every other prefix is plain custody. A fresh producer prefix lands its row HERE — naming its cascade and erasure answers — before its first reference row, because a prefix outside this roster is a sweep and DSAR hole that scans as clean.
+- Law: the reference relation has ONE reader surface — `ObjectStore.references` is the published owner-keyed read of live references, satisfying `journal/retain.md`'s `RefRead` port for the DSAR objects leg and serving the maintenance seam's hold-lift walk, so no sibling plane spells `object_ref` SQL and a schema change here ripples through one contract.
+- Law: retention classes gate the sweep — a `permanent` reference never sweeps, windowed classes sweep past `Retain.Policy[class].lifetime.bound`, and subject-sealed payload objects fall to crypto-shredding upstream (key destruction makes the bytes unreadable; the sweep merely reclaims them).
+- Law: a live HOLD dominates the tag — the retag fold composes `Retain.holding.owner` beside its dominance read, so a key any held subject still references re-tags `permanent` and no native expiry rule matches it while the hold lives; `Retain.lift` answers the lifted owners, and the maintenance seam walks each owner's `references` and re-derives through the exposed `retag`, which re-derives and never asserts.
 
 ```typescript signature
 import {
@@ -468,7 +472,7 @@ const _sweepDelete = (client: S3Client, bucket: string, settleSeconds: number, k
     })),
   )
 
-const _byWindow: Order.Order<Retain.Class> = Order.mapInput(Duration.Order, (clazz: Retain.Class) => Retain.Policy[clazz].window)
+const _byWindow: Order.Order<Retain.Class> = Order.mapInput(Duration.Order, (clazz: Retain.Class) => Retain.Policy[clazz].lifetime.bound)
 
 // Retention names a depth and the engine answers it in its own vocabulary: the map is total over the retention roster,
 // so a new depth breaks at this declaration rather than emitting a class the API accepts and ignores, and the shipped
@@ -511,8 +515,17 @@ const _retag = (client: S3Client, bucket: string) =>
         Result: Schema.Struct({ retention: Retain.Class }),
         execute: (who) => sql`SELECT DISTINCT retention FROM object_ref WHERE key = ${who} AND released_at IS NULL`,
       })(key)
+      // Hold dominance reads the retain-owned predicate, so the sweep gate, the scheduled text, and this fold spell
+      // one suspension; the count crosses both dialects where a bare EXISTS decodes differently per driver.
+      const held = yield* SqlSchema.single({
+        Request: Schema.String,
+        Result: Schema.Struct({ held: Schema.NonNegativeInt }),
+        execute: (who) =>
+          sql`SELECT count(*) AS held FROM object_ref r
+              WHERE r.key = ${who} AND r.released_at IS NULL AND ${sql.literal(Retain.holding.owner("r"))}`,
+      })(key)
       yield* (Array.isNonEmptyReadonlyArray(rows)
-        ? _classify(client, bucket)(key, Array.max(Array.map(rows, (row) => row.retention), _byWindow))
+        ? _classify(client, bucket)(key, held.held > 0 ? "permanent" : Array.max(Array.map(rows, (row) => row.retention), _byWindow))
         : Effect.void)
     })
 
@@ -532,7 +545,7 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
               pipe(
                 Array.filter(row.transitions, _honours(engine)),
                 (rungs) =>
-                  rungs.length === 0 && !Duration.isFinite(row.window)
+                  rungs.length === 0 && !Duration.isFinite(row.lifetime.bound)
                     ? Option.none() // a permanent class on a single-tier engine prices nothing: no rule to write
                     : Option.some({
                         ID: `retain-${clazz}`,
@@ -544,7 +557,7 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
                             StorageClass: _STORAGE[rung.depth],
                           })),
                         }),
-                        ...(Duration.isFinite(row.window) && { Expiration: { Days: _days(row.window) } }),
+                        ...(Duration.isFinite(row.lifetime.bound) && { Expiration: { Days: _days(row.lifetime.bound) } }),
                       }),
               )),
             {
@@ -560,6 +573,16 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
       }), { abortSignal: signal }),
     catch: _foldedRead(bucket),
   }))
+
+// The published reference-read contract: the one implementation of `journal/retain.md`'s `RefRead` port, and the
+// maintenance seam's hold-lift walk — a pure relational read, so no S3 client and no service state enters it.
+const _references: Retain.RefRead = (owner) =>
+  Effect.flatMap(SqlClient.SqlClient, (sql) =>
+    SqlSchema.findAll({
+      Request: Schema.String,
+      Result: Schema.Struct({ key: Schema.String, retention: Retain.Class }),
+      execute: (who) => sql`SELECT key, retention FROM object_ref WHERE owner = ${who} AND released_at IS NULL`,
+    })(owner))
 
 const _refer = (key: Digest.Key<"content">, owner: string, retention: Retain.Class) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
@@ -817,6 +840,10 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         Effect.zipRight(_refer(key, owner, retention), retag(key)),
       release: (key: Digest.Key<"content">, owner: string) =>
         Effect.zipRight(_release(key, owner), retag(key)),
+      references: _references,
+      retag, // the hold-lift re-derivation entry: it re-derives from the ledger and the hold join, never asserts a tag
+      custody: _custody, // the compose-side custody half: Source row + capability rows for Backend.compose
+      observed: _observed(client, setting.bucket, setting.engine), // realized-state membership for the one Backend.Reading
     }
   }),
 }) {
@@ -828,6 +855,113 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
 export { ObjectFault, ObjectStore }
 ```
 
-## [07]-[RESEARCH]
+## [07]-[CUSTODY_CONTRACT]
+
+- Owner: the object plane's half of the branch backend generation — `_descriptor`, the declared custody document whose canonical bytes derive from the settled retention and conformance tables alone; `ObjectStore.custody`, the `Backend.Source` row plus capability rows the branch composition folds into `Backend.compose`; and `ObjectStore.observed`, the realized-state read answering the membership a `Backend.Reading` unions.
+- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`); `lane/capability.md` (`Backend.Source` — the row shape; the compose, merge, and admit machinery stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths` — the tables the descriptor derives from).
+- Entry: the branch composition root appends `ObjectStore.custody()` to its `Backend.Sources` beside the relational artifacts, and folds `ObjectStore.observed` into the one `Backend.Reading` it hands `Backend.observe` — one admission verdict then covers relational and object state together.
+- Law: the descriptor is DECLARED custody, never provider state — conditional-put demand, unversioned posture, the reap floor, and one lifecycle row per retention class (transitions off the ladder, expiry off the bound) derive from `Retain.Policy`, `_STORAGE`'s ladder, and `_REAP_FLOOR`; operator coordinates — endpoint, bucket, region, credentials, and the engine row a deployment selects — never enter the preimage, so the generation moves only when the custody contract moves and a redeployment re-keys nothing.
+- Law: the descriptor rows sort by class at encode, because canonical bytes read a published order, never a container's own enumeration.
+- Law: the engine is a REALIZATION fact — `observed` reads the conformance cell, the bucket's versioning status, and the realized lifecycle rule set, then answers granted canonical keys (`object.conditional`, `object.archive`, `object.lifecycle`) beside the custody artifact's presence; a bucket provisioned outside the generation therefore stops reading as compliant, which is the whole point of seating custody inside it.
+- Law: a missing lifecycle configuration reads as EMPTY rules, never a fault — the engine answers 404 on a bucket that has none, and an absent rule set is exactly the unrealized state observation exists to report; every other fault stays on the rail.
+- Law: recency stays the relational frontier's — every object reference lives in the ledger and an object absent for a landed reference surfaces on the sweep and the verified read, so the object plane contributes no `frontier` or `restoredIn` stamp and the one recovery verdict grades the store that carries them.
+- Growth: a custody axis (SSE mode, object-lock posture) is one descriptor field beside one capability row and one observation read — the write-posture policy row `[03]` names lands here the same pass it lands on the command mints.
+- Boundary: this cluster mints rows and reads state; contract authority, merge, collision, and admission stay `lane/capability.md`'s, and no schema mutation runs here.
+
+```typescript signature
+import { GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand } from "@aws-sdk/client-s3"
+import type { Backend } from "../lane/capability.ts"
+
+const _CUSTODY_KEY = "object/custody"
+
+// The deepest rung any retention ladder names IS the archive demand — derived, so a ladder edit at the retention
+// owner moves the demand with zero edits here.
+const _DEEPEST = Array.max(
+  Array.flatMap(Record.values(Retain.Policy), (row) => Array.map(row.transitions, (rung) => rung.depth)),
+  Order.mapInput(Order.number, (depth: Retain.Depth) => Retain.depths.indexOf(depth)),
+)
+
+const _CUSTODY_CAPABILITIES: ReadonlyArray<{
+  readonly key: string
+  readonly lane: string
+  readonly requirement: string
+  readonly requirementValue: string
+  readonly failureRank: Backend.FailureRank
+  readonly restartClass: Backend.RestartClass
+}> = [
+  // repairing a refused conditional means re-pointing the store: restart; the lifecycle push is a runtime verb: session
+  { key: "object.conditional", lane: "object", requirement: "conditional-put", requirementValue: "if-none-match-*", failureRank: "required", restartClass: "restart" },
+  { key: "object.archive", lane: "object", requirement: "archive-depth", requirementValue: _DEEPEST, failureRank: "degradable", restartClass: "restart" },
+  { key: "object.lifecycle", lane: "object", requirement: "lifecycle-rules", requirementValue: "retain-classes", failureRank: "degradable", restartClass: "session" },
+]
+
+// DECLARED custody alone: settled tables in, canonical bytes out, sorted by class so the encode reads a published
+// order. No operator coordinate can reach this preimage by construction.
+const _descriptor = () => ({
+  conditional: "if-none-match-*",
+  versioning: "unversioned",
+  reapDays: _days(_REAP_FLOOR),
+  lifecycle: Array.map(
+    Array.sort(Record.toEntries(Retain.Policy), Order.mapInput(Order.string, ([clazz]: readonly [string, Retain.Row]) => clazz)),
+    ([clazz, row]) => ({
+      clazz,
+      transitions: Array.map(row.transitions, (rung) => ({ afterDays: _days(rung.after), depth: rung.depth })),
+      expireDays: Duration.isFinite(row.lifetime.bound) ? _days(row.lifetime.bound) : null,
+    }),
+  ),
+})
+
+const _custody = (): { readonly source: Backend.Source; readonly capabilities: typeof _CUSTODY_CAPABILITIES } => ({
+  source: {
+    key: _CUSTODY_KEY,
+    role: "custody",
+    bytes: new TextEncoder().encode(JSON.stringify(_descriptor())),
+    providers: Array.map(_CUSTODY_CAPABILITIES, (row) => row.key),
+    dependsOn: [],
+  },
+  capabilities: _CUSTODY_CAPABILITIES,
+})
+
+// Realized state, read from the live bucket: membership the composition root unions into its one Backend.Reading.
+// The custody artifact counts observed only where the bucket holds the declared unversioned posture, because a
+// versioned bucket forks the write-once identity law however its rules read.
+const _observed = (client: S3Client, bucket: string, engine: ObjectStore.Engine) =>
+  Effect.gen(function* () {
+    const versioning = yield* Effect.tryPromise({
+      try: (signal) => client.send(new GetBucketVersioningCommand({ Bucket: bucket }), { abortSignal: signal }),
+      catch: _foldedRead(bucket),
+    })
+    // 404 on a rule-less bucket IS the unrealized state this read reports; every other fault stays on the rail
+    const rules = yield* Effect.tryPromise({
+      try: (signal) => client.send(new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }), { abortSignal: signal }),
+      catch: _foldedRead(bucket),
+    }).pipe(
+      Effect.map((reply) => reply.Rules ?? []),
+      Effect.catchAll((fault) => fault.reason === "missing" ? Effect.succeed([]) : Effect.fail(fault)),
+    )
+    const ids = HashSet.fromIterable(Array.filterMap(rules, (rule) => Option.fromNullable(rule.ID)))
+    const expected = [
+      ...Array.filterMap(Record.toEntries(Retain.Policy), ([clazz, row]) =>
+        Array.filter(row.transitions, _honours(engine)).length > 0 || Duration.isFinite(row.lifetime.bound)
+          ? Option.some(`retain-${clazz}`)
+          : Option.none()),
+      "abort-incomplete",
+    ]
+    const unversioned = versioning.Status === undefined
+    const cell = Array.findFirstIndex(Retain.depths, (depth) => depth === _engines[engine].archive)
+    const demanded = Retain.depths.indexOf(_DEEPEST)
+    const holds: ReadonlyArray<readonly [key: string, held: boolean]> = [
+      ["object.conditional", _engines[engine].conditional === "yes"],
+      ["object.archive", Option.match(cell, { onNone: () => false, onSome: (at) => at >= demanded })],
+      ["object.lifecycle", Array.every(expected, (id) => HashSet.has(ids, id))],
+    ]
+    return {
+      granted: HashSet.fromIterable(Array.filterMap(holds, ([key, held]) => held ? Option.some(key) : Option.none())),
+      artifacts: unversioned ? HashSet.make(_CUSTODY_KEY) : HashSet.empty<string>(),
+    }
+  })
+```
+
+## [08]-[RESEARCH]
 
 (none)

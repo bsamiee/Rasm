@@ -447,7 +447,7 @@ const _Checkpoint = Schema.Struct({ checkpoint: Journal.Sequence })
 const _Page = Schema.Struct({
   sequence: Journal.Sequence,
   tag: Schema.String,
-  event_version: Schema.Number,
+  event_version: Upcast.Generation,
   payload: Schema.Unknown, // deliberately raw: a poison payload fails inside the per-event effect, never the whole page read
 })
 
@@ -502,7 +502,7 @@ const _decoded = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>)
 > =>
   Effect.mapBoth(
     Effect.flatMap(Schema.decodeUnknown(Upcast.Column)(row.payload), (payload) =>
-      spec.decode.decode({ tag: row.tag, version: row.event_version, payload })),
+      spec.decode.decode({ tag: row.tag, eventVersion: row.event_version, payload })),
     { onFailure: (fault) => ({ fault, row }), onSuccess: (event) => ({ event, row }) },
   )
 

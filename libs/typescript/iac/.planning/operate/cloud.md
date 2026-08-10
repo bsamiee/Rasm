@@ -136,7 +136,7 @@ class CloudPlane extends Tier {
 ## [03]-[ENVIRONMENT_PLANE]
 
 [ENVIRONMENT_PLANE]:
-- Owner: `Environments` — the `EscApi` client acquired once from the `PULUMI_ACCESS_TOKEN` redacted read and every method lifted onto the `DeployFault` rail: `read` is the one-shot `openAndReadEnvironment` session (an open is a lease — dynamic providers resolve once per open), `readAt` pins a consumer to a revision tag through `openAndReadEnvironmentAtVersion`, `write` is check-gated — `checkEnvironment` first, diagnostics re-spelled as an `input` fault naming them, only then `updateEnvironment` — and `pin` moves a revision tag so rotation is a tag move observed by every `readAt` consumer.
+- Owner: `Environments` — the `EscApi` client from the `PULUMI_ACCESS_TOKEN` redacted read — the cloud-plane credential's one described row, distinct from `program/automation.md`'s self-managed `_host` record — and every method lifted onto the `DeployFault` rail: `read` is the one-shot `openAndReadEnvironment` session (an open is a lease — dynamic providers resolve once per open), `readAt` pins a consumer to a revision tag through `openAndReadEnvironmentAtVersion`, `write` is check-gated — `checkEnvironment` first, diagnostics re-spelled as an `input` fault naming them, only then `updateEnvironment` — and `pin` moves a revision tag so rotation is a tag move observed by every `readAt` consumer.
 - Law: ESC is a projection DAG, never a store — `imports` composes environments, the three `values` channels (`pulumiConfig`/`environmentVariables`/`files`) are the projection contract, canonical material arrives through dynamic-provider opens over the stores that own it, and a secret literal authored into a definition is the second-source defect; `decryptEnvironment` never feeds automation.
 - Law: one writer per environment — the `CloudPlane.Environment` resource authors graph-owned environments, this client authors out-of-graph ones; both writing one environment is drift by construction.
 - Law: the boundary wrap is total — every client method is `Promise`-shaped foreign material lifted through `Effect.tryPromise` with the folder's one triage, `undefined` resolutions lift to `Option`, secret-flagged `Value`s surface `Redacted`-postured to the caller, and a raw client call escaping this rail is the flat-code defect.
@@ -152,7 +152,7 @@ import { DeployFault } from "../program/automation.ts"
 
 const _client: Effect.Effect<esc.EscApi, DeployFault> = Effect.map(
   Effect.mapError(
-    Config.redacted("PULUMI_ACCESS_TOKEN"),
+    Config.redacted("PULUMI_ACCESS_TOKEN").pipe(Config.withDescription("Pulumi Cloud access token the ESC client dials with; deploy-host env under doppler run")),
     (issue) => new DeployFault({ reason: "input", stack: "<esc>", detail: String(issue) }),
   ),
   (token) => new esc.EscApi(new esc.Configuration({ accessToken: Redacted.value(token) })),

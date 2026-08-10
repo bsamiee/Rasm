@@ -394,6 +394,7 @@ const _probe = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.S
 - Law: `putStream` decides which rows a piped road may WRITE into, and the bucket row answers `false` — its write arm refuses every byte because a content object is addressed by what it holds, so no engine row lists `s3` among the target schemes it serves and a bucket destination refuses at SELECTION, naming the row, rather than mid-transfer inside a sink the caller already opened.
 - Law: the `s3:` arms honor content addressing — reads ride `Rail.range`, the server-side copy rides `rekey` against the probed ETag, byte ingress rides `Remote.intake`, and deletion rides the object plane's reference release; a raw bucket sink, a unilateral bucket delete, or a bucket-source `move` refuses typed BEFORE any byte moves — re-parenting a content object is a ledger verb, and a copy-then-refuse partial mutation is unspellable because the refusal guards the whole verb.
 - Law: every remote byte that becomes durable rides `Remote.intake` — the origin row grows no second addressing vocabulary, dedup and 412-idempotency arrive from the object plane for free, and a remote origin is therefore a first-class artifact source.
+- Law: `Remote.Stat` IS the listing model's projection — `[6]`'s `Model.Class` over `sync_listing` states path, span, kind, and the two optional halves once, so the census an arm publishes, the value the comparator reads, and the row the sync fold persists cannot drift a field apart, and a new stat column is one model row every arm inherits.
 - Law: `Remote.Stat.modified` carries ONE spelling from every arm — `_stamped` normalizes to ISO-8601 text at the boundary and answers absence on an unparseable reply, because the sync comparator equates two arms' values directly and persists them, so a WebDAV RFC-1123 string beside an SFTP epoch second reports every shared path changed on every run; the FTP census publishes the MLSD-parsed `modifiedAt` alone, never the `rawModifiedAt` a LIST reply prints for a human and no parser reads back.
 - Boundary: the SFTP callback verbs (`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`) are the page's callback kernels — each wraps one `Effect.async` settle and nothing else.
 
@@ -409,13 +410,9 @@ import { Rail } from "./stream.ts"
 import type { Retain } from "../journal/retain.ts"
 
 declare namespace Remote {
-  type Stat = {
-    readonly path: string
-    readonly bytes: number
-    readonly modified: Option.Option<string>
-    readonly kind: "file" | "directory"
-    readonly etag: Option.Option<string>
-  }
+  // The census answer IS `[6]`'s listing model minus the coordinates the RELATION adds, so every arm here publishes the
+  // shape the sync engine persists and re-admits, and a widened census lands at that one declaration.
+  type Stat = typeof _Stat.Type
 }
 
 const _fault = (origin: Origin, reason: Remote.Reason) => (cause: unknown): RemoteFault =>
@@ -1032,18 +1029,20 @@ const _transfer = (from: Remote.End, to: Remote.End, policy?: Remote.Policy) =>
 
 ## [06]-[SYNC_ENGINE]
 
-- Owner: the bisync fold — persisted per-side listings in the `sync_listing` relation, the `_COMPARE` comparator rows (`sizeModtime` default, `checksum`, `sizeOnly`), the per-side delta census, the reconcile fold producing typed `SyncAction` rows, apply-through-`transfer`, and resync recovery after interrupt.
-- Packages: `@effect/sql` (`SqlSchema`, `sql.insert`); `lane/capability.md` (`Capability.Ensure` — the listing relation rides the same DDL split); `journal/append.md` (`Journal.Version` — the number-or-string codec the BIGINT `bytes` column decodes through on the spine wire); composition over `[4]`/`[5]` values.
+- Owner: the bisync fold — the `sync_listing` model owning both the persisted per-side listing and the census projection `[4]` publishes, the `_COMPARE` comparator rows (`sizeModtime` default, `checksum`, `sizeOnly`), the per-side delta census, the reconcile fold producing typed `SyncAction` rows, apply-through-`transfer`, and resync recovery after interrupt.
+- Packages: `@effect/sql` (`Model.Class`, `Model.GeneratedByApp`, `Model.FieldOption`, `Model.DateTimeInsert`, `SqlSchema`, `sql.insert`); `lane/capability.md` (`Capability.Ensure` — the listing relation rides the same DDL split); `journal/append.md` (`Journal.Version` — the number-or-string codec the BIGINT `bytes` column decodes through on the spine wire); composition over `[4]`/`[5]` values.
 - Entry: `Remote.sync(pair, left, right, comparator?)` — census both ends, delta each side against its persisted listing, reconcile (a change on one side transfers to the other, a removal propagates, ANY concurrent change on both sides — modify against modify, and a removal racing a modification alike — surfaces as a `Conflict` row the caller routes), apply, then persist the settled listings in one transaction.
-- Growth: a comparator is one row; a conflict policy (`leftWins`, `newerWins`, `surface`) is a caller fold over the returned `Conflict` rows; a third replica is pairwise composition, never a widened engine.
+- Growth: a listing column is one model field row both SQL edges and every census arm inherit; a comparator is one row; a conflict policy (`leftWins`, `newerWins`, `surface`) is a caller fold over the returned `Conflict` rows; a third replica is pairwise composition, never a widened engine.
+- Law: the listing relation is ONE `Model.Class` — `Model.FieldOption` owns the nullable-column-versus-`Option` crossing on `modified` and `etag` in BOTH directions, `Model.GeneratedByApp` seats the `pair`/`side` key columns the relation adds beside the census, and `Model.DateTimeInsert` mints `listed_at` on the rail; a row struct hand-spelled beside the census type is the twin that lets the read edge's null fold drift from the write edge's, and the drift reports every shared path changed with nothing to blame.
+- Law: the relation mutates by whole-side replacement, so it takes no repository and no `Query.table` binding — the fold settles a side's entire listing inside one transaction, where per-row CRUD over a set replaced wholesale lands partial state no comparator can read.
 - Law: a `Conflict` performs no transfer and no removal, and its path persists with its PRIOR listing row on both sides — the unresolved delta re-surfaces on every subsequent run until the caller rules it, so an unrouted conflict can never silently become a propagated winner.
-- Law: listings are the resume substrate — an interrupted sync re-runs against persisted `{ path, kind, bytes, modified, etag }` rows and the already-applied transfers land as no-ops; `modified` and `etag` remain `Option` from provider read through SQL re-admission, and checksum comparison falls back to size-plus-modified only when either side lacks an ETag, never to null, empty-string, or zero sentinels.
+- Law: listings are the resume substrate — an interrupted sync re-runs against the persisted rows and the already-applied transfers land as no-ops; absence crosses provider read, SQL landing, and SQL re-admission unchanged, so checksum comparison falls back to size-plus-modified only when either side lacks an ETag, never to null, empty-string, or zero sentinels.
 - Law: the comparator is a policy row, never a fork — `sizeModtime` reads the census, `checksum` compares content evidence (`etag` where the backend mints one, the content-addressed intake fold's key where it does not), `sizeOnly` serves append-only trees; the row travels on the pair.
 - Law: `sizeModtime` degrades BY ROW rather than by fault — a timestamp votes only where both sides carry one, so a server whose `modTime` column came back false compares on span alone and an origin pair mixing a timestamped side with a bare one abstains on that axis instead of declaring every shared path changed forever; `checksum` falls to the same named row, so one degrade is spelled once and neither comparator invents a sentinel for absence.
 
 ```typescript signature
 import { HashSet } from "effect"
-import { SqlClient, SqlSchema } from "@effect/sql"
+import { Model, SqlClient, SqlSchema } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
 
@@ -1060,6 +1059,28 @@ const _listingDdl: Capability.Ensure = {
     listed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     PRIMARY KEY (pair, side, path));`,
 }
+
+// ONE declaration over `sync_listing`: the census an op arm answers and the row this engine persists are the same
+// truth, so `Model.FieldOption` carries the nullable column against the decoded `Option` in both directions and no edge
+// hand-folds absence into a spelling the other edge misreads. Field names ARE column names, so the model's own order is
+// the relation's.
+class _Listing extends Model.Class<_Listing>("Remote.Listing")({
+  pair: Model.GeneratedByApp(Schema.String),
+  side: Model.GeneratedByApp(Schema.Literal("left", "right")),
+  path: Schema.String,
+  bytes: Journal.Version,
+  kind: Schema.Literal("file", "directory"),
+  modified: Model.FieldOption(Schema.String),
+  etag: Model.FieldOption(Schema.String),
+  listed_at: Model.DateTimeInsert,
+}) {}
+
+// `Remote.Stat` IS this projection: a provider knows no pair, no side, and no landing stamp, so the census reads the
+// listing's own fields without the coordinates the RELATION adds and the insert variant puts them back.
+const _Stat = Schema.Struct(_Listing.fields).pipe(Schema.omit("pair", "side", "listed_at"))
+
+// One key value addresses both edges, so the side a read holds and the side a write replaces are the same datum.
+const _Side = Schema.Struct({ pair: _Listing.fields.pair, side: _Listing.fields.side })
 
 // Timestamps VOTE only where both sides carry one: a row whose server proved no modification-time read publishes
 // absence, and an absent half asserting inequality reports every shared path changed on every run forever. One named
@@ -1091,48 +1112,31 @@ declare namespace Remote {
 
 const _SyncAction = Data.taggedEnum<Remote.SyncAction>()
 
-const _ListingRow = Schema.Struct({
-  path: Schema.String,
-  bytes: Journal.Version,
-  kind: Schema.Literal("file", "directory"),
-  modified: Schema.NullOr(Schema.String),
-  etag: Schema.NullOr(Schema.String),
-})
-
 const _held = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
-    Request: Schema.Struct({ pair: Schema.String, side: Schema.Literal("left", "right") }),
-    Result: _ListingRow,
-    execute: (side) => sql`SELECT path, bytes, kind, modified, etag FROM sync_listing WHERE pair = ${side.pair} AND side = ${side.side}`,
+    Request: _Side,
+    Result: _Stat,
+    execute: (at) => sql`SELECT path, bytes, kind, modified, etag FROM sync_listing WHERE pair = ${at.pair} AND side = ${at.side}`,
   })
 
-const _persist = (sql: SqlClient.SqlClient, pair: string, side: "left" | "right", census: ReadonlyArray<Remote.Stat>) =>
+// The insert variant's own encode IS the null mapping: the optional halves write `null` where the census holds none and
+// the landing stamp mints on the rail, so no site beside the model declaration spells either crossing.
+const _encoded = Schema.encode(_Listing.insert)
+
+const _persist = (sql: SqlClient.SqlClient, at: typeof _Side.Type, census: ReadonlyArray<Remote.Stat>) =>
   Effect.zipRight(
-    sql`DELETE FROM sync_listing WHERE pair = ${pair} AND side = ${side}`,
+    sql`DELETE FROM sync_listing WHERE pair = ${at.pair} AND side = ${at.side}`,
     census.length === 0
       ? Effect.void
-      : sql`INSERT INTO sync_listing ${sql.insert(census.map((row) => ({
-          pair,
-          side,
-          path: row.path,
-          bytes: row.bytes,
-          kind: row.kind,
-          modified: Option.getOrElse(row.modified, () => null),
-          etag: Option.getOrElse(row.etag, () => null),
-        })))}`,
+      : Effect.flatMap(
+          Effect.forEach(census, (row) => _encoded(_Listing.insert.make({ ...at, ...row }))),
+          (rows) => sql`INSERT INTO sync_listing ${sql.insert(rows)}`,
+        ),
   )
 
-const _snapshot = (rows: ReadonlyArray<typeof _ListingRow.Type>): HashMap.HashMap<string, Remote.Stat> =>
-  HashMap.fromIterable(rows.map((row) => [
-    row.path,
-    {
-      path: row.path,
-      bytes: row.bytes,
-      kind: row.kind,
-      modified: Option.fromNullable(row.modified),
-      etag: Option.fromNullable(row.etag),
-    } satisfies Remote.Stat,
-  ] as const))
+// Re-admitted rows arrive decoded, so the prior side is an index over the census shape rather than a second fold.
+const _snapshot = (rows: ReadonlyArray<Remote.Stat>): HashMap.HashMap<string, Remote.Stat> =>
+  HashMap.fromIterable(rows.map((row) => [row.path, row] as const))
 
 const _delta = (
   compare: (typeof _COMPARE)[Remote.Comparator],
@@ -1218,8 +1222,8 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
     const settledLeft = _settled(conflicted, priorLeft, yield* _list(left.origin, left.session))
     const settledRight = _settled(conflicted, priorRight, yield* _list(right.origin, right.session))
     yield* sql.withTransaction(Effect.zipRight(
-      _persist(sql, pair, "left", settledLeft),
-      _persist(sql, pair, "right", settledRight),
+      _persist(sql, { pair, side: "left" }, settledLeft),
+      _persist(sql, { pair, side: "right" }, settledRight),
     ))
     return { actions, conflicts: actions.filter(_SyncAction.$is("Conflict")) }
   })

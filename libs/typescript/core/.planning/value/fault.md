@@ -356,7 +356,7 @@ declare namespace Fault {
 export { Fault }
 ```
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

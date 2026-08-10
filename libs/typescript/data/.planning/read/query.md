@@ -20,7 +20,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 
 - Owner: the model-declaration law — every mutable relation in the folder is one `Model.Class` whose fields state the whole variant matrix; this cluster owns the field-family selection table, not any concrete model (each table-owning page declares its own).
 - Packages: `@effect/sql` (`Model` — `Class`, `Generated`, `GeneratedByApp`, `Sensitive`, `FieldOption`, `DateTimeInsert`, `DateTimeUpdate`, `JsonFromString`, `UuidV4Insert`, `BooleanFromNumber`, `Field`, `FieldOnly`, `FieldExcept`, `fieldEvolve`, `fieldFromKey`, `fields`); `effect` (`Schema`).
-- Entry: `class Row extends Model.Class<Row>("Row")({ ... })` — one declaration yields `Row` (select), `Row.insert`, `Row.update`, `Row.json`, `Row.jsonCreate`, `Row.jsonUpdate`; `Model.fields(Row)` projects the field record where a derived view re-anchors.
+- Entry: `class Row extends Model.Class<Row>("Row")({ ... })` — one declaration yields `Row` (select), `Row.insert`, `Row.update`, `Row.json`, `Row.jsonCreate`, `Row.jsonUpdate`; `Row.fields` is the resolved select-variant record a derived view re-anchors on — `Model.fields(Row)` yields variant `Field` objects `Schema.Struct` refuses.
 - Growth: a new column is one field row — every variant, the repository, the loaders, and the JSON wire inherit it; a new exposure posture is a field-family swap, never a second model.
 - Law: column origin is a field family — `Model.Generated` for engine-minted columns (identity sequences, `uuidv7()` defaults from the spine row) absent from insert, `Model.GeneratedByApp` for app-minted identity present in every database variant; a generated column hand-listed on an insert schema is the drift the family deletes.
 - Law: exposure is structural — `Model.Sensitive` rides database variants and is stripped from every JSON variant, so a sealed payload or internal coordinate cannot reach the wire through any derived JSON shape; egress scrubbing at call sites is the rejected spelling.
@@ -65,7 +65,7 @@ class Board extends Model.Class<Board>("Board")({
 - Receipt: the four return contracts are the arity vocabulary — `findAll` a decoded array, `findOne` an `Option`, `single` exactly-one-or-typed-failure, `void` no result decode; a caller distinguishing zero-from-many reads the contract, never a length probe.
 - Growth: a new read shape is one accessor with its own `Request`/`Result` pair — the statement varies, the law never does; a request axis (window, filter) is a `Request` field, never a sibling accessor.
 - Law: both edges decode — the `Request` schema proves input before the statement binds, the `Result` schema proves every `Connection.Row` before domain code sees it, and both misses ride `ParseError` on the one admission rail; a `String(row["col"])`/`Number(...)` cast beside a statement is the untyped read this family deletes.
-- Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on `Model.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/evolve.md`'s `Upcast.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
+- Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on the model's `.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/evolve.md`'s `Upcast.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
 - Law: each request key composes its owner schema; an unbranded string cannot address a keyed relation.
 
 ```typescript signature
@@ -272,7 +272,7 @@ export { Query }
 ## [06]-[ORGANIZATION_ROWS]
 
 - Owner: model organization as read-side relations — `Organization.Entity` the addressed entity row carrying label, sibling ordinal, resolved visibility and locking, and its container address; `organization_member` and `organization_view` the two one-to-many edge relations reached through grouped resolvers. `Organization.rows` binds the entity relation through `Query.table` and settles both edge resolvers beside it.
-- Packages: `@effect/sql` (`Model.Class`, `Model.fields`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`); `effect` (`Schema`, `Duration`); `lane/capability.md` (`Capability.Ensure`).
+- Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`); `effect` (`Schema`, `Duration`); `lane/capability.md` (`Capability.Ensure`).
 - Entry: `Organization.rows(window)` inside the owning service build; callers reach entities through the bound repository and the four grouped resolvers, so a subtree walk collapses into one statement window per level.
 - Law: `address` is the ENTITY key and `member` a FEDERATION key the producing authority issued, so the two never share a column. Nesting rides `container` on the entity row because an entity has exactly one container, while membership and view overrides are the genuine one-to-many axes and earn their own relations.
 - Law: content-key columns carry the lowercase hex face this branch already reads, so a join against any peer's address lowers and never uppercases; the producer's 16 big-endian bytes lower exactly once, at the core landing this page consumes.
@@ -308,10 +308,11 @@ class _Entity extends Model.Class<_Entity>("Organization.Entity")({
   folded_at: Model.DateTimeInsert,
 }) {}
 
-// Contained children re-anchor on `Model.fields` with `container` re-typed non-optional, because the statement's own
-// predicate proves presence: reading the model's `Option` here forces a group key to unwrap a value the WHERE clause
-// already guaranteed, and unwrapping by throw is the exception path this engine deletes.
-const _Child = Schema.Struct({ ...Model.fields(_Entity), container: _Address })
+// Contained children re-anchor on the class's own resolved `.fields` (`Model.fields` yields variant Field objects
+// `Schema.Struct` refuses) with `container` re-typed non-optional, because the statement's own predicate proves
+// presence: reading the model's `Option` here forces a group key to unwrap a value the WHERE clause already
+// guaranteed, and unwrapping by throw is the exception path this engine deletes.
+const _Child = Schema.Struct({ ..._Entity.fields, container: _Address })
 
 // Edge relations carry no independent identity, so they take resolvers and no repository: an organization read
 // replaces a source's whole edge set, never one row. `member` and `view` stay unbranded strings because the

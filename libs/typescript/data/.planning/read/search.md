@@ -362,13 +362,13 @@ const _admitted = (
 ## [05]-[FUSION_QUERY]
 
 - Owner: `Search.of(corpus)` — the once-per-scope effectful binding whose accessors mint at construction and whose members are the bound read family: `search` (the fused RRF statement plus the rerank admission), `facets`, the snippet projection, the keyset cursor codec, and `ddl` from `[3]`; one request shape carries every modality.
-- Packages: `effect` (`Effect`, `Option`, `HashMap`, `HashSet`, `Record`, `Schema`, `Array`); `@effect/sql` (the fused statement, the rerank-window body fetch, the snippet fetch, and the one-statement facet census are each composed fragment values — `sql.in` set-shaped over the hit cells, `sql.and` over the filter rows, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the grant read, taken once at bind because grants are scope-construction facts).
+- Packages: `effect` (`Effect`, `Option`, `HashMap`, `HashSet`, `Record`, `Schema`, `Array`); `@effect/experimental` (`VariantSchema.make` — the `row`/`domain` field family behind `Search.Hit` and `Search.FacetCount`); `@effect/sql` (the fused statement, the rerank-window body fetch, the snippet fetch, and the one-statement facet census are each composed fragment values — `sql.in` set-shaped over the hit cells, `sql.and` over the filter rows, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the grant read, taken once at bind because grants are scope-construction facts).
 - Entry: `const bound = yield* Search.of(corpus)` inside the owning scope's construction, then `bound.search(request)` per call; `Search.Request` admits text, lanes, policy refinements, decoded cursor, filters, facets, snippets, and rerank depth once, and the reply carries scored hits, facet counts, next cursor, lane census, and rerank disposition.
 - Receipt: `Search.Page.lanes` names each lane's disposition and `Search.Page.rerank` names the accelerator's — `applied`, `partial` (the provider omitted or repeated candidates and the seam repaired the window), `degraded` (the provider faulted and fusion order held), `off` — so a degraded scope and a misbehaving provider are both visible in every reply and a relevance regression traces to evidence, never to guesswork.
 - Growth: rerank depth, fusion constant `k`, edit-distance ceiling, facet bound, filter rows, and snippet shape are `Search.Request` fields derived from `Search.Policy`; a new reply projection is a field on the page, never a second search.
 - Law: the binding is bind-once — `Search.of` yields the client, reads the capability report, and mints every `SqlSchema` accessor exactly once, so a search call pays zero construction and resolver identity holds across calls; an accessor minted inside `search`'s body is the per-call rebuild `read/query.md` already names as the defect.
 - Law: fusion is in-database and fragment-composed — admitted lane fragments fold into the `WITH` roster and the `UNION ALL` pool by fragment interpolation, `Σ 1.0/(k + rank)` groups by cell, the keyset predicate arrives as a bound-value `HAVING` fragment when a cursor exists, and the statement is ONE round trip whose every parameter is value-bound; assembling lanes in process re-buys N queries and loses the shared plan, and hand-counted placeholder text is the deleted defect.
-- Law: every reply row decodes — the fused rows, the snippet clips, the facet counts, and the rerank bodies each prove through a `Result` schema (`score` through the numeric-or-string codec because aggregate numerics arrive dialect-dependent), so no `String(row[...])` cast exists on the page.
+- Law: every reply row decodes, and the driver posture is a VARIANT of the decoded truth — `Search.Hit` and `Search.FacetCount` each declare ONE field family over `row` and `domain`, the lenient numeric-or-string codec riding `row` because aggregate numerics arrive dialect-dependent, the settled numeric riding `domain`, and `snippet` declaring domain-only so no row shape carries a key no lane projects; the snippet clips and rerank bodies prove through their own `Result` schemas, so neither a `String(row[...])` cast nor a parallel row struct exists on the page.
 - Law: facet census shares request scope — one `SqlSchema.findAll` accessor folds every requested dimension through `UNION ALL`, applies the same `Search.Filter` fragment before grouping, and binds the request's refined `facetTop`; a per-dimension round trip, unfiltered census, or hidden module default is a different query and therefore a defect.
 - Law: the cursor is opaque and typed — `{ score, cell }` under one composed codec, `Schema.StringFromBase64Url` over `Schema.parseJson`, so encode and decode share the schema and a malformed caller cursor is `ParseError` on the admission rail; a raw offset is the rejected pagination, and the cursor mints from the FUSED order — rerank re-orders presentation inside the page and never moves the keyset coordinate, so a full-page rerank window cannot skip rows.
 - Law: snippets ride the granted relevance lane AND its dialect — the `bm25` snippet function where the grant holds (its spelling travels with the `[3]` RESEARCH row), `ts_headline` as the in-core pg floor, the FTS5 `snippet()` arm serving the sqlite profiles against the same provisioned virtual table the lane row queries.
@@ -376,6 +376,7 @@ const _admitted = (
 
 ```typescript signature
 import { Array, Effect, HashMap, HashSet, Match, Option, type ParseResult, pipe, Record, Schema } from "effect"
+import { VariantSchema } from "@effect/experimental"
 import { SqlClient, SqlSchema, type SqlError, type Statement } from "@effect/sql"
 import { Capability } from "../lane/capability.ts"
 import type { Pg } from "../lane/postgres.ts"
@@ -434,16 +435,26 @@ class _Request extends Schema.Class<_Request>("Search.Request")({
   rerank: Schema.optionalWith(_Policy.fields.rerank, { default: () => _PAGE.rerank }),
 }) {}
 
-class _Hit extends Schema.Class<_Hit>("Search.Hit")({
+// pg answers `sum()` and `count(*)` as NUMERIC and the wire delivers that as text, while every sqlite profile answers a
+// number: the driver spelling is the encoded fact alone, so a lane swap moves no decoded type.
+const _Score = Schema.Union(Schema.Number, Schema.NumberFromString)
+
+const _Count = Schema.Union(Schema.NonNegativeInt, Schema.NumberFromString.pipe(Schema.int(), Schema.nonNegative()))
+
+const _posture = VariantSchema.make({ variants: ["row", "domain"], defaultVariant: "domain" })
+
+class _Hit extends _posture.Class<_Hit>("Search.Hit")({
   cell: Schema.NonEmptyString,
-  score: Schema.Number,
-  snippet: Schema.OptionFromSelf(Schema.String),
+  score: _posture.Field({ row: _Score, domain: Schema.Number }),
+  // the clip is the snippet statement's answer joined onto the fused hit: no lane projects the column, so the row
+  // variant has no key to decode and the projection is the only site that fills it
+  snippet: _posture.Field({ domain: Schema.OptionFromSelf(Schema.String) }),
 }) {}
 
-class _FacetCount extends Schema.Class<_FacetCount>("Search.FacetCount")({
+class _FacetCount extends _posture.Class<_FacetCount>("Search.FacetCount")({
   dim: Query.Relation.fields.table,
   value: _Scalar,
-  count: Schema.NonNegativeInt,
+  count: _posture.Field({ row: _Count, domain: Schema.NonNegativeInt }),
 }) {}
 
 class _Page extends Schema.Class<_Page>("Search.Page")({
@@ -457,19 +468,9 @@ class _Page extends Schema.Class<_Page>("Search.Page")({
   rerank: Schema.Literal(..._RERANKS),
 }) {}
 
-const _Score = Schema.Union(Schema.Number, Schema.NumberFromString)
-
-const _HitRow = Schema.Struct({ cell: Schema.NonEmptyString, score: _Score })
-
 const _Body = Reranker.Candidate
 
 const _Clip = Schema.Struct({ cell: Schema.NonEmptyString, clip: Schema.String })
-
-const _Facet = Schema.Struct({
-  dim: Query.Relation.fields.table,
-  value: _Scalar,
-  count: Schema.Union(Schema.NonNegativeInt, Schema.NumberFromString.pipe(Schema.int(), Schema.nonNegative())),
-})
 
 // The reusable record terminal is `Match.tagsExhaustive` under `Match.type`, so every arm checks against the stated
 // return at the arm rather than at the terminal, and one dispatch spelling serves the whole corpus.
@@ -517,7 +518,7 @@ const _fused = (
 }
 ```
 
-```mermaid conceptual
+```mermaid
 ---
 config:
   layout: elk
@@ -615,7 +616,7 @@ const _of = (corpus: Search.Corpus) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const capability = yield* Capability.of<Pg.Grant>() // grants are scope-construction facts: read once at bind
-    const hits = Schema.decodeUnknown(Schema.Array(_HitRow))
+    const hits = Schema.decodeUnknown(Schema.Array(_Hit.row))
     const bodies = SqlSchema.findAll({
       Request: Schema.Array(Schema.String),
       Result: _Body,
@@ -641,7 +642,7 @@ const _of = (corpus: Search.Corpus) =>
         filter: Schema.Array(_Filter),
         top: _Policy.fields.facetTop,
       }),
-      Result: _Facet,
+      Result: _FacetCount.row,
       execute: (request) =>
         Array.isNonEmptyReadonlyArray(request.dims)
           ? Array.reduce(
@@ -691,7 +692,7 @@ const _of = (corpus: Search.Corpus) =>
               _fused(sql, corpus.table, running, bind, request.k, cursor, limit + 1),
               hits,
             )
-          : Effect.succeed<ReadonlyArray<typeof _HitRow.Type>>([])
+          : Effect.succeed<ReadonlyArray<typeof _Hit.row.Type>>([])
         const scored = Array.map(Array.take(rows, limit), (row) => new _Hit({
           cell: row.cell,
           score: row.score,

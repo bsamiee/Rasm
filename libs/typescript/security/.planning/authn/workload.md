@@ -278,12 +278,23 @@ const _resolved = (bound: Bound, wire: GrantWire, floor: Duration.Duration): Eff
 ```typescript
 class IssuerStore extends Context.Tag("security/authn/IssuerStore")<IssuerStore, SingleUse<MachinePrincipal, WorkloadFault>>() {}
 
+// The one WORKLOAD_ decode site: both policy rows resolve at the boot line as one described record.
+const _policy = Config.unwrap({
+  deadline: Config.duration("WORKLOAD_CALL_DEADLINE").pipe(
+    Config.withDefault(Duration.seconds(10)),
+    Config.withDescription("per-leg issuer deadline before the class-gated retry re-drives"),
+  ),
+  floor: Config.duration("WORKLOAD_LIFETIME_FLOOR").pipe(
+    Config.withDefault(Duration.minutes(5)),
+    Config.withDescription("trust window granted to a token whose response states no lifetime"),
+  ),
+})
+
 class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
   scoped: (spec: IssuerSpec) =>
     Effect.gen(function* () {
       const ledger = yield* JwksLedger
-      const deadline = yield* Config.duration("WORKLOAD_CALL_DEADLINE").pipe(Config.withDefault(Duration.seconds(10)))
-      const floor = yield* Config.duration("WORKLOAD_LIFETIME_FLOOR").pipe(Config.withDefault(Duration.minutes(5)))
+      const { deadline, floor } = yield* _policy
       const _legged = <A>(run: () => Promise<A>): Effect.Effect<A, WorkloadFault> =>
         Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
           Effect.timeoutFail({ duration: deadline, onTimeout: () => new WorkloadFault({ reason: "transport", detail: spec.issuer }) }),

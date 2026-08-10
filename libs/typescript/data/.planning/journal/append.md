@@ -97,7 +97,7 @@ class _Row extends Model.Class<_Row>("JournalEvent")({
   aggregate: StreamKey.fields.aggregate,
   version: _Version,
   tag: Schema.NonEmptyString,
-  event_version: Schema.Int,
+  event_version: Upcast.Generation,
   payload: Model.JsonFromString(Schema.Unknown),
   recorded_at: Model.DateTimeInsert,
 }) {}
@@ -631,15 +631,13 @@ const _Operation = Schema.Struct({
   context: Schema.Array(Schema.Tuple(Schema.NonEmptyString, Schema.Int.pipe(Schema.nonNegative()))),
 })
 
-// Lane beside the versioned payload triple the upcast plan already takes, so a synced row lifts through the SAME
+// The producer's routing columns over the envelope's WIRE projection, so a synced row lifts through the SAME
 // `spec.plan.decode` the windowed read runs and a producer-side schema move rides the one upcast chain.
 const _Entry = Schema.Struct({
+  ...Upcast.Envelope.wire.fields,
   id: _Operation,
   family: Schema.NonEmptyString,
   entity: StreamKey.fields.aggregate,
-  tag: Schema.String,
-  eventVersion: Schema.Int,
-  payload: Upcast.Column,
 })
 
 // Replicated edits claim behind every locally originated one: the drain orders ascending, and a sync backlog that
@@ -668,7 +666,7 @@ const _causal = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
     classification: Event.Class,
     slots: ReadonlyArray<Journal.Slot<A>> = [],
   ) =>
-    Effect.map(spec.plan.decode({ tag: entry.tag, version: entry.eventVersion, payload: entry.payload }), (event): Journal.Intent<A> => ({
+    Effect.map(spec.plan.decode(entry), (event): Journal.Intent<A> => ({
       stream: new StreamKey({ app, tenant, aggregate: entry.entity }),
       events: [event],
       occ: _Occ.Any(),
@@ -752,13 +750,11 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Packages: `effect` (`Stream`); `@effect/sql` (`Statement.stream` over the backpressured cursor).
 - Entry: `bound.read(stream, window?)` — the one replay road; projection lanes, `journal/retain.md`'s DSAR fold, and snapshot-tail hydration compose it with a `from` window instead of minting SELECT.
 - Growth: a new read shape (by tag, by time) is a window field, never a sibling read.
-- Law: rows leave the statement as the decoded `_EventRow` (payload through `Upcast.Column`) projected into `Upcast.Raw` and exist as nothing else — the decoded family value is the only shape past this seam, so a malformed historical payload surfaces as `ParseError` exactly once, at the lift, and no cursor cell is hand-coerced.
+- Law: `_EventRow` is the envelope family's row projection plus this relation's own `version` column, so the decoded row IS the plan's coordinate and reaches `plan.decode` whole — the decoded family value is the only shape past this seam, a malformed historical payload surfaces as `ParseError` exactly once at the lift, and no cursor cell is hand-coerced.
 
 ```typescript signature
 const _EventRow = Schema.Struct({
-  tag: Schema.String,
-  event_version: Schema.Int,
-  payload: Upcast.Column,
+  ...Upcast.Envelope.row.fields,
   version: _Version,
 })
 
@@ -770,9 +766,7 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}
               AND version >= ${window?.from ?? 1} AND version <= ${window?.to ?? Number.MAX_SAFE_INTEGER}
             ORDER BY version`.stream.pipe(
-          Stream.mapEffect((raw) =>
-            Effect.flatMap(Schema.decodeUnknown(_EventRow)(raw), (row) =>
-              spec.plan.decode({ tag: row.tag, version: row.event_version, payload: row.payload }))),
+          Stream.mapEffect((raw) => Effect.flatMap(Schema.decodeUnknown(_EventRow)(raw), spec.plan.decode)),
         )),
     )
 ```
@@ -818,7 +812,7 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   tag: Schema.NonEmptyString,
   // Three announcement coordinates the write already decided: the generation resolving the registry subject, the
   // content key minted over the stored bytes, and the handling grade a binding gates on.
-  event_version: Schema.Int,
+  event_version: Upcast.Generation,
   subject: Digest.Key.content,
   classification: Event.classes.schema,
   payload: Model.JsonFromString(Schema.Unknown),

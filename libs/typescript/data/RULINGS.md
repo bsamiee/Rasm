@@ -19,7 +19,7 @@
 ## [02]-[SHAPE]
 
 - Organization edge relations carry NO repository — a producer re-reads its document whole, so replacement scopes to the source key, never one row.
-- Grouped results re-anchor on `Model.fields` where a predicate proves a `FieldOption` column — a group key unwrapping by throw is the deleted form.
+- Grouped results re-anchor on the model class's `.fields` where a predicate proves a `FieldOption` column — a group key unwrapping by throw is the deleted form.
 - `_RESIDENCES` states `cap` as a literal false, never a gap — unbounded dimensionality IS the plane, so a later pass overwrites a claim, not a hole.
 - `Retain.Policy` classes extend with `transitions` and foreclose `admit` and `tenancy` — writers stamp the class and `_GROOMS` settles sweep tenancy.
 - `Backend.admit` grades recovery on two proofs and takes its `Objective` as a supplied profile value — no branch-local durability table exists.

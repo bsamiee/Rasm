@@ -32,6 +32,7 @@ Suppression is evidence on the record of truth: a bounce or gone endpoint append
 - Packages: `effect`; `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
+import { VariantSchema } from "@effect/experimental"
 import {
   Array, Context, Data, DateTime, Duration, Effect, Encoding, Option, Record, Redacted, Schema, Stream, pipe,
 } from "effect"
@@ -313,13 +314,14 @@ const _mailReceipt = (info: _Sent, at: DateTime.Utc): Effect.Effect<Receipt, Del
 - Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Receipt`, 410 folds `bounced` (the endpoint is gone — suppression consumes it), 429/5xx fold `dial` (the lease redelivers), a client timeout folds `timeout`.
 - Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
 - Law: content mode is an OWNED literal row — `Mode` is a TypeScript `enum` this branch cannot declare, so `_hookBindings` keys `binary`/`structured` to the package's own two serializers and the enum value crosses nowhere else.
-- Law: `Hook.project` is the relay's OWN step and runs at claim time over the announcement `data:journal/append#RELAY_ROWS` projects from the same claimed row — so the stored draft carries destination and signing material alone, a binding change re-frames every queued row, and no enqueue stores transport framing it must keep in step with a binding it never reached; projected binding headers and content type enter `HookPayload` exactly once, and `_signed` transmits the same detached octets that projection produced.
-- Law: `HookPayload.body` crosses as base64, so the projected shape decodes from a JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is what made a pre-projected outbox payload structurally unreadable at the claim seam.
+- Law: `Hook.project` is the relay's OWN step and runs at claim time over the announcement `data:journal/append#RELAY_ROWS` projects from the same claimed row — so the stored draft carries destination and signing material alone, a binding change re-frames every queued row, and no enqueue stores transport framing it must keep in step with a binding it never reached; projected binding headers and content type enter the projection exactly once, and `_signed` transmits the same detached octets that projection produced.
+- Law: `HookRow` is ONE field record the variant axis projects twice — the `draft` the enqueue stores and the `payload` the claim projects — so the framed octets and their media type restrict to the projected variant at the field and a second hand-spelled struct restating the shared eight columns is unspellable; the class decodes the default `draft` and carries the projection as its same-name static, which `Hook.row` alone exports.
+- Law: `body` crosses as base64, so the projected variant decodes from a JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is what made a pre-projected outbox payload structurally unreadable at the claim seam.
 - Law: two signatures ship and neither substitutes for the other — `dssematerial` binds the ANNOUNCED attribute set over DSSE Pre-Authentication Encoding, folded in `Event.digested`'s published alphabetical order so a peer verifier reproduces the sequence from its own roster, while the transport triple binds the exact octets THIS hop carried; the attribute seal survives every rebinding and the triple survives none, so folding either onto the other loses the claim only it makes.
 - Law: abuse protection is the specification's own `OPTIONS` validation request and `Hook.validate` is its sender half — a target answering 405 is a REGISTRATION verdict, so a declined origin never queues delivery work, and `WebHook-Request-Origin` rides every delivery request so the target re-reads the claim per message.
 - Boundary: the announcement is `data:journal/append#RELAY_ROWS`'s projection and its grammar `core:interchange/carrier#EVENT_ENVELOPE`'s; this row seals, frames, signs, and transmits it and invents no envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
-- Packages: `cloudevents` (`HTTP`, `CloudEvent`, `CONSTANTS`), `@effect/platform`, `effect` (`Encoding`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
+- Packages: `cloudevents` (`HTTP`, `CloudEvent`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`), `@effect/platform`, `effect` (`Encoding`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
 
 ```typescript signature
 // Single-sourced framing: media alone mints the content type, the signer alone mints the triple, and the abuse-
@@ -343,11 +345,14 @@ const _band = Schema.optionalWith(
 const _hookModes = ["binary", "structured"] as const
 const _hookBindings = { binary: HTTP.binary, structured: HTTP.structured } as const
 
-// Each outbox column holds the DRAFT alone — destination, signing reference, claimed origin, content mode — and
-// never transport framing an enqueue must keep in step with a binding it never reached. The announced fact is the
-// JOURNAL's projection over the same claimed row, so a binding change re-frames every queued row and no enqueue ever
-// stored a re-encoding whose float forms, key order, and escapes the journal itself never wrote.
-const HookDraft = Schema.Struct({
+// ONE decoded truth the variant axis projects twice: the outbox stores the `draft` — destination, signing reference,
+// claimed origin, content mode — and never transport framing an enqueue must keep in step with a binding it never
+// reached, while the relay's own claim-time step lands the `payload`. The announced fact is the JOURNAL's projection
+// over the same claimed row, so a binding change re-frames every queued row and no enqueue ever stored a re-encoding
+// whose float forms, key order, and escapes the journal itself never wrote.
+const _hookVariants = VariantSchema.make({ variants: ["draft", "payload"], defaultVariant: "draft" })
+
+class HookRow extends _hookVariants.Class<HookRow>("HookRow")({
   tenant: Schema.NonEmptyString,
   destination: Schema.URL,
   deliverable: Schema.NonEmptyString,
@@ -356,20 +361,18 @@ const HookDraft = Schema.Struct({
   headers: _band,
   keyRef: Schema.NonEmptyString,
   weight: Schema.Number.pipe(Schema.int(), Schema.positive()),
-})
-
-// Projection lands this wire shape. `body` crosses as base64 rather than a live `Uint8Array`, so it decodes from a
-// JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is
-// what made a pre-projected payload unreadable at the claim seam.
-const HookPayload = Schema.Struct({
-  ...Schema.Struct(HookDraft.fields).pipe(Schema.omit("announcement")).fields,
-  body: Schema.Uint8ArrayFromBase64,
-  media: Schema.NonEmptyString,
-})
+  // Projection alone mints the wire pair, so the field record subtracts both from the stored draft by declaration.
+  // `body` crosses as base64 rather than a live `Uint8Array`, so the projected variant decodes from a JSON column
+  // exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is what made a
+  // pre-projected payload unreadable at the claim seam.
+  body: _hookVariants.FieldOnly("payload")(Schema.Uint8ArrayFromBase64),
+  media: _hookVariants.FieldOnly("payload")(Schema.NonEmptyString),
+}) {}
 
 declare namespace Deliver {
   type HookMode = (typeof _hookModes)[number]
-  type HookDraft = typeof HookDraft.Type
+  type HookDraft = typeof HookRow.Type
+  type HookPayload = typeof HookRow.payload.Type
 }
 
 const _hookUtf8 = new TextEncoder()
@@ -454,7 +457,7 @@ const _DSSE = { payloadType: "application/vnd.rasm.cloudevents-attributes" } as 
 const _hookProject = (
   envelope: CloudEventV1<unknown>,
   draft: Deliver.HookDraft,
-): Effect.Effect<typeof HookPayload.Type, DeliverFault> =>
+): Effect.Effect<Deliver.HookPayload, DeliverFault> =>
   Effect.flatMap(
     Effect.try({
       try: () => _hookBindings[draft.mode](envelope),
@@ -502,7 +505,7 @@ const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
   return joined
 }
 
-const _signed = (payload: typeof HookPayload.Type, key: Redacted.Redacted<Uint8Array>) =>
+const _signed = (payload: Deliver.HookPayload, key: Redacted.Redacted<Uint8Array>) =>
   Effect.gen(function* () {
     const crypto = yield* Crypto
     const at = yield* DateTime.now
@@ -543,7 +546,7 @@ const _signed = (payload: typeof HookPayload.Type, key: Redacted.Redacted<Uint8A
 
 // One key resolution serves both signatures: the attribute-set seal and the transport triple sign under the SAME
 // per-destination material, so a rotation moves one reference and neither claim is left signed by a retired key.
-const _hook = (payload: typeof HookPayload.Type) =>
+const _hook = (payload: Deliver.HookPayload) =>
   Effect.flatMap(_HookSecret, (secrets) => Effect.flatMap(secrets.resolve(payload.keyRef), (key) => _signed(payload, key)))
 
 // This is the channel's own transmit and the whole webhook order: resolve the material once, recover the
@@ -740,17 +743,17 @@ const _channels = {
   }),
   webhook: _channel({
     fits: "<machine-callback-to-a-tenant-registered-endpoint-under-byte-identity-signing>",
-    admit: "<deliver-subject-outbox-claim-decoded-through-HookDraft>",
+    admit: "<deliver-subject-outbox-claim-decoded-through-HookRow's-draft-variant>",
     tenancy: "<per-payload-tenant-field-and-per-destination-keyRef:-one-tenant's-secret-signs-only-its-own-endpoint>",
     lifetime: "<ends-at-the-receiver-2xx-which-the-receiver-itself-issues>",
     deliver: "<at-least-once-past-2xx:-a-redrive-repeats-the-event-id-and-the-receiver-owns-the-dedup>",
-    order: "<none:-skip-locked-claiming-drains-unordered-and-HookPayload-carries-no-key-selecting-a-domain>",
+    order: "<none:-skip-locked-claiming-drains-unordered-and-HookRow-carries-no-key-selecting-a-domain>",
     settle: "<the-receiver's-2xx-status-alone;-the-response-body-is-never-read-as-evidence,-and-the-OPTIONS-grant-settles-registration-not-delivery>",
     replay: "<queue#LANE_POLICY-re-offers-a-parked-row-under-its-stable-webhook-id,-so-the-receiver's-dedup-absorbs-it>",
     bound: "<queue#THROTTLE-tenantEgress-and-the-Client-lane's-http-concurrency;-this-row-spells-neither-ceiling>",
     refuse: "<a-reason-classed-DeliverFault-folded-from-the-response-status;-nothing-returns-once-the-request-closes>",
     degrade: "<no-ack-past-2xx:-a-receiver-answering-then-dropping-the-work-reads-identically-to-one-that-kept-it>",
-    payload: HookDraft,
+    payload: HookRow,
     targets: (draft) => [draft.destination.toString()],
     weight: (draft) => draft.weight,
     transmit: _hookDeliver,
@@ -882,10 +885,9 @@ const Deliver = {
 
 const Hook = {
   Secret: _HookSecret,
-  draft: HookDraft,
   modes: _hookModes,
-  payload: HookPayload,
   project: _hookProject,
+  row: HookRow,
   seal: _sealed,
   transmit: _hook,
   validate: _hookValidate,

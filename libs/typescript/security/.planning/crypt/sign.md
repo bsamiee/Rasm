@@ -1,5 +1,8 @@
 # [SECURITY_SIGN]
 
+Sole crypto mint: every digest, signature, token, and envelope the folder emits originates here — the `SignFault` family and `KeyAlg` scheme table, `Material` as the one key-admission terminus over three trust-boundary sources, the `Crypto` primitive surface (argon2id at-rest digests under a bulkheaded cost-row table, HMAC egress signing, the one constant-time `matches` entrypoint, entropy-port token and uuid mints over the shared `Alphabet` rows), the `Shredder` AES-GCM/AES-KW envelope behind per-subject crypto-shredding, the `Jwt` token authority over a reloadable keyset with the folder's one JWKS custody, and `Calibration` grading each cost row against its own target. No sibling imports `@node-rs/argon2`, `@oslojs/*`, or `jose` directly; every credential surface composes these primitives across the folder seam.
+
+Composition is settled: fault rows close at the core `Fault.Class.family` seam; instruments mint from `Convention.instrument` rows and loud arms publish typed `SecurityFact` evidence through the silent `Witness` seam; `crypt/secret` supplies `Material.Source.Held` bundles and `Secret.changes` drives the composition root's `Reloadable.auto` rebuild of `Jwt.Default(keyset)`; `JwksLedger` owns the observed-instant JWKS snapshot both the jose resolver and the certified relying-party client seed from, each rendering its own `uat` unit; KDF cost claims leave as core `Claim` receipts through `Claim.admit`.
 
 ## [01]-[INDEX]
 
@@ -24,7 +27,7 @@ import { type RandomReader, generateRandomString } from "@oslojs/crypto/random"
 import { SHA1 } from "@oslojs/crypto/sha1"
 import { SHA256, SHA512, sha256 } from "@oslojs/crypto/sha2"
 import { constantTimeEqual } from "@oslojs/crypto/subtle"
-import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
+import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeBase64urlNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
 import { Board, Convention, Fault, Identity, Wire } from "@rasm/ts/core"
 import {
   calculateJwkThumbprint, calculateJwkThumbprintUri, createLocalJWKSet, createRemoteJWKSet, EncryptJWT, exportJWK,
@@ -281,8 +284,9 @@ const Material = {
 
 [CRYPTO_PRIMITIVE]:
 - Owner: `Crypto` — `digest`/`verify` own argon2id credential-at-rest with the `CredentialVerdict` receipt, `derive` is the raw-KDF row minting deterministic key bytes from a passphrase, `sign` owns HMAC-SHA256 egress signing rendered hex, `matches` is the one constant-time comparison entrypoint discriminating on the `Probe` case — `Mac` (HMAC-over-body), `Digest` (SHA-256 fingerprint), `Text` (raw string) — `token` mints opaque high-entropy material over the WebCrypto-filled `RandomReader`, `uuid` mints a v4 identifier from the same reader so id minting is test-injectable, `fingerprint` is the SHA-256 hex projection for high-entropy token lookup, and `plugin`/`base32` are the otplib ports over these same primitives.
-- Law: every KDF call runs inside the semaphore bulkhead — `login`/`apiKey` rows take one permit, the `kek` derive takes the whole budget, so a login storm queues at the `CRYPTO_KDF_PERMITS` bound instead of spawning unbounded 19–64MB hashes; each call rides the `Convention.metric.securityKdf` distribution and its span, and the fiber's interrupt threads the `AbortSignal` so a request-scoped hash cancels with its caller.
-- Law: cost is a named `CryptoCost` row selected by credential class — `login` interactive, `apiKey` machine, `kek` the derive row backing the `Shredder` master key — with `Argon2id`+`V0x13` pinned; the pepper is one `Config.redacted` injected at construction and threaded as `secret`.
+- Law: every KDF call runs inside the semaphore bulkhead — credential rows take one permit, the `kek` derive takes the whole budget, so a login storm queues at the `CRYPTO_KDF_PERMITS` bound instead of spawning unbounded 19–64MB hashes; each call rides the `Convention.metric.securityKdf` distribution and its span, and the fiber's interrupt threads the `AbortSignal` so a request-scoped hash cancels with its caller.
+- Law: cost is a named `CryptoCost` row selected by credential class — `login` the interactive guessable-material row, `kek` the derive row backing the `Shredder` master key — with `Argon2id`+`V0x13` pinned; the pepper is one `Config.redacted` injected at construction and threaded as `secret`. The KDF exists for guessable material alone: a random mint takes the `fingerprint` compare, so no machine-class cost row exists to buy defense a 200-bit secret never needs.
+- Law: `Alphabet` is the shared entropy-alphabet owner — `base62` is the one spelling the api-key and CSRF mints compose, so an alphabet change is one edit and two byte-identical literals cannot drift; a dialect-shaped alphabet (recovery's ambiguity-pruned set, the webauthn challenge set, the refresh-secret set) stays a caller value at its own page. `token` discriminates on its input shape — an alphabet string mints a caller-shaped dialect, a bare byte count mints raw entropy rendered base64url-noPadding, the URL-safe wire for tokens riding paths and fragments; hex stays the fingerprint projection.
 - Law: `verify` reads the PHC-embedded parameters, and a match under stale parameters returns `Matched({ stale: true })` — the rehash signal the caller persists on; `Rejected` is the ordinary auth-fail arm and only a malformed stored digest throws into `SignFault.digest`.
 - Law: every compare routes constant-time through one `matches` — length is the only short-circuit, a length mismatch is `false`, a malformed stored hex is `SignFault.mac`, never an uncaught throw; a stored argon2 digest is checked by argon2's own constant-time `verify` and never re-compared through `constantTimeEqual`; the otplib `hmac` port dispatches the `HashAlgorithm` value off the `_HASHES` row table so a new hash is a row, never a name fork.
 - Law: a port surrenders its operand contract, never its primitive — the OTP `crypto` port's compare admits `string | Uint8Array` because the strategy hands it two token strings, so `plugin.constantTimeEqual` lifts both operands to bytes before the byte-domain primitive runs; handing that primitive over bare type-checks under method-shorthand bivariance and then compares characters, which is an accept-everything gate for any alphabet outside the digits.
@@ -302,14 +306,14 @@ type Probe = Data.TaggedEnum<{
   Text: { readonly held: Redacted.Redacted<string>; readonly presented: string }
 }>
 
+const Alphabet = {
+  base62: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+} as const
+
 const CryptoCost = {
   login: {
     targetMs: 250,
     options: { memoryCost: 19456, timeCost: 2, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
-  },
-  apiKey: {
-    targetMs: 500,
-    options: { memoryCost: 12288, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
   },
   kek: {
     targetMs: 2500,
@@ -362,8 +366,8 @@ const _stale = (phc: string, cost: CryptoCost.Row["options"]): boolean => {
 
 class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
   effect: Effect.gen(function* () {
-    const pepper = yield* Config.redacted("CREDENTIAL_PEPPER")
-    const permits = yield* Config.integer("CRYPTO_KDF_PERMITS").pipe(Config.withDefault(4))
+    const pepper = yield* Config.redacted("CREDENTIAL_PEPPER").pipe(Config.withDescription("argon2 secret pepper folded into every digest and derivation; sealed Redacted"))
+    const permits = yield* Config.integer("CRYPTO_KDF_PERMITS").pipe(Config.withDefault(4), Config.withDescription("KDF bulkhead permits bounding concurrent argon2 work"))
     const gate = yield* Effect.makeSemaphore(permits)
     const secret = _bytes(Redacted.value(pepper))
     const reader: RandomReader = { read: (bytes) => crypto.getRandomValues(bytes) }
@@ -400,8 +404,23 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
           }),
         catch: (cause) => new SignFault({ reason: "mac", detail: String(cause) }),
       })
-    const token = (alphabet: string, length: number): Effect.Effect<Redacted.Redacted<string>, SignFault> =>
-      Effect.try({ try: () => Redacted.make(generateRandomString(reader, alphabet, length)), catch: (cause) => new SignFault({ reason: "rng", detail: String(cause) }) })
+    // One mint, two wire forms off the input shape: an alphabet string keeps caller-shaped dialects, a bare byte
+    // count renders base64url-noPadding — the URL-safe wire for tokens riding paths and fragments.
+    function token(alphabet: string, length: number): Effect.Effect<Redacted.Redacted<string>, SignFault>
+    function token(bytes: number): Effect.Effect<Redacted.Redacted<string>, SignFault>
+    function token(form: string | number, length = 0): Effect.Effect<Redacted.Redacted<string>, SignFault> {
+      return Effect.try({
+        try: () => {
+          if (typeof form === "number") {
+            const bytes = new Uint8Array(form)
+            reader.read(bytes)
+            return Redacted.make(encodeBase64urlNoPadding(bytes))
+          }
+          return Redacted.make(generateRandomString(reader, form, length))
+        },
+        catch: (cause) => new SignFault({ reason: "rng", detail: String(cause) }),
+      })
+    }
     const uuid = (): Effect.Effect<string, SignFault> =>
       Effect.try({
         try: () => {
@@ -461,8 +480,8 @@ const _openReject = Convention.mount(Convention.metric.securityShredReject)
 class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
   effect: Effect.gen(function* () {
     const cipher = yield* Crypto
-    const passphrase = yield* Config.redacted("SHRED_MASTER_KEY")
-    const salt = yield* Config.string("SHRED_MASTER_SALT")
+    const passphrase = yield* Config.redacted("SHRED_MASTER_KEY").pipe(Config.withDescription("master KEK passphrase the argon2id kek row derives from; sealed Redacted"))
+    const salt = yield* Config.string("SHRED_MASTER_SALT").pipe(Config.withDescription("pinned KEK derivation salt; a change re-keys every wrapped data key"))
     const raw = yield* cipher.derive("kek", passphrase, _bytes(salt))
     const kek = yield* Effect.tryPromise({
       try: () => crypto.subtle.importKey("raw", Redacted.value(raw), { name: "AES-KW" }, false, ["wrapKey", "unwrapKey"]),
@@ -606,15 +625,19 @@ class JwksTransport extends Context.Reference<JwksTransport>()("security/crypt/J
   defaultValue: (): typeof globalThis.fetch => globalThis.fetch,
 }) {}
 
+const _policy = Config.unwrap({
+  tolerance: Config.integer("JWT_CLOCK_TOLERANCE").pipe(Config.withDefault(5), Config.withDescription("jose clockTolerance seconds applied on every claim gate")),
+  cacheAge: Config.duration("JWKS_CACHE_AGE").pipe(Config.withDefault(Duration.minutes(10)), Config.withDescription("remote JWKS cacheMaxAge and the proactive reload cadence")),
+  cooldown: Config.duration("JWKS_COOLDOWN").pipe(Config.withDefault(Duration.seconds(30)), Config.withDescription("jose cooldownDuration between forced JWKS reloads")),
+  deadline: Config.duration("JWKS_DEADLINE").pipe(Config.withDefault(Duration.seconds(5)), Config.withDescription("per-fetch JWKS timeoutDuration and the verify leg's outer deadline")),
+})
+
 class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
   scoped: (keyset: Keyset) =>
     Effect.gen(function* () {
       const ledger = yield* JwksLedger
       const transport = yield* JwksTransport
-      const tolerance = yield* Config.integer("JWT_CLOCK_TOLERANCE").pipe(Config.withDefault(5))
-      const cacheAge = yield* Config.duration("JWKS_CACHE_AGE").pipe(Config.withDefault(Duration.minutes(10)))
-      const cooldown = yield* Config.duration("JWKS_COOLDOWN").pipe(Config.withDefault(Duration.seconds(30)))
-      const deadline = yield* Config.duration("JWKS_DEADLINE").pipe(Config.withDefault(Duration.seconds(5)))
+      const { cacheAge, cooldown, deadline, tolerance } = yield* _policy
       const local = createLocalJWKSet(yield* Material.jwks(keyset.ring.verify))
       const _algorithms = Array.map(keyset.ring.verify, (handle) => handle.alg)
       const _remote = yield* Effect.cachedFunction((jwksUri: string) =>
@@ -840,7 +863,7 @@ const Calibration = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { AccessClaims, Calibration, Crypto, CryptoCost, Jwt, JwksLedger, JwksSnapshot, JwksTransport, KeyAlg, Material, Probe, SealedEnvelope, Shredder, SignFault, WrappedKey }
+export { AccessClaims, Alphabet, Calibration, Crypto, CryptoCost, Jwt, JwksLedger, JwksSnapshot, JwksTransport, KeyAlg, Material, Probe, SealedEnvelope, Shredder, SignFault, WrappedKey }
 export type { CredentialVerdict, IssuerRef, KeyHandle, Keyset, Ring, SingleUse }
 ```
 
