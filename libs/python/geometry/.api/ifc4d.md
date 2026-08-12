@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `ifc4d`
 - package: `ifc4d` (LGPL-3.0-or-later)
-- module: `ifc4d.<name>2ifc`, one parser module per format (`import ifc4d.msp2ifc`)
+- module: `ifc4d.<name>2ifc`, one parser module per format (`lazy import ifc4d.msp2ifc`)
 - rail: ifc-analysis / 4d-scheduling
 
 ## [02]-[PUBLIC_TYPES]
@@ -39,7 +39,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Import each parser module function-local at boundary scope (`import ifc4d.msp2ifc`); the `ifcopenshell` native build gates module load.
+- Each parser module binds as one module-scope `lazy import ifc4d.<name>2ifc`, one declaration per format the consumer reaches; the `ifcopenshell` native build gates module load, and that floor gate runs ahead of the first dereference, so it composes with the deferral rather than forcing the import into a body.
 - A new scheduling format is one `<Format>2Ifc` parser class, never a parse-per-format function on one entry; CSV round-trip rides `csv4d2ifc.Csv2Ifc` for task schedules and `csv2ifc.Csv2Ifc`/`Ifc2Csv` for resources.
 - 5D cost stays `ifc5d`, model transform `ifcpatch`, revision diff `ifcdiff`, IFC parse and tessellation `ifcopenshell`.
 

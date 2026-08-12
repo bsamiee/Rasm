@@ -18,17 +18,21 @@
 - `_graded` reads honeybee's own `UNITS_TOLERANCES` floor converted to metres — a pinned literal drifts and a foot floor passes a metre deflection.
 - `Model.shade_meshes` and `Model.shades` are DISJOINT populations — a census over `shades` reports zero context on a fully contextualized model.
 - GLB context decodes off the scene GRAPH with each node transform applied — a hand-applied axis swap doubles a Y-up producer's own rotation.
+- Georeference extraction answers typed ABSENCE — an ungeoreferenced model crosses `Nothing`, never an identity a map lift reads as coordinates.
+- Georeference wires carry ONE scale across eight fields — a non-uniform `factor_*` triple refuses by name.
 
 ## [03]-[COLLAPSE]
 
 - `LateBound{module, member, leads}` is the ONE AGPL late-bind at `energy/climate` — every table rides it, and `leads` binds owner attributes by name.
 - `CORPUS` rosters graded seams, `graded` hands them to `Bench.graded`, and `bench_subject` spells each id — no window or verdict mints here.
-- Coarse pose seeds the fine solve through the solver's OWN transform slot — every provider publishes one, and a pre-posed copy costs a whole cloud.
+- Coarse pose seeds the fine solve through the solver's OWN transform slot — a pre-posed copy costs a whole cloud.
+- `probreg`'s EM arm publishes no transform slot, so it pre-poses once at admission and returns the pose in the result's own slot.
 
 ## [04]-[STRUCTURE]
 
 - IFC and energy verbs run caller-floor and cross the process band for a long native phase alone — a short decode earns no serialization round-trip.
 - One import-time `find_spec` map refuses a marked provider onto `BoundaryFault(import_=)` before offload — the probe picks a capability tier.
+- Every model-mutating arm rides ONE `begin_transaction`/`undo()`/`end_transaction` fence — no arm mints a second rollback dialect.
 
 ## [05]-[PROCESS]
 

@@ -124,7 +124,7 @@
 - within-lib: `numerics/array` extracts `.data` with coords into `NamedAxis` rows through its `ArraySource.Labelled` arm, `FieldSelection` folds `sel`/`isel`/`groupby`/`resample`/`rolling` into one discriminated dispatch, and `FieldDataset` egress shares the content-keyed `pyarrow`/Zarr surface.
 
 [LOCAL_ADMISSION]:
-- `open_dataset(engine=)`/`open_zarr` reads and `to_netcdf`/`to_zarr` writes bind function-local under `# ruff:ignore[import-outside-top-level]`; egress carries compression, chunking, and fill through per-variable `encoding`.
+- `xarray` binds ONE module-scope `lazy import xarray as xr` per consuming module and reifies on the first `open_dataset(engine=)`/`open_zarr` read or `to_netcdf`/`to_zarr` write; the eager module-level form the manifest bans and an unearned function-local one are both deleted forms, and a module-scope row over the deferred band carries a member NAME or a call-time thunk. Egress carries compression, chunking, and fill through per-variable `encoding`.
 - `decode_cf` owns CF metadata, and `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample`/`rolling`/`coarsen`/`weighted` enter as `FieldSelection` cases.
 - `chunk` opts into the dask path with `chunked_array_type="cubed"` selecting the bounded-memory executor; `set_options`/`get_options` set global decode and display policy; a domain accessor registers through `register_*_accessor`.
 

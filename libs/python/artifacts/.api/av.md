@@ -134,9 +134,11 @@
 |  [12]   | `CodecContext.create`            | `create(codec, mode=None, hwaccel=None) -> CodecContext`         | standalone codec context          |
 |  [13]   | `CodecContext.parse`             | `parse(raw_input=None) -> list[Packet]`                          | split a raw elementary stream     |
 |  [14]   | `av.filter.loudnorm.stats`       | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`        | two-pass EBU R128 stats JSON      |
-|  [15]   | `Graph.pull` (drain signals)     | raises `BlockingIOError` (needs input) / `EOFError` (EOF)        | drain-loop terminal signals       |
+|  [15]   | `Graph.pull` (drain signals)     | raises `av.error.BlockingIOError` (35) / `av.error.EOFError`     | drain-loop terminal signals       |
 |  [16]   | `AudioFormat.packed`/`is_planar` | property -> `AudioFormat` / `bool`                               | planar/packed format twins        |
 
+- `Graph.pull`/`FilterContext.pull` drain leaves: both `av.error` leaves subclass `FFmpegError` AND their builtin twins (`BlockingIOError`→errno 35, `EOFError`→errno 541478725), so an enclosing `except av.error.FFmpegError` swallows a leaked drain sentinel as a codec fault — drain loops catch the `av.error` leaves themselves.
+- `AudioLayout(layout).nb_channels`: the channel count off a layout name — `mono→1`, `stereo→2`, `5.1→6`, `7.1→8`; the frame-axis reshape every packed-PCM window derives from.
 - `Graph.push`/`.vpush`: `at` selects one buffer source by index for a multi-input filter (`overlay`), where the single-source default (`at=-1`) cannot disambiguate.
 - `BitStreamFilterContext`: `in_stream` accepts a `Codec` or a codec-name `str`, pinning the input codec without a full `Stream`.
 - `AudioResampler`: `options` passes `libswresample` knobs (`resampler`, `filter_size`, `cutoff`) to the underlying resample graph.

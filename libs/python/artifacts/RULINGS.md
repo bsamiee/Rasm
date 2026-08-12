@@ -7,10 +7,13 @@
 - Host-coupled rendering admits per-FORMAT, never per-ENGINE — a per-engine admission couples every artifact's identity to host state.
 - Graph-layout engines are in-process typed libraries reading results into the node index — a DOT subprocess round-trip seats no port on `Port.at`.
 - `openexr` KEEPS its seat beside `imagecodecs` — the split is NAMES, and its sdist vendors every native, so admission adds no machine row.
-- `scikit-image` keeps its marker for the pythran/gast break, while `openexr` and `opencolorio` admit ungated — meson exposes no pythran toggle.
+- `scikit-image` admits ungated at the floor — a version-pinned `dependency-metadata` row rewrites pythran's gast pin, retiring on pythran's own bump.
 - Source-build repairs land at PACKAGE scope — `opencolorio` kills its Metal helper via `[tool.uv.extra-build-variables]`, never a wrapper knob.
 - Spawned `ktx` holds the KTX2 encode floor and `pyktx` takes the leg a presence probe picks — one provisioned binary makes python and C# bytes agree.
 - `pyvips` admits BARE as a source API-mode build, `no-binary-package` pinning the sdist — API mode compiles the deep lanes the wheel excludes.
+- `pikepdf` alone authors PDF encryption on BOTH license footings — `pdf_oxide`'s R≥5 seal omits the `/Perms` its dictionary requires, a catalog fact, so ENCRYPT carries no permissive alternate.
+- `psd-tools` is the ONE native PSD/PSB owner, authoring and re-proving its own bytes — an uninstallable second writer retired whole, and none re-enters.
+- Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — Basis/ASTC block encode is an 8-bit-store package fact on both toolchain legs, never an estate ceiling.
 
 ## [02]-[SHAPE]
 
@@ -19,7 +22,8 @@
 - Substitute resolution walks a fidelity ladder — native filter, in-process composite, then numpy, the closest arm preserving the admitted payload.
 - Admission modality derives from what the emission IS — content-determined input admits `keyed`, a secret-consuming act `bare`, transient `retried`.
 - Any new `Admission` case earns existence only with a behaviorally distinct lowering — a member without one is a phantom the vocabulary refuses.
-- Producer admission speaks one idiom per rail — a `_FAULTS` head takes `@beartype(conf=_INGRESS)`, a classify-rail head the imported `FAULT_CONF`.
+- Producer heads take one `@beartype` conf per rail — `_FAULTS` takes `INGRESS` off `drawing/regime#REGIME`, a classify rail imported `FAULT_CONF`.
+- ISO 129-1 line ends carry ONE lowering row at the regime floor — block name and tick size, the DIMTSZ-versus-block pick staying per consumer.
 - XML rails split on trust origin — untrusted packets admit through the ONE hardened `lxml` fold, self-generated fragments using the in-page builder.
 - Collections reaching a content-key preimage or an output byte stream order deterministically — hash-order iteration forks the key per hash seed.
 - Receipt facts MEASURE the delivered product — a re-probe of the muxed bytes, since an echoed request knob attests the input and never the artifact.
@@ -30,6 +34,9 @@
 - Codec capability rides ONE row per container with a writer column per engine — mode and frame-clock facts are CLOSED vocabularies, never booleans.
 - Capability probes read the LINKED build, never a REGISTRY — registration proves a name is offered, so a delegating writer trial-calls once.
 - Set-level `tiled` states a PROVED property or stays false — this folder synthesizes none, so one false assert crosses the frozen wire whole.
+- `tiled` is declaration-sourced and `tile_score` publishes consumer-thresholded evidence — tiled and cut planes overlap whole, so no cutoff exists.
+- Absence IS a gate verdict — a family the policy demands and nothing supplies never reads pass, since an unmeasured axis certifies nothing.
+- Threshold policy keys by ArtifactKind with a DECLARED default row — an unlisted kind grades unmeasured, never the silent pass a missing row invites.
 - Primaries are the PLANE's declared datum — the transfer tag names none, so a leg unable to state it refuses the plane over shipping `UNSPECIFIED`.
 - Bit depth follows the plane's REFERENT — display output stays the 8-bit `Frame`, a texture or radiance sample the deep `Plane`, split by ROW.
 - Durable-fact construction collapses at `core/receipt#RECEIPT` — a finer producer diff appends positional `Change` entries, never widening its case.
@@ -38,6 +45,9 @@
 - `Actor.USER` is earned by a NAMED party's act under a protocol — the ISO 19650 issue is that one leg, and the only one carrying real `subjects`.
 - Announced-payload width is the ANNOUNCEMENT's, never the receipt's — identity fields carry `ContentKey` renders, a tap projecting payloads whole.
 - Announcement boundaries read sensitivity off the ISO 19650 confidentiality header, unspelled reading INTERNAL — unclassified is not publishable.
+- Packed PCM times on the FRAME axis — every window, pick, and reversal reshapes to `(frames, channels)`, since a last-axis index rotates the lanes.
+- libavfilter drains catch the `av.error` LEAVES — each subclasses `FFmpegError`, so an outer capture reads a leaked drain sentinel as a codec fault.
+- Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence, and a hand-rolled box or tag-table walk never enters.
 
 ## [03]-[COLLAPSE]
 
@@ -45,6 +55,7 @@
 - Both subtitle burn arms stay separate — the filtergraph burn banners flat events mid-transcode, the subtitle burn renders styled runs pre-encode.
 - Package plane keeps codec, archive, and delta as three producers — three recovery models, and one packer collapses per-executor enforcement too.
 - Preview raster and deep texture stay two substrates — every `graphic/raster` arm ends in `img_as_ubyte`, quantizing every float product there.
+- Overlap blending homes ONCE at `media/filtergraph#FILTER` — every transition is a `_WEIGHT` row, the fade ramp its spatially-constant case.
 
 ## [04]-[STRUCTURE]
 

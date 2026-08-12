@@ -102,6 +102,11 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [15]   | `material.add_material(file, name=None, category=None)`                                          | create and assign materials           |
 |  [16]   | `type.assign_type(file, related_objects, relating_type)`                                         | assign occurrences (list) to a type   |
 |  [17]   | `cost.calculate_cost_item_resource_value(file, cost_item)`                                       | roll resource base costs              |
+|  [18]   | `georeference.add_georeferencing(file, ifc_class="IfcMapConversion", name="EPSG:3857")`          | mint the map-conversion/CRS pair      |
+|  [19]   | `georeference.edit_georeferencing(file, coordinate_operation=None, projected_crs=None)`          | edit both georeference entity dicts   |
+|  [20]   | `georeference.remove_georeferencing(file)`                                                       | delete the georeference pair          |
+|  [21]   | `georeference.edit_wcs(file, x=0.0, y=0.0, z=0.0, rotation=0.0, is_si=True)`                     | edit the context's WCS false origin   |
+|  [22]   | `georeference.edit_true_north(file, true_north=0.0)`                                             | set the coordinate operation's X axis |
 
 [ENTRYPOINT_SCOPE]: `util` analysis namespace
 
@@ -144,6 +149,7 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 [TOPOLOGY]:
 - import: boundary scope only; module-level import is banned by the manifest import policy.
 - model axis: `ifcopenshell.open` is the polymorphic intake — the backend (`file`/`sqlite`/`stream`) discriminates on `format`/`should_stream`, never a per-backend open function. Query routes through `by_id`/`by_guid`/`by_type` on one `file`, never per-key getter families.
+- defined-type axis: LIST-of-SELECT members surface as `entity_instance` values — `IfcIndexedPolyCurve.Segments` yields segments answering `is_a("IfcLineIndex")`/`is_a("IfcArcIndex")` with the raw 1-based index run into `Points.CoordList` on `wrappedValue`; an absent OPTIONAL list attribute reads `None`, never `()`.
 - mutation axis: edits batch under `begin_transaction`/`end_transaction()` (no `commit=` arg), with `undo`/`redo`/`discard_transaction` stepping the stack. High-level authoring is the direct `ifcopenshell.api.<module>.<action>(ifc_file, **settings)` callable over the closed usecase vocabulary; the per-usecase relating keyword differs per row, so a single generic relating keyword is the deleted form. `file.create_entity`/`add`/`remove` are the primitive verbs underneath.
 - georeference axis: `get_helmert_transformation_parameters` is the single extraction seam every conversion reads, so an `IfcMapConversion`, an `IfcMapConversionScaled` with its three scale factors, an `IfcRigidOperation`, and the IFC2X3 `ePSet_MapConversion` all resolve to ONE nine-field `HelmertTransformation` and no consumer branches on schema or coordinate-operation subtype. A `None` return means the model carries no georeference, and every `auto_*` entry answers its input unchanged rather than raising, so the ungeoreferenced case is the identity transform. `should_return_in_map_units`/`is_specified_in_map_units` select whether the scale factor is applied on the way out, so a project-unit and a map-unit consumer share one entry — a caller re-dividing by `scale` outside is the deleted form.
 - tessellation axis: one `geom.settings` knob bag (deflection, `iterator-output`, `use-world-coords`, `generate-uvs`, `length-unit`) and a `geometry_library` kernel feed `geom.iterate`/`create_shape`; `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.

@@ -19,32 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[IFC_GEOREFERENCE]-[QUEUED]: IFC georeference band — map conversion and CRS as first-class evidence.
-- Capability: extraction and authoring of `IfcMapConversion`/`IfcProjectedCRS` — CRS name, local-to-map transform, true north — so a model pins to the earth and site-local scan geometry lifts to map coordinates.
-- Shape: one extraction projection on the analysis page and one authoring verb row on the authoring script minting and updating georeference entities over `ifcopenshell.util.geolocation`; lands on `libs/python/geometry/.planning/ifc/analysis.md` and `libs/python/geometry/.planning/ifc/authoring.md`.
-- Unlocks: scan-vs-model in shared map frames; geo-data planes — python data vector claims, C# Bim geospatial — consume one geometry-minted georeference fact instead of re-deriving it.
-- Anchors: `ifcopenshell.util.geolocation` transform helpers; folder `libs/python/geometry/.api/ifcopenshell.md` as the catalog the member pin repairs into; data `spatial/geospatial.md` pyproj CRS plane as the consuming counterpart; the estate geospatial root move.
-- Tension: `get_helmert_transformation_parameters` collapses `IfcMapConversion`, `IfcMapConversionScaled`, `IfcRigidOperation`, and the IFC2X3 pset fallback onto ONE nine-field transform and answers absence rather than raising, so the band's real bet is that an ungeoreferenced model is the identity crossing and not a refusal — a scan-to-map lift over that identity silently reports site-local coordinates as map coordinates.
-
-[NONRIGID_DEFORMATION_TRACK]-[QUEUED]: probabilistic non-rigid registration for deformation-aware scan verification.
-- Capability: CPD/FilterReg non-rigid alignment yields a per-point deformation field, so scan-vs-model verification distinguishes construction deviation from structural deformation instead of reporting one rigid residual.
-- Shape: one non-rigid arm on the registration mode vocabulary returning a deformation-field carrier, and a deviation projection splitting rigid residual from deformation magnitude; lands on `libs/python/geometry/.planning/scan/registration.md` and `libs/python/geometry/.planning/scan/deviation.md`.
-- Unlocks: monitoring-grade evidence — settlement, deflection, bowing — from repeat scans; completes the registration family beside the global `kiss-matcher`, coarse `open3d`, and fine `small-gicp` arms.
-- Anchors: `probreg` CPD/FilterReg/SVR over the standing `Cloud` array carrier; the multi-scale registration session shape; `REGISTRATION_TRANSFORM`/`SCAN_DEVIATION` subjects absorbing the new evidence.
-- Tension: `probreg` rides an interpreter marker in the root manifest — the non-rigid fences stay floor-gated like every native-gated provider.
-
-[LIFECYCLE_TABULAR_EXCHANGE]-[QUEUED]: spreadsheet round-trip completing the lifecycle exchange set.
-- Capability: quantity, cost, and schedule tables round-trip IFC to CSV/ODS/XLSX and back — export for estimator review, re-import of edited attribute and Pset values — beside the ifc5d/ifc4d rollups.
-- Shape: one exchange verb pair on the lifecycle owner over `ifccsv` with the selector grammar scoping exported elements; lands on `libs/python/geometry/.planning/ifc/costing.md`.
-- Unlocks: estimator and scheduler workflows without a BIM authoring tool in the loop; completes the ifcopenshell exchange family — `ifcdiff`, `ifcpatch`, `ifc4d`, `ifc5d` — per the set-completion law.
-- Anchors: the admitted root-manifest `ifccsv` row; `libs/python/geometry/.planning/ifc/selector.md` grammar as the scoping input; the costing partition vocabulary.
-
-[IFC_CENTERLINE_PROFILE]-[QUEUED]: the centre-line profile family joins the section-property roster through an offset ring constructor.
-- Capability: `IfcCenterLineProfileDef` — an `IfcArbitraryOpenProfileDef` centreline offset to its `Thickness` — evaluates to a closed ring pair, so the one IFC4 profile family the landed roster still refuses by name gains section properties.
-- Shape: one polyline-offset ring constructor beside the parametric sampler rows on `libs/python/geometry/.planning/ifc/structural.md`, carrying the offset algebra and its degenerate-self-intersection bound.
-- Unlocks: cold-formed and plate profiles graded on the same `SECTION_PROPERTY` rail as the parametric and arbitrary families; the profile roster closes over the IFC4 schema set.
-- Anchors: the `PROFILE_SAMPLERS` row grammar and `_sample`'s named-refusal fall-through; `sectionproperties` `CompoundGeometry.from_points`; the structural Growth line naming the family.
-- Tension: a centreline whose offset exceeds the local turning radius self-intersects — the constructor must refuse that bound by name rather than emit a bowtie ring.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -53,6 +28,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[IFC_GEOREFERENCE]-[COMPLETE]: landed as the eight-field `GeoreferenceFact` producer `IfcAnalysis.georeference` on `libs/python/geometry/.planning/ifc/analysis.md` — absence crosses as `Ok(Nothing)`, never an identity transform, and a non-uniform `factor_*` triple or unnamed CRS refuses by name — with the four georeference `AuthorVerb` rows (`GEOREF_ADD`/`GEOREF_EDIT`/`GEOREF_REMOVE`/`WCS`) on `ifc/authoring.md` and the `[SHAPE]: GeoreferenceFact` seam edge re-pointed from `Scan` to `Ifc` on `ARCHITECTURE.md`; the identity-crossing tension resolved to typed absence, so no lift reads site-local coordinates as map coordinates, and the roster verified arm-for-arm against the data decoder.
+[NONRIGID_DEFORMATION_TRACK]-[COMPLETE]: landed as the `NONRIGID` `RegistrationMode` row with `NonRigidEngine` policy coordinates (CPD `tf_type_name="nonrigid"`, FilterReg `objective_type`) and the sealed `DeformationField` carrier on `scan/registration.md`, split at `DeformationSplit` on `scan/deviation.md`; `probreg` publishes no seed slot, so the arm pre-poses once at its own admission — the one stated exception on the folder seeding ruling.
+[LIFECYCLE_TABULAR_EXCHANGE]-[COMPLETE]: landed as the `EXPORT`/`IMPORT` phase pair on `ifc/costing.md` — selector-gated column resolve with no handle across the seam, re-import inside the authoring transaction fence, `BLIND_KEYS` naming the provider's count/material write-back hole — with `.api/ifccsv.md` repaired to source-verified truth; the exchange family closes beside `ifcdiff`, `ifcpatch`, `ifc4d`, and `ifc5d`.
+[IFC_CENTERLINE_PROFILE]-[COMPLETE]: landed as the `_centered`/`_centerline` offset-ring arm on `ifc/structural.md` — miter-joined ±`Thickness`/2 offset with `centreline-reversal` and `centreline-offset-self-intersects` refused by name — beside the widened `_curve` ordering `IfcLineIndex` runs and tessellating `IfcArcIndex` arcs under `CIRCLE_SEGMENTS`, so the profile roster closes over the IFC4 schema set.
 [GLB_ARTIFACT_STORE]-[COMPLETE]: landed as the injected `ObjectStoreLane` durable tier on `libs/python/geometry/.planning/mesh/daemon.md` — two write-once objects per unit under one `spill_path` derivation, a read-through ahead of the kernel whose every failure folds to absence, `SpillOutcome` on the crossing receipt, and `_phase` deriving replay provenance across both reuse tiers — with the serve-side `ArtifactSyncService` read-through and its unknown-artifact collapse on `libs/python/geometry/.planning/mesh/serve.md`.
 [EVIDENCE_TRACE_LINKS]-[COMPLETE]: landed as the optional W3C composite mapping on `GeometryHandoff.of`/`_trace`/`wire()` and the `evidence_run` `upstream` decode folding one `Link` at `_linked` on `libs/python/geometry/.planning/graduation.md`; deviation's `evaluate` threads the mapping on `libs/python/geometry/.planning/scan/deviation.md`, and compute co-ships `_GeometryWire.trace` on `libs/python/compute/.planning/graduation/handoff.md`.
 [KERNEL_BENCH_FAMILY]-[COMPLETE]: landed as graduation `bench_seam`/`bench_terminal` with entry-seam bench folds on `GeometryServe.bench` (`libs/python/geometry/.planning/mesh/serve.md`), repair/brep `benched`, and the cloud-size-keyed `ScanRegistration.bench`/`ScanReconstruction.bench`.

@@ -20,152 +20,32 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[JOURNAL_SEAT_COMPLETION]-[QUEUED]: every artifact kind's emit leg records the durable fact its retention row already prices.
-- Capability: journal-evidence completeness over the kind roster — the `core/receipt#RECEIPT` `evidence` builder and `_RETENTION` table are TOTAL over `_CASES`, while record seats land only on the eight producer pages the evidence-plane pass owned, so a kind emitting through any other page produces a priced retention class with no recorded fact behind it.
-- Shape: one `await Journal.record(receipt.evidence(...), ...)` at each remaining owner's async `_emit`-class fold — the metadata, spec, schedule, drawing, cad, chart, dashboard, scene, table, preview, color, bundle, introspection, pdf, report, document, office, and diagram emit legs — each composing the one builder, never a local fact construction.
-- Unlocks: the branch evidence plane answers settlement and audit over the WHOLE artifact roster, so the `_RETENTION` totality gate prices no class a producer never records.
-- Anchors: the landed `evidence`/`_RETENTION`/`_METERED` owners at `core/receipt#RECEIPT`; the sync-producer and worker-callback rulings at `RULINGS.md`; the landed seats on transmittal, register, egress, texture set, container, conformance, credential, and plan as the idiom reference.
-- Ripple: `runtime` `[EVIDENCE_PLANE_PRODUCERS]` — follows.
-
-[MARK_SEQUENCE_FAN]-[QUEUED]: a QR structured-append sequence emits one mark per member, never one corrupted document.
-- Capability: multi-symbol scan sequences become first-class fan products — every member its own addressed artifact — replacing the typed refusal that holds the seam.
-- Shape: `libs/python/artifacts/.planning/graphic/marks/encode.md` `_segno` with `Mark.emit`/`Mark._emit` — either a plan node whose work yields N receipts, or a `libs/python/artifacts/.planning/graphic/vector/region.md` composition assembling the members onto one sheet before the receipt fold.
-- Unlocks: payloads exceeding one symbol's version/EC budget ship scannable instead of refusing at encode.
-- Anchors: `segno.make_sequence` (member count resolves only inside the version/EC constraint solve), `core/plan#PLAN` `Fed` (the precedent for a node yielding staged product beyond its own receipt), the `_segno` typed `parameter` refusal holding the seam today.
-- Tension: member count is unknowable before `segno.make_sequence` runs, yet `Mark.emit()` mints its plan nodes from `self.ops` at construction — the fan needs a node-yields-N-receipts shape or the sheet-composition route, and the winner decides whether `region.md` gains a counterpart.
-
-[MEDIA_AUDIO_CHANNEL_AXIS]-[QUEUED]: multichannel audio times correctly on the interleaved axis.
-- Capability: every last-axis audio window, slice, and pick index scales by the channel count, so multichannel media neither mistimes by the channel factor nor rotates channels.
-- Shape: `_pcm`, `_filter_trim`, `_audio_xfade`, `_sped`, and `_reverse` on `libs/python/artifacts/.planning/media/timeline.md` scale by `av.AudioLayout(layout).nb_channels` and frame-align pick and reversal indices — or reshape to frames-by-channels before windowing.
-- Unlocks: stereo and surround timelines cut, fade, and retime at the same fidelity as mono.
-- Anchors: the interleaved packed last axis the `Voice` carrier joins on; `av.AudioLayout`.
-
-[TERMINATOR_ARROW_TABLE]-[QUEUED]: one Terminator lowering table serves every drawing consumer.
-- Capability: the arrow-terminator lowering — block name and tick size per `Terminator` member — mints once beside the vocabulary owner, collapsing three divergent tables to one `OBLIQUE_STROKE` spelling.
-- Shape: one canonical table on `libs/python/artifacts/.planning/drawing/regime.md` beside the `Terminator` enum; `drawing/standard.md` `_TERMINATOR`, `drawing/annotate.md` `_DXF_ARROW`, and `drawing/symbol.md` `_ARROW` compose it, the DIMTSZ-versus-block choice staying with each consumer.
-- Unlocks: a terminator edit lands once and every DXF lowering agrees.
-- Anchors: the `Terminator` vocabulary on regime; the import edges annotate already holds to regime and symbol.
-- Atomic: one table home and three consumer folds.
-
-[PRODUCER_ADMISSION_IDIOM]-[QUEUED]: every producer head admits through the one configured ingress.
-- Capability: one admission idiom across the drawing producers, so every refusal rides the `_FAULTS` fold as `ValueError` and no head raises outside its boundary tuple.
-- Shape: `Dimension.over`/`Symbol.over` plain `@beartype` and `Annotate.over`/`Detail.over` structural `match`-plus-raise all move to the `@beartype(conf=_INGRESS)` form `Schedule.of` already carries, `_INGRESS` homed once for the folder.
-- Unlocks: the folder admission-idiom ruling realized on every producer head.
-- Anchors: the admission-idiom ruling at `libs/python/artifacts/RULINGS.md`; `_INGRESS` on `drawing/schedule.md`.
-
-[MEDIA_WORKER_ASPECT]-[QUEUED]: one worker aspect serves the media plane.
-- Capability: the offload-worker beartype aspect exists once, generic over its product type, and every media producer composes it.
-- Shape: `_worker` on `libs/python/artifacts/.planning/media/container.md` generalizes over the result payload; `media/subtitle.md` and `media/analysis.md` drop their local copies and import it as `media/timeline.md` already does.
-- Unlocks: one aspect edit reaches every media offload seam.
-- Anchors: the three near-identical `_worker` definitions; timeline's existing composing import.
-- Atomic: one generic signature and two import substitutions.
-
-[FILTER_DRAIN_KERNEL]-[QUEUED]: one libavfilter drain kernel with one exception vocabulary.
-- Capability: the filtergraph drain loop exists once with the verified pull-exception pair, collapsing three copies and two exception vocabularies.
-- Shape: one shared drain kernel on `libs/python/artifacts/.planning/media/filtergraph.md` replacing `_pulled` and `_staged_pull`; `media/analysis.md` `_pull_frames` composes it.
-- Unlocks: a drain fix or exception-vocabulary correction lands once.
-- Anchors: the divergent except clauses — builtin `BlockingIOError`/`EOFError` versus `av.error.*`.
-- Route: verify against the installed PyAV distribution which exception types `FilterContext.pull` raises, then pin that pair in the kernel.
-
-[XFADE_BLEND_OWNER]-[QUEUED]: overlap blending homes once and the xfade payload is read.
-- Capability: one blend owner consumes the transition payload it is handed, so behaviorally identical dissolves stop minting distinct content keys off dead payload slots.
-- Shape: overlap blending homes on `libs/python/artifacts/.planning/media/filtergraph.md` — the dissolve arm reads the `(offset, duration, transition)` payload it receives or the payload shrinks to what the arm consumes — and `media/timeline.md` `_blended` composes that owner instead of carrying a second numpy blend kernel.
-- Unlocks: content-key identity reflects behavior; one blend kernel serves wipes and dissolves.
-- Anchors: the `FilterNode.xfade` payload slots; the dissolve arm reading only its window; timeline's `_MASK` wipe kernel.
-
-[WIRED_FAULT_ARMS]-[QUEUED]: caller-reachable graph refusals surface typed.
-- Capability: a `Timeline.Effect` program that fails graph admission surfaces as a typed input refusal, never an opaque worker fault.
-- Shape: one `ValueError`-to-`invalid` arm in `_transcode` on `libs/python/artifacts/.planning/media/container.md`, folding the `_arity`/`_build_graph` raises that caller data can reach.
-- Unlocks: media callers distinguish a bad effect program from an engine failure.
-- Anchors: the `_arity`/`_build_graph` raises on `media/filtergraph.md`; `_transcode`'s existing `ImportError`/`FFmpegError` arms.
-- Atomic: one except arm on one fold.
-
-[LAYER_RENAME_PROJECTION]-[QUEUED]: layer renaming homes on the Layer owner.
-- Capability: the rename-by-index projection over a names tuple exists once on the layer vocabulary owner.
-- Shape: one `renamed(layers, names)` projection on `libs/python/artifacts/.planning/export/layered.md` beside `Layer`; the `_placed_layers` copies on `composition/compose.md`, `composition/sheet.md`, and `composition/imposition.md` compose it.
-- Unlocks: one projection edit reaches all three composition pages.
-- Anchors: the three `_placed_layers` signatures; the `Layer` Struct on layered.
-- Tension: compose's synthetic `layer-{index}` fallback and sheet/imposition's existing-name fallback reconcile to one policy at the owner.
-- Atomic: one projection and three call-site folds.
-
-[FORMULA_SINGLE_TYPESET]-[QUEUED]: one typeset serves both math-note consumers.
-- Capability: a math textnote lays out once and the laid fragment threads to both its measure and render consumers.
-- Shape: `_text_span` and `_note_group` on `libs/python/artifacts/.planning/drawing/annotate.md` share one `Formula(...).laid()` result — metrics and svg threaded, the second heavy typeset deleted.
-- Unlocks: annotate authoring drops half its typeset cost per note.
-- Anchors: the two `.laid()` call sites; the laid fragment's metrics-plus-svg shape.
-- Atomic: one hoist and two consumer threads.
-
-[ANNOTATION_LEAF_CONSTRUCTOR]-[QUEUED]: the annotation layer-leaf projection homes on the layer owner.
-- Capability: one constructor builds the annotation `LayerNode.Leaf` from a name and fragment bytes, so intent, aec, and z defaults live once.
-- Shape: one annotation-leaf constructor on the `LayerNode` owner of `libs/python/artifacts/.planning/graphic/layer.md`; the four `_row` copies on `drawing/symbol.md`, `drawing/dimension.md`, `drawing/annotate.md`, and `drawing/detail.md` compose it.
-- Unlocks: a leaf-shape edit reaches every drawing producer; the per-producer default drift dies.
-- Anchors: the four `_row` signatures; the `LayerNode`/`LayerMeta`/`LayerContent` owners on layered graphics.
-- Atomic: one constructor and four call-site folds.
-
-[DXF_EXTENT_HELPER]-[QUEUED]: one DXF extent probe serves the drawing producers.
-- Capability: the modelspace bounding-extent probe with its fallback exists once, an `Option` fallback parameter covering both call shapes.
-- Shape: one extent helper beside the drawing standard owner; the byte-identical `_dxf_extent` copies on `drawing/annotate.md` and `drawing/detail.md` and the float sibling `_extent` on `drawing/dimension.md` compose it.
-- Unlocks: an extent-probe fix lands once across the DXF lowerings.
-- Anchors: `ezdxf` `bbox.extents(msp, fast=True)`; the three current copies.
-- Atomic: one helper and three call-site folds.
-
-[IDML_FAULT_MONOID]-[QUEUED]: IDML admission reports every casualty.
-- Capability: the steps-program admission accumulates all independent structural casualties into one refusal, realizing the folder fault-monoid law on the IDML gate.
-- Shape: the seven per-axis first-offender probes on `libs/python/artifacts/.planning/export/indesign.md` fold into an accumulating `IdmlFault` (or a monoid over it), replacing the first-non-None `match`; the fail-fast prose falls with it.
-- Unlocks: a bad steps program surfaces every defect in one round instead of one per attempt.
-- Anchors: the fault-monoid ruling at `libs/python/artifacts/RULINGS.md`; `core/issue.md`'s `BoundaryFault.combine` reduce as the pattern.
-- Atomic: one admission fold and one union widening.
-
-[REFLOW_STORY_CHILDREN]-[QUEUED]: reflow deposits the children its inverse recovers.
-- Capability: the HTML-into-PDF reflow arm authors structured children, so the lens story arm's recover-to inverse holds on real content rather than a childless placeholder.
-- Shape: `_reflow_arm` on `libs/python/artifacts/.planning/document/report.md` deposits recoverable child nodes on its `PageNode`; the inverse seam prose on `document/lens.md` holds unchanged.
-- Unlocks: an authored reflow round-trips through the lens with content, not just a page shell.
-- Anchors: the childless `PageNode` construction in `_reflow_arm`; `_story_arm`'s structured recovery.
-
-[FAULT_CONF_IMPORT]-[QUEUED]: the canonical fence conf is imported, never re-minted.
-- Capability: one conf value with one provenance fences every classify-rail head, so a canonical conf change reaches every page.
-- Shape: the four local `_GUARD` mints of the byte-identical conf on `libs/python/artifacts/.planning/composition/sheet.md`, `composition/compose.md`, `composition/imposition.md`, and `delivery/register.md` become imported `FAULT_CONF` applications; the `_CONTRACT` numeric-tower conf on the marks and vector pages gains `violation_type=BeartypeCallHintViolation` beside `is_pep484_tower=True`.
-- Unlocks: the per-rail admission ruling realized outside drawing.
-- Anchors: `FAULT_CONF` on the runtime faults owner; the admission-idiom ruling at `libs/python/artifacts/RULINGS.md`.
-- Atomic: four import swaps and one conf field.
-
-[GATE_PAGE]-[QUEUED]: Author `libs/python/artifacts/.planning/delivery/gate.md` — the `QualityGate` verdict fold and threshold policy.
-- Capability: graded verdict union folding measured scores, preflight, conformance, and extraction audits, per-kind thresholds as policy rows.
-- Shape: one page owning the fold, the grade vocabulary, and the transmittal refusal seam contract.
-- Unlocks: IDEAS.md [QUALITY_GATE] landing surface; deepens the `delivery` stub with real capability.
-- Anchors: `graphic/raster/measure.md`; `document/tagged.md` `UaCheck`; `exchange/conformance.md` `ConformanceVerdict`.
-
-[GATE_LENS_AUDIT]-[QUEUED]: Land the `Page.debug_tablefinder` extraction-audit overlay projection in `libs/python/artifacts/.planning/document/lens.md`.
-- Capability: table-extraction QA overlays as a lens examination projection whose audit scalars feed the gate fold.
-- Shape: one projection row on the lens examination ops.
-- Unlocks: IDEAS.md [QUALITY_GATE] extraction evidence; exploits the unexploited `pdfplumber` member.
-- Anchors: `pdfplumber` `Page.debug_tablefinder`; `document/lens.md` examination ops.
-- Atomic: one projection row on one existing page.
-
-[SKIMAGE_GATE_DROP]-[BLOCKED]: `scikit-image` admits at the interpreter floor.
-- Capability: the measured-score and transform arms build from source on the estate lane, so no interpreter marker guards the row that two design pages compose.
-- Shape: the `scikit-image` row in the root `pyproject.toml` drops its `python_version` marker; the `[IMAGING]` card at `libs/python/artifacts/README.md` needs no edit.
-- Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the imaging half of the completeness bar.
-- Anchors: the reproduced break — pythran lowers through gast, whose AST shim raises on the required node fields CPython 3.15 introduced, meson carries no pythran toggle (its `meson.options` holds `include-v2` alone and `find_program('pythran')` is unconditional, so scipy's `-Duse-pythran` setup-arg does not transfer), and a build-constraint pin of `gast>=0.7` leaves the resolution unsatisfiable; the meson and cython legs generate the full target graph and only the two pythran targets fail, so the sdist lane is otherwise healthy.
-- Arms: a pythran release pinning `gast>=0.7`, or a scikit-image release dropping the pythran leg.
-- Route: re-run the source build on the Forge scientific lane into a scratch venv at the floor and read the pythran targets alone before the marker moves.
-- Atomic: one manifest row.
-
-[SCENE_STACK_UNGATE]-[BLOCKED]: uv alone explains the scene natives.
-- Capability: the folder's package registry resolves the offscreen render and USD stage natives through one admission mechanism, so no registry row carries a second lane a reader has to reconcile against the manifest.
-- Shape: the `vtk`, `pyvista`, and `usd-core` rows in the root `pyproject.toml` drop their `python_version` markers, and the three `[SCENE]` rows at `libs/python/artifacts/README.md` drop their overlay clause.
-- Unlocks: `IDEAS.md` [FLOOR_UNGATING] — the scene half of the completeness bar.
-- Anchors: the Forge python-overlay `.pth` supplies `vtk`, `pyvista`, and `pxr` at the interpreter floor today, so all three markers guard uv resolution alone; `vtk` and `usd-core` publish no sdist, `usd-core` caps its wheel metadata below the floor on top of that, and `pyvista` gates only through its hard `vtk` requirement — an ungated row backsolves to a pre-requirement release that no longer imports.
-- Arms: an upstream cp315 `vtk` wheel ungates `pyvista` with it; `usd-core` needs its own.
-- Route: read the PyPI wheel-tag roster per release; a marker moves against a newly published cp315 tag alone, never a re-probe of the same releases.
-- Atomic: three manifest rows.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SCENE_STACK_UNGATE]-[COMPLETE]: adjudicated AGAINST its own thesis — the one admission mechanism the card wanted is exactly the two-lane split `libs/python/.planning/RULINGS.md` `[01]` legislates, so the `vtk`/`pyvista`/`usd-core` markers and the three `[SCENE]` OVERLAY clauses are the permanent statement of that mechanism and never a second lane a reader reconciles: the manifest marker gates the REPRODUCED resolution break, the Forge python-overlay supplies the module worker-side, and the `.pth` tail overrides no manifest row, so dropping either half would state a falsehood at one end. Re-proven at the estate floor — `vtk`, `pyvista`, and `pxr` all import while `vtk` and `usd-core` still publish no cp315 wheel and no sdist two-sourced, `pyvista` riding their break through its hard `vtk` requirement — which leaves no residual work here; the markers retire on an upstream floor wheel or a floor move, both stated conditions and neither a hold on this folder.
+[JOURNAL_SEAT_COMPLETION]-[COMPLETE]: landed — 26 record seats across the kind roster at the async `_emit` folds (five drawing pages, four document folds carrying multi-kind legs, cad and office on the export pages, twelve remainder seats with texture's verified not duplicated), every seat composing the one `core/receipt#RECEIPT` `evidence` builder; `Bundle` gained the `bytes_` slot and its one constructor threads `out_bytes`, so the package producers charge `STORAGE` like every sibling byte-bearer.
+[MARK_SEQUENCE_FAN]-[COMPLETE]: landed as the per-member artifact fan — the carded "member count is unknowable before `make_sequence` runs" REFUTED live (`symbol_count` is a REQUIRED 1..16 admission fact that composes with `version`), `Mark.emit` fans one `ArtifactWork` and one member-keyed `Preview` receipt per addressed member with `INDEX`/`COUNT` facts and span-wide verify over the ordered concatenation; `region.md` gains no counterpart and `MarkFact.SYMBOLS` died with the zero-extent carve.
+[MEDIA_AUDIO_CHANNEL_AXIS]-[COMPLETE]: landed — one `(frames, channels)` plane owner (`_lanes`/`_packed` off `av.AudioLayout(layout).nb_channels`); `_pcm`, `_filter_trim`, `_audio_xfade`, `_sped`, and `_reverse` all index frames, mono the degenerate case of the same arithmetic and the silence fill re-minted at frame width.
+[TERMINATOR_ARROW_TABLE]-[COMPLETE]: landed — `TerminatorRow` + `Terminator.lowering` on `drawing/regime.md`; the standard/annotate/symbol tables deleted and dimension's `MarkKind` fifth mirror folded to `Terminator | Literal["datum"]`; the OBLIQUE_STROKE disagreement resolved to `("OBLIQUE", 2.5)` with the DIMTSZ-versus-block pick staying consumer-local (`dimblk` only when no tick).
+[PRODUCER_ADMISSION_IDIOM]-[COMPLETE]: landed — `INGRESS` homed PUBLIC on `drawing/regime.md`, collapsing regime's own byte-identical `_ADMIT` twin; all five producer heads carry `@beartype(conf=INGRESS)` and every refusal rides `_FAULTS` as `ValueError`.
+[MEDIA_WORKER_ASPECT]-[COMPLETE]: landed — container `_worker` generic over `[**P, R]`; subtitle and analysis local copies deleted, both importing container's as timeline already did.
+[FILTER_DRAIN_KERNEL]-[COMPLETE]: landed — one `_drained` kernel on `media/filtergraph.md` carrying the live-probed `av.error.BlockingIOError`/`av.error.EOFError` pair (both subclass `FFmpegError` AND their builtin twins, the recorded trap); the three prior copies carried Python 2 `except` grammar that never parsed, so one vocabulary was a SyntaxError rather than a divergence.
+[XFADE_BLEND_OWNER]-[COMPLETE]: landed — `FilterNode.xfade` payload narrowed to the one real axis `Transition` and the dissolve arm reads it (`offset` had no in-process arm, `duration` was a second authority over `window`); timeline's `_MASK` folded into filtergraph's `_WEIGHT` as spatially-constant rows and `_blended` is one unbranched `wired` call.
+[WIRED_FAULT_ARMS]-[COMPLETE]: landed — one `ValueError`-to-`invalid` arm on `_transcode` seated BELOW the `FFmpegError` arm, ordering load-bearing because `av.error.InvalidDataError` is itself a `ValueError` subclass.
+[LAYER_RENAME_PROJECTION]-[COMPLETE]: landed — `Layer.renamed(layers, names)` on `export/layered.md`; the three `_placed_layers` copies deleted; fallback reconciled to one policy (roster name, else the row's non-blank own name, else `layer-{index}`) because the synthetic is unique by construction under `LayeredExport.of`'s duplicate refusal.
+[FORMULA_SINGLE_TYPESET]-[COMPLETE]: landed — `_typeset` lays each math note once per render and threads the laid fragment to measure and render consumers; the second heavy typeset died along with its color-divergence defect (measure typeset without `color`, render with it).
+[ANNOTATION_LEAF_CONSTRUCTOR]-[COMPLETE]: landed — `LayerNode.Annotation(name, source, *, aec, z)` on `graphic/layer.md`; the four drawing `_row` copies plus `marks/encode.md`'s fifth hand-build compose it; `aec` defaults `Nothing` with dimension passing `Some(_DIMS)` at its own call sites.
+[DXF_EXTENT_HELPER]-[COMPLETE]: landed — `extent(msp, fallback)` beside the standard owner over `bbox.extents(msp, fast=True)`; the two byte-identical copies and the float sibling deleted, rounding unified at the receipt seam.
+[IDML_FAULT_MONOID]-[COMPLETE]: landed — `IdmlFault` gained `aggregate` plus `combined`; the seven first-offender probes fold through one accumulating `Block` reduce and the fail-fast prose fell with the `match`.
+[REFLOW_STORY_CHILDREN]-[COMPLETE]: landed — `_reflow_arm` deposits recoverable children off worker-crossed `Placement` scalars, live-proven round-trip (headings and unioned link anchors recovered by the lens inverse); the carded paragraph deposits REFUTED — the MuPDF stream reports text for headings only and one position per anchor fragment, so `_deposits` unions fragments and drops contentless placements.
+[FAULT_CONF_IMPORT]-[COMPLETE]: half landed, half refuted — the four `_GUARD` mints on sheet/compose/imposition/register are imported `FAULT_CONF` applications; the carded `_CONTRACT` numeric-tower conf does NOT exist anywhere (marks/vector heads already apply `FAULT_CONF`, and no guarded head annotates a float reachable by an int), so no second conf was minted per the one-idiom ruling.
+[GATE_PAGE]-[COMPLETE]: landed as `delivery/gate.md` — see IDEAS [QUALITY_GATE] for the whole disposition; router, codemap, strata edge, and RULINGS rows landed with it.
+[GATE_LENS_AUDIT]-[COMPLETE]: landed — `LensOp.TABLE_AUDIT` projection on `document/lens.md` minting the eight-scalar `TableAudit` off the `debug_tablefinder` pipeline's own intermediates, probe-verified on ruled and stray-line pages, with `TableAudit.read` the typed recovery entry the gate consumes.
+[SKIMAGE_GATE_DROP]-[COMPLETE]: landed estate-side rather than waiting on the carded upstream arm — the break re-reproduced live (released pythran still pins the gast line whose shim raises on the required 3.15 AST fields), the current gast major proven to compile both scikit-image pythran targets, so a version-pinned `[[tool.uv.dependency-metadata]]` row rewrites the one pin, the sdist builds whole under `forge-scientific-env`, the marker dropped, and `skimage.metrics`/`skimage.transform` import at the floor on the estate venv; the override retires itself on pythran's next release.
 [DASH_PAGE]-[COMPLETE]: landed as `visualization/dashboard.md` — `DashPane` (chart/table/figure) over `PaneSlot`/`Grid`, `DashboardPlan.of` refusing `<no-panes>`/`<duplicate-slot>`/`<fenced-html>`/`<non-vega-pane>` at admission, pane producer keys riding `ArtifactWork.parents` so the plan fronts each producer, and `_document` emitting one shared runtime beside per-pane mounts.
 [DASH_HTML_ROW]-[DROPPED]: `ExportFormat.HTML` and its `VL_RENDER` row were already landed on `visualization/chart/export.md`; the carded `altair` `JupyterChart` anchor is refuted for this estate — it needs a live Jupyter comm channel the host-free charter forbids, and `Chart.to_html(inline=True)` ignores `fullhtml` so it answers only a whole document, which is why pane composition homes at `visualization/dashboard.md` instead.
 [HOOKS_PAGE]-[COMPLETE]: landed as `core/hooks.md` — `ArtifactHook` id vocabulary, closed payload Structs, `ARTIFACT_POINTS` row table, and the scope-keyed `Production` surface over the runtime registry.
@@ -179,4 +59,4 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [MEDIA_LANE_FIELD_ORDER]-[COMPLETE]: landed — `Timeline` and `Subtitle` hoist `lane: LanePolicy` above their defaulted fields; the corpus-wide AST sweep finds zero remaining required-after-defaulted producer Structs.
 [OCIO_WORKING_SPACE]-[COMPLETE]: landed at `graphic/color/managed.md` — `ManageOp.Space`/`View` config legs over the memoized `ConfigSource` graph, `getOptimizedCPUProcessor` folding the integer ingress into the compiled chain (the depth tension resolved: config legs take `ColorOperand`, the operand dtype IS the ingress depth), `Baker` baking CLF/CTF the colour writer cannot, and the 32-hex `getCacheID` riding every receipt.
 [TILE_PERIODICITY_SCORE]-[COMPLETE]: landed — `set.md` measures wrap-seam periodicity and publishes `tile_score` as receipt evidence, absent where no seam-bearing role reached the probe; `tiled` stays declaration-sourced per the RULINGS row because the cutoff is uncalibratable (a hard-edged periodic pattern reads identically to its cut sibling), the tension resolved to publish-the-scalar; `[TILE_SCORE_CUTOFF]-[OPEN]` carries the calibration with the failing family named.
-[PLANE_FIDELITY_SCORES]-[COMPLETE]: landed — `PlaneFidelity` + `fidelity()` at `graphic/texture/plane.md` (psnr/mse/nrmse/delta_e with `data_range` derived from the operand, never seeded), every lossy encode scored onto the `map` band through its own decode round-trip, `MapFact.fidelity` presence spelling the lossy declaration; SSIM is a `[RESEARCH]` row gated on the `skimage` floor.
+[PLANE_FIDELITY_SCORES]-[COMPLETE]: landed — `PlaneFidelity` + `fidelity()` at `graphic/texture/plane.md` (psnr/mse/nrmse/delta_e with `data_range` derived from the operand, never seeded), every lossy encode scored onto the `map` band through its own decode round-trip, `MapFact.fidelity` presence spelling the lossy declaration; the structural leg has since landed as `PlaneFidelity.ssim` / `FidelityMetric.STRUCTURAL` off the floor-ungated `skimage.metrics`.

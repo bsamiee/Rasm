@@ -92,7 +92,7 @@
 - `ClashSource.mode` selects `'a'` (whole model), `'e'` (exclude the `selector` set), or `'i'` (only the `selector` set); `'e'` and `'i'` consume the `ClashSource.selector` string an `IfcSelector` gate validated.
 - `smart_group_clashes` clusters overlaps through `sklearn.cluster.OPTICS` at `max_clustering_distance`, keyed by `ClashResult` centroid geometry.
 - `ClashSettings.output` defaults to `'clashes.json'`; `export()` dispatches to `export_bcfxml()` when `output` ends `.bcf`, else `export_json()`.
-- Import `ifcclash.ifcclash` function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`; the manifest import policy bans the module-level form.
+- `ifcclash.ifcclash` binds as one module-scope `lazy from ifcclash.ifcclash import Clasher, ClashSettings, ClashSet, ClashSource`, the proxy reifying on the first `Clasher` construction; the manifest roster bans the EAGER module-level form alone, and `ifcclash` carries no license term refusing the lexical module-scope binding.
 
 [STACKING]:
 - `ifcopenshell`(`.api/ifcopenshell.md`): `Clasher` opens files through `ifcopenshell.open`, indexes elements in `ifcopenshell.geom.tree` via `geom.iterator`, resolves selector sides through `ifcopenshell.util.selector.filter_elements`, and keys every `ClashResult` by `entity_instance.GlobalId` — the overlap tree is the OCC geometry itself.

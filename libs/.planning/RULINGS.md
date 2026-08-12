@@ -74,7 +74,7 @@
 - Framed-binary wires frame an `Option` as a count of 0 or 1 — presence on the collection rule leaves an absent field no second spelling to fork on.
 - Kind-discriminated payload tails carry NO arm tag — the discriminant in hand fixes the tail, and a second spelling of it can contradict the first.
 - One message-envelope owner per branch mints the attribute map — a second mint in one branch is the `[07]` drift defect the corpus class forecloses.
-- Format roster is JSON, Protobuf, and Avro — JSON and Protobuf alone carry `-batch` siblings, since the Avro format defines no batch envelope; CBOR, XML, and avro-compact stay drafts no peer decode is held to.
+- Formats admit JSON, Protobuf, and Avro — `-batch` rides the first two, since Avro defines none; CBOR, XML, and avro-compact bind no decoder.
 - CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house message-envelope legs — no spec binding names them.
 - Subscriptions and all seven filter dialects land, `sql` being CESQL — reading CESQL as the filter concept collapses six dialects into one arm.
 - CESQL evaluation is TOTAL — every operator returns a value beside an accumulated error list, so the rail accumulates rather than short-circuits.
@@ -101,6 +101,7 @@
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
 - `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/MANIFEST.md` is the one federation index, pin authority, and fixture registry.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
+- Observability backends stand per DEPLOYMENT, never per estate — an app root supplies `StackSpec.observe.*`, the iac `Lgtm`/`Dev` rows realize the stack, and `StackOutputs.otlp` publishes the one endpoint its workloads read; a libs card holding the corpus open for container placement re-litigates the platform/product split.
 
 ## [05]-[PROCESS]
 

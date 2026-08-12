@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `python-fcl`
 - package: `python-fcl` (BSD-3-Clause)
-- import: `import fcl`
+- import: `lazy import fcl`
 - owner: `geometry`
 - rail: mesh/spatial / clearance-enrichment
 - capability: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact; primitive and triangular-mesh geometries; rigid `Transform` poses; broadphase AABB-tree collision/distance managers for one-to-many and many-to-many group queries
@@ -73,7 +73,7 @@ Each pairwise query populates a request, allocates an empty result, calls the fr
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `import fcl` resolves function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`; an unavailable import is a probed capability the fall-through handles, never an unconditional one.
+- `fcl` binds as one module-scope `lazy import fcl`, the proxy reifying on the first narrow-phase call so a consumer touching no clearance arm never pays the native load; an unavailable import stays a probed capability the fall-through handles, never an unconditional one.
 - Each query kind is one request-and-result shape — `collide`/`distance`/`continuousCollide` discriminate by function, never a query-per-geometry family; the CORE-clearance arm calls `distance` with `DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)` and reads `min_distance` (negative under penetration) with `nearest_points` as signed clearance evidence.
 - A triangulated element lifts through `BVHModel.beginModel`/`addSubModel`/`endModel`, analytic primitives are the fast path for a known solid, and `Convex` is the GJK-direct hull path; `CollisionObject.setTransform`/`setTranslation`/`setQuatRotation` re-pose in place and recompute the AABB.
 - Group clearance registers every `CollisionObject` into a `DynamicAABBTreeCollisionManager`, calls `setup`, then `distance(DistanceData(), defaultDistanceCallback)` over the set, `update` refreshing the tree after pose mutation; the clearance receipt keys the minimum separation, the `nearest_points` pair, the `b1`/`b2` handles, and the penetrating-pair count.

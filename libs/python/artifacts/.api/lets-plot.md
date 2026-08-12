@@ -10,6 +10,7 @@
 - owner: `artifacts`
 - rail: visuals
 - asset: cp-tagged native wheel bundling the Kotlin/JS grammar-and-render core; SVG and HTML serialize self-contained, PNG and PDF rasterize the rendered SVG through `pillow` (`.api/pillow.md`) in-process, and a `geom_livemap` map plot serializes to interactive HTML only.
+- abi: the cp-tagged wheels cap at cp314 with no abi3 tag, the project publishes no sdist, and nixpkgs carries no python distribution of it, so no wheel, source, or overlay lane reaches the 3.15 estate floor — admission stands through the manifest row and its `python_version` marker, reach does not, and `visualization/chart/spec#CHART` rails `<engine-unavailable>` until upstream publishes a floor wheel or the estate floor moves.
 - capability: declarative ggplot2-grammar charts over a polars/pandas or dict frame — the `geom_*`/`stat_*` layers, the `scale_*`/`scale_*_manual` scale algebra, `position_*` adjustments, `sampling_*` reduction, `coord_*`/`facet_*`/`theme*`/`flavor_*`/`element_*` modifiers, `guide_*`/`labs`/`lims` annotation, the `gggrid`/`ggbunch`/`ggdeck`/`ggmarginal` composition roots, the `lets_plot.bistro` recipes, and in-process `PlotSpec.to_*` + `ggsave` self-render export.
 
 ## [02]-[PUBLIC_TYPES]

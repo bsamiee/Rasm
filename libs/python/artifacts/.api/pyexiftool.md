@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYEXIFTOOL]
 
-`PyExifTool` recovers and binds descriptive metadata — EXIF, IPTC-IIM, XMP, ICC profile, GPS, maker notes, and PDF/video/audio container tags — across every format the `exiftool` binary reads, through one long-lived `exiftool -stay_open` subprocess, not a per-call shell-out. `ExifToolHelper.get_tags` returns any path's `-G`-grouped tag set as parsed JSON and `set_tags` writes any tag back; one worker-static helper serves the RASTER carrier, keyed through the page's `_FIELD_KEYS` logical-to-tag map. `PyExifTool` re-implements neither the codec nor the format dispatch the binary owns.
+`PyExifTool` recovers and binds descriptive metadata — EXIF, IPTC-IIM, XMP, ICC profile, GPS, maker notes, and PDF/video/audio container tags — across every format the `exiftool` binary reads, through one long-lived `exiftool -stay_open` subprocess, not a per-call shell-out. `ExifToolHelper.get_tags` returns any path's `-G`-grouped tag set as parsed JSON and `set_tags` writes any tag back; a worker-static helper serves the RASTER carrier keyed through the page's `_FIELD_KEYS` logical-to-tag map, and a second serves the deep-pixel colour readback that lowers the `nclx` and ICC `cicp` declarations onto a texture plane's own transfer and chromaticity rosters. `PyExifTool` re-implements neither the codec nor the format dispatch the binary owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -78,6 +78,27 @@ Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.
 |  [12]   | `logger`                                            | property | `logging.Logger` sink (write-only); a `structlog` adapter fits   |
 
 - `executable`/`common_args`/`config_file`: set raises `ExifToolRunning` while the process is live.
+- `ExifTool(executable=None, common_args=["-G", "-n"], win_shell=False, config_file=None, encoding=None, logger=None)`: `common_args` DEFAULTS to family-0 grouping with print-conversion off, and `ExifToolHelper(auto_start=True, check_execute=True, check_tag_names=True, **kwargs)` forwards it — a construction passing neither already reads numeric.
+- `get_tags(files, tags, params=None)`: `tags` entries may be GROUP-QUALIFIED (`"QuickTime:ColorPrimaries"`, `"ICC_Profile:ColorPrimaries"`), which scopes the read to one namespace and returns that same string as the response key. A qualifier no group on the file answers returns the key ABSENT rather than null — the dict carries `SourceFile` alone.
+
+[ENTRYPOINT_SCOPE]: the colour-declaration read (`ICC-cicp`, `QuickTime` `nclx`)
+
+The binary parses both CICP carriers a deep-pixel container declares its colour under, so a reader recovers a transfer and a chromaticity without walking a box or an ICC tag table by hand.
+
+| [INDEX] | [SURFACE]                                | [SHAPE] | [CAPABILITY]                                                       |
+| :-----: | :--------------------------------------- | :------ | :----------------------------------------------------------------- |
+|  [01]   | `QuickTime:ColorPrimaries`               | tag     | the ISOBMFF `nclx` colour primaries of an AVIF/HEIF container      |
+|  [02]   | `QuickTime:TransferCharacteristics`      | tag     | the `nclx` transfer characteristics of the same container          |
+|  [03]   | `QuickTime:MatrixCoefficients`           | tag     | the `nclx` matrix; `QuickTime:ColorProfiles` reports `nclx` itself |
+|  [04]   | `QuickTime:VideoFullRangeFlag`           | tag     | the `nclx` full-range flag                                         |
+|  [05]   | `ICC_Profile:ColorPrimaries`             | tag     | the ICC v4.4 `cicp` tag's primaries (family 1 reads `ICC-cicp`)    |
+|  [06]   | `ICC_Profile:TransferCharacteristics`    | tag     | the same tag's transfer characteristics                            |
+|  [07]   | `ICC_Profile:ProfileDescription`         | tag     | the profile name a synthesized profile carries (`Rec2100PQ`)       |
+
+- Every row above is an H.273 CICP CODE under `-n` and a printed phrase without it: `9`/`16` read `BT.2020, BT.2100` and `SMPTE ST 2084, ITU BT.2100 PQ`. The code is the stable key and the phrase is display text.
+- `2` on either axis is the explicit H.273 UNSPECIFIED, which an untagged encode writes — it is a DECLARATION of nothing, distinct from the tag being absent.
+- Group family selects the spelling, never the value: `-G` reads `ICC_Profile:ColorPrimaries` and `-G1` `ICC-cicp:ColorPrimaries` for one byte stream. A bare unqualified request answers `ColorPrimaries` from EITHER carrier, which is why a reader over a file that could hold both qualifies its request.
+- An ICC blob is read as a FILE: the binary type-sniffs it as `application/vnd.iccprofile` from a `.icc` spelling, its own signature sitting past the header rather than at offset zero.
 
 [ENTRYPOINT_SCOPE]: active niche helpers (`ExifToolAlpha`) — not composed by the owner
 
@@ -98,6 +119,9 @@ Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.
 - Each numeric-typed logical carries the per-tag `#` suffix (type-directed off `_NUMERIC`, the response key staying bare) so numeric fields arrive machine-parsable while string fields keep PrintConv words — never the global `-n`, whose integer codes `msgspec.convert(strict=False)` rejects into `str`-typed fields.
 - `set_tags(path, tags, params=["-overwrite_original"])` writes; `MetaBind.STRIP`/`REPLACE` first clears the namespace through `execute("-all=", ...)`, REPLACE appending `--icc_profile:all` so the profile survives and STRIP scrubbing it; container bytes return without pixel re-encoding.
 - Only the projected `MetaFacts` crosses the owner boundary; the raw helper never does.
+- AN ABSENT BINARY IS NOT AN `ExifToolException` (measured): construction defers, and the first command raises `FileNotFoundError` — `"<path>" is not found, on path or as absolute path`. A guard trapping the typed tree alone misses the one failure a host causes, so a provisioning-tolerant reader traps `OSError` beside `ExifToolException`. An unreadable or missing FILE does stay typed, raising `ExifToolOutputEmptyError` from the `execute_json` path.
+- BYTES REACH THE BINARY AS A FILE, never on stdin (measured): `-stay_open` owns the driver's own stdin as its command channel, so `execute("-j", "-")` deadlocks the pipe rather than reading a stream. An in-memory payload crosses a `NamedTemporaryFile` whose suffix carries the type the binary sniffs under.
+- The pure-Python driver imports EAGERLY where the native codec owners defer: it ships no binary and no extension, so nothing reifies at import — and deferring its exception family behind a lazy proxy would resolve that proxy inside an `except` clause, where a failure raises during handling.
 
 [STACKING]:
 - `anyio`(`.api/anyio.md`): every `get_tags`/`set_tags` blocks on a synchronous subprocess pipe, so the boundary crosses `LanePolicy.offload(Kernel.of(..., KernelTrait.HOSTILE), ...)` — the `CarrierPolicy(reader, writer, trait)` row the RASTER arm carries, never the per-loop default.
@@ -106,6 +130,8 @@ Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.
 - `structlog`/`opentelemetry`: `LanePolicy.offload` supplies the structured event/span and `RuntimeRail` message envelope; `ExifToolHelper(logger=...)` accepts a `logging.Logger`-shaped sink for command traces.
 - `stamina`(`runtime/.api/stamina.md`): `@stamina.retry(on=(RuntimeError, ExifToolVersionError))` wraps helper acquisition and recovers a transient `-stay_open` spawn failure; a deterministic `ExifToolExecuteError` stays non-retriable.
 - `exchange/metadata#METADATA`: binds `PyExifTool` as `_CARRIER[MetaCarrier.RASTER]` → `KernelTrait.HOSTILE`; `_exiftool_read`/`_exiftool_write` own the `get_tags`/`set_tags`/`execute` calls, and the one subprocess covers maker notes, video/PDF, ICC, and IPTC/XMP as the cross-format superset the page folds first.
+- `graphic/texture/plane#CODEC`: binds it as the COLOUR-DECLARATION reader alone — `_declared_colour` requests the two group-qualified CICP tags off an AVIF container or off the ICC profile `pyvips` `jxlload` synthesizes from a JPEG XL codestream, and lowers the numeric codes onto that page's own transfer and chromaticity rosters. That page holds its OWN process-static helper rather than reaching the metadata plane's: `graphic/texture` imports the floor, the runtime shapes, and its own siblings alone, so the acyclic import law prices one subprocess per composing page per worker. No facet is folded and no tag is written on that leg; a silent read resolves to the row's declared tag rather than a fault, because an unreadable declaration says nothing about the pixels.
+- `pyvips`(`.api/pyvips.md`): the two surfaces split on WHO parses. `jxlload` publishes the ICC bytes libjxl synthesizes from a codestream this binary cannot open; this binary then parses the `cicp` tag inside those bytes, which `pyvips` exposes as an opaque blob. Neither re-implements the other's parse.
 
 [LOCAL_ADMISSION]:
 - `ExifToolHelper()` resolves the `exiftool` binary discovery-env → configured-path → provisioning-fallback: it defaults to `shutil.which("exiftool")`, `executable=` pins an absolute path, and provisioning supplies it where `PATH` lacks it — the same parameterized-boundary law the `ghostscript`/`qpdf`/`veraPDF` oracles follow; `PyExifTool` ships no binary.
@@ -113,6 +139,6 @@ Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.
 
 [RAIL_LAW]:
 - Package: `pyexiftool`
-- Owns: cross-format descriptive-metadata read/write over a persistent `exiftool -stay_open` subprocess — the EXIF/IPTC/XMP/ICC/GPS/maker-note/container tag set the binary reads, JSON-grouped by namespace (`-G`), print-conversion-controlled (`-n`), batched over many files in one round-trip, with exit-status checking, tag-name validation, custom-config injection, and a pluggable JSON parser
-- Accept: recovering and binding the cross-format descriptive tag set of a RASTER artifact in the `exchange/metadata#METADATA` PROCESS fold, projected to the `Descriptive`/`Rights`/`Capture`/`Place`/`Color`/`RasterInfo` facets through `_FIELD_KEYS` and `MetaFacts.from_logical`
-- Reject: a per-tag accessor family over `get_tags`/`set_tags`; the `ExifToolAlpha` helpers in place of the dict surface; a hand-rolled EXIF/IPTC/XMP codec or a JPEG-only EXIF reader; a per-call helper respawn instead of one worker-static `-stay_open` process; a raw helper crossing the owner boundary; a hardcoded binary path; treating `PyExifTool` as bundling the binary; routing signed C2PA assertions or PDF/A·PDF/X conformance verdicts through descriptive metadata
+- Owns: cross-format descriptive-metadata read/write over a persistent `exiftool -stay_open` subprocess — the EXIF/IPTC/XMP/ICC/GPS/maker-note/container tag set the binary reads, the ISOBMFF `nclx` and ICC `cicp` colour declarations beside it, JSON-grouped by namespace (`-G`/`-G1`), print-conversion-controlled (`-n`), batched over many files in one round-trip, with exit-status checking, tag-name validation, custom-config injection, and a pluggable JSON parser
+- Accept: recovering and binding the cross-format descriptive tag set of a RASTER artifact in the `exchange/metadata#METADATA` PROCESS fold, projected to the `Descriptive`/`Rights`/`Capture`/`Place`/`Color`/`RasterInfo` facets through `_FIELD_KEYS` and `MetaFacts.from_logical`; reading a deep-pixel container's own CICP colour declaration at `graphic/texture/plane#CODEC` through group-qualified tag names under `-n`, with the numeric code as the key; in-memory bytes handed over as a suffix-carrying temporary file; a guard trapping `OSError` beside the typed family
+- Reject: a per-tag accessor family over `get_tags`/`set_tags`; the `ExifToolAlpha` helpers in place of the dict surface; a hand-rolled EXIF/IPTC/XMP codec or a JPEG-only EXIF reader; a hand-rolled `nclx` box or ICC tag-table walk where this binary parses both; a per-call helper respawn instead of one worker-static `-stay_open` process; a raw helper crossing the owner boundary; a hardcoded binary path; a `-` stdin hand-off, which deadlocks against the `-stay_open` command channel; a PRINTED colour phrase read as a stable key where the CICP code is the datum; an unqualified tag request over a file that could declare the same tag in two groups; treating `PyExifTool` as bundling the binary; routing signed C2PA assertions or PDF/A·PDF/X conformance verdicts through descriptive metadata

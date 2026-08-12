@@ -38,6 +38,7 @@ artifacts/
 │   └── classify.py      # MasterFormat/UniFormat/OmniClass vocabularies and the drawing<->spec resolver; mints no receipt
 ├── delivery/            # ISO 19650 delivery plane: container register, issue-for-construction transmittal, and issue announcement
 │   ├── register.py      # ISO 19650 register, sheet-index, and container-metadata owner; contributes the Register receipt
+│   ├── gate.py          # QualityGate per-kind threshold fold over every producer verdict; mints no receipt
 │   ├── transmittal.py   # issue-for-construction orchestrator over imposition, archive, credential, and conformance
 │   └── notice.py        # TransmittalNotice projection turning the issued fact into a runtime message envelope
 ├── graphic/             # 2D graphic-primitive toolkit every visual and document plane composes
@@ -182,6 +183,7 @@ flowchart TB
     Bench s26@-->|"[IMPORT]: ArtifactKind"| Receipt
     Bench s27@-->|"[IMPORT]: SynthOp"| Media
     Delivery s28@-->|"[IMPORT]: Production"| Hooks
+    Delivery s29@-->|"[IMPORT]: StructureAudit"| Document
     Typography ~~~ Plan
     Receipt f1@-->|"forbidden: upward import"| S5
 ```
@@ -201,6 +203,7 @@ flowchart TB
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
 - S4 `delivery` then S5 `core/issue` — `issue` alone imports upward-named producers, so the spine is floor and conductor, never one stratum.
 - S4 `transmittal` fires its issued fact on the floor `Production` row and `notice` subscribes to it, so neither delivery page imports the other.
+- S4 `delivery/gate` composes the S3 document audits and the S0 receipt bands downward; nothing imports it back, so the verdict adds no cycle.
 - S5 `core/bench` rides the conductor stratum without conducting — no producer imports it or cycles through it.
 - S5 `bench` composes the package recipes, the receipt `ArtifactKind`, and `media/synthesis` replay; native-offload kernels arrive as caller values.
 
@@ -315,6 +318,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier.
 - Bench timing, quantiles, and instruments stay runtime-owned.
 - Each bench row's deterministic input is a typed `BenchFeed` edge; a regression is a graded verdict, never a fault.
+- `delivery/gate` is the one quality-threshold owner: every bar, grade, and per-kind policy row seats there and no producer re-derives one.
+- Gate absence grades UNMEASURED and never PASS, so an unmeasured contractual issue refuses instead of reading on the record like a clean one.
 - `delivery/notice` is the plane's one `Project` row over the `TRANSMITTAL_ISSUED` fact, handed to the runtime emitter at the composition root.
 - Announcement ends at the message envelope value; lowering, format, and delivery are the runtime transport owner's.
 - Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.

@@ -20,26 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[GEOREF_BAND]-[QUEUED]: land the georeference extraction and authoring rows.
-- Capability: georeference truth becomes first-class evidence — extraction mints the CRS fact and authoring writes it back into the model.
-- Shape: one extraction projection minting CRS, local-to-map transform, and true north on `libs/python/geometry/.planning/ifc/analysis.md`, and one authoring verb row minting and updating `IfcMapConversion`/`IfcProjectedCRS` on `libs/python/geometry/.planning/ifc/authoring.md`.
-- Unlocks: IDEAS.md [IFC_GEOREFERENCE] — scan-vs-model in shared map frames, geo-data planes consuming one geometry-minted georeference fact instead of re-deriving it.
-- Anchors: the pinned `util.geolocation` rows at `libs/python/geometry/.api/ifcopenshell.md` — `get_helmert_transformation_parameters` the one extraction seam over every coordinate-operation subtype, the `auto_*`/manual pairs, `get_crs`, and the north projections; the authoring verb table; idea `[IFC_GEOREFERENCE]`.
-- Ripple: `data` `[IFC_CRS_SOURCE]` — the consumer landed: `spatial/geospatial.md` `GeoreferenceFact` decodes crs/eastings/northings/orthogonal_height/x_axis_abscissa/x_axis_ordinate/scale/true_north, and this band's `[SHAPE]: GeoreferenceFact` seam edge mirrors onto the geometry `ARCHITECTURE.md` sibling map when the extraction lands.
-
-[NONRIGID_ARM]-[QUEUED]: land the non-rigid registration arm and the deformation split.
-- Capability: registration distinguishes construction deviation from structural deformation through a per-point deformation field.
-- Shape: one `probreg` CPD/FilterReg arm on the registration mode vocabulary returning a deformation-field carrier on `libs/python/geometry/.planning/scan/registration.md`, and a deviation projection splitting rigid residual from deformation magnitude on `libs/python/geometry/.planning/scan/deviation.md`.
-- Unlocks: IDEAS.md [NONRIGID_DEFORMATION_TRACK] — monitoring-grade evidence (settlement, deflection, bowing) from repeat scans, completing the registration family beside the global, coarse, and fine arms.
-- Anchors: the `Cloud` array carrier crossing worker seams; the registration session shape and its `_seeded` provider-slot seeding; the landed `IngestStage.FARTHEST_POINT` budget bound; the admitted root-manifest `probreg` row; idea `[NONRIGID_DEFORMATION_TRACK]`.
-- Tension: `probreg` rides an interpreter marker in the root manifest, so the arm's fences stay floor-gated like every native-gated provider.
-
-[TABULAR_ROUNDTRIP_VERBS]-[QUEUED]: land the spreadsheet exchange verb pair on the lifecycle owner.
-- Capability: lifecycle tables round-trip to estimator spreadsheets and back through the authoring rail.
-- Shape: one `ifccsv` export/re-import verb pair on the lifecycle verb table of `libs/python/geometry/.planning/ifc/costing.md`, selector-grammar scoped, the re-import writing attribute and Pset edits back through the authoring rail.
-- Unlocks: IDEAS.md [LIFECYCLE_TABULAR_EXCHANGE] — estimator and scheduler workflows without a BIM authoring tool in the loop, completing the ifcopenshell exchange family beside `ifcdiff`, `ifcpatch`, `ifc4d`, and `ifc5d`.
-- Anchors: the admitted root-manifest `ifccsv` row; `ifc/selector` grammar; the costing partition vocabulary; idea `[LIFECYCLE_TABULAR_EXCHANGE]`.
-- Atomic: one verb pair on the lifecycle verb table.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -48,6 +29,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[GEOREF_BAND]-[COMPLETE]: extraction landed as `IfcAnalysis.georeference` minting the eight-field `GeoreferenceFact` (roster verified arm-for-arm against the data decoder, `crs:unnamed` covering the IFC2X3 pset path that reaches the fold with no `IfcProjectedCRS`), authoring as the four georeference `AuthorVerb` rows with `edit_true_north` excluded as `GEOREF_EDIT`'s own `coordinate_operation` keys; the seam edge mirrored onto the `ARCHITECTURE.md` sibling map from the `Ifc` node.
+[NONRIGID_ARM]-[COMPLETE]: `NONRIGID` mode row, sealed `DeformationField` carrier, parent-side `find_spec` gate onto `BoundaryFault(import_=)`, and the deviation `DeformationSplit` landed; the floor-gating tension resolved as stated law, and the seeding ruling gained its one stated pre-pose exception because `probreg` publishes no init-transform slot.
+[TABULAR_ROUNDTRIP_VERBS]-[COMPLETE]: the `EXPORT`/`IMPORT` pair landed on the lifecycle phase vocabulary — the catalog's single-EXCHANGE pre-spec split in two because the arms diverge on admission shape, mutation posture, transaction fence, and residual source; re-import runs inside the authoring transaction fence and `BLIND_KEYS` makes the written-cell census exact.
 [GLB_STORE_SPILL]-[COMPLETE]: the daemon cache fold gained the injected `ObjectStoreLane` spill — two write-once objects per unit under one `spill_path` derivation, the read-through ahead of the kernel, and `SpillOutcome` riding the crossing's own receipt row.
 [GLB_SERVE_READTHROUGH]-[COMPLETE]: `GeometryServe.sync` answers ring first and the durable tier second, a refused, absent, or unbound tier all reaching one unknown-artifact fault; `_frames` re-shaped onto `(artifact_id, octets)` so the store leg asserts no producer literal.
 [GEOREF_MEMBER_PIN]-[COMPLETE]: the `util.geolocation` namespace is pinned into `libs/python/geometry/.api/ifcopenshell.md` from the installed distribution source — the `HelmertTransformation` nine-field extraction, the `auto_*`/manual pairs, the north and angle projections — with the absence-is-identity law on its topology row.

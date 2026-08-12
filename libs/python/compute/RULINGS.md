@@ -25,7 +25,9 @@
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- jax-family imports bind function-local on the `Engine.gated()`/`worker()` carriers — `jax_enable_x64` arms first, or solves silently yield float32.
+- Carrier fields ARE that guarantee — helpers read `self.jnp`/`self.lx` off slots `gated()` mints after arming x64, so no `lazy` bind reifies ahead.
+- Single-door jax pages bind module-scope `lazy`, arming on the door's first line — `_capture_jax` is the case, and a second door demands the carrier.
 
 ## [05]-[PROCESS]
 

@@ -20,11 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[LAZY_IMPORT_DIALECT]-[QUEUED]: import deferral converges on the lazy proxy dialect.
-- Capability: one deferral idiom across the branch — a function-local import survives only where module-scope import is banned.
-- Shape: unearned `# ruff:ignore[import-outside-top-level]` function-local imports reclassify to the `lazy` module-top proxy across the data, geometry, and artifacts pages; each survivor names its module-scope ban.
-- Unlocks: the branch deferral ruling realized; floor audits read one module-top roster.
-- Anchors: the deferral ruling at `libs/python/.planning/RULINGS.md`; the `lazy` DSL owner; the manifest ban comments.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -32,6 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[LAZY_IMPORT_DIALECT]-[COMPLETE]: swept branch-wide — data 96→2 survivors, geometry 81→42, compute 129 indented→29 carrier sites under the `Engine.gated()` x64 seam law at `libs/python/compute/RULINGS.md` `[04]`, runtime recipe 7 AGPL sites — every survivor naming its module-scope ban under the two rows the card's citation lacked, landed at `libs/python/.planning/RULINGS.md` `[04]` (the manifest roster bans the EAGER form alone; survivors are AGPL/network-copyleft lexical isolation and call-seam side effects) with the doctrine carve at `docs/stacks/python`; live 3.15 probes refuted the `lazy import pkg.sub` sibling-collision claim and proved TID253 reads `lazy` as module-level, recorded at the manifest roster comment.
 [WIRE_TRACE_RULING]-[COMPLETE]: carrier admitted and co-shipped — `GeometryHandoff.of`/`_trace`/`wire()` mint the full W3C composite mapping on `libs/python/geometry/.planning/graduation.md`; `_GeometryWire.trace`/`GraduationReceipt.geometry`/`_linked` decode it on `libs/python/compute/.planning/graduation/handoff.md`; both folder `[EVIDENCE_TRACE_LINKS]` cards close against those fences.
 [PULSE_CONDUIT_DESIGN]-[COMPLETE]: conduit and actor lifecycle landed on `libs/python/runtime/.planning/execution/lanes.md` — `LanePolicy.pulses`, structured `drain` custody, spawn-context manager queue, `anyio.from_thread.run_sync` relay, serialized `Hooks.fire` fold, and non-blocking close enforce the lossy law; `pebble` map iterator and `MailboxProcessor` remain refuted, geometry `[PULSE_DRAIN_PROBE]` answered.
 [EXEMPLAR_FILTER_ROW]-[COMPLETE]: landed as the `exemplar_filter=TraceBasedExemplarFilter()` argument in `_meter_provider` on `libs/python/runtime/.planning/observability/telemetry.md`, beside the `WIRE_AGGREGATION` exponential-aggregation default row.

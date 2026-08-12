@@ -42,7 +42,7 @@
 - `MachinePrincipal.credential` is the HTTP presentation alone — SASL and NATS CONNECT carry the bare `token`, so the prefixed form double-prefixes.
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
 - `DateTime.distanceDuration` is ABSOLUTE — a lapsed instant reads as a positive window, so deadline checks take signed `distance` or `isPast`.
-- Security's `Intake` names the held-octet verify boundary alone — the serve webhook row spells its own `Inbound`, because a consumer surface borrowing a producer Tag's name forks one seam word across two owners.
+- Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
 
 ## [03]-[COLLAPSE]
 

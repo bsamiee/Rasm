@@ -8,6 +8,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 
 - `python_version` markers gate a REPRODUCED break alone — a gate-every-native sweep reverses resolution `forge-scientific-env` builds at the floor.
 - Overlay residency grows at `Parametric_Forge`, never a repo admission — venv path order shadows it, so the `.pth` tail overrides no manifest row.
+- A floor-unreachable distribution (no wheel, no buildable sdist, no overlay or nix route) never rides an open hold — where an installable peer re-owns its arms it RETIRES whole, and where it is the sole capability its rows state the typed degrade permanently.
 
 ## [02]-[SHAPE]
 
@@ -35,6 +36,9 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 
 - `trimesh` and `rustworkx` stay dual-registered — each entry is the role its own stratum holds, and a dedup sweep forces a cross-stratum import.
 - Native-gated workers cross the `workers` `shipped` gate under a `covered(module, names)` witness — a `getattr` twin defers misspellings to offload.
+- Import deferral is the module-top `lazy` proxy, never function-local — `banned-module-level-imports` bans EAGER, a floor gate leads dereference.
+- Function-local imports ride a marker comment naming their module-scope ban — AGPL isolation, or a call-seam side effect the import must fire.
+- AGPL isolation refuses `lazy` — a static audit reads the module-scope proxy as coupling, and LICENSE class decides the ban, never a roster.
 
 ## [05]-[PROCESS]
 
