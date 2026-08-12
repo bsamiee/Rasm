@@ -386,20 +386,21 @@ const _probe = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.S
 - Packages: `@effect/platform-node` (`NodeStream.fromReadable`, `NodeSink.fromWritable` — the only stream seams); `ssh2` (SFTP `stat`, `readdir`, `createReadStream`, `createWriteStream`, `rename`, `unlink`, `mkdir`, `rmdir`, `open`, `close`, `ext_copy_data`); `webdav` (`stat`, `getDirectoryContents`, `createReadStream`, `createWriteStream`, `copyFile`, `moveFile`, `deleteFile`, `createDirectory`); `basic-ftp` (`list`, `size`, `lastMod`, `downloadTo`, `uploadFrom`, `appendFrom`, `rename`, `remove`, `removeDir`, `ensureDir`); `@aws-sdk/client-s3` (`paginateListObjectsV2` — the bucket census walk); `object/stream.md` (`Rail.bytes`, `Rail.chunked`, `Rail.identity`, `Rail.range`), `object/store.md` (`ObjectStore`).
 - Entry: `Remote.read(origin, session)` yields `Stream<Uint8Array, RemoteFault>` on every scheme; `Remote.intake(origin, session, retention)` is the one cloud-ingestion entry — read, cut, digest, conditional put, reference row, retention tag — identical receipts to `Disk.intake`.
 - Growth: a new verb is one dispatch surface with per-row arms; per-server capability discovery is `[3]`'s `Remote.probe`, narrowing the flag row before the arms dispatch, never a caller branch.
-- Law: `lock`/`unlock` realize the flag row's `lock` column — RFC 4918 tokens on the DAV arm coordinating against concurrent DAV writers, a typed refusal everywhere else (the bucket arm names why: the conditional put already owns write races) — so a `lock: true` flag is load-bearing capability, never decorative data.
+- Law: `lock`/`unlock` realize the flag row's `lock` column — RFC 4918 tokens on the DAV arm coordinating against concurrent DAV writers, a typed refusal everywhere else (the bucket arm names why: the conditional put already owns write races) — and the DAV arm reads the SESSION's probed column, so a server whose compliance answer proved no class 2 refuses at the verb rather than sending a LOCK the acquire disproved; `unlock` stays unguarded there because a token in hand IS the capability proof.
 - Law: reads and writes are backpressured lifts — SFTP and DAV node streams cross through `NodeStream.fromReadable`/`NodeSink.fromWritable`, the FTP arm bridges its `Writable`-consuming transfer through one relay duplex inside the boundary; no raw `.on("data")` consumption exists past the adapter.
 - Law: the FTP relay is a BRACKETED resource on both arms, never a bare mint — the relay's life IS the transfer's, so a consumer interrupted mid-stream releases it and the pooled control connection returns usable; an unbracketed relay leaves `downloadTo`/`uploadFrom` writing into a duplex nobody drains, which strands that connection for the pool's whole lease with no fault raised anywhere, and `_piped` scopes the pair so the sink's bracket closes with the run it fed.
+- Law: the FTP transfer bound counts only time spent waiting for the SERVER, so a consumer draining the relay slowly — a download folded into a decompressor, an upload fed by a computing source — holds the data connection idle without refusal, and the dial therefore carries a bound tight enough to convict a stalled origin rather than one widened to survive this branch's own backpressure.
 - Law: degrade is structural — `copy` on a row without `serverCopy` (or across hosts) composes `read` into `write`; `move` without `serverMove` composes `copy` then `remove`; `remove` discriminates file-versus-directory on the `stat` verdict, never a caller flag; a caller cannot observe which arm ran except through the receipt.
 - Law: the SSH rows carry `serverCopy` because the protocol ships it — SFTP's `copy-data` extension moves bytes server-side and `ext_copy_data` is its member, so a `false` cell there understated the protocol and sent every same-host SFTP copy through this process for no reason; the extension is advertised per server and reaches no typed probe surface, so the arm attempts it and degrades to the piped copy on refusal, which keeps the fast path a capability the row claims rather than a claim the row shrank to avoid.
 - Law: `putStream` decides which rows a piped road may WRITE into, and the bucket row answers `false` — its write arm refuses every byte because a content object is addressed by what it holds, so no engine row lists `s3` among the target schemes it serves and a bucket destination refuses at SELECTION, naming the row, rather than mid-transfer inside a sink the caller already opened.
 - Law: the `s3:` arms honor content addressing — reads ride `Rail.range`, the server-side copy rides `rekey` against the probed ETag, byte ingress rides `Remote.intake`, and deletion rides the object plane's reference release; a raw bucket sink, a unilateral bucket delete, or a bucket-source `move` refuses typed BEFORE any byte moves — re-parenting a content object is a ledger verb, and a copy-then-refuse partial mutation is unspellable because the refusal guards the whole verb.
-- Law: every remote byte that becomes durable rides `Remote.intake` — the origin row grows no second addressing vocabulary, dedup and 412-idempotency arrive from the object plane for free, and a remote origin is therefore a first-class artifact source.
+- Law: every remote byte that becomes durable rides `Remote.intake` — the origin row grows no second addressing vocabulary, dedup and 412-idempotency arrive from the object plane for free, and a remote origin is therefore a first-class artifact source; its custody coordinate is the store's `remote` owner row spent as scheme, host, and path SEGMENTS, so the origin the ledger records is the one a scan parses back rather than an authority string a separator re-splits.
 - Law: `Remote.Stat` IS the listing model's projection — `[6]`'s `Model.Class` over `sync_listing` states path, span, kind, and the two optional halves once, so the census an arm publishes, the value the comparator reads, and the row the sync fold persists cannot drift a field apart, and a new stat column is one model row every arm inherits.
 - Law: `Remote.Stat.modified` carries ONE spelling from every arm — `_stamped` normalizes to ISO-8601 text at the boundary and answers absence on an unparseable reply, because the sync comparator equates two arms' values directly and persists them, so a WebDAV RFC-1123 string beside an SFTP epoch second reports every shared path changed on every run; the FTP census publishes the MLSD-parsed `modifiedAt` alone, never the `rawModifiedAt` a LIST reply prints for a human and no parser reads back.
 - Boundary: the SFTP callback verbs (`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`) are the page's callback kernels — each wraps one `Effect.async` settle and nothing else.
 
 ```typescript signature
-import { Chunk, DateTime, Number, Sink, Stream } from "effect"
+import { Chunk, DateTime, Number, Ref, Sink, Stream } from "effect"
 import { FileSystem } from "@effect/platform"
 import { NodeSink, NodeStream } from "@effect/platform-node"
 import { PassThrough } from "node:stream"
@@ -503,17 +504,20 @@ const _write = (origin: Origin, session: Remote.Session, at?: number) =>
     Dav: ({ client }) =>
       at === undefined
         ? Effect.succeed(NodeSink.fromWritable(() => client.createWriteStream(origin.path), _fault(origin, "op")))
-        : Effect.succeed(
-            // the DAV resume arm: a bounded tail collects and lands as one ranged PATCH — partialUpdateFileContents is the davRange row's write half
-            Sink.mapEffect(Sink.collectAll<Uint8Array>(), (held) => {
-              const parts = Chunk.toReadonlyArray(held)
-              const span = Number.sumAll(parts.map((part) => part.byteLength))
-              return Effect.tryPromise({
-                try: () => client.partialUpdateFileContents(origin.path, at, at + span - 1, Buffer.concat(parts)),
-                catch: _fault(origin, "transfer"),
-              })
-            }),
-          ),
+        : // the DAV resume arm: the tail lands as RANGED PATCHES at a running offset — one `partialUpdateFileContents`
+          // per chunk window, so memory holds one window whatever span the resume covers; a collected whole-tail
+          // buffer reads as one PATCH and buys that economy with unbounded memory, which is the rejected trade
+          Effect.map(Ref.make(at), (cursor) =>
+            Sink.forEachChunk((parts: Chunk.Chunk<Uint8Array>) => {
+              const bytes = Buffer.concat(Chunk.toReadonlyArray(parts))
+              return bytes.byteLength === 0
+                ? Effect.void
+                : Effect.flatMap(Ref.getAndUpdate(cursor, (from) => from + bytes.byteLength), (from) =>
+                    Effect.asVoid(Effect.tryPromise({
+                      try: () => client.partialUpdateFileContents(origin.path, from, from + bytes.byteLength - 1, bytes),
+                      catch: _fault(origin, "transfer"),
+                    })))
+            })),
     Bucket: () =>
       Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<bucket:write-rides-intake>" })),
     Local: () =>
@@ -816,17 +820,23 @@ const _intake = (origin: Origin, session: Remote.Session, retention: Retain.Clas
         )),
       identity.bytes,
     )
-    yield* store.refer(identity.key, `remote:${origin.scheme}://${origin.host}${origin.path}`, retention) // the derived retention tag lands with the reference row
+    // the origin's three coordinates are three encoded SEGMENTS, never one interpolated authority: a raw `://` and a
+    // path bearing `:` both re-split the owner a custody scan parses back, so the mint percent-encodes each
+    yield* store.refer(identity.key, ObjectStore.owner("remote", origin.scheme, origin.host, origin.path), retention) // the derived retention tag lands with the reference row
     return { key: identity.key, bytes: identity.bytes, written: landed.written, origin }
   })
 
 const _lock = (origin: Origin, session: Remote.Session): Effect.Effect<{ readonly token: string }, RemoteFault> =>
   _Session.$match(session, {
-    Dav: ({ client }) =>
-      Effect.map(
-        Effect.tryPromise({ try: () => client.lock(origin.path), catch: _fault(origin, "op") }),
-        (held) => ({ token: held.token }),
-      ),
+    // `flags.lock` gates the arm off the PROBED column: a server whose compliance answer carried no class 2 refuses
+    // here rather than receiving a LOCK the acquire already disproved — narrowing is load-bearing on the verb.
+    Dav: ({ client, flags }) =>
+      flags.lock
+        ? Effect.map(
+            Effect.tryPromise({ try: () => client.lock(origin.path), catch: _fault(origin, "op") }),
+            (held) => ({ token: held.token }),
+          )
+        : Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:class-2-unproven>" })),
     Ssh: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
     Ftp: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
     Bucket: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:conditional-put-owns-races>" })),
@@ -850,7 +860,7 @@ const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect
 - Entry: `Remote.transfer(from, to)` walks `_ENGINES` in DECLARATION ORDER and takes the first row both origins admit; `policy.engine` pins a row that still answers the same admission, and `policy.step(progress)` observes transferred bytes per chunk (the ftp arm bridges it through a bracketed `trackProgress`).
 - Growth: an engine tuning posture is a `_TUNE` override on the call; a new engine (a provider's accelerated transfer) is one row carrying its capability column, its end arm, its served target schemes, and its `resumes` value — selection, admission, and execution all inherit it.
 - Law: every engine column is DECISION DATA the dispatch reads — `needs` names the capability flag, `ends` names which origin must carry it, `schemes` names the target schemes the row serves, and `resumes` selects the execution arm; a pinned engine answers the same three admission columns as a derived one, so `policy.engine` narrows the choice and can never spawn a binary against an address its row does not serve. Columns no arm reads are the flags that let a pin reach a lane the origins cannot run.
-- Law: the `resumes` dispatch is TOTAL over its vocabulary — `_RESUMES` is a record keyed by the resume kind, so a declared engine is reachable by construction rather than by a predicate ladder whose tail silently absorbed every unmatched row; `range` and `offset` share the same probe-then-position arithmetic and differ at `_write`'s own DAV arm, which lands the bounded tail as one ranged PATCH.
+- Law: the `resumes` dispatch is TOTAL over its vocabulary — `_RESUMES` is a record keyed by the resume kind, so a declared engine is reachable by construction rather than by a predicate ladder whose tail silently absorbed every unmatched row; `range` and `offset` share the same probe-then-position arithmetic and differ at `_write`'s own DAV arm, which lands the tail as ranged PATCHes at a running offset.
 - Law: no origin pair admitting no engine transfers — the selection answers `Option` and its absence refuses with the `transfer` reason naming the pinned or derived row, never a silent fall-through to a fallback engine the ends cannot run.
 - Law: rsync flags are the sealed resume contract — `--partial --append-verify --inplace --checksum` gives delta transfer, interrupt resume, and integrity in one engine; the command is a `Command` value whose `exitCode` folds into the typed rail and whose cancellation rides the `Scope`.
 - Law: resume is arithmetic where rsync is absent — `resume: true` probes the target, propagates a missing or unreadable-target fault unchanged, opens the positioned write (`flags: "r+"`, `appendFrom` on ftp), and streams the source from the verified byte; the default restart writes from byte zero without manufacturing absence through `Effect.option`.
@@ -991,7 +1001,7 @@ const _offset = (from: Remote.End, to: Remote.End, policy: Remote.Policy | undef
   )
 
 // Total over the resume vocabulary, so every declared engine is reachable by construction: `range` shares the offset
-// arithmetic and diverges at `_write`'s own DAV arm, which lands the bounded tail as one ranged PATCH.
+// arithmetic and diverges at `_write`'s own DAV arm, which lands the tail as ranged PATCHes at a running offset.
 const _RESUMES: {
   readonly [R in Remote.Resume]: (
     from: Remote.End,
@@ -1429,8 +1439,9 @@ const _exec = (
     Bucket: () => Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: "<exec:unsupported>" })),
   })
 
-// The verb roster the measurement fold covers, closed against the entry record below: a key outside this tuple is
-// data the record publishes rather than a measured verb, and a verb the record does not publish fails the guard.
+// `_OPS` closes the verb axis: Effect-shaped verbs fold through `_measured`, stream verbs tap per emission inside
+// their feeds, keys outside this tuple are data the record publishes rather than verbs on the axis, and verbs the
+// record never publishes fail the guard.
 const _OPS = [
   "probe", "stat", "list", "read", "write", "mkdir", "remove", "copy", "move", "lock", "unlock", "intake",
   "transfer", "sync", "watch", "exec",
@@ -1438,8 +1449,9 @@ const _OPS = [
 
 // Every verb crosses ONE combinator at the record, so measurement is a property of the surface rather than of each
 // implementation: an origin-addressed verb names its own origin, a pair-addressed one measures at the destination it
-// writes, and the two stream verbs measure their SETUP (the dial and the registration) because a stream's own span is
-// its consumer's lifetime, never the call that opened it. A new verb is a row that arrives already measured.
+// writes, and the two stream verbs tap their census PER EMISSION inside the feed — a stream's span is its consumer's
+// lifetime, so the number lands where each emission already holds it and no setup wrapper pretends to measure a
+// life it never sees. A new verb is a row that arrives already measured.
 const Remote = {
   schemes: _SCHEMES,
   engines: _ENGINES,

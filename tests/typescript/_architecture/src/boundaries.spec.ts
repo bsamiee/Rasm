@@ -23,7 +23,7 @@ const _BANNED = [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/] as c
 // tier below is [zone, family] rows over this table, so a pattern can never drift between tiers.
 const _FAMILIES = {
     'ext:jose': /^jose($|\/)/,
-    'ext:arctic': /^arctic($|\/)/,
+    'ext:oidc': /^openid-client($|\/)/,
     'ext:webauthn': /^@simplewebauthn\//,
     'ext:oslo': /^@oslojs\//,
     'ext:argon2': /^@node-rs\/argon2($|\/)/,
@@ -61,7 +61,7 @@ const _FAMILIES = {
 const _ADMISSIONS: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMILIES]> = [
     ['core', 'ext:codec'],
     ['security', 'ext:jose'],
-    ['security', 'ext:arctic'],
+    ['security', 'ext:oidc'],
     ['security', 'ext:webauthn'],
     ['security', 'ext:oslo'],
     ['security', 'ext:argon2'],
@@ -99,7 +99,7 @@ const _CRYPTO: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMIL
     ['security/crypt', 'ext:oslo'],
     ['security/crypt', 'ext:argon2'],
     ['security/crypt', 'ext:doppler'],
-    ['security/authn', 'ext:arctic'],
+    ['security/authn', 'ext:oidc'],
     ['security/authn', 'ext:webauthn'],
     ['security/authn', 'ext:otp'],
 ];
@@ -627,7 +627,7 @@ describe('gauge falsification', () => {
     it('every family claims its representative exactly once and refuses the near-miss', () => {
         const rows: ReadonlyArray<readonly [family: string, representative: string, nearMiss: string]> = [
             ['ext:jose', 'jose/jwks', 'josefine'],
-            ['ext:arctic', 'arctic', 'arctic-fox'],
+            ['ext:oidc', 'openid-client', 'openid-client-fork'],
             ['ext:webauthn', '@simplewebauthn/server', '@simplewebauthn-fork/server'],
             ['ext:oslo', '@oslojs/encoding', '@oslo/encoding'],
             ['ext:argon2', '@node-rs/argon2', '@node-rs/bcrypt'],

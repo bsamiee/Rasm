@@ -1,5 +1,6 @@
 # [SECURITY_AUDIT]
 
+Security's evidence rail in one owner: `SecurityFact` closes the folder's loud arms into a wire-carried tagged union whose `_points` registry brands each case with its key, class, and modality; `Witness.publish` is the one seam every arm reaches; `Audit` stamps the app on each record, routes it by class into a lossless breach mailbox or a sliding notice queue behind `AuditJournal`, and fans it to independent subscribers; `AuditTrace` masks subjects through the keyed `Pseudonym` before anything reaches analytics; `pack` and `snapshot` project the deploy feed and the support receipt.
 
 ## [01]-[INDEX]
 
@@ -22,7 +23,7 @@
 ```typescript signature
 import { Board, Convention, Fault, Identity, Reliability, Tap } from "@rasm/ts/core"
 import {
-  Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, type Scope, Stream, pipe,
+  Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, type Scope, Stream,
 } from "effect"
 
 const _kinds = ["Admission", "Ceremony", "Clone", "Deny", "Reuse", "Rotation", "ShredOpen"] as const
@@ -135,6 +136,7 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 - Law: publication is evidence, never verdict logic — every current point is observe modality and `Witness.publish` returns `Effect<void>` with an empty error channel. Breached-lane backpressure may delay completion by design, so an arm with a security mutation lands that mutation first; publication cannot replace its typed verdict or undo corrected state.
 - Law: shutdown flushes what the lane's law promised — the breach drain's teardown is `end` followed by a join on the drain fiber, registered after the fork so it runs nearer the scope's close than the fiber's own interruption; a queue shutdown in that slot cancels pending takes and discards the buffer, which is exactly the evidence the suspend posture was chosen to keep, and the notice lane needs no such flush because its law already admits loss.
 - Law: the observe fan is decoupled by construction — `Audit.live` publishes each record to a sliding `PubSub` beside the lanes, a subscriber consumes its own subscription stream on its own fiber, and unsubscription is the subscriber's scope closing, so a slow or faulted subscriber costs its own lag, never publish latency and never a sibling's delivery.
+- Law: lane depth is a per-lane fact — the record fan, the breach evidence mailbox, the notice queue, and the subscriber-breach notices each carry their own bound, so a stream measured in handler failures never inherits the buffer a stream measured in requests needs and no lane is retuned by editing another.
 - Law: the registry is app-scoped — `Audit.live(identity)` stamps `identity.app` on every record and each app root binds its own `Witness`, so two apps composing this library in one process hold disjoint rails and disjoint subscriber sets with no shared mutable registry.
 - Boundary: `data:journal/fact#RAIL` satisfies this port by projecting every record onto its one fact entrypoint, so the audit retention class and per-subject crypto-shred wiring ride the rail every other fact rides; sealing subject-bearing fields under `SealedEnvelope`/`WrappedKey` is the data plane's, and this page never composes a store.
 - Packages: `effect` (`Context`, `PubSub`, `Queue`, `Mailbox`, `Fiber`, `Stream`, `DateTime`).
@@ -162,7 +164,10 @@ class Witness extends Context.Reference<Witness>()("security/access/Witness", {
     Effect.flatMap(Witness, (witness) => witness.publish(fact))
 }
 
-const _LANES = { breached: 512, fan: 1024, notice: 2048 } as const
+// Lane depths are per-lane facts: `fan` buffers whole records for observe subscribers, while `faults` buffers
+// breach notices `Tap.isolated` mints when a subscriber's own handler dies — a rate orders below the record
+// stream. One constant across both sizes a breach-notification buffer by the traffic of an unrelated lane.
+const _LANES = { breached: 512, fan: 1024, faults: 256, notice: 2048 } as const
 
 // The selection's own shape answers which axis it names — the class rows and the dotted point keys are disjoint
 // literal spaces — so the modality discriminates on the value and each arm is terminal.
@@ -265,10 +270,22 @@ class Snapshot extends Schema.Class<Snapshot>("Snapshot")({
   rows: Schema.Array(SnapshotRow),
 }) {}
 
-const _instruments: ReadonlyArray<string> = pipe(
-  Record.toEntries(Convention.instrument),
-  Array.filterMap(([key, row]) => (key.startsWith("security") ? Option.some(row.name) : Option.none())),
-)
+// Roster is named, never scanned: a prefix walk over `Convention.instrument` reads a FOREIGN registry by spelling,
+// so a core rename drops a series out of the support bundle in silence and any later `securityX` row this plane
+// never emits joins it uninvited. Every entry below is a typed member read, so a row leaving the registry fails at
+// this declaration — the same discipline `_QUANTILES` takes off `_OBJECTIVES` rather than off a literal.
+const _instruments: ReadonlyArray<string> = Array.map([
+  Convention.instrument.securityAdmitted,
+  Convention.instrument.securityCeremony,
+  Convention.instrument.securityJwksMiss,
+  Convention.instrument.securityJwksQuarantined,
+  Convention.instrument.securityJwksResolve,
+  Convention.instrument.securityKdf,
+  Convention.instrument.securityPolicyDeny,
+  Convention.instrument.securityRejects,
+  Convention.instrument.securitySecretRotation,
+  Convention.instrument.securityShredReject,
+], (row) => row.name)
 
 const _labels = (bag: Convention.Bag): Record.ReadonlyRecord<string, string> =>
   Record.map(bag, (value) => String(value))
@@ -314,10 +331,11 @@ const _OBJECTIVES = {
   }),
 } as const
 
-// Core's security pack renders one quantile panel pair per roster entry, and its two metrics — JWKS resolve and key
-// derivation — are exactly what `_OBJECTIVES` grades, so this roster folds off those rows and dedups rather than
-// restating them. An objective moving its quantile moves the board panel in one edit, where a literal spelled here
-// drifts from the alert it illustrates. Core owns the branded scalar, so this mint crosses at its own constructor.
+// Core's security pack renders one quantile panel per roster entry per graded metric — credential ceremony, JWKS
+// resolve, key derivation — and those are exactly what `_OBJECTIVES` grades, so this roster folds off those rows
+// and dedups rather than restating them. An objective moving its quantile moves the board panel in one edit, where
+// a literal spelled here drifts from the alert it illustrates. Core owns the branded scalar, so this mint crosses
+// at its own constructor.
 const _QUANTILES: ReadonlyArray<Board.Query.QuantileValue> = Array.dedupe(
   Array.filterMap(Record.values(_OBJECTIVES), (objective) =>
     objective.sli._tag === "Latency" ? Option.some(Board.Query.quantile(objective.sli.quantile)) : Option.none()),
@@ -338,7 +356,7 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
     Effect.gen(function* () {
       const journal = yield* AuditJournal
       const fan = yield* PubSub.sliding<AuditRecord>(_LANES.fan)
-      const faults = yield* PubSub.sliding<Tap.Breach>(_LANES.fan)
+      const faults = yield* PubSub.sliding<Tap.Breach>(_LANES.faults)
       const evidence = yield* Mailbox.make<AuditRecord>(_LANES.breached)
       const notice = yield* Queue.sliding<AuditRecord>(_LANES.notice)
       const _drained = (intake: Stream.Stream<AuditRecord>): Effect.Effect<void> =>

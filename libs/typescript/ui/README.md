@@ -31,13 +31,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `react-stately`
 - `@react-aria/live-announcer`
 - `@radix-ui/react-slot`
-- `@radix-ui/react-label`
-- `@radix-ui/react-separator`
 - `@radix-ui/react-visually-hidden`
 - `cmdk`
 - `vaul`
 - `@floating-ui/react`
-- `@floating-ui/react-dom`
 - `motion`
 - `@use-gesture/react`
 
@@ -55,6 +52,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 [DATA_SURFACES]:
 - `@tanstack/react-table`
 - `@tanstack/react-virtual`
+- `@tanstack/store` — the table's own state vocabulary; `view/table`'s `Grid.edge` mints the adapter atom over the effect-atom fold.
 - `apache-arrow`
 - `@perspective-dev/client`
 - `@perspective-dev/viewer`

@@ -1,12 +1,12 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_EXPORTER_TRACE_OTLP_HTTP]
 
-`@opentelemetry/exporter-trace-otlp-http` is the concrete `SpanExporter` POSTing a `ReadableSpan[]` batch to an OTLP/HTTP collector as protobuf or JSON. A `BatchSpanProcessor`/`SimpleSpanProcessor` wraps it and `NodeSdk`/`WebSdk` `Configuration.spanProcessor` sinks it — `otel/emit`'s SDK-bridge trace leg, an `[OTEL_PIN_BLOCK]`-collapse member reached only for SDK-only processor or exporter capability.
+`@opentelemetry/exporter-trace-otlp-http` is the concrete `SpanExporter` POSTing a `ReadableSpan[]` batch to an OTLP/HTTP collector as JSON — both platform builds hard-bind `JsonTraceSerializer`, and protobuf framing is the separate `-proto` sibling package, never a toggle here. A `BatchSpanProcessor`/`SimpleSpanProcessor` wraps it and `NodeSdk`/`WebSdk` `Configuration.spanProcessor` sinks it — `otel/emit`'s SDK-bridge trace leg, an `[OTEL_PIN_BLOCK]`-collapse member reached only for SDK-only processor or exporter capability.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-trace-otlp-http`
 - package: `@opentelemetry/exporter-trace-otlp-http` (Apache-2.0)
-- module: dual platform export — `platform/node` (`http`/`https`, config `OTLPExporterNodeConfigBase`) or `platform/browser` (`XMLHttpRequest`/`sendBeacon`, config `OTLPExporterConfigBase`); one `OTLPTraceExporter` selected at build time by the export condition
+- module: dual platform export — `platform/node` (`http`/`https`, config `OTLPExporterNodeConfigBase`) or `platform/browser` (fetch-only transport, config `OTLPExporterConfigBase`; no `XMLHttpRequest` path, `sendBeacon` a deprecated fetch alias); one `OTLPTraceExporter` selected at build time by the export condition
 - runtime: node/bun or browser; peers `@opentelemetry/sdk-trace-base` (`SpanExporter`/`ReadableSpan` + the wrapping `BatchSpanProcessor`), `@opentelemetry/core` (`ExportResult` rail), `@opentelemetry/api`, config types from `@opentelemetry/otlp-exporter-base`
 - rail: observability/export/trace — the SDK-bridge trace leg
 - consumed-by: `otel/emit` via `NodeSdk`/`WebSdk` `Configuration.spanProcessor`
@@ -37,14 +37,14 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Endpoint, serialization, and runtime are config, never a fork: OTLP/HTTP vs gRPC, JSON vs protobuf, node vs browser transport resolve to a config value or the package's platform export condition — a backend change is a `url`/`headers` value at the composition root, never a second exporter type.
+- Endpoint and runtime are config, never a fork: node vs browser transport resolves at the package's platform export condition and a backend change is a `url`/`headers` value at the composition root — but FRAMING is a package boundary, not a config value: this exporter serializes JSON alone and the protobuf leg is the `-proto` sibling admitted beside it.
 - SDK-bridge trace leg reached only when the SDK processor's batching/retry semantics or a co-resident SDK-only exporter are required; `effect-opentelemetry.md` `[04]` owns the native-first dual-lane doctrine and the `[OTEL_PIN_BLOCK]` collapse.
 
 [STACKING]:
 - `opentelemetry-sdk-trace-base`(`.api/opentelemetry-sdk-trace-base.md`): `new OTLPTraceExporter(cfg)` wraps in `new BatchSpanProcessor(exporter)` (buffered, production) or `SimpleSpanProcessor` (synchronous, dev); the processor owns batching, retry, and `forceFlush` drain.
 - `effect-opentelemetry`(`.api/effect-opentelemetry.md`): the wrapped processor feeds `NodeSdk`/`WebSdk` `Configuration.spanProcessor` alongside the one `AppIdentity`-derived `Resource` — the facade owns provider lifecycle, this package owns wire serialization.
 - `opentelemetry-core`(`.api/opentelemetry-core.md`): `export()` reports through core's `ExportResult`/`ExportResultCode`; the outbound HTTP `Context` is `suppressTracing`-fenced so OTLP egress is never self-traced; `timeoutMillis`/`url` default from `OTEL_EXPORTER_OTLP_*` env via core's readers.
-- `effect-platform`(`.api/effect-platform.md`): this exporter carries its OWN `http`/`XMLHttpRequest` transport and does NOT ride the `net/client` `HttpClient` retry/proxy policy the native `Otlp` lane inherits — the concrete transport-policy gap pinning this row `[OTEL_PIN_BLOCK]`.
+- `effect-platform`(`.api/effect-platform.md`): this exporter carries its OWN `http`/fetch transport and does NOT ride the `net/client` `HttpClient` retry/proxy policy the native `Otlp` lane inherits — the concrete transport-policy gap pinning this row `[OTEL_PIN_BLOCK]`.
 - `otel/emit` (within-lib): composes exporter → `BatchSpanProcessor` → `NodeSdk`/`WebSdk` at the composition root only for SDK-only capability; the browser exporter is the RUM egress leg (`otel/vital`/`otel/crash`) under the export-boundary redaction rows.
 
 [LOCAL_ADMISSION]:

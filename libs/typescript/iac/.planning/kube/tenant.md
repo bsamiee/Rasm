@@ -15,7 +15,8 @@ Tenant isolation on the `selfhosted-k8s` arm is one tier over one dispatch: `Ten
 - Law: the isolation ladder is deliberate — `namespace` (Capsule) is the default escalation: highest density, one API server, policy-enforced boundaries; `vcluster` is the hard row for the tenant whose workloads are untrusted, need their own CRD estate, or must version-skew from the host plane; choosing per-tenant rather than per-estate isolation mixes is a spec-shape growth this record absorbs as a row parameter, not a new owner.
 - Law: the tenant's blast radius is closed from both sides — Capsule governs what the tenant's namespaces may express, the `kube/traffic.md` fence governs what reaches them, `operate/policy.md`'s rows judge what they ship, and the PKO loop (`operate/policy.md` `Reconcile`) executes tenant-submitted desired state inside the same envelope, so self-service provisioning never widens the boundary.
 - Law: governance is spec data, never a module constant — the namespace quota, the owner-group spelling, the admitted registries, and the admitted ingress classes are `StackSpec.profile.separation` columns this fold reads, exactly as `_scale` and `_LIFE` read spec facts elsewhere in this folder; a per-estate quota and an `-admin` suffix baked here are estate policy wearing a literal's clothes, and every one of them is the kind of value an operator changes without touching a tier.
-- Law: the deprecated Tenant blocks have no spelling — the CR still serves `networkPolicies`, `containerRegistries`, `limitRanges`, and `imagePullPolicies`, and the operator has superseded each: the fence rides a `GlobalTenantResource` replication and the registry allowlist rides `rules[].enforce.workloads.registries`, while `ingressOptions.allowedClasses` stays the stable spelling it always was; composing a deprecated block on a cluster-scoped governance CR is a row the next operator bump deletes with no diff to warn on.
+- Law: the deprecated Tenant blocks have no spelling — the CR still serves `networkPolicies`, `containerRegistries`, `limitRanges`, and `imagePullPolicies`, and the operator has superseded each: the fence rides a `GlobalTenantResource` replication and the registry allowlist rides `rules[].enforce.workloads.registries`, while `ingressOptions.allowedClasses.allowed` stays the stable spelling it always was and only the `allowedRegex` twin beside it carries the removal notice; composing a deprecated block on a cluster-scoped governance CR is a row the next operator bump deletes with no diff to warn on. Deprecated is not inert here — `containerRegistries` still runs its own webhook route beside the rule engine, so a spec carrying both makes an image satisfy two gates, and it matches the registry HOST where the successor matches the whole reference.
+- Law: both governance allowlists are PRESENCE-shaped, and the successor rail inverts on top of that — an absent block leaves the axis unrestricted while a present-but-empty one matches nothing and denies the whole axis, so the profile's defaulted empty roster spreads to NO key rather than to `[]`, which is the difference between a tenant that may name any ingress class and one whose every Ingress is refused. On the enforcement rail the arming is a second, independent switch: `enforce.action` defaults to `deny` and governs what happens to the values a matcher HITS, so an allowlist that omits `action: allow` denies exactly what it named and admits everything else — a rule that reads as governance and enforces its own inverse. Arming it makes a value matching no allow rule denied, which is why an armed rule carrying no matcher refuses every image and why the empty roster emits no rule at all.
 - Law: the governor installs against its own TLS — `certManager.generateCertificates` defaults TRUE and renders a `Certificate` beside an `Issuer`, so the chart fails to install on any cluster carrying no cert-manager CRDs, and this estate stands up none (`kube/traffic.md` rules the in-cluster ACME lane unarmed); `tls.create` is the chart's self-managed path and the operator mints and rotates its own webhook material under it. The chart renders no webhook configuration objects at all — the single `CapsuleConfiguration` it does render names them for the operator to reconcile at runtime, so a row hunting a rendered `ValidatingWebhookConfiguration` is hunting an object that does not exist.
 - Law: the vcluster release name IS the vcluster name — this chart defines no fullname helper and carries neither `nameOverride` nor `fullnameOverride` in its values, so every rendered object reads `.Release.Name` verbatim and renaming a virtual plane is a new release; a row spelling an override names a key the chart's strict schema rejects, which is a render refusal rather than the silent no-op the same mistake buys elsewhere.
 - Law: the virtual plane's values are a closed schema, and its removals are hard failures — the snapshot keys the chart retired (`sync.toHost.volumeSnapshots`, `sync.toHost.volumeSnapshotContents`, `sync.fromHost.volumeSnapshotClasses`, `deploy.volumeSnapshotController`, `rbac.enableVolumeSnapshotRules`) refuse at install merely by being PRESENT, so a values file carried forward from an older pin fails the whole tenant fold; `controlPlane.distro` likewise carries exactly one child, so a k3s, k0s, or eks arm is a key that no longer exists.
@@ -23,7 +24,7 @@ Tenant isolation on the `selfhosted-k8s` arm is one tier over one dispatch: `Ten
 - Entry: `new Tenants("tenants", { spec, versions }, opts)` inside the k8s arm when `separation.mode !== "single"`.
 - Growth: a new separation mode is one `_MODES` row; a Capsule governance axis is one `StackSpec.profile.separation` column with its field on this fold.
 - Boundary: the Capsule and vcluster chart values drift with their pins; the generated `crds/capsule` module regenerates on operator bumps; the separation vocabulary and its defaults are `program/spec.md`'s; the PG tier escalation is `kube/data.md`'s record.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Namespace`, `types.input.networking.v1.NetworkPolicy`); `../crds/capsule` (`v1beta2.Tenant`, `v1beta2.GlobalTenantResource` — crd2pulumi); `effect` (`Array`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Namespace`, `types.input.networking.v1.NetworkPolicy`); `../crds/capsule` (`v1beta2.Tenant`, `v1beta2.GlobalTenantResource`, `types.input.v1beta2.TenantSpecRulesArgs` — crd2pulumi); `effect` (`Array`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import * as k8s from "@pulumi/kubernetes"
@@ -43,6 +44,31 @@ declare namespace Tenants {
 // The operator's own label on every namespace it governs: the fence's peer selector and the replicated policy read
 // one spelling, so a tenant's namespaces admit each other and nothing else by construction.
 const _TENANT_LABEL = "capsule.clastix.io/tenant"
+
+// Registry hosts arrive as DATA, never as patterns: the matcher compiles `exp` as a Go regexp, so an
+// unescaped dot in `ghcr.io` also admits `ghcrxio` — a wider allowlist than the roster spells.
+const _quoted = (host: string): string => host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+// Absent means unrestricted, present-and-empty means nothing matches — so the defaulted empty roster spreads
+// to no key at all. `allowedClasses: { allowed: [] }` refuses every Ingress in the tenant it meant to open.
+const _classes = (classes: ReadonlyArray<string>): {
+  readonly ingressOptions?: { readonly allowedClasses: { readonly allowed: ReadonlyArray<string> } }
+} => (Array.isNonEmptyReadonlyArray(classes) ? { ingressOptions: { allowedClasses: { allowed: classes } } } : {})
+
+// `action: allow` is what ARMS the allowlist: without it the engine's default `deny` fires ON MATCH, so the
+// roster becomes a denylist of itself and every unnamed registry is admitted. Armed, a value matching no allow
+// rule is denied — which also makes an armed rule with no matcher deny every image, hence the empty case.
+// `exact` is whole-reference equality against `<registry>/<repo>:<tag>`, never the host alone, so a registry
+// roster has exactly one spelling here: one expression anchored at the head of the reference.
+const _registries = (roster: ReadonlyArray<string>): ReadonlyArray<capsule.types.input.v1beta2.TenantSpecRulesArgs> =>
+  Array.isNonEmptyReadonlyArray(roster)
+    ? [{
+        enforce: {
+          action: "allow",
+          workloads: { registries: [{ exp: `^(${Array.join(Array.map(roster, _quoted), "|")})/` }] },
+        },
+      }]
+    : []
 
 // The intra-tenant ingress fence, replicated into every namespace the tenant owns. It rides `GlobalTenantResource`
 // because the Tenant CR's own `networkPolicies` block is deprecated in favour of Replications, and a deprecated
@@ -87,16 +113,23 @@ const _MODES: {
           namespaceOptions: { quota: governance.quota },
           // Not deprecated, unlike the registry and network blocks beside it: the allowlist is the CR's own
           // stable ingress governance and the traffic tier's classes are what a tenant may name.
-          ingressOptions: { allowedClasses: { allowed: [...governance.ingressClasses] } },
+          ..._classes(governance.ingressClasses),
           // Enforcement is the successor to the deprecated `containerRegistries` allowlist. The CRD marks the rule
           // construct unstable, so the column rides the operator version this tier pins and moves with it.
-          rules: [{ enforce: { workloads: { registries: { allowed: [...governance.registries] } } } }],
+          rules: _registries(governance.registries),
         },
       }, scope({ dependsOn: [governor] }))
       return new capsule.v1beta2.GlobalTenantResource(`${tenant}-fence`, {
         metadata: { name: `${tenant}-fence` },
         spec: {
           tenantSelector: { matchLabels: { [_TENANT_LABEL]: tenant } },
+          // `Namespace` fans one copy into every namespace the selected tenants own, which is what an
+          // intra-tenant fence means; the `Tenant` alternative lands one copy per tenant and would leave
+          // every namespace after the first unfenced. It is the CRD's default and it is the whole behavior
+          // this replication exists for, so it is stated rather than inherited.
+          scope: "Namespace",
+          // `rawItems` takes whole embedded objects under `x-kubernetes-preserve-unknown-fields`, so the policy
+          // travels as the typed manifest it is rather than as a rendered string whose escaping this tier owns.
           resources: [{ rawItems: [_fence(tenant)] }],
         },
       }, scope({ dependsOn: [owned] }))
@@ -220,5 +253,4 @@ export { Reading, Tenants }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[REPLICATION_SPEC]-[OPEN]: does the committed `crds/capsule` module spell `GlobalTenantResource` under `v1beta2` with `spec.tenantSelector` and `spec.resources[].rawItems`, and does `rawItems` admit a whole typed object rather than a raw-extension string; verification route: the generated `../crds/capsule` module's `GlobalTenantResourceSpecArgs` and `GlobalTenantResourceSpecResourcesArgs` declarations, regenerated from the operator's own CRD at the pinned version.
-[ENFORCE_REGISTRIES]-[OPEN]: does `Tenant.spec.rules[].enforce.workloads.registries` carry an `allowed` list beside its regex twin under the pinned operator, and does a rule entry admit an absent `audience`/`namespaceSelector`; verification route: the generated `../crds/capsule` `TenantSpecRulesArgs` chain, since the CRD's own description marks the rule construct not final.
+(none)

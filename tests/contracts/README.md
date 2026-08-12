@@ -9,13 +9,13 @@
 Each entry declares one of two classes, and the class alone decides who mints the shape, what proves conformance, and which drift is the defect.
 
 [INFRASTRUCTURE]:
-- Mint: every branch anchor the entry's `Minters` field names mints the shape from its own inputs; the seam schema is the definition, and no branch is another's source or prerequisite, and the entry freezes the payload-agnostic law alone — each branch-owned payload instantiating it takes its own `domain` entry at its own seam.
+- Mint: every `Minters` anchor mints from its own inputs; the entry freezes payload-agnostic law alone — branch payloads take own `domain` entries.
 - Proof: each minter emits into the seam and every other minter reproduces the identical facts on decode, so parity across minters IS the conformance.
 - Drift defect: a second mint of one shape inside one branch — that branch then carries two spellings where the corpus proves one.
 
 [DOMAIN]:
 - Mint: the single `Producer` anchor emits the canonical asset, named by the domain capability it holds and never by language rank.
-- Proof: every participating branch decodes, re-encodes, and proves equivalence through its local snapshot rail; wire bytes round-trip byte-identically, and canonical JSON re-encodes to the same facts.
+- Proof: every branch decodes and re-encodes through its local snapshot rail — wire bytes round-trip byte-identical, canonical JSON to the same facts.
 - Drift defect: a second producer for one contract — two emitters fork the semantic model the contract carries.
 
 ## [02]-[LAYOUT]
@@ -51,8 +51,8 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 [MACHINE_RECORD]:
 - Consumer: audits resolve producer anchors and verify pin-state honesty; producers graduate pins; branch readers resolve assets by seam and fixture.
 - Required shape: one summary lookup table over all entries, then one H3 record per fixture carrying the field grammar below in field order.
-- Closed grammar: `[ENTRY_SCHEMA]` is the whole label vocabulary, so a minted label carries load no reader resolves and its content folds into `Shape`.
-- Checked fields: `Class`/`Pin`/`Payload` use closed terms; every `Minters` and `Producer` anchor resolves on disk; exclusive maps: `infrastructure`→`Minters`, `domain`→`Producer`, `DESIGN-PIN`→`Blocker`, `REAL`→`Expectation`.
+- Closed grammar: `[ENTRY_SCHEMA]` is the label vocabulary, so a minted label carries load no reader resolves and its content folds into `Shape`.
+- Checked fields: `Class`/`Pin`/`Payload` use closed terms; every `Minters` and `Producer` anchor resolves on disk; per-class fields stay exclusive.
 - Owner: this README owns the schema; the manifest owns the instances.
 - Refresh trigger: any seam commitment, pin graduation, producer re-anchor, or payload change lands with its manifest entry in the same change.
 
@@ -60,7 +60,7 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 - `Seam`: names the corpus directory the fixture's assets land in, lowercase-hyphenated.
 - `Class`: `infrastructure` binds every branch to mint the shape; `domain` binds one producer to emit it.
 - `Minters`: `infrastructure` only — every branch anchor minting the shape, as `lang:<pkg>/<page>#<CLUSTER>`; each mints from its own inputs.
-- `Producer`: `domain` only — names the owning page cluster as `lang:<pkg>/<page>#<CLUSTER>`; that surface pins the byte-deriving input and emits the asset.
+- `Producer`: `domain` only — names the owning cluster as `lang:<pkg>/<page>#<CLUSTER>`, which pins the byte-deriving input and emits the asset.
 - `Consumers`: lists the committed round-trip readers as `lang:<pkg>/<page>#<CLUSTER>` or folder tokens; consumers never re-derive a fixture.
 - `Payload`: one or more of `wire-bytes`, `canonical-json`, `digest`, `descriptor-set`.
 - `Pin`: `REAL` binds producer-page-frozen byte input and expectations, host-derived or settled-design-determined; `DESIGN-PIN` marks input unpinned.
@@ -71,8 +71,8 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 
 [EXPECTATION_LAW]:
 - `Expectation` binds byte-exact emitting law, never an asset; consumers round-trip only emitted `<seam>/` assets, never ledger values.
-- `DESIGN-PIN` carries no bytes, digest, or stand-in; every minter or the producer pins the missing input before bytes derive; all runtimes reject fabricated bytes.
-- `DESIGN-PIN` graduates to `REAL` only after every minter — or the single producer — freezes its byte-deriving input; the manifest entry follows in the same change.
+- `DESIGN-PIN` carries no bytes, digest, or stand-in — every runtime rejects fabricated bytes.
+- `DESIGN-PIN` graduates to `REAL` only after every minter or the producer freezes its byte-deriving input; the entry follows in the same change.
 
 ## [04]-[REGENERATION]
 

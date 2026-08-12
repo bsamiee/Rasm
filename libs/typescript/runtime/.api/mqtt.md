@@ -41,8 +41,8 @@
 |  [04]   | `client.subscribeAsync`                      | instance | grants with `128` refusal                  |
 |  [05]   | `client.unsubscribeAsync(topic, opts?)`      | instance | unsubscribe with v5 properties             |
 |  [06]   | `client.on(event, cb)`                       | instance | typed packet and lifecycle events          |
-|  [07]   | `client.handleMessage` / `customHandleAcks`  | instance | application-controlled QoS acknowledgement |
-|  [08]   | `client.handleAuth` / `authPacket`           | instance | MQTT v5 enhanced authentication            |
+|  [07]   | `client.handleMessage` + `IClientOptions.customHandleAcks` | instance + option | application-controlled QoS acknowledgement — the flag seats on the connect options record, never the client instance |
+|  [08]   | `client.handleAuth` + `IClientOptions.authPacket`          | instance + option | MQTT v5 enhanced authentication — the packet seats on the connect options record, never the client instance          |
 |  [09]   | `client.endAsync(force?, opts?)`             | instance | scoped release and DISCONNECT properties   |
 |  [10]   | `client.reconnect(opts?)`                    | instance | reconnect with the client's stores         |
 |  [11]   | `ReasonCodes`                                | static   | MQTT v5 reason-code vocabulary             |

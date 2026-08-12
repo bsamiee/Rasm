@@ -18,40 +18,46 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 
 [PUBLIC_TYPE_SCOPE]: KafkaJS promise types the engine row composes; native `RdKafka` types back the throughput lanes.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
-| :-----: | :------------------- | :------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `Kafka`              | factory       | one client factory — `producer`/`consumer`/`admin` over a shared bootstrap        |
-|  [02]   | `Producer`           | producer      | `Client &` send surface; transactional members are the exactly-once lane          |
-|  [03]   | `Consumer`           | consumer      | `Client &` subscribe/run surface; manual offset commit is the at-least-once lane  |
-|  [04]   | `Admin`              | admin         | topic/group lifecycle — create, offsets, metadata the engine reconciles at boot   |
-|  [05]   | `ProducerRecord`     | message       | `topic` with `Message[]` — `key`/`value`/`partition?`/`headers?`/`timestamp?`     |
-|  [06]   | `RecordMetadata`     | receipt       | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence  |
-|  [07]   | `EachMessagePayload` | delivery      | `message`, `partition`, `heartbeat`, `pause` — the `eachMessage` handler argument |
-|  [08]   | `EachBatchPayload`   | delivery      | `batch`, `resolveOffset`, `commitOffsetsIfNecessary` — the `eachBatch` argument   |
-|  [09]   | `ConsumerRunConfig`  | run config    | `eachMessage`/`eachBatch`, `partitionsConsumedConcurrently`, auto-resolve toggle  |
-|  [10]   | `CompressionTypes`   | codec enum    | `None`/`GZIP`/`Snappy`/`LZ4`/`ZSTD` — per-topic compression a `Setting` names     |
-|  [11]   | `KafkaJSError`       | fault         | error family — `KafkaJSProtocolError`, `KafkaJSConnectionError`, aggregate        |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                                             |
+| :-----: | :---------------------------- | :------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Kafka`                       | factory       | one client factory — `producer`/`consumer`/`admin` over a shared bootstrap               |
+|  [02]   | `Producer`                    | producer      | `Client &` send surface; transactional members are the exactly-once lane                 |
+|  [03]   | `Consumer`                    | consumer      | `Client &` subscribe/run surface; manual offset commit is the at-least-once lane         |
+|  [04]   | `Admin`                       | admin         | topic/group lifecycle — create, offsets, metadata the engine reconciles at boot          |
+|  [05]   | `ProducerRecord`              | message       | `topic` with `Message[]` — `key`/`value`/`partition?`/`headers?`/`timestamp?`            |
+|  [06]   | `RecordMetadata`              | receipt       | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence         |
+|  [07]   | `EachMessagePayload`          | delivery      | `message`, `partition`, `heartbeat`, `pause` — the `eachMessage` handler argument        |
+|  [08]   | `EachBatchPayload`            | delivery      | `batch`, `resolveOffset`, `commitOffsetsIfNecessary` — the `eachBatch` argument          |
+|  [09]   | `ConsumerRunConfig`           | run config    | `eachMessage`/`eachBatch`, `partitionsConsumedConcurrently`, auto-resolve toggle         |
+|  [10]   | `CompressionTypes`            | codec enum    | `None`/`GZIP`/`Snappy`/`LZ4`/`ZSTD` — per-topic compression a `Setting` names            |
+|  [11]   | `KafkaJSError`                | fault         | error family — `KafkaJSProtocolError`, `KafkaJSConnectionError`, aggregate               |
+|  [12]   | `SASLOptions`                 | credential    | mechanism-discriminated union over `plain`/`scram-sha-256`/`scram-sha-512`/`oauthbearer` |
+|  [13]   | `OauthbearerProviderResponse` | credential    | `value`, `principal`, `lifetime`, `extensions?` — the async provider's answer            |
 
 - [05]-[MESSAGE]: `key?` selects a stable partition and carries correlation identity, never deduplicating equal keys.
+- [12]-[SASL]: only the `oauthbearer` arm carries a callback (`oauthBearerProvider: () => Promise<OauthbearerProviderResponse>`); the other three take a literal `username`/`password` pair. A mechanism set with no provider falls back to librdkafka's unsecured development token handler.
+- [13]-[LIFETIME]: `lifetime` is ABSOLUTE epoch milliseconds — librdkafka reads it as when the token expires since the epoch — so a remaining-span value dates every token to 1970. `value` is the BARE token: RFC 7628 frames `auth=Bearer <token>` itself, and an HTTP-shaped scheme prefix double-prefixes.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and the promise lifecycle; native `RdKafka` `Producer`/`KafkaConsumer`/`AdminClient` and `createReadStream`/`createWriteStream` back the stream lanes.
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------------------------ |
-|  [01]   | `new Kafka(config?)`                                     | ctor     | root client over `brokers`/`ssl`/`sasl` from `Setting` rows   |
-|  [02]   | `producer(config?)` / `producer.send(record)`            | factory  | scoped `connect`/`disconnect`; `send` yields `RecordMetadata` |
-|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()`  | instance | transactional — atomic publish with consumed-offset handoff   |
-|  [04]   | `consumer(config).subscribe(subscription)`               | instance | topic or `RegExp` fanout attach before `run`                  |
-|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`      | instance | at-least-once lane — commit after success, never auto         |
-|  [06]   | `consumer.seek(topicPartitionOffset)`                    | instance | offset anchor within retention — warm-up and recovery         |
-|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`        | instance | boot-time topic/partition convergence, transport-blind        |
-|  [08]   | `new RdKafka.KafkaConsumer(conf, topicConf?)`            | ctor     | group-less native consumer — the bounded-replay client        |
-|  [09]   | `consumer.assign(assignments)` / `unassign()`            | instance | explicit partition attach carrying no group membership        |
-|  [10]   | `consumer.seek(toppar, timeout, cb)`                     | instance | native three-arg seek over an assigned partition              |
-|  [11]   | `consumer.consume(count, cb)`                            | instance | the one bounded read — a finite batch, never a lane           |
-|  [12]   | `queryWatermarkOffsets(topic, partition, timeout?, cb?)` | instance | replay bounds; `offsetsForTimes` the time-keyed anchor        |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `new Kafka(config?)`                                     | ctor     | root client over `brokers`/`ssl`/`sasl` from `Setting` rows     |
+|  [02]   | `producer(config?)` / `producer.send(record)`            | factory  | scoped `connect`/`disconnect`; `send` yields `RecordMetadata`   |
+|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()`  | instance | transactional — atomic publish with consumed-offset handoff     |
+|  [04]   | `consumer(config).subscribe(subscription)`               | instance | topic or `RegExp` fanout attach before `run`                    |
+|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`      | instance | at-least-once lane — commit after success, never auto           |
+|  [06]   | `consumer.seek(topicPartitionOffset)`                    | instance | offset anchor within retention — warm-up and recovery           |
+|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`        | instance | boot-time topic/partition convergence, transport-blind          |
+|  [08]   | `new RdKafka.KafkaConsumer(conf, topicConf?)`            | ctor     | group-less native consumer — the bounded-replay client          |
+|  [09]   | `consumer.assign(assignments)` / `unassign()`            | instance | explicit partition attach carrying no group membership          |
+|  [10]   | `consumer.seek(toppar, timeout, cb)`                     | instance | native three-arg seek over an assigned partition                |
+|  [11]   | `consumer.consume(count, cb)`                            | instance | the one bounded read — a finite batch, never a lane             |
+|  [12]   | `queryWatermarkOffsets(topic, partition, timeout?, cb?)` | instance | replay bounds; `offsetsForTimes` the time-keyed anchor          |
+|  [13]   | `sasl.oauthBearerProvider()` on the root config          | callback | librdkafka re-runs it on its own refresh cadence, in place      |
+|  [14]   | `producer.setSaslCredentials({ username, password })`    | instance | live SCRAM/PLAIN rotation; UNTYPED — absent from `kafkajs.d.ts` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -66,11 +72,14 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 - A bounded positional read is native-surface-only — `RdKafka.KafkaConsumer` `assign` the partition, `seek(toppar, timeout, cb)` it, `consume(count, cb)` against a `queryWatermarkOffsets` ceiling, then `unassign` — because the promise surface's `seek(topicPartitionOffset)` returns `void`, repositions the durable group cursor, and publishes no bounded read. The `Fanout` port declines that triple: a partition-and-offset pair is not spellable in an engine-neutral anchor, so ordered replay answers `horizon` here and the native surface stays reserved for operator tooling outside the port.
 - Spell `offset` per surface: `TopicPartitionOffset.offset` is a `string` on the KafkaJS-compatible promise surface and a `number` on the native `RdKafka` surface, so one coordinate crossing both carries an explicit conversion, never a shared alias.
 - Commit offsets after handler success — the at-least-once guarantee is ack-after-success, and an `autoCommit` before the handler completes silently drops on crash.
+- A rotating workload credential rides `sasl.oauthbearer` and nothing else: the provider is async, so it may resolve a live principal, and the client hands the answer to `setOAuthBearerToken` on the LIVE connection, so a rotation costs no reconnect. Arm the mechanism only where a token source exists — a `mechanism` set with no token refuses every handshake, where an absent `sasl` dials unauthenticated.
+- A rejected provider promise routes to `setOAuthBearerTokenFailure` and emits on `error`, which the supplied Logger carries; that Logger is the only seam the refusal reaches, exactly as every other async transport fault.
+- `setSaslCredentials` exists on the compat producer but is absent from the published types, so a fence naming it is coding against an unpublished member — the `oauthbearer` provider is the typed rotation rail.
 - Exactly-once rides the `Transaction` from `producer.transaction()`: produced records and consumed offsets pass through it, `sendOffsets()` binds the offset handoff, and `commit()` publishes both atomically.
 - Envelope `value` is opaque transport octets the consumer's own `Schema` decodes at its seam; the engine never inspects or re-addresses it, and `ContentKey` stays the one addressing vocabulary.
 
 [RAIL_LAW]:
 - Package: `@confluentinc/kafka-javascript`
-- Owns: the Kafka broker client, the promise producer/consumer/admin surface, the transactional exactly-once lane, the native throughput streams
-- Accept: one scoped `Kafka` per process, offsets committed after success, exactly-once through `transaction()` with `sendOffsets()` and `commit()`, config from `Setting` rows
-- Reject: per-call bootstraps, `autoCommit` where at-least-once is named, per-call transactions, hardcoded brokers or credentials, a second content-addressing vocabulary over the `value` octets
+- Owns: the Kafka broker client, the promise producer/consumer/admin surface, the transactional exactly-once lane, the native throughput streams, the SASL mechanism set and its OAUTHBEARER token callback
+- Accept: one scoped `Kafka` per process, offsets committed after success, exactly-once through `transaction()` with `sendOffsets()` and `commit()`, config from `Setting` rows, a rotating credential through `sasl.oauthbearer`'s provider answering a bare token under an absolute epoch-millisecond expiry
+- Reject: per-call bootstraps, `autoCommit` where at-least-once is named, per-call transactions, hardcoded brokers or credentials, a static `username`/`password` pair where a workload principal exists, a `lifetime` carrying a remaining span, a scheme-prefixed token `value`, `setSaslCredentials` in typed code, a second content-addressing vocabulary over the `value` octets

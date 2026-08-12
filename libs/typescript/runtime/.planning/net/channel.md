@@ -31,9 +31,10 @@ import {
     Data,
     Duration,
     Effect,
+    Either,
     Layer,
     Option,
-    type ParseResult,
+    ParseResult,
     Record,
     Ref,
     Schema,
@@ -42,6 +43,7 @@ import {
     pipe,
 } from 'effect';
 import { CloudEvent, CONSTANTS, HTTP, MQTT, MQTTMessageFactory, type CloudEventV1, type MQTTMessage } from 'cloudevents';
+import { Type, type schema } from 'avsc';
 import {
     connectAsync,
     type IClientPublishOptions,
@@ -53,7 +55,6 @@ import {
 } from 'mqtt';
 import { Buffer } from 'node:buffer';
 import { Carrier, Fault, Format } from '@rasm/ts/core';
-import { Propagation } from '../otel/emit.ts';
 import { Client } from './client.ts';
 
 const _frames = { msgpack: MsgPack.duplexSchema, ndjson: Ndjson.duplexSchema } as const;
@@ -195,9 +196,11 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 ## [04]-[MQTT_SEAM]
 
 [MQTT_SEAM]:
-- Owner: `Mqtt` — the MQTT v5 channel. `Mqtt.Broker` carries origin, default delivery grade, default retain posture, and keepalive; `Mqtt.live(broker)` brackets one publisher client, while `open(topics)` brackets its own subscription client and listener. `consume(topics, handler)` is the admitted handling ingress. No client or emitter crosses an app boundary.
+- Owner: `Mqtt` — the MQTT v5 channel. `Mqtt.Broker` carries origin, default delivery grade, default retain posture, and keepalive; `Mqtt.live(broker)` brackets one publisher client, while `open(topics)` brackets its own subscription client and listener. `consume(topics, handler)` is the admitted handling ingress, handing each frame beside its extracted `mqtt` carrier. No client or emitter crosses an app boundary.
+- Law: causal context crosses this seam as DATA, holding the page lead's telemetry-blind law on this cluster too — `consume` extracts the `mqtt` dialect through core `Carrier` and hands the context beside the frame, so the consuming seam continues through `otel/emit#CONTINUATION`'s one transformer at its own stratum; a publisher reads its live context at its own seam and hands it into `publish`, which injects it through the exact `mqtt` dialect before the binding band lands — this floor module composes no telemetry import.
 - Law: MQTT v5 User Properties carry the `Carrier` frame on publish and consume, and the BINDING owns that namespace whole for an envelope publish — MQTT alone spreads attribute names unprefixed, so the creation-time trace the roster extensions carry and the hop trace the carrier writes collide on three keys, and the binding writing last is what keeps the sealed attribute rather than the hop overwriting it.
 - Law: message-envelope bodies select `MQTT.binary` and `Mqtt.event` reads the FRAME before decoding — `Format.event.framed` recovers format and arity in one prefix comparison, `MQTTMessageFactory` mints the frame the binding reads, and one entry answers both arities because the media type already decided which arrived.
+- Law: the Avro event format decodes on this lane alone — `Avro` mints the ONE `Type` from the frozen `io.cloudevents.AvroCloudEvent` schema, byte-pinned to `tests/contracts/cloudevents.avsc`, and `Avro.event` is the fill-seam admission the core avro row's empty arm declares, so this seam and the HTTP intake read one codec and no second `Type` mints anywhere.
 - Law: `open` preserves the ordered raw-frame lane.
 - Law: a subscription is a POLICY ROW, never a filter under one broker grade — `Mqtt.Topic` carries the per-subscription v5 axes the protocol decides (grade, no-local, retain-as-published, retain-handling) and `_mqttSubscription` folds every selector modality into one `ISubscriptionMap`; a bare filter still admits and takes the broker row's grade, so `local` is expressible per topic and one client publishing and consuming one filter no longer re-reads its own posts.
 - Law: a post is a POLICY ROW on the same law — v5 decides grade, retain, message expiry, and the response/correlation pair PER PUBLISH PACKET, so `Mqtt.Post` carries them and `_mqttPublish` folds the row against the broker defaults into one `IClientPublishOptions`; a bare topic string still admits, and `dup` stays foreclosed because the client raises it on its own redelivery and a caller setting it forges a replay marker.
@@ -207,7 +210,7 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Law: subscription admission is evidence — every `subscribeAsync` grant is inspected, any `qos: 128` refusal fails the typed `grant` rail before a message stream escapes, and the refusal NAMES the filters the broker rejected rather than reporting that some filter failed.
 - Law: terminal events carry unequal evidence and `_MQTT_TERMINALS` keeps it — only `error` holds a cause and only `disconnect` holds a v5 reason code, so one nullary handler across all four discards the sole diagnosis the seam receives; `offline` names a client still retrying beneath an ended stream, never a dead transport. Failed subscription or grant admission ends the minted client before the fault escapes; successful acquisition transfers that client to the stream scope. Message and lifecycle listeners share the stream scope; `close`, `error`, `disconnect`, and `offline` terminate the stream once, and release ends the client before detaching the complete listener row.
 - Law: Raw frames keep opaque bytes; message-envelope callers cross only through the MQTT binding projection, and a raw publish keeps the hop carrier whole because no binding claims its User Properties.
-- Packages: `mqtt`, `cloudevents`, `effect`, `node:buffer`, `@rasm/ts/core`, and `../otel/emit.ts`.
+- Packages: `mqtt`, `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine behind the fill seam), `effect`, `node:buffer`, and `@rasm/ts/core` (`Carrier`, `Fault`, `Format`).
 
 ```typescript signature
 const _mqttFamily = Fault.Class.family(['dial', 'grant', 'event', 'publish'] as const, {
@@ -362,6 +365,133 @@ const _mqttBody = (message: MQTTMessage, origin: string): Effect.Effect<Uint8Arr
 
 // `MQTTMessageFactory` is the package's OWN frame mint: it seats the `PUBLISH`/`payload`/`User Properties` aliases the
 // binding reads off one body, so a hand-built literal beside it can only drift from the shape that binding expects.
+// Transcribed VERBATIM from the frozen contract asset `tests/contracts/cloudevents.avsc`; the proof estate diffs this
+// literal against that fixture, so a drift on either side fails a test rather than skewing the wire.
+const _AVRO_SCHEMA = {
+    namespace: 'io.cloudevents',
+    type: 'record',
+    name: 'AvroCloudEvent',
+    version: '1.0',
+    doc: 'Avro Event Format for CloudEvents',
+    fields: [
+        { name: 'attribute', type: { type: 'map', values: ['null', 'boolean', 'int', 'string', 'bytes'] } },
+        {
+            name: 'data',
+            type: [
+                'bytes',
+                'null',
+                'boolean',
+                {
+                    type: 'map',
+                    values: [
+                        'null',
+                        'boolean',
+                        {
+                            type: 'record',
+                            name: 'AvroCloudEventData',
+                            doc: 'Representation of a JSON Value',
+                            fields: [
+                                {
+                                    name: 'value',
+                                    type: {
+                                        type: 'map',
+                                        values: [
+                                            'null',
+                                            'boolean',
+                                            { type: 'map', values: 'AvroCloudEventData' },
+                                            { type: 'array', items: 'AvroCloudEventData' },
+                                            'double',
+                                            'string',
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                        'double',
+                        'string',
+                    ],
+                },
+                { type: 'array', items: 'AvroCloudEventData' },
+                'double',
+                'string',
+            ],
+        },
+    ],
+};
+
+// `_avroType` is the ONE mint, compiled at module initialization — the core format contract owns the codec identity
+// and no second `Type` constructs anywhere. Every union the contract declares is bucket-disjoint, so `wrapUnions`
+// lands unwrapped either way; STATING it pins the posture whose change respells every encoded payload. Bundled
+// typings declare themselves incomplete, so the schema value crosses their seam on one marked pin.
+const _avroType = Type.forSchema(_AVRO_SCHEMA as schema.AvroSchema, { wrapUnions: 'never' });
+
+// Buffer crosses at this seam alone: egress passes the returned view straight because a Buffer IS a Uint8Array, and
+// ingress wraps because the reader indexes Buffer-only slice methods. Both engine members convert the codec's throw
+// onto the Either rail here, so no exception channel reaches the core composition.
+const _avroEngine: Format.Event.Engine = {
+    read: (octets) =>
+        Either.try({
+            try: (): unknown => _avroType.fromBuffer(Buffer.from(octets)),
+            catch: (cause) => `<avro-decode-rejected:${String(cause)}>`,
+        }),
+    write: (value) =>
+        Either.try({
+            try: () => new Uint8Array(_avroType.toBuffer(value)),
+            catch: (cause) => `<avro-encode-rejected:${String(cause)}>`,
+        }),
+};
+
+const _AvroAttribute = Schema.Union(Schema.Null, Schema.Boolean, Schema.Number, Schema.String, Schema.Uint8ArrayFromSelf);
+const _isAttributeCell = Schema.is(_AvroAttribute);
+const _AvroTree = Schema.Struct({
+    attribute: Schema.Record({ key: Schema.String, value: _AvroAttribute }),
+    data: Schema.Unknown,
+});
+const _AVRO_REQUIRED = ['id', 'source', 'specversion', 'type'] as const;
+const _isAvroEnvelope = (input: unknown): input is CloudEventV1<unknown> =>
+    typeof input === 'object' && input !== null
+    && _AVRO_REQUIRED.every((key) => typeof (input as Record<string, unknown>)[key] === 'string');
+
+// CloudEvents' Avro schema seats context attributes in ONE string-keyed map beside the payload, so the lift
+// spreads the map whole and the four REQUIRED attributes gate here — a tree missing `id` refuses at the seam,
+// never downstream as a half-shaped envelope. Egress inverts the lift: every member except `data` is a context
+// attribute, and a cell outside the map's five value types refuses here as admission evidence, never as an
+// engine throw at the wire.
+const _AvroEnvelope: Schema.Schema<CloudEventV1<unknown>, typeof _AvroTree.Encoded> = Schema.transformOrFail(
+    _AvroTree,
+    Schema.declare(_isAvroEnvelope),
+    {
+        strict: true,
+        decode: ({ attribute, data }, _, ast) => {
+            const lifted: unknown = { ...attribute, data };
+            return _isAvroEnvelope(lifted)
+                ? ParseResult.succeed(lifted)
+                : ParseResult.fail(new ParseResult.Type(ast, lifted, '<missing-required-context-attribute>'));
+        },
+        encode: (envelope, _, ast) => {
+            const context = Record.remove(envelope as unknown as Record<string, unknown>, 'data');
+            return Record.values(context).every(_isAttributeCell)
+                ? ParseResult.succeed({ attribute: context as Record<string, typeof _AvroAttribute.Type>, data: envelope.data })
+                : ParseResult.fail(new ParseResult.Type(ast, envelope, '<attribute-outside-avro-value-union>'));
+        },
+    },
+);
+
+const Avro = {
+    engine: _avroEngine,
+    // Core law holds the avro row's arm empty, so this admission is statically present; a `None` here means the row
+    // gained a core engine and this lane's fill became the second mint the seam refuses.
+    event: Option.getOrThrow(Format.event.fill('avro', _avroEngine, _AvroEnvelope)),
+} as const;
+
+// `cloudevents` decodes JSON alone, so the avro framing routes through the fill-seam admission rather than a
+// decoder that refuses a media type it never learned.
+const _avroDecoded = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>, MqttFault> =>
+    Effect.mapBoth(Schema.decodeUnknown(Avro.event)(frame.body), {
+        onFailure: (issue) => new MqttFault({ origin, reason: 'event', detail: `<avro-rejected:${issue.message}>` }),
+        onSuccess: (envelope) => Array.of(envelope),
+    });
+
 // Structured frames carry text and binary frames carry opaque data bytes, so the framing read selects the body.
 const _mqttMessage = (frame: Mqtt.Frame, structured: boolean): MQTTMessage =>
     MQTTMessageFactory(
@@ -412,7 +542,10 @@ const _mqttEvent = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonE
         onNone: () => Effect.fail(new MqttFault({ origin, reason: 'event', detail: '<not-a-cloudevent-message>' })),
         onSome: (framed) =>
             Option.match(Option.filter(framed, (framing) => framing.batch), {
-                onNone: () => _mqttDecoded(_mqttMessage(frame, Option.isSome(framed)), origin, MQTT.toEvent<unknown>),
+                onNone: () =>
+                    Option.exists(framed, (framing) => framing.format === 'avro')
+                        ? _avroDecoded(frame, origin)
+                        : _mqttDecoded(_mqttMessage(frame, Option.isSome(framed)), origin, MQTT.toEvent<unknown>),
                 onSome: (framing) =>
                     framing.format === 'json'
                         ? _mqttDecoded(
@@ -560,11 +693,16 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
     {
         readonly consume: (
             topics: Mqtt.Selector,
-            handler: (frame: Mqtt.Frame) => Effect.Effect<void, MqttFault>,
+            handler: (frame: Mqtt.Frame, carrier: Carrier.Context) => Effect.Effect<void, MqttFault>,
         ) => Effect.Effect<void, MqttFault>;
         readonly event: (frame: Mqtt.Frame) => Effect.Effect<Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>, MqttFault>;
         readonly open: (topics: Mqtt.Selector) => Stream.Stream<Mqtt.Frame, MqttFault>;
-        readonly publish: (target: Mqtt.Target, body: Mqtt.Body, band?: Mqtt.Band) => Effect.Effect<void, MqttFault>;
+        readonly publish: (
+            target: Mqtt.Target,
+            body: Mqtt.Body,
+            band?: Mqtt.Band,
+            context?: Option.Option<Carrier.Context>,
+        ) => Effect.Effect<void, MqttFault>;
     }
 >() {
     static readonly Broker = _MqttBroker;
@@ -587,54 +725,60 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
                 (publisher) => ({
                     consume: (topics, handler) =>
                         Stream.runForEach(_mqttOpen(broker, topics), (frame) =>
-                            Propagation.ingress(handler(frame), Carrier.extract('mqtt', frame.band)),
+                            // extraction is the core dialect read this floor may perform; the handler's own stratum
+                            // continues the hop through the one ingress transformer
+                            handler(frame, Carrier.extract('mqtt', frame.band)),
                         ),
                     event: (frame) => _mqttEvent(frame, broker.origin.href),
                     open: (topics) => _mqttOpen(broker, topics),
-                    publish: (target, body, band = {}) =>
-                        Effect.flatMap(Propagation.current, (context) =>
-                            Effect.flatMap(
-                                body instanceof CloudEvent
-                                    ? Effect.map(
-                                          Effect.try({
-                                              try: () => MQTT.binary(body),
-                                              catch: (cause) =>
-                                                  new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: `<binary-binding-rejected:${String(cause)}>` }),
-                                          }),
-                                          (message) => ({
-                                              message,
-                                              band: _mqttBindingBand(message),
-                                              media: message.PUBLISH?.['Content Type'],
-                                          }),
-                                      ).pipe(
-                                          Effect.flatMap(({ message, band: bindingBand, media }) =>
-                                              Effect.map(_mqttBody(message, broker.origin.href), (payload) => ({
-                                                  payload,
-                                                  band: bindingBand,
-                                                  media,
-                                              }))),
-                                      )
-                                    : Effect.succeed({ payload: new Uint8Array(body), band: {}, media: undefined }),
-                                ({ payload, band: bindingBand, media }) =>
-                                    pipe(
-                                        _mqttPublish(
-                                            broker,
-                                            target,
-                                            media,
-                                            // MQTT spreads attribute names UNPREFIXED, so an envelope publish's User Properties ARE the
-                                        // binding's namespace: the hop carrier writes FIRST and the binding band lands last, so a hop
-                                        // `traceparent` can never overwrite the creation-time attribute the mint sealed and the tenant
-                                        // baggage the authenticated inverse reads survives this publish intact.
-                                        _mqttPublishBand({ ...Carrier.inject('mqtt', context, band), ...bindingBand }),
-                                        ),
-                                        ({ topic, options }) =>
-                                            Effect.tryPromise({
-                                                try: () => publisher.publishAsync(topic, Buffer.from(payload), options),
-                                                catch: (cause) =>
-                                                    new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: String(cause) }),
+                    publish: (target, body, band = {}, context = Option.none()) =>
+                        Effect.flatMap(
+                            body instanceof CloudEvent
+                                ? Effect.map(
+                                      Effect.try({
+                                          try: () => MQTT.binary(body),
+                                          catch: (cause) =>
+                                              new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: `<binary-binding-rejected:${String(cause)}>` }),
+                                      }),
+                                      (message) => ({
+                                          message,
+                                          band: _mqttBindingBand(message),
+                                          media: message.PUBLISH?.['Content Type'],
+                                      }),
+                                  ).pipe(
+                                      Effect.flatMap(({ message, band: bindingBand, media }) =>
+                                          Effect.map(_mqttBody(message, broker.origin.href), (payload) => ({
+                                              payload,
+                                              band: bindingBand,
+                                              media,
+                                          }))),
+                                  )
+                                : Effect.succeed({ payload: new Uint8Array(body), band: {}, media: undefined }),
+                            ({ payload, band: bindingBand, media }) =>
+                                pipe(
+                                    _mqttPublish(
+                                        broker,
+                                        target,
+                                        media,
+                                        // MQTT spreads attribute names UNPREFIXED, so an envelope publish's User Properties ARE the
+                                        // binding's namespace: the caller-handed hop context writes FIRST and the binding band lands
+                                        // last, so a hop `traceparent` can never overwrite the creation-time attribute the mint sealed
+                                        // and the tenant baggage the authenticated inverse reads survives this publish intact.
+                                        _mqttPublishBand({
+                                            ...Option.match(context, {
+                                                onNone: () => band,
+                                                onSome: (hop) => Carrier.inject('mqtt', hop, band),
                                             }),
-                                    ).pipe(Effect.asVoid),
-                            ),
+                                            ...bindingBand,
+                                        }),
+                                    ),
+                                    ({ topic, options }) =>
+                                        Effect.tryPromise({
+                                            try: () => publisher.publishAsync(topic, Buffer.from(payload), options),
+                                            catch: (cause) =>
+                                                new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: String(cause) }),
+                                        }),
+                                ).pipe(Effect.asVoid),
                         ),
                 }),
             ),
@@ -645,7 +789,7 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
 ```typescript signature
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Duplex, Feed, FeedFault, Mqtt, MqttFault };
+export { Avro, Duplex, Feed, FeedFault, Mqtt, MqttFault };
 ```
 
 ## [05]-[RESEARCH]

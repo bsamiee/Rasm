@@ -31,6 +31,8 @@
 - `Format.proto._suite` admits a family only where a `.proto` declares it AND this branch decodes it — either miss mounts a reader on unsent bytes.
 - `_suite` keys transcribe the declared message name verbatim — a re-spelling binds `pb.<Name>Schema` to a symbol protoc-gen-es never emits.
 - Families owning no descriptor source ride their LANDED carriage arm — a descriptor minted to satisfy the registry forks the producer's own encoder.
+- Caller-defined magnitudes ride the wide event, never a metric row — a summed series folds disparate units into a code no UCUM row spells.
+- `Convention` families with a caller-keyed remainder declare ONE rendered payload row — nested shapes and instants flatten into no closed roster.
 
 ## [03]-[COLLAPSE]
 

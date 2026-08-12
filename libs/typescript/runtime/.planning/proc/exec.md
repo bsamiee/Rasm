@@ -1,13 +1,13 @@
 # [RUNTIME_EXEC]
 
-This process substrate: a runtime is a row, a bun swap is a Layer selection in the app root, and a child process is a declarative value. This keyed `node | bun` binding table carries the full surface a process needs — the `runMain` boot edge, the aggregate platform context, the HTTP client and server bindings, the worker pool and runner bindings, the leaderless cluster runner, the filesystem key-value binding — every member satisfying the same abstract `@effect/platform` Tags, so every service types against the contract and only the boot module reads a row. Subprocess execution is one `Proc.Spec` Schema class — command, arguments, environment, working directory, shell posture, stdin feed, pipeline stages, budget, exit demand, and a closed defaulted `capture` vocabulary — with one entry whose return follows the capture discriminant, and the scoped live-handle modality for interactive children. Signals are structural, never handled: process-level `SIGINT`/`SIGTERM` drain is the row's `runMain` fact, and a child's teardown is the executor's bracket — a budget expiry interrupts the fiber and the interrupt kills the child, so no kill call, signal listener, or orphan process is spellable. This module ships on the `./server` subpath — browser resolution never reaches a row. This module is `runtime/src/proc/exec.ts`.
+This process substrate: a runtime is a row, a bun swap is a Layer selection in the app root, and a child process is a declarative value. This keyed `node | bun` binding table carries the full surface a process needs — the `runMain` boot edge, the aggregate platform context, the HTTP client and server bindings, the worker pool and runner bindings, the leaderless cluster runner, the filesystem key-value binding — every member satisfying the same abstract `@effect/platform` Tags, so every service types against the contract and only the boot module reads a row. Subprocess execution is one `Proc.Spec` Schema class — command, arguments, environment, working directory, shell posture, stdin feed, pipeline stages, budget, exit demand, and a closed defaulted `capture` vocabulary — with one entry whose return follows the capture discriminant, and the scoped live-handle modality for interactive children. Signals are structural, never handled: process-level `SIGINT`/`SIGTERM` drain is the row's `runMain` fact, and a child's teardown is the executor's bracket — a budget expiry interrupts the fiber and the interrupt kills the child, so no kill call, signal listener, or orphan process is spellable. Measurement is the same posture one altitude up: a benchmark is a caller's effect handed to mitata's state-free sampling kernel, whose generated loop owns warmup, batching, convergence, and the rung ladder, and whose gc, heap, and hardware-counter bands accumulate inside that loop where no post-hoc fold can reach them — this owner declares the knobs, supplies the handles those bands need, and spells the absence when a host cannot answer. This module ships on the `./server` subpath — browser resolution never reaches a row. This module is `runtime/src/proc/exec.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[RUNTIME_ROWS]: the keyed `node | bun` binding table — one row owns every runtime-specific member; `Runtime`.
 - [03]-[ROOT_SELECT]: the boot law: one `main` per process, `Layer.launch` vs `ManagedRuntime`, the fence; `Runtime`.
 - [04]-[COMMAND_SPEC]: the `Proc.Spec` record, capture-polymorphic entry, live handle, exit/budget faults; `Proc`, `ExecFault`.
-- [05]-[MEASURED_RUN]: the benchmark owner minting claim-shaped receipts over one bracketed sample fold; `Trial`.
+- [05]-[MEASURED_RUN]: the benchmark owner routing a caller's effect through mitata's sampling engine into a claim; `Trial`.
 
 ## [02]-[RUNTIME_ROWS]
 
@@ -19,7 +19,7 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 - Law: the row guard closes the member set at the contract's own Layer bounds — `_Rows` proves every row carries the full `Core` complement and that `context` provides the aggregate platform Tags, `client` an `HttpClient`, `serve` an `HttpServer` beside the `HttpPlatform` and `Etag.Generator` every asset route spends, `worker` a spawn-factory pool binding, `runner` a `PlatformRunner`, and `kv` a `KeyValueStore`, so a new runtime missing a member and a mis-wired binding are both compile errors at this declaration; the guard states each factory member at its common supertype (`worker`'s spawn parameter and `cluster`'s options are row-specific, so the guard proves presence and Layer shape) while row-specific extras (dispatcher tuning, serve options, cluster storage rows) stay precisely typed by inference because consumers index the table, never the guard, and the table itself is the kind set — no parallel contract restates it.
 - Law: the cluster row is the same altitude as every binding — `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient` beside it) and the `BunClusterSocket.layer` peer are selected at the app root through the row exactly like `serve`, with `NodeClusterHttp.layer` / `BunClusterHttp.layer` as the HTTP-transport alternates the root may pin instead — the frozen `@effect/cluster-node` family stays unadmitted; the work owners type against the `MessageStorage`/`Sharding` Tags and never import a binding, so runner transport is root data.
 - Law: undici dispatcher tuning is row-interior — connection ceilings, proxy posture, and TLS pin through `NodeHttpClient.dispatcherLayer`/`dispatcherLayerGlobal`/`makeDispatcher` beneath the node row's `client`; the egress policy composed over any client is `net/client#LANE_ROWS`'s and never forks per runtime.
-- Boundary: this module imports `node:http` and `node:https` for the serve row — the sanctioned FFI seam; a `node:*` or binding-package import anywhere else in the branch outside a row module is the defect the architecture audit catches.
+- Boundary: this module imports `node:http` and `node:https` for the serve row and `node:v8` for the trial's heap reader — the process substrate's sanctioned FFI seam; elsewhere a `node:*` or binding-package import is admitted only on a server-lane module whose composed package contract demands the host type (`Buffer` for the mail, broker, and archive engines), and one on a runtime-neutral or browser module is the defect the architecture audit catches.
 - Entry: `Runtime.node` / `Runtime.bun`, read by the boot module only.
 - Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`), `@nats-io/transport-node` (`connect`).
 
@@ -193,8 +193,8 @@ const _halted = (): Promise<void> => _host.dispose();
 
 ```typescript signature
 import { Command, type CommandExecutor, type PlatformError } from '@effect/platform';
-import { Array, Clock, DateTime, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
-import { Board, Fault } from '@rasm/ts/core';
+import { Array, Clock, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
+import { Fault } from '@rasm/ts/core';
 
 // One core family mint owns the reason roster and its class column, so `class` is a projection of `reason` rather
 // than a second field an instance can contradict, and the branch taxonomy stays unforked: no local rank, retry, or
@@ -356,43 +356,218 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 ## [05]-[MEASURED_RUN]
 
 [MEASURED_RUN]:
-- Law: warmup is discarded by construction — the bracket runs `spec.warmup` unrecorded iterations before the first sample, so cold-path jit noise never enters a quantile; the quantile kernel sorts once and reads rank positions, a marked measured kernel.
-- Boundary: the tests tier owns corpus benchmarking — this owner mints in-product claims on live workloads, and the two never share a harness; claim board join and rendering are the ui viewer probe's.
+- Owner: `Trial` — a caller's effect routed through mitata's state-free sampling kernel and folded to a claim by `Board.Bench.fromMitata`, the seam the core claim owner already holds. `Trial.Spec` is the engine's own knob set decoded once — the convergence triple (`minSamples`, `maxSamples`, `minCpuTime`), the warmup pair, the batching triple, the trim gate, `concurrency`, and the three band switches — every default read off the package's exported `k_*` anchors rather than restated as a literal here, so a package retune reaches this owner without an edit. Sample count, warmup spend, batch unroll, the eight-rung ladder, and the outlier trim are the engine's law; this owner declares the knobs, supplies the handles the enrichment bands need, and states the absence when a band cannot be measured.
+- Law: the rung ladder is the engine's, never a second kernel — mitata sorts its own samples, trims two from each tail past `samplesThreshold`, and reads `min`/`max`/`avg`/`p25`/`p50`/`p75`/`p99`/`p999` off floor-indexed rank positions. A second kernel reading the same samples answers the same eight questions under a different definition while leaving `gc`, `heap`, and `counters` unfillable forever, because those three bands accumulate INSIDE the generated loop and no post-hoc fold over the sample array can recover them; `p95` and a standard deviation stay unmeasured on every mitata-minted claim, which is why the claim's rung record is partial rather than total.
+- Law: band availability is a modality fact the engine fixes, not a caller option — the `fn` sampler accumulates `gc`, `heap`, and `counters` inside its generated loop, and the generator sampler inherits all three by delegating to it, while the `iter` sampler's result carries no band field under any knob. This owner therefore routes the zero-arity `fn` overload alone: a caller's effect is a closure over the runtime, so the iterator modality buys nothing here and would silently cost every enrichment band the claim declares.
+- Law: each band states the handle it needs, so an unset handle reads as absence rather than as a measurement of zero. The heap band exists only where a byte reader was supplied — bare sampling defaults the reader to null and omits the key entirely — so `_HEAP` is the reader this owner hands the engine. The GC band exists only where `innerGc` is set AND the resolved collector is a real hook, because the engine's fallback collector is a gigabyte allocation whose timing is not a collection; that fallback still runs and still costs, so `gc` defaults off and a caller enabling it under a runtime without `--expose-gc` or bun buys the allocation and no band.
+- Law: a present band is not a measured band — the heap accumulator counts only samples whose delta was non-negative and divides by that count, so a workload the collector interleaved returns `Infinity`/`-Infinity`/`NaN` in a band that is structurally present. `_honest` strips exactly that shape before the fold, because the claim's band value is declared finite and non-negative and a sentinel crossing it publishes a heap figure no sample took.
+- Law: counter absence is spelled on the host, never in the band — hardware counters need an optional native addon, a supported platform, and process privilege the addon alone can refuse, and the answer is a property of the measuring HOST rather than of any one metric. `_plane` resolves that verdict and stamps it onto the claim's own host fingerprint, so a reader distinguishes "this host cannot count" from "this metric was not counted"; the band itself stays absent and each unresolved leaf drops its key, so no counter series ever carries a fabricated point.
+- Law: the counter band's every leaf is an average and nothing else, so `benchBand` is constant across the whole block and `Convention.rasm.benchCounterKind` is the only axis separating the series — a counter point emitted without the leaf stamp collapses five independent measures onto one line. The leaf vocabulary is the claim owner's counter-path table, and the band key IS the axis value, so a leaf added there joins the series with no edit here.
+- Law: the error channel survives the engine's Promise seam — the engine awaits a bare closure, so a failing effect would surface as a rejected promise and reach the caller as a defect with its typed fault erased. The sampled closure runs `Effect.exit`, holds the FIRST failure in the operation's own cell, and the trial re-raises it after the run, so a fault that entered the sample fold leaves it as the same typed value; the sunk exit also feeds the engine's dead-code barrier, without which an effect whose result no one reads is eliminated and the trial measures an empty loop.
+- Law: the measured span includes the effect's own fiber boot, by construction and not by oversight — an effect's cost is inseparable from the runtime that discharges it, and the engine's noop baseline that would subtract the boot is minted by the fenced registration surface this owner may not reach. A trial therefore compares effects against effects, which is the only comparison its claims are ever asked to grade.
+- Boundary: the substrate boundary is physical — this owner imports the state-free `mitata/src/lib.mjs` kernel, so the registration list and render surface that the root module carries are never loaded into a domain process; benchmark registration and report rendering stay in the bench lane under `tests/`, and the run context that names the CPU and the noop baseline is minted there alone. The tests tier owns corpus benchmarking, this owner mints in-product claims on live workloads, and claim board join and rendering are the ui viewer probe's.
+- Receipt: the claim is the receipt and it widens in place — `Board.Bench.fromMitata` fills the rung ladder, the tick count, the raw samples, and the three enrichment bands off one `stats` record, and this owner supplies the mint fields the engine cannot know. `allocatedBytes` fills from the measured per-operation heap delta where the band survived the honesty strip; `warmups` stays absent because the engine spends warmup conditionally on its own threshold gate and reports no count, so the declared ceiling published there would be a figure no run took.
 - Entry: `Trial.run(host, spec, body)`.
-- Growth: a new measured case is one `Trial.Spec`; GC, heap, and hardware-counter enrichment stays absent by ownership, since those bands ride a sampling engine's own registration surface while this owner brackets a caller's effect on the calling fiber, and the corpus lane already owns that harness.
+- Growth: a new measured case is one `Trial.Spec`; a new enrichment band is one handle on `_tuned` plus one row in the `_points` fact stream.
+- Packages: `mitata` (`mitata/src/lib.mjs`), `effect` (`Metric`, `Exit`, `Runtime`), `@rasm/ts/core` (`Board`, `Convention`), `node:v8` (`getHeapStatistics`).
 
 ```typescript signature
+import { Board, Convention } from '@rasm/ts/core';
+import { Array, DateTime, Effect, Exit, Metric, Option, Record, Runtime as EffectRuntime, Schema } from 'effect';
+import {
+    do_not_optimize as MitataSink,
+    k_batch_samples,
+    k_batch_threshold,
+    k_batch_unroll,
+    k_concurrency,
+    k_max_samples,
+    k_min_cpu_time,
+    k_min_samples,
+    k_samples_threshold,
+    k_warmup_samples,
+    k_warmup_threshold,
+    measure as MitataMeasure,
+} from 'mitata/src/lib.mjs';
+import { getHeapStatistics } from 'node:v8';
+
+const _AGGREGATES = ['avg', 'max', 'min', 'total'] as const;
+const _PLANES = ['available', 'declined', 'unsupported', 'denied', 'absent'] as const;
+
+// The host fingerprint's stamp bag is free-form by design, and the counter plane is exactly the kind of fact it holds:
+// a property of the measuring machine that no metric of that run can restate.
+const _STAMP = 'bench.counter.plane';
+
+const _GAUGES = {
+    counter: Convention.mount(Convention.metric.benchCounter),
+    gc: Convention.mount(Convention.metric.benchGc),
+    heap: Convention.mount(Convention.metric.benchHeap),
+    time: Convention.mount(Convention.metric.benchTime),
+} as const;
+
+// The engine reads heap growth through a caller-supplied byte reader and omits the band entirely without one. Bun's
+// `node:v8` shim answers the used-heap term and carries no allocator figure, so the missing term is a STRUCTURAL zero
+// on that runtime rather than an unmeasured one — the sum stays every byte the shim can see.
+const _HEAP = (): number => {
+    const held = getHeapStatistics();
+    return held.used_heap_size + (held.malloced_memory ?? 0);
+};
+
 class TrialSpec extends Schema.Class<TrialSpec>('Trial/Spec')({
     suite: Schema.NonEmptyString,
     label: Schema.NonEmptyString,
-    modality: Schema.Literal('fn', 'iter', 'yield'),
-    warmup: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 16 }),
-    iterations: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 256 }),
+    // convergence: the engine samples until the floor count AND the cpu-time budget are both met, capped by the ceiling
+    minSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_min_samples }),
+    maxSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_max_samples }),
+    minCpuTime: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_min_cpu_time }),
+    // warmup: samples spent unrecorded, and the per-sample ceiling under which the engine bothers to spend them at all
+    warmupSamples: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { default: () => k_warmup_samples }),
+    warmupThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_warmup_threshold }),
+    // batching: a body settling faster than the threshold is unrolled into one timed run and every sample divides by
+    // the batch count, which is what puts a nanosecond-scale body above the clock's own resolution
+    batchSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_samples }),
+    batchUnroll: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_unroll }),
+    batchThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_threshold }),
+    // past this count the engine drops two samples from each sorted tail before reading any rung
+    samplesThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_samples_threshold }),
+    concurrency: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_concurrency }),
+    // band switches: heap costs a rescaled cpu budget and gc doubles it, so the expensive one defaults off and each
+    // stays a caller's declaration rather than a silent cost the trial takes on its behalf
+    gc: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+    heap: Schema.optionalWith(Schema.Boolean, { default: () => true }),
+    counters: Schema.optionalWith(Schema.Boolean, { default: () => true }),
 }) {}
 
-const _band = (samples: ReadonlyArray<number>): typeof Board.Claim.Band.Type => {
-    // BOUNDARY ADAPTER: measured quantile kernel — one sort, rank reads, the draft dies at the return
-    const sorted = [...samples].sort((a, b) => a - b);
-    const rank = (q: number): number => sorted[Math.max(0, Math.ceil(q * sorted.length) - 1)]!;
-    return {
-        sampleCount: sorted.length,
-        rungs: {
-            min: sorted[0]!,
-            max: sorted[sorted.length - 1]!,
-            avg: sorted.reduce((total, held) => total + held, 0) / sorted.length,
-            p25: rank(0.25),
-            p50: rank(0.5),
-            p75: rank(0.75),
-            p99: rank(0.99),
-            p999: rank(0.999),
-        },
-        ticks: Option.some(sorted.length),
-        samples: Option.some(samples),
-        gc: Option.none(),
-        heap: Option.none(),
-        counters: Option.none(),
+declare namespace Trial {
+    type Stats = Awaited<ReturnType<typeof MitataMeasure>>;
+    // derived off the member rather than named: the package exports no option or result type, so every shape here
+    // rides the signature it came from and a package retune reaches this owner as a type error
+    type Knobs = NonNullable<Parameters<typeof MitataMeasure>[1]> & { readonly $counters?: unknown };
+    type Plane = (typeof _PLANES)[number];
+    type Counters = { readonly plane: Plane; readonly handle: Option.Option<unknown> };
+    type Point = {
+        readonly gauge: keyof typeof _GAUGES;
+        readonly band: string;
+        readonly leaf: Option.Option<string>;
+        readonly value: number;
     };
-};
+}
+
+// Counters need an optional native addon, a supported platform, and a privilege the addon alone can refuse — three
+// independent refusals, each a fact about the HOST. The module loader caches the import, so resolving per trial costs
+// one map read and buys a registry this owner would otherwise have to keep and invalidate.
+const _plane = (spec: TrialSpec): Effect.Effect<Trial.Counters> =>
+    !spec.counters
+        ? Effect.succeed({ plane: 'declined' as const, handle: Option.none() })
+        : !['darwin', 'linux'].includes(process.platform)
+          ? Effect.succeed({ plane: 'unsupported' as const, handle: Option.none() })
+          : // the addon reads darwin's counters through a privileged interface and refuses outright below root, where
+            // linux defers the same refusal to the addon's own load
+            process.platform === 'darwin' && process.getuid?.() !== 0
+            ? Effect.succeed({ plane: 'denied' as const, handle: Option.none() })
+            : Effect.match(Effect.tryPromise(() => import('@mitata/counters')), {
+                  onFailure: (cause) => ({
+                      plane: String(cause).includes('PermissionDenied') ? ('denied' as const) : ('absent' as const),
+                      handle: Option.none(),
+                  }),
+                  onSuccess: (addon) => ({ plane: 'available' as const, handle: Option.some(addon) }),
+              });
+
+const _tuned = (spec: TrialSpec, counters: Trial.Counters): Trial.Knobs => ({
+    concurrency: spec.concurrency,
+    inner_gc: spec.gc,
+    min_samples: spec.minSamples,
+    max_samples: spec.maxSamples,
+    min_cpu_time: spec.minCpuTime,
+    batch_unroll: spec.batchUnroll,
+    batch_samples: spec.batchSamples,
+    warmup_samples: spec.warmupSamples,
+    batch_threshold: spec.batchThreshold,
+    warmup_threshold: spec.warmupThreshold,
+    samples_threshold: spec.samplesThreshold,
+    heap: spec.heap ? _HEAP : undefined,
+    // `$counters` is the engine's own internal knob — the published option record omits it, and it is the only route
+    // by which the addon handle reaches the generated loop. Every counter call inside that loop is wrapped in the
+    // engine's own try and the whole block drops when init fails, so a rename degrades to an ABSENT band and can
+    // never produce a wrong number; that failure mode is what makes reaching past the published record admissible.
+    ...Option.match(counters.handle, { onNone: () => ({}), onSome: (handle) => ({ $counters: handle }) }),
+});
+
+// The heap accumulator counts only samples whose delta was non-negative and divides by that count, so a workload the
+// collector interleaved throughout leaves the count at zero and the band returns its own seeds. The claim declares
+// every band value finite and non-negative, so the sentinel triple is stripped to the absence it actually means.
+const _honest = (stats: Trial.Stats): Trial.Stats =>
+    stats.heap === undefined || Number.isFinite(stats.heap.avg + stats.heap.min + stats.heap.max)
+        ? stats
+        : { ...stats, heap: undefined };
+
+const _sampled = <A, E, R>(
+    spec: TrialSpec,
+    body: Effect.Effect<A, E, R>,
+    knobs: Trial.Knobs,
+): Effect.Effect<readonly [Trial.Stats, Option.Option<Exit.Exit<never, E>>], never, R> =>
+    Effect.gen(function* () {
+        const invoke = EffectRuntime.runPromise(yield* Effect.runtime<R>());
+        // the first failure the fold saw, held beside the operation that mutates it: the engine awaits a bare closure,
+        // so a rejection crossing that seam would reach the caller as a defect with its typed fault erased
+        let held: Option.Option<Exit.Exit<never, E>> = Option.none();
+        const stats = yield* Effect.promise(() =>
+            MitataMeasure(async () => {
+                const exit = await invoke(Effect.exit(body));
+                if (Exit.isFailure(exit) && Option.isNone(held)) held = Option.some(exit);
+                // the barrier sinks the settled exit: a body whose result no consumer reads is eliminated outright and
+                // the engine ends up timing an empty loop
+                MitataSink(exit);
+            }, knobs),
+        );
+        return [_honest(stats), held] as const;
+    });
+
+// Four gauges share one construction, so the projection is ONE fact stream carrying its gauge slot and its axis values
+// rather than four hand-rolled emitters a new band would have to join by hand.
+const _points = (metric: Board.Bench.Metric): ReadonlyArray<Trial.Point> => [
+    ...Array.filterMap(Record.toEntries(metric.band.rungs), ([band, value]) =>
+        value === undefined ? Option.none() : Option.some({ band, gauge: 'time' as const, leaf: Option.none(), value })),
+    ...Array.flatMap(['gc', 'heap'] as const, (gauge) =>
+        Option.match(metric.band[gauge], {
+            onNone: () => [],
+            onSome: (aggregate) => Array.map(_AGGREGATES, (band) => ({ band, gauge, leaf: Option.none(), value: aggregate[band] })),
+        })),
+    // every leaf the addon translates is an average, so `benchBand` is constant across the whole counter block and the
+    // leaf stamp is the ONLY axis keeping five independent measures from collapsing onto one line
+    ...Option.match(metric.band.counters, {
+        onNone: () => [],
+        onSome: (counters) =>
+            Array.map(Record.toEntries(counters), ([leaf, value]) => ({ band: 'avg', gauge: 'counter' as const, leaf: Option.some(leaf), value })),
+    }),
+];
+
+const _emitted = (claim: Board.Claim): Effect.Effect<void> =>
+    Effect.forEach(
+        claim.metrics,
+        (metric) =>
+            Effect.forEach(
+                _points(metric),
+                (point) =>
+                    Metric.set(
+                        Record.reduce(
+                            {
+                                [Convention.rasm.benchBand]: point.band,
+                                [Convention.rasm.benchLabel]: metric.label,
+                                [Convention.rasm.benchSuite]: claim.suite,
+                                ...Option.match(point.leaf, {
+                                    onNone: () => ({}),
+                                    onSome: (leaf) => ({ [Convention.rasm.benchCounterKind]: leaf }),
+                                }),
+                            },
+                            _GAUGES[point.gauge],
+                            (gauge, value, key) => Metric.tagged(gauge, key, value),
+                        ),
+                        point.value,
+                    ),
+                { discard: true },
+            ),
+        { discard: true },
+    );
 
 const _bracketed = <A, E, R>(
     host: typeof Board.Claim.Host.Type,
@@ -400,33 +575,31 @@ const _bracketed = <A, E, R>(
     body: Effect.Effect<A, E, R>,
 ): Effect.Effect<Board.Claim, E, R> =>
     Effect.gen(function* () {
-        yield* Effect.forEach(Array.range(1, spec.warmup), () => body, { concurrency: 1, discard: true });
-        const samples = yield* Effect.forEach(Array.range(1, spec.iterations), () =>
-            Effect.gen(function* () {
-                const opened = yield* Clock.currentTimeNanos;
-                yield* body;
-                const closed = yield* Clock.currentTimeNanos;
-                return Number(closed - opened);
-            }),
-            { concurrency: 1 },
-        );
+        const counters = yield* _plane(spec);
+        const [stats, held] = yield* _sampled(spec, body, _tuned(spec, counters));
+        // a fault that entered the sample fold leaves it as the same typed value, before any claim is minted off runs
+        // that were measuring a failure path
+        yield* Option.match(held, { onNone: () => Effect.void, onSome: (exit) => exit });
         const minted = yield* DateTime.now;
-        return new Board.Claim({
+        const claim = Board.Bench.fromMitata(stats, {
             suite: spec.suite,
-            metrics: [{
-                label: spec.label,
-                unit: 'ns',
-                modality: spec.modality,
-                polarity: 'minimize',
-                subject: { subject: 'probe' },
-                band: _band(samples),
-                warmups: Option.some(spec.warmup),
-                allocatedBytes: Option.none(),
-                operations: Option.none(),
-            }],
-            host,
+            label: spec.label,
+            unit: 'ns',
+            polarity: 'minimize',
+            subject: { subject: 'probe' },
+            host: new Board.Claim.Host({ ...host, stamps: { ...host.stamps, [_STAMP]: counters.plane } }),
             minted,
+            // the engine spends warmup only where its own threshold gate fires and reports no count, so the declared
+            // ceiling published here would be a figure no run ever took
+            warmups: Option.none(),
+            // the measured per-operation heap delta IS the allocation figure this slot names, and it goes absent with
+            // the band rather than reading zero where no reader ran
+            allocatedBytes: Option.map(Option.fromNullable(stats.heap), (band) => BigInt(Math.round(band.avg))),
+            // the band's own tick count already carries every operation the engine executed; this slot names the
+            // CALLER's logical work count, which a probe subject does not have one of
+            operations: Option.none(),
         });
+        return yield* Effect.as(_emitted(claim), claim);
     });
 
 const Trial = { Spec: TrialSpec, run: _bracketed } as const;

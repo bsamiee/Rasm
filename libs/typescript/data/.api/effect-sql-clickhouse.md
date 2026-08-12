@@ -8,7 +8,7 @@
 - package: `@effect/sql-clickhouse` (MIT)
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform-node` (`NodeStream`)
 - backing: `@clickhouse/client` — HTTP interface, streamed inserts, `ClickHouseClientConfigOptions`
-- module: `ClickhouseClient`; `runtime:node`/bun (browser analytical row is `@duckdb/duckdb-wasm`, `.api/duckdb-duckdb-wasm.md`)
+- modules: `ClickhouseClient`, `ClickhouseMigrator` (banned); `runtime:node`/bun (browser analytical row is `@duckdb/duckdb-wasm`, `.api/duckdb-duckdb-wasm.md`)
 - rail: the at-scale OLAP row of the `data` lane
 
 ## [02]-[PUBLIC_TYPES]
@@ -32,6 +32,7 @@
 - Every execution mode stamps `query_id` — the `query`, `command`, and `insert` arms each pass it — and an unset `currentQueryId` defaults to a fresh `Crypto.randomUUID()`, so a caller that wants to read its own row back supplies the id rather than discovering one.
 - Interruption mints `KILL QUERY WHERE query_id = '<id>'` on the `query`/`command` and `insert` arms alike, so a shared id makes one interrupt kill every sibling statement under that scope.
 - `ClickhouseClientConfig` extends `Clickhouse.ClickHouseClientConfigOptions` with `spanAttributes`, `transformResultNames`, and `transformQueryNames`.
+- Every execution arm passes raw statement text to the server and gates none of it, so ClickHouse's own `url()`, `postgresql()`, `s3()`, and `remote()` table functions ride the neutral `sql` DSL through the existing `sql.literal` seam — a source becomes a relation SERVER-side here, with no client-side registration surface to reach for.
 
 ## [03]-[ENTRYPOINTS]
 

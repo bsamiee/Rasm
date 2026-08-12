@@ -19,40 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[EVENTLOG_SYNC]-[QUEUED]: Offline-first closes its loop — the EventLog overlay gains its server half.
-- Capability: browser EventLog writes replicate through a mounted server handler so the persist overlay stops being a client-only diary — encrypted event sync, remote flush on reconnect, and multi-device convergence ride the shipped protocol instead of a bespoke sync endpoint.
-- Shape: an `EventLogServer.makeHandlerHttp` mount row in `libs/typescript/runtime/.planning/serve/live.md`'s foreign-protocol Mount port with storage satisfied by the data plane; the overlay's remote registration declared at the seam in `libs/typescript/runtime/.planning/browser/persist.md`.
-- Unlocks: field capture — site surveys, fabrication travelers — syncs when connectivity returns; the browser plane gains durable multi-device state without a second store.
-- Anchors: branch `.api/effect-experimental.md` (`EventLogServer.makeHandlerHttp`); `browser/persist.md` overlay bindings; `serve/live.md` mount port.
-
-[SERVE_LIMITER]-[QUEUED]: Admission throttling becomes a policy value on the serving edge and tenant egress.
-- Capability: request admission and tenant egress inherit persistent token-cost rate limits — window, tokens, cost-per-route as policy rows over a store-backed limiter — so a burst tenant degrades to a `Problem`-rendered refusal instead of starving peers, and the durable-queue throttles and the serving gate share one limiter vocabulary.
-- Shape: a limiter ceremony row in `libs/typescript/runtime/.planning/serve/route.md` with per-principal and per-route cost columns, and a `RateLimiter.makeWithRateLimiter`-backed policy row beside the keyed throttles in `libs/typescript/runtime/.planning/work/queue.md`.
-- Unlocks: multi-tenant fairness as data; the app-neutrality law holds under contention.
-- Anchors: branch `.api/effect-experimental.md` (`RateLimiter.makeWithRateLimiter`); `serve/route.md` ceremony rows; `work/queue.md` throttle cluster; the limiter-posture ruling at `libs/typescript/.planning/RULINGS.md` `[02]-[COLLAPSE]` — shared row shape, three site-owned postures, never one owner.
-
-[WORKLOAD_CREDENTIAL]-[QUEUED]: Workload-identity credential projection mounts on the transport lanes.
-- Capability: per-call transport credentials — gRPC metadata, NATS auth header — source from the security machine principal and refresh on its grant lifecycle, so a fleet worker authenticates every outbound call without a hand-carried static token and credential rotation never restarts a lane.
-- Shape: a credential-projection row on `libs/typescript/runtime/.planning/net/client.md`'s lane table and the NATS auth row in `libs/typescript/runtime/.planning/net/pubsub.md`, both reading a `Redacted`-typed principal the security plane resolves; refresh rides the grant lifecycle, never a lane timer.
-- Unlocks: service-to-service auth on every transport axis with one principal source; the C# gRPC host accepts TS calls under one credential law.
-- Anchors: security `authn/workload.md` machine-principal projection (carded); `net/client.md` lane table budget and circuit rows; `net/pubsub.md` connection rows.
-- Tension: principal mint and refresh are security's — this plane mounts the projection and never touches grant grammar.
-- Ripple: `security` `[WORKLOAD_IDENTITY]`.
-
-[BENCH_CLAIM_PRODUCER]-[QUEUED]: Measured-run sampling rides the shipped engine that already owns the rung set.
-- Capability: benchmark claims ride one typed receipt producer whose sampling evidence carries no `Unknown` evidence bag.
-- Shape: the sampling modality row on `libs/typescript/runtime/.planning/proc/exec.md` `[05]-[MEASURED_RUN]`, gated by its `[06]-[RESEARCH]` `[TRIAL_ENGINE]` row.
-- Unlocks: package-independent benchmark claims with typed deep-sampling evidence on the measured-run rail.
-- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; the landed `libs/typescript/.api/mitata.md` substrate catalog, whose entrypoint and knob rows carry every member this modality composes.
-- Tension: `Trial.run`'s hand-bracketed sampler already re-derives the rung set the package ships, so the modality is a replacement of the local kernel rather than an enrichment beside it.
-
-[GRPC_LANE]-[BLOCKED]: Connect transport completes — the served handler mounts behind the one guard law.
-- Capability: the served Connect handler mounts behind `Seam.guard` with context continued before the handler. Egress print is settled elsewhere — `core:interchange/invoke#DIAL_AXIS`'s per-call lift already folds `Carrier.inject("connect", ...)` onto the call headers, so a client interceptor pair is the foreclosed form.
-- Shape: the guarded mount on `libs/typescript/runtime/.planning/serve/live.md`, gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
-- Unlocks: served gRPC surfaces mount under the one guard law with no bespoke adapter beside the rail's.
-- Arms: one published node-handler lift serves both `serve/route#LAYER_ROUTES`'s rail mount and `serve/live#MOUNT_PORT`'s `Mount.Row`.
-- Anchors: `.api/connectrpc-connect-node.md` interceptor rows; core `.api/connectrpc-connect.md` peer contract; `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`, the same accessor pair `serve/route.md`'s rail mount already drives a raw node handler through; the rpc admission boundary at `libs/typescript/runtime/RULINGS.md` `[01]-[PACKAGES]` — dial admitted, serving only through the `Mount` port.
-- Tension: the server interceptor option reaches `ConnectNodeAdapterOptions` only by inheritance from `UniversalHandlerOptions`, which the package marks internal and outside semantic versioning, so the composing fence binds it as a declared trap rather than as a stable field.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -73,5 +40,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [BOARD_FEED]-[COMPLETE]: `meter.md` `[06]-[BOARD]` mints `Pulse.Board`/`Pulse.board`, and iac `operate/observe.md` admits `runtime.pulse` in `_PACKS` through the shared producer-pack ingest arm.
 [HOOK_DISPATCH]-[COMPLETE]: already landed — `emit.md` `Hooks.Dispatch` executes the core `Tap` vocabulary with app-scoped rails, pure veto fold, isolated delivery fibers, and the bounded replay ring.
 [CARRIER_CODEC_BINDING]-[COMPLETE]: `emit.md` `Propagation.current` and `pubsub.md` local, tab, NATS, and Kafka rows compose core `Carrier` with matching `fanout`, `nats`, and `kafka` dialects; `core/.planning/interchange/carrier.md` owns the exact table.
-[CLOUDEVENTS_ENVELOPE]-[COMPLETE]: both HTTP directions land on the core owner rather than a page-local codec — `serve/route.md` `Intake` detects the frame through `Format.event.framed` before decoding, sanitizes the header band, admits through `Event.Fact`/`Event.read`, and continues each member's creation-time trace, while `work/deliver.md` projects at claim time through `Hook.project`, seals the attribute set as `dssematerial`, and signs the encoded octets once; the abuse-protection handshake landed on both halves.
+[CLOUDEVENTS_ENVELOPE]-[COMPLETE]: both HTTP directions land on the core owner rather than a page-local codec — `serve/route.md` `Inbound` detects the frame through `Format.event.framed` before decoding, sanitizes the header band, admits through `Event.Fact`/`Event.read`, and continues each member's creation-time trace, while `work/deliver.md` projects at claim time through `Hook.project`, seals the attribute set as `dssematerial`, and signs the encoded octets once; the abuse-protection handshake landed on both halves.
 [JOURNAL_ENVELOPE_CARRIAGE]-[COMPLETE]: `pubsub.md` keeps `Envelope` opaque and preserves the projected body and band; `data/.planning/journal/append.md` owns strict CloudEvents construction and inverse carrier decode, so runtime carries the value without duplicating its codec.
+[EVENTLOG_SYNC]-[COMPLETE]: the server half landed — `serve/live.md` `[07]` mounts `EventLogServer.makeHandlerHttp` as a row EFFECT over the `Storage` port (rows admit `Scope`, `Mount.of` takes effects uniformly), and `browser/persist.md` binds sync path ≡ mount prefix under one root value with the E2E-key law; the data-side `SqlEventLogServer.layerStorage` row is handed to the data pass.
+[SERVE_LIMITER]-[COMPLETE]: `serve/route.md` `Seam.priced` lands the refusing token-cost quota (per-principal + per-route off one axis word, rendered through `Gate.fenced`'s one price) and `work/queue.md` `Throttle.pace` the delaying posture — one four-column vocabulary, one `Fleet.RateLimiter` port, scope-joined keys because the store namespaces nothing; `api.md` `Gate.fenced` widened to the `Gate.Spend` record.
+[WORKLOAD_CREDENTIAL]-[COMPLETE]: the projection family landed on all three transports — `net/client.md` `Machine` audience-keyed port with the `present` lane column, `net/pubsub.md` NATS thunk-authenticator at dial (rotation replaces the connection) and Kafka SASL/OAUTHBEARER provider (rotates in place); a `dpop` principal refuses to security's proved call.
+[BENCH_CLAIM_PRODUCER]-[COMPLETE]: `proc/exec.md` `[05]` rebuilt on mitata's own kernel — the hand-rolled rung sampler deleted, gc/heap/counters bands fill from engine stats through `Board.Bench.fromMitata`, counter absence is a host-fingerprint verdict, and `benchCounterKind` stamps the platform-forked leaf; no `Unknown` evidence bag survives.
+[GRPC_LANE]-[COMPLETE]: the blocker fell on installed-tree re-proof — `Mount.node` was already published, and the mount completed with its missing clauses: carrier continuation foreclosed both directions (`Seam.guard` continues the one hop), `contextValues` named as the principal seam, and the interceptor-inheritance trap declared re-prove-on-bump at the validate-copy mechanism.

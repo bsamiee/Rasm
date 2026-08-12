@@ -37,15 +37,15 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]              | [NAMING_SCHEMA] |
-| :-----: | :------------------------- | :----------------------------- | :----------------------------- | :-------------- |
-|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                  | `PascalCase`    |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                  | `snake_case`    |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`              | `camelCase`     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                          | `kebab-case`    |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`    |
-|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                          | `kebab-case`    |
-|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]           |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA] |
+| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :-------------- |
+|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/csharp` + `.cs`            | `PascalCase`    |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`    |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`    |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`    |
+|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                            | `kebab-case`    |
+|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages   | [N/A]           |
 
 [TOOL_ROUTING]:
 - [ALWAYS]: use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
@@ -60,25 +60,59 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
+Universal code law: binds every language, present or future; `docs/stacks/<language>/` deepens it per stack and never weakens it.
+
 [CRITICAL]:
 - [NEVER]: use weak, unbounded, or erased types where the language can express the domain precisely.
 - [NEVER]: use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
+- [NEVER]: spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
 
-[IMPORTANT]:
-- [ALWAYS]: ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected, removed, and rebuilt on sight.
-- [ALWAYS]: rebuild functionality/code/logic GROUND-UP — tear existing patterns apart for surface density with zero functionality lost.
-- [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam.
-- [ALWAYS]: extend a class to the full concept it admits NOW — a 4-field shape for a 12+ concept widens in place, never proliferates objects.
-- [ALWAYS]: treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
+[DENSITY] - dense: every surviving line load-bearing because one declaration carries the family; rich: the owner models its full domain:
+- [ALWAYS]: ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected and rebuilt on sight.
+- [ALWAYS]: treat doctrine as the floor, never the ceiling — a conformant-but-weak form is a defect wherever a stronger form exists.
+- [ALWAYS]: rebuild functionality GROUND-UP with zero loss — density is the consequence of collapse, never the goal; file-size budgets do not exist.
+- [ALWAYS]: replace flat code — hand-rolled loops, branch ladders, parallel models, per-instance bodies — with folds, tables, generators, owners.
+- [ALWAYS]: model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
+- [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
+- [ALWAYS]: state what every collapse loses — a plural form carrying a guarantee is lawful; erasing the guarantee is a downgrade wearing density.
+- [ALWAYS]: consume every declared capability — a policy row, column, or receipt nothing reads is decorative density; add the arm or delete it.
+
+[POLYMORPHISM] - fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
+- [ALWAYS]: fold one polymorphic entrypoint per concern, discriminating on input shape; forward and inverse of one correspondence share one owner.
+- [ALWAYS]: collapse siblings sharing an identity regime, admission path, payload timing, or consumer; survival needs a discriminant named on site.
+- [ALWAYS]: fold repeated mutation/status/count construction into one fact stream with slot/kind metadata; the trigger is shared shape, never count.
+- [ALWAYS]: widen an owner in place to the full concept it admits NOW — the next case lands as one declaration, consumers untouched or loudly broken.
+- [ALWAYS]: close dispatch by default — a catch-all over an owned family turns a compile break into a silent pass; openness needs foreign extension.
+- [NEVER]: mint entrypoint siblings — name-suffix families, arity twins, boolean mode knobs; the discriminant must be recoverable from the value.
+- [NEVER]: guard an invalid state at each use; make it unrepresentable at construction and canonicalize at intake so consumers read one regime.
+
+[PARAMETERIZATION] - variation lives in data or a type parameter, never in a name, a flag, or a body:
+- [ALWAYS]: hunt both directions — a literal encoding a decision becomes a policy row; a knob set whose combinations the body re-derives collapses.
+- [ALWAYS]: test parameters by deletion — one the input value or policy already reconstructs was a knob; collapse it into the owner.
+- [ALWAYS]: treat a hardcoded instance roster as seed data for the algebraic owner; a closed member set is lawful only where the owner decides it.
+- [ALWAYS]: declare one primary correspondence and derive every secondary map, type, and name from it — the derivation is the executable spec.
+- [ALWAYS]: keep one authority per derived value — a hand-kept mirror derives from its roster, or the invariant states at both owners, moving as one.
+- [ALWAYS]: return typed exhaustion faults when a bounded budget runs out — a success-shaped fall-through certifies unconverged as converged.
+- [ALWAYS]: declare one recovery posture per fault reason at the family owner; cross-cutting policy composes as values, never per call site.
+
+[ADMISSION]:
+- [ALWAYS]: admit foreign material once at the boundary into evidence-carrying owners; the interior never re-validates and never sees raw shapes.
+- [ALWAYS]: choose the outcome carrier once at admission, thread it unchanged, and collapse it only at the host, UI, or wire edge.
+- [ALWAYS]: shape domain logic as expressions on the rail — dependence sequences, independence accumulates, and the carrier, never a flag, selects.
+- [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
+- [ALWAYS]: keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
+
+[COMPOSITION]:
 - [ALWAYS]: compose existing logic before minting parallel forms; wire new logic into consumers same-pass — a file no owner reaches is a dead end.
+- [ALWAYS]: treat admitted packages as the standard library — use the deepest operator they reach; unmined capability is a hand-rolling defect.
 - [ALWAYS]: route a wanted capability DOWN-STRATA to the lowest folder that nearly holds it; surgical substrate work powers every consumer above.
 - [ALWAYS]: land a consumer need at its owning libs/ folder as the GENERAL capability — the higher-order axis it instantiates, never its literal.
 - [ALWAYS]: co-locate domain logic with its owner instead of scattering it into generic support files.
-- [ALWAYS]: collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
-- [ALWAYS]: keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
-- [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
+- [ALWAYS]: judge every surface from its consumers — internalize lifecycle, routing, retry, and policy; ceremony pushed onto callers is a defect.
+- [ALWAYS]: resolve names in one hop — no forwarding shells, util shells, or rename wrappers; a single-caller helper with no meaning alone inlines.
+- [ALWAYS]: break APIs aggressively with every call site updated same-change — no shims, compat aliases, deprecation layers, or migration surfaces.
 - [ALWAYS]: treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
-- [ALWAYS]: maintain semantic consistency in naming patterns of files, code functionality, types, classes, and functions, USE 1-2 word values; avoid 3+
+- [ALWAYS]: maintain semantic consistency in naming of files, code functionality, types, classes, and functions, USE 1-2 word values; avoid 3+
 - [ALWAYS]: use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, or policy row.
 
 ## [03]-[DEPENDENCY_POLICY]

@@ -35,7 +35,7 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 - Packages: `@effect/experimental` (`Persistence`); `@rasm/ts/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Data`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Schema`); `idb-keyval`.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
 
-```typescript
+```typescript signature
 import { Persistence } from "@effect/experimental"
 import { Fault } from "@rasm/ts/core"
 import { Array, type Clock, Data, Effect, Layer, Option, ParseResult, Predicate, Schema } from "effect"
@@ -308,7 +308,7 @@ const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.
 - Growth: a new pressure band is one `_BANDS` row; a new backing is one `_BACKINGS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route is one `_ROUTES` row plus its `_LADDER` seat.
 - Packages: `effect` (`Data`, `Effect`, `Exit`, `Option`, `Predicate`, `Scope`); `@rasm/ts/core` (`Fault.Class`).
 
-```typescript
+```typescript signature
 // Bands price DURABILITY ADMISSION, never a byte threshold alone. `ceiling` spans the usage fraction, `heavyLane`
 // answers whether a wasm engine may open its own store beneath the row, and `warmDepot` whether the byte depot may
 // add residency — the two decisions that lived in prose, so every consumer re-derived them from a bare number.
@@ -687,11 +687,13 @@ const Egress: {
 - Law: overlay, never authority — the journal is append-only capture and the reducers fold local reads; anything durable-critical projects from or mirrors to the data journal through the sync server the edge mounts, and a lane holding sole custody of critical state is the named boundary breach.
 - Law: the wasm-lane seam covers BOTH data-owned browser engines under one gate — heavier local read models than the reducer folds ride the OPFS driver on `lane/sqlite`'s wasm profile row, and the browser-resident analytics arm rides `lane/olap`'s `Olap.wasm` row (range-read Parquet over self-hosted bundles, Arrow receipts to the viewer's query surfaces): the sqlite lane publishes its wasm profile as a `SqlClient` Layer the app root provides beneath the read models, the olap lane mints a scoped `Olap.Handle` the browser shell composes at boot and leases per unit of work, and this page's `retain`/`budget` verdicts gate whether EITHER lane opens at all (a `critical` verdict or a refused grant demotes the app to the kv/overlay tier); the engines' own degradation verdicts — `originScope` tenancy, `singleTab` writer, `reactivityHooks` change delivery — are their lane pages' rows, the bundles precache under `shell#CACHE_ROWS`'s asset posture, and no `@effect/sql*` or engine import exists in this folder.
 - Law: local-first boot order is fixed — `retain` first (durability grant before bytes land), backings next, sync last; a sync row without a journal is unbuildable by the requirement channel, which is the assembly proof.
+- Law: `sync`'s url is the SERVED MOUNT'S OWN PREFIX under a socket scheme — `serve/live#MOUNT_PORT`'s `Mount.overlay(prefix)` is the other end of this exact path, and the two ends speak one wire because both sides are the package's own MsgPack protocol over one WebSocket upgrade. The composition root therefore derives both from one origin row; an origin hand-typed at either end is the drifted-seam defect, and it fails as a silent no-sync rather than as a refusal, since a socket that never opens is indistinguishable from an offline client this lane is designed to tolerate.
+- Law: the key never leaves this side — the browser row carries Web Crypto E2E and the served mount stores ciphertext entries beside their iv, so the sync server is zero-knowledge by the protocol's shape and a server-side read of overlay content is unspellable rather than merely refused; this is what lets the overlay ride a mount the app does not own.
 - Growth: a second sync transport (a socket-constructor row for a shared worker) is one row beside `sync`; a journal swap (memory for specs) is Layer substitution at the root, never an edit here.
-- Boundary: the server half — storage, encryption at rest, the mountable sync handler — is the data/edge waves' material; compaction and reactivity keys are the app's group declarations.
+- Boundary: the mountable sync handler is `serve/live#MOUNT_PORT`'s row and its storage port is the data wave's binding; compaction and reactivity keys are the app's group declarations.
 - Packages: `@effect/experimental` (`EventJournal`, `EventLog`, `EventLogRemote`, `Reactivity`); `@effect/platform-browser` (`BrowserKeyValueStore`); `effect` (`Layer`).
 
-```typescript
+```typescript signature
 import { EventJournal, EventLog, EventLogRemote, Reactivity } from "@effect/experimental"
 import { BrowserKeyValueStore } from "@effect/platform-browser"
 

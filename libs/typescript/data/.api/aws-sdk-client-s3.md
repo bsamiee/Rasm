@@ -33,15 +33,35 @@
 |  [01]   | `PutObjectCommand`                                           | write         | conditional-put idempotency; checksum content-verify     |
 |  [02]   | `GetObjectCommand` → `Body: StreamingBlobPayloadOutputTypes` | read          | ranged/part reads; `ChecksumMode: "ENABLED"` re-verifies |
 |  [03]   | `HeadObjectCommand` / `GetObjectAttributesCommand`           | metadata      | `ETag`/`Checksum`/`ObjectParts` probe, no body           |
-|  [04]   | `DeleteObjectCommand` / `DeleteObjectsCommand` (batch ≤1000) | delete        | reference-sweep GC; batch retention sweeps               |
+|  [04]   | `DeleteObjectCommand` / `DeleteObjectsCommand` (batch ≤1000) | delete        | per-key `IfMatch` CAS sweep; the batch is REFUSED        |
 |  [05]   | `CopyObjectCommand`                                          | copy          | server-side rekey; `CopySourceIf*` conditional           |
 |  [06]   | `ListObjectsV2Command` / `ListObjectVersionsCommand`         | list          | prefix walk for GC/audit; version enumeration            |
 |  [07]   | `PutObjectTaggingCommand` / `GetObjectTaggingCommand`        | tagging       | retention-class + reference-count tags                   |
 |  [08]   | `PutBucketLifecycleConfigurationCommand`                     | lifecycle     | retention-class GC as a bucket rule set                  |
-|  [09]   | `RestoreObjectCommand` / `SelectObjectContentCommand`        | archive/query | Glacier restore; server-side S3 Select                   |
+|  [09]   | `RestoreObjectCommand` / `SelectObjectContentCommand`        | archive/query | Glacier restore; the Select row is REFUSED               |
 
 - `PutObjectCommand` input: `IfNoneMatch` `IfMatch` `ChecksumSHA256` `ChecksumAlgorithm` `ContentMD5` `StorageClass` `ServerSideEncryption` `SSECustomerKey` `Metadata` `Tagging`.
 - `GetObjectCommand` input: `Range` `PartNumber` `ChecksumMode` `IfNoneMatch` `IfModifiedSince` `ResponseContentType`.
+- [REFUSED]: `DeleteObjectsCommand` carries no per-key conditional — one batch expresses no `IfMatch`, so a key whose bytes moved under the listing probe deletes anyway; the CAS law outranks the round-trip saving and every delete is a per-key `DeleteObjectCommand` under the ETag that listing carried.
+- [REFUSED]: `SelectObjectContentCommand` cannot read an archived object at all — a restore precedes it, so it answers none of the cold-tier need that alone justifies it, and content-addressed bytes carry no queryable schema for it to project.
+
+[PUBLIC_TYPE_SCOPE]: the bucket-posture and object-lock command rows
+- Custody generation reads realized posture off the bucket itself; the lock family is catalogued REFUSED, because every member demands a versioned bucket and this plane writes unversioned by law.
+
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `GetBucketVersioningCommand` → `Status` / `MFADelete`              | posture       | unversioned proof behind write-once identity        |
+|  [02]   | `GetBucketLifecycleConfigurationCommand` → `Rules`                 | posture       | realized retention rules; 404 on a rule-less bucket |
+|  [03]   | `GetBucketEncryptionCommand` → `ServerSideEncryptionConfiguration` | posture       | default SSE mode; 404 when none is configured       |
+|  [04]   | `PutObjectLockConfigurationCommand` / `Get…`                       | lock REFUSED  | bucket-wide default retention; versioned only       |
+|  [05]   | `PutObjectLegalHoldCommand` / `Get…`                               | lock REFUSED  | per-object hold flag; versioned only                |
+|  [06]   | `PutObjectRetentionCommand` / `Get…`                               | lock REFUSED  | per-object retain-until; versioned only             |
+
+- `ServerSideEncryptionConfiguration.Rules: ServerSideEncryptionRule[]`; `ServerSideEncryptionRule.ApplyServerSideEncryptionByDefault` / `.BucketKeyEnabled` / `.BlockedEncryptionTypes`; `ServerSideEncryptionByDefault.SSEAlgorithm: ServerSideEncryption` (required) / `.KMSMasterKeyID` — the key id and the bucket-key flag are observation-side alone.
+- [ENUM]: `ServerSideEncryption` = `AES256` `aws:kms` `aws:kms:dsse` `aws:backup` `aws:fsx`; `BucketVersioningStatus`; `MFADeleteStatus`.
+- [LOCK_SHAPE]: `ObjectLockConfiguration.ObjectLockEnabled` (`ObjectLockEnabled` = `Enabled`) / `.Rule`; `ObjectLockRule.DefaultRetention`; `DefaultRetention.Mode` / `.Days` / `.Years`; `ObjectLockLegalHold.Status` (`ObjectLockLegalHoldStatus` = `ON` `OFF`); `ObjectLockRetention.Mode` (`ObjectLockRetentionMode` = `COMPLIANCE` `GOVERNANCE`) / `.RetainUntilDate: Date`.
+- [LOCK_MEMBER]: `PutObjectRequest.ObjectLockMode` (`ObjectLockMode` = `COMPLIANCE` `GOVERNANCE`) / `.ObjectLockRetainUntilDate: Date` / `.ObjectLockLegalHoldStatus` — the write-time lock members, unspellable here for the same versioning reason.
+- [REFUSED]: object lock in every form rests on `ObjectLockEnabled`, which a bucket takes only at creation and only with versioning on; the content-addressed plane refuses versioning because the key IS the content, so the whole surface is catalogued and never composed — litigation preservation rides the folder's own hold ledger and its frozen tag posture instead.
 
 [PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error rail
 - Multipart is the low-level command family composed under an Effect scope; paginators and waiters are `AsyncIterable`/promise helpers the wrap lifts; the `S3ServiceException` hierarchy seeds the tagged rail.
@@ -104,6 +124,6 @@
 
 [RAIL_LAW]:
 - Package: `@aws-sdk/client-s3`
-- Owns: the `S3Client` + `send` dispatch, the object/multipart/list command family, `paginate*` iterables, `waitUntil*` pollers, the `S3ServiceException` hierarchy, the bounded enum vocabularies, and `S3ClientConfig` (endpoint/credentials/checksum/retry/transport)
+- Owns: the `S3Client` + `send` dispatch, the object/multipart/list command family, the bucket-posture reads, `paginate*` iterables, `waitUntil*` pollers, the `S3ServiceException` hierarchy, the bounded enum vocabularies, and `S3ClientConfig` (endpoint/credentials/checksum/retry/transport)
 - Accept: one `Effect`-wrapped `send` per command value, `IfNoneMatch: "*"` + checksum as the content-address idempotency pattern, 412-by-status noop, `endpoint`+`forcePathStyle` S3-compat, hand-composed multipart under a scope, `Redacted` credentials, `Effect.withSpan` spans, paginators lifted to `Stream`
-- Reject: imperative SDK use or a missing `abortSignal`, a per-verb method family, a `PreconditionFailed` class or a 412-as-fault, hardcoded AWS endpoints, the `@effect/platform` `HttpClient` for S3 transport, `@aws-sdk/lib-storage` for bounded bytes, the `S3` flat client where the command form fits
+- Reject: imperative SDK use or a missing `abortSignal`, a per-verb method family, a `PreconditionFailed` class or a 412-as-fault, hardcoded AWS endpoints, the `@effect/platform` `HttpClient` for S3 transport, `@aws-sdk/lib-storage` for bounded bytes, the `S3` flat client where the command form fits, the `DeleteObjectsCommand` batch where a per-key conditional is owed, `SelectObjectContentCommand` over archived or opaque content-addressed bytes, and the whole Object Lock surface against the unversioned bucket this rail writes

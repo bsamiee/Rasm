@@ -1,12 +1,12 @@
 # [TS_IAC_API_LOKI]
 
-`loki` is the log backend. Its chart is a topology SELECTOR over four deployment modes plus a values tree that stands up six auxiliary workloads by default, and its own validator refuses to render when two topologies both carry replicas. It also ships an EMPTY schema block its server will not start without, so a minimal values body is not a working install — it is a crash loop.
+`loki` is the log backend. Its chart is a topology SELECTOR over four deployment modes plus a values tree that stands up five auxiliary workloads by default, and its own validator refuses to render when two topologies both carry replicas. It also ships an EMPTY schema block its server will not start without, so a minimal values body is not a working install — it is a crash loop.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `loki`
 - chart: `loki` from `https://grafana.github.io/helm-charts` (AGPL-3.0), chart and `appVersion` versioned independently
-- asset: the selected topology's workloads with their Services, ConfigMap or Secret, ServiceAccount, RBAC cell, and memberlist Service — beside the default-on nginx gateway Deployment, the log canary DaemonSet, a test pod, two memcached tiers, a rollout operator, and a bundled MinIO
+- asset: the selected topology's workloads with their Services, ConfigMap or Secret, ServiceAccount, RBAC cell, and memberlist Service — beside five DEFAULT-ON auxiliaries (an nginx gateway Deployment, the log canary DaemonSet, a test pod, and two memcached tiers) and two subtiers that ship OFF (a zone-aware rollout operator and a bundled MinIO)
 - plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
 - rail: deployment / log backend
 - crds: NONE
@@ -27,7 +27,7 @@
 |  [10]   | `gateway.enabled`                                | `boolean` DEFAULT TRUE — an nginx reverse proxy in front of the read and write doors |
 |  [11]   | `lokiCanary.enabled` `test.enabled`              | `boolean` DEFAULT TRUE — a synthetic-log DaemonSet and a test pod                    |
 |  [12]   | `chunksCache.enabled` `resultsCache.enabled`     | `boolean` DEFAULT TRUE — two memcached tiers                                         |
-|  [13]   | `minio.enabled` `rollout_operator.enabled`       | `boolean` — the bundled object store and the zone-aware rollout controller           |
+|  [13]   | `minio.enabled` `rollout_operator.enabled`       | `boolean` DEFAULT FALSE — the bundled object store and the rollout controller        |
 |  [14]   | `{name,fullname,namespace,clusterLabel}Override` | nullable, FLAT top-level                                                             |
 
 [DISTRIBUTED_COMPONENTS]: `ingester` `distributor` `querier` `queryFrontend` `queryScheduler` `indexGateway` `compactor` `ruler` `bloomGateway` `bloomPlanner` `bloomBuilder` `patternIngester` `overridesExporter`
@@ -41,12 +41,13 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- No row installs on chart defaults. Six auxiliary workloads ship on — a reverse proxy in front of a door the collector already dials, a synthetic-log DaemonSet, a test pod, and two caches — and each is a workload the estate never declared, so every one is disarmed explicitly.
+- No row installs on chart defaults. FIVE auxiliary workloads ship on — a reverse proxy in front of a door the collector already dials, a synthetic-log DaemonSet, a test pod, and two caches — and each is a workload the estate never declared, so every one is disarmed explicitly.
+- That census stops at five: `rollout_operator` and `minio` both ship off, so neither is owed a disarm, and a tombstone written against either proves nothing about a census it never ran. `rollout_operator` earns nothing under a single-binary topology regardless — it orders zone-aware restarts across statefulsets a single binary does not have.
 - Tenancy governs every signal it can reach: the selected metrics store row's tenancy column arms `auth_enabled` here alongside the trace and profile backends, so an escalation never leaves logs pooled under one tenant while metrics are org-isolated.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the selected topology as stack children under Pulumi diff.
-- `operate/observe#CHART_ROWS`: `_charts.loki` supplies chart and repo, and the row states `deploymentMode`, the three zeroed simple-scalable replica counts, the schema entry, the retention pair, filesystem storage, and the six disarmed auxiliaries.
+- `operate/observe#CHART_ROWS`: `_charts.loki` supplies chart and repo, and the row states `deploymentMode`, the three zeroed simple-scalable replica counts, the schema entry, the retention pair, filesystem storage, and the five disarmed default-on auxiliaries.
 - `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the gateway's `otlp_http/logs` exporter dials this door directly at 3100, which is why the nginx gateway earns nothing.
 - `grafana`(`.api/grafana.md`): the `logs` datasource plane resolves to this row's query address through the provisioned `loki` driver.
 - `clickhouse`(`.api/clickhouse.md`): the residence alternative for wide-event logs — a residence takes logs and traces where this row takes logs alone, and both can hold the signal only because the collector fans it.
@@ -55,11 +56,11 @@
 - Zero `write`, `read`, and `backend` replicas whenever `deploymentMode` is `SingleBinary`; the mode value alone leaves the chart's validator refusing to render.
 - State one `schemaConfig.configs` entry; the empty default is a server that will not start.
 - State retention as a pair — `limits_config.retention_period` with `compactor.retention_enabled` and a `delete_request_store`.
-- Disarm `gateway`, `lokiCanary`, `test`, `chunksCache`, and `resultsCache` explicitly, and leave the bundled `minio` off where the estate's own object plane is the one store.
+- Disarm `gateway`, `lokiCanary`, `test`, `chunksCache`, and `resultsCache` explicitly — that is the whole default-on set — and leave `minio` and `rollout_operator` where they ship, since both are already off and the estate's own object plane is the one store.
 - Arm `allow_structured_metadata` wherever OTLP attributes must survive, and read `auth_enabled` off the store row's tenancy column rather than stating it locally.
 
 [RAIL_LAW]:
 - Contract: `loki` chart values + the Loki server configuration the `loki` block renders
 - Owns: the log backend — its topology selection, schema and storage destination, retention and compaction, tenancy posture, and the auxiliary workload set
-- Accept: `deploymentMode: SingleBinary` with all three simple-scalable replica counts at zero; exactly one schema entry; the retention pair; `auth_enabled` from the store row's tenancy column; every auxiliary explicitly disarmed; the log door dialed directly at 3100
-- Reject: a mode selection without zeroing the other targets; an empty schema block; a retention period with no compactor leg; the nginx gateway, canary, test pod, or memcached tiers on defaults; the bundled MinIO beside the estate's object plane; a tenancy answer stated here rather than read from the store row
+- Accept: `deploymentMode: SingleBinary` with all three simple-scalable replica counts at zero; exactly one schema entry; the retention pair; `auth_enabled` from the store row's tenancy column; every DEFAULT-ON auxiliary explicitly disarmed; the log door dialed directly at 3100
+- Reject: a mode selection without zeroing the other targets; an empty schema block; a retention period with no compactor leg; the nginx gateway, canary, test pod, or memcached tiers on defaults; a disarm written against `minio` or `rollout_operator`, which ship off and whose tombstone reads as a census a row never ran; a tenancy answer stated here rather than read from the store row

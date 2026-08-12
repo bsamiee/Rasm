@@ -7,29 +7,29 @@
 ```text codemap
 ui/
 ├── src/
-│   ├── system/                # Component system: token, interaction, state-binding, locale, primitive owners
-│   │   ├── token.ts           # Design-token authority computing color and dimension as decode-gated data
-│   │   ├── act.ts             # Motion and interaction, discrete accessible events split from continuous gestures
-│   │   ├── atom.ts            # One state binding standing the app Layer graph behind the registry
-│   │   ├── cache.ts           # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
-│   │   ├── hook.ts            # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
-│   │   ├── vital.ts           # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
-│   │   ├── intl.ts            # Zero-package locale plane riding native Intl behind one cache
-│   │   └── primitive.ts       # Headless spine: the one styled recipe and the sanitize gate
-│   └── view/                  # View plane composing the system owners into five dense surfaces
-│       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode and live field validity
-│       ├── table.ts           # Data grid: models, virtual windows, and grid semantics under one TableState atom
-│       ├── overlay.ts         # Overlay owner: anchoring, sheets, and the command palette over one presence cohort
-│       ├── chart.ts           # Analytic charts: declarations, streams, and pivots over one Arrow plane
-│       └── export.ts          # Export plane: one serializer matrix, content-minted parcels, one egress port
+│   ├── system/           # Component system: token, interaction, state-binding, locale, primitive owners
+│   │   ├── token.ts      # Design-token authority computing color and dimension as decode-gated data
+│   │   ├── act.ts        # Motion and interaction, discrete accessible events split from continuous gestures
+│   │   ├── atom.ts       # One state binding standing the app Layer graph behind the registry
+│   │   ├── cache.ts      # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
+│   │   ├── hook.ts       # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
+│   │   ├── vital.ts      # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
+│   │   ├── intl.ts       # Zero-package locale plane riding native Intl behind one cache
+│   │   └── primitive.ts  # Headless spine: the one styled recipe and the sanitize gate
+│   └── view/             # View plane composing the system owners into five dense surfaces
+│       ├── form.ts       # Schema-driven forms: one kernel Schema owning wire decode and live field validity
+│       ├── table.ts      # Data grid: models, virtual windows, and grid semantics under one TableState atom
+│       ├── overlay.ts    # Overlay owner: anchoring, sheets, and the command palette over one presence cohort
+│       ├── chart.ts      # Analytic charts: declarations, streams, and pivots over one Arrow plane
+│       └── export.ts     # Export plane: one serializer matrix, content-minted parcels, one egress port
 └── viewer/
-    └── src/                   # Spatial tier, a second Nx project
-        ├── scene.ts           # Content-keyed GLB residency and environment dome behind the GlbViewport port
-        ├── geo.ts             # Geospatial surface: one shared WebGL context as a pure layer value tree
-        ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
-        ├── panel.ts           # Wire materializer rendering the shell control vocabularies through the owners
-        ├── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
-        └── review.ts          # Model review: Wire.ModelDiff and Wire.BcfTopic joined per GlobalId into board rows and echoes
+    └── src/              # Spatial tier, a second Nx project
+        ├── scene.ts      # Content-keyed GLB residency and environment dome behind the GlbViewport port
+        ├── geo.ts        # Geospatial surface: one shared WebGL context as a pure layer value tree
+        ├── mark.ts       # GlobalId mark plane: one selection atom every pick pipeline folds into
+        ├── panel.ts      # Wire materializer rendering the shell control vocabularies through the owners
+        ├── probe.ts      # Render evidence: benchmarks paired with wire-decoded receipts, never gating
+        └── review.ts     # Model review: Wire.ModelDiff and Wire.BcfTopic joined per GlobalId into board rows and echoes
 ```
 
 ## [02]-[STRATA]
@@ -39,7 +39,7 @@ ui/
 - S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
 - S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
 - S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
-- S2 `probe` renders its claim board through `view/table` `Grid` rows and `view/chart` series; `panel` folds receipts on the store.
+- S2 `probe` renders its claim board through `view/chart` series; `panel` folds receipts on the store.
 - S2 evidence taps and long-frame evidence arrive through the `hook` and `vital` floor owners, `runtime`'s CWV owner over the same point.
 
 ```mermaid

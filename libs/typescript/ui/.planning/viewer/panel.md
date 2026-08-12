@@ -4,11 +4,11 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 
 ## [01]-[INDEX]
 
-- [02]-[EVENT_FOLD]: the keyed shell fold, the gate slot, and the receipt-reconciled optimistic round trip; `Panel`.
-- [03]-[PHASE_RENDER]: the phase and degradation tone axes, the affordance projection, the coercion diff and stamp rows; `Panel`.
-- [04]-[WIDGET_RENDER]: the kind-exhaustive part-and-children fold, the emphasis ladder, the chrome projection; `Panel`.
-- [05]-[CONTROL_SINKS]: the locally-minted interaction union, exhaustive routing, intent egress; `Panel`.
-- [06]-[LAYOUT_SOLVE]: the wire-order kiwi fold, edit-variable drag, the four-axis determinism law; `Panel`.
+- [02]-[EVENT_FOLD]: keyed shell fold, gate slot, receipt-reconciled optimistic round trip, pivot-board boundary; `Panel`.
+- [03]-[PHASE_RENDER]: phase and degradation tone axes, affordance projection, coercion diff and stamp rows; `Panel`.
+- [04]-[WIDGET_RENDER]: kind-exhaustive part-and-children fold, emphasis ladder, chrome projection; `Panel`.
+- [05]-[CONTROL_SINKS]: locally-minted interaction union, exhaustive routing over one Effect rail, intent egress; `Panel`.
+- [06]-[LAYOUT_SOLVE]: wire-order kiwi fold, edit-variable drag, four-axis determinism law; `Panel`.
 
 ## [02]-[EVENT_FOLD]
 
@@ -22,11 +22,12 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 - Law: this board is the wire-receipt optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
 - Law: stale optimism ages out — an optimistic slot older than the patience window (`_PATIENCE`, a `Duration` policy row) degrades to the in-flight affordance without reverting, keeping slow transports honest without fabricating failure.
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
-- Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, "16 millis")`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
+- Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, Duration.millis(16))`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
 - Law: imperative drivers read atomically — a non-React consumer (the solve seam, a test harness) reads and advances the board through `registry.modify(atom, f)`, value and next state in one step, never a get-then-set pair.
 - Boundary: the feed's transport and decode are `core`/app composition; the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
+- Boundary: a board of LINKED PIVOT panels is `view/chart#PIVOT_SURFACE`'s workspace grain composed whole, never a second roster folded here — the master panels contribute their selection-derived clauses through the transient overlay every detail panel reads, that whole arrangement persists as the one `Chart.Config` value, and a per-panel edit rides its `{panel}` patch. This board's key space is the shell's addressable CELL, and a perspective panel id is not one: seating pivot panels in it keys two vocabularies on one map and hands the overlay a second owner.
 
-```typescript
+```typescript signature
 import type { Clock, Wire } from "@rasm/ts/core"
 import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
 import type { Motion } from "../../src/system/act.ts"
@@ -104,14 +105,14 @@ const _drain = (
 
 [PHASE_RENDER]:
 - Owner: `Panel.tone` and `Panel.degrade` — the two closed styling axes, with `Panel.admit` the affordance projection over the second: `_tone` keys the binding-phase axis carrying tone and motion rows (`refused` pulses a `Motion` row, `coercing` shows the in-flight affordance), `_degrade` keys the producer's degradation axis carrying the tone and whether the level is evidence at all; the phase chip, the coercion diff (offered versus landed with the path as a breadcrumb), the receipt stamp (`Format.instant` on the `Hlc`'s wall half, `system/intl`), and the gate badge are the display rows every binding panel composes.
-- Law: each axis keys its own table — `satisfies Record<Panel.Phase, ...>` and `satisfies Record<Panel.Level, ...>`, so a wire vocabulary change on either axis breaks its own row at compile time and a phase or level conditional in a panel body marks the table unused. The axes never merge: phase is the binding's lifecycle, level is the host's degradation, and one joint table would multiply them into a cross product no producer emits.
+- Law: each axis keys its own table — `satisfies Record<Panel.Phase, ...>` and `satisfies Record<Panel.Level, ...>`, so a wire vocabulary change on either axis breaks its own row at compile time and a phase or level conditional in a panel body marks the table unused. Axes never merge: phase is the binding's lifecycle, level is the host's degradation, and one joint table multiplies them into a cross product no producer emits.
 - Law: `Panel.admit` is the one affordance read and it is TOTAL — `disabled` is the gate's `available` inverted, tone and badge visibility are its `level` row, and an EMPTY gate slot projects `_CLOSED`: inert, and silent about a level the producer never stated. Absence seeds CLOSED because the producer's own `CanExecute` stream seeds `false` before its first emission; seeding open renders every affordance live in the window before its first verdict lands, and the press then meets a deck that refuses.
 - Law: CLOSED answers a MISSING verdict, never a missing command — a widget whose binding names no command key awaits nothing, so it projects `_OPEN` and the gate join runs on the command-bearing widgets alone; folding the two absences together renders every label, every readout, and every uncommanded field permanently inert.
 - Law: a coercion is information, not an error — the diff renders as neutral evidence (the C# side coerced and landed the write); only `refused` renders on the danger tone and feeds the round-trip revert.
 - Growth: a producer degradation level is one `_degrade` row and a binding phase one `_tone` row — the core vocabulary lands first, and each table fails at its declaration until its row exists.
 - Boundary: chip/badge primitives are `system/primitive` recipes; plural and status text is `Message`'s (`system/intl`), so the badge's reason resolves from the level key through a catalog row and no level text is authored here.
 
-```typescript
+```typescript signature
 const _tone = {
   bound: { tone: "success", motion: Option.none<Motion.Hold>() },
   coercing: { tone: "accent", motion: Option.none<Motion.Hold>() },
@@ -119,7 +120,7 @@ const _tone = {
   detached: { tone: "neutral", motion: Option.none<Motion.Hold>() },
 } as const satisfies Record<Panel.Phase, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
 
-// the producer's rows in its own rank order; `full` is the undegraded floor and is the one level carrying no badge
+// producer's rows hold its own rank order; `full` is the undegraded floor and the one level carrying no badge
 const _degrade = {
   full: { tone: "neutral", evident: false },
   "reduced-remote": { tone: "accent", evident: true },
@@ -134,7 +135,7 @@ declare namespace Panel {
 
 const _CLOSED: Panel.Affordance = { ..._degrade.full, disabled: true }
 
-// the uncommanded floor: no verdict is owed, so none is awaited
+// uncommanded widgets take this floor: no verdict is owed, so none is awaited
 const _OPEN: Panel.Affordance = { ..._degrade.full, disabled: false }
 
 const _admit = (row: Panel.Row): Panel.Affordance =>
@@ -147,11 +148,11 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 ## [04]-[WIDGET_RENDER]
 
 [WIDGET_RENDER]:
-- Owner: `Panel.arms` — the ONE kind-exhaustive fold over the decoded widget vocabulary, each arm answering both facts a mount needs: the part key the view row binds and the child intents the walk descends; `Panel.chrome(board, intent)` the projection joining that fold with the emphasis ladder, the icon slot, the motion hold, and the affordance the board's own rows carry; `_EMPHASIS` the producer's emphasis ladder read onto one tone plus one non-colour fill.
+- Owner: `Panel.arms` — the ONE kind-exhaustive fold over the decoded widget vocabulary, each arm answering both facts a mount needs: the part key the view row binds and the child intents the walk descends; `Panel.chrome(board, intent)` the projection joining that fold with the emphasis ladder, the icon slot, the motion hold, and the affordance the board's own rows carry; `_EMPHASIS` the producer's emphasis ladder read onto one tone and one non-colour fill.
 - Packages: `@rasm/ts/core` (`ControlIntent` — the decoded widget union, discriminated on the `kind` column its producer ships); `effect` (`Array`, `HashMap`, `Match`, `Option`); `../../src/system/token.ts` (`Theme.Tone`); `../../src/system/act.ts` (`Motion.Hold`).
-- Law: ONE fold answers every per-kind question — a part table beside a children walk is two exhaustiveness proofs over one key space that drift the moment a kind lands in one and not the other, so `_arms` returns the pair and `Panel.part`/`Panel.children` are projections of it. A kind whose part narrows on its own posture, form, or temporal column reads that column off its own arm, because the narrowing belongs with the value carrying it.
+- Law: ONE fold answers every per-kind question — a part table beside a children walk is two exhaustiveness proofs over one key space that drift the moment a kind lands in one and not the other, so `_arms` returns the pair and `Panel.part`/`Panel.children` are projections of it. Kinds whose part narrows on their own posture, form, or temporal column read that column off their own arm, because the narrowing belongs with the value carrying it.
 - Law: the fold is TOTAL by the producer's own key space — `Match.discriminatorsExhaustive("kind")` over the decoded union means a kind the producer adds is a compile break at this table, never a render-time fallthrough, and the leaf arms are spelled rather than swept by a default precisely so a new NESTING kind cannot silently answer with no children.
-- Law: emphasis resolves to TONE plus a non-colour FILL — the producer's six-row ladder is two axes at this head, and the folder's one-tone-per-element ruling means only the semantic axis reaches the palette while quiet, soft, inverted, and link postures ride the recipe's own variant; a second tone column would resolve two palettes onto one control.
+- Law: emphasis resolves to TONE and a non-colour FILL — the producer's six-row ladder is two axes at this head, and the folder's one-tone-per-element ruling means only the semantic axis reaches the palette while quiet, soft, inverted, and link postures ride the recipe's own variant; a second tone column resolves two palettes onto one control.
 - Law: this module holds NO styling literal — tone keys the token roster, fill keys a recipe variant `system/primitive` owns, motion keys a `Motion.Hold` row, and the class string is composed where the view row calls `Primitive.styled`; a hex value, a utility string, or a pixel here forks the authority `system/token` closes.
 - Law: an icon is a SLOT, never a resolved image — the asset key, placement, and size cross verbatim and the app-wired asset source answers the glyph, so a decoded intent never carries pixels and both heads mount the same slot from the same three columns.
 - Law: motion ranks refusal over work — a refused write pulses through the phase row even while its control is pending, because the repair the user owes outranks the work the host is doing; below it a pending icon spins and an indeterminate progress reads its form's own hold, and a determinate fraction holds nothing at all.
@@ -160,7 +161,7 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 - Boundary: mounting a part is the view layer's — this module is pure projection and imports no component, so the part key is the seam a view row resolves against its own registry; label, header, and hint TEXT resolves through `system/intl` from the key columns, and the constraint program named by a container arm is `[06]`'s to solve.
 - Growth: a producer kind is one `_arms` row; a producer emphasis is one `_EMPHASIS` row; a new indeterminate progress form is one `_INDETERMINATE` row — zero dispatch edits and zero new surface.
 
-```typescript
+```typescript signature
 import type { Wire } from "@rasm/ts/core"
 import { Array } from "effect"
 
@@ -181,7 +182,7 @@ const _EMPHASIS = {
   link: { tone: "accent", fill: "link" },
 } as const satisfies Record<Panel.Emphasis, { readonly tone: Theme.Tone; readonly fill: Panel.Fill }>
 
-// the posture, form, and temporal sub-tables: each closes over ONE arm's own column, so the narrowing that picks a
+// posture, form, and temporal sub-tables each close over ONE arm's own column, so the narrowing that picks a
 // part reads the value that carries it instead of a second keying of the whole widget space
 const _COLOR = { inline: "ColorArea", flyout: "ColorPicker" } as const
 const _SELECT = { closed: "Select", editable: "ComboBox" } as const
@@ -191,7 +192,7 @@ const _CHIP = { static: "Tag", toggle: "ToggleButton", removable: "Tag" } as con
 const _PROGRESS = { bar: "ProgressBar", ring: "Meter", skeleton: "Skeleton" } as const
 const _TEMPORAL = { date: "DatePicker", time: "TimeField", datetime: "DatePicker", range: "DateRangePicker" } as const
 
-// the indeterminate holds: a progress with no fraction reads its form's own sustained row
+// indeterminate holds live here: a progress with no fraction reads its form's own sustained row
 const _INDETERMINATE = { bar: "pulse", ring: "spin", skeleton: "pulse" } as const satisfies Record<
   Panel.Arm<"progress">["form"],
   Motion.Hold
@@ -199,7 +200,7 @@ const _INDETERMINATE = { bar: "pulse", ring: "spin", skeleton: "pulse" } as cons
 
 const _NONE: ReadonlyArray<Wire.ControlIntent> = []
 
-// the generic keeps each arm's part LITERAL, so `Panel.Part` derives from the fold instead of standing beside it
+// generic parameter keeps each arm's part LITERAL, so `Panel.Part` derives from the fold instead of standing beside it
 const _node = <P extends string>(part: P, children: ReadonlyArray<Wire.ControlIntent> = _NONE) => ({ part, children })
 
 const _arms = Match.type<Wire.ControlIntent>().pipe(
@@ -224,7 +225,7 @@ const _arms = Match.type<Wire.ControlIntent>().pipe(
     breadcrumb: () => _node("Breadcrumbs"),
     tooltip: () => _node("Tooltip"),
     menu: () => _node("Menu"),
-    // the nesting arms: the grid contributes its cell AND its editor, because an editing template a walk never
+    // nesting arms descend: the grid contributes its cell AND its editor, because an editing template a walk never
     // reaches is a column that cannot enter edit
     emptyState: (intent) => _node("EmptyState", intent.action === null ? _NONE : [intent.action]),
     grid: (intent) =>
@@ -287,14 +288,15 @@ const _children = (intent: Wire.ControlIntent): ReadonlyArray<Wire.ControlIntent
 - Packages: `effect` (`Match`); `../../src/system/hook.ts` (`Hook`).
 - Law: this union is LOCALLY minted and wears no wire family name — no C# page produces an orbit, a section, or a measure, so the vocabulary homes at the surface that mints it and the `ControlIntentWire` name stays the producer's widget family; a consumer vocabulary wearing a producer's family name is the fabrication `typescript:core` `RULINGS.md` `[02]-[SHAPE]` forecloses.
 - Law: one discriminant, spelled once — the union discriminates on `kind` exactly as the decoded widget family does, so this page carries one dispatch spelling and an egress record needs no tag-to-kind mapping on the way to the gateway.
-- Law: each case has exactly one owning plane — `orbit`/`pan` mint `Camera.Intent` values through `geo#CAMERA`'s adapters (a yaw/pitch or dx/dy delta becomes an `EaseTo` over the live camera state); `select` mints `Selection.Op` (`additive` selects `Add` versus `Replace` — modality in the op value, `mark`'s law); `focus` mints a fit intent over the target's bounds; `section` and `measure` land on the scene-tool rows `scene` earns — one sink, one plane, never a case handled twice.
-- Law: sinks are app-composed — the shell binds each sink to the owning plane's atom write at composition; this module never imports the planes, because the record IS the seam and a direct plane import couples the panel to every surface it drives.
+- Law: each case has exactly one owning plane — `orbit`/`pan` hand their delta to the SAME recognizer-to-intent seam `system/act#CONTINUOUS_OWNER` opens, a `Gesture.Reading` the owning plane's `emit` folds over live camera state into `viewer/geo#CAMERA`'s `Camera.gestured`, because a control-driven orbit and a dragged one are the same axis arriving by a different route; `select` mints `Selection.Op` (`additive` selects `Add` versus `Replace` — modality in the op value, `mark`'s law); `focus` mints a fit intent over the target's bounds; `section` and `measure` land on `scene#DRAW_COLLAPSE`'s tool rows — `Glb.section(tree, plane)` and `Glb.measure(tree, from, to)` over the accelerated BVH surface, the sink adapting its `origin`/`normal` payload through `Plane.setFromNormalAndCoplanarPoint` at the shell edge — one sink, one plane, never a case handled twice.
+- Law: a control NEVER re-mints a camera intent — the camera shape, its extra axes, and its intent family are the projection plane's, and that plane already folds a reading to the destination it is at, so a second mint here forks the fold and eases an intent the plane deliberately jumps; the recogniser floor and this surface are two producers of ONE reading, which is exactly what makes a dragged orbit and a pressed one indistinguishable in the replay journal.
+- Law: sinks are app-composed and EFFECT-shaped — the shell binds each sink to the owning plane's atom write at composition, every handler answers an `Effect` on the same rail `Panel.egress` publishes to, and this module never imports the planes because the record IS the seam. `void` handlers force the shell to run an effect at the call site, which is the fire-and-forget seam a replayable routing law cannot have; a direct plane import couples the panel to every surface it drives.
 - Law: payloads are carriage — `yaw`/`pitch`, `dx`/`dy`, `targets`/`additive`, section `origin`/`normal`, measure `from`/`to`, focus `target` land verbatim on the sink; an out-of-range value is upstream evidence. Routing is replayable — every interaction lands as an op/intent value on a plane's fold, composing with `History` undo and the probe plane exactly like a locally-recognized gesture.
-- Law: interactions emit values, never calls — an affordance mints an egress record (the kind with its payload) written to the app-wired command gateway; the gateway owns encode and transport, and this module never encodes, never names a transport. Affordance state rides atoms — active tool, additive modifier, in-flight measure endpoint live in `Atom.family` rows keyed by control id, RAC components running controlled. Availability gates RENDER, never dispatch — a widget's `isDisabled` prop and its degradation badge are `Panel.chrome`'s affordance over that widget's own gate row, so an unavailable command renders inert with its level as tooltip evidence rather than failing on press, while `_route` stays ungated because an interaction carries no command key a verdict could match on.
+- Law: interactions emit values, never calls — an affordance mints an egress record (the kind with its payload) written to the app-wired command gateway; the gateway owns encode and transport, and this module never encodes, never names a transport. Affordance state rides atoms — active tool, additive modifier, in-flight measure endpoint live in `Atom.family` rows keyed by control id, RAC components running controlled. Availability gates RENDER, never dispatch — a widget's `isDisabled` prop and its degradation badge are `Panel.chrome`'s affordance over that widget's own gate row, so an unavailable command renders inert with its level as tooltip evidence rather than failing on press, while `_route` stays ungated because an interaction carries no command key for a verdict to match on.
 - Law: egress records publish once on the `rasm.ui.panel.egress` hook point (`system/hook`, observe modality) as they reach the command gateway — this page contributes the point and `Panel.egress(registry, gateway)` composes publish-before-send on one Effect rail, so telemetry taps, probe boards, and replay journals never wrap the gateway.
-- Growth: a new interaction is one union case plus one handler row; zero dispatch edits.
+- Growth: a new interaction is one union case and one handler row; zero dispatch edits.
 
-```typescript
+```typescript signature
 import { Hook } from "../../src/system/hook.ts"
 
 declare namespace Panel {
@@ -308,7 +310,8 @@ declare namespace Panel {
     | { readonly kind: "focus"; readonly target: string }
   type Gesture = Panel.Interaction["kind"]
   type Reach<K extends Panel.Gesture> = Extract<Panel.Interaction, { readonly kind: K }>
-  type Sinks = { readonly [K in Panel.Gesture]: (interaction: Panel.Reach<K>) => void }
+  // one rail: each handler answers an Effect, so routing and egress compose with no boundary adapter between them
+  type Sinks<E = never, R = never> = { readonly [K in Panel.Gesture]: (interaction: Panel.Reach<K>) => Effect.Effect<void, E, R> }
   // correlated mapped union: each egress record carries exactly its kind's payload, never an erased slot
   type Egress = { readonly [K in Panel.Gesture]: { readonly kind: K; readonly payload: Omit<Panel.Reach<K>, "kind"> } }[Panel.Gesture]
 }
@@ -325,7 +328,7 @@ const _egress = <E, R>(registry: Hook.Registry, gateway: (record: Panel.Egress) 
   (record: Panel.Egress): Effect.Effect<void, E, R> =>
     Effect.zipRight(Effect.asVoid(Hook.publish(registry, "rasm.ui.panel.egress", record)), gateway(record))
 
-const _route = (sinks: Panel.Sinks): ((interaction: Panel.Interaction) => void) =>
+const _route = <E, R>(sinks: Panel.Sinks<E, R>): ((interaction: Panel.Interaction) => Effect.Effect<void, E, R>) =>
   Match.type<Panel.Interaction>().pipe(Match.discriminatorsExhaustive("kind")(sinks))
 ```
 
@@ -339,7 +342,7 @@ const _route = (sinks: Panel.Sinks): ((interaction: Panel.Interaction) => void) 
 - Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
 - Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at the codec — the fold's vocabulary maps grow a row each, nothing else moves.
 
-```typescript
+```typescript signature
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
 import { Fault, type Wire } from "@rasm/ts/core"
 import { Effect, HashMap, Iterable, Schema, SynchronizedRef } from "effect"

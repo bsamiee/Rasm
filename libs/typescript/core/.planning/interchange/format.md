@@ -541,10 +541,11 @@ type _ArmRow = Arm.Row
 - Law: a row's `arm` names a core engine or stands empty, so the ONE format whose engine is host-bound declares that on its `degrade` rather than putting a `Buffer` in a core signature.
 - Law: `framed` reads the media-type PREFIX, so one read recovers both the format and the arity and a format's batch message envelope needs no second dispatch; a row carrying no batch message envelope is skipped by the batch pass rather than compared against a spelling it never publishes.
 - Law: `admit` binds an owned schema to the row's arm and is the ONE batch-encode owner, since no `Binding` the package ships carries a batch serializer at any transport.
+- Law: `fill` is the host-bound half of the same gate — a lane hands the engine's `Either`-railed byte pair for a row whose `arm` stands empty and the owned schema lands the tree exactly as a core arm's admission lands its frame, so `admit` and `fill` partition the roster on the arm column and a lane engine for a core-armed row refuses as a second mint.
 - Law: batch arity is the caller's schema, never a second entrypoint — a producer encoding a sequence passes `Schema.Array` and reads the row's own `batch` media type, which a format defining none refuses at the read.
 - Law: a producer past the transport budget splits before encoding, since a relay re-framing a batch cannot re-sign what it respelled.
 - Law: the JSON row delegates the message-envelope body to the package's own structured mode; the Protobuf row binds the generated CloudEvents descriptor, which the wire registry never admits.
-- Growth: a format is one row; a format gaining a core engine fills its `arm` and empties its `degrade`.
+- Growth: a format is one row; a format gaining a core engine fills its `arm` and empties its `degrade`, while a host-bound engine stays at its lane and enters through `fill`, the row's arm staying empty.
 - Boundary: content mode, transport headers, and per-binding thresholds seat at the consuming binding; this cluster owns the media roster and its framing alone.
 - Packages: `effect`; `@bufbuild/protobuf` (`DescMessage`); generated `./cloudevents_pb.ts`.
 
@@ -562,6 +563,12 @@ declare namespace EventFormat {
     readonly degrade: string
   }
   type Framing = { readonly format: Kind; readonly batch: boolean }
+  // Engine pairs cross `fill` on the Either rail for a host-bound seat: throws convert to that rail AT THE LANE, so
+  // no host type and no exception channel enters a core signature.
+  type Engine = {
+    readonly read: (octets: Uint8Array) => Either.Either<unknown, string>
+    readonly write: (value: unknown) => Either.Either<Uint8Array, string>
+  }
   type _Rows<T extends { readonly [K in Kind]: Row } = typeof _eventFormatRows> = T
 }
 
@@ -624,16 +631,50 @@ const _eventAdmit = <A, I>(
 ): Option.Option<Schema.Schema<A, Uint8Array>> =>
   Option.flatMap(_eventFormatRows[format].arm, (arm) => _armRows[arm].admit(owned, descriptor))
 
+// `fill` seats a host-bound engine: the composed admission is indistinguishable from a core arm's at the intake
+// gate, and a row whose arm a core engine fills REFUSES the fill — the format contract owns that codec identity,
+// and a lane engine beside it is a second mint.
+const _eventFill = <A, I>(
+  format: EventFormat.Kind,
+  engine: EventFormat.Engine,
+  owned: Schema.Schema<A, I>,
+): Option.Option<Schema.Schema<A, Uint8Array>> =>
+  Option.match(_eventFormatRows[format].arm, {
+    onSome: () => Option.none(),
+    onNone: () =>
+      Option.some(
+        Schema.compose(
+          Schema.transformOrFail(Schema.Uint8ArrayFromSelf, Schema.Unknown, {
+            strict: true,
+            decode: (octets, _, ast) =>
+              Either.match(engine.read(octets), {
+                onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, octets, refusal)),
+                onRight: (tree) => ParseResult.succeed(tree),
+              }),
+            encode: (tree, _, ast) =>
+              Either.match(engine.write(tree), {
+                onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, tree, refusal)),
+                onRight: (octets) => ParseResult.succeed(octets),
+              }),
+          }),
+          owned,
+          { strict: false },
+        ),
+      ),
+  })
+
 const EventFormat: {
   readonly formats: typeof _eventFormats
   readonly rows: typeof _eventFormatRows
   readonly framed: typeof _framed
   readonly admit: typeof _eventAdmit
+  readonly fill: typeof _eventFill
 } = {
   formats: _eventFormats,
   rows: _eventFormatRows,
   framed: _framed,
   admit: _eventAdmit,
+  fill: _eventFill,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -647,6 +688,7 @@ declare namespace Format {
   namespace Event {
     type Row = EventFormat.Row
     type Framing = EventFormat.Framing
+    type Engine = EventFormat.Engine
   }
   type Shape = {
     readonly arms: typeof _arms

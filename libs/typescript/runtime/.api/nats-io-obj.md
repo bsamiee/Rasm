@@ -21,7 +21,7 @@
 |  [02]   | `ObjectStore`   | object surface | one surface; stream-vs-blob is a member selection on payload size                         |
 |  [03]   | `ObjectInfo`    | receipt        | the object fact — name, size, chunk, digest; `meta.options.max_chunk_size` rules chunking |
 |  [04]   | `ObjectResult`  | read result    | `data: ReadableStream<Uint8Array>`, `error: Promise<Error \| null>` — both are consumed   |
-|  [05]   | `PurgeResponse` | receipt        | from `delete`; removal evidence                                                           |
+|  [05]   | `PurgeResponse` | receipt        | from `delete`; removal evidence — a `@nats-io/jetstream` re-export, so the type imports from that peer, never this package's root |
 
 ## [03]-[ENTRYPOINTS]
 

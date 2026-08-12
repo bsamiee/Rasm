@@ -2,7 +2,7 @@
 
 Delivered assets admit, optimize, and land here through ONE category-general plane. An asset CATEGORY is a row — its declaration shape, its admission arm, its transform vocabulary, its `Derive.Plane` — and the spine, the entry pair, the receipts, the store, and the instrument rows are category-blind. The GPU family — glTF containers and KTX2 texture planes — is the FIRST row family, never the plane's identity: `Asset.gate` dispatches on the `category` tag the declaration already carries, each category's optimization is its own closed row vocabulary (the gltf-transform property graph, the `ktx` subcommand family), the provisioned `ktx` validator settles Khronos conformance on every KTX2 byte this plane mints, and every category plane is a `Derive.Plane` row on `object/file.md`'s one derivative spine, so container surgery and texture encodes land exactly like raster renditions. The proof of the shape is the next category's diff — a font atlas, a video container, a point cloud, a document family is one gate arm, one category plane, one `Asset.Row` kind, zero pipeline change; no second fanout, second libvips encoder, or second address scheme exists.
 
-Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error rather than a runtime refusal: every row table closes against the exported `Wire.Texture` anchor at its own declaration — `_PAYLOADS` on `Payload`, `_TRANSFERS` on `Transfer`, `_STORES` on `PlaneFormat`, `_LAYERS` on `LayerLaw`, `_MIPS` on `MipPolicy` — so a misspelled tag fails the mapped key, a dropped row fails completeness, and an invented row fails excess, all at the anchor and none at a call site. Wire legality is that anchor's `WirePayload` rather than a local re-derivation, and `_PRIMARIES` is the one leaf roster with no frozen twin — its keys are the vocabulary, and `_TRANSFERS` types its `primaries` column against them so the pair closes on itself. Payload class discriminates on the DFD `colorModel`, never `vkFormat`. `ktx` is every branch's KTX2-encode floor: block compression admits only 8-bit stores — unrepresentable otherwise — and a deep plane ships uncompressed with its Vulkan format set. Rosters are stated closed, never `ALL_EXTENSIONS`; raster re-encoding rides the one sharp owner and `ktx-parse` never writes (both refused at `RULINGS.md`); `assets/<digest>/<file>` is the iac `_addressedAll` ↔ ui `Glb.assetDir` pair — this plane emits blobs and receipts, never addresses.
+Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error rather than a runtime refusal: every row table closes against the exported `Wire.Texture` anchor at its own declaration — `_PAYLOADS` on `Payload`, `_TRANSFERS` on `Transfer`, `_STORES` on `PlaneFormat`, `_LAYERS` on `LayerLaw`, `_MIPS` on `MipPolicy` — so a misspelled tag fails the mapped key, a dropped row fails completeness, and an invented row fails excess, all at the anchor and none at a call site. Wire legality is that anchor's `WirePayload` rather than a local re-derivation, and `_PRIMARIES` is the one leaf roster with no frozen twin — its keys are the vocabulary, and `_TRANSFERS` types its `primaries` column against them so the pair closes on itself. Payload class discriminates on the DFD `colorModel`, never `vkFormat`. The ktx declaration has TWO sources over that one anchor — a caller's own, and the decoded set document `core/interchange/codec#LANDING_WIRE` lands as `Wire.TextureSet`, whose channel rows this plane projects per row and re-proves per container. `ktx` is every branch's KTX2-encode floor: block compression admits only 8-bit stores — unrepresentable otherwise — and a deep plane ships uncompressed with its Vulkan format set. Rosters are stated closed, never `ALL_EXTENSIONS`; raster re-encoding rides the one sharp owner and `ktx-parse` never writes (both refused at `RULINGS.md`); `assets/<digest>/<file>` is the iac `_addressedAll` ↔ ui `Glb.assetDir` pair — this plane emits blobs and receipts, never addresses.
 
 ## [01]-[INDEX]
 
@@ -13,17 +13,26 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 ## [02]-[ASSET_GATE]
 
 - Owner: category rows dispatch `Asset.gate`; `AssetFault` closes every reason through `Fault.Class.family`.
-- Packages: Khronos, glTF Transform, meshoptimizer, `effect`, and core `Digest`, `Fault`, and `Wire.Texture` supply the plane.
-- Entry: `Asset.gate(bytes, declared, key)` before any delivered asset reaches the store or a viewer manifest; the declaration's `category` selects the arm, and the ktx read re-runs inside the `ktx` engine's emit, so the encoder's own product proves itself before admission.
-- Receipt: per category — the `ktx` arm answers the classification `{ payload, primaries, width, height, levels, layers, layerLaw, transcodes, vram }`, where `transcodes` derives from the payload CLASS (`uastc` and `etc1s` transcode, `none` uploads direct) never from `vkFormat`, and `vram` is the uncompressed GPU footprint the transfer byte count cannot state; the `container` arm answers the census `{ extensions, report, textures }` off the proven document.
+- Packages: Khronos, glTF Transform, meshoptimizer, `effect`, and core `Digest`, `Fault`, `Wire.Texture`, and `Wire.TextureSet` supply the plane.
+- Entry: `Asset.gate` before any delivered asset reaches the store or a viewer manifest — `(bytes, declared, key)` where a caller states the declaration, `(set)` where a decoded `Wire.TextureSet` carries it — and the ktx read re-runs inside the `ktx` engine's emit, so the encoder's own product proves itself before admission.
+- Receipt: per category — the `ktx` arm answers the classification `{ payload, primaries, width, height, levels, layers, layerLaw, transcodes, vram }`, where `transcodes` derives from the payload CLASS (`uastc` and `etc1s` transcode, `none` uploads direct) never from `vkFormat`, and `vram` is the uncompressed GPU footprint the transfer byte count cannot state; the `container` arm answers the census `{ extensions, report, textures }` off the proven document; the set arm answers `{ planes, unprojected }`, each plane carrying its role, its blob address, the projected declaration, the wire's semantic component count, the producer's fold policy, and the classification the roster proved.
 - Law: the raster declaration IS the probe shape and the gate folds the census itself, so every fact `object/file.md`'s composer computes is a fact this gate proves and a column added there needs no edit here; naming a subset left channel count and band depth measured on every admission and compared by none, so an eight-bit grayscale plane admitted against an `rgba8` consumer's declaration.
 - Law: the gate proves CHANNEL COUNT on the two block payloads its own law leaves unproven — `vkFormat` is `VK_FORMAT_UNDEFINED` on every transcoding payload, so nothing else on a `uastc` or `etc1s` container states how many channels it carries, and an `rgba8`-declared plane whose encoder emitted three admits silently into a material that samples alpha. `ImageUtils.getChannels` reads the DFD sample layout through the `image/ktx2` impl `KHRTextureBasisu.register()` installs, and its own contract is a CONSERVATIVE estimate, so the clause is a FLOOR: a container reporting fewer channels than the declared store names refuses, an over-report admits, and the impl's throw on an unrostered colorModel lifts through `Effect.try` exactly as the header read does.
 - Law: origin and swizzle are `keyValue` facts, never DFD facts, so they are proven where the encode leg STATED them — a create row carries what it assigned beside the declaration it proves, and the emit-side re-gate reads `KTXorientation` and `KTXswizzle` back off the container; a caller-side gate over a delivered file states no framing and proves the DFD facts alone. The two axes the plane spells flags for were the two it never read back, so a tool-version change in flag handling produced a silently flipped or re-ordered texture every other clause passed.
 - Law: the classification CARRIES the channel estimate the floor read, because that estimate is what an egress transcode decides on — a proven-three-channel payload leaves through the `rgb8` target the tool admits while a four-channel one cannot, and this gate has already parsed the container, so discarding the number forces delivery to re-open every object to recover a fact admission held; `object/file.md`'s proven-opacity retirement reaches its saving through exactly that route, since the frozen roster seats no three-channel plane STORE.
 - Law: [SPIKE] perceptual fidelity is UNAVAILABLE-BY-TOOL and the classification carries none. `ktx create --compare-ssim`/`--compare-psnr` print per-channel SSIM averages and a peak PSNR as free text on stdout, and the create verb publishes no report format — its own `--format` is the vkFormat enum, while the `text|json|mini-json` report option belongs to `validate` and `compare`, neither of which measures similarity; `compare` refuses mismatched texel-block dimensions outright, so an encoded plane never diffs against its uncompressed source. DETERMINISTIC FLOOR: `vram` beside the landed byte count states the transfer-versus-VRAM tradeoff in full and `ktx validate` settles conformance, so the receipt is complete on every axis a tool measures; a create-verb report format retires the marker and the metric lands as one classification column.
 - Law: the classification carries the GPU footprint beside the landed byte count — a Basis payload's transfer cost and its uploaded cost diverge by an order of magnitude, which is the whole reason this branch encodes Basis, and `ImageUtils.getVRAMByteLength` is the ONE correct read: summing `levels[].uncompressedByteLength` is documented ZERO under BASISLZ and may read zero under UASTC, so that sum is a forged measure and never written.
-- Growth: within the ktx family a payload class is one `_PAYLOADS` row, a transfer tag one `_TRANSFERS` row, a working space one `_PRIMARIES` row, a storage format one `_STORES` row, a layer law one `_LAYERS` row — every declaration type, wire-legal subset, and encoder argument derives from those tables, so a row is the only edit; a new CATEGORY's admission is one `[04]` gate arm beside one `Declared` member, never a second entry.
-- Law: the two proofs split by what each can know — the header read settles DECLARATION AGREEMENT (payload, store, transfer, primaries, alpha, layer shape, mips, extent are facts the caller declared and the container must match), and the provisioned `ktx validate` settles KHRONOS CONFORMANCE (level arithmetic, `typeSize`, DFD sample layout, BasisLZ global data, `KHR_texture_basisu` compatibility). Re-deriving the validator's arithmetic here forks the specification against the tool the whole estate encodes with.
+- Growth: within the ktx family a payload class is one `_PAYLOADS` row, a transfer tag one `_TRANSFERS` row, a working space one `_PRIMARIES` row, a storage format one `_STORES` row, a layer law one `_LAYERS` row — every declaration type, wire-legal subset, and encoder argument derives from those tables, so a row is the only edit; a new CATEGORY's admission is one `[04]` gate arm beside one `Declared` member, and a new declaration SOURCE is one arity on the same entrypoint, never a second entry.
+- Law: modality folds off the input's own ARITY — a caller triple states one declaration over bytes in hand, a lone decoded set states N over addresses this package already holds, and both ride ONE entrypoint because a set document is a second SOURCE of the ktx declaration rather than a fifth category: no `_ENGINES` row, `_GATES` arm, or `Asset.Row` kind moves, and `ObjectStore` widens the set arm's requirement channel alone.
+- Law: a wire column is the PRODUCER's claim where a declaration column is this loader's capability fact, so the projection trusts nothing it hands the gate — it supplies the declaration and nothing more, every clause of the roster re-runs against the fetched container, and a plane whose bytes contradict the document that addressed them refuses exactly as a caller's mis-declaration does.
+- Law: no mapping table stands between the wire's columns and this category's, because both close against the ONE frozen `Wire.Texture` anchor — payload, storage format, layer law, and alpha mode are the same key sets, so a projected value keys `_PAYLOADS`, `_STORES`, `_LAYERS`, and `[03]`'s `_MIPS` verbatim and a drifted roster fails at the anchor rather than at a projected column. Channel rows carry the scene-referred transfer SUBSET, so `pq` and `hlg` reach a declaration from a caller alone, and `blockFormat` reads as vacancy on every wire-legal payload.
+- Law: `mips` projects RAW because the wire cannot spell zero — the channel row's own positive refinement makes a `levelCount` of 0 unrepresentable, so a peer-produced container always ships the pyramid it declares and the loader-generated chain stays caller-stated; clamping or defaulting here admits a base-level-only container against a declaration promising a chain, on the one clause whose two zero-adjacent readings the gate already separates.
+- Law: SEMANTIC component count is not a declaration column — the channel floor reads STORAGE width off `_STORES[store].channels`, and the two diverge by construction where a direction triple stores two components and reconstructs the third — so the wire's count rides the projection product as the egress fact it is; the frozen definition's own width floor proved the pair at decode, and re-reading it against a storage column here refuses every lawful two-component normal plane.
+- Law: the wire's per-channel `mipPolicy` widens NO declaration column, because no container byte proves a resampling kernel and an asserted column reads as a measurement nothing took; it routes on the projection product to `[03]`'s `_MIPS`, whose keys are that same frozen policy vocabulary, so a re-encode of a projected plane folds under the producer's declared kernel instead of a caller default and the two policies `_MIPS` marks unfoldable supply their levels exactly as a caller's create row does.
+- Law: `colorSpace` and `store` project as ONE correlated column, because the wire authors `srgb` at every INTEGER depth where this declaration's union seats it on the block rows alone — a sixteen-bit colour plane is a lawful wire row no Vulkan format spells, so it refuses on the `transfer` reason rather than re-tagging to `linear`, which forks the shading value from the stored value on a plane nothing downstream re-reads.
+- Law: `layers` is a FOLD, never a copy — the set counts six faces under `cubeFaces` where this declaration counts stacked planes and reads one, so the projection reads the same `arrayed` and `volumetric` columns the layer clause proves against; the copy passes today only because that clause ignores the count on a non-stacking law, which is the silent agreement a later reader inherits as truth.
+- Law: the `container` column selects the arm and the declined half is CARRIED — only a `ktx2` row projects, and every other container names a file no ktx reader opens while a pack row carries no transfer, association, or payload column at all, so both ride the answer by slot and reason rather than vanishing; a self-pyramiding container fixes its address list at ONE entry whatever `mips` declares, so the fan is one declaration per channel row and never one per level.
+- Law: the two proofs split by what each can know — the header read settles DECLARATION AGREEMENT (payload, store, transfer, primaries, alpha, layer shape, mips, extent are facts the declaration states and the container must match), and the provisioned `ktx validate` settles KHRONOS CONFORMANCE (level arithmetic, `typeSize`, DFD sample layout, BasisLZ global data, `KHR_texture_basisu` compatibility). Re-deriving the validator's arithmetic here forks the specification against the tool the whole estate encodes with.
 - Law: the payload discriminant is `dataFormatDescriptor[0].colorModel` with `supercompressionScheme` — `uastc` rides `NONE`/`ZSTD`/`ZLIB`, `etc1s` rides `BASISLZ`, `none` is `RGBSDA` uncompressed-or-deflated, `astc` is the branch-local LDR acceleration — and every colorModel the roster names no row for lands on the `rawBcn` RESIDUE row, so a BC block file, an ETC2 file, and a corrupt descriptor all classify honestly and carry their raw model number in the refusal detail. Readers branching on `vkFormat` class every wire-legal payload as malformed.
 - Law: wire legality and declaration agreement are ONE comparison — `Wire.Texture.WirePayload` is read from the frozen anchor, so a `rawBcn` or `astc` file cannot equal any declared payload and refuses on the same equality the drift check runs; the branch's own basis-transcoder path cannot consume either.
 - Law: `vkFormat` is PROVEN, never read as the class — a transcoding payload MUST report `VK_FORMAT_UNDEFINED` (a supercompressed file carries no Vulkan format until transcode) and a `none` payload MUST report the enum its declared `_STORES` row names, so the deep store and the stored bytes cannot disagree.
@@ -33,7 +42,7 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 - Law: `levelCount` is mip truth with two zero-adjacent readings — `0` declares a base level whose pyramid the loader generates, `1` declares that no other level is meant to exist — so `mips` is compared RAW and the reported `levels` clamps; a block-compressed payload at `levelCount` 0 is disallowed by the container specification and refuses here, which is why the runtime-pyramid posture reaches the deep store alone.
 - Law: the glTF roster is CLOSED and proven — `registerExtensions` states exactly what this branch honors, `Root.listExtensionsUsed()` must fall inside it on the document read AND on the document each pipeline emits, and a foreign name refuses with the `extension` reason; the proof exists because an IO whose roster omits an extension the source used DROPS that extension's properties on the round trip, and `ALL_EXTENSIONS` is the refused roster because honoring vocabulary no consumer renders is the same silent loss deferred to the viewer.
 - Law: layer construction proves every seam the roster demands — every `_CODECS` module `ready` awaited and `supported` read as one capability gate (a kernel added to the roster is proven by construction, never by a second boot leg), `watlas.Initialize()` awaited on its own because the atlas module publishes readiness without a `supported` flag, `KHRTextureBasisu.register()` called so `ImageUtils` answers KTX2 extent, channels, and VRAM (the roster alone installs no impl), the meshopt encode METHOD pinned at construction so it is never a side effect of a level knob, and `setAllowNetwork(false)` pinned because the object plane supplies every resource by key — so no fold fails halfway through a document mutation and no sidecar ever fetches.
-- Boundary: bytes in hand alone — `readBinary`/`writeBinary` are the admitted IO pair; `read(uri)`/`NodeIO.write(uri, doc)` never enter a plane whose addresses are content keys.
+- Boundary: bytes in hand or a content key that fetches them — `readBinary`/`writeBinary` are the admitted IO pair; `read(uri)`/`NodeIO.write(uri, doc)` never enter a plane whose addresses are content keys.
 
 ```typescript signature
 import { Array, Effect, Option, Predicate, Record, Schema } from "effect"
@@ -179,6 +188,12 @@ declare namespace Asset {
   // the local aliases that used to restate them are gone: one hop from every site to the frozen roster
   type Block = { readonly [K in Wire.Texture.PlaneFormat]: (typeof _STORES)[K]["block"] extends true ? K : never }[Wire.Texture.PlaneFormat]
   type Primaries = keyof typeof _PRIMARIES
+  // an SRGB Vulkan target exists on the eight-bit rows alone, so a deep plane declaring srgb never spells. The
+  // correlated pair is NAMED because the wire projection answers exactly this half: a `Pick` off the intersection
+  // hands back two independent columns and the store proof the union carries stops travelling with the value
+  type Colored =
+    | { readonly colorSpace: "srgb"; readonly store: Block }
+    | { readonly colorSpace: Exclude<Wire.Texture.Transfer, "srgb">; readonly store: Wire.Texture.PlaneFormat }
   // the ktx category's declaration: the category tag IS the gate's dispatch evidence, so admission
   // discriminates on a fact the value carries, never a mode knob beside it
   type Ktx =
@@ -192,11 +207,7 @@ declare namespace Asset {
       readonly layers: number
       readonly layerLaw: Wire.Texture.LayerLaw
     }
-    & (
-      // an SRGB Vulkan target exists on the eight-bit rows alone, so a deep plane declaring srgb never spells
-      | { readonly colorSpace: "srgb"; readonly store: Block }
-      | { readonly colorSpace: Exclude<Wire.Texture.Transfer, "srgb">; readonly store: Wire.Texture.PlaneFormat }
-    )
+    & Colored
   // what a create leg ASSIGNED, carried beside the declaration it proves — origin and swizzle ride `keyValue`
   // and no DFD clause can reach them, so the emit-side re-gate is the only seam where they are readable at all.
   // `orientation` is the RESOLVED container value rather than the caller's corner key, because a converted source
@@ -242,6 +253,28 @@ declare namespace Asset {
     // four-channel one cannot, and re-measuring it at delivery re-opens the container this gate already parsed
     readonly channels: Option.Option<number>
     readonly vram: Option.Option<number> // the uploaded footprint; none where the impl reads no payload it knows
+  }
+  // `Wire.TextureSet` types every column of its own channel row off the frozen anchor, so this category reads them
+  // and re-spells none — a local mirror of the row is the second truth the anchor exists to stop
+  type Channel = Wire.TextureSet["channels"][number]
+  // one projected plane: the declaration the roster proved, the blob it proved against, and the two wire columns
+  // no declaration column can hold — the semantic count the gate's storage floor is not, and the producer's fold
+  type Projected = {
+    readonly role: Wire.Texture.Role
+    readonly address: Digest.Key<"content">
+    readonly declared: Ktx
+    readonly components: 1 | 3
+    readonly mipPolicy: Wire.Texture.MipPolicy
+    readonly classified: Classified
+  }
+  // nothing leaves the answer unnamed: the fan is explicit on both halves, so a caller reads which slots this
+  // category admitted and which it declined WITHOUT re-walking the document the projection already partitioned
+  type Projection = {
+    readonly planes: ReadonlyArray<Projected>
+    readonly unprojected: ReadonlyArray<{
+      readonly slot: Wire.Texture.Role | Wire.Texture.Pack
+      readonly reason: "container" | "packed"
+    }>
   }
 }
 
@@ -373,6 +406,86 @@ const _ktx2 = (bytes: Uint8Array, declared: Asset.Ktx, key: string, stated: Opti
       // arithmetic exactly because levels[].uncompressedByteLength reads 0 under BASISLZ and may under UASTC
       vram: yield* _probe(key, () => ImageUtils.getVRAMByteLength(bytes, _KTX2_MIME)),
     } satisfies Asset.Classified
+  })
+
+// `_STORES` answers its `block` column as a REFINEMENT here, so the wire's own format value narrows onto the
+// declaration's block subset and travels there proven; a seam cast hands it on with nothing carrying the proof
+const _blocked = (store: Wire.Texture.PlaneFormat): store is Asset.Block => _STORES[store].block
+
+// Refusal reads `transfer` rather than `gate` because the store is legal and the PAIR is not, so a caller reading
+// that reason routes the plane to a re-encode instead of hunting a malformed container
+const _colored = (row: Asset.Channel): Effect.Effect<Asset.Colored, AssetFault> =>
+  row.transfer === "srgb"
+    ? Effect.map(
+        Effect.filterOrFail(
+          Effect.succeed(row.format),
+          _blocked,
+          (store) => new AssetFault({ reason: "transfer", key: row.role, detail: `srgb ${store}` }),
+        ),
+        (store) => ({ colorSpace: "srgb" as const, store }),
+      )
+    : Effect.succeed({ colorSpace: row.transfer, store: row.format })
+
+// ONE declaration per channel row, every column carrying the law that narrows it: both sides close against the
+// same frozen anchor, so a column agreeing in NAME still states where its domain diverges from the wire's
+const _declared = (row: Asset.Channel, set: Wire.TextureSet) =>
+  Effect.map(_colored(row), (colored) =>
+    ({
+      category: "ktx" as const,
+      // extent and stacking are SET facts: every plane of one set shares them and a channel row declares neither
+      width: set.width,
+      height: set.height,
+      layerLaw: set.layerLaw,
+      // set-level `layers` counts six FACES under `cubeFaces` where this column counts STACKED planes and reads one,
+      // so the fold reads the two `_LAYERS` columns the layer clause proves against; a copy passes while nothing looks
+      layers: _LAYERS[set.layerLaw].arrayed || _LAYERS[set.layerLaw].volumetric ? set.layers : 1,
+      // association is a per-FILE descriptor flag, so the row's own narrowing to `none` wins over the set declaration
+      alphaMode: row.alphaMode,
+      ktxPayload: row.ktxPayload,
+      // RAW and never clamped: the wire column's own positive refinement leaves levelCount 0 unspellable, so a
+      // peer-produced container ships the pyramid it declares and the loader-folded chain stays caller-stated
+      mips: row.mips,
+      ...colored,
+    }) satisfies Asset.Ktx)
+
+// Decoded sets enter as an admission SOURCE: the `container` column selects the arm, this projection supplies the
+// declaration and nothing else, and the whole clause roster above re-runs against the producer's own bytes — a wire
+// column is the producer's CLAIM where a declaration column is this loader's capability fact
+const _projection = (set: Wire.TextureSet) =>
+  Effect.gen(function* () {
+    const store = yield* ObjectStore
+    const [outside, admitted] = Array.partition(set.channels, (row) => row.container === "ktx2")
+    return {
+      // one plane at a time: each proof holds a whole container resident and a roster-full set fans wide, so a
+      // concurrent read multiplies peak residency to buy nothing on a header parse
+      planes: yield* Effect.forEach(admitted, (row) =>
+        Effect.gen(function* () {
+          const declared = yield* _declared(row, set)
+          // ONE address whatever `mips` declares — a self-pyramiding container holds its own levels — so the fan is
+          // one declaration per CHANNEL ROW and a per-level fan would re-address the same blob at every rank
+          const [{ address }] = row.levels
+          // refusals key on the ROSTER ROLE, the coordinate a set holds exactly one of: an address names the
+          // blob and never the slot a consumer was left unable to fill
+          const bytes = yield* Effect.mapError(
+            store.get(address),
+            (fault) => new AssetFault({ reason: "gate", key: row.role, detail: fault.detail }),
+          )
+          return {
+            role: row.role,
+            address,
+            declared,
+            components: row.channels, // the SEMANTIC count; the floor inside the proof read STORAGE width off `_STORES`
+            mipPolicy: row.mipPolicy, // the producer's declared fold, keying `[03]`'s `_MIPS` verbatim
+            classified: yield* _ktx2(bytes, declared, row.role, Option.none()),
+          }
+        })),
+      // a pack row carries no transfer, association, or payload column at all, so projecting one INVENTS three
+      // declaration facts; it rides here by slot beside every non-ktx2 row rather than vanishing from the answer
+      unprojected: [
+        ...Array.map(set.packs, (row) => ({ slot: row.pack, reason: "packed" as const })),
+        ...Array.map(outside, (row) => ({ slot: row.role, reason: "container" as const })),
+      ],
+    } satisfies Asset.Projection
   })
 
 const _EXTENSIONS = [
@@ -1323,6 +1436,12 @@ declare namespace Asset {
   }
   type Cloud = { readonly points: number; readonly primitives: number } // the point census the gate proves and the fold re-tallies on its own product
   type Proved = { readonly container: Asset.Census; readonly ktx: Asset.Classified; readonly raster: Derive.Probe; readonly points: Asset.Cloud } // per-category proof shapes, keyed by the one category vocabulary
+  // admission modality IS the call's own arity — a triple states ONE caller declaration over bytes in hand and a
+  // singleton states N wire-projected declarations over addresses this store already holds, so the discriminant
+  // is the value the caller passes; a `source` knob beside one shape is the mode this tuple forecloses
+  type Admission<K extends Kind = Kind> =
+    | readonly [set: Wire.TextureSet]
+    | readonly [bytes: Uint8Array, declared: Extract<Declared, { readonly category: K }>, key: string]
   type Receipt = Effect.Effect.Success<ReturnType<(typeof _ENGINES)[Kind]>>[number] // the shipped extractor over the engine table: no hand-listed evidence union
   type Fan = Effect.Effect<
     ReadonlyArray<Receipt>,
@@ -1342,11 +1461,24 @@ class Asset extends Effect.Service<Asset>()("data/Asset", {
     const budget = yield* _refused("ktx", _proof) // tool refusal and spawn budget both derive from construction, never a caller flag
     const io = yield* _refused("container", _io)
     const held: Asset.Held = { io, budget }
+    // one category-polymorphic admission spans two arities: a declaration's own tag selects the category arm, its
+    // mapped contract types the proof, and a lone decoded set is the SAME concern reached from the wire — a second
+    // entrypoint beside this one forks admission by the declaration's provenance
+    function gate<K extends Asset.Kind>(
+      bytes: Uint8Array,
+      declared: Extract<Asset.Declared, { readonly category: K }>,
+      key: string,
+    ): Effect.Effect<Asset.Proved[K], AssetFault>
+    function gate(set: Wire.TextureSet): Effect.Effect<Asset.Projection, AssetFault, ObjectStore>
+    function gate<K extends Asset.Kind>(...admission: Asset.Admission<K>) {
+      // set admission carries no category tag because a set is a second declaration SOURCE, never a fifth category:
+      // no engine row, gate arm, or row kind moves, and the requirement channel widens on this arm alone
+      return admission.length === 1
+        ? _projection(admission[0])
+        : _GATES[admission[1].category](held, admission[0], admission[1], admission[2])
+    }
     return {
-      // the one category-polymorphic admission: the declaration's own tag selects the arm and the mapped
-      // contract types the proof, so a category-specific entry never grows beside this one
-      gate: <K extends Asset.Kind>(bytes: Uint8Array, declared: Extract<Asset.Declared, { readonly category: K }>, key: string) =>
-        _GATES[declared.category](held, bytes, declared, key),
+      gate,
       pipe: (sourceKey: Digest.Key<"content">, rows: ReadonlyArray<Asset.Row>): Asset.Fan =>
         Effect.forEach(Record.values(_ENGINES), (run) => run(held, sourceKey, rows)).pipe(
           Effect.map(Array.flatten),

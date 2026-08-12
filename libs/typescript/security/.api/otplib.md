@@ -94,7 +94,7 @@ HOTP requires `counter`; TOTP reads `period`, `epoch`, and `t0`. `generateURI` r
 - `afterTimeStep` rejects a TOTP token whose `timeStep` sits at or below the persisted floor, so replay defence is a verify option rather than a caller-side re-check.
 
 [STACKING]:
-- `@oslojs/crypto`(`.api/oslojs-crypto.md`): a plain `{ name, hmac, randomBytes, constantTimeEqual }` object over `hmac`, `constantTimeEqual`, and the WebCrypto-filled `RandomReader` satisfies `CryptoPlugin`, and `authn/otp` passes it as `{ crypto }` — one HMAC primitive for the folder, the bundled `@noble/hashes` path bypassed.
+- `@noble/hashes`(`.api/noble-hashes.md`): a plain `{ name, hmac, randomBytes, constantTimeEqual }` object over noble's `hmac`, the folder-owned `_sameBytes`, and the `Entropy`-port `randomBytes` satisfies `CryptoPlugin`, and `authn/otp` passes it as `{ crypto }` — one HMAC primitive for the folder, composed directly rather than through otplib's bundled `NobleCryptoPlugin`.
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): `encodeBase32UpperCaseNoPadding` and `decodeBase32` satisfy `Base32Plugin.encode` and `.decode`, holding every base32 rendering on one owner.
 - `@otplib/core`(`.api/otplib-core.md`): sub-import reaches `createCryptoPlugin` and `createBase32Plugin` for named port construction, `OTPHooks` for a non-numeric alphabet through `hooks?`, and the guardrail caps behind `guardrails?`.
 - `@node-rs/argon2`(`.api/node-rs-argon2.md`): recovery codes sit outside this package — `generateSecret` or `generateRandomString` mints them and argon2 `hash` digests them at rest.

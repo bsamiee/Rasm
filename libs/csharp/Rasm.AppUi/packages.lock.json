@@ -3203,7 +3203,6 @@
           "CSparse": "[4.4.0, )",
           "Clipper2": "[2.0.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
-          "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",

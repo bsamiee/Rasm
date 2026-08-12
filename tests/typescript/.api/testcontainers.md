@@ -4,11 +4,13 @@
 - package: `testcontainers` · license `MIT`
 - module: CommonJS (`type: commonjs`; `main: build/index.js`, `build/index.d.ts`); no ESM/subpath map — the whole surface is the one barrel.
 - asset: `build/index.d.ts`; drives the container runtime through `dockerode` + `undici` + `docker-compose` (bundled deps).
-- runtime: node-only; requires a Docker-API-compatible engine on `DOCKER_HOST` (Docker / Colima / Podman — the Forge owns the local Colima socket). NOT platform-neutral: no browser, no bun-wasm. A `Ryuk`/reaper sidecar auto-reaps leaked containers.
+- runtime: node `>= 22.22`, declared and matching what its own dependency floor demands; requires a Docker-API-compatible engine on `DOCKER_HOST` (Docker / Colima / Podman — the Forge owns the local Colima socket). NOT platform-neutral: no browser, no bun-wasm. `Ryuk` rides along as a reaper sidecar and auto-reaps leaked containers.
 - plane: `plane:dev` — the `_testkit` container lane (real server); the fast in-process counterpart is `electric-sql-pglite.md` (WASM pg, no server extensions).
 - rail: persistence-verification / real-server harness.
 
-`testcontainers` is the real-server half of the `_testkit` harness (`tests/typescript/_testkit`) — the lane for what the pglite WASM unit lane cannot serve: SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) and a real S3-compatible object store for presign/round-trip verification. Both images pin in `tests/containers.json` — the kit's typed pin reader resolves the `pg` and `store` rows, and no suite or catalog carries a literal image string; the whole package is ONE parameterized builder: `GenericContainer(image)` carries a fluent `with*` chain and yields a `StartedTestContainer` handle exposing the container's mapped host port; the `_testkit` container-lane "rows" — the pinned pg server-extension image and the S3-compatible object store — are NOT two container classes; they are two DATA rows (image + exposed ports + environment + wait-strategy) feeding the same builder. A new lane is a row, never a new mechanism. Every started handle is `AsyncDisposable`, which is the exact seam onto `Effect.acquireRelease` — the container becomes a scoped Effect `Layer` shared across a spec block via `@effect/vitest` `layer(...)`, identical in shape to the pglite unit Layer but bound to a real engine.
+`testcontainers` serves the real-server half of the `_testkit` harness (`tests/typescript/_testkit`) — the lane pglite's WASM unit lane cannot reach: SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) and a real S3-compatible object store for presign and round-trip verification. Both images pin in `tests/containers.json`, the kit's typed pin reader resolves the `pg` and `store` rows, and no suite or catalog carries a literal image string.
+
+One parameterized builder spans the whole package: `GenericContainer(image)` carries a fluent `with*` chain and yields a `StartedTestContainer` exposing the container's mapped host port. Container-lane rows are DATA — image, exposed ports, environment, wait strategy — so a new lane is a row, never a new mechanism, and every started handle is `AsyncDisposable`, the exact seam onto `Effect.acquireRelease`.
 
 ## [01]-[CONTAINER_BUILDER]
 
@@ -80,9 +82,11 @@ type ExecResult = { output: string; stdout: string; stderr: string; exitCode: nu
 
 `Wait` is the readiness-gate factory — a container is "started" only when its wait strategy resolves, so each lane's row includes a wait strategy matched to its image's ready signal. This is one parameterized family: `forLogMessage` for a pg ready-log, `forHttp(...).forStatusCode(...)` for an S3 health endpoint, `forHealthCheck` for a container `HEALTHCHECK`, `forAll` to compose; the `HttpWaitStrategy` carries its own fluent refinement chain.
 
+Every row leaving its gate unset inherits the image's own `HEALTHCHECK` and falls back to listening ports only where the image declares none — so naming the gate is what puts readiness under estate control, and swapping to an image without a healthcheck silently coarsens every unnamed gate.
+
 | [INDEX] | [SURFACE]                                   | [PRODUCES]              | [CAPABILITY]                                                |
 | :-----: | :------------------------------------------ | :---------------------- | :---------------------------------------------------------- |
-|  [01]   | `Wait.forListeningPorts()`                  | `WaitStrategy`          | ready when exposed ports accept TCP (coarse default)        |
+|  [01]   | `Wait.forListeningPorts()`                  | `WaitStrategy`          | ready when exposed ports accept TCP — the coarsest gate     |
 |  [02]   | `Wait.forLogMessage(msg \| RegExp, times?)` | `WaitStrategy`          | ready on a log line N times — the pg `ready to accept` gate |
 |  [03]   | `Wait.forHealthCheck()`                     | `WaitStrategy`          | ready when the container `HEALTHCHECK` is healthy           |
 |  [04]   | `Wait.forHttp(path, port, opts?)`           | `HttpWaitStrategy`      | ready on an HTTP probe — the S3 `/minio/health/live` gate   |
@@ -127,6 +131,7 @@ declare class TestContainers { static exposeHostPorts(...ports: number[]): Promi
 declare function getContainerRuntimeClient(): Promise<ContainerRuntimeClient>   // detects Docker vs Colima vs Podman
 declare class DockerComposeEnvironment {
   constructor(composeFilePath: string, composeFiles: string | string[], uuid?: Uuid)
+  withDefaultWaitStrategy(waitStrategy: WaitStrategy): this      // one gate over EVERY service — the per-service override still wins
   withWaitStrategy(containerName: string, waitStrategy: WaitStrategy): this
   withProfiles(...profiles: string[]): this; withProjectName(projectName: string): this
   up(services?: string[]): Promise<StartedDockerComposeEnvironment>              // both rows in one compose file

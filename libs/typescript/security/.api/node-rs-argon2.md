@@ -51,7 +51,7 @@
 [STACKING]:
 - `effect`(`.api/effect.md`): `Effect.tryPromise({ try: (signal) => verify(stored, pw, opts, signal), catch })` threads the fiber interrupt into `AbortSignal`; cost rows ride `Config`/`Layer` values, the rehash decision is a `Match` fold, and a malformed-digest throw becomes a `Data.TaggedError`.
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): `hashRaw` bytes and the `secret` pepper render at rest through `encodeHexLowerCase` and parse back through `decodeHex`; the `hash` PHC string stores verbatim and never re-encodes.
-- `@oslojs/crypto`(`.api/oslojs-crypto.md`): `constantTimeEqual` guards fixed-length token lookup where argon2 is the wrong tool; a stored argon2 digest checks through `verify` alone, so the two never double-wrap.
+- `@noble/hashes`(`.api/noble-hashes.md`): the folder-owned constant-time `_sameBytes` beside noble's digests guards fixed-length token lookup where argon2 is the wrong tool; a stored argon2 digest checks through `verify` alone, so the two never double-wrap.
 - `otplib`(`.api/otplib.md`): recovery and backup codes minted by `generateSecret`/`generateRandomString` take `hash` for digest-at-rest and `verify` for redemption — otplib owns no credential-storage row.
 - `crypt/sign`'s `Crypto` (in-folder owner): argon2 sits beside HMAC signing and the AES-GCM envelope under one owner; `secret/material` derives key material through it, and `authn/apikey` delegates its digest-at-rest, storing the `hash` PHC string prefix-indexed for `byHash` resolution while the plaintext shows once.
 

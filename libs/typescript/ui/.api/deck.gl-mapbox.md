@@ -46,15 +46,19 @@
 |  [08]   | `MapboxOverlay.pickMultipleObjects`        | instance | forwarded stacked pick → `GlobalId`            |
 |  [09]   | `MapboxOverlay.getDefaultPosition()`       | instance | `ControlPosition` placement                    |
 
+- `MapboxOverlay.filterProps`: strips `useDevicePixels` on every path and gates on the live `interleaved` mode rather than the passed prop, so the map owns device-pixel ratio under interleave and a caller-supplied value never reaches the shared context.
+- `new MapboxOverlay`: overlaid construction pins `deviceProps.createCanvasContext.pixelSizeSource: 'css-dpr'` over the caller's `deviceProps` to align the deck canvas with the basemap, overriding that one key and passing the rest through.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one overlay owns one `Deck` added to one `Map` via `addControl`; a second overlay or a free `Deck` on the same canvas is the defect.
 - `MapboxOverlayProps` omits `viewState`/`initialViewState`/`controller`/`width`/`height`/`canvas`/`gl`, so the map alone drives the camera: pan/zoom/pitch mirror into deck each `move`, and hand-syncing under the overlay is the free-`Deck` path only.
 - `interleaved` is one boolean mode: `true` shares the map's WebGL2 context and depth buffer and registers a `CustomLayerInterface` per layer (z-sorted by `beforeId`/`slot`, so 3D deck geometry occludes basemap layers), `false` overlays a separate canvas — never two overlay types.
+- `interleaved` picks the device-pixel authority along with the compositing target: a shared context renders at the map's own `pixelRatio` and a separate deck canvas at the CSS device-pixel ratio the overlay pins, so whichever surface owns the pixels owns their ratio and no deck prop arbitrates.
 
 [STACKING]:
-- `maplibre-gl`(`.api/maplibre-gl.md`): its `Map` satisfies the structural `Map`/`IControl` by shape, so `addControl(new MapboxOverlay({interleaved, layers}))` mounts it; deck reads `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding` (+ `getProjection?` for globe) each `move`, and screen↔lngLat marks route through `Map.project`/`unproject`, satisfying the `viewer/geo/project` seam.
+- `maplibre-gl`(`.api/maplibre-gl.md`): its `Map` satisfies the structural `Map`/`IControl` by shape, so `addControl(new MapboxOverlay({interleaved, layers}))` mounts it; deck reads `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding` (+ `getProjection?` for globe) each `move`, and screen↔lngLat marks route through `Map.project`/`unproject`, satisfying the `viewer/geo/project` seam. `MapOptions.pixelRatio` on `new Map` governs the device-pixel ratio of the basemap and of every interleaved deck layer sharing that context.
 - `@deck.gl/core`(`.api/deck.gl-core.md`): the `viewer` acquires the overlay in an Effect `acquireRelease` — `addControl`/`onAdd` acquire, `finalize`/`removeControl` release — holds it in a React ref, and a derived atom folds `layers`/`effects` into `setProps` on change.
 - `@deck.gl/layers`(`.api/deck.gl-layers.md`) + `@deck.gl/geo-layers`(`.api/deck.gl-geo-layers.md`): the `layers` prop takes any deck layer — a `TileLayer`/`MVTLayer` basemap overlay or a `GeoJsonLayer`/cell thematic layer composes over the basemap with automatic camera sync; interleave is required when deck 3D must occlude basemap 3D.
 - picking→selection: `pickObjects` (marquee) or a layer `onClick`→`PickingInfo.object` is where a composed-map feature becomes a `mark/selection` `GlobalId`; the overlay forwards to `Deck` unchanged.
@@ -66,5 +70,5 @@
 [RAIL_LAW]:
 - Package: `@deck.gl/mapbox`
 - Owns: the one `MapboxOverlay` `IControl` binding a `Deck` to a mapbox/maplibre `Map` — automatic camera sync, `interleaved` context-sharing and z-slotting, forwarded picking, and the shipped structural `Map`/`IControl`/`CustomLayerInterface`/`LayerOverlayProps` contract
-- Accept: one overlay per map via `addControl`, the map as sole camera authority, `interleaved` as a boolean mode, `setProps` as the atom-derived `layers` sink, forwarded `pickObjects`→`GlobalId`, the structural contract in place of maplibre typings
-- Reject: manual camera sync under the overlay, camera props in `MapboxOverlayProps`, a second overlay or free `Deck` on one canvas, two overlay classes where one `interleaved` flag suffices, importing maplibre-gl types for the overlay's `Map` parameter, rebuilding the overlay instead of `setProps`
+- Accept: one overlay per map via `addControl`, the map as sole camera authority, `interleaved` as a boolean mode, `MapOptions.pixelRatio` as the device-pixel authority for a shared context, `setProps` as the atom-derived `layers` sink, forwarded `pickObjects`→`GlobalId`, the structural contract in place of maplibre typings
+- Reject: manual camera sync under the overlay, camera props in `MapboxOverlayProps`, `useDevicePixels` where the canvas owner sets the ratio, a second overlay or free `Deck` on one canvas, two overlay classes where one `interleaved` flag suffices, importing maplibre-gl types for the overlay's `Map` parameter, rebuilding the overlay instead of `setProps`

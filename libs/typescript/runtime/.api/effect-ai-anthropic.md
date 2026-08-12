@@ -114,7 +114,10 @@
 - `Bash`/`ComputerUse`: date suffixes `_20241022`/`_20250124`; `TextEditor` adds `_20250429`/`_20250728`; `CodeExecution` runs `_20250522`/`_20250825`.
 - `Bash`/`ComputerUse`/`TextEditor`: `requiresHandler:true`, executed locally by an app handler; `CodeExecution`/`WebSearch` are `requiresHandler:false`, executed provider-side.
 - `ProviderDefinedTools`: carries `CodeExecution_20250522`, not the `_20250825` constructor's wider result-block schema; `WebSearch` fails with `ResponseWebSearchToolResultError`.
+- `ProviderDefinedTools` is a decode target, never a roster — a schema union of the generated wire classes with no name key, family, or safety column on it.
+- `getProviderDefinedToolName` resolves ONE direction over this package's names alone, off a private map: a provider wire name to the toolkit tag. It ships for cross-provider reuse by integrations fronting Anthropic models, but no sibling package re-exports it, so it answers nothing for a non-Anthropic family.
 - `Bash_20241022`: versioning rides the date suffix — one tag carrying an evolving `parameters` literal; `<Mode extends Tool.FailureMode | undefined>` sets `failureMode` to `"error"` when unset.
+- Anthropic is the only family mapping a SUSPENDED turn onto the core `"pause"` finish band, which it reaches when it halts mid-tool; a refusal maps to `"content-filter"`, and a tool stop maps to `"tool-calls"` EXCEPT under a JSON response format, where it is rewritten to `"stop"` — so the object modality never observes the tool band here.
 
 ## [06]-[CONFIG]
 

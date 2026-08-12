@@ -7,7 +7,7 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 ## [01]-[INDEX]
 
 - [02]-[SIGNAL_CAPSULE]: `HookPoint<TFact>` fires one synchronous point over the id grammar, modality columns, and the frozen registry.
-- [03]-[CAUSAL_FRAME]: `TelemetrySource` package identity, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort`.
+- [03]-[CAUSAL_FRAME]: `TelemetrySource` package identity, `CorrelationId`, `TenantId`/`TenantContext`, `SessionCoordinate`, `ReceiptEnvelope`, and `ReceiptSinkPort`.
 - [04]-[INSTRUMENT_MECHANISM]: `Buckets` advice, `InstrumentKind` x `MeasureForm` bind-and-listen derivation, `LevelCells` optional-key pushed cells beside lifetime-bound `LevelProbe` reads, the `InstrumentTally` backend-free read, and the `ReceiptFan` fold.
 - [05]-[SIGNAL_TAP]: `SignalFact` and keyed rail, `TelemetrySink.Tap` one emission entry, `rasm.kernel` meters, and `TraceCarrier`-linked trace band.
 - [06]-[SLO_ALGEBRA]: `Sli`, `Objective`, the four-row multi-window burn table, `AlertSeverity`, `AlertSpec`, and the panel vocabulary.
@@ -168,10 +168,11 @@ public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
 
 ## [03]-[CAUSAL_FRAME]
 
-- Owner: `TelemetrySource` is the minted package-identity roster every emitter names its scope by; `CorrelationId` the boot-minted root identity carrying `Slot`, its one dimension and span-attribute spelling; `TenantId`/`TenantContext` the tenancy pair with `TenantSlot` the one GUC, baggage, and meter-tag SLOT spelling, `TenantId.Wire`/`Text` the one VALUE text with `Of`/`TryOf` its two parse inverses over one shared predicate, and `TenantContext.Key` the one optional partition key every consumer folds; `TenantMirror` the ambient-store row a scope threads; `ReceiptEnvelope` the stamped evidence value; `ReceiptSinkPort` the emit port carrying the one HLC mint. Every L2 and L3 peer emits receipts through these, so a neutral-`Guid` twin at an emitting package has no reason to exist.
+- Owner: `TelemetrySource` is the minted package-identity roster every emitter names its scope by; `CorrelationId` the boot-minted root identity carrying `Slot`, its one dimension and span-attribute spelling; `TenantId`/`TenantContext` the tenancy pair with `TenantSlot` the one GUC, baggage, and meter-tag SLOT spelling, `TenantId.Wire`/`Text` the one VALUE text with `Of`/`TryOf` its two parse inverses over one shared predicate, and `TenantContext.Key` the one optional partition key every consumer folds; `TenantMirror` the ambient-store row a scope threads; `SessionCoordinate` the four-coordinate `rasm.*` session-GUC namespace mint; `ReceiptEnvelope` the stamped evidence value; `ReceiptSinkPort` the emit port carrying the one HLC mint. Every L2 and L3 peer emits receipts through these, so a neutral-`Guid` twin at an emitting package has no reason to exist.
 - Cases: three ambient stores partition by owner — the kernel `AsyncLocal` tenancy slot and the BCL `Activity` baggage store are the rows this assembly can reach, and the OTel `Baggage.Current` store registers as one composition-supplied row at `Rasm.AppHost` `SignalGovernance`; `TenantContext.Root` is the single-tenant ambient default, and a multi-tenant host mints one row per admitted tenant at boot from its tenant-feed configuration.
 - Entry: `TenantContext.Stamp(params ReadOnlySpan<TenantMirror> mirrors)` returns the restoring scope over the ambient slot and every mirror row, so deferred work brackets each store as one tenancy value; `ReceiptSinkPort.Send(correlation, tenant, package, kind, payload)` returns the `IO<ReceiptEnvelope>` whose value is the emission evidence.
 - Auto: the absent-tenant arm is structural and reads through ONE member — `Key` is the optional entry `Partitions` decides, so `Tags` projects it, `Stamp` writes it, and every consuming store, GUC, partition predicate, and series key folds that `Option` rather than re-deriving the ternary; an absent `rasm.tenant` entry therefore reads as single-tenant everywhere, and a zero-valued attribute is the sentinel that reading forecloses. `TenantId.Wire`/`Text` fix the one VALUE spelling beside `TenantSlot`'s one key spelling — fixed-width 32-hex-digit invariant text every ambient store, GUC, meter tag, durable partition column, object-name prefix, and series key carries byte-identically, so a peer joining a metric series to a store partition compares text and never converts a base, and `Entry` is that text under the tenancy pair's accessor rather than a second render; `Of` and `TryOf` invert it under ONE predicate, the throwing entry serving text this seam already rendered and the `Option` entry serving every untrusted claim a platform admits, so a consumer never mints an alphabet, a width test, or a `catch` of its own to gate a tenant it does not trust. `Advance` is the one HLC mint — the logical half resets to zero on a physical advance and increments on a same-instant repeat, and `SkewBound` derives at stamp time as the wall-clock lag the advance observed.
+- Law: `SessionCoordinate` is the C# transcription of the cross-branch `[SESSION_GUC]` law (`docs/laws/patterns.md`) — the four `rasm.tenant`/`rasm.scope`/`rasm.subject`/`rasm.plane` coordinates every RLS predicate and session `set_config` read VERBATIM, byte-shared with the TypeScript spine, since disagreeing `SET` and predicate spellings read zero rows fail-closed under FORCE RLS; `Tenant` composes `TenantContext.TenantSlot`, so the telemetry dimension and the session pin stay one vocabulary, and `Plane` carries `Maintenance` as its sole admitted value — the maintenance-plane posture cross-tenant sweeps pin transaction-locally through a STATED policy arm, never a role accident. Persistence's tenancy relations spell both arms off these anchors; today its sweeps are tenant-pinned by design (per-tenant RLS-filtered catalogs), so an estate-wide plane, when a lane mints one, composes the `Plane` pin rather than a second spelling.
 - Receipt: `ReceiptEnvelope` carries the one causal frame — correlation, tenant, and the HLC two-half stamp threaded together so every receipt and every content key composes the identical `(tenant, physical, logical)` frame.
 - Packages: NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Diagnostics`, `System.Text.Json`, `System.Threading`).
 - Growth: a new minted package is one `TelemetrySource` row; a new ambient store is one `TenantMirror` row supplied at composition, never a second stamping owner; a new stamped surface draws from the same `Atom<(Instant Physical, ulong Logical)>` cell.
@@ -345,6 +346,19 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
             Restored(prior, held, Option<Error>.None).IfSome(static residue => throw residue.ToException());
         }
     }
+}
+
+// The one `rasm.*` session-GUC namespace — the `[SESSION_GUC]` four-coordinate transcription every RLS predicate
+// and session pin read verbatim, byte-shared with the TypeScript spine. `Tenant` composes the causal frame's own
+// slot so the telemetry dimension and the session pin stay ONE vocabulary; `Maintenance` is `Plane`'s sole
+// admitted value, and the projection of each coordinate's VALUE stays the pinning owner's.
+public sealed record SessionCoordinate(string Guc) {
+    public static readonly SessionCoordinate Tenant = new(TenantContext.TenantSlot);
+    public static readonly SessionCoordinate Scope = new("rasm.scope");
+    public static readonly SessionCoordinate Subject = new("rasm.subject");
+    public static readonly SessionCoordinate Plane = new("rasm.plane");
+
+    public const string Maintenance = "maintenance";
 }
 
 public sealed record ReceiptEnvelope(

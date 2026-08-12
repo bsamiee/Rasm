@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-logs-otlp-http`
 - package: `@opentelemetry/exporter-logs-otlp-http` (Apache-2.0)
 - module: ESM; single `OTLPLogExporter` export, platform-selected at build, never a fork
-- runtime: isomorphic — the `browser` field swaps the platform module: node `http`/`https` transport (`OTLPExporterNodeConfigBase`) or browser `XMLHttpRequest`/`sendBeacon` (`OTLPExporterConfigBase`)
+- runtime: isomorphic — the `browser` field swaps the platform module: node `http`/`https` transport (`OTLPExporterNodeConfigBase`) or the browser's fetch-only transport (`OTLPExporterConfigBase`); no `XMLHttpRequest` path exists in the tree and `sendBeacon` survives only as a deprecated alias of the fetch delegate
 - depends: `@opentelemetry/sdk-logs` (`ReadableLogRecord`/`LogRecordExporter`), `@opentelemetry/otlp-exporter-base` (`OTLPExporterNodeConfigBase`/`OTLPExporterConfigBase`/`CompressionAlgorithm`), `@opentelemetry/core` (`ExportResult`)
 - rail: observability/export/logs
 
@@ -52,7 +52,7 @@
 - `.api/opentelemetry-api-logs.md`: serialized records carry `SeverityNumber`, `LogBody`, `LogAttributes`, `AnyValue`; API -> SDK processor -> this exporter is the pipeline order.
 - `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk` (facade seam): the wrapped processor rides `Configuration.logRecordProcessor` beside the one `AppIdentity`-derived `Resource`; the facade owns the resource mint, this exporter only serializes what each `ReadableLogRecord` carries.
 - `.api/opentelemetry-core.md`: `export()` reports through `ExportResult`/`ExportResultCode`, and the outbound HTTP context is `suppressTracing`-fenced so log egress is never self-traced.
-- `.api/effect-platform.md` (divergence to record): this exporter carries its own `http`/`XMLHttpRequest` transport, not the `net/client` `HttpClient` retry/proxy policy the native `OtlpLogger` lane inherits — the gap that routes `otel/emit` to the native lane and marks this row `[OTEL_PIN_BLOCK]`.
+- `.api/effect-platform.md` (divergence to record): this exporter carries its own `http`/fetch transport, not the `net/client` `HttpClient` retry/proxy policy the native `OtlpLogger` lane inherits — the gap that routes `otel/emit` to the native lane and marks this row `[OTEL_PIN_BLOCK]`.
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits ONLY inside `scope:runtime`, constructed at the composition root; application code logs through `Effect.log` and never imports this package.

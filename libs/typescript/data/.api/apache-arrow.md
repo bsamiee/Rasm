@@ -1,6 +1,6 @@
 # [TS_DATA_API_APACHE_ARROW]
 
-`apache-arrow` owns the columnar interchange the analytical lane meets at: the container values every engine row emits or accepts, the IPC codec pair, and the streaming reader `lane/olap` lifts onto `Effect`/`Stream`. `ui`'s catalog of the same package owns the viewer-tier type-system and builder depth.
+`apache-arrow` owns the columnar interchange the analytical lane meets at: the container values every engine row emits or accepts, the IPC codec pair, and the streaming reader `lane/olap` lifts onto `Effect`/`Stream`. `ui`'s catalog of the same package (`libs/typescript/ui/.api/apache-arrow.md`) owns the viewer-tier type-system and builder depth.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -4,11 +4,13 @@
 - package: `@axe-core/playwright` · license `MPL-2.0` · depends on `axe-core`, peer `playwright-core >= 1.0.0`
 - module: dual CJS/ESM (`dist/index.js` + `dist/index.mjs`) with one `.` export; `AxeBuilder` ships named AND as default — the named import is the house spelling.
 - asset: bundles the `axe-core` rules engine source and injects it into the page (and every child frame) at `analyze()`; no browser binary, no server, no network.
-- runtime: node `>=18` driving a live `playwright-core` `Page` — the audit executes inside the page, the receipt returns to node.
+- runtime: node driving a live `playwright-core` `Page`; the package declares no engine floor of its own and inherits the driver's — the audit executes inside the page, the receipt returns to node.
 - plane: `plane:dev` — the accessibility half of the `tests/typescript/e2e` visual-and-aria gauge, beside `@playwright/test`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: wcag-conformance gauge over a live page.
 
-`@axe-core/playwright` is one builder class over one live `Page`: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into a single typed `AxeResults` receipt. It is the rules-engine complement to the two golden gauges — `toMatchAriaSnapshot` freezes one accessibility tree, `toHaveScreenshot` freezes pixels, axe audits CONFORMANCE against the wcag rule catalog with zero goldens to mint. Kit fixtures compose it as one row whose tag set is the policy value; a spec asserts on `violations` and never re-learns the engine.
+`@axe-core/playwright` wraps one live `Page` in one builder class: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into one typed `AxeResults` receipt.
+
+Rule-engine conformance is the half no golden encodes: `toMatchAriaSnapshot` freezes an accessibility tree, `toHaveScreenshot` freezes pixels, and axe audits CONFORMANCE against the wcag catalog with no golden to mint. Kit fixtures compose it as one row whose tag set is the policy value; specs assert on `violations`, never re-learning the engine.
 
 ## [01]-[BUILDER_SURFACE]
 

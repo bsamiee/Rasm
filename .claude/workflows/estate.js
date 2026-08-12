@@ -63,10 +63,10 @@ const TRACKS = {
         scope:
             'tests/typescript/e2e as one parameterized, polymorphic multi-project harness serving many future projects from config-driven targets — zero ' +
             'fragility, full modern Playwright surface (projects matrix, fixture composition, trace/video policy rows, webServer lifecycle). ' +
-            'playwright.config.ts, vite.config.ts, vite.factory.ts, and vitest.config.ts evolve as one factory system with vite.factory.ts the parameterization ' +
-            'owner. _testkit + _architecture extended discovery-driven with no hardcoded package lists. tests/typescript/.api completed for the test stack; ' +
+            'playwright.config.ts, vite.config.ts, and vitest.config.ts evolve as one factory system with vite.config.ts the parameterization ' +
+            'owner (createConfig named export beside the buildless root anchor). _testkit + _architecture extended discovery-driven with no hardcoded package lists. tests/typescript/.api completed for the test stack; ' +
             'tooling admissions via the pnpm catalog on merit, wired or rejected. tools/biome modernized and extended (justified biome/nx plugins admitted; ' +
-            'assay stays the operator boundary). Root TS config coherence: tsconfig.base.json, tsconfig.json, biome.json, nx.json.',
+            'assay stays the operator boundary). Root TS config coherence: tsconfig.json (the one shared base and estate typecheck project), biome.json, nx.json.',
         gates:
             'pnpm install clean; assay static ts delegate (tsc + biome) fully clean on touched files (never biome-ignore); pnpm run ' +
             'test and pnpm run e2e green for tests/typescript suites; prose gate zero FAILs on every touched .md. Zero-error law: findings fixed correctly ' +
@@ -224,7 +224,7 @@ const REVIEWER_LAW =
 const INFRA_LAW =
     'SHARED-INFRA PRIMACY: the shared test infrastructure is the estate CENTER, never a side item — csharp: tests/csharp/_testkit, _scenariokit, ' +
     '_architecture, _benchmarks, scenarios; python: tests/python/_testkit + the conftest topology; typescript: tests/typescript/_testkit, _architecture, ' +
-    'e2e, nx.json, biome.json, tools/biome, playwright.config.ts, vite.factory.ts, and vitest.config.ts as one system. FIRST explore your ' +
+    'e2e, nx.json, biome.json, tools/biome, playwright.config.ts, vite.config.ts, and vitest.config.ts as one system. FIRST explore your ' +
     'language libs/ planning corpus in depth — every package folder: domains, owners, seams, receipt families, wire shapes — to understand the extreme ' +
     'complexity arriving when every folder goes live; the infra must anticipate ALL of it NOW. Build intelligent, universal, polymorphic foundations that ' +
     'make future tests near-trivial to write and REDUCE total test code — declarative gauges, law tables, fixture algebras, discovery-driven ' +

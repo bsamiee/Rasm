@@ -8,7 +8,7 @@
 - plane: `plane:dev` — the one compiler gate (`tsc` is the conformance authority whose diagnostic codes doctrine cites) and the `@stryker-mutator/typescript-checker` engine.
 - rail: type gate binary.
 
-Workspace consumes this package on the GATE lane only: `tsc --noEmit -p tsconfig.base.json` is the one compiler gate, and the Stryker checker boots it per mutant — no repo code imports this package. Program-free syntactic parsing moved to `@swc/core` (`swc-core.md`) the day the flat `lib/typescript.js` namespace stopped shipping: `import ts from 'typescript'` now binds version identity alone, and text-to-AST work in-process is not this package's capability.
+Workspace consumes this package on the GATE lane only: `tsc --noEmit -p tsconfig.json` is the one compiler gate, and the Stryker checker boots it per mutant — no repo code imports this package. Program-free syntactic parsing moved to `@swc/core` (`swc-core.md`) the day the flat `lib/typescript.js` namespace stopped shipping: `import ts from 'typescript'` now binds version identity alone, and text-to-AST work in-process is not this package's capability.
 
 ## [01]-[UNSTABLE_API_SURFACE]
 
@@ -26,7 +26,12 @@ Workspace consumes this package on the GATE lane only: `tsc --noEmit -p tsconfig
 
 ```ts signature
 // dist/api/sync/api.d.ts — the server-backed lane; every call is IPC to the spawned native compiler.
-class API<FromLSP extends boolean = false> { constructor(options?: APIOptions | LSPConnectionOptions); parseConfigFile(file: DocumentIdentifier): ConfigResponse; updateSnapshot(params?: UpdateSnapshotParams): Snapshot; close(): void }
+class API<FromLSP extends boolean = false> {
+    constructor(options?: APIOptions | LSPConnectionOptions);
+    parseConfigFile(file: DocumentIdentifier): ConfigResponse;
+    updateSnapshot(params?: UpdateSnapshotParams): Snapshot;
+    close(): void
+}
 class Snapshot { getProjects(): readonly Project[]; getDefaultProjectForFile(file: DocumentIdentifier): Project | undefined; dispose(): void }
 // dist/ast/ast.d.ts — the walk is a Node METHOD now, not a free function.
 interface Node { forEachChild<T>(visitor: (node: Node) => T, visitArray?: (nodes: NodeArray<Node>) => T): T | undefined }
@@ -34,11 +39,11 @@ interface Node { forEachChild<T>(visitor: (node: Node) => T, visitArray?: (nodes
 
 ## [02]-[GATE_SURFACE]
 
-Binary is the gate, and configuration is the whole contract: `tsc --noEmit -p tsconfig.base.json` checks every file the named config includes — root solution and spec-estate projects alike — and projects diagnostics to stderr/exit code. Flag law lives in `tsconfig.base.json`; this catalog never mirrors it.
+Binary is the gate, and configuration is the whole contract: `tsc --noEmit -p tsconfig.json` checks every file the root config includes — the whole estate, spec projects included — and projects diagnostics to stderr/exit code. Flag law lives in the root `tsconfig.json`; this catalog never mirrors it.
 
 ## [03]-[INTEGRATION]
 
-[STACK: `typescript` + `@stryker-mutator/typescript-checker`] — the checker boots this compiler against `tsconfig.base.json` to discard mutants that no longer type-check, keeping the mutation score a behavioral signal instead of a compile-error census (`stryker-mutator-typescript-checker.md`).
+[STACK: `typescript` + `@stryker-mutator/typescript-checker`] — the checker boots this compiler against the root `tsconfig.json` to discard mutants that no longer type-check, keeping the mutation score a behavioral signal instead of a compile-error census (`stryker-mutator-typescript-checker.md`).
 
 [BOUNDARY vs `@swc/core`] — syntactic import harvesting is swc's lane (`swc-core.md`): in-process, synchronous, program-free. Spawning the native server to answer a structural question is the rejected shape.
 

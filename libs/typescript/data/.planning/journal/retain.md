@@ -1,12 +1,12 @@
 # [DATA_RETAIN]
 
-Aging stays lawful without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows driving ledger expiry, outbox and fact grooming, and partition drop behind the causal frontier; crypto-shredding, where subject-bearing fields seal under a per-subject data key whose wrapped form is the ONLY thing this folder stores, so destroying it makes every sealed read fold to a redaction marker, totally; and the per-subject DSAR export fold, one portability read over journal events, audit facts, and object references riding the same subject spine erasure uses. Core causality supplies the stability frontier as a value, partitions at or below a snapshotted frontier drop through the `partition` grant, and compaction is a capability, never a default. Above every ender stands the legal-hold suspension ledger: a declared matter outranks the class window on every subject-scoped closer until it lifts.
+Aging stays lawful without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows driving ledger expiry, outbox and fact grooming, and partition drop behind the causal frontier; crypto-shredding, where subject-bearing fields seal under a per-subject data key whose wrapped form is the ONLY thing this folder stores, so destroying it makes every sealed read fold to a redaction marker, totally; and the per-subject DSAR export fold, one portability read over journal events, audit facts, and object references riding the same subject spine erasure uses. Core causality supplies the stability frontier as a value, partitions at or below a snapshotted frontier drop through the `partition` grant, and compaction is a capability, never a default. Above every ender stands the legal-hold suspension ledger: a declared matter outranks the class window on every subject-scoped closer until it lifts, and the one closer a subject-scoped gate cannot reach — the time-keyed partition drop — is answered by collection at declaration instead.
 
 ## [01]-[INDEX]
 
-- [02]-[RETENTION_ROWS]: the retention-class vocabulary, window policy, frontier handoff, partition rows, the legal-hold suspension ledger.
+- [02]-[RETENTION_ROWS]: the retention-class vocabulary, window policy, frontier handoff, partition rows, the legal-hold suspension ledger and its preservation port.
 - [03]-[SHREDDER]: the wrapped-key ledger, seal/open folds, erasure as key destruction.
-- [04]-[DSAR_EXPORT]: the per-subject portability fold over journal plus object rows.
+- [04]-[DSAR_EXPORT]: the one subject-slice collection owner and the per-subject portability fold over journal plus object rows.
 
 ## [02]-[RETENTION_ROWS]
 
@@ -23,22 +23,28 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 - Law: the journal itself never ages by wall clock — partition drop is lawful only at-or-below a frontier the causality owner finalized AND a snapshot at-or-above it exists; `Retain.handoff` records the `Causal.Retention` coordinate into the frontier ledger under a monotonic guard (a stale handoff commits nothing), the drop statement generates from the recorded row, and compaction can never orphan unreplayable history.
 - Law: partitioning is a `pg_partman` image fact — the ensure registers `journal_event` as a partitioned parent only where the `partition` grant holds, and the drop itself is the granted maintenance row `lane/postgres.md` gates; the sqlite profiles never partition (their compaction is the export-snapshot-and-truncate posture `lane/sqlite.md` owns).
 - Law: grooming is ONE roster and two renderings, never a relation pair a caller names — `_GROOMS` states each aging relation's age column, its eligibility gate, and where its class comes from, because only a relation CARRYING a `retention` column can be swept class by class: the ledger, the outbox, and the quarantine carry none, so a class-keyed predicate against them names a column no DDL declares and the sweep dies on its first run. A row whose whole content belongs to one class states that class instead, `permanent` folds to a no-op by `Duration.isFinite`, and the roster feeds ONE age table through two BINDING postures — `Retain.groom(key)` binds values through `sql.onDialectOrElse`, `Retain.groomText(key, dialect)` renders the statement TEXT the scheduled plane's extension contract takes, and both read `_AGE` and `_seconds`, so the dialect axis rides each road and a maintenance row scheduled on an embedded profile can never receive the spine's own spelling; every literal on both roads is sealed `Retain.Policy` material, so no caller value ever reaches a groom statement.
-- Law: isolation spells `tenancy` on every row and never a second name — `residency`, `partition`, and `scope` are dead spellings no reader compares across families; sweeps run at the `tenancy` their row states and never at the ambient one, so with `multi` on every current row `Retain.groom` runs from maintenance on an unpinned client and a sweep issued inside `Tenant.within` is the named defect: RLS narrows that same DELETE to one tenant, every other tenant then ages forever, and the statement reports success either way.
+- Law: isolation spells `tenancy` on every row and never a second name — `residency`, `partition`, and `scope` are dead spellings no reader compares across families; sweeps run at the `tenancy` their row states and never at the ambient one, so with `multi` on every current row `Retain.groom` runs from the maintenance composition under the MAINTENANCE-PLANE session posture the tenancy owner mints — the landed policy is FORCE, so an unpinned DELETE sweeps a relation it cannot see and reports success over zero rows, a sweep issued inside `Tenant.within` narrows to one tenant while every other tenant ages forever, and the plane posture is the one session state that makes the estate-wide sweep spellable at all.
 - Law: the three planes here answer tenancy differently and each answers it structurally — grooming is `multi` across a whole relation, custody and DSAR are `single` on `(app, tenant, subject)`, and the frontier ledger is `single` on `(app, tenant, aggregate)`; one page-wide tenancy answer is wrong for two of the three.
-- Law: the roster is the boundary the maintenance plane spends — `read/fold#MAINTENANCE` schedules `Retain.groomText` rows and spells no DELETE of its own, so a relation that starts aging is one row here rather than one sweep on each plane with a different predicate and no way to tell which one governs.
+- Law: every tenant-carrying custody relation registers `Tenancy.rls` structurally — the frontier ledger, the subject-key ledger, the subject index, and the hold ledger alike — and that registration is ONE landing with the maintenance-plane policy arm, because their cross-tenant readers are maintenance material: a scheduled sweep whose hold subquery reads a registered `legal_hold` unpinned sees zero live holds and grooms held evidence, which is the exact inversion the coupled landing forecloses.
+- Law: the roster is the boundary the maintenance plane spends — `read/fold#MAINTENANCE` schedules `Retain.groomText` rows and spells no DELETE of its own, so a relation that starts aging is one row here rather than one sweep on each plane with a different predicate and no way to tell which one governs; the rendering is the DELETE alone and the scheduling seam composes the maintenance-plane posture around every registered statement, because the posture is session state the tenancy owner mints, never text this roster re-spells.
 - Law: the `incremental` grant upgrades large grooms to exactly-once checkpointed batch folds where it probes true.
 - Law: the partition drop spells the EXACT boundary — `Retain.dropText` renders one DO block enumerating children through `partman.show_partitions` and dropping each whose `show_partition_info` exclusive `child_end_id` sits at or below `floor + 1`, detach then drop; `part_config.retention` and `drop_partition_id` are REFUSED for frontier drops because both price a distance below a live maximum RE-READ at execution, so appends landing between the frontier read and the drop move the effective boundary past the finalized frontier and drop history no snapshot covers.
 - Law: `run_maintenance(p_parent_table)` serves premake alone — the config row keeps `retention` NULL, so maintenance creates partitions and never drops one; pg_partman never drops a set's final child either, so an idle stream retains one partition whatever the floor, a floor the drop text inherits rather than re-derives.
 - Law: the drop floor is the ledger's `min(snapshotted)` gated on TOTAL stream coverage — a journal stream absent from the frontier ledger zeroes the floor inside the same statement, because a per-stream frontier proves nothing about a sibling stream sharing the partitioned sequence spine.
 - Law: a declared HOLD outranks every ender while it lives — `legal_hold` keys `(app, tenant, matter, subject)`, `Retain.hold` records a declaration and `Retain.lift` closes one matter whole; a hold SUSPENDS rather than reclassifies, so the row's class and clock never move, lifting ages an over-window row out on the next sweep at once, and no pre-hold state exists to restore or forge.
 - Law: this plane admits no operator identity, so a hold records a DECLARED custody fact — `declared_by` carries the principal the security seam authenticated, authorization stays the caller's security composition, and the declaration trail is the caller's own audit record through the security audit port; the `owner` column mints once through the custody key's own projection, so the object-plane join and the DSAR scan read one spelling.
+- Law: declaration and lift are operator acts running under the maintenance-plane posture — a `Retain.Hold` carries subject keys whose tenants a single pin's check arm refuses, and a lift answers owners across every tenant a matter touched; the subject-face reads inside a pinned erase see exactly the declaring tenant's rows, which is the read that gate needs.
 - Law: the hold gate rides every subject-scoped closer — a `_GROOMS` row naming a `held` subject column composes `Retain.holding.subject` in BOTH renderings, so the scheduled statement and the in-process sweep honour one suspension; relations carrying no subject column hold nothing, which is `operational`'s standing degrade; `erase` refuses a held subject with the typed `RetainHold` naming its live matters, because a destroyed key is the one closer no lift recovers; the object plane composes `Retain.holding.owner` at its retag fold and `lift` answers the lifted owner roster the maintenance seam re-tags.
+- Law: the partition drop carries NO hold gate and never can — children are keyed by the sequence spine and carve no subject, so a gate there refuses a whole boundary for one held subject and stalls compaction estate-wide; preservation is COLLECTION AT DECLARATION instead — `Retain.hold` lands each held subject's journal slice into object custody through the handed `Preserve` port inside the declaration's own unit of work, and the hold row commits FIRST so the landing's reference row re-derives its tag against a live hold and takes the object plane's `held` posture with no second write and no window a sweep reads it unheld. The fact plane needs none of it: `_GROOMS.facts` composes the subject gate directly, so this leg covers exactly the plane no gate reaches.
+- Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on an upcast plan that itself evolves; the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
+- Law: the landing is a HANDED port exactly as `RefRead` is — this page declares `Preserve` and the object plane satisfies it, so the journal stratum names no store and the identity fold, the conditional put, and the reference row stay owned where they already are; the port carries its own error and requirement parameters because a byte landing is not a relational read and a concrete channel here would name the object plane's fault family.
 
 ```typescript signature
 import { Array, Duration, Effect, Option, pipe, Record, Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Fault, Identity } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
+import { Tenancy } from "../lane/tenant.ts"
 import { Journal, StreamKey } from "./append.ts"
 
 const _classes = ["ephemeral", "operational", "regulatory", "permanent"] as const
@@ -130,7 +136,8 @@ const _frontierDdl: Capability.Ensure = {
     stamp TEXT NOT NULL,
     snapshotted BIGINT NOT NULL,
     handed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (app, tenant, aggregate));`,
+    PRIMARY KEY (app, tenant, aggregate));
+  ${Tenancy.rls("retain_frontier")}`,
   sqlite: `CREATE TABLE IF NOT EXISTS retain_frontier (
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     floor TEXT NOT NULL,
@@ -171,11 +178,11 @@ const _handoff = (
 // `tenancy` states the isolation a sweep runs at under the ONE spelling every plane compares on, and it reads the
 // closed `Identity.tenancy` roster directly because this column selects an executable refusal rather than explaining
 // a row to a selecting profile — no descriptor cell of a mechanism substitutes for the axis a DELETE is gated on.
-// It stays a column rather than an assumption because these relations register RLS: a DELETE carrying no tenant
-// predicate removes whatever the ambient session GUC leaves visible, so one statement is estate-wide from maintenance
-// and one-tenant-wide from inside a pin, with nothing in the result telling those apart. Every row here reads `multi`
-// and `Retain.groom` refuses a pinned client for that reason; a future per-tenant relation states `single` and takes
-// its pin instead of inheriting one.
+// It stays a column rather than an assumption because these relations register RLS under FORCE: a DELETE carrying no
+// tenant predicate removes whatever the ambient session state leaves visible — zero rows unpinned, one tenant inside a
+// pin, the estate only under the maintenance-plane posture — with nothing in the result telling those apart. Every row
+// here reads `multi` and runs only under that posture; a future per-tenant relation states `single` and takes its pin
+// instead.
 // `held` names the relation's subject column where one exists, and the hold gate composes only there: a hold is a
 // subject-scoped suspension, so a relation carrying no subject column states `none` and grooms unconditionally —
 // which is the honest answer, never a gate against a column no DDL wrote.
@@ -315,7 +322,8 @@ const _holdDdl: Capability.Ensure = {
     lifted_at TIMESTAMPTZ,
     PRIMARY KEY (app, tenant, matter, subject));
   CREATE INDEX IF NOT EXISTS legal_hold_subject ON legal_hold (app, tenant, subject) WHERE lifted_at IS NULL;
-  CREATE INDEX IF NOT EXISTS legal_hold_owner ON legal_hold (owner) WHERE lifted_at IS NULL;`,
+  CREATE INDEX IF NOT EXISTS legal_hold_owner ON legal_hold (owner) WHERE lifted_at IS NULL;
+  ${Tenancy.rls("legal_hold")}`,
   sqlite: `CREATE TABLE IF NOT EXISTS legal_hold (
     app TEXT NOT NULL, tenant TEXT NOT NULL, matter TEXT NOT NULL, subject TEXT NOT NULL,
     owner TEXT NOT NULL,
@@ -330,7 +338,7 @@ const _holdDdl: Capability.Ensure = {
 // Single-shape-classed like the version-conflict family: `denied` because no re-drive lifts a matter and the
 // recovery verb — `lift` — is the caller's, which is exactly non-retryable and caller-blamed.
 class RetainHold extends Schema.TaggedError<RetainHold>()("RetainHold", {
-  subject: Schema.String,
+  subject: _Subject,
   matters: Schema.Array(Schema.String),
 }) {
   get class(): Fault.Class.Kind {
@@ -347,31 +355,45 @@ declare namespace Retain {
     readonly subjects: Array.NonEmptyReadonlyArray<SubjectKey>
     readonly declaredBy: string
   }
+  // The custody landing, declared here where the strata floor sits and satisfied by the object plane exactly as
+  // `RefRead` is. Its channels are parameters because a byte landing carries the object plane's own fault family and
+  // service, and naming either here would drag that plane down a stratum to be spelled.
+  type Preserve<E, R> = (subject: SubjectKey, retention: Class) => Effect.Effect<void, E, R>
 }
+
+// Litigation evidence takes the class whose own `degrade` names the subject-scoped hold gate: while the matter lives
+// the object plane's tag reads `held` and nothing transitions or expires, and a lift returns the slice to this window
+// rather than to an infinity no sweep ever closes.
+const _PRESERVED: Retain.Class = "regulatory"
 
 // Re-declaring a lifted pair re-arms it: the ON CONFLICT arm clears `lifted_at` and refreshes the declarant, so a
 // matter re-opened against the same subject is one row's live state, never a second row a scan double-counts.
-const _hold = (declaration: Retain.Hold) =>
+// Declaration commits BEFORE the preservation landing inside one unit of work, so the reference row that landing
+// writes re-derives its tag against a hold already live and no window exists where a sweep reads the slice unheld.
+const _hold = <E, R>(declaration: Retain.Hold, preserve: Retain.Preserve<E, R>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    sql`INSERT INTO legal_hold ${
-      sql.insert(Array.map(declaration.subjects, (key) => ({
-        app: key.app,
-        tenant: key.tenant,
-        matter: declaration.matter,
-        subject: key.subject,
-        owner: key.owner, // minted once through the custody key's own projection: the join and the scan read one spelling
-        declared_by: declaration.declaredBy,
-      })))
-    } ON CONFLICT (app, tenant, matter, subject) DO UPDATE
-      SET lifted_at = NULL, declared_by = excluded.declared_by`)
+    Effect.zipRight(
+      sql`INSERT INTO legal_hold ${
+        sql.insert(Array.map(declaration.subjects, (key) => ({
+          app: key.app,
+          tenant: key.tenant,
+          matter: declaration.matter,
+          subject: key.subject,
+          owner: key.owner, // minted once through the custody key's own projection: the join and the scan read one spelling
+          declared_by: declaration.declaredBy,
+        })))
+      } ON CONFLICT (app, tenant, matter, subject) DO UPDATE
+        SET lifted_at = NULL, declared_by = excluded.declared_by`,
+      Effect.forEach(declaration.subjects, (key) => preserve(key, _PRESERVED), { concurrency: 1, discard: true }),
+    ))
 
 // Lifting answers the lifted OWNER roster as a value, because the object plane's retag fold runs above this
 // stratum: the maintenance seam walks each owner's keys through the store's reference read and re-derives tags.
-const _lift = (app: string, tenant: string, matter: string) =>
+const _lift = (app: typeof StreamKey.fields.app.Type, tenant: typeof StreamKey.fields.tenant.Type, matter: string) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
       SqlSchema.findAll({
-        Request: Schema.Struct({ app: Schema.String, tenant: Schema.String, matter: Schema.String }),
+        Request: Schema.Struct({ app: StreamKey.fields.app, tenant: StreamKey.fields.tenant, matter: Schema.NonEmptyString }),
         Result: Schema.Struct({ owner: Schema.String }),
         execute: (who) =>
           sql`UPDATE legal_hold SET lifted_at = ${Journal.now(sql)}
@@ -400,7 +422,8 @@ const _heldMatters = (key: SubjectKey) =>
 - Owner: `SubjectKey`, the `(app, tenant, subject)` custody identity; the `subject_key` ledger holding one `WrappedKey` per key; the `seal`/`open` folds composing the security `Shredder` envelope algebra; and `erase`, destroying the wrapped key material and marking the tombstone in one statement.
 - Packages: `@rasm/ts/security` (`Shredder`, `WrappedKey`, `SealedEnvelope` — the one direct `data → security` edge); `effect` (`Effect`, `Option`, `Schema`).
 - Entry: an app seals subject-bearing fields at construction — `Retain.seal(key, bytes)` before the payload enters the publish transaction; reads meeting sealed fields call `Retain.open(key, envelope)` and receive `Option<bytes>` — `none` IS the erased state, folded by the consumer into its redaction marker.
-- Receipt: `erase` returns `Option<{ subject: SubjectKey, destroyedAt }>` — some is the auditable tombstone the fact stream records, none means no live key existed; the log bytes remain, provably unreadable either way. A subject under a live hold refuses FIRST with the typed `RetainHold` naming its matters, never a silent none a caller reads as already-erased — key destruction is the one closer no lift recovers.
+- Receipt: `erase` returns `Option<{ subject: SubjectKey, destroyedAt }>` — some is the auditable tombstone the fact stream records, none means no live key existed; the log bytes remain, provably unreadable either way. A subject under a live hold refuses with the typed `RetainHold` naming its matters, never a silent none a caller reads as already-erased — key destruction is the one closer no lift recovers.
+- Law: the hold gate is re-evaluated INSIDE the destroying statement — the `NOT EXISTS` arm rides the UPDATE's own predicate, so a hold landing after any sibling read still refuses at the write; the miss path disambiguates on key liveness, because a guard refusal over a live key is a hold verdict even when a racing lift empties the matters read, and a pre-check can only supply evidence for the fault, never the gate.
 - Growth: a new custody posture (a KMS-held KEK) is a security-side construction row — this ledger stores whatever `WrappedKey` the Shredder wraps, so custody changes never touch this page.
 - Law: custody is tenant-scoped structurally — every lookup, upsert, erase, subject-index row, and DSAR scan keys on `(app, tenant, subject)`; equal subject strings in two tenants never share key material or export rows, and no ambient RLS setting substitutes for the composite identity.
 - Law: the ledger stores ONLY the wrapped form — `Shredder.mint` issues the data key, `wrap` seals it under the master KEK, and the raw `CryptoKey` never crosses this seam; `seal` is one atomic upsert realizing the `conflictClaim` primitive: the fresh mint inserts, a concurrent or replayed subject keeps the stored wrapped key through the `coalesce` arm and the loser seals under the winner's key by unwrapping the RETURNING row, and a destroyed subject resurrects under a NEW key (old envelopes stay unreadable forever) because the `CASE` arm clears the tombstone only when `wrapped` was NULL.
@@ -427,6 +450,8 @@ class SubjectKey extends Schema.Class<SubjectKey>("SubjectKey")({
   tenant: StreamKey.fields.tenant,
   subject: _Subject,
 }) {
+  // Every segment percent-encodes: a tenant or subject carrying `:` would otherwise re-split the coordinate the hold
+  // join and the custody scan both parse back, and this projection is the ONE place the triple becomes one string.
   get owner(): string {
     return `subject:${encodeURIComponent(this.app)}:${encodeURIComponent(this.tenant)}:${encodeURIComponent(this.subject)}`
   }
@@ -441,7 +466,8 @@ const _subjectDdl: Capability.Ensure = {
     wrapped BYTEA,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     destroyed_at TIMESTAMPTZ,
-    PRIMARY KEY (app, tenant, subject));`,
+    PRIMARY KEY (app, tenant, subject));
+  ${Tenancy.rls("subject_key")}`,
   sqlite: `CREATE TABLE IF NOT EXISTS subject_key (
     app TEXT NOT NULL, tenant TEXT NOT NULL, subject TEXT NOT NULL,
     wrapped BLOB,
@@ -491,12 +517,14 @@ const _open = (shredder: Shredder, key: SubjectKey, envelope: SealedEnvelope) =>
   Effect.flatMap(_dataKey(shredder, key), (held) =>
     Effect.transposeOption(Option.map(held, (key) => shredder.open(key, envelope))))
 
+// The hold gate rides INSIDE the destroying statement — key destruction is the one closer no lift recovers, so the
+// refusal must be re-evaluated by the engine at the write, never a sibling SELECT frozen before it: a hold landing
+// between a pre-check and the UPDATE would otherwise fall to a race the pre-check reported clear. The miss path
+// disambiguates on key LIVENESS, not on matters — a guard refusal with a live key still standing is a hold verdict
+// even when the matters read races a lift to emptiness, and answering `none` there would forge an already-erased
+// state over a key that still opens envelopes.
 const _erase = (key: SubjectKey) =>
-  Effect.filterOrElse(
-    _heldMatters(key),
-    (matters) => !Array.isNonEmptyReadonlyArray(matters),
-    (matters) => Effect.fail(new RetainHold({ subject: key.subject, matters })),
-  ).pipe(Effect.zipRight(Effect.flatMap(SqlClient.SqlClient, (sql) =>
+  Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
       SqlSchema.findOne({
         Request: SubjectKey,
@@ -504,23 +532,44 @@ const _erase = (key: SubjectKey) =>
         execute: (who) =>
           sql`UPDATE subject_key SET wrapped = NULL, destroyed_at = ${Journal.now(sql)}
               WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject} AND destroyed_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM legal_hold h
+                                WHERE h.lifted_at IS NULL AND h.app = ${who.app} AND h.tenant = ${who.tenant} AND h.subject = ${who.subject})
               RETURNING app, tenant, subject, CAST(destroyed_at AS TEXT) AS destroyed_at`,
       })(key),
       Option.map((row) => ({
         subject: new SubjectKey({ app: row.app, tenant: row.tenant, subject: row.subject }),
         destroyedAt: row.destroyed_at,
       }) satisfies Retain.Tombstone),
-    )).pipe(
-      Effect.tap(Option.match({
-        onNone: () => Effect.void, // no live key existed: nothing was destroyed, nothing fans
-        onSome: (tombstone) => Hook.tapped("retainErase", { tenant: tombstone.subject.tenant, subject: tombstone.subject.subject }),
+    ).pipe(
+      Effect.flatMap(Option.match({
+        onSome: (tombstone) =>
+          Effect.as(
+            Hook.tapped("retainErase", { tenant: tombstone.subject.tenant, subject: tombstone.subject.subject }),
+            Option.some(tombstone),
+          ),
+        onNone: () =>
+          Effect.flatMap(
+            SqlSchema.findOne({
+              Request: SubjectKey,
+              Result: Schema.Struct({ subject: _Subject }),
+              execute: (who) =>
+                sql`SELECT subject FROM subject_key
+                    WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject} AND destroyed_at IS NULL`,
+            })(key),
+            Option.match({
+              onNone: () => Effect.succeed(Option.none<Retain.Tombstone>()), // no live key existed: nothing was destroyed, nothing fans
+              onSome: () =>
+                Effect.flatMap(_heldMatters(key), (matters) =>
+                  Effect.fail(new RetainHold({ subject: key.subject, matters }))), // the guard refused a live key: a hold verdict, whatever the racing matters read now shows
+            }),
+          ),
       })),
-    )))
+    ))
 ```
 
 ## [04]-[DSAR_EXPORT]
 
-- Owner: `Retain.dsar` — the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references AND the fact stream's own subject-indexed audit rows, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material — and the subject-index slot this page publishes to the write transaction; `Retain.RefRead` is this page's PORT for the object leg, so the reference relation keeps one reader surface.
+- Owner: the subject-slice collection both custody roads read — its export rendering and the verbatim `Retain.slice` rendering the hold's preservation landing consumes — and `Retain.dsar` above it, the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references AND the fact stream's own subject-indexed audit rows, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material — and the subject-index slot this page publishes to the write transaction; `Retain.RefRead` is this page's PORT for the object leg, so the reference relation keeps one reader surface.
 - Packages: `effect` (`Stream`, `Array`); `journal/evolve.md` (`Upcast.Plan` — the one read-lift road; `Upcast.Envelope` — the persisted coordinate the export row spreads); `journal/append.md` (the read stream and the `Slot` contract); `read/live.md` (`Live.merged` — the slot's empty coordinate); the object plane's reference read arrives as the `RefRead` argument — `object/store.md` publishes the one implementation.
 - Entry: the subject index is written at publish time — `Retain.slot(subjects)` mints the `Journal.Slot` an app carries in its publish intent: the caller's `subjects` projection names each event's subject keys, the slot stamps `(subject, sequence)` rows inside the commit, and the DSAR read is therefore an index scan, never a full-log crawl; the caller hands `dsar` the same folded `Upcast.Plan` its journal binding holds AND the store's published reference read, so export, replay, and the reference relation each lift through one anchor.
 - Law: the object leg is a HANDED contract, never cross-strata SQL — this page declares the `RefRead` port and the object plane satisfies it exactly as the upcast plan arrives, so the strata direction holds, an `object_ref` schema change ripples through one published read, and this plane carries none of the store's SQL.
@@ -533,6 +582,7 @@ const _erase = (key: SubjectKey) =>
 
 ```typescript signature
 import { Array, Stream, type ParseResult } from "effect"
+import { Digest } from "@rasm/ts/core"
 import { Live } from "../read/live.ts"
 import { Upcast } from "./evolve.ts"
 
@@ -541,7 +591,9 @@ declare namespace Retain {
     readonly event: A
     readonly recordedAt: string
   }
-  type Ref = { readonly key: string; readonly retention: Class }
+  // The key admits as content identity, never as text: a DSAR consumer re-enters the store's own `get` with the value
+  // the leg answered, so a second decode at that call site has no spelling.
+  type Ref = { readonly key: Digest.Key<"content">; readonly retention: Class }
   // The object leg's port: declared here where the strata floor sits, satisfied by the store's published read,
   // handed to `dsar` exactly as the upcast plan is — so the reference relation has ONE reader surface.
   type RefRead = (
@@ -563,7 +615,8 @@ const _subjectIndexDdl: Capability.Ensure = {
   relation: "subject_journal",
   pg: `CREATE TABLE IF NOT EXISTS subject_journal (
     app TEXT NOT NULL, tenant TEXT NOT NULL, subject TEXT NOT NULL, sequence BIGINT NOT NULL,
-    PRIMARY KEY (app, tenant, subject, sequence));`,
+    PRIMARY KEY (app, tenant, subject, sequence));
+  ${Tenancy.rls("subject_journal")}`,
   sqlite: `CREATE TABLE IF NOT EXISTS subject_journal (
     app TEXT NOT NULL, tenant TEXT NOT NULL, subject TEXT NOT NULL, sequence INTEGER NOT NULL,
     PRIMARY KEY (app, tenant, subject, sequence));`,
@@ -600,23 +653,37 @@ const _FactRow = Schema.Struct({
 
 const _admitEntry = Schema.decodeUnknown(_EntryRow)
 
-const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>, refs: Retain.RefRead): Retain.Export<A> => ({
-  subject,
-  events: Stream.unwrap(
+// ONE subject-slice collection, read off the index rather than the log. Two renderings ride it for the same reason
+// the groom roster carries two: the export maps it through admission and the upcast plan into live members, and the
+// preservation landing renders the SAME rows verbatim, so the two can never disagree about a subject's history.
+const _sliced = (subject: SubjectKey) =>
+  Stream.unwrap(
     Effect.map(SqlClient.SqlClient, (sql) =>
       sql`SELECT e.tag, e.event_version, e.payload, CAST(e.recorded_at AS TEXT) AS recorded_at FROM journal_event e
           JOIN subject_journal s ON s.sequence = e.sequence AND s.app = e.app AND s.tenant = e.tenant
           WHERE s.app = ${subject.app} AND s.tenant = ${subject.tenant} AND s.subject = ${subject.subject}
-          ORDER BY e.sequence`.stream.pipe(
-        Stream.mapEffect((raw) =>
-          Effect.gen(function* () {
-            const row = yield* _admitEntry(raw)
-            // Read-lift road: historical versions upcast, the live family proves the landing, malformed history quarantines as ParseError
-            const event = yield* plan.decode(row)
-            return { event, recordedAt: row.recorded_at } satisfies Retain.Entry<A>
-          })),
-      )),
-  ),
+          ORDER BY e.sequence`.stream),
+  )
+
+// The preservation rendering: raw envelope rows as newline-delimited bytes, so the custody object holds what the log
+// held rather than what a plan decoded — the payload column is TEXT in every dialect by the append owner's byte-truth
+// law, so the stored spelling crosses verbatim on both engines instead of a driver-parsed respelling. The stream
+// re-runs its own query per consumption, which is what lets the landing prove identity in one pass and write in the
+// next without buffering a subject's whole history.
+const _utf8 = new TextEncoder()
+
+const _slice = (subject: SubjectKey) =>
+  Stream.map(_sliced(subject), (row) => _utf8.encode(`${JSON.stringify(row)}\n`))
+
+const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>, refs: Retain.RefRead): Retain.Export<A> => ({
+  subject,
+  events: Stream.mapEffect(_sliced(subject), (raw) =>
+    Effect.gen(function* () {
+      const row = yield* _admitEntry(raw)
+      // Read-lift road: historical versions upcast, the live family proves the landing, malformed history quarantines as ParseError
+      const event = yield* plan.decode(row)
+      return { event, recordedAt: row.recorded_at } satisfies Retain.Entry<A>
+    })),
   // Fact rows are the SECOND indexed plane a subject spans: their own `subject` column carries the same custody
   // coordinate this key ledger keys on, so portability reads audit evidence off that partial index rather than crawling
   // its log, and a sealed identifier exports through the consumer's own `open` exactly as a sealed event field does.
@@ -624,12 +691,11 @@ const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>, refs: Retain.RefRea
     SqlSchema.findAll({
       Request: SubjectKey,
       Result: _FactRow,
-      // `payload` casts for the same reason `recorded_at` does: the spine stores it as a json column the driver hands
-      // back as a live object where the sqlite profiles hand back TEXT, so the export's own string type only holds
-      // on both engines once the statement states the crossing. The band exports as the stored document verbatim —
-      // decoding it to the live fact family would import the fact owner this page already publishes `Retain` to.
+      // `payload` is TEXT in every dialect by the append owner's byte-truth law, so only `recorded_at` still states
+      // its crossing. The band exports as the stored document verbatim — decoding it to the live fact family would
+      // import the fact owner this page already publishes `Retain` to.
       execute: (who) =>
-        sql`SELECT stream, retention, CAST(payload AS TEXT) AS payload, CAST(recorded_at AS TEXT) AS recorded_at FROM fact_journal
+        sql`SELECT stream, retention, payload, CAST(recorded_at AS TEXT) AS recorded_at FROM fact_journal
             WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject}
             ORDER BY sequence`,
     })(subject)),
@@ -654,6 +720,7 @@ const Retain = {
   hold: _hold,
   lift: _lift,
   held: _heldMatters,
+  slice: _slice, // the preservation rendering of the export's own collection: the landing port consumes it
 
   seal: _seal,
   open: _open,

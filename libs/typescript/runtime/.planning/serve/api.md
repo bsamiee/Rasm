@@ -21,7 +21,7 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 - Growth: a new convention axis (sort grammar, field selection) is one schema row on this owner, inherited by every group that composes it.
 - Packages: `effect` (`Schema`, `Option`).
 
-```typescript
+```typescript signature
 import {
   Headers, HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar,
   HttpApiSecurity, HttpApiSwagger, type HttpClient, type HttpLayerRouter, HttpTraceContext, OpenApi, Socket,
@@ -33,7 +33,7 @@ import {
   RateLimiter, Record, Redacted, Ref, Schema, type Scope, pipe,
 } from "effect"
 import { Identity, Carrier, Convention, Fault, Shape } from "@rasm/ts/core"
-import { ApiKey, Claim, Jwt, type Principal as Scoped, Session, TenantScope } from "@rasm/ts/security"
+import { ApiKey, Claim, CookieSpec, Jwt, type Principal as Scoped, Session, TenantScope } from "@rasm/ts/security"
 import { Propagation } from "../otel/emit.ts"
 
 const _VERSIONS = ["v1"] as const
@@ -78,10 +78,10 @@ const Surface: {
 - Law: the family is sized by refusal route, never by cause — `unauthorized` (credential absent or unverifiable) classifies `expired`, `forbidden` (verified but insufficient) classifies `denied`, `shed` (the door cannot admit right now — the in-flight cap refused, or a credential store the lift needed answered as unreachable infrastructure) classifies `unavailable`, `rate` (window exhausted) classifies `exhausted`, `conflict` (idempotency key replayed against a different payload, a diverged replay, or a released origin) classifies `conflicted` — a finer cause is `detail` text, never a sixth reason minted for one surface, because the route a refusal takes outward is the whole partition.
 - Law: the refusal code falls out of the class alone — every reason's core row already carries the response code `problem#STATUS_RECORD` governs (401, 403, 503, 429, 409 in row order), so no serve-local `status` column and no `policy` probe exist to disagree with the branch's one class-to-status record.
 - Law: `retryAfter` is an `Option<Duration>` stamped by the pressure rows from their own measured window — the grace hint the `problem` ladder prefers over the class default — so a 429/503 always carries the truthful window, never a guessed constant.
-- Law: every refusal emits before it fails — `_refuse` is the one fail seam, incrementing `Convention.metric.admitRefused` tagged by the reason the fault already carries, so the refusal fan needs zero call-site wiring and a new reason joins the series the moment its row lands.
+- Law: every refusal emits before it fails — `_refuse` is the one fail seam, incrementing `Convention.metric.admitRefused` tagged by the reason the fault already carries, so the refusal fan needs zero call-site wiring and a new reason joins the series the moment its row lands; `Gate.refuse` publishes that same seam to the serving route module, so a refusal minted at the seam counts itself through the one fold rather than a second `Effect.fail`.
 - Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/ts/core` (`Fault.Class`, `Convention`).
 
-```typescript
+```typescript signature
 // One row per reason: the core kind alone. Retryability, blame, and the response code are the core row
 // table's and problem#STATUS_RECORD's — `unauthorized` classifies `expired` (401, a credential the door
 // will not accept) where `forbidden` classifies `denied` (403, a credential it accepted and refused).
@@ -131,7 +131,7 @@ const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
 - Growth: a new ambient axis is one `Context.Reference` row plus its projection inside `provide`.
 - Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`, `Number`); `@rasm/ts/core` (`Shape.Refined`); `../otel/emit.ts` (`Propagation`).
 
-```typescript
+```typescript signature
 const _byWeight: Order.Order<readonly [string, number]> = Order.mapInput(
   Order.reverse(Order.number),
   (pair: readonly [string, number]) => pair[1],
@@ -212,26 +212,28 @@ const Current: {
 ## [05]-[ADMISSION_ROWS]
 
 [ADMISSION_ROWS]:
-- Law: `Authn.admit(identity, headers)` is the ONE credential lift and it is the ONE place a verified credential first exists — the bearer arm verifies through `Jwt.verify` into `AccessClaims` then resolves `Claim.resolve` into a `ClaimSet` and `Claim.principal(identity, claims)` into the security `Principal`, the apiKey arm resolves through `ApiKey.resolve` into an `ApiKeyRecord` under the unscoped principal, and both lift into one `Admitted` pair carrying the served identity beside the tenancy binding. A request presenting nothing answers `Option.none()`, because credential refusal is the endpoint's decision, not the edge's.
+- Law: `Authn.admit(identity, headers)` is the ONE credential lift and it is the ONE place a verified credential first exists — the bearer arm verifies through `Jwt.verify` into `AccessClaims` then resolves `Claim.resolve` into a `ClaimSet` and `Claim.principal(identity, claims)` into the security `Principal`, the apiKey arm resolves through `ApiKey.resolve` into an `ApiKeyRecord` and folds THAT through the same `Claim.resolve`/`Claim.principal` pair — security `access/claim`'s one entitlement door takes either mint, so a machine caller carries roles, tenancy, and the delegation ceiling a token caller carries and no arm mints a tenancy shape inline — the cookie arm reads that same access token off the security owner's `CookieSpec.access` row and composes the bearer arm's own verification local, and every arm lifts into one `Admitted` pair carrying the served identity beside the tenancy binding; precedence descends explicit-to-ambient — bearer, then apiKey, then cookie — so a caller presenting two credentials is admitted on the one it stated. A request presenting nothing answers `Option.none()`, because credential refusal is the endpoint's decision, not the edge's.
 - Law: `Authn.live`'s scheme arms PROJECT, never verify — each arm reads `Current.Admitted`, admits the row whose `via` matches its own scheme, and refuses `unauthorized` otherwise, so a declared-but-unpresented scheme costs nothing and no contract can make one request pay two verifications; attachment stays `.middleware(Gate.Authn)` on the contributed group, and verification failure carries generic detail because the evidence rides telemetry, never the 401 body.
-- Law: tenancy binds at that same lift and nowhere else — `Admitted.scope` is the security `Principal` the seam hands to `TenantScope.bind` and `TenantScope.metered`, so every `SessionCoordinate` GUC, every RLS predicate, and every security instrument's tenant dimension resolve from the one credential the edge proved; this module holds no tenancy value of its own.
+- Law: the cookie arm admits the LIFT alone — a cookie is the one credential a browser replays cross-site, so the double-submit proof for cookie-authenticated state-changing methods composes security `Cookie.verify` over the one `CookieSpec.csrf` pair at the seam providing `Current.Admitted` (`route#SEAM_ROWS`'s `Seam.admission`), refusing `unauthorized` on an absent or mismatched pair with the safe methods (`GET`/`HEAD`/`OPTIONS`) exempt; the ceremony routes' `_csrfed` fold stays their own gate over that same one `Cookie.verify` owner, because those round-trips run before any admission exists to read.
+- Law: tenancy binds at that same lift and nowhere else — `Admitted.scope` is the security `Principal` the seam hands to `TenantScope.bind` and `TenantScope.metered`, so every `SessionCoordinate` GUC, every RLS predicate, and every security instrument's tenant dimension resolve from the one credential the edge proved; this module holds no tenancy value of its own and CONSTRUCTS none — every arm mints its scope through `Claim.principal`, which composes `TenantScope.of` at the tenancy owner, where an inline `{ context, subject }` literal at a call site is the drift security `access/tenant` forbids.
 - Law: `_lifted` binds its error parameter to the classed shape, so its two-way partition is total by construction — every port fault it folds mints through `Fault.Class.family` and carries the `class` getter `Fault.Class.of` probes, and the probe reads `property in self`, so a prototype accessor answers. Any port contract failing with a bare `Error` refuses to compile at this fold rather than grading `defect`, whose `system` blame answers `shed` 503 where the presented credential earns 401.
 - Law: the admission plane measures itself off its own partitions — `admitPassed` counts each lift tagged by the `via` scheme so the refusal series has a denominator, `admitRefused` fans on the `GateFault` reason at the one `_refuse` seam, and `idempotencyOutcome` fans on the bracket's own three-way fold; every instrument mounts from its `Convention` row, so this page carries no bucket ladder and no constructor pick.
 - Law: `RpcAuthn` is the same admission on the RPC arm — `RpcMiddleware.Tag` with `failure: GateFault`, `provides: Principal`, `requiredForClient: true`, and `wrap: true`, so one definition governs both ends: the wrap reads the frame headers, composes the same `Authn.admit` lift, provides the same `Principal` into `next`, and binds `TenantScope` around it exactly as the HTTP seam does. `requiredForClient` is what makes `Emit.caller` refuse to derive a credential-less client, and `RpcMiddleware.layerClient` is the client arm the app root supplies; a `Contribution.rpc` group scoping this Tag through `.middleware` cannot ship unauthenticated by omission.
 - Law: pressure rows bound two distinct axes — `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation folds to `shed` with the declared grace: the queue-depth 503 lever), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row (the 429 lever) whose grace deadline bounds the TOKEN WAIT alone — the admitted work never races its own timeout, because the deadline gates the acquisition probe and the work sequences after it — conflating concurrency and throughput is the named selection error; both stamp `retryAfter` from their own measured window, and policy is one `Gate.Pressure` value row, never threaded knobs.
 - Law: the distributed quota row is port-shaped by Layer — `Gate.fenced` yields the experimental accessor `Fleet.makeWithRateLimiter` (an `Effect` reading the `RateLimiter.RateLimiter` Tag the app root satisfies with `layerStoreMemory` on one node or a store-backed Layer on a fleet) and applies its transformer; both experimental faults share the one `"RateLimiterError"` tag discriminated by `reason` — the `"Exceeded"` arm re-spells as `rate` carrying the fault's own measured `retryAfter`, and the `"StoreError"` arm dies as a defect because a broken quota backend is never a caller 429.
+- Law: `Gate.fenced` takes one `Gate.Spend` record speaking the branch's four-column quota grammar — `window`, `limit`, `key`, `cost` — with `cost` forwarded to the limiter's `tokens` slot and `algorithm` the row's own; `Gate.Pressure` keeps serving `shed` and `window`, whose in-flight and grace cells `fenced` never reads, and the store namespaces nothing, so the caller's `key` carries every scope join.
 - Law: `Idempotency` is one polymorphic bracket, never a claim ceremony — `run(key, digest, outcome, execute)` owns the whole fresh/replay fold, so a handler composes one call and never orchestrates claim, settle, or park: the first execution per key runs `execute` and settles the cell with its value; a same-digest duplicate parks on the cell and replays the settled value re-proven through `Schema.validate(outcome)` (the fast lane carries the same schema evidence the fleet tier's `Schema.TaggedRequest` carries), a diverged replay refusing as `conflict`; any non-success exit settles every parked duplicate with a typed `conflict` refusal and conditionally releases only its own cell — no duplicate can hang on an interrupted or defective origin, an expired origin cannot delete a newer claimant's cell, the origin's own exit propagates unchanged, and the next claimant executes fresh; a replayed key whose payload digest differs refuses as `conflict` before any wait. `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim; the key admits through the `Gate.IdempotencyKey` brand at the header seam, and a GET carrying the header is ignored, never refused.
 - Law: the fleet tier is `Idempotency.persisted` — `PersistedCache.make({ storeId, lookup, timeToLive })` over the store-owned `Persistence.layerResultKeyValueStore`, keyed by a `Schema.TaggedRequest` whose `PrimaryKey` fuses idempotency key and payload digest, so the first execution's exit persists for the retention window, every fleet duplicate replays the stored exit typed through the request's own success/failure schemas, and a divergent payload is a different key that executes fresh; the strict 409 divergence posture stays the memory gate composed in front, so both tiers ride one root and zero handler change.
-- Growth: a third credential scheme is one `security` record entry, one `_admit` arm, and one `via` literal; a fleet quota engine is a Layer swap on the `Idempotency` or limiter Tag at the root.
+- Growth: another credential scheme is one `security` record entry, one `_schemes` row, one `_admit` arm, and one `via` literal; a fleet quota engine is a Layer swap on the `Idempotency` or limiter Tag at the root.
 
-```typescript
+```typescript signature
 class _Principal extends Schema.Class<_Principal>("Principal")({
   subject: Schema.NonEmptyString,
   session: Schema.optionalWith(Session.fields.id, { as: "Option" }),
   // the core owner's own field schema, so a tenant crossing this seam is unspellable as a bare string
   tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   scopes: Schema.Array(Schema.NonEmptyString),
-  via: Schema.Literal("session", "apikey"),
+  via: Schema.Literal("session", "apikey", "cookie"),
 }) {}
 
 class Principal extends Context.Tag("runtime/serve/Principal")<Principal, _Principal>() {
@@ -247,8 +249,16 @@ const _passed = Convention.mount(Convention.metric.admitPassed)
 
 const _BEARER = /^Bearer\s+(.+)$/i
 
-// the two presented forms as data: a scheme is a row carrying its header read, so a third scheme joins the
-// lift, the OpenAPI security record, and the `via` vocabulary together or not at all
+// One pair read off the request cookie header, under the security owner's own `CookieSpec` name: framing,
+// attributes, and prefix semantics stay that owner's and this seam only presents what the browser replayed
+const _paired = (raw: string, name: string): Option.Option<string> =>
+  Option.map(
+    Array.findFirst(raw.split("; "), (pair) => pair.startsWith(`${name}=`)),
+    (pair) => pair.slice(name.length + 1),
+  )
+
+// Presented forms are data: a scheme is a row carrying its own header read, so another scheme joins the lift,
+// its OpenAPI security-record entry, and the `via` vocabulary together or not at all
 const _schemes = {
   session: (headers: Headers.Headers) =>
     Option.map(
@@ -256,6 +266,11 @@ const _schemes = {
       Redacted.make,
     ),
   apikey: (headers: Headers.Headers) => Option.map(Option.fromNullable(headers["x-api-key"]), Redacted.make),
+  cookie: (headers: Headers.Headers) =>
+    Option.map(
+      Option.flatMap(Option.fromNullable(headers.cookie), (raw) => _paired(raw, CookieSpec.access.name)),
+      Redacted.make,
+    ),
 } as const satisfies Record<_Principal["via"], (headers: Headers.Headers) => Option.Option<Redacted.Redacted<string>>>
 
 // `Effect.option` folds EVERY failure to an absent credential, so a claim store that is DOWN answers 401 and asks the
@@ -285,42 +300,54 @@ const _admit = (
     const claim = yield* Claim
     const bearer = _schemes.session(headers)
     const key = _schemes.apikey(headers)
-    // the bearer arm is the only tenancy source: an api key resolves a machine subject under the unscoped
-    // principal, exactly as `Claim.principal` projects an absent tenant
+    const cookied = _schemes.cookie(headers)
+    // Header and cookie are two TRANSPORTS of one access token, so verification is one local both arms compose:
+    // no presentation row grows a verification ladder of its own
+    const verified = (token: Redacted.Redacted<string>, via: "session" | "cookie") =>
+      jwt.verify(token).pipe(
+        // Token carries the live session id the ClaimSet does not, so both halves ride forward
+        Effect.flatMap((held) => Effect.map(claim.resolve(held), (claims) => ({ held, claims }))),
+        Effect.map(({ claims, held }): Authn.Admitted => ({
+          principal: new _Principal({
+            subject: claims.subject,
+            session: Option.some(held.sid),
+            tenant: claims.tenant,
+            scopes: held.scope,
+            via,
+          }),
+          scope: claim.principal(identity, claims),
+        })),
+        _lifted,
+      )
+    // Every arm reaches ONE entitlement door: a machine key folds its resolved record through the same
+    // `Claim.resolve` a token folds its claims through, so roles, tenancy, and the delegation ceiling reach a
+    // machine caller identically. Precedence descends from the explicit header to the ambient cookie, so a caller
+    // presenting both is admitted on the credential it chose to state.
     return yield* Option.match(bearer, {
-      onSome: (token) =>
-        jwt.verify(token).pipe(
-          // the token carries the live session id the ClaimSet does not, so both halves ride forward
-          Effect.flatMap((verified) => Effect.map(claim.resolve(verified), (claims) => ({ verified, claims }))),
-          Effect.map(({ claims, verified }): Authn.Admitted => ({
-            principal: new _Principal({
-              subject: claims.subject,
-              session: Option.some(verified.sid),
-              tenant: claims.tenant,
-              scopes: verified.scope,
-              via: "session",
-            }),
-            scope: claim.principal(identity, claims),
-          })),
-          _lifted,
-        ),
+      onSome: (token) => verified(token, "session"),
       onNone: () =>
         Option.match(key, {
-          onNone: () => Effect.succeedNone,
           onSome: (presented) =>
             keys.resolve(presented).pipe(
-              Effect.map((record): Authn.Admitted => ({
+              // Record carries the presented delegation the ClaimSet folds, so both halves ride forward
+              Effect.flatMap((record) => Effect.map(claim.resolve(record), (claims) => ({ claims, record }))),
+              Effect.map(({ claims, record }): Authn.Admitted => ({
                 principal: new _Principal({
-                  subject: record.subject,
+                  subject: claims.subject,
                   session: Option.none(),
-                  tenant: Option.none(),
+                  tenant: claims.tenant,
                   scopes: record.scopes,
                   via: "apikey",
                 }),
-                scope: { context: Option.none(), subject: Option.some(record.subject) },
+                scope: claim.principal(identity, claims),
               })),
               _lifted,
             ),
+          onNone: () =>
+            Option.match(cookied, {
+              onNone: () => Effect.succeedNone,
+              onSome: (token) => verified(token, "cookie"),
+            }),
         }),
     })
   }).pipe(
@@ -350,12 +377,14 @@ class Authn extends HttpApiMiddleware.Tag<Authn>()("runtime/serve/Authn", {
   security: {
     bearer: HttpApiSecurity.bearer,
     apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
+    cookie: HttpApiSecurity.apiKey({ in: "cookie", key: CookieSpec.access.name }),
   },
 }) {
   static readonly admit = _admit
   static readonly live: Layer.Layer<Authn> = Layer.succeed(Authn, {
     bearer: () => _projected("session"),
     apiKey: () => _projected("apikey"),
+    cookie: () => _projected("cookie"),
   })
 }
 
@@ -492,6 +521,13 @@ declare namespace Gate {
     readonly grace: Duration.Duration
     readonly window: { readonly limit: number; readonly interval: Duration.Duration }
   }
+  type Spend = {
+    readonly key: string
+    readonly cost: number
+    readonly algorithm: "fixed-window" | "token-bucket"
+    readonly window: Duration.DurationInput
+    readonly limit: number
+  }
 }
 
 const Gate = {
@@ -499,6 +535,7 @@ const Gate = {
   Idempotency,
   IdempotencyKey: _IdempotencyKey,
   RpcAuthn,
+  refuse: _refuse,
   shed: (pressure: Gate.Pressure): Effect.Effect<<A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, GateFault | E, R>> =>
     Effect.map(Effect.makeSemaphore(pressure.inFlight), (permits) =>
       <A, E, R>(self: Effect.Effect<A, E, R>) =>
@@ -528,20 +565,21 @@ const Gate = {
           )),
   fenced: <A, E, R>(
     self: Effect.Effect<A, E, R>,
-    key: string,
-    pressure: Gate.Pressure,
+    spend: Gate.Spend,
   ): Effect.Effect<A, GateFault | E, R | Fleet.RateLimiter> =>
     Effect.flatMap(Fleet.makeWithRateLimiter, (limit) =>
       limit({
-        key,
-        window: pressure.window.interval,
-        limit: pressure.window.limit,
+        key: spend.key,
+        window: spend.window,
+        limit: spend.limit,
+        tokens: spend.cost,
+        algorithm: spend.algorithm,
         onExceeded: "fail",
       })(self).pipe(
         // both experimental faults share the "RateLimiterError" tag; reason discriminates the arms
         Effect.catchTag("RateLimiterError", (fault) =>
           fault.reason === "Exceeded"
-            ? _refuse(new GateFault({ reason: "rate", detail: key, retryAfter: Option.some(fault.retryAfter) }))
+            ? _refuse(new GateFault({ reason: "rate", detail: spend.key, retryAfter: Option.some(fault.retryAfter) }))
             : Effect.die(fault)),
       )),
 } as const
@@ -551,8 +589,8 @@ const Gate = {
 
 [CONTRIBUTION]:
 - Owner: `Contribution` — the pairing law as two constructors: `Contribution.http(group, handlers)` pairs an `HttpApiGroup` with its handler builder — a function OF the assembled api, because `HttpApiBuilder.group(api, name, build)` demands the api value only the app holds, the mechanical fact that makes the god-contract impossible; `Contribution.rpc(group, handlers)` pairs an `RpcGroup` with the handler Layer its `toLayer` already built, because RPC handlers bind to the group alone.
-- Law: the app assembly is three chained folds stated here as law — `HttpApi.make(id).add(a.group).add(b.group)` builds the one api value; each http row's `handlers(api)` Layer merges under `Layer.provide` into `HttpApiBuilder.api(api)`; each rpc row's group merges through `group.merge(other)` into one served group — and the assembled values exist only in the app's composition root, with `route#SERVE_FOLD` consuming the resulting Layer.
-- Law: `Contribution.protocols` crossed with `Contribution.codecs` is the RPC serve roster — protocol rows `http` and `websocket` as path-parameterized factories over the ROUTER-native constructors, `socket` as the raw-socket-server row, `worker` as the runner row whose typed boot handshake is `RpcWorker.layerInitialMessage(schema, build)`, `stdio` as the child-process/MCP transport over its stdin Stream and stdout Sink — crossed with serialization rows `json`, `jsonRpc`, `ndjson`, `ndjsonRpc`, `msgpack`, and parameterized `msgpackWith`, selected once at the app root; a transport or codec choice inside a handler, or a procedure re-declared per transport, is the named defect.
+- Law: the app assembly is three chained folds stated here as law — `HttpApi.make(id).add(a.group).add(b.group)` builds the one api value; each http row's `handlers(api)` Layer merges under `Layer.provide` into `HttpApiBuilder.api(api)`; each rpc row's group merges through `group.merge(other)` into one served group, two contributions colliding on a tag disambiguating through the package's own `group.prefix(name)` at the contribution seam — and the assembled values exist only in the app's composition root, with `route#SERVE_FOLD` consuming the resulting Layer.
+- Law: `Contribution.protocols` crossed with `Contribution.codecs` is the RPC serve roster — protocol rows `http` and `websocket` as path-parameterized factories over the ROUTER-native constructors, `socket` as the raw-socket-server row, `worker` as the runner row whose typed boot handshake is `RpcWorker.layerInitialMessage(schema, build)`, `stdio` as the child-process/MCP transport over its stdin Stream and stdout Sink — crossed with serialization rows `json`, `jsonRpc`, `ndjson`, `ndjsonRpc`, `msgpack`, and the parameterized `msgpackWith`/`ndjsonWith` pair riding the package's own `layer*With` members, selected once at the app root; a transport or codec choice inside a handler, or a procedure re-declared per transport, is the named defect.
 - Law: the mountable rows are router-native by construction — `layerProtocolHttpRouter`/`layerProtocolWebsocketRouter` require the `HttpLayerRouter.HttpRouter` `route#SERVE_FOLD` provides, where the legacy `layerProtocolHttp`/`layerProtocolWebsocket` pair requires an `HttpRouter.Default` Tag no serve Layer in this branch supplies; the branch's ONE-front-door ruling forecloses a second listener, so the legacy pair has no reachable row and does not appear here.
 - Law: procedure rows carry their own semantics as `Rpc.make` options and wrappers — `primaryKey` states the request-dedup identity where a procedure is idempotent by value, `Rpc.fork` marks a fire-and-forget handler that answers without occupying the mailbox, `Rpc.uninterruptible` marks a settle that must not be torn by client disconnect — each a declaration on the contributed row, never a handler-interior branch.
 - Law: the RPC arm carries its own principal-providing admission — `Gate.RpcAuthn` is the `[05]`-owned Tag, `RpcGroup`'s `.middleware` scopes it to the contributed procedures, and `RpcAuthn.caller` supplies the client arm `requiredForClient` demands — so the HTTP `Authn` and the RPC admission compose the one `Authn.admit` lift, provide the same `Principal`, bind the same tenancy, and neither arm ships unauthenticated by omission.
@@ -562,7 +600,7 @@ const Gate = {
 - Growth: a new entry family (a queue consumer surface, a cron surface) is one new pairing constructor on this owner under the same shape — group as data, handlers as Layer or reader — never a new assembly law.
 - Packages: `@effect/platform` (`HttpApi`, `HttpApiBuilder`); `@effect/rpc` (`Rpc`, `RpcGroup`, `RpcServer`, `RpcSerialization`, `RpcMiddleware`); `effect` (`Layer`).
 
-```typescript
+```typescript signature
 declare namespace Contribution {
   type Http<G, Api, Out, E, R> = {
     readonly _tag: "Http"
@@ -594,8 +632,10 @@ const _codecs = {
   ndjson: RpcSerialization.layerNdjson,
   ndjsonRpc: RpcSerialization.layerNdJsonRpc(),
   msgpack: RpcSerialization.layerMsgPack,
-  msgpackWith: (options?: Parameters<typeof RpcSerialization.makeMsgPack>[0]) =>
-    Layer.succeed(RpcSerialization.RpcSerialization, RpcSerialization.makeMsgPack(options)),
+  // parameterized forms ride the package's own layer members: a hand wrap over the bare constructor re-derives
+  // a published row and drifts the moment the constructor's option shape widens
+  msgpackWith: RpcSerialization.layerMsgPackWith,
+  ndjsonWith: RpcSerialization.layerNdjsonWith,
 } as const
 
 const Contribution: {
@@ -629,7 +669,7 @@ const Contribution: {
 - Law: the span seed is LIVE-span-only by declaration — `HttpTraceContext.toHeaders` takes `Tracer.Span` where `Tracer.AnySpan` is the `Span | ExternalSpan` union, so a recovered `ExternalSpan` is unspellable at that member and no adapter lifts one into it; an ingress-recovered parent therefore crosses on the carried context alone, which is exactly why the inject site seeds the frame rather than deriving the hop from it.
 - Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`, `HttpApiSwagger`, `HttpApiClient`, `HttpLayerRouter`, `HttpTraceContext`, `Headers`, `Socket`); `@effect/rpc` (`RpcClient`); `effect` (`Layer`, `Array`, `Record`, `Order`, `Predicate`).
 
-```typescript
+```typescript signature
 const _byKey: Order.Order<readonly [string, unknown]> = Order.mapInput(
   Order.string,
   (entry: readonly [string, unknown]) => entry[0],

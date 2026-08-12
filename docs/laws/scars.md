@@ -4,6 +4,12 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 
 ## [01]-[LEDGER]
 
+[REVERT_BY_CHECKOUT]:
+- Law: Agents undo their own edits from their read transcript or a pre-touch snapshot, never `git checkout`/`git restore` against HEAD.
+- Law: Concurrent working trees carry uncommitted peer work, so a revert primitive's blast radius is the whole HEAD-to-tree delta, never one diff.
+- Trigger: Checkout-based self-reverts silently destroy every uncommitted concurrent landing on the touched paths while reading as a clean undo.
+- Boundary: Recovery accepts a reconstruction only on a pre-touch fingerprint — censuses recorded before the first write — never a blind re-read.
+
 [RETIRED_SURFACE_DRAIN]:
 - Law: Retired surfaces drain only on corpus-wide proof of zero occurrences.
 - Trigger: Stale spellings beyond the finding set resurface silently.
@@ -55,7 +61,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: File-presence checks pass unloadable natives, trivial operands pass encoders refusing mid-write, one probe blesses an unprobed floor.
 - Boundary: Provider selection folds the WHOLE set in order onto a typed-refusal `Option`; per-build capability re-probes, never a remembered roster.
 - Boundary: Knobs a selected transport disables ACCEPT and do nothing, so a flag proves by its observed effect and never by its setter returning.
-- Boundary: One limitation reports asymmetrically — a sibling member throwing on the object whose knob went quiet is the only tell that both share a cause.
+- Boundary: One limitation reports asymmetrically — a sibling throwing on the object whose knob went quiet is the tell that both share a cause.
 
 [LAW_WITHOUT_PRODUCER]:
 - Law: Rows added to a data anchor land with their construction in the same edit.
@@ -108,36 +114,43 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Untouched generating clauses re-derive the refuted prescription on the next pass.
 
 [MANIFEST_NAMES_UNREALIZED_SURFACE]:
-- Law: Build manifests name only what their own compiled closure provides; a namespace the source estate has yet to realize belongs to the fence consuming it.
+- Law: Build manifests name only what their compiled closure carries; an estate-unrealized namespace homes at the fence consuming it.
 - Trigger: That row hard-fails the one consumer that cannot drop it while every sibling carries a removal row reading as deliberate configuration.
 - Boundary: Injection spans every kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
 
 [PACKAGE_LIMIT_AS_LAW]:
-- Law: Specifications, standards, and domains own their semantics while an admitted package accelerates them, so a package's narrower surface states a fact about that package alone.
-- Trigger: Capability the specification defines and the package omits lands as an estate ceiling, and every later reader takes the omission for settled scope.
+- Law: Specifications and domains own their semantics while admitted packages accelerate them; a narrower package surface states a package fact.
+- Trigger: Capability the specification defines and the package omits lands as an estate ceiling every later reader takes for settled scope.
 - Boundary: Acceleration spans every kind — SDK, codec, helper roster, generated client — and a branch-owned leg carries what the package leaves.
 - Boundary: Package surfaces WIDER than the specification invert the same defect, since the estate then ships a shape no conforming peer resolves.
 
 [CITED_RULING_UNWRITTEN]:
-- Law: Decisions citing a ruling hold only where that ruling resolves on disk at the tier the citation names, an unresolvable citation carries no authority at all.
-- Trigger: Scope narrowed "by ruling" freezes for passes while the named registry holds no such row, so the decision reads settled and re-litigates the moment someone looks.
-- Boundary: Proof reads the named registry at the named tier — a recalled ruling, a peer page repeating it, and a receipt asserting it each prove nothing.
+- Law: Decisions citing a ruling hold only where it resolves on disk at the cited tier; an unresolvable citation carries no authority.
+- Trigger: Scope narrowed "by ruling" freezes while the named registry holds no such row, reading settled until re-litigated the moment someone looks.
+- Boundary: Proof reads the named registry at the named tier — a recalled ruling, a repeating peer page, and an asserting receipt prove nothing.
 - Boundary: Decisions surviving the miss land their ruling row in the same pass, and one that does not survive reverses whole with its ripples.
 
 [PROOF_DISCARDED_BY_WIDENING]:
-- Law: Narrowing proofs and their consumers share one type, so the expression taking a proved value takes the narrowed shape rather than a widened supertype.
-- Trigger: One expression proves a shape and the next hands it to a member returning the wide form, so the checker stops carrying the invariant and every later reader re-proves by hand or not at all.
-- Boundary: Narrowing devices all fall under it — a `satisfies` witness, a type guard, a refinement, an exhaustive arm — and the widened return erases each.
-- Boundary: Repair narrows the consuming signature, never a cast or a re-check at the call site, since both re-assert what the type system already proved.
+- Law: Narrowing proofs and their consumers share one type, so an expression taking a proved value takes the narrowed shape, never a supertype.
+- Trigger: One expression proves a shape, the next returns the wide form, and the checker drops the invariant every later reader re-proves by hand.
+- Boundary: Every narrowing device falls under it — `satisfies` witness, type guard, refinement, exhaustive arm — and a widened return erases each.
+- Boundary: Repair narrows the consuming signature, never a call-site cast or re-check — both re-assert what the type system already proved.
 
 [FROZEN_FOREIGN_ARTIFACT]:
-- Law: Vendored publisher bytes carve out of every estate lane that respells them — formatter, breaking gate, generator, canonicalizer — so the copy stays byte-identical to what its publisher versions.
-- Trigger: Lanes reaching the vendored tree diff the estate's spelling rather than the publisher's, leaving re-vendoring indistinguishable from an estate edit.
+- Law: Vendored publisher bytes carve out of every respelling lane — formatter, breaking gate, generator, canonicalizer — staying byte-identical.
+- Trigger: Lanes reaching the vendored tree diff the estate's spelling over the publisher's, so re-vendoring reads as an estate edit.
 - Boundary: Each carve declares at its own lane's config, so a lane admitted later inherits no exemption and states its own.
-- Boundary: Readers modelling estate-emitted assets carve too, vendored corpus emit no producer asset and reads as awaiting emission under a model that assumes one.
+- Boundary: Readers modelling estate-emitted assets carve too — a vendored corpus emits no producer asset and reads as awaiting emission.
 
 [DIGEST_OVER_UNORDERED_CONTAINER]:
-- Law: Digests, preimages, wire arrays projected from a hash-keyed container read a canonical ORDER their owner publishes, never the container's own enumeration.
+- Law: Digests, preimages, and wire arrays from a hash-keyed container read the owner-published canonical ORDER, never container enumeration.
 - Trigger: Two runtimes derive different bytes from one logical value, and the fixture pinning them never freezes because neither side is wrong.
-- Boundary: Every unordered carrier a byte-deriving reader touches falls under it — a hash map, a set, a dictionary lowered to a JSON object, a record of counters.
-- Boundary: Order publishes ONCE on the owning value beside its writer; a reader sorting at its own call site desyncs the moment a second reader forgets.
+- Boundary: Every unordered carrier a byte-deriving reader touches falls under it — hash map, set, dictionary lowered to JSON, counter record.
+- Boundary: Order publishes ONCE on the owning value beside its writer; call-site sorting desyncs the moment a second reader forgets.
+
+[DEFAULT_ACTION_INVERSION]:
+- Law: Enforcement rows spell their action wherever the engine defaults one — a deny-by-default engine inverts every matcher roster left silent.
+- Law: Presence-shaped governance blocks spread conditionally — where absence reads unrestricted, an empty roster denies all once the block appears.
+- Trigger: Rules validate and report healthy while denying nothing and admitting every unnamed registry; a `[]` allowlist denies its whole tenant.
+- Boundary: Proof reads default-action and absence semantics at the engine's own evaluator, never the roster shape or admission success.
+- Boundary: Every rule engine carrying a default verb falls under it — admission webhooks, policy packs, row-level predicates, network fences.

@@ -19,14 +19,15 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Boundary: which class an actor or job family selects is that declaration's policy field; this table prices classes and never names consumers.
 - Packages: `effect` (`Duration`, `Function`, `Schema`); `@rasm/ts/core` (`Fault.Budget`).
 
-```typescript
+```typescript signature
 import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, EntityResource, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
 import { PersistedQueue } from "@effect/experimental"
 import type { HttpApi } from "@effect/platform"
 import { type Rpc, RpcGroup } from "@effect/rpc"
 import { SqlPersistedQueue } from "@effect/sql"
-import { Array, Duration, Effect, Function, Layer, Metric, Option, Schema, Stream, Struct, type Types } from "effect"
-import { Fault, type Identity } from "@rasm/ts/core"
+import { Array, Duration, Effect, Function, Layer, Metric, Option, Schema, type Scope, Stream, Struct, type Types } from "effect"
+import { Convention, Fault, type Identity } from "@rasm/ts/core"
+import { Profile } from "../otel/profile.ts"
 import { Setting } from "../proc/config.ts"
 
 const _classRows = {
@@ -79,14 +80,18 @@ const WorkClass: WorkClass.Shape = {
 - Law: delayed delivery is native — a message whose payload carries the `DeliverAt.DeliverAt` `toMillis` interface delivers at its instant on the actor plane, so a one-shot deferred job is a scheduled message, never a timer or a poll beside the mailbox; `schedule`'s one-shot deferral rides this row.
 - Law: the mailbox-drain reply seam is `Entity.Replier` — a `toLayerMailbox` handler answers out-of-band through `succeed`/`fail`/`failCause`/`complete(Exit)` on the handed replier, so a streaming-batch drain settles each message exactly once without occupying the serialized lane.
 - Law: locality is span evidence — `Entity.CurrentAddress` and `Entity.CurrentRunnerAddress` are in-handler context Tags whose `EntityAddress`/`RunnerAddress` stamp the message span, so which shard and which runner handled a message reads off every trace, not just the registration census.
+- Law: actor identity is rostered vocabulary at two seats — `toLayer`'s `spanAttributes` stamps `rasm.work.family` statically on every message span beside the package's own `entity.type`, and the lifetime span carries family beside the instance's `rasm.work.shard` read from `Entity.CurrentAddress` — because the message seat is a static record no per-instance fact can ride; a free-string identity attribute beside these rows forks the join a trace view filters on.
 - Law: `Actor.expose(entity)` projects the entity as `serve/api#CONTRIBUTION` pairing material — `EntityProxy.toRpcGroup(entity)` beside `EntityProxyServer.layerRpcHandlers(entity)` is exactly the `Contribution.rpc(group, handlers)` pair, and `EntityProxy.toHttpApiGroup(name, entity)` beside the api-reading builder `(api) => EntityProxyServer.layerHttpApi(api, name, entity)` is exactly the `Contribution.http(group, handlers)` pair — so the app mounts an actor through the same two pairing constructors as every other group and the typed client derives for free; a bare group projection whose handler binding the app must rediscover is the half-pairing defect. The mailbox-draining `toLayerMailbox` form is the streaming-batch escape hatch and carries the same bounds.
 - Law: a per-actor external handle is a `Spec.resource` column, never a raw handler-body acquisition — the mint folds `Option.map(spec.resource, (acquire) => EntityResource.make({ acquire, idleTimeToLive: row.idle }))`, so the handle's residency is the actor's own `WorkClass` idle window, it survives a shard-move restart, and it releases on idle expiry; the K8s pod form is `EntityResource.makeK8sPod` against the same column. A handle opened raw inside a handler body leaks across replays and is the rejected form, and an actor with no external handle states `Option.none()` rather than carrying a null slot.
 - Law: the resource is published as an EFFECT whose ONE seat is the per-instance handler builder — `EntityResource.make` mints a fresh `RcRef` per call and acquires eagerly, and its requirement channel names `Entity.CurrentAddress`, which `toLayer` provides to a builder effect alone (the return type excludes `Scope`, `CurrentAddress`, and `CurrentRunnerAddress` from `RX` for exactly that reason). So an actor's builder runs `resource` once and its handlers read `held.get` per message; calling `make` inside a handler body mints a second `RcRef` and a second acquisition on every message — the leak this column exists to close, wearing the column's name. `registered` therefore carries the package's own generic pair rather than an erased parameter type, because an erased builder cannot state the requirement the seat depends on.
+- Law: the actor's LIFETIME is a span and the builder is its one seat — `toLayer` provides `Scope`, `Entity.CurrentAddress`, and `Entity.CurrentRunnerAddress` to the builder effect alone and excludes all three from the Layer's requirement, so `actor/<name>` opens there and ends when the instance's scope closes on shard move or idle expiry. This is the anchor the locality law above needs: a span that exists for exactly as long as the instance does, rather than a per-message span that outlives nothing.
+- Law: that span is the branch's ACTOR PROFILE ANCHOR — `otel/profile#BANDS`'s effectful arm stamps the correlation attribute on it, so a flamegraph window resolves from a trace view at the instance grain. The arm carries the attribute ALONE by that owner's law: an actor's messages interleave across fibers and the engine's label set is thread-global, so no sample label can name this region from here; a handler running a genuinely synchronous kernel takes the band's synchronous arm under this same span, and the `span_id` label it writes is what closes the store join this attribute opened.
+- Law: the band's channel is the actor FAMILY and its steps are the three regions one instance owns, so a family's profile series count is bounded by its lifecycle rather than by its message roster — a per-Rpc step mints one series per tag per family, which is the metric-cardinality defect wearing a profile label.
 - Entry: `Actor.make` at the owning page; `Entity.makeTestClient(entity, layer)` binds the kit-driven spec client with no runner.
-- Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new per-Rpc posture axis is one exemption set folded at `_annotated`; a new modality (streaming reply) is `toLayerMailbox` on the same spec.
-- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`).
+- Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new per-Rpc posture axis is one exemption set folded at `_annotated`; a new modality (streaming reply) is `toLayerMailbox` on the same spec; a new banded region is one `_PHASES` entry.
+- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`, `Scope`); `@rasm/ts/core` (`Convention` — the identity rows both span seats stamp); `../otel/profile.ts` (`Profile`).
 
-```typescript
+```typescript signature
 declare namespace Actor {
   type Spec<Type extends string, Rpcs extends Rpc.Any, Handle = never, Fault = never, Need = never> = {
     readonly name: Type
@@ -101,7 +106,17 @@ declare namespace Actor {
   }
 }
 
-const _annotated = <Rpcs extends Rpc.Any>(spec: Actor.Spec<string, Rpcs, never, never, never>): RpcGroup.RpcGroup<Rpcs> =>
+// The three regions one instance owns. Steps are LIFECYCLE, never message tags: the channel already separates families
+// and a tag-valued step multiplies every family's series by its whole protocol.
+const _PHASES = ["instance", "message", "resource"] as const
+
+const _band = (name: string): Profile.BandVocabulary => ({ channel: [name], step: _PHASES })
+
+// `Pick` names only the members this fold reads, so the resource generics never enter the signature and the call
+// site needs no cast: annotation policy depends on the protocol and its exemption sets alone.
+const _annotated = <Rpcs extends Rpc.Any>(
+  spec: Pick<Actor.Spec<string, Rpcs, unknown, unknown, unknown>, "protocol" | "ephemeral" | "untraced">,
+): RpcGroup.RpcGroup<Rpcs> =>
   spec.protocol(<Current extends Rpcs>(rpc: Current): Current =>
     rpc
       .annotate(ClusterSchema.Persisted, !Array.contains(spec.ephemeral, rpc._tag))
@@ -109,7 +124,7 @@ const _annotated = <Rpcs extends Rpc.Any>(spec: Actor.Spec<string, Rpcs, never, 
 
 const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(spec: Actor.Spec<Type, Rpcs, Handle, Fault, Need>) => {
   const row = WorkClass[spec.clazz]
-  const entity = Entity.fromRpcGroup(spec.name, _annotated(spec as never)).pipe(
+  const entity = Entity.fromRpcGroup(spec.name, _annotated(spec)).pipe(
     (e) => e.annotateRpcs(ClusterSchema.ShardGroup, (entityId: string) => spec.tenant(entityId)),
     (e) => e.annotateRpcs(ClusterSchema.Uninterruptible, spec.interrupt),
   )
@@ -118,16 +133,42 @@ const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(s
   // handler BUILDER — the one seat `toLayer` provides `Scope`, `CurrentAddress`, and `CurrentRunnerAddress` to — and a
   // handler then reads `yield* held.get` per message off that one value.
   const resource = Option.map(spec.resource, (acquire) => EntityResource.make({ acquire, idleTimeToLive: row.idle }))
+  const band = _band(spec.name)
+  // The lifetime span rides the SAME builder seat the resource does, so it opens once per live instance and ends when
+  // that instance's scope closes — a per-message span would outlive nothing and anchor no profile window.
+  const anchored = <Handlers, RX>(build: Effect.Effect<Handlers, never, RX>): Effect.Effect<Handlers, never, RX | Scope.Scope | Entity.CurrentAddress> =>
+    Profile.banded(band, { channel: spec.name, step: "instance" }, build).pipe(
+      // the roster is derived from the spec one line up, so its refusal is unreachable and dies rather than widening
+      // every actor's boot channel with a parse outcome no deployment can produce
+      Effect.catchTag("ParseError", Effect.die),
+      // both rostered identity rows ride the lifetime span: family joins the static message-span stamp below, and
+      // shard placement is readable only here, where `toLayer` hands the builder seat the address
+      (built) =>
+        Effect.zipRight(
+          Effect.flatMap(Entity.CurrentAddress, (address) =>
+            Effect.annotateCurrentSpan({
+              [Convention.rasm.workFamily]: spec.name,
+              [Convention.rasm.workShard]: `${address.shardId}`,
+            } satisfies Convention.Attributes)),
+          built,
+        ),
+      // OUTERMOST, so the span is current when the band reads it: one span read feeds the correlation attribute here
+      // and the sample labels of every synchronous kernel a handler bands beneath it
+      Effect.withSpanScoped(`actor/${spec.name}`),
+    )
   // The generic mirrors the package's own so an Effect builder keeps its `RX` accounting, which is what makes the
   // resource seat reachable at all; the class row fixes every geometry option, so the entry takes the build alone.
   const registered = <Handlers extends Entity.HandlersFrom<Rpcs>, RX = never>(build: Handlers | Effect.Effect<Handlers, never, RX>) =>
-    entity.toLayer(build, {
+    entity.toLayer(anchored(Effect.isEffect(build) ? build : Effect.succeed(build)), {
       concurrency: row.concurrency,
       mailboxCapacity: row.mailbox,
       maxIdleTime: row.idle,
       defectRetryPolicy: WorkClass.defectRetry(spec.clazz),
+      spanAttributes: { [Convention.rasm.workFamily]: spec.name },
     })
-  return { entity, registered, resource, client: entity.client } as const
+  // `band` publishes so a handler's synchronous kernel bands under the SAME roster the instance span already declared:
+  // a handler minting its own vocabulary forks the family's region names and the store then joins nothing.
+  return { band, entity, registered, resource, client: entity.client } as const
 }
 
 const _expose = <Type extends string, Rpcs extends Rpc.Any>(entity: Entity.Entity<Type, Rpcs>) => ({
@@ -150,7 +191,7 @@ const Actor = { make: _make, expose: _expose }
 - Boundary: the journal, outbox, and idempotency-ledger relations belong to the data wave; this port persists cluster envelopes in cluster-owned relations on the same scope, and atomicity with a domain aggregate is the data journal's transaction, reached by enqueuing from inside it — never by threading this storage into a domain write.
 - Growth: a new durability tier is one row on the tier record carrying both store arms; a new cluster fault tag is one bridge row the governed record demands at compile time.
 
-```typescript
+```typescript signature
 declare namespace Mailbox {
   type Tier = "durable" | "memory" | "noop"
 }
@@ -197,7 +238,7 @@ const Mailbox = {
 - Growth: a new runner transport is one entry row — the websocket runner is `HttpRunner.layerWebsocket`, the served-with-clients form `RunnerServer.layerWithClients`; a new health mode is one kind row; a topology axis change is a `ShardingConfig` field the environment stamps.
 - Packages: `@effect/cluster` (`Sharding`, `ShardingConfig`, `SqlRunnerStorage`, `RunnerHealth`, `K8sHttpClient`, `Singleton`, `ClusterWorkflowEngine`); `../proc/config.ts` (`Setting`); `../proc/exec.ts` (`Runtime` rows at the boot module).
 
-```typescript
+```typescript signature
 declare namespace Grid {
   type Health = "k8s" | "ping" | "noop"
 }

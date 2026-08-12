@@ -122,6 +122,7 @@
 
 - `BVHShaderGLSL`: `{bvh_distance_functions, bvh_ray_functions, bvh_struct_definitions, common_functions}` — the GLSL chunks injected into a custom `ShaderMaterial`.
 - `BVHComputeData`: `storage`/`structs`/`fns` (`raycastFirstHit`/`sampleTrianglePoint`/`closestPointToPoint`) and `update()` — the compute-pass buffers, structs, and entry points `getShapecastFn` composes.
+- shader barycoords are opaque strings the type system never checks: both the GLSL and WGSL closest-point functions answer `barycoord` in vertex order — the weights of v0, v1, v2 in that slot order — so a shader indexes attributes by the same order it reads the triangle in and never re-swizzles the result.
 
 [SERIALIZE]: `SerializedBVH` (`roots: ArrayBuffer[]`, `index`, `indirectBuffer`) is the transferable tree snapshot moving a built tree across the worker boundary or caching it beside the geometry so a re-open skips the rebuild.
 

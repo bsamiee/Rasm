@@ -17,7 +17,7 @@ Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cr
 - Growth: a new recurrence concern (a jitter band, a blackout calendar) is one row column both engines read; a one-shot delayed job is not a cadence — it is a `flow#SIGNAL_GATE` pause or a `DeliverAt` payload on the actor plane.
 - Packages: `effect` (`Cron`, `Duration`); `@rasm/ts/core` (`Identity.Tenancy` — the tenancy axis the engine descriptor states); `./entity.ts` (`WorkClass`).
 
-```typescript
+```typescript signature
 import { ClusterCron } from "@effect/cluster"
 import { Array, Cron, DateTime, Duration, Effect, Iterable, Layer, Option, Record, Schedule, Schema, Stream } from "effect"
 import { Identity } from "@rasm/ts/core"
@@ -71,7 +71,7 @@ const _rows = (table: Cadence.Table): ReadonlyArray<Cadence.Row> =>
 - Growth: a new posture is one `Anchor` discriminant and one `_missed` arm; per-row notification is a tap on the row's body at its owner.
 - Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/ts/data` (`Fact` — the backfill meter).
 
-```typescript
+```typescript signature
 // The pull is `ceiling + 1`: the one element past the posture's admission PROVES the clip while the ceiling still
 // bounds the walk, so a long outage's truncation is a measured fact and never a materialized backlog.
 const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): Cadence.Backlog => {
@@ -167,7 +167,7 @@ const _cluster = <R, R2>(
 - Growth: a third engine (an edge scheduler, a test-clock driver) is one more fold over the same table and the same `_fired` pass; specs drive `host` under `TestClock` with no cluster.
 - Packages: `effect` (`Schedule`, `Layer`); `@effect/workflow` (`WorkflowEngine.layerMemory` — the engineless host's step substrate, selected at the root).
 
-```typescript
+```typescript signature
 const _host = <R, R2>(
   table: Cadence.Table,
   run: (row: Cadence.Row, tick: DateTime.Utc) => Effect.Effect<void, never, R>,

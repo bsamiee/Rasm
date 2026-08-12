@@ -1,6 +1,6 @@
 # [IAC_AUTOMATION]
 
-The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSelectStack` with no `Pulumi.yaml` anywhere — every workspace fact (self-managed `backend.url`, `secretsProvider`, passphrase, CLI root) is an Effect `Config` read resolved once, and the pulumi CLI-binary-on-PATH is a deploy-host fact wrapped exactly here. The engine's `onEvent` callback bridges into an Effect `Stream` through `Stream.asyncPush` inside the run's own `Scope` — release aborts the engine run, so fiber interruption, scope close, and budget exhaustion all cancel with no orphan update — and one fold function buckets summary, steps, and diagnostics in a single pass whether the events arrive as a stream or a batch. The run owner internalizes its own resilience: a jittered exponential `Schedule` gated on the fault family's own `retry` column self-heals state-lock collisions, a per-run budget rides `Effect.timeoutFail`, and a span wraps every drive, so a consumer composes capability, never recurrence plumbing. `previewRefresh` rides the same owner as the read-only fifth leg: `reconcile` re-reads live provider state against the desired graph without mutating, and its receipt is the drift material `operate/policy.md` projects, so drift evidence and deploy evidence share one vocabulary by construction. The fleet verbs close the engine's workspace surface on the same owner — ESC attachment, batch adoption, update history with its duration series, stack tags, cancel, rename, the polymorphic config verb, and the workspace roster reads are typed members over the engine's own methods, receipt identity carries the one `fullyQualifiedStackName` spelling, and `remote` is the Deployments execution row gated on the spec's `cloud` backend. The engine has no in-band typed error class, so this page also owns the deploy plane's one fault family: `DeployFault`, reason-discriminated over one core `Fault.Class.family` mint and minted by one foreign-value triage over the `CommandError` classes. The module is `iac/src/program/automation.ts`; a new engine event arm is one fold row, a new failure cause is one family row plus one triage arm, and the mutating ledger itself is closed.
+The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSelectStack` with no `Pulumi.yaml` anywhere — every workspace fact (self-managed `backend.url`, `secretsProvider`, passphrase, CLI root) is an Effect `Config` read resolved once, and the pulumi CLI-binary-on-PATH is a deploy-host fact wrapped exactly here. The engine's `onEvent` callback bridges into an Effect `Stream` through `Stream.asyncPush` inside the run's own `Scope` — release aborts the engine run, so fiber interruption, scope close, and budget exhaustion all cancel with no orphan update — and one fold function buckets summary, steps, and diagnostics in a single pass whether the events arrive as a stream or a batch. The run owner internalizes its own resilience: the core retry ledger's `bulk` row intersected with this plane's re-drive ceiling self-heals state-lock collisions, a per-run budget rides `Effect.timeoutFail`, and a span wraps every drive, so a consumer composes capability, never recurrence plumbing. `previewRefresh` rides the same owner as the read-only fifth leg: `reconcile` re-reads live provider state against the desired graph without mutating, and its receipt is the drift material `operate/policy.md` projects, so drift evidence and deploy evidence share one vocabulary by construction. The fleet verbs close the engine's workspace surface on the same owner — ESC attachment, batch adoption, update history with its duration series, stack tags, cancel, rename, the polymorphic config verb, and the workspace roster reads are typed members over the engine's own methods, receipt identity carries the one `fullyQualifiedStackName` spelling, and `remote` is the Deployments execution row gated on the spec's `cloud` backend. The engine has no in-band typed error class, so this page also owns the deploy plane's one fault family: `DeployFault`, reason-discriminated over one core `Fault.Class.family` mint and minted by one foreign-value triage over the `CommandError` classes. The module is `iac/src/program/automation.ts`; a new engine event arm is one fold row, a new failure cause is one family row plus one triage arm, and the mutating ledger itself is closed.
 
 ## [01]-[INDEX]
 
@@ -14,6 +14,7 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 - Owner: `RunReceipt`, one `Schema.Class` — `op` (the ledger-or-reconcile literal), `stack` (the fully qualified name), `summary` (the per-`OpType` count record the terminal `SummaryEvent.resourceChanges` carries), `steps` (one inline row per `resourcePreEvent`: op, urn, type token, provider, changed property paths), `diagnostics` (severity-tagged provider messages), `violations` (one row per `policyEvent`: policy, pack, enforcement level, message, `Option`-carried urn), `output` (the ordered `stdoutEvent` lines), and `timing` (the `Option`-carried first/last-timestamp band) — step, diagnostic, and violation shapes are inline `Schema.Struct` blocks embedded in the one owner, reachable as `RunReceipt["steps"][number]`, never sibling classes.
 - Law: the interior anchors are tuples — `_ops` (the mutating ledger plus the `reconcile` read leg) and `_opTypes` (the engine's operation union) — spread into `Schema.Literal` so the schema arm holds the non-empty overload; `RunReceipt.ops`/`RunReceipt.opTypes` ride the class, and `operate/policy.md` buckets over the same anchor, so the operation vocabulary has one spelling folder-wide.
 - Law: the summary decodes as `Schema.Record` keyed by the `OpType` literal under `Schema.partialWith({ exact: true })` — the engine's `OpMap` is partial, so only present buckets decode with no `undefined` cell, an unknown operation fails the decode loudly, and `mutated` projects whether any non-`same` bucket is inhabited so callers gate on evidence, never on stdout text.
+- Law: an engine vocabulary this page restates is BOUND to its declaration in both directions — the engine ships `OpType` and the inline `DiagnosticEvent["severity"]`/`PolicyEvent["enforcementLevel"]` unions as types with no runtime const, so a tuple is the only roster a schema can spread; `satisfies` refuses a member the engine dropped and the `_Ops`/`_Severities`/`_Levels` probes refuse a member a provider bump added, so the one case a hand roster cannot avoid still cannot drift. `_ops` binds to nothing on purpose: it carries this page's own `reconcile` leg and the engine's `UpdateKind` names settled updates including rows this driver never drives.
 - Law: diagnostics keep the engine's own severity union (`info | info#err | warning | error`) verbatim — bridged providers report failures only through this stream, so severity is the one match key and message text is never parsed.
 - Law: violations are decoded gate evidence — one row per `policyEvent` keeps the engine's `enforcementLevel` union (`warning | mandatory`) verbatim beside policy name, pack, message, and the `Option`-carried resource urn, and `gated` projects whether any `mandatory` row is inhabited, so the `operate/policy.md` violations-are-receipt-material law is true by construction and a gate verdict never parses stdout.
 - Law: `timing` is the run's own band — `started` and `settled` are the first and last `EngineEvent.timestamp` epoch seconds the one-pass fold witnesses, `elapsed` derives at the decode seam, and the band is `Option`-carried because a receipt folded from an empty batch has no span; `output` keeps the `stdoutEvent` lines ordered for the one consumer that must read engine text, and no verdict reads them.
@@ -22,17 +23,24 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 - Packages: `effect` (`Schema`, `Record`).
 
 ```typescript
+import type { DiagnosticEvent, OpType as EngineOpType, PolicyEvent } from "@pulumi/pulumi/automation"
 import { Array, Record, Schema } from "effect"
 
+// `reconcile` is this page's own read leg, so the ledger tuple mirrors no engine declaration — `UpdateKind`
+// names settled updates and carries `rename` and `import` rows this driver never drives.
 const _ops = ["up", "preview", "refresh", "destroy", "reconcile"] as const
+// Engine operation, severity, and enforcement vocabularies ship as TYPES alone — no const, no enum, nothing
+// at runtime — so these tuples are the only rosters a schema can spread, and `satisfies` binds each to the
+// declaration it mirrors: a member the engine dropped fails right here. `_Ops`, `_Severities`, and `_Levels`
+// bind the other direction, so a provider bump that WIDENS a union cannot pass this fence in silence.
 const _opTypes = [
   "same", "create", "update", "delete", "replace",
   "create-replacement", "delete-replaced", "read", "read-replacement",
   "refresh", "discard", "discard-replaced", "remove-pending-replace",
   "import", "import-replacement",
-] as const
-const _severities = ["info", "info#err", "warning", "error"] as const
-const _levels = ["warning", "mandatory"] as const
+] as const satisfies ReadonlyArray<EngineOpType>
+const _severities = ["info", "info#err", "warning", "error"] as const satisfies ReadonlyArray<DiagnosticEvent["severity"]>
+const _levels = ["warning", "mandatory"] as const satisfies ReadonlyArray<PolicyEvent["enforcementLevel"]>
 
 const _Op = Schema.Literal(..._ops)
 const _OpType = Schema.Literal(..._opTypes)
@@ -84,6 +92,11 @@ declare namespace RunReceipt {
   type Violation = RunReceipt["violations"][number]
   type Level = (typeof _levels)[number]
   type Timing = typeof _Timing.Type
+  // each probe stops compiling the moment its engine declaration admits a member the tuple no longer
+  // covers, which is exactly the shape a provider bump widening one of these unions arrives in
+  type _Ops<K extends OpType = EngineOpType> = K
+  type _Severities<K extends Severity = DiagnosticEvent["severity"]> = K
+  type _Levels<K extends Level = PolicyEvent["enforcementLevel"]> = K
 }
 ```
 
@@ -159,6 +172,7 @@ declare namespace DeployFault {
 - Owner: `Automation` — `stack` acquires the idempotent workspace, `run` drives one mutating ledger op to a receipt, `reconcile` runs the read-only `previewRefresh` leg to the same receipt shape, `receipt` folds an event batch through the same one-pass fold the stream rides, `ephemeral` brackets a stack whose release destroys it, `snapshot`/`restore` are the state-lifecycle pair over `exportStack`/`importStack`, `adopt` is the batch-adoption verb over `Stack.import` (`ImportResource` rows, `protect` by default — the operator disaster/onboarding entry), `attach`/`environments` are the imperative ESC pair over `Stack.addEnvironments`/`listEnvironments` (no typed `StackSettings` field exists, so attachment is run data), `history` reads the engine's update audit beside the receipt and `series` projects it into the per-op duration benchmark, `label`/`tags` write and read stack tags for fleet organization, `cancel` aborts a wedged in-flight update, `rename` moves stack identity in state, `config` is the one polymorphic configuration verb, `whoAmI`/`listStacks`/`installPlugin` read and provision the workspace roster, and `remote` is the Deployments execution row over `RemoteWorkspace.createOrSelectStack`, admitted only when `spec.hosted`. The `_host` Config surface is the one deploy-host read: `PULUMI_BACKEND_URL` selects the self-managed state store, `PULUMI_CONFIG_PASSPHRASE` rides `Config.redacted` and unwraps exactly once into `envVars`, `PULUMI_PROJECT` defaults, `PULUMI_HOME` and `PULUMI_CLI_ROOT` are optional — the CLI binary resolves through `PulumiCommand.get` against the optional root and rides `LocalWorkspaceOptions.pulumiCommand`, and no `Pulumi.yaml` exists because `projectSettings` carries the same facts programmatically.
 - Law: the driver is one exhaustive record — `_LEDGER` maps each op, `reconcile` included, to its `Stack` method under a mapped contract, so a sixth op is a compile error at the record; `up`/`preview` receive the policy-pack and gate options, `refresh`/`destroy`/`reconcile` the minimal projection, and every arm receives `signal` and `onEvent`. The `reconcile` arm calls `previewRefresh` — the engine's non-mutating reconcile — so a mutating `refresh` remains a deliberate ledger choice a human or workflow makes after reading drift evidence.
 - Law: the event bridge is a Stream, not an accumulator — `_streamed` registers `onEvent` through `Stream.asyncPush` inside the run's `Scope`, `emit.single` carries each engine event, settle maps to `emit.end`/`emit.fail`, and the `AbortController` acquired with the run is released by aborting it, so interruption, scope close, and timeout all cancel the engine run structurally and an orphaned update is unspellable; `_folded` is the single one-pass fold — summary from the last `SummaryEvent`, a step row per `resourcePreEvent`, a diagnostic row per `DiagnosticEvent` — consumed by `Stream.runFold` on the live path and `Array.reduce` on the batch path, so the receipt derivation exists once and never re-scans a buffer.
+- Law: recurrence is one ledger row under one local bound — `_CONTENDED` composes `Fault.Budget.schedule("bulk")` and intersects the deploy's own re-drive ceiling, so jitter, quiet reset, and the elapsed window are the branch's single decision and a tuning change lands at the ledger; the class gate is that member's own default, so `conflicted` stays the one reason a run re-drives and no local predicate restates it; `Effect.timeoutFail` bounds the orthogonal axis — the schedule rations how often a wedged lock is re-driven, the timeout caps how long one attempt lives.
 - Law: the deploy host exports its own telemetry — the automation process's composition root merges the runtime plane's `Export.live` beneath this owner, so the `iac.automation.run` span, its retry annotations, and the process logs reach the same collector every deployed app feeds; this page names spans and receipts only, and the deploy-visible annotation the boards carry is `operate/observe.md`'s apply-time resource.
 - Law: identity has one spelling — the receipt `stack` field and the run span carry the canonical `fullyQualifiedStackName("organization", host.project, name)` the engine itself resolves for a self-managed backend, while the fault family carries the caller's slug because triage fires before host facts resolve; a receipt keyed on the raw slug is the drift this law forecloses, and `history`, `series`, and the drift projection correlate on the same qualified spelling.
 - Law: `config` discriminates by input shape — absent reads the whole map (`getAllConfig`), a string reads one key (`getConfig`), a `[key, value]` tuple writes one (`setConfig`), a `ConfigMap` writes bulk (`setAllConfig`), and `{ refresh: true }` re-pulls from the backend (`refreshConfig`) — five modalities on one member whose ladder reads evidence the value carries, so no `getConfig`/`setConfig` sibling family exists on this owner.
@@ -167,6 +181,7 @@ declare namespace DeployFault {
 - Law: `Automation.Options` derives from the run-option seam — `Omit<_RunOpts, "signal" | "onEvent">` plus the `budget` duration, so the caller surface cannot drift from what the arms accept; the option arrays keep the engine's mutable-array spelling because the record is a boundary mirror consumed once.
 - Law: the deploy host obeys the injection law — the automation process itself runs under `doppler run`, which is how `PULUMI_CONFIG_PASSPHRASE`, the bootstrap `DOPPLER_TOKEN`, and the provider material reads resolve; one injection mechanism spans the deploy host and every deployed process.
 - Entry: `Automation.stack(spec, program)` then `Automation.run(stack, spec.name, "up", { policyPacks })`; `Automation.reconcile(stack, spec.name)` for the standing drift read; `Automation.series(stack, spec.name)` for the regression read; `Automation.ephemeral(spec, program)` under a `Scope` for review stacks; `Automation.adopt(stack, spec.name, resources)` to absorb a pre-existing estate; `Automation.attach(stack, spec.name, envs)` after `operate/cloud.md` authors the environment.
+- Packages: `@pulumi/pulumi/automation` (the workspace, stack, and engine-event surface); `effect` (`Config`, `Duration`, `Effect`, `Schedule`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Budget`).
 - Growth: a new host fact is one `_host` row; a new call-local option is one `_RunOpts` field inherited by `Options` mechanically; a new fleet verb is one member over the engine method that carries it; a new config modality is one `_config` overload line plus one ladder arm.
 - Boundary: the `PulumiFn` the stack runs is `provider.md`'s product; the drift projection over `reconcile` receipts and the `Evidence` sink vocabulary run settle delivers into are `operate/policy.md`'s; the hosted schedule/webhook twins of these verbs are `operate/cloud.md`'s rows.
 
@@ -176,6 +191,7 @@ import {
   type ConfigMap, type ConfigValue, type Deployment, type EngineEvent, type ImportResource, type PulumiFn,
   type RemoteGitProgramArgs, type RemoteStack, type Stack, type StackSummary, type UpdateSummary, type WhoAmIResult,
 } from "@pulumi/pulumi/automation"
+import { Fault } from "@rasm/ts/core"
 import { Array, Config, Duration, Effect, Option, Predicate, Record, Redacted, Schedule, Schema, Stream, type Scope } from "effect"
 import { StackSpec } from "./spec.ts"
 
@@ -192,13 +208,10 @@ const _facts = (name: string) =>
 
 const _qualified = (project: string, name: string): string => fullyQualifiedStackName("organization", project, name)
 
-// the gate is the core lattice, not a local column: `conflicted` is the one retryable kind any row selects,
-// so the retry set follows the class map and cannot drift from a policy table a reader keeps in agreement
-const _PULSE = Schedule.exponential("500 millis").pipe(
-  Schedule.jittered,
-  Schedule.intersect(Schedule.recurs(4)),
-  Schedule.whileInput((fault: DeployFault) => Fault.Class.retryable(fault)),
-)
+// Base, factor, jitter, quiet reset, and the elapsed window compile at the ledger; this plane contributes its
+// re-drive ceiling and nothing else. `bulk` is the row whose geometry a state lock needs — the lock clears when
+// the peer update settles, which runs minutes, not the sub-second band a tighter row buys.
+const _CONTENDED = Schedule.intersect(Fault.Budget.schedule("bulk"), Schedule.recurs(4))
 
 type _RunOpts = {
   readonly signal: AbortSignal
@@ -293,7 +306,7 @@ const _driven = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automa
           duration: options?.budget ?? Duration.minutes(45),
           onTimeout: () => new DeployFault({ reason: "budget", stack: name, detail: Duration.format(options?.budget ?? Duration.minutes(45)) }),
         }),
-        Effect.retry(_PULSE),
+        Effect.retry(_CONTENDED),
         Effect.withSpan("iac.automation.run", { attributes: { stack: qualified, op } }),
         Effect.scoped,
       ))(_qualified(host.project, name)))

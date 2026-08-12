@@ -5,7 +5,7 @@
         "configFile": "vitest.config.ts"
     },
     "checkers": ["typescript"],
-    "tsconfigFile": "tsconfig.base.json",
+    "tsconfigFile": "tsconfig.json",
     "mutate": ["libs/typescript/**/src/**/*.{ts,tsx}", "!**/*.{test,spec}.{ts,tsx}", "!**/*.browser.{test,spec}.{ts,tsx}", "!**/*.d.ts"],
     "coverageAnalysis": "perTest",
     "ignoreStatic": true,

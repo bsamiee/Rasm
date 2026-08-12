@@ -45,13 +45,15 @@ const _locus = (app: Identity.App.Key, tenancy: Tenancy): _Locus =>
 
 - Owner: `_within` pins ambient or explicit `Identity.Tenant` coordinates and drains registered effects only after commit.
 - Packages: Effect SQL and rails, security scope coordinates, and core `Identity.Tenant` supply the transaction seam.
-- Entry: every tenant-scoped unit of work composes `Tenant.within` — the journal's atomic publish, the projection transactions, the fact drain; the requirement channel is the enforcement: `SqlClient` is satisfied only inside the transformer, so a statement cannot exist under a scope without the pin, and an unauthenticated principal pins nothing so RLS answers zero rows.
+- Entry: every tenant-scoped unit of work composes `Tenant.within` — the journal's atomic publish, the projection transactions; every cross-tenant maintenance unit composes `Tenancy.sweep`, and the two roads are exhaustive. The requirement channel is the enforcement: `SqlClient` is satisfied only inside a transformer, so a statement cannot exist under a scope without the pin, and an unauthenticated principal pins nothing so RLS answers zero rows.
 - Growth: a new session coordinate (a shard key, a region pin) is one `SessionCoordinate` row at the declaring security owner — the fold here inherits it with zero edits, because the pin iterates the imported table instead of naming coordinates.
 - Law: the pin is the coordinate-table fold — `_pin` walks `SessionCoordinate` rows, projects each over the bound principal, and pins every `Some` through `set_config(row.guc, value, true)` alongside the locus search path; the security page declares the vocabulary, this fold is its one write path, so tenant, scope, and audit subject travel together and a rename lands at the declaring owner.
 - Law: the ambient form is the default road — the edge binds the request principal once through `TenantScope.bind`, the transformer reads the reference and pins the projections; an unset coordinate pins nothing and the policy predicate reads `current_setting(name, true)` — the `missing_ok` arm folds an unset GUC to NULL instead of raising, so fail-closed needs no branch and no error path.
 - Law: transaction-local settings are the whole mechanism — `set_config(name, value, true)` because bare `SET LOCAL` cannot bind parameters; the setting dies at transaction end, nested `withTransaction` folds to savepoints beneath it, and no connection-level state survives to poison the shared pool. `Tenant.afterCommit` registers a never-failing effect in the invocation-local commit roster; `_within` drains that roster only after the outer transaction succeeds, so a savepoint release or rollback cannot publish external evidence.
 - Law: the drain never re-fails a committed unit — `never` on the registration type closes the TYPED channel alone while a defect or an interrupt walks past it, and a caller told a durable commit failed retries and publishes twice; the drain therefore runs uninterruptibly with each hook's cause folded independently onto the log rail, so a broken hook costs its own evidence and never its siblings' nor the caller's outcome.
 - Law: the GUC names are the imported `SessionCoordinate` anchors — the policy predicate, the transformer, and the security claim projection read one spelling; `Tenancy.Relation` validates every page-authored ensure relation against the SQL identifier grammar before `rls` interpolates it, so caller text and qualified or quoted identifiers cannot reach the DDL kernel.
+- Law: the maintenance plane is the second and last road — cross-tenant planes (the relay claim and census, the fact drain, the groom sweeps, the retag hold join, the frontier reads, the shadow-rebuild drain) compose `Tenancy.sweep`, which opens the transaction and pins ONLY the `plane` coordinate, because the landed policy is FORCE: an unpinned session reads zero rows and reports a healthy empty cycle, and a tenant pin narrows an estate-wide plane to one tenant's slice — the two silent inversions the posture forecloses. `Tenancy.sweepText` renders the same posture as the session-local prefix a scheduled job unit carries, so the plane word never re-spells outside this owner.
+- Law: the policy carries exactly two arms and USING doubles as the check barrel — the tenant arm admits pinned request work, the plane arm admits the maintenance posture (so its cross-tenant INSERTs pass the check the tenant arm alone would refuse), and an unpinned session matches neither, so fail-closed still needs no branch; a relation's `Tenancy.rls` registration and the plane arm are ONE landing, never two passes a groom can fall between.
 - Law: `within` is dialect-honest — the pg arm pins the coordinates and search path; the sqlite arm degrades to the bare transaction because file-per-app already isolates, selected through `onDialectOrElse`, never a fork.
 - Law: the explicit-tenant overload mints its principal through `TenantScope.of(context, subject?)` at the declaring security owner — `Principal` is that folder's shape and every value of it comes from a member there, so an inline `{ context, subject }` literal on this page tracks a field set it does not own and silently drops the next coordinate the shape acquires while the ambient arm keeps carrying it.
 - Boundary: security and edge mint and carry `Identity.Tenant`; this page owns transaction pinning and policy rows.
@@ -145,6 +147,24 @@ const _within = (sql: SqlClient.SqlClient, locus: _Locus) => {
   return within
 }
 
+// The maintenance road: one transaction pinning ONLY the plane coordinate, so an estate-wide read is a stated
+// admission — the policy's plane arm answers it, a tenant pin never carries it, and an unpinned session still
+// matches neither arm. The text form is the same word rendered session-local for a scheduled job's own session.
+const _sweep = (sql: SqlClient.SqlClient) =>
+  <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<A, E | SqlError.SqlError, Exclude<R, SqlClient.SqlClient>> =>
+    sql.withTransaction(
+      Effect.andThen(
+        sql.onDialectOrElse({
+          orElse: () => sql`SELECT 1`,
+          pg: () => sql`SELECT set_config(${SessionCoordinate.plane.guc}, ${SessionCoordinate.plane.value}, true)`,
+        }),
+        Effect.provideService(work, SqlClient.SqlClient, sql),
+      ),
+    )
+
+const _sweepText = (statement: string): string =>
+  `SELECT set_config('${SessionCoordinate.plane.guc}', '${SessionCoordinate.plane.value}', false);\n${statement}`
+
 const _Relation = Schema.NonEmptyString.pipe(Schema.pattern(/^[a-z][a-z0-9_]*$/), Schema.brand("TenancyRelation"))
 
 const _rlsEnsure = (input: string): string => {
@@ -154,7 +174,8 @@ ALTER TABLE ${relation} FORCE ROW LEVEL SECURITY;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = '${relation}' AND policyname = 'tenant_isolation') THEN
     CREATE POLICY tenant_isolation ON ${relation}
-      USING (tenant = current_setting('${SessionCoordinate.tenant.guc}', true));
+      USING (tenant = current_setting('${SessionCoordinate.tenant.guc}', true)
+          OR current_setting('${SessionCoordinate.plane.guc}', true) = '${SessionCoordinate.plane.value}');
   END IF;
 END $$;`
 }
@@ -163,11 +184,15 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
   readonly Relation: typeof _Relation
   readonly locus: typeof _locus
   readonly rls: typeof _rlsEnsure
+  readonly sweep: typeof _sweep
+  readonly sweepText: typeof _sweepText
 } = {
   ..._Tenancy,
   Relation: _Relation,
   locus: _locus,
   rls: _rlsEnsure,
+  sweep: _sweep,
+  sweepText: _sweepText,
 }
 ```
 
@@ -277,7 +302,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/ts/security` at the composition root, never imported by the neutral rows.
 - Entry: the app root composes `Stores.port(scope, Tag, build)` per port; the builds are ordinary statement folds run through the scope's `Tenant.within`, their tables published as ensure rows in the roster.
 - Growth: a new security port is one table ensure and one `port` composition at the root — the map, the verification, and the isolation dispatch are already settled.
-- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports as TTL single-consume contracts a `Cache`/`PersistedCache` row satisfies — and a Layer this folder's scopes back. `RelationStore`'s satisfier is shape-bound by the declaring page's own boundary: its Layer answers the port through ONE `RequestResolver.makeBatched` over this folder's tuple store, so an N-object render's relation probes settle as one batched read with duplicate triples deduplicated — a per-call lookup Layer satisfies the type and deletes the batching the port exists to buy.
+- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports satisfied by `crypt/sign`'s `SingleUse.persisted` row over this folder's `Persistence.ResultPersistence` — and a Layer this folder's scopes back. `RelationStore`'s satisfier is shape-bound by the declaring page's own boundary: its Layer answers the port through ONE `RequestResolver.makeBatched` over this folder's tuple store, so an N-object render's relation probes settle as one batched read with duplicate triples deduplicated — a per-call lookup Layer satisfies the type and deletes the batching the port exists to buy.
 - Law: the per-subject `WrappedKey` persistence that drives crypto-shredding rides `journal/retain.md`'s subject ledger — the security `Shredder` mints and wraps, this folder stores and destroys; destruction is the erasure verb.
 - Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`Shredder` values only.
 

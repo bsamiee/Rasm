@@ -34,6 +34,8 @@
 |  [10]   | `LoaderInput`                                | union         | the `createLoader` input union, rostered below                  |
 |  [11]   | `SerializeFunction`                          | call type     | `(patch) -> R`; overload `(base, patch \| null) -> R`           |
 
+- Rows [08] and [11] declare inside the entry module and reach no export specifier, so an import of the bare name resolves nowhere — each reads off the surface returning it: `ReturnType<typeof throttle>`, `ReturnType<typeof createSerializer<Parsers>>`.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parser atoms, the parameterized constructors, the pure codec, and the rate-limit builders
@@ -56,6 +58,7 @@
 |  [11]   | `createStandardSchemaV1(ParserMap, {urlKeys,partialOutput}?)` | factory  | route `ParserMap` → Standard Schema |
 |  [12]   | `throttle(number)` / `debounce(number)`                       | factory  | `-> LimitUrlUpdates`                |
 |  [13]   | `defaultRateLimit`                                            | property | the default `LimitUrlUpdates`       |
+|  [14]   | `nuqs/testing` — `isParserBijective(parser, value, serialized)` / `testParseThenSerialize` / `testSerializeThenParse` | proof | the round-trip proof harness a bespoke `createParser` row exercises in the tests tier — the bijectivity every `Router.Row` codec implicitly claims |
 
 - `createSerializer`: honors only `clearOnDefault`, `urlKeys`, `processUrlSearchParams`; `history`/`scroll`/`shallow`/`startTransition`/`limitUrlUpdates` are hook-only.
 - `createLoader`: returns a loader re-decoding any `LoaderInput` per `navigate` event.
@@ -71,7 +74,7 @@
 - kernel `Schema`: `parseAsJson(Schema.standardSchemaV1(RouteParamSchema))` decodes a URL param straight into a kernel-branded value; `createStandardSchemaV1(parsers)` hands the whole route's `ParserMap` to any Standard-Schema consumer.
 - `browser/route` Navigation API: nuqs is the codec, `navigation.navigate(url)` the traversal; a `navigate`-event listener re-runs `createLoader(parsers)(new URL(navigation.currentEntry.url))` to derive the current typed query state.
 - `idb-keyval`(`.api/idb-keyval.md`) (`browser/persist`): `set`/`get` the last-good serialized query string per route key so a cold boot `createLoader`-decodes the restored string before the Navigation API resolves the entry.
-- `data read/live`: a decoded query record is a live-query key — `createLoader` output feeds a `Subscribable` window rather than a bespoke param bag.
+- `data read/live`: `createLoader` output IS the live-query key — the decoded record feeds a `Subscribable` window rather than a bespoke param bag.
 
 [LOCAL_ADMISSION]:
 - One `ParserMap` per route; `createParser` owns any bespoke encoding rather than string-mashing `URLSearchParams`.

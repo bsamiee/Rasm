@@ -91,7 +91,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Obligates: Compute's `GEOMETRY_SUBJECTS` frozenset, `_GeometryWire` struct, and `rasm.link.kind` trace fold at `python:compute/graduation/handoff`.
 - Law: Compute hand-copies the wire as a deliberate non-import mirror, so a subject, `wire()`, or carrier change lands its ripple in that change.
 - Law: Set-equality against geometry's `SUBJECTS` export re-proves the mirror, never substituting for the edit.
-- Law: Compute's `mirror_aligned` hub gate is that re-proof — a composing root feeds geometry's `SUBJECTS`/`WIRE_FIELDS`/`LINK_KIND` exports and refuses boot on any drift row.
+- Law: Compute's `mirror_aligned` gate re-proves it — a composing root feeds geometry's `SUBJECTS`/`WIRE_FIELDS`/`LINK_KIND`, refusing boot on drift.
 
 [BACKEND_ROW_COLUMN]:
 - Surface: Columns on a closed backend-row family — a metrics store, object engine, or fanout engine row set where one spec literal selects the row.

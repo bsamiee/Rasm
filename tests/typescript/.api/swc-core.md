@@ -37,7 +37,7 @@ interface CallExpression extends ExpressionBase { type: 'CallExpression'; callee
 
 ## [02]-[INTEGRATION]
 
-[STACK: `@swc/core` + `@rasm/ts-testkit/gauges`] — `Imports.scan` parses each supplied source once (`parseSync(text, { syntax: 'typescript', tsx: path.endsWith('.tsx'), decorators: true })`) and one generic recursive walk over every object value harvests three specifier forms — static import, re-export with specifier, `import(...)` call — each carrying its declaration-level `typeOnly` fact so the architecture suite can rule on type-plane traffic separately. An unparsable source throws loud: a span that fails to parse proves nothing.
+[STACK: `@swc/core` + `@rasm/ts-testkit/gauges`] — `Imports.scan` parses each supplied source once (`parseSync(text, { syntax: 'typescript', tsx: path.endsWith('.tsx'), decorators: true })`) and one generic recursive walk over every object value harvests three specifier forms — static import, re-export with specifier, `import(...)` call — each carrying its declaration-level `typeOnly` fact so the architecture suite can rule on type-plane traffic separately. Unparsable source throws loud: a span that fails to parse proves nothing.
 
 [BOUNDARY vs `typescript`] — semantic truth belongs to the gate run (`typescript.md`); this lane sees one file at a time and proves nothing about resolution — exports-map and edge-ledger truth stays with the architecture suite's own rules over the harvested specifiers.
 

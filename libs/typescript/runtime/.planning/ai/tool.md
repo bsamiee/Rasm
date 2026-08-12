@@ -19,8 +19,8 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 - Law: assembly is data — a folder exports `Toolkit.make(...tools)` values; the composition root merges selected toolkits with `Toolkit.merge` and binds handlers with `toolkit.toLayer(handlers)` where the handler record is compiler-checked exhaustive; `Toolkit.empty` seeds gated calls that admit no tools.
 - Law: `Tool.make` and `Toolkit.make` are used directly — a local wrapper renaming the declaration surface is the one-hop defect; this page adds vocabulary beside the package surface, never in front of it.
 
-```typescript
-import { McpSchema, McpServer, Tool, Toolkit } from "@effect/ai"
+```typescript signature
+import { McpSchema, McpServer, type Response, Tool, Toolkit } from "@effect/ai"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
@@ -70,7 +70,7 @@ class ToolFault extends Schema.TaggedError<ToolFault>()("ToolFault", {
 - Growth: a new blast class is one tuple entry plus one column on each mode row; a new mode is one row; a per-tenant mode override is a mode value carried on the caller's context, resolved before `admit`.
 - Packages: `@effect/ai` (`Tool`); `effect` (`Array`, `Context`, `Option`, `Record`).
 
-```typescript
+```typescript signature
 const _classes = ["read", "write", "spend", "destroy"] as const
 const _modes = {
   autonomous: { read: "auto", write: "auto", spend: "held", destroy: "deny" },
@@ -141,14 +141,17 @@ const Safety = {
 ## [04]-[ARSENAL]
 
 [ARSENAL]:
-- Owner: `Arsenal` — the provider-defined tool ledger: one name-keyed table whose rows carry the constructor, the executing family, and the pre-assigned `Safety` class, so a provider-executed capability (web search, code execution, computer use, file search) is admitted by naming a row and the gate grades it without a hint band — the provider runs it, the ledger prices it. The verified rosters: `OpenAiTool` ships `CodeInterpreter`/`FileSearch`/`WebSearch`/`WebSearchPreview`; `AnthropicTool` ships Bash, computer-use, text-editor, code-execution, and search families; `GoogleTool` ships code execution, current search, legacy dynamic search, and URL context; `AmazonBedrockTool` ships the Anthropic-on-Bedrock Bash, computer-use, and text-editor generations. `@effect/ai-openrouter` exposes no provider-defined tool module, so it contributes no phantom roster. Every materialized row is typed `Tool.ProviderDefined` by its own package, never a local type.
+- Owner: `Arsenal` — the provider-defined tool ledger: one name-keyed table whose rows carry the constructor, the executing family, and the pre-assigned `Safety` class, so a provider-executed capability (web search, code execution, computer use, file search) is admitted by naming a row and the gate grades it without a hint band — the provider runs it, the ledger prices it. The verified rosters: `OpenAiTool` ships `CodeInterpreter`/`FileSearch`/`WebSearch`/`WebSearchPreview`; `AnthropicTool` ships Bash, computer-use, text-editor, code-execution, and search families; `GoogleTool` ships code execution, current search, legacy dynamic search, and URL context; `AmazonBedrockTool` ships the Anthropic-on-Bedrock Bash, computer-use, and text-editor generations. `@effect/ai-openrouter` exposes no provider-defined tool module, so it contributes no phantom roster. Every materialized row is typed `Tool.ProviderDefined` by its own package, never a local type. Beside the rows sits one cell per FAMILY — the residue: the extra finish band that family's provider-executed work can land on, so a gate meeting a suspended turn or a provider-resolved tool fault reads the possibility off the ledger instead of inferring it from an empty reply.
 - Law: web-search rows grade `spend` (external egress, per-call cost), code-execution rows grade `spend`, computer-use and bash rows grade `destroy` — held or denied under every shipped mode — and a ledger row's class is data a deployment tightens, never loosens.
 - Law: a dated family rows its NEWEST generation alone and a package with no provider-defined module rows nothing; a newer date replaces its row rather than joining it.
+- Law: the `family` column is STATED, never derived — the one package publishing a provider-defined export publishes a schema union of generated WIRE classes carrying neither a family nor a safety column, and its name resolver answers one direction for one family: a provider wire name to that same package's toolkit name. Neither is a roster a five-family ledger can key on, and a derivation covering a fifth of the table would trade an explicit column for a lookup that answers nothing for the other four.
+- Law: a provider-executed run settles on the ORDINARY stop band in every family, and none of them reports the tool-call band for work the provider already did — that band means a LOCAL call is pending and each family raises it off its own local-call path alone, so a gate reading it as "the provider ran something" mistakes a pending call for a finished one. What diverges is the RESIDUE beside that settle, so the residue is the column and the settle is this law.
+- Law: a residue cell states only what its own family publishes — two rows fronting the same upstream model do not share one, because a family that leaves the suspend value unmapped reports it as an ordinary unremarkable finish, and borrowing a sibling's cell would claim a distinction that row cannot make.
 - Law: the ledger is the only place a provider tool name appears — a page or app composing `OpenAiTool.WebSearch(...)` inline bypasses pricing and is unspellable; `Arsenal.row(name)` answers the exact value-derived row so its constructor signature survives selection. `Arsenal.Display`, `Arsenal.Threshold`, and `Arsenal.StoreIds` admit the package's loose geometry, confidence, and vector-store inputs before a provider row can form.
-- Growth: a provider's new built-in is one ledger row; a package gaining its first provider-defined tool contributes one row band with its own constructors.
+- Growth: a provider's new built-in is one ledger row; a package gaining its first provider-defined tool contributes one row band with its own constructors and one residue cell for the family it opens.
 - Packages: `@effect/ai` (`Tool.ProviderDefined`); `@effect/ai-amazon-bedrock` (`AmazonBedrockTool`); `@effect/ai-anthropic` (`AnthropicTool`); `@effect/ai-google` (`GoogleTool`); `@effect/ai-openai` (`OpenAiTool`).
 
-```typescript
+```typescript signature
 const _Display = Schema.Struct({
   width: Schema.Int.pipe(Schema.positive()),
   height: Schema.Int.pipe(Schema.positive()),
@@ -202,7 +205,22 @@ declare namespace Arsenal {
   type StoreIds = typeof _StoreIds.Type
   type Name = keyof typeof _arsenal
   type Row = (typeof _arsenal)[Name]
+  type Family = Row["family"]
 }
+
+// A finished provider-executed run lands on the ordinary stop band in every family here, and no family reports the
+// tool-call band for it, so neither fact is a cell — both are laws above. The RESIDUE is what diverges: the extra
+// finish band a family can produce around provider-executed work, which one row reaches through a suspended turn and
+// one through a tool fault the provider resolved into a finish reason rather than into a call. The gate's own finish
+// table owns what each band MEANS; this column only says which family can produce one at all. TRAP: the anthropic and
+// bedrock rows front the same upstream model, but only the anthropic row maps the suspend value — on bedrock it falls
+// through unmapped and reads as an unremarkable finish, so that cell is empty rather than copied from its sibling.
+const _residues = {
+  openai: Option.none(),
+  anthropic: Option.some("pause" as const),
+  google: Option.some("error" as const),
+  bedrock: Option.none(),
+} as const satisfies Record<Arsenal.Family, Option.Option<Response.FinishReason>>
 
 const Arsenal = {
   ..._arsenal,
@@ -212,6 +230,7 @@ const Arsenal = {
   names: Record.keys(_arsenal),
   row: <Name extends Arsenal.Name>(name: Name): (typeof _arsenal)[Name] => _arsenal[name],
   clazz: (name: Arsenal.Name): Safety.Class => _arsenal[name].clazz,
+  residue: (name: Arsenal.Name): Option.Option<Response.FinishReason> => _residues[_arsenal[name].family],
 }
 ```
 
@@ -225,7 +244,7 @@ const Arsenal = {
 - Growth: a new hosted capability is one row on the merged Layer set; a second transport deployment is an arm selection at the root.
 - Packages: `@effect/ai` (`McpServer`, `McpSchema`); `effect` (`Layer`, `Schema`).
 
-```typescript
+```typescript signature
 declare namespace Host {
   type Spec<Tools extends Record<string, Tool.Any>> = {
     readonly name: string
@@ -265,16 +284,16 @@ const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 
 [REMOTE]:
 - Owner: `Remote` — the outbound client lane as one scoped session owner: `Remote.dial(spec)` acquires the SDK `Client` under `Effect.acquireRelease` with `close` as its release, arms the inbound halves the protocol is bidirectional about, and only THEN connects — so a handshake that fails still tears its transport down, where a bracket whose acquire spans the connect would leak a half-started process — and yields the `Session` whose members are the only crossings: `call(row, params)` (encode through the row's parameter schema, `callTool`, re-parse the promise result through `McpSchema.CallToolResult`, then re-parse `structuredContent` through the row's success schema — an `isError` result folds to `declined` carrying the content text), `roster(mode)` (the graded census — `listTools` decoded through `McpSchema.ListToolsResult`, each hint band admitted through `Safety.hints` and partitioned by `Safety.admit`; the census carries evidence, never a call capability), `resources()` (the resource census — `listResources` and `listResourceTemplates` settled applicatively as one pair, each decoded through its `McpSchema` result class), `watch(uri)` (a live update feed for one resource), `read(uri)`/`prompt(name, args)`/`complete(ref)` (each decoded through its `McpSchema` result class), and `capabilities` (the post-init server facts). The Zod wire never escapes: every promise result crosses one native-Schema admission before any consumer sees it.
-- Law: enumeration precedes reading — `resources()` is what makes `read(uri)` reachable by a caller that does not already know the URI, so `[05]-[HOST]`'s "a resource row serves evidence" has a consuming half; the pair settles under `Effect.all` with an explicit degree because the two lists are independent, and templates travel beside concrete rows so a parameterized address is admitted from the server's own template rather than assembled by hand.
+- Law: enumeration precedes reading — `resources()` is what makes `read(uri)` reachable by a caller that does not already know the URI, so `[05]-[HOST]`'s "a resource row serves evidence" has a consuming half; the pair settles under `Effect.all` with an explicit degree because the two lists are independent, and templates travel beside concrete rows so a parameterized address is admitted from the server's own template rather than assembled by hand — the SDK's own `UriTemplate` (`shared/uriTemplate`) is the expansion the caller composes over a listed template's `uriTemplate` string, so no consumer splices a parameterized URI with string arithmetic.
 - Law: resource subscription has ONE handler and N watchers — the notification method admits exactly one handler per client, so `_dial` registers it once feeding a sliding `PubSub` and `watch(uri)` is a scoped subscription filtered by URI prefix (the protocol states an update may name a sub-resource of the subscribed one). The subscribe RPC and its `unsubscribeResource` release bracket the stream's own scope through `Stream.unwrapScoped`, so the server-side subscription dies with the feed; a per-watcher handler registration would silently overwrite its predecessor, and that collision is the reason the fan-out is a channel rather than a callback.
 - Law: elicitation is answered, not ignored — a spec carrying an `answer` responder registers the `elicitation` client capability BEFORE `connect` (a capability declared after the handshake is invisible to the server) and installs one request handler that decodes the ask through `McpSchema.Elicit.payloadSchema`, runs the responder on the rail, and encodes the verdict through `McpSchema.ElicitResult`. `Host.confirm` owns the hosting half of the same capability, so both directions of one protocol feature live in this file; a spec with no responder declares no capability, so a server never elicits into a lane that cannot answer.
 - Law: the platform callback seams cross exactly twice, each by its own sanctioned spelling — a notification is a synchronous `Queue.unsafeOffer` onto the channel (no fiber per event), and a request handler that must answer with a promise runs through a `FiberSet.makeRuntimePromise` runner minted in the dial scope, so both handlers' work stays owned and dies when the session's scope closes.
 - Law: remote tools enter a toolkit as DECLARED rows — `Remote.tool(session, row)` lifts a `Remote.Row` (name, description, parameter fields, success schema, safety hints) into an ordinary `Tool.make` declaration whose handler is `session.call` under `failureMode: "return"`; the four hints become native `Tool` annotations, so hosting, local grading, and remote grading consume one metadata band. The census names what a server ships, the declared row is what the model may call, and an undeclared remote tool is uncallable by construction.
-- Law: transport is locality — `StdioClientTransport({ command, args, env: getDefaultEnvironment() })` for a local server process (the safe-env allowlist), `StreamableHTTPClientTransport(url, { authProvider })` for remote with the OAuth provider arriving as an app-passed value composing the security wave's ceremony — no `security` import here.
-- Law: every SDK rejection folds to `ToolFault` through one triage — `UnauthorizedError` to `declined`, an `McpError` carrying the request-timeout code to `lapsed`, the caller's stated reason otherwise — and the fault's class column routes retry through the caller's budget exactly like every other rail. The triage is `Match.instanceOf` arms over an open `unknown` residue, so `Match.orElse` is its lawful terminal.
+- Law: transport is locality, and each locality states its own hardening — a local server takes `StdioClientTransport({ command, args, env: getDefaultEnvironment(), maxBufferSize })`, whose two spec-carried bounds fence exactly what a spawned process controls: the environment it inherits and the bytes it pushes before a frame terminates. `ReadBuffer` holds an unterminated line whole, so an absent ceiling hands a runaway or hostile server's stdout the client's heap while the stated bound turns that into a transport error and a close. Remote locality takes `StreamableHTTPClientTransport(url, { authProvider })` instead, its OAuth provider arriving as an app-passed value composing the security wave's ceremony — no `security` import here.
+- Law: every SDK rejection folds to `ToolFault` through one triage — `UnauthorizedError` to `declined`, an `McpError` carrying the request-timeout code to `lapsed`, the caller's stated reason otherwise — and the fault's class column routes retry through the caller's budget exactly like every other rail. `Match.instanceOf` arms carry the triage over an open `unknown` residue, so `Match.orElse` is its lawful terminal.
 - Growth: a new server is a dial spec value; a new SDK capability (tasks, sampling, roots) is one more member on the `Session` owner beside one handler in the dial scope.
 
-```typescript
+```typescript signature
 const _UPDATES = 256 // the resource-update channel sheds oldest: a stalled watcher never backpressures the transport's read loop
 
 declare namespace Remote {
@@ -284,7 +303,9 @@ declare namespace Remote {
     readonly budget: Fault.Budget.Kind // the row whose attempt deadline bounds one request and whose total deadline bounds the whole call
     readonly answer: Option.Option<(ask: typeof McpSchema.Elicit.payloadSchema.Type) => Effect.Effect<typeof McpSchema.ElicitResult.Type, ToolFault>>
     readonly transport:
-      | { readonly kind: "stdio"; readonly command: string; readonly args: ReadonlyArray<string> }
+      // `ceiling` bounds one stdio frame: the SDK's read buffer holds an unterminated line whole, so the bound is what
+      // stops a runaway local server's stdout growing the client heap — a policy value per server, never the default
+      | { readonly kind: "stdio"; readonly command: string; readonly args: ReadonlyArray<string>; readonly ceiling: number }
       | { readonly kind: "http"; readonly url: URL; readonly auth: Option.Option<OAuthClientProvider> }
   }
   type Row<Fields extends Schema.Struct.Fields, A, AI> = {
@@ -428,7 +449,12 @@ const _dial = (spec: Remote.Spec): Effect.Effect<Remote.Session, ToolFault, Scop
         }),
     })
     const transport = spec.transport.kind === "stdio"
-      ? new StdioClientTransport({ command: spec.transport.command, args: [...spec.transport.args], env: getDefaultEnvironment() })
+      ? new StdioClientTransport({
+        command: spec.transport.command,
+        args: [...spec.transport.args],
+        env: getDefaultEnvironment(),
+        maxBufferSize: spec.transport.ceiling,
+      })
       : new StreamableHTTPClientTransport(spec.transport.url, { authProvider: Option.getOrUndefined(spec.transport.auth) })
     yield* Effect.tryPromise({
       try: (signal) => client.connect(transport, _bounded(spec, signal)),
@@ -471,5 +497,4 @@ export { Arsenal, Host, Remote, Safety, ToolFault }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [ARSENAL_DERIVED_ROSTER]-[OPEN]: whether `AnthropicTool.ProviderDefinedTools` and `getProviderDefinedToolName` publish a name-keyed roster the ledger's `family` column can derive from rather than restate per row; verify against `@effect/ai-anthropic/AnthropicTool` on the member rail.
-- [PROVIDER_TOOL_STOP_REASON]-[OPEN]: which `Response.FinishReason` value a provider-executed tool run settles on per family, so the gate distinguishes a tool-exhausted turn from a content-filter refusal; verify against `@effect/ai/Response` `FinishReason` and each provider's finish-part metadata on the member rail.
+(none)

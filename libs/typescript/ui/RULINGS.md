@@ -5,6 +5,7 @@
 ## [01]-[PACKAGES]
 
 - `react`/`react-dom` HOLD on the canary channel — `useEffectEvent` and `<ViewTransition>` are canary-only members a stable bump silently drops.
+- Key chords spell `Control` or `Mod` — react-aria's parser holds no `ctrl` token, so `Ctrl` parses as a KEY and drops the modifier silently.
 
 ## [02]-[SHAPE]
 
@@ -16,7 +17,7 @@
 - Every window bound and capture floor arrives on `Vital.Policy` from the root — a module constant assumes a consumer this package never meets.
 - Environment read policy applies AT THE READ — intensity and rotation land on the scene's `_ENV` fields, so re-exposing a dome re-keys no blob.
 - Repeating a held `_ENV` key IS the read policy's arrival — the repeat re-commits over carried handles, decoding nothing and spending no prefilter.
-- One `KTX2Loader` serves a viewport — it owns a worker pool and parses only once its support probe fills, so every standalone decode rides it.
+- One `KTX2Loader` serves a viewport PER BACKEND GENERATION — its transcoder bakes at worker creation and survives `dispose()`, so a swap mints fresh.
 - Byte ports feeding `.buffer` to a decoder take `Uint8Array<ArrayBuffer>` — the bare spelling widens to `ArrayBufferLike`, which decoders refuse.
 - Prefiltered domes bind their renderer while decoded sources do not — `Glb.Prefilter` re-derives the target at re-init, and a survivor is the leak.
 - Environment consumption is producer-agnostic — `_sniff` reads container magic, never a filename or producer, so a producer-keyed arm has no place.
@@ -27,6 +28,18 @@
 - Resource walks span the `Drawable` union, never one class — a `Mesh`-narrowed walk leaks a `Points` splat payload while the ledger drops its key.
 - `Theme.Seed` crosses as composition data, never a wire family — each head expands one pigment set through its own contrast gate, keeping its pixels.
 - Surfaces with two closed lifecycle axes give TONE to ONE — two tone columns resolve two palettes; `viewer/mark`'s status/priority split proves it.
+- Note politeness realizes at `_live` on the content element as the closed `status` | `alert` pair — the toast region carries no live semantics.
+- Merge color scale DERIVES from `_paletteKeys`, the exact set `Theme.Palette.css` emits — a hand-listed hue names a key no `@theme` row carries.
+- `run` stays a nullary intent over the surface's selection atom — pointer invocation SELECTS first, so a subject parameter forks the vocabulary.
+- `Overlay.Command.run` returns a total Effect with its ports on the requirement channel — the row folds its own refusal that a void thunk re-opens.
+- `options.atoms` binds an estate-owned slice over an adapter on the fold's cell — a `state`/`on<Slice>Change` pair beside it doubles the writer.
+- Registry keys stay domain-blind — a consumer's order crosses as a rank VALUE on its own column, so a consumer-named key imports it downward.
+- Multi-panel elements persist at the ELEMENT grain — layout, active panel, and cross-filter live in the workspace token a panel config only patches.
+- Widened materials re-stamp `{ STANDARD, PHYSICAL }` over `MeshStandardMaterial.prototype.copy` — their `.copy` throws, `setValues` clobbers `uuid`.
+- Textures tag only the two `ColorManagement` working spaces three registers — the WebGL upload hard-errors on others, so conversion is producer-side.
+- `Texture.premultiplyAlpha` binds DOM sources alone — ArrayBufferView uploads ignore it, so associated payloads ride `Material.premultipliedAlpha`.
+- Splat order is consumer-owned per view — the producer wire carries no ordering key, so back-to-front is a camera-epoch fold and never decode order.
+- Renderer-bound capability travels on the acquisition record alone — a codec bundle captured at construction survives the swap that disposed it.
 
 ## [03]-[COLLAPSE]
 

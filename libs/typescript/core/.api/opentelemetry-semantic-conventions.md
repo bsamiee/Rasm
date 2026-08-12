@@ -55,15 +55,15 @@ Stable (`.`) namespaces, imported by default:
 
 Incubating (`./incubating`) namespaces, imported behind the alias row:
 
-| [INDEX] | [NAMESPACE]                                                              | [CONSUMER]                                                  |
-| :-----: | :----------------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `browser.*` (brands/language/mobile/platform), `device.model.identifier` | vital RUM enrichment through the `Convention` aliases       |
-|  [02]   | `session.*`, `network.connection.type` with its `TYPE_VALUE` family      | RUM session continuity and transport-class enrichment       |
-|  [03]   | `cloud.region`/`cloud.availability_zone`, `host.name`                    | the region, zone, and host folds on the identity projection |
-|  [04]   | `feature_flag.*` with its `RESULT_REASON` value family                   | the flag SDK telemetry hook at `runtime/proc/flag`          |
-|  [05]   | `cloudevents.event_*` (id/source/spec_version/subject/type)              | announcement identity on every event-fabric span            |
-|  [06]   | `messaging.*` with its `OPERATION_TYPE` and `SYSTEM` value families      | transport coordinates on `runtime/net` publish and consume  |
-|  [07]   | `host.arch`, `process.*`, `cloud.provider`                               | unrowed — the SDK detector roster names them without a row  |
+| [INDEX] | [NAMESPACE]                                                              | [CONSUMER]                                                       |
+| :-----: | :----------------------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `browser.*` (brands/language/mobile/platform), `device.model.identifier` | vital RUM enrichment through the `Convention` aliases            |
+|  [02]   | `session.*`, `network.connection.type` with its `TYPE_VALUE` family      | RUM session continuity and transport-class enrichment            |
+|  [03]   | `cloud.region`/`cloud.availability_zone`, `host.name`                    | the region, zone, and host folds on the identity projection      |
+|  [04]   | `feature_flag.*` with its `RESULT_REASON` value family                   | the flag telemetry hook and tracking seat at `runtime/proc/flag` |
+|  [05]   | `cloudevents.event_*` (id/source/spec_version/subject/type)              | announcement identity on every event-fabric span                 |
+|  [06]   | `messaging.*` with its `OPERATION_TYPE` and `SYSTEM` value families      | transport coordinates on `runtime/net` publish and consume       |
+|  [07]   | `host.arch`, `process.*`, `cloud.provider`                               | unrowed — the SDK detector roster names them without a row       |
 
 - `feature_flag.*` churns hardest of the incubating set: it carries `feature_flag.provider.name` and `feature_flag.result.reason` at this pin, superseding the `@deprecated` `feature_flag.evaluation.reason` predecessor and its parallel value family, so the alias row makes the next move one seam edit rather than a sweep of every flag site.
 - Two `*_VALUE_*` families reach `observe/convention` rows: `FEATURE_FLAG_RESULT_REASON_VALUE_*` and `NETWORK_CONNECTION_TYPE_VALUE_*` (`cell`/`unavailable`/`unknown`/`wifi`/`wired`). Each spells the TELEMETRY vocabulary its producer answers in another dialect — the OpenFeature SDK resolves uppercase reasons, the Network Information API answers `cellular`/`ethernet`/`none` — so the emitting owner maps dialect onto row at its stamp site.
@@ -84,7 +84,7 @@ Incubating (`./incubating`) namespaces, imported behind the alias row:
 - runtime `otel/emit`: the OTLP export lane stamps `Convention` rows on span/metric/log attributes at egress and keys the identity `Resource` from the one `Convention.identity` projection; egress-redaction rows scrub PII by attribute key against the same vocabulary.
 - runtime `otel/vital`: the estate's one CWV owner stamps the RUM alias rows — `browser.*` off the UA client hints, `device.model.identifier`, `session.id`/`session.previous_id`, `network.connection.type` mapped from the Network Information API's own vocabulary onto the bounded spec row — beside its own `rasm.vital*` dimensions, so a graded vital fact carries client, device, session, and transport context under one vocabulary.
 - runtime `net/pubsub` + `net/channel` + `serve/route` + `work/deliver`: the event fabric's own span and metric dimensions — the `cloudevents.event_*` five off the announced message envelope, the `messaging.*` coordinates off the binding row already deciding destination, partition, consumer group, and batch arity — so a published fact, its transport hop, and its handler share one attribute vocabulary across three transports.
-- runtime `proc/flag`: the OpenFeature SDK telemetry hook stamps `feature_flag.key`/`.provider.name`/`.result.reason` on the active evaluation span, mapping the SDK's uppercase resolution reason onto the spec's lowercase bounded value at that one site.
+- runtime `proc/flag`: the OpenFeature SDK telemetry hook stamps `feature_flag.key`/`.provider.name`/`.result.reason`/`.context.id`/`.result.variant` on the active evaluation span, mapping the SDK's uppercase resolution reason onto the spec's lowercase bounded value at that one site; the `Provider.track` seat stamps `feature_flag.context.id` beside the `rasm.flag.*` tracking rows, so outcomes join evaluations on the targeting identity.
 - `iac/operate/observe`: every attribute key the gateway names resolves to a convention row — `k8s_attributes` extracts the whole `k8s.*`/`container.image.*` placement roster and associates pods on `k8s.pod.ip`/`k8s.pod.uid`, `span_metrics` takes `http.route` and `http.request.method` as RED dimensions, the OTTL migration targets `deployment.environment.name`, the probe filter reads `url.path`, and the gateway's own self-telemetry resource stamps `service.namespace` with no `AppIdentity` present.
 - `value/fault` + runtime `otel/crash`: `FaultCapture.Forensic` anchors `exception.*` and the `code.*` frame quartet by direct import — those keys carry no convention row — while `error.type` and `EVENT_EXCEPTION` are rowed for the crash dimension and event; a shared-import boundary beside `observe/convention`, two owners over one spec vocabulary, never a re-export hop.
 - cross-language parity, C# `Rasm.AppHost/Observability/Telemetry`: the wire is OTel, so parity is name-level against the spec — a Rasm span from either language carries `service.name`/`http.route`/`exception.type` identically, and this package is the JS-side name source, not a shared artifact.

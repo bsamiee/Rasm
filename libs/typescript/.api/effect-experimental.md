@@ -72,8 +72,8 @@
 |  [05]   | `Reactivity.Reactivity`                                         | `Context.Tag`  | `read/live` query-key invalidation signal          |
 |  [06]   | `Sse.Event` / `Sse.EventEncoded` / `Sse.Parser` / `Sse.Encoder` | codec          | `net/channel` / `serve/live` SSE seam              |
 |  [07]   | `Sse.Retry`                                                     | tagged control | SSE reconnection `retry:` directive                |
-|  [08]   | `RateLimiter.RateLimiter` / `RateLimiter.RateLimiterStore`      | `Context.Tag`  | `authn/session` + `crypt/verify` throttle budgets  |
-|  [09]   | `RateLimiter.RateLimitExceeded` / `RateLimitStoreError`         | tagged error   | `RateLimiterError` union — 429/Retry-After mapping |
+|  [08]   | `RateLimiter.RateLimiter` / `RateLimiter.RateLimiterStore`      | `Context.Tag`  | `serve` + `work` + `security` quota store port     |
+|  [09]   | `RateLimiter.RateLimitExceeded` / `RateLimitStoreError`         | tagged error   | shared `_tag`, split on `reason` — 429/Retry-After |
 |  [10]   | `RequestResolver.PersistedRequest`                              | request mixin  | persisted request for `dataLoader`/`persisted`     |
 |  [11]   | `DevTools.*` / `VariantSchema.*`                                | dev / schema   | DevTools wiring + multi-variant schema build       |
 
@@ -130,7 +130,7 @@
 |  [11]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`    | reactive      | `read/live` read-your-writes       |
 |  [12]   | `Sse.makeChannel(...)` / `makeParser(...)` / `encoder`                       | SSE codec     | `net/channel` + `serve/live` codec |
 |  [13]   | `RateLimiter.make` / `layer` / `layerStoreMemory`                            | rate limit    | `crypt/verify` + `lane/olap` quota |
-|  [14]   | `RateLimiter.makeWithRateLimiter` / `makeSleep`                              | rate limit    | `algorithm`/`onExceeded` policy    |
+|  [14]   | `RateLimiter.makeWithRateLimiter` / `makeSleep`                              | rate limit    | `serve` refuse, `work` delay       |
 |  [15]   | `RequestResolver.dataLoader(...)` / `persisted(...)`                         | batching      | curried batch/persist combinators  |
 |  [16]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                              | dev           | `telemetry ./dev` DevTools export  |
 
@@ -144,7 +144,7 @@
 
 [TOPOLOGY]:
 - `[OVERLAY_BOUNDARY_RULING]` system-of-record boundary: `journal/append` on `@effect/sql` is the durable authority and the overlay lanes only accelerate local-first reads and offline queues; a record whose loss corrupts state is projected from, or mirrored to, the SQL journal, never held only in an overlay.
-- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer the app root selects, never named in lane code. `EventJournal` selects `layerMemory`, `layerIndexedDb`, or `@effect/sql` `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`; `Persistence` selects `layerMemory` or `layerKeyValueStore`; `RateLimiterStore` selects `layerStoreMemory`.
+- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer the app root selects, never named in lane code. `EventJournal` selects `layerMemory`, `layerIndexedDb`, or `@effect/sql` `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`; `Persistence` selects `layerMemory` or `layerKeyValueStore`; `RateLimiterStore` selects `layerStoreMemory` on a single node and a shared store-backed Layer across a fleet, which is the one selection deciding whether a quota bucket is per-process or estate-wide.
 - durable store backings ship in `@effect/sql`: `PersistedQueueStore` binds `SqlPersistedQueue.layerStore`, `EventLogServer.Storage` binds `SqlEventLogServer.layerStorage` (`data/.api/effect-sql.md`).
 - closed event families: `Event.make` payloads are `Schema.TaggedClass` closed families with app-authored versioning; read-time upcasting is `journal/evolve`'s `Upcast` total fold, never a journal rewrite.
 
@@ -154,6 +154,7 @@
 - `data`/`state`: EventLog reducers fold into core state, and `Reactivity.invalidate` signals read-your-writes publication.
 - `Machine` remains host-neutral; runtime workflow/cluster/storage owners compose durable replay or persistence around it.
 - `net/client` + `core/value/fault`: sync and `Sse.Retry` reconnection budgets ride `core/value/fault` degradation, never a hand-rolled loop; `authn/session` and `crypt/verify` fold `RateLimitExceeded` to their own `throttled` reason, and `serve/problem`'s `exhausted` row renders the 429/Retry-After problem detail.
+- one accessor, postures per site: `makeWithRateLimiter` carries `onExceeded` as the whole difference — `serve/api`'s `Gate.fenced` takes `"fail"` so `serve/route`'s edge quota answers a Problem, `work/queue`'s `Throttle.pace` takes `"delay"` beside the `@effect/workflow` `DurableRateLimiter` arm that survives replay, and every row on both sides carries the same four columns (`window`, `limit`, `key`, `cost`). The store namespaces nothing, so each site joins its own scope into `key` or two rows share one bucket.
 
 [LOCAL_ADMISSION]:
 - EventLog client, journal, and Machine are host-neutral or browser-capable; server and persisted-queue bindings select host Layers.

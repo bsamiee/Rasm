@@ -2,14 +2,14 @@
 
 General request-batching engine: N identical lookups anywhere in a flow are one declared request family and one resolver — call sites stay singular, structural `Equal` over the request's fields deduplicates, and the window settles as one provider round trip. `read/query.md`'s `SqlResolver` rows are this engine fused with the SQL decode; this page owns the engine everywhere else: the object plane's HEAD coalescing, the capability probe scan, journal head probes, and every keyed provider call a sibling branch batches by passing these values.
 
-A request family is one deep owner — the class carries its dedup identity in its fields AND its resolver mint, window upgrade, and provider seam as statics, so the family resolves from one name. Three window geometries ride one resolver value — same-traversal collapse, wall-clock collapse across unrelated fibers, and the durable result band — with the per-flow dedup tier `Effect.withRequestCaching` over `lane/cache.md`'s request-cache Layer. A resolver is built once and travels as a value: identity is the window, so a resolver minted per call site is the structural defeat.
+Each request family is one deep owner — the class carries its dedup identity in its fields AND its resolver mint, window upgrade, and provider seam as statics, so the family resolves from one name. Three window geometries ride one resolver value — same-traversal collapse, wall-clock collapse across unrelated fibers, and the durable result band — with the per-flow dedup tier `Effect.withRequestCaching` over `lane/cache.md`'s request-cache Layer. Resolvers build once and travel as values: identity is the window, so a resolver minted per call site is the structural defeat.
 
 ## [01]-[INDEX]
 
-- [02]-[REQUEST_FAMILY]: the request-class law — field identity, absorbed statics, the persistable upgrade.
+- [02]-[REQUEST_FAMILY]: `Request.TaggedClass` families — field identity, absorbed statics, the persistable upgrade.
 - [03]-[RESOLVER_ENGINE]: `Batch.Engine`, `Batch.settled`, and `Batch.of` — admitted policy, defect-total settlement, timing bracket.
-- [04]-[WINDOW_ROWS]: the three window geometries and the per-flow caching tier.
-- [05]-[SERVED_LANES]: the folder's own batched lanes as rows over the closed geometry vocabulary.
+- [04]-[WINDOW_ROWS]: window geometries — traversal, wall-clock, durable — beside the per-flow caching tier.
+- [05]-[SERVED_LANES]: folder-owned batched lanes as rows over the closed geometry vocabulary.
 
 ## [02]-[REQUEST_FAMILY]
 
@@ -20,7 +20,7 @@ A request family is one deep owner — the class carries its dedup identity in i
 - Law: the class absorbs its engine — `Descriptor.resolver(head)` composes `Batch.settled` over the provider's singular member, `Descriptor.windowed(head)` upgrades it to wall-clock geometry, and `Descriptor.durable(head, policy)` composes the persisted band; provider plurality never leaks through the port, each window executes under the admitted concurrency bound, and no family hand-rolls the settle fold the engine owns.
 - Law: `Request.TaggedClass` is the family form and `Request.Class` is the admitted single-tag degenerate — a process-local family with exactly one member and no tagged-resolver fan (`lane/capability.md`'s `_Probe`) carries no `_tag` because nothing dispatches on it; the moment a second member or a `fromEffectTagged` handler arrives, the declaration upgrades to the tagged form.
 - Law: persistence selects the declaration form once per family — a family any geometry persists is `Schema.TaggedRequest` (payload, success, and failure schemas in one declaration) satisfying `PrimaryKey`, so hits and misses both encode through the family's own schemas and a persisted failure replays typed; a family that never persists stays `Request.TaggedClass` at zero codec cost, and promotion rewrites only the declaration.
-- Law: the request's fault is the family's — `Descriptor` maps a missing `head` to `DescriptorMiss` and every other fault to schema-owned `DescriptorFault`; every request settles independently, so one failed HEAD never poisons its siblings and persisted failures retain reason, key, and detail. Provider roads the family's schemas cannot name arrive as defects in that request's own settlement rather than as a widened window loss.
+- Law: the request's fault is the family's — `Descriptor` maps a missing `head` to `DescriptorMiss` and every other store reason crosses VERBATIM into schema-owned `DescriptorFault`, whose reason roster is the store family's minus the re-homed arm, so a reason the store roster grows lands here as compile pressure, never a widened detail string; every request settles independently, so one failed HEAD never poisons its siblings and persisted failures retain reason, key, and detail. Provider roads the family's schemas cannot name arrive as defects in that request's own settlement rather than as a widened window loss.
 - Law: descriptor faults close through `Fault.Class.family`, mirror store classifications, and persist without local policy columns.
 - Law: the success row is the provider page's schema owner — `Descriptor` answers `ObjectStore.Stat`, the store-minted evidence class, so the probe, the wall-clock window, and the durable band persist ONE row shape and a parallel success struct restating the stat fields is unspellable.
 - Boundary: `Schema.TaggedRequest` declaration mechanics are the core shape law arriving settled; `lane/capability.md`'s `_Probe` stays its own realized family, and `object/store.md` hands the singular `ObjectStore.head` member across as a value — S3 has no batch HEAD operation to invent.
@@ -36,10 +36,13 @@ class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMis
   }
 }
 
-// One row per reason: the core kind alone, mirroring the store family this resolver folds from — retryability,
-// blame, and quarantine stay the core Fault.Class row table's on both sides of the fold.
-const _family = Fault.Class.family(["missing", "integrity", "io"] as const, {
-  missing: { class: "absent" },
+// `_family` carries the store roster VERBATIM minus the one arm it re-homes: `missing` is `DescriptorMiss`'s, so every
+// other store reason crosses unmapped and a reason the store mints tomorrow refuses HERE at compile time — a narrowed
+// mirror instead strands `archived` and `owner` in a fold its own schema refuses. Classes stay the store's;
+// retryability, blame, and quarantine stay the core Fault.Class row table's on both sides.
+const _family = Fault.Class.family(["archived", "owner", "integrity", "io"] as const, {
+  archived: { class: "denied" },
+  owner: { class: "denied" },
   integrity: { class: "breached" },
   io: { class: "unavailable" },
 })
@@ -167,7 +170,7 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
           })),
       (_, opened) =>
         Effect.flatMap(Clock.currentTimeMillis, (closed) =>
-          // the mounted distribution takes an elapsed span and scales it into its row's own code, so the raw difference lifts once here
+          // Mounted distribution rows take an elapsed span and scale it into their own code, so the raw difference lifts once here
           Effect.zipRight(Metric.update(_wall, Duration.millis(closed - opened)), Effect.annotateCurrentSpan("batch.millis", closed - opened))),
     ),
   )
@@ -222,7 +225,7 @@ const _durable = <Req extends Schema.TaggedRequest.All>(
 - Growth: a sibling branch batching a keyed provider call (an embedding window, a key-material fetch) declares its own family against this engine and appears in its own folder — the engine travels as these values, never as an import of provider surfaces.
 - Law: `probe` is realized — `lane/capability.md`'s `_Probe` family folds the whole extension roster into one `pg_extension` scan under `{ batching: true }`; this table records it as the engine's in-folder proof, and the probe page stays the owner.
 - Law: `presence` serves the object plane — `Descriptor.windowed` lifts `ObjectStore.head` into bounded parallel `HeadObjectCommand` sends under the wall-clock window, so a fan of probes settles one resolver window, repeated keys collapse structurally, and one provider fault remains local to its key.
-- Law: `board` proves the SQL provider reaches the wall-clock window — `read/query.md` wraps its keyed row through `RequestResolver.dataLoader` and rebinds the typed call surface with `makeExecute`, so board reads fanning across unrelated request fibers collapse into one statement per window; the pairing is a census row rather than an unstated possibility, because a geometry no lane runs is a capability the engine only appears to carry.
+- Law: `board` proves the SQL provider reaches the wall-clock window — `read/query.md` upgrades its keyed row through `Batch.windowed` (every `SqlResolver` row IS a `RequestResolver`, so the one geometry member wraps it unchanged) and rebinds the typed call surface with `makeExecute`, so board reads fanning across unrelated request fibers collapse into one statement per window; the pairing is a census row rather than an unstated possibility, because a geometry no lane runs is a capability the engine only appears to carry.
 - Law: `head` serves stream-position reads — a fan of per-stream `Journal.head` probes folds into one `GROUP BY` statement through the SQL specialization (`read/query.md`'s `StreamHead` `findById` row, where an eventless stream is a lawful `Option.none`), because where the provider is the database the fused resolver wins over the general engine.
 
 ```typescript signature

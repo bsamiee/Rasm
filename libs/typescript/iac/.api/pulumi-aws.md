@@ -26,6 +26,39 @@
 |  [04]   | `<Resource>.<prop>: pulumi.Output<T>`           | output prop    | computed attribute; a dependency edge when passed as `Input` |
 |  [05]   | `types.input.*` / `types.output.*`              | nested type    | the generated nested input/output type trees                 |
 
+[PUBLIC_TYPE_SCOPE]: generated enum vocabularies (`aws.types.enums.*`)
+
+Each vocabulary is a frozen const object of literal members beside a `keyof typeof` union of the same name, so every union below is CLOSED and the const is the roster a caller spreads. Reach runs through `types.enums` alone — a service namespace re-exports its resources, args, and invokes but never its enum twin, so `aws.ec2.InstanceType` resolves to the `getInstanceType` invoke family while `aws.types.enums.ec2.InstanceType` is the vocabulary.
+
+Consuming args stay string-widened by the provider itself (`Input<string>`), so this SDK closes nothing at the call site: a union assigns straight in, and a closed admission exists only where a caller spends the roster on a coordinate it owns. Members grow additively across releases, so a derived roster widens with the installed tree and pins no version.
+
+Rows below name the vocabularies this estate ruled on; the remaining trees carry the same shape and no estate coordinate — `ec2.{InstancePlatform,PlacementStrategy,ProtocolType,Tenancy}`, `rds.{EngineType,EngineMode,InstanceType}`, and the `alb`, `applicationloadbalancing`, `autoscaling`, `ecr`, `lambda`, and `ssm` trees.
+
+| [INDEX] | [MEMBER]             | [CAPABILITY]                                                                    |
+| :-----: | :------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `Region`                    | every published region literal; `ProviderArgs.region` is `Input<string \| undefined>` |
+|  [02]   | `ec2.InstanceType`          | every EC2 capacity literal — the one closed surface a node-pool coordinate has |
+|  [03]   | `iam.PolicyDocumentVersion` | the two policy-language versions a `PolicyDocument.Version` admits             |
+|  [04]   | `iam.PolicyStatementEffect` | `Allow`/`Deny` on `PolicyStatement.Effect`                                     |
+|  [05]   | `s3.CannedAcl`              | the canned bucket ACLs; enforced object ownership disables ACLs, so none apply |
+|  [06]   | `route53.RecordType`        | the Route 53 record roster; a Cloudflare-owned dns cell reaches no part of it  |
+|  [07]   | `rds.StorageType`           | the managed-volume classes; a CNPG data row names none                         |
+
+[ENTRYPOINT_SCOPE]: bucket access posture (the private-origin set)
+
+Object ownership carries no exported roster — `BucketOwnershipControlsRule.objectOwnership` is `Input<string>` whose values (`BucketOwnerPreferred`, `ObjectWriter`, `BucketOwnerEnforced`) live in an arg comment alone, so a posture literal is the provider's own openness and not the estate's. `BucketPolicy.policy` takes the typed `types.input.s3.PolicyDocument` beside its string twin, so a grant spells as a value under the `iam` enum constants and never as serialized JSON.
+
+Public-access refusals ride four independent `Input<boolean>` args on one resource: `blockPublicAcls`, `blockPublicPolicy`, `ignorePublicAcls`, and `restrictPublicBuckets`.
+
+| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                                          |
+| :-----: | :---------------------------------------------------------- | :------ | :------------------------------------------------------ |
+|  [01]   | `new s3.BucketOwnershipControls(name, { bucket, rule })`    | ctor    | `rule.objectOwnership` — ACL applicability per bucket    |
+|  [02]   | `new s3.BucketPublicAccessBlock(name, { bucket, …four })`   | ctor    | the four public-access refusals named above              |
+|  [03]   | `new s3.BucketPolicy(name, { bucket, policy })`             | ctor    | `PolicyDocument` — `Version` beside typed `Statement[]`  |
+|  [04]   | `types.input.iam.PolicyStatement`                           | nested  | `Effect`, `Principal`, `Action`, `Resource`, `Condition` |
+|  [05]   | `types.input.iam.ServicePrincipal`                          | nested  | `{ Service }` — the principal an OAC grant names         |
+|  [06]   | `cloudfront.Distribution.arn`                               | output  | the `AWS:SourceArn` value scoping that grant             |
+
 [PUBLIC_TYPE_SCOPE]: provider + engine model
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]  | [CAPABILITY]                                        |
@@ -115,10 +148,10 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 - `aws` arm is one dispatch row reading a `StackSpec`, constructing one `aws.Provider`, and realizing the service-equivalence subset with that provider scoped in; the `provider/surface` map is the single place a capability resolves to an `aws.*`/`awsx.*` resource class.
 - `awsx` components own standard compositions (VPC, Fargate service, ALB) and raw `aws.*` resources own fine-grained control, both taking the arm's explicit StackSpec-derived provider.
 - Credentials and account selection ride the `StackSpec` Doppler project ref into `ProviderArgs` (`profile`/`assumeRoles`) marked `pulumi.secret`, sourced through the `@pulumiverse/doppler`/`security/crypt/secret` read path.
-- `<Resource>.get(name, id)` adopts a pre-existing cloud resource, the whole plane lib code with zero authored `Pulumi.yaml`.
+- `<Resource>.get(name, id)` adopts a pre-existing cloud resource into the arm's graph under the same explicit provider, so an estate built by hand enters the typed program as library code and the plane keeps zero authored `Pulumi.yaml`.
 
 [RAIL_LAW]:
 - Package: `@pulumi/aws`
 - Owns: the prepared `aws` provider dispatch row — the uniform AWS resource pattern, the explicit StackSpec-derived `Provider`, the data-source invokes, and the service-equivalence subset mapping AWS managed services to the `selfhosted-k8s` capability matrix
-- Accept: one `Match.exhaustive` arm constructing one `aws.Provider` from a `StackSpec`, resources scoped via `{ provider }`, `Output`→`Input` dependency wiring, `awsx` components for standard compositions, `<Resource>.get` adoption, StackSpec-derived secret credentials
-- Reject: a flat per-service roster, ambient AWS config, resolving `Output` to plain values inside a program, hand-wiring compositions `awsx` already owns, inline credential literals, authored `Pulumi.yaml`, promoting `aws` above the first-class `selfhosted-k8s` arm
+- Accept: one `Match.exhaustive` arm constructing one `aws.Provider` from a `StackSpec`, resources scoped via `{ provider }`, `Output`→`Input` dependency wiring, `awsx` components for standard compositions, `<Resource>.get` adoption, StackSpec-derived secret credentials, a `types.enums` const spread into a caller's own admission alphabet where the coordinate is the estate's to close
+- Reject: a flat per-service roster, ambient AWS config, resolving `Output` to plain values inside a program, hand-wiring compositions `awsx` already owns, inline credential literals, authored `Pulumi.yaml`, promoting `aws` above the first-class `selfhosted-k8s` arm, a hand-restated vocabulary the `types.enums` tree already generates, a release literal pinning a roster the installed tree widens

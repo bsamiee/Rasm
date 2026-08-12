@@ -4,11 +4,11 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 
 ## [01]-[INDEX]
 
-- [02]-[SPINE_ROWS]: the first-party capability rows — identity mint, derivation, evidence, integrity forms.
-- [03]-[PRIMITIVE_TABLE]: the concurrency/queue primitives with their upholds AND denies columns.
-- [04]-[EXTENSION_MATRIX]: the ruled extension rows, the derived grant union, demands, the image projection.
-- [05]-[DRIVER_ROWS]: the `PgClient` Layer mints, the listener bus, the jsonb fragment.
-- [06]-[PROFILE_HARVEST]: the one engine-profile receipt family and the spine's statements and EXPLAIN arms.
+- [02]-[SPINE_ROWS]: first-party capability rows — identity mint, derivation, evidence, integrity forms.
+- [03]-[PRIMITIVE_TABLE]: concurrency/queue primitives with their upholds AND denies columns.
+- [04]-[EXTENSION_MATRIX]: ruled extension rows, derived grant union, demands, image projection.
+- [05]-[DRIVER_ROWS]: `PgClient` Layer mints, listener bus, jsonb fragment.
+- [06]-[PROFILE_HARVEST]: one engine-profile receipt family beside the spine's statements and EXPLAIN arms.
 
 ## [02]-[SPINE_ROWS]
 
@@ -183,7 +183,7 @@ declare namespace Pg {
 - Entry: `lane/tenant.md` composes `Pg.client` and `Pg.fromPool` inside its `Stores` lookup; `journal/append.md` owns the optional `PgClient.listen` subscription as `Journal.wake(app)` and writes `pg_notify(channel, payload)` through its transaction-bound neutral client.
 - Growth: a pool or transport knob is one `Config` field on `_coordinate` (`maxConnections`, `minConnections`, `connectTimeout`, `connectionTTL`, `idleTimeout`, `ssl` are the standing rows); a second physical spine (a read replica) is one more mint call with its own database coordinate, keyed by the scope that owns it.
 - Law: domain rows yield the neutral `SqlClient` — the concrete Tag is reached for `listen` and for `makeCompiler`, the embedded profile's own neutral-fragment compiler, and for nothing else; `PgClient.notify` calls the pool directly and is therefore rejected for a pulse whose contract is transaction-gated. Typing a row against `PgClient` while it composes no pg-native member blocks every other lane, the named defect.
-- Law: the jsonb crossing carries NO fragment helper on this lane, because every payload column this branch writes is bound as a statement PARAMETER whose type the target column resolves — `Model.JsonFromString` is the one owner and the driver's own inference is the whole mechanism; a `json` fragment admitted here would be capability with no call site, and the first page reaching for it instead of the model would fork how a payload crosses.
+- Law: the jsonb crossing carries NO fragment helper on this lane, because every payload column this branch writes is bound as a statement PARAMETER whose type the target column resolves — `Model.JsonFromString` is the one owner and the driver's own inference is the whole mechanism; a `json` fragment admitted here is capability with no call site, and the first page reaching for it instead of the model forks how a payload crosses.
 - Law: coordinates are discrete `Config` fields and NEVER a DSN beside a database name — the driver hands its config record to the node client, which re-parses `connectionString` over that record, so a `database` argument passed with a `url` loses to whatever the DSN spells and loses to null when it spells none; every dedicated-database scope then serves from the spine's own database, type-checked, booted, and probed green. Passwords ride `Redacted`, budgets and deadlines ride `Config`, and `applicationName` pins the span-to-`pg_stat_activity` correlation so a fleet of processes disambiguates itself.
 - Law: `connectTimeout` is the boot schedule's precondition — construction probes one round trip under exactly this deadline and fails typed, so an unreachable host surfaces as a `SqlError` the schedule retries rather than a construction that hangs past every budget and reaches no retry at all; `minConnections` pre-warms a dedicated spine and `ssl` defaults closed.
 - Law: the shared-pool row is the tenancy fan-out primitive — one app-owned pool acquired once, adopted by every row-scoped and schema-scoped tenant Layer through `layerFromPool`, so a diamond of N apps on one database costs one pool.
@@ -247,9 +247,8 @@ const _fromPool = (
 - Law: the statements row rides `_rows` as a core-layer contrib carrying `preload` — `lane/capability.md`'s batched catalog probe inherits it with zero probe edits, the `statements` grant gates both arms fail-closed, and the flag-bearing core row reaches the image projection so the deploy derivation configures `shared_preload_libraries`.
 
 ```typescript signature
-import { DateTime, HashMap, Record } from "effect"
-import type { Statement } from "@effect/sql"
-import { SqlSchema } from "@effect/sql"
+import { Array, DateTime, Effect, HashMap, Option, Record, Schema } from "effect"
+import { SqlSchema, type SqlClient, type Statement } from "@effect/sql"
 
 // `_PG_DIALECT` closes the two PostgreSQL engines sharing one EXPLAIN arm and one receipt spelling: PGLite
 // compiles neutral fragments through the same `PgClient` compiler, so its diagnosis names its own engine

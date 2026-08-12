@@ -6,9 +6,12 @@
 - asset: `dist/index.d.ts` (barrel over the hashed type bundle `dist/pglite-*.d.ts`); WASM binary + fs bundle ship inside the package (`fsBundle` / `pgliteWasmModule` overridable).
 - runtime: WebAssembly PGlite (a single Postgres build compiled to WASM) — single-connection, in-process, no socket, no Docker; runs identically in node, bun, browser, and worker.
 - plane: `plane:dev` — the `_testkit` fast unit lane; the container lane's counterpart is `testcontainers.md` (the real server-extension pg image `tests/containers.json` pins as the `pg` row).
+- canonical: the branch catalogue (`libs/typescript/data/.api/electric-sql-pglite.md`) owns the embedded-lane design surface; this dev-plane copy overlays it with the testkit lane facts.
 - rail: persistence-verification / in-process-sql.
 
-`@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds; the `_testkit` unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface. It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane; `tests/typescript/_architecture` bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.
+`@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds. `_testkit`'s unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface.
+
+It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane; `tests/typescript/_architecture` bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.
 
 ## [01]-[CORE]
 
@@ -101,7 +104,11 @@ Barrel also exports `parse` (wire parser) and `formatQuery`, and `protocol` (the
 
 ## [03]-[EXTENSIONS_AND_LANES]
 
-Extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`); the `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `earthdistance`, `fuzzystrmatch`, `hstore`, `intarray`, `isn`, `lo`, `ltree`, `pg_trgm`, `pgcrypto`, `seg`, `tablefunc`, `tsm_system_rows`, `unaccent`, `uuid_ossp`, … — 33 bundled) and the first-party `live` extension are SEED ROWS on that shape. This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
+Extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`).
+
+Seed rows on that shape are the `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `earthdistance`, `fuzzystrmatch`, `hstore`, `intarray`, `isn`, `lo`, `ltree`, `pg_trgm`, `pgcrypto`, `seg`, `tablefunc`, `tsm_system_rows`, `unaccent`, `uuid_ossp`, … — 33 bundled) and the first-party `live` extension.
+
+This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
 
 ```ts signature
 interface Extension<TNamespace = any> { name: string; setup: ExtensionSetup<TNamespace> }

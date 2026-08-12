@@ -21,6 +21,10 @@
 
 [ACCESS_ENUMS]: `AuthenticationMode` `AccessEntryType`
 
+Every vocabulary is a frozen const object beside its `keyof typeof` union, re-exported at the PACKAGE ROOT rather than behind a `types.enums` path, so `eks.AuthenticationMode.Api` is the call-site spelling and no import reaches deeper.
+
+Deprecated aliases sit beside live members and map onto the same values — `AuthenticationMode.API` beside `.Api`, `AmiType.AL2X86_64`, `OperatingSystem.RECOMMENDED` resolving to `AL2023` — so a roster derived from the const carries duplicate spellings of one member. Unlike `@pulumi/aws`, this SDK types several args to the closed union directly: `ClusterArgs.authenticationMode` takes `AuthenticationMode` with no string widening and no `Input` lift, and `operatingSystem` takes `Input<OperatingSystem>`.
+
 | [INDEX] | [MEMBER]                  | [SHAPE_MEANING]                                                                                            |
 | :-----: | :------------------------ | :--------------------------------------------------------------------------------------------------------- |
 |  [01]   | `cluster.kubeconfigJson`  | `Output<string>` — the provider seam; `kubeconfig` is its structured `Output<any>` twin                    |
@@ -38,6 +42,12 @@
 
 Every node group and addon is `new X(name, args, opts?)` binding `cluster` (required). Node groups carry the scaling axis (`instanceTypes`/`scalingConfig`/`capacityType`/`amiType`/`operatingSystem`/`launchTemplate`); `NodeGroupV2` adds `minRefreshPercentage`/`launchTemplateTagSpecifications`.
 
+Capacity is where this SDK stops closing: `instanceTypes` is `Input<Input<string>[]>`, `amiType` and `capacityType` are `Input<string>` whose rosters live only in an arg comment, and `operatingSystem` alone takes the exported union as `Input<OperatingSystem>`. Closing a capacity coordinate therefore spends `@pulumi/aws`'s `types.enums.ec2.InstanceType` at whichever surface owns it, since no argument here refuses an unspellable value.
+
+`scalingConfig` is the aws-generated `types.input.eks.NodeGroupScalingConfig` — `minSize`/`maxSize`/`desiredSize`, with the ordering invariant enforced by the API, never the type.
+
+AMI selection runs one derivation against two overrides. `operatingSystem` names the FAMILY and the component resolves the EKS-optimized image from it with the instance types and gpu configuration, so an arm64 capacity value picks its own architecture; `amiType` names the image type and `amiId` the image itself, each superseding that derivation, and `amiId` is documented mutually exclusive with both `gpu` and `amiType`. `OperatingSystem.RECOMMENDED` aliases whichever family AWS recommends, so it collapses onto that family's literal and pins nothing a bump cannot move.
+
 Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon` adds the CNI knobs (`enableNetworkPolicy`/`enablePrefixDelegation`/`enablePodEni`/`warm*Target`), and `Addon` carries `addonVersion`/`configurationValues`/`serviceAccountRoleArn`. `createManagedNodeGroup`/`createNodeGroupSecurityGroup`/`createStorageClass`/`getRoleProvider` compose the component rows in `.apply` folds.
 
 [NODE_ENUMS]: `AmiType` `OperatingSystem` `ClusterNodePools` `ResolveConflictsOnCreate` `ResolveConflictsOnUpdate`
@@ -54,9 +64,9 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 
 [TOPOLOGY]:
 - network: the plane rides the arm's existing `awsx.ec2.Vpc` — `vpcId`/`publicSubnetIds`/`privateSubnetIds` bind the network axis so network intent has one owner; `endpointPublicAccess: false` with `publicAccessCidrs` is the private-plane posture, decided by spec data.
-- access: `authenticationMode: "API"` with `accessEntries` is the access spelling — an entry is `principalArn` with scoped `accessPolicies`, so cluster RBAC is data on the component.
+- access: `authenticationMode: eks.AuthenticationMode.Api` with `accessEntries` is the access spelling — the arg takes the closed union, so the constant is the spelling and a bare literal states the same value while naming no vocabulary — an entry is `principalArn` with scoped `accessPolicies`, so cluster RBAC is data on the component.
 - identity: `createOidcProvider: true` mints the IRSA anchors once; a workload identity is `Addon.serviceAccountRoleArn` or an `aws.iam.Role` trust-bound to `oidcProviderArn`, never a widened node instance role.
-- capacity: `ManagedNodeGroup` is the default row, `NodeGroupV2` the launch-template escalation, `skipDefaultNodeGroup: true` wherever explicit groups exist so capacity has named owners; `fargate` and `autoMode` are spec-profile decisions on the same component.
+- capacity: `ManagedNodeGroup` is the default row, `NodeGroupV2` the launch-template escalation, `skipDefaultNodeGroup: true` wherever explicit groups exist so capacity has named owners; `fargate` and `autoMode` are spec-profile decisions on the same component. Every group pins `operatingSystem` off the exported const, because an unpinned family leaves image selection to a default the SDK moves — and pins the FAMILY rather than `RECOMMENDED`, whose value tracks AWS's own recommendation.
 - addon: cluster addons ride `Addon`/`VpcCniAddon` under the `ResolveConflictsOnCreate`/`ResolveConflictsOnUpdate` vocabulary; a `helm.v4.Chart` owns only what the addon catalog does not carry.
 
 [STACKING]:
@@ -69,5 +79,5 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 [RAIL_LAW]:
 - Package: `@pulumi/eks`
 - Owns: the managed EKS plane — control plane, access entries, OIDC/IRSA, node capacity, Fargate/Auto Mode, addon lifecycle, kubeconfig egress
-- Accept: `kubeconfigJson` into the arm's one `k8s.Provider` seam, `authenticationMode: "API"` + `accessEntries`, `ManagedNodeGroup`/`NodeGroupV2` capacity, `awsx.ec2.Vpc` outputs, `createOidcProvider` IRSA anchors, typed `Addon` rows
-- Reject: hand-rolled `aws.eks.*` assemblies duplicating the component, kubeconfig literals or per-resource providers, node-role widening in place of IRSA, chart installs of native addons
+- Accept: `kubeconfigJson` into the arm's one `k8s.Provider` seam, `AuthenticationMode.Api` + `accessEntries`, `ManagedNodeGroup`/`NodeGroupV2` capacity fed by a coordinate that already closed its instance-type roster, `awsx.ec2.Vpc` outputs, `createOidcProvider` IRSA anchors, typed `Addon` rows
+- Reject: hand-rolled `aws.eks.*` assemblies duplicating the component, kubeconfig literals or per-resource providers, node-role widening in place of IRSA, chart installs of native addons, a bare literal where the arg takes the exported union, treating the string-widened capacity args as an admission surface

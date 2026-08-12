@@ -56,6 +56,10 @@ One transfer rides the control connection at a time, so concurrency is a client 
 
 ## [04]-[IMPLEMENTATION_LAW]
 
+[TOPOLOGY]:
+- `Client` charges its timeout against time spent waiting for the SERVER alone, so a slow local half never trips it: a download piped into a decompressor and an upload fed by a stream computing its data both hold the data connection idle without refusal, and the bound stays tight enough to convict a genuinely stalled origin.
+- `timeout: 0` disarms stall detection outright and hands the whole bound to the consumer, so a pooled client sets a real value and lets the protocol lane own the verdict.
+
 [STACKING]:
 - `effect` (`.api/effect.md`): each promise member lifts through `Effect.tryPromise`; the client acquires under `Effect.acquireRelease` with `close()` as release; `trackProgress` becomes a fact `Stream` via `Stream.asyncPush`; an `FTPError` folds to a typed refusal keeping the row alive, while a closed-context fault rides the re-`access` under a `Schedule`.
 - `@effect/platform-node` (`.api/effect-platform-node.md`): `NodeStream.toReadable`/`NodeSink.fromWritable` bridge an Effect `Stream` body into `uploadFrom` and drain `downloadTo` into a `Sink`; the path-string arms serve whole-file moves the platform `FileSystem` already staged.
@@ -72,5 +76,5 @@ One transfer rides the control connection at a time, so concurrency is a client 
 [RAIL_LAW]:
 - Package: `basic-ftp`
 - Owns: the FTP/FTPS protocol lane — the composed dial with explicit and implicit TLS, streamed and path transfer, byte-offset resume, directory mirroring, listing census with parser override, progress tracking, the usable-after-refusal error split
-- Accept: scoped pooled clients dialed through `access`, `NodeStream`/`NodeSink` body seams, offset-resume arithmetic, rename-into-place staging, poll-diff watching
-- Reject: interleaved transfers on one client, credential literals, full re-transfers where resume applies, `secure: false` against TLS-capable origins, a second FTP wrapper over this surface
+- Accept: scoped pooled clients dialed through `access`, `NodeStream`/`NodeSink` body seams, offset-resume arithmetic, rename-into-place staging, poll-diff watching, one server-waiting timeout bounding every transfer regardless of local pipeline speed
+- Reject: interleaved transfers on one client, credential literals, full re-transfers where resume applies, `secure: false` against TLS-capable origins, a timeout widened or disarmed to survive a slow local source or sink, a second FTP wrapper over this surface

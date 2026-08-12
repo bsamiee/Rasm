@@ -9,7 +9,7 @@
 [PACKAGE_SURFACE]: `isomorphic-dompurify`
 - package: `isomorphic-dompurify` (MIT)
 - module: `.` conditional export — node backs a `jsdom` window (`clearWindow` disposes it), browser binds native `window`; one import, resolution by export condition
-- runtime: isomorphic — `isSupported` reads `false` where neither window exists
+- runtime: isomorphic — `isSupported` reads `false` where neither window exists; the node condition builds its window at import, so resolving this module costs one document
 - depends: `dompurify` re-exports the full type surface and the sanitizer; `jsdom` backs the node window
 - rail: sanitize — the render-boundary ceiling every DOM-bound wire string clears once
 
@@ -51,8 +51,13 @@
 |  [06]   | `setConfig(cfg?)` / `clearConfig()`                  | instance | pin or clear project policy |
 |  [07]   | `isValidAttribute(string, string, string)` -> `bool` | instance | pre-check one attribute     |
 |  [08]   | `removed`                                            | property | last-call strip audit       |
-|  [09]   | `isSupported` / `version`                            | property | runtime state probes        |
+|  [09]   | `isSupported` / `version`                            | property | import-time state snapshot  |
 |  [10]   | `clearWindow()`                                      | function | reset cached node window    |
+|  [11]   | `DOMPurify(root)` -> `DOMPurify`                     | factory  | a sanitizer over one window |
+
+- `clearWindow()`: closes the node window and rebuilds the sanitizer over a fresh one, so every `addHook` registration and any `setConfig` policy dies with it and the caller re-pins both before the next `sanitize`.
+- `isSupported` / `version`: plain values captured when the module resolved, never live getters — `clearWindow()` leaves both reading the state of the window they were taken from.
+- `DOMPurify(root)`: calling the default export mints a sanitizer bound to a caller-supplied window, so a host needing the node document's own construction options — a quiet virtual console, a resource policy — builds that window itself and mints against it.
 
 [ENTRYPOINT_SCOPE]: `addHook(entryPoint, fn)` binds a hook by entry-point string; a bound hook mutates the node or attribute mid-sanitize. Teardown is `removeHook(entryPoint, fn?)` / `removeHooks(entryPoint)` / `removeAllHooks()`.
 
@@ -72,7 +77,10 @@
 
 [TOPOLOGY]:
 - Pass the return flag for a return mode; four separate functions is the deleted form.
-- node caches one `jsdom` window under the same sanitizer and `clearWindow()` disposes it between SSR renders; the browser path binds the native `window`.
+- node caches one bare doctype-only `jsdom` window under the same sanitizer — no scripts, no resource loading, no styles the parse reaches — and that emptiness carries the isolation the gate rests on; the browser path binds the native `window`.
+- window and sanitizer share one lifetime: replacing the window replaces the sanitizer, so hook registrations and pinned policy belong to a window generation and re-establish whenever it turns over.
+- jsdom's CSSOM backs the node window, computing every length in pixels and serializing CSS functions canonically, so a hook reading a computed style reads resolved px and a spelling the author's own units never wrote.
+- errors the document raises — a style block that will not parse, a resource the policy declines — reach the process console through jsdom's own error channel rather than the sanitize return, so untrusted markup is a log-volume surface as well as a policy one.
 - sanitize runs once at the render boundary — re-sanitizing per render is waste, re-parsing a sanitized string a defect.
 
 [STACKING]:
@@ -84,11 +92,12 @@
 [LOCAL_ADMISSION]:
 - Sanitize every untrusted HTML-bearing string once at the ingress/render boundary; a per-component `DOMPurify.sanitize` call is the deleted form.
 - Pin the allow-list through `setConfig` or an explicit per-call `Config`, `USE_PROFILES` for the common HTML profile; widening `ADD_TAGS`/`ADD_ATTR` carries a stated policy reason.
-- node SSR calls `clearWindow()` between independent renders; the browser path gates on `isSupported`.
+- node SSR reuses the one cached window across renders, since `sanitize` leaves no per-render document state; `clearWindow()` serves a long-lived process reclaiming the document, and the same pass that calls it re-registers every hook and re-pins the policy.
+- Own the node document's construction — its console, its resource policy — by building the window and minting through `DOMPurify(root)`; the browser path gates on `isSupported`.
 - Strict CSP returns `TrustedHTML` (`RETURN_TRUSTED_TYPE`) into a Trusted-Types sink.
 
 [RAIL_LAW]:
 - Package: `isomorphic-dompurify`
-- Owns: the dual-runtime DOMPurify sanitize gate, the `Config` allow/deny/return-mode vocabulary, the hook extension axis, the `removed[]` audit, Trusted-Types output, and the node/browser window resolution (`clearWindow`/`isSupported`)
-- Accept: one boundary `sanitize` parameterized by `Config`, project policy via `setConfig`, `USE_PROFILES` for common HTML, `RETURN_TRUSTED_TYPE` under CSP, hooks for decision overrides, invocation once at the ingress/render boundary
-- Reject: per-render or per-component sanitize, re-sanitizing a clean string, a hand-rolled tag/attr allowlist beside `Config`, unsanitized markup reaching `dangerouslySetInnerHTML`
+- Owns: the dual-runtime DOMPurify sanitize gate, the `Config` allow/deny/return-mode vocabulary, the hook extension axis, the `removed[]` audit, Trusted-Types output, and the node/browser window resolution (`clearWindow`/`isSupported`/`DOMPurify(root)`)
+- Accept: one boundary `sanitize` parameterized by `Config`, project policy via `setConfig`, `USE_PROFILES` for common HTML, `RETURN_TRUSTED_TYPE` under CSP, hooks for decision overrides, one long-lived node window, `DOMPurify(root)` where the host owns the document's construction, invocation once at the ingress/render boundary
+- Reject: per-render or per-component sanitize, re-sanitizing a clean string, a hand-rolled tag/attr allowlist beside `Config`, a hook or pinned policy assumed to survive `clearWindow()`, unsanitized markup reaching `dangerouslySetInnerHTML`

@@ -90,7 +90,10 @@ class Cutter extends Context.Tag("data/Cutter")<Cutter, {
 
 const _CUT = { min: 256 * 1024, avg: 1024 * 1024, max: 4 * 1024 * 1024 } as const satisfies Rail.CutPolicy
 
-const _chunked = (bytes: Stream.Stream<Uint8Array, ObjectFault>, policy: Rail.CutPolicy) =>
+// `R` rides through: the cutter itself lands there, and a byte source carries its own capability — a filesystem, a
+// staging store, a relational slice — so a pinned `never` fixes the fold to sources needing nothing and leaves
+// every other caller re-implementing it.
+const _chunked = <R>(bytes: Stream.Stream<Uint8Array, ObjectFault, R>, policy: Rail.CutPolicy) =>
   Stream.unwrap(
     Effect.map(Cutter, (cutter) =>
       cutter.cut(policy)(bytes).pipe(
@@ -222,7 +225,7 @@ const _identityMachine = Machine.makeSerializable({ state: _Checkpoint, input: _
 const _identitySurface = (actor: Machine.SerializableActor<typeof _identityMachine>): Rail.IdentityActor => ({
   absorb: (chunk) => actor.send(new _Absorb({ chunk })),
   checkpoint: actor.get,
-  changes: actor,
+  changes: actor.changes, // the actor is Subscribable, never itself the stream: `get` and `changes` are its two reads
   freeze: Effect.mapError(Machine.snapshot(actor), _proofFault("<identity-snapshot>")),
 })
 
@@ -244,8 +247,8 @@ const _restoreIdentity = (frozen: Rail.FrozenIdentity) =>
     _identitySurface,
   )
 
-const _identity = (
-  flow: Stream.Stream<{ readonly chunk: Uint8Array; readonly mark: Rail.ChunkMark }, ObjectFault>,
+const _identity = <R>(
+  flow: Stream.Stream<{ readonly chunk: Uint8Array; readonly mark: Rail.ChunkMark }, ObjectFault, R>,
   checkpoint?: Rail.Checkpoint,
 ) =>
   Effect.scoped(Effect.gen(function* () {
@@ -261,13 +264,15 @@ const _identity = (
 
 ## [05]-[RESUME_RAIL]
 
-- Owner: the tus assembly — staged `S3Store`, hook-armed `Server`, PATCH-exclusive `MemoryLocker`, finalize re-home, staging groom, and the protocol row that swaps to the IETF form without store or hook edits.
-- Packages: `@tus/server` (`Server`, `Upload`, `EVENTS`, `MemoryLocker`, `RouteHandler`, `server.get`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`, the `DataStore` `getUpload`/`read`/`remove` members); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Exit`, `Layer`, `Metric`, `Runtime`, `Schedule`); `@rasm/ts/core` (`Convention` — the throughput instrument row; `Fault.Class` — the status projection's lattice); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps).
+- Owner: the tus assembly — staged `S3Store`, hook-armed `Server`, PATCH-exclusive `MemoryLocker`, finalize re-home, staging groom, and the protocol row that swaps to the IETF form without store or hook edits; beneath it the shared custody landing every byte source on this page spends, and `Rail.preserve`, the `journal/retain.md` `Preserve` port it satisfies.
+- Packages: `@tus/server` (`Server`, `Upload`, `EVENTS`, `MemoryLocker`, `RouteHandler`, `server.get`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`/`namingFunction`/`getFileIdFromRequest`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`, the `DataStore` `getUpload`/`read`/`remove` members); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Exit`, `Layer`, `Metric`, `Runtime`, `Schedule`); `@rasm/ts/core` (`Convention` — the throughput instrument row; `Fault.Class` — the status projection's lattice); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps); `journal/retain.md` (`SubjectKey`, `Retain.slice` — the preservation port's subject and its collection rendering).
 - Entry: the serving plane mounts `rail.node` (node req/res) or `rail.web` (fetch Request→Response) under its route; the browser leg is `tus-js-client` driving POST/PATCH/HEAD against this mount and the receipt GET beside it — a ui-branch consumer of the wire protocol, never of this module.
 - Receipt: `onUploadFinish` returns the finalize receipt onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success; `${route}/receipt?upload=<id>` answers the SAME receipt for a staged id, which is the only road a resumed leg has to it.
 - Growth: a per-caller quota is the `maxSize` function reading the caller's admission; a second staging band (media versus artifact) is a second `Rail.of` with its own cut policy and retention row; RUFH lands as the protocol row swap.
 - Law: staging and content never share keys — tus ids are random staging identity, `namingFunction` prefixes the staging band, and identity exists only after the finalize fold; a staging key leaking as a content coordinate is the named defect.
+- Law: the band prefix binds mint to extraction as ONE pair — the mount route publishes only the id's last segment, so `namingFunction` and `getFileIdFromRequest` are written together and a band prefix landed without its extractor resolves every resume against a key the store never held; a custom extractor also OWNS the traversal refusal, since the built-in check it replaces is what otherwise rejects a `/`, a `\`, or a NUL reaching the store as a key.
 - Law: the `Rail.Spec` row answers the whole descriptor a mount selects on, and the staging band's coordinates differ from the content plane's in exactly the way that matters — `route` with `cut` names what a band FITS, the tus create/PATCH handshake is its ADMISSION, TENANCY rides the resolved `owner` stamped into upload metadata at create and carried into the reference row at finalize (so a band is multi-tenant by that value, never by a second staging bucket), LIFETIME is the `expirationPeriodInMilliseconds` window the groom enforces and the band ENDS ITSELF, which is the coordinate the content plane cannot answer since a content object's life is refcount-and-sweep; DEGRADE is that a staging body is disposable by construction — an abandoned upload buys nothing back, a client resuming past the expiry window restarts from byte zero, and no chunk staged here is addressable until the finalize fold mints its key.
+- Law: the staging expiry never exceeds the object plane's reap floor — the multipart reap and the engine's abort rule close abandoned uploads at that floor blind to bands, so a window past it promises a resume the reap has already aborted; `_STAGE.expiry` sits at the floor, and the groom, the reap, and the engine rule close one window.
 - Law: the hook seams are the admission and gate rows — `onUploadCreate` stamps the staging owner into the upload metadata before creation, `onIncomingRequest` runs the spec's `gate` (the serving plane's admission handoff) per request, `onResponseError` folds every error reply into one structured log, and `postReceiveInterval` paces the progress events the `EVENTS` taps observe — every seam a `Rail.Spec` value, never a fork of the handler classes.
 - Law: the create seam IS the `rasm.data.object.admit` veto point — after the spec's `admit` enriches metadata, `Hook.gated("objectAdmit", ...)` runs the app-armed veto with the staging id, resolved owner, and declared length (`Option`-carried because a deferred-length upload declares none), and a refusal reaches the client through `_bridged` as its own class-derived status; the finalize fold fans the same point's observe taps with the landed content key AFTER the conditional re-home and reference row commit, so no subscriber sees a key that is not yet durable.
 - Law: `_bridged` is the ONE hook bridge and `_STATUS` its one projection — the fiber's `Exit` folds through `Fault.Class.of`, which reads typed failures by their `class` and defects onto the `defect` rung, so both channels answer one status roster and neither escapes unclassified; `Runtime.runPromise` rejects with a `FiberFailure` carrying no `class`, so a hook rejecting straight through collapses every refusal — the admission veto, the absent staged body, the integrity failure — onto one opaque server fault a resumable client cannot tell from a transient one, and the veto's 403 and the exhausted rung's 429 exist only because the projection runs before the rejection leaves the fiber.
@@ -278,7 +283,9 @@ const _identity = (
 - Law: `onResponseError` OBSERVES and never re-projects a shaped arrival — its parameter union is the discriminant tus supplies, so the bridge's own `{ status_code, body }` passes through and only a bare internal `Error` classifies; a second projection over an already-shaped refusal reads a value no longer carrying the fault and overwrites the status the bridge decided.
 - Law: resumable-upload throughput projects from the finalize receipt — the landed span increments `streamSize` once per completed upload, so the rate is throughput; a per-PATCH meter double-counts retries.
 - Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row through `store.refer` (the derived retention tag lands with it), remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay, the reference upsert re-arms, and the staging removal is the only destructive step, ordered last and best-effort — once `store.refer` commits, the receipt is settled truth, a failed staging delete logs as cleanup debt, and groom's `deleteExpired` retires the orphan, so no delete failure can fail `onUploadFinish` after durability.
-- Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade.
+- Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade. Both byte sources on this page spend ONE landing across those two passes, taking a re-runnable slice and its cut policy, so the tus finalize and the preservation port can never disagree on identity, span, or reference ordering.
+- Law: the owner is INGRESS at BOTH tus seams — the create hook admits the client's declared metadata through `ObjectStore.admit` and the finalize fold re-admits the stamped value, because that value crossed the staging store as text and a resumed leg witnessed no create-seam verdict; an undeclared owner takes the band's own mint, and the minted-below prefixes refuse, so an upload can neither stamp itself into a subject's DSAR export nor join a hold it never earned.
+- Law: `Rail.preserve` is the object-plane end of the hold's preservation contract — it decodes the subject's custody owner at this boundary, folds the handed slice through the same identity pass, and lands the reference row whose retag reads the live hold; the class rides the declaration's own choice rather than a literal here, because the journal owns what evidence a matter is worth.
 - Law: every provider promise on the resume rail converts through `Effect.tryPromise` into `ObjectFault` — the staged read, the re-home, the staging removal, the dispatch members, and the groom alike — so a failed staging read or removal is a typed rail outcome, never a bare rejection; `Effect.promise` is unspellable on this page because no tus or store promise is rejection-free.
 - Law: the groom never sleeps — `cleanUpExpiredUploads` and store `deleteExpired` ride the maintenance cadence, so abandoned uploads cost one expiration window.
 - Boundary: the tus construction is the page's platform-forced kernel — the `Server`/`S3Store` mints, the hook callbacks bridged through `_bridged` (the Exit projection whose throw IS the tus-conformant error reply), the `Readable.toWeb` node-web interop whose element type the node declarations erase (the `as ReadableStream<Uint8Array>` re-pin), and the `crypto.randomUUID` staging-id mint all live inside this one seam; above it the rail is typed end to end.
@@ -320,7 +327,7 @@ import type http from "node:http"
 import { Convention, Fault } from "@rasm/ts/core"
 import { Hook } from "../journal/append.ts"
 import { ObjectStore } from "./store.ts"
-import type { Retain } from "../journal/retain.ts"
+import { Retain, SubjectKey } from "../journal/retain.ts"
 
 const _streamed = Convention.mount(Convention.metric.streamSize)
 
@@ -338,7 +345,7 @@ declare namespace Rail {
 }
 
 const _STAGE = {
-  expiry: Duration.hours(24),
+  expiry: Duration.hours(24), // at the object plane's reap floor, never past it: the multipart reap and the engine's abort rule close any older upload band-blind, so a wider window promises a resume the reap already aborted
   lockDrain: Duration.seconds(10),
   pulse: Duration.seconds(5),
 } as const
@@ -393,31 +400,82 @@ const _served = <A>(runtime: Runtime.Runtime<never>, work: Effect.Effect<A, Obje
     }),
   )
 
+// ONE custody landing, and the whole reason the finalize fold and the hold's preservation port cannot drift: two
+// bounded passes over a RE-RUNNABLE slice — the identity pass proves the key before any byte is addressed, the
+// streaming conditional lands it under the proven span, and the reference row commits before anything disposable is
+// touched. The slice re-runs its own source per consumption, which is what buys constant memory at any size.
+const _landed = <R>(
+  store: ObjectStore,
+  owner: ObjectStore.Owner,
+  retention: Retain.Class,
+  cut: Rail.CutPolicy,
+  slice: Stream.Stream<Uint8Array, ObjectFault, R>, // every byte source folds its own fault family onto ObjectFault BEFORE the landing: a wider channel here is a knob no caller can spend, since the chunk stage admits exactly this one
+) =>
+  Effect.gen(function* () {
+    // `store` arrives as a HANDLE rather than off the Tag: the tus kernel below runs its hooks on a `never`-
+    // requirement runtime, so a landing acquiring its own service is unreachable from that bridge
+    const identity = yield* _identity(_chunked(slice, cut))
+    const landed = yield* store.putKeyed(
+      identity.key,
+      yield* Stream.toReadableStreamEffect(slice),
+      identity.bytes,
+    )
+    yield* store.refer(landed.key, owner, retention)
+    return { key: identity.key, bytes: identity.bytes, written: landed.written }
+  })
+
+// `journal/retain`'s `Preserve` port, satisfied HERE because this page already owns the identity fold and the
+// conditional re-home the landing needs. The subject owner crosses up a stratum as text and admits at the object
+// boundary like any other string, and the reference row's own retag reads the hold the declaration just committed,
+// so the custody object takes the `held` posture with no second write on this road.
+const _preserved = (subject: SubjectKey, retention: Retain.Class) =>
+  Effect.gen(function* () {
+    const store = yield* ObjectStore
+    const owner = yield* Effect.mapError(
+      Schema.decodeUnknown(ObjectStore.Owner)(subject.owner),
+      () => new ObjectFault({ reason: "owner", key: subject.subject, detail: "<preserve:owner>" }),
+    )
+    yield* _landed(
+      store,
+      owner,
+      retention,
+      _CUT,
+      Stream.mapError(
+        Retain.slice(subject),
+        (fault) => new ObjectFault({ reason: "io", key: subject.subject, detail: String(fault) }),
+      ),
+    )
+  })
+
 // ONE finalize fold, entered by the finish hook and by the receipt route alike. Handler code commits the written offset
 // to the store BEFORE this runs and rethrows whatever it refuses with, so a refusal leaves a staged upload at
 // `offset === size` that a resuming client reads as complete; idempotence makes the second entry free — the re-home
 // lands 412 on replay, the reference upsert re-arms, and staging removal stays last and best-effort.
 const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, upload: Upload) =>
   Effect.gen(function* () {
-    const owner = upload.metadata?.owner ?? `tus:${spec.staging}`
-    const staged = yield* _staged(staging, upload.id)
-    const flow = _chunked(_bytes(Readable.toWeb(staged) as ReadableStream<Uint8Array>), spec.cut)
-    const identity = yield* _identity(flow)
-    const landed = yield* store.putKeyed(
-      identity.key,
-      Readable.toWeb(yield* _staged(staging, upload.id)) as ReadableStream<Uint8Array>,
-      identity.bytes,
+    // `upload.metadata` crossed the staging store as text, so it re-admits here rather than riding a create-seam
+    // verdict a resumed leg never witnessed; the band's own row mints the fallback
+    const owner = yield* Option.match(Option.fromNullable(upload.metadata?.owner), {
+      onNone: () => Effect.succeed(ObjectStore.owner("tus", spec.staging)),
+      onSome: ObjectStore.admit(upload.id),
+    })
+    const receipt = yield* _landed(
+      store,
+      owner,
+      spec.retention,
+      spec.cut,
+      Stream.unwrap(Effect.map(_staged(staging, upload.id), (staged) =>
+        _bytes(Readable.toWeb(staged) as ReadableStream<Uint8Array>))),
     )
-    yield* store.refer(identity.key, owner, spec.retention)
     yield* Effect.tryPromise({
       try: () => staging.remove(upload.id),
       catch: (caught) => new ObjectFault({ reason: "io", key: upload.id, detail: String(caught) }),
     }).pipe(Effect.ignoreLogged) // staging cleanup is debt, never receipt truth: the durable object and its reference are committed, a failed delete logs, and groom's deleteExpired retires the orphaned staging body
-    yield* Effect.ignore(Metric.incrementBy(_streamed, identity.bytes)) // signal refusal cannot reopen an irreversible completion
+    yield* Effect.ignore(Metric.incrementBy(_streamed, receipt.bytes)) // signal refusal cannot reopen an irreversible completion
     yield* Effect.ignore(
-      Hook.tapped("objectAdmit", { key: identity.key, owner, bytes: Option.some(identity.bytes) }),
+      Hook.tapped("objectAdmit", { key: receipt.key, owner, bytes: Option.some(receipt.bytes) }),
     ) // observe fan remains best-effort after the durable receipt is settled
-    return { key: identity.key, bytes: identity.bytes, written: landed.written } // Reply projects the receipt only; staging owns checkpoints and frozen hash state.
+    return receipt // Reply projects the receipt only; staging owns checkpoints and frozen hash state.
   })
 
 const _rail = (spec: Rail.Spec) =>
@@ -447,14 +505,26 @@ const _rail = (spec: Rail.Spec) =>
       locker: new MemoryLocker(),
       lockDrainTimeout: Duration.toMillis(_STAGE.lockDrain),
       postReceiveInterval: Duration.toMillis(_STAGE.pulse),
+      // Band prefixing makes the id slash-bearing while the mount route publishes only its last segment, so mint and
+      // extraction are ONE pair: the extractor re-attaches the band and owes the traversal refusal the built-in makes.
       namingFunction: () => `${spec.staging}/${crypto.randomUUID()}`,
+      getFileIdFromRequest: (_req, lastPath) =>
+        lastPath === undefined || lastPath.includes("/") || lastPath.includes("\\") || lastPath.includes("\0")
+          ? undefined
+          : `${spec.staging}/${lastPath}`,
       onUploadCreate: async (req, upload) =>
         _bridged(runtime, Effect.gen(function* () {
           const supplied = upload.metadata ?? {}
           const admitted = spec.admit === undefined
             ? {}
             : yield* spec.admit(req, { id: upload.id, metadata: supplied })
-          const owner = admitted.owner ?? supplied.owner ?? `tus:${spec.staging}`
+          // Client metadata is UNTRUSTED here: a declared owner decodes through the namespace and the minted-below
+          // prefixes refuse, so an upload cannot stamp itself into a subject's DSAR export or hold join; an
+          // undeclared one takes the band's own row rather than a hand-built string.
+          const owner = yield* Option.match(Option.fromNullable(admitted.owner ?? supplied.owner), {
+            onNone: () => Effect.succeed(ObjectStore.owner("tus", spec.staging)),
+            onSome: ObjectStore.admit(upload.id),
+          })
           // App-armed veto: its refusal carries a `denied` class the bridge answers 403, never the store's blanket 500.
           yield* Hook.gated("objectAdmit", { key: upload.id, owner, bytes: Option.fromNullable(upload.size) })
           return { metadata: { ...supplied, ...admitted, owner } }
@@ -550,6 +620,7 @@ const Rail = {
   restoreIdentity: _restoreIdentity,
   prove: _prove,
   of: _rail,
+  preserve: _preserved, // `journal/retain`'s Preserve port: the hold declaration's custody landing
   range: _range,
 } as const
 

@@ -4,7 +4,7 @@ Fanout and replay are one port with engines as rows. `Fanout` broadcasts evidenc
 
 Guarantee rows declare at-least-once handler consumption with ack-after-success, poison termination, and heartbeats; deduplicated publish under a content-derived `msgID`; optional double-ack confirmation; and sequence- or instant-anchored replay without an ack surface. JetStream upholds the full ledger, lighter engines expose their degradation, and root Layer selection chooses the engine.
 
-Retention makes replay a warm-up and recovery window, never the system of record; consumers needing full history read the data journal. Deployment owns NATS fsync and replica quorum. JetStream ships on `./server`, local stays runtime-neutral, and tab stays browser-bound. Module: `runtime/src/net/pubsub.ts`.
+Retention makes replay a warm-up and recovery window, never the system of record; consumers needing full history read the data journal. Every broker connection authenticates as the security plane's machine principal projected at its own dial coordinate — `ConnectionOptions.authenticator` on NATS, the SASL/OAUTHBEARER provider on Kafka — so a fleet worker carries no static token and the `present` column states what a rotation costs each row. Deployment owns NATS fsync and replica quorum. JetStream ships on `./server`, local stays runtime-neutral, and tab stays browser-bound. Module: `runtime/src/net/pubsub.ts`.
 
 ## [01]-[INDEX]
 
@@ -47,13 +47,24 @@ import {
     PubSub,
     Queue,
     Record,
+    MutableRef,
+    Redacted,
     Ref,
     Schedule,
     Schema,
     type Scope,
     Stream,
 } from 'effect';
-import { type ConnectionOptions, type MsgHdrs, type NatsConnection, type Status, headers as natsHeaders, wsconnect } from '@nats-io/nats-core';
+import {
+    type Authenticator,
+    type ConnectionOptions,
+    type MsgHdrs,
+    type NatsConnection,
+    type Status,
+    headers as natsHeaders,
+    tokenAuthenticator,
+    wsconnect,
+} from '@nats-io/nats-core';
 import { KafkaJS } from '@confluentinc/kafka-javascript';
 import { CloudEvent, type CloudEventV1, CONSTANTS, HTTP, Kafka, V1 } from 'cloudevents';
 import { Buffer } from 'node:buffer';
@@ -91,8 +102,9 @@ import {
 } from '@confluentinc/schemaregistry';
 import { Carrier, Event, Fault } from '@rasm/ts/core';
 import type { Backend } from '@rasm/ts/data';
+import type { MachinePrincipal } from '@rasm/ts/security';
 import { Setting } from '../proc/config.ts';
-import { Breaker } from './client.ts';
+import { Breaker, Machine } from './client.ts';
 
 // One sample type feeds the derived arbitrary below: generation needs a grammar-lawful `type`, and the roster's own
 // pattern is what makes an invented literal fail the very admission the generator exists to exercise.
@@ -304,6 +316,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Law: every row answers the four selection columns before a selector binds it, and `lifetime` names its OWNER beside its `until` — `Fanout.Topic.retention` reaches only a row whose lifetime owner is `package`, so a broker-owned or host-owned retention is read from the row rather than presumed from the field.
 - Law: the guarantee columns are what the engine alone decides and the recovery columns are what a re-drive stands on, so `degrade` carries only the residual none of them expresses and a coordinate an engine forfeits is stated where a selector sees it.
 - Law: an engine row is SELECTED BY the consumption profile and mints no axis vocabulary — `tenancy` states the isolation this engine realizes (a subject namespace, a topic prefix, an origin) while `proc/config#ADMISSION_ROWS` `Profile` owns the closed axis every root states, so a second roster never stands beside it.
+- Law: `present` states WHERE this engine's credential lives and what a rotation costs it, spelling the same cell name the egress lane table at `net/client#LANE_ROWS` carries, so one credential vocabulary crosses both planes. The column separates rather than repeats: the in-process rows authenticate nothing at all, JetStream authenticates at HANDSHAKE off `ConnectionOptions`, so a rotated principal reaches a live connection only by replacing it, and Kafka's SASL/OAUTHBEARER provider re-runs on the broker client's own token cadence, so a rotation lands in place and holds the connection open. A message header is never the credential on any row — headers are app metadata no server authenticates on, and a row presenting one would be authenticating the payload rather than the peer.
 - Law: `alias` is byte-free aliasing, never a re-stash — a derivative fanned to a second topic or a payload re-published after a replay answers off the target receipt's own store key, so a large binary is paid for once; a `haul`-then-`stash` round trip re-streams every chunk and re-digests an object the store already holds, and it is the named defect this member deletes.
 - Law: `consumers` closes the one substrate object a caller mints at runtime — every distinct logical identity ever passed to `consume` leaves a durable consumer holding an ack-pending window and a server cursor, so the census reads them with their pending, unacked, and redelivered depth and the retire predicate retracts a renamed service; Layer-build reconciliation converges streams and stores, and this member is its consumer half.
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `horizon` (the anchor precedes the engine's window, the topic is undeclared, or the blob is absent — class `absent`), `publish` (an unacknowledged publish or a rejected stash, class `unavailable`), `poison` (the handler proves an envelope unprocessable, class `malformed` — the consume lane's terminate signal) — so the core budget gate re-drives the transient rows and a horizon miss routes as the terminal evidence it is.
@@ -341,8 +354,10 @@ class FanoutFault extends Data.TaggedError('FanoutFault')<{
 // was about to call; a capability vocabulary standing beside the members it shadows names one fact twice.
 const _MEMBERS = ['publish', 'atomic', 'subscribe', 'consume', 'consumers', 'replay', 'stash', 'alias', 'haul', 'pulse'] as const;
 
-// One descriptor row per engine over four column groups. SELECTION (`fits`, `admit`, `tenancy`, `lifetime`) answers what
-// a composition root binds on; GUARANTEE (`deliver`, `order`, `settle`) answers what the engine itself decides, and one
+// One descriptor row per engine over four column groups. SELECTION (`fits`, `admit`, `tenancy`, `present`, `lifetime`)
+// answers what a composition root binds on — `present` naming where the credential lives and what a rotation costs,
+// under the same cell name the egress lane table carries; GUARANTEE (`deliver`, `order`, `settle`) answers what the
+// engine itself decides, and one
 // value repeating across engines that genuinely differ is a row that stopped reading its engine; RECOVERY (`replay`,
 // `bound`, `refuse`) answers where a re-drive resumes, what caps in-flight work, and the SHAPE a refusal arrives in,
 // which is the rail trap `pulse` closes; `degrade` carries only the residual no column above already expresses.
@@ -353,6 +368,7 @@ const _ENGINES = {
         fits: '<one-process:proof-or-single-node-deployment>',
         admit: 'publish',
         tenancy: '<process-memory>',
+        present: '<none:a cell offer crosses no peer,so there is nothing to authenticate against>',
         lifetime: { until: '<bounded-cell-then-scope-close>', owner: 'package' },
         serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: false },
         anchors: ['Window'],
@@ -368,6 +384,7 @@ const _ENGINES = {
         fits: '<one-browser-origin:cross-tab-mirror-and-invalidation>',
         admit: 'publish',
         tenancy: '<browser-origin>',
+        present: '<none:the same-origin rule IS the boundary,and a post carries no credential the receiving tab could check>',
         lifetime: { until: '<tab-close>', owner: 'host' },
         serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: false },
         anchors: ['Window'],
@@ -383,6 +400,7 @@ const _ENGINES = {
         fits: '<cluster-durable:full-ack-ledger,dedup-window,positional-replay,object-store>',
         admit: 'publish',
         tenancy: '<nats-account-and-subject-namespace>',
+        present: '<at-handshake:ConnectionOptions.authenticator rebuilds the CONNECT frame on every dial,so a rotation REPLACES the connection and every in-flight request with it>',
         // Construction reconciles `max_age` from the topic row, so this package owns the bound it declares.
         lifetime: { until: '<stream-max-age-from-row-retention>', owner: 'package' },
         serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: true },
@@ -399,6 +417,7 @@ const _ENGINES = {
         fits: '<cluster-partitioned:transactional-read-process-write-over-a-registry-contract>',
         admit: 'publish',
         tenancy: '<topic-prefix>',
+        present: '<on-refresh:the SASL/OAUTHBEARER provider re-runs on librdkafka own token cadence and sets the token in place,so a rotation costs no connection>',
         // Broker-side topic retention this package never sets: `Fanout.Topic.retention` does not reach this row.
         lifetime: { until: '<broker-topic-retention>', owner: 'deploy' },
         serves: { publish: true, atomic: true, subscribe: false, consume: true, consumers: false, replay: false, stash: false, alias: false, haul: false, pulse: true },
@@ -430,6 +449,7 @@ declare namespace Fanout {
         readonly fits: string;
         readonly admit: Member;
         readonly tenancy: string;
+        readonly present: string;
         readonly lifetime: { readonly until: string; readonly owner: 'package' | 'host' | 'deploy' };
         readonly serves: { readonly [M in Member]: boolean };
         readonly anchors: ReadonlyArray<Anchor['_tag']>;
@@ -800,7 +820,14 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 ## [06]-[JETSTREAM_ROW]
 
 [JETSTREAM_ROW]:
-- Owner: `Fanout.jetstream(topics)` — the NATS engine. This connection is capability: the exported `Broker` Tag holds the one scoped dial against `Setting.fanout.origin` — the runtime row's `nats` TCP/TLS binding (`proc/exec#RUNTIME_ROWS`) on the server lanes, the `wsconnect` default on the browser lane — drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Construction reconciles the substrate: `jetstreamManager(nc)` inspects each topic stream, adds an absent stream, and updates a present stream's mutable retention, subject, and dedup policy; `Objm.create` creates or opens the blob store. Restart is therefore convergence, never a duplicate-create failure, while the server's own durability posture (fsync interval, replicas) stays a deployment fact.
+- Owner: `Fanout.jetstream(topics)` — the NATS engine. This connection is capability: the exported `Broker` Tag holds the one scoped dial against `Setting.fanout.origin` — the runtime row's `nats` TCP/TLS binding (`proc/exec#RUNTIME_ROWS`) on the server lanes, the `wsconnect` default on the browser lane — drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Because the credential is a DIAL coordinate here, `Broker` owns the machine principal's residency too: the cell the authenticator reads, the first read that fills it, and the supervisor that re-reads it. Construction reconciles the substrate: `jetstreamManager(nc)` inspects each topic stream, adds an absent stream, and updates a present stream's mutable retention, subject, and dedup policy; `Objm.create` creates or opens the blob store. Restart is therefore convergence, never a duplicate-create failure, while the server's own durability posture (fsync interval, replicas) stays a deployment fact.
+- Law: credentials live on `ConnectionOptions` at dial and never in a message header — the CONNECT frame is what the server authenticates, so the `authenticator` this row supplies is what admits the handshake AND every reconnect handshake after it, while `MsgHdrs` stay app metadata the branch binding fills with `ce-` attributes and W3C keys. A publish-time header carrying a token authenticates a payload nobody checks and leaves the connection itself anonymous.
+- Law: the authenticator is the rotation rail because it is re-invoked per handshake, not per process — the client resets its info gate on every dial and rebuilds `Connect` from `options.authenticator(nonce)` when the server's INFO lands, so a THUNK-form authenticator re-reads its source at each handshake and a literal freezes the process's first credential forever. `MachinePrincipal.token` is what the frame carries BARE: `credential` prefixes the HTTP scheme its issuer chose, and `auth_token` is an opaque string an auth-callout service reads, so the prefixed form hands the callout a credential that matches nothing.
+- Law: the callback is SYNCHRONOUS by the client's own interface, so no grant resolves inside it — the authenticator reads a mutable cell and a scoped supervisor is what keeps that cell fresh; a source read attempted inside the callback would either block the handshake or hand back a stale value with no way to say so.
+- Law: rotation REPLACES the connection and the supervisor states that cost — the authenticator runs at handshake alone, so a refreshed principal reaches a live connection only through `nc.reconnect()`, which drops in-flight requests by the client's own documented caveat; the supervisor therefore sleeps the principal's OWN remaining window rather than a lane cadence, and an estate binding no credential source forks no supervisor at all. `reconnect()` rejects against a closed or draining client, which is scope teardown racing the loop, so that arm logs rather than escaping.
+- Law: the unbounded reconnect budget and the client's auth-abort default are ONE interlock — rotation must outlive every re-dial this process makes, so `maxReconnectAttempts` is `-1`, and what keeps that from becoming a hot loop against a dead credential is the client's own rule that two identical authentication refusals in a row abort reconnect regardless of policy; `ignoreAuthErrorAbort` is therefore left unset, and setting it true would trade a fast, loud credential failure for an endless quiet one.
+- Law: a sender-constrained principal never reaches this dial — the shared `Machine.at` gate refuses a `dpop`-scheme principal for every wire, because RFC 9449 binds the token to a proof over an HTTP method and URL that no CONNECT frame has; the refusal re-spells as a `dial` fault carrying the audience, so a misbound source is a boot refusal rather than a broker rejecting an unbound token.
+- Growth: `credsAuthenticator` is the same thunk shape over operator-issued NATS creds and lands as a second row the day a `Setting.fanout` creds row exists; this row projects the machine principal alone, because a creds file is a deploy-plane credential with no principal behind it and `proc/config` owns that row.
 - Law: the consumer lanes are split by ack capability — the ordered lane (`subscribe`, `replay`) mints a nameless ordered consumer fixed to `AckPolicy.None`; the durable lane (`consume`) derives `durable_name` from topic and the caller's logical consumer identity, declares explicit ack posture, binds `max_ack_pending` from the row's `pending` ceiling so the descriptor `bound` cell names a number this package set, and binds that same name. Independent consumers therefore receive independent durable streams, while replicas sharing one identity intentionally load-balance.
 - Law: `pulse` is this connection's `status()` iterator projected through `_NATS_PULSE` — a server error, a slow consumer, a stale connection, a disconnect, and a close each carry evidence no publish or consume await ever sees, while a reconnect or a cluster update carries none and emits nothing; the read's own failure folds into one emitted fault, so the stream itself never fails and a supervisor reads exactly one family.
 - Law: the ack algebra folds onto the rail, never past it — `working`, `ack`, `nak`, and `term` each publish on a connection a drain may already have closed, so the confirming calls mint `dial` evidence and the redelivery-bound calls log, and no arm reaches the fiber as a defect.
@@ -815,13 +842,35 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 - Law: the durable-consumer census is the reconciliation's missing half — `jsm.consumers.list(topic)` is a `Lister`, so it lifts through the same `Stream.fromAsyncIterable` seam the message lanes ride and pages one turn at a time rather than materializing a roster, each `ConsumerInfo` projecting into the `Fanout.Consumer` fact (created instant, delivered sequence, pending, unacked, redelivered depth); the retire predicate turns the same read into a reap over `jsm.consumers.delete`, answering the survivors so a doctor verb reads the post-reap truth in one call.
 - Law: the iterator seam is the platform-forced boundary — `consume()` yields an async iterable the engine lifts through `Stream.fromAsyncIterable` under a scoped acquisition whose release closes the consumer, so teardown rides the `Scope` and a leaked pull loop is unspellable.
 - Boundary: NATS server deployment — the websocket listener, fsync `sync_interval` hardening, replica quorum — is the deploy plane's; the data journal remains the system of record, and a projection rebuilt from fanout evidence is the named defect.
-- Packages: `@nats-io/nats-core` (`wsconnect`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`), `@nats-io/obj` (`Objm`, `ObjectStore`), `cloudevents` (`HTTP` — the `ce-` binding the NATS binding shares), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `Predicate`, `Schedule`, `Stream`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`).
+- Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`), `@nats-io/obj` (`Objm`, `ObjectStore`), `cloudevents` (`HTTP` — the `ce-` binding the NATS binding shares), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `Redacted`, `Schedule`, `Stream`), `@rasm/ts/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
 
 ```typescript signature
 const _nanos = (span: Duration.Duration): number => Duration.toMillis(span) * 1_000_000;
 
 const _BLOB = { store: 'fanout' } as const;
 const _CIRCUIT = { trip: 8, cool: Duration.seconds(20), probes: 1 } as const;
+
+// `name` is what the server's monitoring pages call this client, so an operator reading a connection list sees the
+// engine rather than an anonymous socket. `attempts` is `-1` — never give up — because a rotation replaces the
+// connection and a bounded budget would retire the engine after enough rotations; the client's own rule that two
+// identical auth refusals in a row abort reconnect is what still terminates a genuinely dead credential, which is
+// why `ignoreAuthErrorAbort` stays unset.
+const _NATS = { name: 'rasm-fanout', attempts: -1 } as const;
+
+// The CONNECT frame carries the token BARE: `MachinePrincipal.credential` prefixes the HTTP scheme its issuer chose,
+// and `auth_token` is an opaque string an auth-callout service reads, so the prefixed form matches nothing there.
+// The thunk form is the whole rotation rail — the client rebuilds `Connect` from `options.authenticator(nonce)` on
+// every handshake, so whatever the cell holds at that instant is what authenticates the reconnect.
+const _authenticated = (held: MutableRef.MutableRef<Option.Option<MachinePrincipal>>): Authenticator =>
+    tokenAuthenticator(() =>
+        Option.match(MutableRef.get(held), { onNone: () => '', onSome: (principal) => Redacted.value(principal.token) }));
+
+// `DateTime.distanceDuration` is ABSOLUTE, so a principal five minutes dead reads as a five-minute window and this
+// supervisor sleeps past the credential it exists to replace; the SIGNED `distance` is the one member that separates
+// them, and the lease row's total is the floor that paces a re-read instead of letting a lapsed principal spin.
+const _remainder = (principal: MachinePrincipal): Effect.Effect<Duration.Duration> =>
+    Effect.map(DateTime.now, (now) =>
+        Duration.max(Fault.Budget.at('lease').total, Duration.millis(Math.max(0, DateTime.distance(now, principal.expiresAt)))));
 
 // Status rows carry unequal evidence and only five of the eleven mean a loss: a reconnect, a cluster update, a ping,
 // and a forced reconnect are progress this rail stays silent on, while the five below reach no publish or consume await.
@@ -952,15 +1001,61 @@ class Broker extends Context.Tag('runtime/Broker')<Broker, NatsConnection>() {
     static readonly live = (dial: (opts?: ConnectionOptions) => Promise<NatsConnection> = wsconnect): Layer.Layer<Broker, FanoutFault, Setting> =>
         Layer.scoped(
             Broker,
-            Effect.flatMap(Setting, (setting) =>
-                Effect.acquireRelease(
+            Effect.gen(function* () {
+                const setting = yield* Setting;
+                // The dial origin IS the audience: a source holding a principal for another service answers none here
+                // rather than presenting a token this broker was never the audience for.
+                const audience = setting.fanout.origin.origin;
+                const held = MutableRef.make(Option.none<MachinePrincipal>());
+                const refreshed = Effect.tap(
+                    Effect.mapError(
+                        Machine.at('fanout:dial', audience),
+                        (lapse) => new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` }),
+                    ),
+                    (principal) => Effect.sync(() => MutableRef.set(held, principal)),
+                );
+                const armed = yield* refreshed; // the first read fills the cell BEFORE the dial builds its CONNECT frame
+                const nc = yield* Effect.acquireRelease(
                     Effect.tryPromise({
-                        try: () => dial({ servers: setting.fanout.origin.href }),
+                        try: () =>
+                            dial({
+                                servers: setting.fanout.origin.href,
+                                name: _NATS.name,
+                                authenticator: _authenticated(held),
+                                maxReconnectAttempts: _NATS.attempts,
+                            }),
                         catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
                     }),
                     (live) => Effect.orDie(Effect.tryPromise(() => live.drain())),
-                ),
-            ),
+                );
+                // Refresh rides the PRINCIPAL's own window, never a lane cadence, and the forced reconnect is what
+                // makes the refreshed cell reach the wire — the authenticator runs at handshake alone. An estate that
+                // binds no source armed nothing, so it forks nothing.
+                yield* Option.match(armed, {
+                    onNone: () => Effect.void,
+                    onSome: () =>
+                        Effect.forkScoped(
+                            Effect.forever(
+                                Effect.flatMap(
+                                    Option.match(MutableRef.get(held), {
+                                        onNone: () => Effect.succeed(Fault.Budget.at('lease').total),
+                                        onSome: _remainder,
+                                    }),
+                                    (window) =>
+                                        Effect.zipRight(
+                                            Effect.sleep(window),
+                                            Effect.zipRight(
+                                                Effect.ignoreLogged(refreshed),
+                                                // rejects against a closed or draining client, which is scope teardown racing this loop
+                                                Effect.ignoreLogged(Effect.tryPromise(() => nc.reconnect())),
+                                            ),
+                                        ),
+                                ),
+                            ),
+                        ),
+                });
+                return nc;
+            }),
         );
 }
 
@@ -1396,6 +1491,10 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Law: the guarantee ledger reads honestly per column — at-least-once holds on the sequential manual-commit lane (`consumer.run({ eachBatch })` with auto-resolve disabled): each record retries under the topic row's ledger budget, resolution and commit follow handler success, and exhaustion stops the run before a higher offset. Exactly-once holds on `atomic` alone, over the lane's own transactional producer. Kafka keys select partitions, never deduplicate, so every `publish` receipt answers `duplicate: false` with its exact partition-offset position; positional consume anchors, ordered replay, warm subscription, the durable-consumer census, and blob carriage answer `horizon` because `Fanout.Anchor` carries no partition coordinate, a consumer group is not a server-held consumer object, and this row carries no object store. `Window` alone selects the unpositioned consumer-group flow.
 - Law: the broker ack is the delivery report and the report fills `baseOffset` ALONE — a delivery failure rejects the awaiting record's own promise, so `send` never resolves over a refused write, but the compat metadata declares an `offset` field the wrapper never writes and folds its rows to ONE per topic-partition at the minimum offset; a receipt reading `offset` refuses every landed record and one indexed by envelope over a multi-message send asserts a position that record never held, which is why `atomic` sends one envelope per call in offer order.
 - Law: `pulse` is the Logger seam — the compat clients publish no emitter at all, and the wrapper binds `error` and `event.error` itself and routes both into whatever Logger its config carried, so the engine supplies one whose error level writes onto a scoped `PubSub` every minted client shares; leaving the default Logger bound sends every async transport fault to a console and nothing else.
+- Law: this is the credential-projection family's third row and the only one whose rotation costs no connection — `sasl.mechanism` is `OAUTHBEARER` and `oauthBearerProvider` is an ASYNC callback librdkafka re-runs on its own token-refresh cadence, handing the answer to `setOAuthBearerToken` on the live client, so a rotated principal lands in place while the NATS row must re-dial and the HTTP lanes re-stamp per call. Whether the mechanism is armed at all is a BOOT decision off one source read: a source holding no principal for this cluster leaves `sasl` absent and the engine dials exactly as it does unauthenticated today, because a `mechanism` set with no token to carry refuses every handshake instead of degrading.
+- Law: the three fields the provider answers are each a different projection and each has a way to be silently wrong — `value` is the BARE `MachinePrincipal.token`, because RFC 7628 frames `auth=Bearer <token>` itself and the HTTP-shaped `credential` double-prefixes; `principal` is the `clientId`, the Kafka principal name the broker authorizes against; and `lifetime` is ABSOLUTE epoch milliseconds off `expiresAt`, not a remaining span, because librdkafka documents it as when the token expires since the epoch — handing it a duration dates every token to 1970 and the broker treats each one as already dead.
+- Law: a credential refusal reaches the same rail every other async fault does — a rejected provider promise makes the wrapper call `setOAuthBearerTokenFailure` and emit on `error`, which the supplied Logger routes onto the `pulse` cell, so a source that empties mid-life surfaces as one transport fault on the stream a supervisor already reads rather than as a silent authentication stall.
+- Law: the audience is the SORTED bootstrap roster, because that roster is the cluster's identity and its declaration order is not — keying on the raw array would mint a second audience for the same brokers listed differently and strand the principal a source holds for the first spelling.
 - Law: `atomic` is the transactional lane and it binds to a live `consume` identity — the consume acquisition mints a second producer whose `transactionalId` IS the group name, registers the consumer handle beside it, and stamps the next-offset position before every handler call, so `atomic` opens `producer.transaction()`, sends the batch, hands that exact position to `sendOffsets({ consumer, topics })`, and `commit()`s both as one unit; a failed or interrupted unit aborts, so no half-published batch survives. Naming an identity with no live lane, or a lane that has not yet processed a record, answers `horizon` by that name — the offset half has no source, and inventing one forges the guarantee.
 - Law: three owners meet at one record and none re-implements another — the package's `ce_` binding owns the header band and the record key it projects off `partitionkey`, the registry serde owns the DATA bytes alone, and the announced `dataschema` joins them by naming the same subject and version the contract row pins; a wrapper struct re-carrying the key and a base64 body beside those owners is the second envelope this collapse deletes.
 - Law: `autoRegisterSchemas: false` keeps registration out of the producer path; exact identity admits before `Fanout` exists.
@@ -1404,8 +1503,8 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Law: `Carrier.inject("kafka", ...)` writes causal context before `Carrier.record.write` projects producer headers.
 - Law: the registry frame is the sole PAYLOAD framing and `datacontenttype` states it as row data off that arrow, so a consumer reads opaque octets under a declared media rather than a literal asserting a shape the serde chose.
 - Law: replay stays engine-neutral, so this row refuses it — `Fanout.Anchor` gains no partition coordinate because a partition-and-offset pair is broker-local and leaks this engine's shape onto every row, and a fan of per-partition reads merged into one stream answers an ORDER no partition holds; `Fanout.Replayed`'s coordinate is a per-record fact and stays honest where the merged stream's sequence does not. Callers needing a positioned re-read read the data journal, which is the system of record the retention window was never allowed to replace.
-- Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`PubSub`, `Queue`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`), and `../proc/config.ts`.
-- Boundary: broker deployment — partitions, replication, retention, SASL/TLS posture — is the deploy plane's; the bootstrap roster and security rows are `Setting` rows, and no broker literal exists in the engine.
+- Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`, `KafkaJS.SASLOptions`, `KafkaJS.OauthbearerProviderResponse`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`DateTime`, `PubSub`, `Queue`, `Redacted`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`), `@rasm/ts/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `../proc/config.ts`.
+- Boundary: broker deployment — partitions, replication, retention, TLS posture — is the deploy plane's; the bootstrap roster is a `Setting` row and no broker literal exists in the engine. The SASL identity is not a deploy row here: it is the machine principal this engine projects, so a static `sasl.username`/`password` pair beside the provider would be the hand-carried credential the projection deletes. `ssl` stays unset until a `Setting.fanout` row carries the transport posture `proc/config` owns.
 
 ```typescript signature
 const _kafka = (
@@ -1443,7 +1542,50 @@ const _kafka = (
             const logger = _kafkaLogger((detail) => {
                 Queue.unsafeOffer(beat, new FanoutFault({ reason: 'dial', topic: '*', detail }));
             });
-            const kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: [...setting.fanout.brokers], logger } });
+            // The sorted roster IS the cluster identity; declaration order is not, and keying on the raw array would
+            // mint a second audience for the same brokers listed differently.
+            const audience = [...setting.fanout.brokers].sort().join(',');
+            const _principal = Effect.mapError(
+                Machine.at('fanout:kafka', audience),
+                (lapse) => new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` }),
+            );
+            // One boot read decides whether the mechanism is armed at all: a `mechanism` set with no token to carry
+            // refuses every handshake, where an absent `sasl` dials exactly as an unauthenticated estate does today.
+            // From then on the provider is the rotation rail — librdkafka re-runs it on its OWN refresh cadence and
+            // sets the token on the live client, so this row rotates without replacing a connection.
+            const armed: { readonly sasl?: KafkaJS.SASLOptions } = Option.match(yield* _principal, {
+                onNone: () => ({}),
+                onSome: () => ({
+                    sasl: {
+                        mechanism: 'oauthbearer',
+                        oauthBearerProvider: () =>
+                            Effect.runPromise(
+                                Effect.flatMap(
+                                    _principal,
+                                    Option.match({
+                                        // a source that empties mid-life rejects here, which is what makes the wrapper call
+                                        // `setOAuthBearerTokenFailure` and emit on `error` — so the refusal lands on `pulse`
+                                        onNone: () =>
+                                            Effect.fail(
+                                                new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-withdrawn:${audience}>` }),
+                                            ),
+                                        onSome: (principal: MachinePrincipal) =>
+                                            Effect.succeed({
+                                                // BARE: RFC 7628 frames `auth=Bearer <token>` itself, so `credential` double-prefixes
+                                                value: Redacted.value(principal.token),
+                                                principal: principal.clientId,
+                                                // ABSOLUTE epoch millis, never a remaining span: librdkafka reads `md_lifetime_ms`
+                                                // as when the token expires since the epoch, so a duration dates it to 1970
+                                                lifetime: DateTime.toEpochMillis(principal.expiresAt),
+                                                extensions: {},
+                                            } satisfies KafkaJS.OauthbearerProviderResponse),
+                                    }),
+                                ),
+                            ),
+                    },
+                }),
+            });
+            const kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: [...setting.fanout.brokers], logger, ...armed } });
             const producer = yield* Effect.acquireRelease(
                 Effect.tryPromise({
                     try: async () => {

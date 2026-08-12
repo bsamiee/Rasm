@@ -1,6 +1,6 @@
 # [IAC_SECRET]
 
-`Secrets` and `Certs` own deploy-plane material. `Secrets` provisions the Doppler `Project → Environment → BranchConfig → Secret` hierarchy, lands generated credentials under one epoch-bound policy, scopes a read-only `ServiceToken`, fans credentials into sibling providers, and mirrors outward through destination rows. External stores remain mirrors. `Certs` drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}` from one profile, bounds `allowedUses`, exposes renewal-window evidence, and stores durable CA material in Doppler. Values leave only as state-encrypted provider inputs or the workload's `DOPPLER_TOKEN`. Growth is an entries row, fan-in key, mirror row, access row, or issuance call.
+`Secrets` and `Certs` own deploy-plane material. `Secrets` provisions the Doppler `Project → Environment → BranchConfig → Secret` hierarchy, lands generated credentials under one epoch-bound policy, scopes a read-only `ServiceToken`, realizes each encoded `LeaseSpec` as a scoped config, token, and custody cell, fans credentials into sibling providers, and mirrors outward through destination rows. `Certs` drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}` from one profile, bounds `allowedUses`, exposes renewal-window evidence, and stores durable CA material in Doppler. Values leave only as state-encrypted provider inputs or the workload's `DOPPLER_TOKEN`. Growth is an entries row, fan-in key, mirror row, access row, lease scope, or issuance call.
 
 ## [01]-[INDEX]
 
@@ -21,13 +21,15 @@
 - Law: consuming working trees carry zero Doppler files — machine-side directory scopes (`doppler configure set project=<p> config=<c> --scope <dir>`) map a checkout to its config and apply idempotently from declared scope rows, and a service token's embedded project/config outranks every flag and scope at run time; a repo-local `doppler.yaml` beside the scope rows is the second scope source this law deletes.
 - Law: a missing read key aborts as typed evidence — `read(key)` resolves the whole-config map once, `Record.get` lifts the pluck to `Option`, and a key the config does not carry mints `SecretAbsent` naming it; the apply body is the engine's own execution context, so `Effect.runSync` is the rail's exit there and no empty string is ever forged.
 - Law: `store(key, value)` is the late-landing write — a value minted AFTER the tier constructs (a `Certs` CA key, a Grafana automation token, an ACME-issued edge pair) lands as one more `Secret` row under the same tier through the same parent chain, so construction-time `entries` and graph-late material share one canonical store and no second write surface exists.
-- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`; `Secrets.lease(secrets, { lease, namespace }, child)` per leased scope, its `StackOutputs.Cell` into `Workload.rows` where the arm assembles the container env.
-- Law: a lease is three resources this plane owns and zero semantics it re-derives — `Secrets.lease` realizes the security branch's `LeaseSpec` as a branch config whose whole contents are the spec's own name allowlist (each row reading the canonical value through the tier's one pluck), a read-only `ServiceToken` scoped to that config alone, and one namespace cell carrying both variables `StackOutputs.custody` names; `scope + epoch` names all three, so an epoch bump lands the successor set before the prior token retires, exactly as the tier's standing token replaces. Value renewal, cache expiry, and revocation are the security custodian's — the encoded boundary crosses verbatim and this plane never parses it, because a deploy-side reading of a lease is a second lease semantics that drifts on the first renewal-posture change.
+- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`; `Secrets.lease(secrets, { lease, namespace }, child)` per leased scope, its `lease` the encoded `LeaseSpec` row the arm states beside `spec.epoch` and its `StackOutputs.Cell` into `Workload.rows` where the arm assembles the container env.
+- Law: a lease is three resources this plane owns and zero semantics it re-derives — `Secrets.lease` realizes the security branch's `LeaseSpec` as a branch config whose whole contents are the spec's own name allowlist (each row reading the canonical value through the tier's one pluck), a read-only `ServiceToken` scoped to that config alone, and one namespace cell carrying both variables `StackOutputs.custody` names; `scope + epoch` names all three, so an epoch bump lands the successor set before the prior token retires, exactly as the tier's standing token replaces.
+- Law: the lease argument is the ENCODED `LeaseSpec` row and `Schema.decodeSync` is this plane's one reading of it — `scope`, `keys`, and `epoch` become the config slug, the allowlist rows, and the token's replacement identity BY the decode, so no caller restates a coordinate beside an opaque string that only a booted pod proves disagrees; `ttl` and `renewal` decode and are then read by nothing here, because value renewal, cache expiry, and revocation are the custodian's semantics and a deploy-side reading of them is a second lease semantics that drifts on the first posture change.
+- Law: the crossing is one encoding, not two agreeing serializers — `Schema.parseJson(LeaseSpec)` re-serializes the PROVED value into the cell, so the custodian re-decodes this plane's own bytes; admission runs at graph construction, which is why a malformed row fails the deploy instead of the custodian's boot with the cell already live, and composing the security struct rather than restating it locally is what keeps the ttl grammar and the posture vocabulary unspellable on this side.
 - Law: the cell states what it carries and neither end owns the spelling — the mint stamps its keys off `StackOutputs.custody` and the workload fold reads the same record, so a token-only cell and a leased cell differ in data and never in a flag a consuming tier then branches on; the roster seats at the spec owner because this plane and the stamping tier sit on different strata, so a literal here and a literal there fork one variable name into two that only a running pod discovers disagree, and a second custody key is one row there.
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
-- Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row; a new custody-cell variable is one `carries` entry with its stamping row at the consuming tier.
-- Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`; the `LeaseSpec` shape, its ttl grammar, and every renewal and revocation semantic are the security branch's `crypt/secret` owner.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/kubernetes` (`core.v1.Secret`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `interpolate`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `StackOutputs`, `Tier`).
+- Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row; a new custody-cell variable is one `carries` entry with its stamping row at the consuming tier; a new lease coordinate is a field at the `LeaseSpec` owner, which the composed struct carries into this decode with no edit here.
+- Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`; the `LeaseSpec` shape, its ttl grammar, and every renewal and revocation semantic are `crypt/secret#LEASED_CUSTODY`'s, which also owns the app-root composition reading the cell this mint lands.
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/kubernetes` (`core.v1.Secret`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `interpolate`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `@rasm/ts/security` (`LeaseSpec` — the struct composed as data, no custodian member reached); `../program/spec.ts` (`StackSpec`, `StackOutputs`, `Tier`).
 
 ```typescript
 import * as k8s from "@pulumi/kubernetes"
@@ -38,6 +40,7 @@ import * as integration from "@pulumiverse/doppler/integration"
 import * as projectmember from "@pulumiverse/doppler/projectmember"
 import * as secretssync from "@pulumiverse/doppler/secretssync"
 import { Array, Data, Effect, Hash, Option, Predicate, Record, Schema } from "effect"
+import { LeaseSpec } from "@rasm/ts/security"
 import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 
 // --- [ERRORS] ----------------------------------------------------------------------------
@@ -60,21 +63,20 @@ const _TOKEN_NAME = { max: 100, hashWidth: 7 } as const
 
 // The custody roster is the spec plane's, shared with the tier that stamps the cell's rows into a container:
 // this plane mints the keys and that one reads them, so the spelling lives below both rather than twice.
-// The lease value crosses encoded — the deploy plane copies it and never parses it, so ttl, renewal posture,
-// and revocation stay the security custodian's semantics.
 const _CUSTODY = StackOutputs.custody
+
+// `LeaseSpec` composes here as deploy DATA and `parseJson` names the one wire form the cell carries, so the
+// string this plane stamps and the string the custodian re-decodes are one encoding rather than two hand-matched
+// serializers that agree until a field moves. Composing the struct is what keeps ttl grammar and posture
+// vocabulary unspellable on this side — a locally restated shape is the drift the seam exists to refuse.
+const _Lease = Schema.parseJson(LeaseSpec)
 
 declare namespace Secrets {
   type Policy = typeof _Policy.Type
   type Entry = { readonly generate: Partial<Policy>; readonly digest?: boolean } | { readonly value: pulumi.Input<string> }
-  // The security-owned `LeaseSpec` read as deploy coordinates: the custody scope, the name allowlist that becomes
-  // the scoped config's whole contents, the replacement identity, and the encoded value that crosses verbatim.
-  type Lease = {
-    readonly scope: string
-    readonly keys: ReadonlyArray<string>
-    readonly epoch: string
-    readonly encoded: pulumi.Input<string>
-  }
+  // Callers hand the security-owned struct's ENCODED row itself: a hand-assembled coordinate record beside an
+  // opaque encoded string lets one scope be named and another carried, and only a booted pod discovers the pair.
+  type Lease = typeof LeaseSpec.Encoded
   type Args = { readonly spec: StackSpec; readonly entries: Record.ReadonlyRecord<string, Entry> }
 }
 
@@ -129,13 +131,17 @@ class Secrets extends Tier {
   // `scope + epoch` names every one of them, so an epoch bump mints the successor set before Pulumi retires the
   // prior token and the workload's own graph edge carries it across — the same replacement discipline the tier's
   // standing token rides. Lease semantics — value renewal, cache expiry, revocation — stay the security branch's;
-  // this plane owns the Doppler and Kubernetes resources and copies the encoded boundary through verbatim.
+  // this plane owns the Doppler and Kubernetes resources and reads the boundary for its own coordinates alone.
   static readonly lease = (
     owner: Secrets,
     args: { readonly lease: Secrets.Lease; readonly namespace: pulumi.Input<string> },
     child: pulumi.CustomResourceOptions,
   ): StackOutputs.Cell => {
-    const slug = `${args.lease.scope}-${args.lease.epoch}`
+    // Graph construction hosts this plane's ONE decode: whole-second ttl, a unique non-empty allowlist, and an
+    // admitted renewal posture prove before the first resource mints, so a malformed row fails the deploy
+    // rather than the custodian's boot with the cell already live in a namespace.
+    const lease = Schema.decodeSync(LeaseSpec)(args.lease)
+    const slug = `${lease.scope}-${lease.epoch}`
     const scoped = new doppler.BranchConfig(slug, {
       project: owner.project.name,
       environment: owner.config.environment,
@@ -144,7 +150,7 @@ class Secrets extends Tier {
     // The allowlist IS the config: each admitted name lands as its own row reading the canonical value through
     // the tier's one pluck, so a key outside `LeaseSpec.keys` has no row to read and the token that opens this
     // config reaches nothing else in the store.
-    Array.map(args.lease.keys, (key) =>
+    Array.map(lease.keys, (key) =>
       new doppler.Secret(`${slug}-${key}`, {
         project: owner.project.name,
         config: scoped.name,
@@ -154,12 +160,14 @@ class Secrets extends Tier {
     const token = new doppler.ServiceToken(slug, {
       project: owner.project.name,
       config: scoped.name,
-      name: _serviceTokenName(slug, args.lease.epoch),
+      name: _serviceTokenName(slug, lease.epoch),
       access: "read",
     }, child).key
     const cell = new k8s.core.v1.Secret(slug, {
       metadata: { namespace: args.namespace },
-      stringData: { [_CUSTODY.token]: token, [_CUSTODY.lease]: args.lease.encoded },
+      // Re-encoding the PROVED value is what crosses, so the custodian re-decodes this plane's own bytes and no
+      // unvalidated string reaches a process through the one variable its whole scope resolves out of.
+      stringData: { [_CUSTODY.token]: token, [_CUSTODY.lease]: Schema.encodeSync(_Lease)(lease) },
     }, child)
     return { secret: cell.metadata.name, carries: ["token", "lease"] }
   }

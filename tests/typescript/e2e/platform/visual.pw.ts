@@ -3,7 +3,7 @@ import { expect, test } from '../fixtures.ts';
 test.describe('visual gauge', () => {
     test('the deterministic panel matches its committed golden', async ({ page, target }) => {
         await target.open('/panel');
-        await expect(page.locator('svg')).toHaveScreenshot('panel.png');
+        await expect(page.locator('svg')).toHaveScreenshot('panel.webp');
     });
 
     test('a perturbed panel refutes the same golden', async ({ page, target }) => {
@@ -12,7 +12,7 @@ test.describe('visual gauge', () => {
             .locator('svg rect')
             .first()
             .evaluate((node) => node.setAttribute('fill', '#ff0044'));
-        await expect(page.locator('svg')).not.toHaveScreenshot('panel.png');
+        await expect(page.locator('svg')).not.toHaveScreenshot('panel.webp');
     });
 });
 

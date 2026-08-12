@@ -16,10 +16,10 @@ Machine identity: the certified relying-party plane a service, sidecar, or headl
 - Law: client authentication is a bound strategy value, never a request field — `ClientSecretPost`/`ClientSecretBasic` for a shared secret, `PrivateKeyJwt` over a `crypt/secret`-supplied signing handle where the issuer demands asymmetric client auth, `None` for a public client relying on DPoP alone — so moving from a secret to a key is one row and no body ever assembles a `client_secret`.
 - Law: discovery is the only endpoint source — `discovery` resolves the well-known document and `serverMetadata()` answers every endpoint, the advertised grant roster, and the DPoP signing algorithms; `dynamicClientRegistration` is the same resolution for a client that registers itself, `new Configuration(metadata, …)` the offline row an air-gapped deployment takes with an unchanged downstream surface, and a hand-built endpoint path is the form all three delete.
 - Law: the advertised roster gates the plane, so an unsupported capability refuses before a request rather than as an opaque token-endpoint error — `dpop_signing_alg_values_supported` decides the proof algorithm at bind and an issuer advertising none against a DPoP-demanding spec is `unsupported`, while `grant_types_supported` rides `Bound` and is READ at dispatch against the request case's own advertised identifier, one `_GRANT_TYPES` row per case under the guard that forbids a rowless arm. Both gates take an issuer silent on their axis as no refusal — an unpublished roster is unstated capability, never denied capability — so the check bites exactly where the issuer made a claim.
-- Law: JWKS custody is the folder's one ledger — `setJwksCache` seeds the client at bind and `getJwksCache` writes its snapshot back after each verifying leg, so this plane and the jose resolver share one stored key set per issuer and neither refetches what the other already paid for. The `uat` scalar is NEVER carried across: this package counts epoch seconds where jose counts epoch milliseconds, so the ledger owns an instant and each seam projects its own unit — a shared raw scalar reads as 1970 on one side, refetching on every call, or as the far future on the other, never refetching a rotated key.
+- Law: JWKS custody is the folder's one ledger — `setJwksCache` seeds the client at bind and `getJwksCache` writes its snapshot back after each verifying leg, so this plane and the jose resolver share one stored key set per issuer and neither refetches what the other already paid for. The `uat` scalar is NEVER carried across: this package counts epoch seconds where jose counts epoch milliseconds, so the ledger owns an instant and each seam projects its own unit — a shared raw scalar reads as 1970 on one side, refetching on every call, or as the far future on the other, never refetching a rotated key. Neither is the type NAME: both packages export one spelled `ExportedJWKSCache` differing only in that unit, so importing it here hides the hazard at exactly the seam that has to see it — this projection takes its shape from `setJwksCache`'s own parameter, which cannot name the wrong package.
 - Law: `enableNonRepudiationChecks` is a posture row, not a default — it demands a signed response wherever the issuer can produce one, so a deployment whose auditor requires provable issuer authorship flips one spec field and every JWT-secured response verifies against the discovered JWKS through that same custody.
 - Growth: a new issuer is one `IssuerSpec` value; a new client-auth strategy is one `_AUTH` row or one `Authentication` case; a new posture is one spec field the bind reads.
-- Boundary: `crypt/secret` supplies the client secret or the `PrivateKeyJwt` material; `crypt/sign` owns `JwksLedger`, `JwksSnapshot`, and `AccessClaims`; the runtime wave binds the instrumented fetch through `customFetch`; `authn/oauth` keeps the interactive browser ceremony and reaches none of these grants.
+- Boundary: `crypt/secret` supplies the client secret or the `PrivateKeyJwt` material; `crypt/sign` owns `JwksLedger`, `JwksSnapshot`, and `AccessClaims`; the runtime wave binds the instrumented fetch through `customFetch`, forwarding the whole `CustomFetchOptions` record — `duplex` included, so a `ReadableStream` protected-resource body streams instead of buffering; `authn/oauth` keeps the interactive browser ceremony and reaches none of these grants.
 
 ```typescript
 import {
@@ -28,7 +28,7 @@ import {
   genericGrantRequest, getDPoPHandle, getJwksCache, initiateBackchannelAuthentication, initiateDeviceAuthorization,
   pollBackchannelAuthenticationGrant, pollDeviceAuthorizationGrant, randomDPoPKeyPair, refreshTokenGrant,
   setJwksCache, tokenIntrospection, tokenRevocation,
-  type ClientAuth, type Configuration, type DPoPHandle, type ExportedJWKSCache, type IntrospectionResponse,
+  type ClientAuth, type Configuration, type DPoPHandle, type IntrospectionResponse,
   type TokenEndpointResponse, type TokenEndpointResponseHelpers, type WWWAuthenticateChallenge,
 } from "openid-client"
 import { Fault } from "@rasm/ts/core"
@@ -70,6 +70,24 @@ class WorkloadFault extends Schema.TaggedError<WorkloadFault>()("WorkloadFault",
 }
 
 const _NONCE = "use_dpop_nonce"
+
+// Which refusals a PRESENTED credential earns, stated per row so the credential denominator cannot drift: either
+// this token endpoint denied the grant, or a resource server rejected the proof carrying it. Everything else
+// belongs to this plane, to the network, or to the issuer — a capability never advertised, a leg that never
+// arrived, a response whose shape refused, an approval window that closed — and marking those on the credential
+// row inflates exactly the denominator this surface's ratio reads against, until a misconfigured spec reads as a
+// fleet under credential attack.
+const _PRESENTED = {
+  expired: false,
+  grant: true,
+  inactive: false,
+  issuer: false,
+  nonce: false,
+  proof: true,
+  shape: false,
+  transport: false,
+  unsupported: false,
+} as const satisfies Record<WorkloadFault.Reason, boolean>
 
 // RFC 9449 demands a server-chosen nonce on TWO different channels and the certified client surfaces them as two
 // different classes: the authorization server answers the token endpoint with an ordinary error BODY carrying
@@ -130,10 +148,12 @@ const _clientAuth: (authentication: Authentication) => ClientAuth = Authenticati
   Secret: ({ scheme, secret }) => _AUTH[scheme](secret),
 })
 
-// The certified client compares `uat` against epoch SECONDS; the jose consumer compares against milliseconds. The
-// ledger owns the instant and each seam renders its own scalar, so one stored snapshot serves both and neither reads
-// the other's number as a moment fifty thousand years out or one from 1970.
-const _seed = (snapshot: JwksSnapshot): ExportedJWKSCache => ({
+// This projection's shape is read off the MEMBER that consumes it, never off a type name — the certified client
+// and jose each export one spelled `ExportedJWKSCache`, and the two count `uat` in different units: this client
+// compares against epoch SECONDS, jose against milliseconds. Importing the name here would carry one shape under
+// two meanings across a seam where the difference is a stored moment fifty thousand years out or one from 1970.
+// Ledger owns the instant; this renders the seconds form of it, sitting beside `JwksSnapshot.jose`.
+const _seed = (snapshot: JwksSnapshot): Parameters<typeof setJwksCache>[1] => ({
   jwks: { keys: snapshot.keys },
   uat: Math.floor(DateTime.toEpochMillis(snapshot.observedAt) / 1000),
 })
@@ -145,12 +165,14 @@ const _seed = (snapshot: JwksSnapshot): ExportedJWKSCache => ({
 - Owner: `GrantRequest` — the closed request family every machine grant rides: `Client` (client credentials, the default machine grant), `Exchange` (RFC 8693 token exchange, delegation and impersonation both), `Refresh` (rotation of a held grant), `Device` (RFC 8628, the flow a headless enrollment takes), `Backchannel` (CIBA, out-of-band approval); `TokenType` is the RFC 8693 URN vocabulary; `GrantWire` the response owner; `MachinePrincipal` the resolved identity.
 - Law: the grant is the input VALUE, never a member name — one entrypoint takes the request and `$match` dispatches its arm, so the five package legs are five arms of one surface and a sixth grant is one case plus one arm; a `grantClientCredentials`/`grantTokenExchange` family re-derives a discriminant the value already carries.
 - Law: token exchange rides the generic request under the grant-type URN held as one folder constant, with `subject_token`, `subject_token_type`, and the optional `actor_token`/`requested_token_type`/`audience` as parameters — a hand-built token-endpoint body would duplicate a grant row and drop the client authentication the `Configuration` binds.
-- Law: a two-leg flow keeps its handoff inside one arm — the device and CIBA starts answer a response a human must act on, so the arm carries the caller's `present` continuation and then polls; splitting start and poll into two public members would let a caller poll a response it never presented, and the poll's own window means an unapproved flow settles as `expired` rather than looping.
+- Law: a two-leg flow keeps its handoff inside one arm — the device and CIBA starts answer a response a human must act on, so the arm carries the caller's `present` continuation and then polls; splitting start and poll into two public members would let a caller poll a response it never presented.
+- Law: a poll is bounded by the FLOW's window, never by the per-leg issuer deadline — the certified client defaults each poll's abort to the start response's own `expires_in`, and running the poll as an ordinary leg instead put a ten-second deadline and a retryable budget around a window a human is still walking, so an unapproved device flow settled as a transport timeout and re-drove itself rather than expiring. That advertised `expires_in` bounds both sides: whatever `present` hands the user is enforced, the fiber's own `AbortSignal` carries it into the library so an interrupt reaches the pending poll, and a closed window settles `expired`.
 - Law: a grant response is ingress — `TokenEndpointResponse` carries an untyped index band, so every response decodes through `GrantWire` before any field reaches a principal, the foreign spellings are renamed at the field record rather than by a mapping layer, and an issuer answering a `token_type` outside `bearer`/`dpop` refuses as `shape` instead of producing a credential no transport knows how to present.
 - Law: absent evidence is absence, never a forged instant — `expires_in` is optional on the wire, so a response that states no lifetime lands the plane's configured floor and the receipt says when THIS plane will stop trusting the token, rather than a zero or a far-future expiry no issuer asserted.
 - Law: `MachinePrincipal` carries the scheme its issuer chose, so the transport credential derives rather than being assembled — a DPoP-bound token presents under the `DPoP` scheme and a bearer token under `Bearer`, and a caller hand-prefixing `Bearer ` onto a sender-constrained token strips the binding the grant paid for.
+- Law: a `MachinePrincipal`'s scopes are the issuer's granted delegation, and a first-party token this folder issues for the same workload states its `rasm:` delegation in `access/claim`'s `Scope` vocabulary the ceiling reads — so a workload authorized against Rasm's own plane caps at the bundle it was issued to spend exactly as a session or an api-key caller does, never a second delegation model per credential source.
 - Law: the confirmation value is the BARE RFC 7638 thumbprint — RFC 9449 confirms a sender-constrained token by exactly what a resource server recomputes from the presented proof key, so `jkt` holds the thumbprint and never its `urn:ietf:params:oauth:jwk-thumbprint` URI form; the URI form is a subject spelling and lands in a `cnf.jkt` field as a value no verifier will match.
-- Growth: a new grant is one `GrantRequest` case with its `_GRANT_TYPES` identifier row and its arm, the row guard refusing a case that would dispatch past the advertised-roster gate unchecked; a new exchange token type is one `_TOKEN_TYPES` row; a new response field is one `GrantWire` field the principal inherits.
+- Growth: a new grant is one `GrantRequest` case with its `_GRANT_TYPES` identifier row, its `_delegated` scope arm, and its dispatch arm — the row guard refuses a case reaching the advertised-roster gate unchecked, and the exhaustive `$match` refuses one rotating at an unstated breadth; a new exchange token type is one `_TOKEN_TYPES` row; a new response field is one `GrantWire` field the principal inherits.
 - Boundary: what a resolved principal may DO is `access/claim`'s fold; where its credential is mounted per transport is the runtime wave's; this owner resolves the identity and its window.
 - Packages: `openid-client` (`TokenEndpointResponse`, `TokenEndpointResponseHelpers`); `effect` (`Data`, `DateTime`, `Duration`, `Option`, `Redacted`, `Schema`).
 
@@ -203,6 +225,18 @@ type GrantRequest = Data.TaggedEnum<{
 }>
 
 const GrantRequest = Data.taggedEnum<GrantRequest>()
+
+// Delegated scope, projected off whichever case minted the principal, so rotation asks for what the original
+// grant asked for. Sending a refresh without one is no neutral omission: the issuer answers it at its own default
+// scope, which silently narrows the workload and surfaces later as an authorization refusal nothing on this plane
+// explains. `Exchange` states no scope of its own — its breadth rides the requested token type.
+const _delegated: (request: GrantRequest) => Option.Option<string> = GrantRequest.$match({
+  Backchannel: ({ scope }) => scope,
+  Client: ({ scope }) => scope,
+  Device: ({ scope }) => scope,
+  Exchange: () => Option.none(),
+  Refresh: ({ scope }) => scope,
+})
 
 class GrantWire extends Schema.Class<GrantWire>("GrantWire")({
   token: Schema.propertySignature(Schema.Redacted(Schema.NonEmptyString)).pipe(Schema.fromKey("access_token")),
@@ -269,9 +303,9 @@ const _resolved = (bound: Bound, wire: GrantWire, floor: Duration.Duration): Eff
 - Law: a resource call is PROVED, never merely authorized — `fetchProtectedResource` carries the token, the method, the body, and the same handle, so the proof binds to this call's own method and URL and a proof replayed against another endpoint fails at the resource server; a hand-assembled `authorization` header omits the proof entirely and silently downgrades a sender-constrained credential to a bearer one.
 - Law: DPoP nonce recovery is one arm keyed on the protocol CODE, never on the fault class — RFC 9449 carries `use_dpop_nonce` on two channels the certified client surfaces as two classes, the token endpoint answering with an error body and a resource server with a WWW-Authenticate challenge, so the triage reads the code across both and re-runs the same leg exactly once; keying the arm on the challenge class alone leaves every grant leg with no recovery and re-drives an `insufficient_scope` the issuer already decided, and folding the arm into the transport budget re-drives a genuine refusal. The handle records the server's nonce as the refusal lands, so the second attempt carries it and a third is a real answer.
 - Law: a crossing carries a live credential or none — `handoff` stashes under the principal's own remaining window so a slot cannot outlive the token inside it, `claim` consumes once and re-reads `lapsed` because the hop itself spends time, and an empty slot and a spent principal both answer `expired`; the pair takes the store through the requirement channel per call, so a single-process composition binds no port and pays nothing for a crossing it never makes.
-- Law: rotation is the principal's own lifetime, never a caller's timer — `rotate` reads the held refresh grant and re-drives the refresh arm, a bound refresh staying sender-constrained through the same handle, and a principal with no refresh grant re-runs the request that minted it; a caller comparing clocks against a stored expiry re-derives what `lapsed` already answers.
+- Law: rotation is the principal's own lifetime, never a caller's timer — `rotate` reads the held refresh grant and re-drives the refresh arm, a bound refresh staying sender-constrained through the same handle, and a principal with no refresh grant re-runs the request that minted it; a caller comparing clocks against a stored expiry re-derives what `lapsed` already answers. Both arms rotate at the same BREADTH: `_delegated` projects the originating request's scope onto the refresh, because a scopeless refresh is answered at the issuer's default and narrows a workload silently, surfacing later as an authorization refusal nothing on this plane explains.
 - Law: introspection answers liveness, never authorization — `active: false` is the `inactive` refusal and the response's scope and confirmation claims are evidence a caller may cross-check, while the decision stays `access/claim`'s fold; a plane authorizing on an introspection body forks the entitlement owner.
-- Law: the plane carries its own denominator — every resolved principal lands the `credential`-kinded admission and ceremony span through `Reject.measured` under the `workload` surface facet, and every refused grant marks the same row, so a fleet-wide credential failure separates from a fleet-wide traffic change on one key set.
+- Law: the plane carries its own denominator and guards what enters it — every resolved principal lands the `credential`-kinded admission and ceremony span through `Reject.measured` under the `workload` surface facet, while only a refusal a PRESENTED credential earned marks the refusal row: `_PRESENTED` states that per reason, so the token endpoint's denial and a resource server's proof rejection count while a capability the issuer never advertised, a leg that never arrived, a shape that refused, and a closed approval window do not. Counting a configuration fault as a credential guess makes a misconfigured spec read as a fleet under attack on the one series that separates credential failure from traffic change.
 - Receipt: `MachinePrincipal` on grant, rotate, and claim, the introspection evidence on introspect, the raw `Response` on call (the caller decodes at its own seam), `void` on retire and handoff — never a raw `TokenEndpointResponse`.
 - Boundary: the app root supplies the `IssuerSpec` and the `JwksLedger` binding; the runtime wave supplies the instrumented fetch and mounts `credential` as an HTTP header, gRPC call metadata, or a NATS auth-callout header; `access/claim` owns what the principal may do.
 
@@ -337,10 +371,29 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       const _options = Option.match(proof, { onNone: () => undefined, onSome: ({ handle }) => ({ DPoP: handle }) })
       const _scoped = (scope: Option.Option<string>): Record<string, string> =>
         Option.match(scope, { onNone: () => ({}), onSome: (value) => ({ scope: value }) })
+      // Polling is NOT a leg, and running it as one is why the two-leg law's `expired` settlement never fired:
+      // this per-leg issuer deadline aborted a device flow ten seconds into a window the end-user was still
+      // walking, and `lease` re-drove the whole poll from there, because `expired` grades retryable. Certified
+      // client bounds each poll with `AbortSignal.timeout(expires_in * 1000)` off its own start response wherever
+      // a caller hands no signal, so that advertised window IS the bound — this fiber's own signal carries it in,
+      // so an interrupt reaches the pending poll instead of orphaning it, and a closed window settles `expired`
+      // for real rather than by assumption.
+      const _polled = (
+        window: number,
+        run: (signal: AbortSignal) => Promise<TokenEndpointResponse & TokenEndpointResponseHelpers>,
+      ): Effect.Effect<TokenEndpointResponse & TokenEndpointResponseHelpers, WorkloadFault> =>
+        Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
+          Effect.timeoutFail({
+            duration: Duration.seconds(window),
+            onTimeout: () => new WorkloadFault({ reason: "expired", detail: `${window}s approval window` }),
+          }),
+        )
+      // Admission takes the bounded leg itself rather than a thunk, because a one-shot grant and a two-leg poll
+      // bound differently and share only their landing.
       const _landed = (
-        run: () => Promise<TokenEndpointResponse & TokenEndpointResponseHelpers>,
+        legged: Effect.Effect<TokenEndpointResponse & TokenEndpointResponseHelpers, WorkloadFault>,
       ): Effect.Effect<MachinePrincipal, WorkloadFault> =>
-        _proved(run).pipe(
+        legged.pipe(
           Effect.tap(() => _persist),
           Effect.flatMap((response) =>
             _admitted(response).pipe(Effect.mapError((cause) => new WorkloadFault({ reason: "shape", detail: String(cause) })))),
@@ -356,9 +409,9 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
         ).pipe(Effect.asVoid)
       const grant = (request: GrantRequest): Effect.Effect<MachinePrincipal, WorkloadFault> =>
         Effect.zipRight(_advertised(request), GrantRequest.$match(request, {
-          Client: ({ scope }) => _landed(() => clientCredentialsGrant(config, _scoped(scope), _options)),
+          Client: ({ scope }) => _landed(_proved(() => clientCredentialsGrant(config, _scoped(scope), _options))),
           Exchange: ({ actor, audience, requested, subject, subjectType }) =>
-            _landed(() =>
+            _landed(_proved(() =>
               genericGrantRequest(config, _EXCHANGE, {
                 subject_token: Redacted.value(subject),
                 subject_token_type: _TOKEN_TYPES[subjectType],
@@ -368,23 +421,29 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
                 }),
                 ...Option.match(requested, { onNone: () => ({}), onSome: (kind) => ({ requested_token_type: _TOKEN_TYPES[kind] }) }),
                 ...Option.match(audience, { onNone: () => ({}), onSome: (value) => ({ audience: value }) }),
-              }, _options)),
-          Refresh: ({ presented, scope }) => _landed(() => refreshTokenGrant(config, Redacted.value(presented), _scoped(scope), _options)),
+              }, _options))),
+          Refresh: ({ presented, scope }) => _landed(_proved(() => refreshTokenGrant(config, Redacted.value(presented), _scoped(scope), _options))),
           Device: ({ present, scope }) =>
             Effect.gen(function* () {
               const started = yield* _legged(() => initiateDeviceAuthorization(config, _scoped(scope)))
+              // Whatever window `present` hands the user is the window ENFORCED: one `expires_in` bounds both, so
+              // this handoff cannot promise a deadline the plane fails to keep.
               yield* present({ userCode: started.user_code, verificationUri: started.verification_uri, expiresIn: started.expires_in })
-              return yield* _landed(() => pollDeviceAuthorizationGrant(config, started, undefined, _options))
+              return yield* _landed(_polled(started.expires_in, (signal) =>
+                pollDeviceAuthorizationGrant(config, started, undefined, { ..._options, signal })))
             }),
           Backchannel: ({ hint, scope }) =>
             Effect.gen(function* () {
               const started = yield* _legged(() => initiateBackchannelAuthentication(config, { login_hint: hint, ..._scoped(scope) }))
-              // CIBA's poll options extend the same `DPoPOptions` its device twin extends, so ONE `_options` value
-              // is total across both two-leg polls and no per-leg proof record exists to drift.
-              return yield* _landed(() => pollBackchannelAuthenticationGrant(config, started, undefined, _options))
+              // CIBA's poll options extend the same `DPoPOptions` its device twin extends and carry the same
+              // `signal`, so ONE `_options` value plus one bound is total across both polls and no per-leg proof
+              // record or per-leg window exists to drift.
+              return yield* _landed(_polled(started.expires_in, (signal) =>
+                pollBackchannelAuthenticationGrant(config, started, undefined, { ..._options, signal })))
             }),
         })).pipe(
-          Effect.tapError(() => Reject.mark("credential", { surface: "workload" })),
+          Effect.tapError((fault) =>
+            Effect.when(Reject.mark("credential", { surface: "workload" }), () => _PRESENTED[fault.reason])),
           Reject.measured("credential", { surface: "workload" }),
           Effect.withSpan("security.workload.grant", { attributes: { issuer: spec.issuer } }),
         )
@@ -399,9 +458,11 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
         handoff: (key: string, principal: MachinePrincipal): Effect.Effect<void, WorkloadFault, IssuerStore> =>
           Effect.gen(function* () {
             const now = yield* DateTime.now
-            const window = DateTime.distanceDuration(now, principal.expiresAt)
-            return yield* Duration.greaterThan(window, Duration.zero)
-              ? Effect.flatMap(IssuerStore, (store) => store.stash(key, principal, window))
+            // `DateTime.distanceDuration` is ABSOLUTE — a lapsed principal reads as a positive window — so the signed
+            // millisecond distance keeps the `expired` arm reachable; positive means `expiresAt` is still ahead
+            const remaining = DateTime.distance(now, principal.expiresAt)
+            return yield* remaining > 0
+              ? Effect.flatMap(IssuerStore, (store) => store.stash(key, principal, Duration.millis(remaining)))
               : Effect.fail(new WorkloadFault({ reason: "expired", detail: key }))
           }),
         claim: (key: string): Effect.Effect<MachinePrincipal, WorkloadFault, IssuerStore> =>
@@ -412,10 +473,13 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
                 Effect.flatMap(principal.lapsed, (spent) =>
                   spent ? Effect.fail(new WorkloadFault({ reason: "expired", detail: key })) : Effect.succeed(principal)),
             }))),
+        // Both arms rotate at the SAME breadth: the re-grant arm replays `origin` whole, so the refresh arm
+        // carries `origin`'s own scope rather than handing the issuer a scopeless refresh to answer at its
+        // default. A principal that quietly narrows on rotation is the shape this projection deletes.
         rotate: (principal: MachinePrincipal, origin: GrantRequest): Effect.Effect<MachinePrincipal, WorkloadFault> =>
           Option.match(principal.refresh, {
             onNone: () => grant(origin),
-            onSome: (presented) => grant(GrantRequest.Refresh({ presented, scope: Option.none() })),
+            onSome: (presented) => grant(GrantRequest.Refresh({ presented, scope: _delegated(origin) })),
           }),
         introspect: (principal: MachinePrincipal): Effect.Effect<IntrospectionResponse, WorkloadFault> =>
           _legged(() => tokenIntrospection(config, Redacted.value(principal.token))).pipe(

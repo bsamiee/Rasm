@@ -19,7 +19,7 @@ Ladder order is evidence specificity and every rung structural: an existing `Pro
 - Growth: a new core class is one row (compile-forced); a new response axis is one `_Grade` field plus its column on ten rows.
 - Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/ts/core` (`Fault.Class`).
 
-```typescript
+```typescript signature
 import { HttpServerRespondable, HttpServerResponse } from "@effect/platform"
 import { Array, Cause, Duration, Effect, Option, Predicate, Record, Schema } from "effect"
 import { Fault } from "@rasm/ts/core"
@@ -61,7 +61,7 @@ const _retryAfter = (
 - Law: `_redact(kind, extensions)` owns the blame gate over the structural band — a non-exposing class empties `tag` and `reason` while `requestId` survives on every class, because correlation is the one occurrence datum a system-blamed problem must keep: the operator resolves the redacted body against telemetry through it.
 - Boundary: which values populate the extensions is `[05]`'s fold; log-side and OTLP-side scrubbing is `otel/emit#REDACTION`'s policy; this cluster fixes only what crosses the HTTP body outward.
 
-```typescript
+```typescript signature
 const _EXPOSED = ["tag", "reason", "requestId"] as const
 
 const _Extensions = Schema.Struct({
@@ -89,7 +89,7 @@ const _redact = (kind: Fault.Class.Kind, extensions: Problem.Extensions): Proble
 - Law: upstream rows are never class rows — an upstream refusal is not the caller's fault and not this process's invariant breach, so each row derives its own `type` over the one `_TYPE_BASE` anchor and always redacts detail: hop chains, sites, and elapsed spans are telemetry material, never response bodies.
 - Growth: a new upstream disposition is one row keyed by a new structural fact; the probe extends in `[05]`, the row lands here.
 
-```typescript
+```typescript signature
 const _upstream = {
   retryable: {
     type: `${_TYPE_BASE}upstream-unavailable`,
@@ -123,7 +123,7 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
 - Growth: a new probe rung is one arm in `_of` plus its row in `[02]`; a new extension is one field row under `[03]`'s band plus its populate line.
 - Packages: `effect` (`Schema`, `Option`, `Effect`, `Cause`, `Predicate`); `@effect/platform` (`HttpServerRespondable`, `HttpServerResponse`); `./api.ts` (`Current`).
 
-```typescript
+```typescript signature
 const _text = (fault: unknown): string =>
   Predicate.hasProperty(fault, "message") && Predicate.isString(fault.message) ? fault.message : String(fault)
 

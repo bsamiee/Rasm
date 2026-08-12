@@ -34,13 +34,13 @@ tests/
 
 [CASING_LAW]:
 - Tier and grouping directories are lowercase; kit directories carry the `_` prefix.
-- PascalCase begins at a C# project boundary (`Rasm.*`, `Contract`, `Supervisor`) and continues through source folders inside it (`Meta`); grouping directories above a project are never PascalCase.
+- PascalCase begins at a C# project boundary and continues through source folders inside it; grouping directories above a project stay lowercase.
 - Spec files follow the owning language's source casing.
 
 [KIT_LAW]:
-- Shared test logic lives in exactly one per-language kit: `tests/csharp/_testkit` (with `_scenariokit` for the host-aware scenario SDK), `tests/python/_testkit`, and `tests/typescript/_testkit`.
+- Shared test logic lives in exactly one per-language `_testkit`, C# adding `_scenariokit` for the host-aware scenario SDK.
 - Kits never live under `libs/` — libs is the production plane.
-- Nothing cross-language lives inside a single language's tree; the neutral seams are `tests/contracts/`, `tests/containers.json` (the one container-image pin every language's container row resolves), proto descriptors, provisioned service containers, and the assay operator.
+- Nothing cross-language lives inside one language's tree — the neutral seams are `tests/contracts/`, `tests/containers.json`, and the assay operator.
 
 ## [02]-[LANES]
 
@@ -65,7 +65,7 @@ Every law family is witness-mandatory: registration carries a refuting witness t
 
 [BANNED_SHAPES]:
 - Existence tests: asserting a symbol, export, case, or member exists — the compiler, importer, or type checker already proves it.
-- Mirror tests: constructing a value and asserting its own fields, re-implementing the production algorithm as its own oracle, or snapshotting a value the test itself built in the same body.
+- Mirror tests: asserting a constructed value's fields, re-implementing the production algorithm as oracle, or snapshotting a value the test built.
 - Speculative-state tests: laws over states the production surface cannot construct.
 - Per-function spam: one thin test per function when a single generated domain covers the family.
 
@@ -136,12 +136,12 @@ Reference lifecycle: `--evidence author` runs write candidate references under `
 ## [07]-[GATE_OWNERSHIP]
 
 Assay is the single mutation and coverage gate authority in all three languages; thresholds and kill-floors live in the owning configs, never in docs or specs:
-- Stryker.NET policy — solution mode, concurrency cap, output routing, baseline, thresholds — lives in the root `stryker-config.json`; the assay mutation rail owns the staged invocation with absolute anchors, and root residency keeps a bare `dotnet stryker` inside auto-discovery, capped and routed instead of solution-wide at default parallelism.
+- Stryker.NET policy lives in the root `stryker-config.json` — the assay rail stages the invocation, and auto-discovery caps a bare `dotnet stryker`.
 - StrykerJS policy lives in the root `stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
 - Python's mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
 - Zero mutant discovery is a failed rail in every language, never a green pass.
-- Both Stryker rails emit `mutation-testing-report-schema` JSON natively into `.artifacts/`; assay's kill-floor verdict is the single cross-language authority over the results.
-- Coverage aggregates as cobertura (C#) and lcov (Python, TS) under `.artifacts/` — no invented merged format; each language-native reporter owns its output shape.
+- Both Stryker rails emit `mutation-testing-report-schema` JSON into `.artifacts/`; assay's kill-floor verdict is the one cross-language authority.
+- Coverage aggregates as cobertura (C#) and lcov (Python, TS) under `.artifacts/` — each language-native reporter owns its output shape.
 
 Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark sessions — launch directly; mutation, solution-wide static, and bridge verify ride assay, which owns staging, governor caps, and artifact scopes. Defense-in-depth holds regardless of invoker: every heavy tool's auto-discovered configuration carries its own concurrency cap, per-run and per-test timeouts, an explicit mutate/target scope, and `.artifacts/`/`.cache/` routing, so a bare invocation outside assay is small, self-limiting, and cheap to kill.
 

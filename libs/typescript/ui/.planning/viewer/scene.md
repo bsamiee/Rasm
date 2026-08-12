@@ -9,9 +9,9 @@
 - [04]-[BACKEND_SELECT]: renderer acquisition and lifecycle; `Glb`.
 - [05]-[RESIDENCY_GRAFT]: generation-safe graft and release; `Glb`.
 - [06]-[ENVIRONMENT_FOLD]: environment decode and prefilter; `Glb`.
-- [07]-[DRAW_COLLAPSE]: draw and visibility policy; `Glb`.
-- [08]-[APPEARANCE_BIND]: OpenPBR and texture seating; `Pbr`.
-- [09]-[INSTANCED_ROWS]: georeferenced instances; `Instanced`.
+- [07]-[DRAW_COLLAPSE]: draw, visibility, splat order, and scene-tool queries; `Glb`.
+- [08]-[APPEARANCE_BIND]: OpenPBR seating and the standard-to-physical upgrade; `Pbr`.
+- [09]-[INSTANCED_ROWS]: georeferenced instances folded off the residency ledger; `Instanced`.
 - [10]-[EMBED_ROW]: model-viewer backend; `Glb`.
 
 ## [02]-[VIEWPORT_PORT]
@@ -156,9 +156,13 @@ declare namespace Glb {
   // one acquisition record serves every downstream lane — backend, device seam, prefilter, codecs, and the settled
   // sampling cap all read off this shape, so no lane re-probes `navigator.gpu`, no second prefilter is ever
   // constructed, and no texture stamp re-asks a maximum the two backend classes spell under two different member
-  // paths. Codecs ride the ACQUISITION because the transcoder is renderer-bound: `detectSupport` cannot rebind a
-  // live pool — spawned workers hold their first config forever and the parse cache keys on buffer alone — so a
-  // backend swap rebuilds the codec record with the renderer and the displaced pool dies with it.
+  // paths. Codecs ride the ACQUISITION because the transcoder is renderer-bound and UNREBINDABLE: `detectSupport`
+  // only writes a config field, which each worker bakes at CREATION out of a lazily-filled cache, so a re-call
+  // after the first parse leaves a split-brain pool; and `dispose()` revokes the worker blob URL while leaving
+  // `transcoderPending` resolved, so a disposed instance handed another buffer spawns workers on a dead URL. A
+  // backend swap therefore mints a FRESH bundle beside the renderer and the displaced pool dies with it — the
+  // one-loader-per-viewport ruling reads per backend GENERATION, and every lane reads the codecs off this record
+  // rather than capturing them, so no lane can reach the retired pool.
   type Acquired = {
     readonly renderer: WebGLRenderer | WebGPURenderer
     readonly device: Option.Option<GPUDevice>
@@ -268,6 +272,9 @@ const _renderer = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect
       // so every later lane reads the settled record and never asks which renderer it holds
       const legacy = built instanceof WebGLRenderer
       const prefilter: Glb.Prefilter = legacy ? new GlPrefilter(built) : new GpuPrefilter(built)
+      // the codec bundle is SEQUENCED, never assigned: `_codecs` answers an Effect because the transcode target it
+      // probes is the backend's own, and the served half it composes was resolved once for the viewport
+      const codecs = yield* _codecs(served, built)
       return {
         renderer: built,
         device: legacy ? Option.none<GPUDevice>() : acquired,
@@ -276,11 +283,13 @@ const _renderer = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect
           _SAMPLING.anisotropy,
           legacy ? built.capabilities.getMaxAnisotropy() : built.getMaxAnisotropy(),
         ),
-        codecs: _codecs(served, built),
+        codecs,
       } satisfies Glb.Acquired
     }),
     ({ codecs, prefilter, renderer }) => Effect.sync(() => {
-      // BOUNDARY ADAPTER — the transcoder pool and the prefilter release before the renderer that backs them
+      // BOUNDARY ADAPTER — the transcoder pool and the prefilter release before the renderer that backs them; the
+      // SERVED half outlives this scope by construction, so a swap re-pays neither the draco preload nor the
+      // meshopt import, and the retired pool is unreachable because nothing captured it
       codecs.ktx2.dispose()
       prefilter.dispose()
       renderer.dispose()
@@ -403,8 +412,10 @@ const _turned = (turn: Glb.Turn, phase: Glb.Phase, signal: Glb.Signal): Effect.E
 
 const _lifecycle = (plane: Glb.Plane) =>
   Machine.makeSerializable({ state: _Phase, input: _Boot }, (input, previous) =>
-    // reboot and retry resume through the same slot: `previousState` carries the last live phase across a remount
-    Machine.serializable.make(previous ?? "booting").pipe(
+    // reboot and retry resume through the same slot: `previousState` carries the last live phase across a remount.
+    // The initializer answers an EFFECT because that is the shape `InitializeSerializable` declares — a bare
+    // procedure list is the input-carrying overload's one refusal, and this list needs no acquisition to build
+    Effect.succeed(Machine.serializable.make(previous ?? "booting").pipe(
       Machine.serializable.add(Advance, ({ forkOne, forkReplace, request, send, state }) =>
         _turned({ plane, cool: input.cool, forkOne, forkReplace, send }, state, request.signal)),
       Machine.serializable.add(Refuse, ({ forkOne, forkReplace, request, send, state }) =>
@@ -417,7 +428,7 @@ const _lifecycle = (plane: Glb.Plane) =>
               _turned({ plane, cool: input.cool, forkOne, forkReplace, send }, state, _GUARDED),
             )
           : Effect.succeed([state, state] as const)),
-    ),
+    )),
   ).pipe(
     // an initialization defect re-drives as a policy value; the jitter keeps a fleet of tabs off one adapter
     Machine.retry(Schedule.exponential("250 millis").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(4)))),
@@ -439,6 +450,8 @@ const _booted = (plane: Glb.Plane, cool: Duration.DurationInput): Effect.Effect<
 - Owner: `Glb.graft` validates ledger generation, decodes verified GLB bytes, and owns subtree resources.
 - Law: manifest replacement evicts old-generation grafts even when artifact keys repeat.
 - Law: one traversal owns upload, acceleration, dress, visibility, and release coverage.
+- Law: decode capability splits by binding — `Glb.Served` resolves once per viewport, `Glb.Codecs` re-mints per backend generation, and every lane reads the bundle off the live acquisition rather than capturing it.
+- Law: a standard-material graft whose appearance demands a physical-only lobe upgrades in place; `<material-unphysical>` names only a material outside that pair.
 
 ```typescript signature
 import { Convention } from "@rasm/ts/core"
@@ -484,10 +497,14 @@ declare namespace Glb {
   }
   type Ledger = HashMap.HashMap<Digest.Key<"content">, Glb.Graft>
   // one codec record publishes the transcoder beside the loader consuming it, because the dome's deep-store
-  // container decodes through that same configured instance and a second one owns a second worker pool
+  // container decodes through that same configured instance and a second one owns a second worker pool. The
+  // record is per backend GENERATION and reached only through `Acquired` — a lane capturing it survives the swap
+  // that disposes it, which is the split-brain the transcoder's unrebindable worker config makes unrecoverable.
   type Codecs = { readonly gltf: GLTFLoader; readonly ktx2: KTX2Loader }
-  // renderer-INDEPENDENT decode capability resolved once per viewport: the tapped manager, the warmed draco pool,
-  // and the meshopt module are backend-blind, while the KTX2 transcoder is renderer-BOUND and rides `Acquired`
+  // renderer-INDEPENDENT decode capability resolved ONCE per viewport and threaded into every acquisition: the
+  // tapped manager, the warmed draco pool, the transcoder directory, and the meshopt module are backend-blind, so
+  // they survive every re-init, while the KTX2 transcoder and the loader holding it are renderer-BOUND and
+  // re-mint on `Acquired`. This split is what keeps a backend swap off the draco preload and the module import.
   type Served = {
     readonly manager: LoadingManager
     readonly draco: DRACOLoader
@@ -521,9 +538,17 @@ declare namespace Glb {
     // parseable node without re-reaching the construction site or minting a second scene surface
     readonly root: Scene
     readonly advance: (delta: number) => void
-    readonly facts: Stream.Stream<Glb.ResidencyFact, GlbFault>
+    // the fact feed carries NO error channel: every lane catches its refusal into the queue as the `Refused` case,
+    // so the drain is `Stream.fromQueue`'s own unfailing stream — which is also the shape `Hook.Row`'s adopted
+    // `source` demands, and a declared `GlbFault` here would refuse the hook row while promising a raise no
+    // subscriber can ever observe
+    readonly facts: Stream.Stream<Glb.ResidencyFact>
     readonly dome: Effect.Effect<Glb.Dome>
     readonly trees: Effect.Effect<Glb.Trees>
+    // the re-init entry: the successor's prefilter re-derives the dome target off the SURVIVING decoded source.
+    // It carries no codec direction because there is none to carry — the fresh acquisition already holds the
+    // fresh bundle and every lane re-reads the cell, so a rebind that handed codecs forward would be the capture
+    // this record's generation law forbids
     readonly rebind: (acquired: Glb.Acquired) => Effect.Effect<void>
   }
 }
@@ -735,10 +760,12 @@ const _splat = (graft: Glb.Graft, acquired: Glb.Acquired): Effect.Effect<void> =
   acquired.renderer instanceof WebGPURenderer
     ? Effect.sync(() => {
         // BOUNDARY ADAPTER — the node material is a mutable platform record and the swap is one assignment.
-        // Compositing is straight-alpha over-blend: the wire crosses sigmoid STRAIGHT alpha (`StreamFilter.None`,
-        // the renderer's direct input) with no baked order, and the encoding's draw obligation is back-to-front
-        // per view — `depthWrite: false` keeps the composite from self-occluding, and the fixed-pixel Points
-        // floor composites UNSORTED as its declared forfeit, never a premultiplied or additive re-read.
+        // Compositing is straight-alpha OVER: the producer wire carries positions, scales, rotations, harmonics,
+        // and sigmoid-activated STRAIGHT alphas — no ordering key and no blend equation ride it — so the decode
+        // end fixes the equation (`transparent` with `depthWrite: false`, never a premultiplied or additive
+        // re-read) and the ORDER stays the consumer's: `[07]`'s per-view radix-depth fold, which the caller
+        // composes as a `Glb.Pass` beside the cull. The WebGL floor keeps the parse's own material and therefore
+        // composites unsorted as its declared forfeit.
         graft.drawn.forEach((drawn) => {
           if (!(drawn instanceof Points)) return
           const bound = new PointsNodeMaterial({ transparent: true, depthWrite: false })
@@ -750,18 +777,66 @@ const _splat = (graft: Glb.Graft, acquired: Glb.Acquired): Effect.Effect<void> =
       })
     : Effect.void
 
+// the per-SLOT projection the upgrade arm demands: three's material member is a handle OR an array, and a re-point
+// must land in the exact slot the displaced material sat in so a multi-material drawable keeps its group order.
+// `-1` is the bare-handle spelling, kept as a slot value rather than a second shape, because both forms then take
+// one writer. The ledger needs no edit either way: `Glb.Graft.drawn` holds NODES, and the release visitor reads
+// `child.material` at teardown, so it always frees whatever the drawable currently wears.
+const _slotted = (drawn: Glb.Drawable): ReadonlyArray<readonly [at: number, material: Material]> =>
+  Array.isArray(drawn.material) ? drawn.material.map((row, at) => [at, row] as const) : [[-1, drawn.material] as const]
+
+const _repoint = (drawn: Glb.Drawable, at: number, bound: MeshPhysicalMaterial): void => {
+  // BOUNDARY ADAPTER
+  if (at < 0) drawn.material = bound
+  else if (Array.isArray(drawn.material)) drawn.material[at] = bound
+}
+
+// ONE slot decision, three outcomes. A physical material seats directly. A STANDARD material whose resolved
+// appearance demands a physical-only lobe is upgraded in place — minted, narrow-copied, re-pointed, and seated —
+// because the alternative is a silent drop: three declares no coat, sheen, transmission, iridescence, or
+// anisotropy member on the standard class, so `_lobes` would write fields the render never reads. Anything else
+// is genuinely unseatable and surfaces as evidence. The physical probe runs FIRST and must: `MeshPhysicalMaterial`
+// extends `MeshStandardMaterial`, so the standard arm would otherwise swallow every already-physical seat and
+// re-mint a target over a material that needed none.
+const _dressed = (
+  key: Digest.Key<"content">,
+  drawn: Glb.Drawable,
+  at: number,
+  material: Material,
+  bound: Pbr.Bound,
+  document: GlbViewport.Appearance,
+  acquired: Glb.Acquired,
+): Effect.Effect<ReadonlyArray<GlbFault>> =>
+  material instanceof MeshPhysicalMaterial
+    ? Pbr.seat(material, bound, document, acquired)
+    : material instanceof MeshStandardMaterial && Pbr.demands(bound)
+      ? Effect.flatMap(
+          Effect.sync(() => {
+            // BOUNDARY ADAPTER — the copy TRANSFERRED every texture handle to the successor, so `_retire` is the
+            // wrong reader here: its slot sweep would free planes the target now samples. Only the displaced
+            // program retires, and the release visitor frees the shared handles once, through the live material.
+            const upgraded = Pbr.upgrade(material)
+            _repoint(drawn, at, upgraded)
+            material.dispose()
+            return upgraded
+          }),
+          (upgraded) => Pbr.seat(upgraded, bound, document, acquired),
+        )
+      : Effect.succeed<ReadonlyArray<GlbFault>>([
+        new GlbFault({ reason: "plane-unbound", mesh: `${key}`, detail: "<material-unphysical>" }),
+      ])
+
 // ONE dressing entry over a graft, run at commit and re-run on every fresh appearance document because the seat is
 // idempotent pure assignment: `worn` names which meshes carry an appearance and every other mesh keeps the
 // material the parse gave it. The `kind` column selects the ARM — a splat-borne row takes the point-radiance bind
-// above and never reaches the lobe seat. A material the GLB minted without its PBR extensions has no coat, sheen,
-// or transmission slot to seat, so it surfaces as evidence rather than taking a partial bind, and every refusal
-// folds into the one bounded fact queue the lanes already share.
+// above and never reaches the lobe seat. Every refusal folds into the one bounded fact queue the lanes share.
 const _dress = (
   key: Digest.Key<"content">,
   graft: Glb.Graft,
   index: Pbr.Index,
   document: GlbViewport.Appearance,
-  codecs: Glb.Codecs,
+  // the acquisition carries its own codec bundle, so the dress lane reads ONE renderer-bound carrier and can never
+  // pair a live renderer with the transcoder its predecessor disposed
   acquired: Glb.Acquired,
   facts: Queue.Queue<Glb.ResidencyFact>,
 ): Effect.Effect<void> =>
@@ -772,13 +847,8 @@ const _dress = (
         onSome: (bound) =>
           Effect.flatMap(
             Effect.forEach(
-              graft.drawn.flatMap((drawn) => (Array.isArray(drawn.material) ? drawn.material : [drawn.material])),
-              (material) =>
-                material instanceof MeshPhysicalMaterial
-                  ? Pbr.seat(material, bound, document, codecs, acquired)
-                  : Effect.succeed([
-                    new GlbFault({ reason: "plane-unbound", mesh: `${key}`, detail: "<material-unphysical>" }),
-                  ]),
+              graft.drawn.flatMap((drawn) => _slotted(drawn).map(([at, material]) => [drawn, at, material] as const)),
+              ([drawn, at, material]) => _dressed(key, drawn, at, material, bound, document, acquired),
             ),
             (refusals) =>
               Effect.forEach(
@@ -791,15 +861,15 @@ const _dress = (
 
 const _graft = (
   root: Scene,
-  codecs: Glb.Codecs,
   // the CELL, never a captured record: a re-init swaps the acquisition beneath these lanes, so every lane reads
-  // the live renderer at the moment it uploads, seats, or prefilters rather than holding a disposed handle
+  // the live renderer AND its live codec bundle at the moment it parses, uploads, seats, or prefilters rather
+  // than holding a disposed handle or a transcoder whose worker blob URL the swap already revoked
   backplane: Glb.Backplane,
   port: Context.Tag.Service<GlbViewport>,
-  // the same dependency tap `_codecs` hands its LoadingManager: an off-thread tree build reports its own fraction
+  // the same dependency tap `_served` hands its LoadingManager: an off-thread tree build reports its own fraction
   // into the residency telemetry rather than minting a second progress channel
   progress: (fraction: number) => void,
-  // every lane forks with its refusals contained, so construction succeeds or dies; `_codecs` alone carries
+  // every lane forks with its refusals contained, so construction succeeds or dies; `_served` alone carries
   // `codec-absent`, and a caller inheriting an unraisable channel writes a recovery arm nothing reaches
 ): Effect.Effect<Glb.Loop, never, Scope.Scope> =>
   Effect.gen(function* () {
@@ -825,8 +895,11 @@ const _graft = (
           onSome: Effect.succeed,
           },
         )
+        // read per arrival and BEFORE the parse: a re-init between two arrivals is invisible here, and the loader
+        // that decodes these octets must be the one whose transcoder the live backend still owns
+        const acquired = yield* ScopedRef.get(backplane)
         const gltf = yield* Effect.tryPromise({
-          try: () => codecs.gltf.parseAsync(arrival.octets.buffer, ""),
+          try: () => acquired.codecs.gltf.parseAsync(arrival.octets.buffer, ""),
           // registered gates reject with their own typed refusal, so codec-absent survives the promise edge
           catch: (defect) =>
             defect instanceof GlbFault
@@ -841,7 +914,6 @@ const _graft = (
                 return bound
               }, new AnimationMixer(gltf.scene)),
             )
-        const acquired = yield* ScopedRef.get(backplane) // read per arrival: a re-init between two arrivals is invisible here
         const drawn = yield* Effect.sync(() => {
           const seen = _walk(gltf.scene, _upload(acquired.renderer))
           root.add(gltf.scene)
@@ -862,7 +934,7 @@ const _graft = (
           _trees(live.stamp + 1, residents.reduce((map, row) => HashMap.set(map, row.node.uuid, row), live.held)))
         yield* Option.match(yield* Ref.get(dressed), {
           onNone: () => Effect.void,
-          onSome: ([index, document]) => _dress(arrival.key, graft, index, document, codecs, acquired, facts),
+          onSome: ([index, document]) => _dress(arrival.key, graft, index, document, acquired, facts),
         })
         yield* Effect.asVoid(Effect.withMetric(Effect.succeed(1), _GRAFTED))
         yield* Queue.offer(facts, { _tag: "Arrived", arrival } as const)
@@ -909,7 +981,7 @@ const _graft = (
         yield* Ref.set(dressed, Option.some([index, document] as const))
         yield* Effect.forEach(
           yield* Ref.get(held),
-          ([key, graft]) => _dress(key, graft, index, document, codecs, acquired, facts),
+          ([key, graft]) => _dress(key, graft, index, document, acquired, facts),
           { discard: true },
         )
       }).pipe(
@@ -917,7 +989,7 @@ const _graft = (
         Effect.withSpan("rasm.ui.scene.residency"),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       ))
-    const dome = yield* _dome(root, backplane, codecs, port.environments, facts)
+    const dome = yield* _dome(root, backplane, port.environments, facts)
     yield* Effect.forkScoped(Effect.all([insert, evict, wear], { concurrency: 3, discard: true }))
     return {
       root,
@@ -1021,14 +1093,19 @@ const _warm = (
     Effect.sync(() => void Frame.Residency.pending(ledger).forEach((row) => Option.map(addressed(row.mesh), _HINTS.fetch))),
   )
 
-const _codecs = (
+// The renderer-BLIND half, resolved once for the viewport and threaded into every acquisition: the tapped manager
+// carries the progress and error channel the whole decode estate reports through, the draco pool warms its wasm
+// here so a backend swap never re-pays it, the meshopt module resolves through the module graph its own row's
+// `warm` column already hinted, and the transcoder DIRECTORY crosses as a string because the loader consuming it
+// is per generation. `codec-absent` raises HERE and nowhere downstream, which is why the graft lane inherits no
+// error channel. The draco pool is bracketed because it owns worker threads for the viewport's whole life.
+const _served = (
   roster: Glb.AssetRoster,
-  renderer: WebGLRenderer | WebGPURenderer,
   taps: {
     readonly progress: (url: string, loaded: number, total: number) => void
     readonly error: (url: string) => void
   },
-): Effect.Effect<Glb.Codecs, GlbFault> =>
+): Effect.Effect<Glb.Served, GlbFault, Scope.Scope> =>
   Effect.gen(function* () {
     const draco = yield* _asset(roster, "draco")
     const ktx2 = yield* _asset(roster, "ktx2")
@@ -1044,23 +1121,41 @@ const _codecs = (
           (module) => Option.some(module.MeshoptDecoder),
         ),
     })
-    return yield* Effect.sync(() => {
-      // BOUNDARY ADAPTER — the address form is the row's own column; no site re-decides dir versus file
-      const manager = new LoadingManager()
-      manager.onProgress = taps.progress
-      manager.onError = taps.error
-      // transcoders bind ONCE and publish, never swallowed: [6]'s deep-store dome decodes through this one, and
-      // `[4]`'s re-init arm re-runs `detectSupport` on THIS instance rather than minting a second worker pool
-      const basis = new KTX2Loader(manager).setTranscoderPath(_ADDRESS[_CODECS.ktx2.address](ktx2)).detectSupport(renderer)
-      const built = new GLTFLoader(manager)
-        .setDRACOLoader(new DRACOLoader(manager).setDecoderPath(_ADDRESS[_CODECS.draco.address](draco)).preload())
-        .setKTX2Loader(basis)
-        .register(_gate(Option.isSome(decoder)))
-      return {
-        gltf: Option.match(decoder, { onNone: () => built, onSome: (row) => built.setMeshoptDecoder(row) }),
-        ktx2: basis,
-      } satisfies Glb.Codecs
-    })
+    return yield* Effect.acquireRelease(
+      Effect.sync(() => {
+        // BOUNDARY ADAPTER — the address form is the row's own column; no site re-decides dir versus file
+        const manager = new LoadingManager()
+        manager.onProgress = taps.progress
+        manager.onError = taps.error
+        return {
+          manager,
+          draco: new DRACOLoader(manager).setDecoderPath(_ADDRESS[_CODECS.draco.address](draco)).preload(),
+          ktx2Dir: _ADDRESS[_CODECS.ktx2.address](ktx2),
+          meshopt: decoder,
+        } satisfies Glb.Served
+      }),
+      (row) => Effect.sync(() => row.draco.dispose()),
+    )
+  })
+
+// The renderer-BOUND half, re-minted with every acquisition. A transcoder cannot be re-targeted after the fact —
+// `detectSupport` writes a config field that each worker bakes at CREATION out of a lazily-filled pool — so a
+// backend swap gets a FRESH loader here rather than a second probe on the incumbent, and the displaced instance
+// dies under `_renderer`'s release. Its `dispose()` leaves `transcoderPending` resolved, so re-parsing through a
+// retired instance would spawn workers on a revoked blob URL; nothing captures the bundle, which forecloses it.
+// The loader publishes beside the transcoder because `[6]`'s deep-store dome decodes through that same instance.
+const _codecs = (served: Glb.Served, renderer: WebGLRenderer | WebGPURenderer): Effect.Effect<Glb.Codecs> =>
+  Effect.sync(() => {
+    // BOUNDARY ADAPTER
+    const basis = new KTX2Loader(served.manager).setTranscoderPath(served.ktx2Dir).detectSupport(renderer)
+    const built = new GLTFLoader(served.manager)
+      .setDRACOLoader(served.draco)
+      .setKTX2Loader(basis)
+      .register(_gate(Option.isSome(served.meshopt)))
+    return {
+      gltf: Option.match(served.meshopt, { onNone: () => built, onSome: (row) => built.setMeshoptDecoder(row) }),
+      ktx2: basis,
+    } satisfies Glb.Codecs
   })
 
 const _loop = (
@@ -1128,17 +1223,31 @@ declare namespace Glb {
   // callback-shaped for the deep store, promise-shaped for the bitmap legs — so no lane branches on decoder shape.
   type Container = {
     readonly probe: Option.Option<(octets: Uint8Array<ArrayBuffer>) => boolean>
-    readonly decode: Option.Option<(arrival: GlbViewport.Arrival, codecs: Glb.Codecs) => Effect.Effect<Texture, GlbFault>>
+    // the decode takes the ACQUISITION, not a codec record: the deep-store leg rides the renderer-bound
+    // transcoder, so the one carrier that can never be stale is the cell's own live value
+    readonly decode: Option.Option<(payload: Glb.Payload, acquired: Glb.Acquired) => Effect.Effect<Texture, GlbFault>>
   }
+  // the two columns a decode reads — the content key its refusal names and the whole-buffer octets. `[8]`'s plane
+  // arrives under a SET key carrying no generation of its own, so the decode takes this pair rather than the
+  // arrival record; a generation column here would be a field only one of the two callers could fill.
+  type Payload = Pick<GlbViewport.Arrival, "key" | "octets">
   type Slot = {
     readonly slot: Ref.Ref<Glb.Dome>
     readonly rebind: (acquired: Glb.Acquired) => Effect.Effect<void>
   }
 }
 
-// one projection carries the transfer tag onto three's colour-space constants; `[8]`'s per-plane stamp reads the wire's
-// own `transfer` column through it and the dome reads `_ENV.transfer`, so the estate's ACEScc-primaried linear
-// planes land under one declaration instead of two literals that drift apart
+// One projection carries the transfer tag onto three's colour-space constants; `[8]`'s per-plane stamp reads the
+// wire's own `transfer` column through it and the dome reads `_ENV.transfer`, so every linear plane the estate
+// decodes lands under one declaration instead of two literals that drift apart.
+// PRIMARIES are not this consumer's to convert. three registers exactly two working spaces — `srgb-linear` and
+// `srgb` — and while `ColorManagement.define()` accepts a custom space unvalidated (it is a bare `Object.assign`
+// onto the roster), a texture payload TAGGED with a custom linear non-Rec.709 space hard-`error()`s in the WebGL
+// backend's upload verification and shader-converts never at all on WebGPU, while float and half-float uploads
+// receive no conversion on either. An AP1-primaried plane is therefore converted to Rec.709 by its PRODUCER
+// before upload, and this table's `linear` row tags the decoded HDR and float payloads `LinearSRGBColorSpace`
+// because that is what they now are. A custom space is admissible only for `Color`-object math and an output
+// transform, never as a texture tag.
 const _TRANSFER = {
   srgb: SRGBColorSpace,
   linear: LinearSRGBColorSpace,
@@ -1182,10 +1291,10 @@ const _KTX2 = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a,
 // both DataTextureLoader legs differ only by their loader, so the decode parameterizes over the constructor
 const _plane =
   (open: () => { createDataTexture(buffer: ArrayBuffer): DataTexture }) =>
-  (arrival: GlbViewport.Arrival): Effect.Effect<Texture, GlbFault> =>
+  (payload: Glb.Payload): Effect.Effect<Texture, GlbFault> =>
     Effect.try({
-      try: () => open().createDataTexture(arrival.octets.buffer),
-      catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: String(defect) }),
+      try: () => open().createDataTexture(payload.octets.buffer),
+      catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }),
     })
 
 // every eight-bit row the browser reaches differs only by media type, so the decode parameterizes over it and
@@ -1193,20 +1302,25 @@ const _plane =
 // a channel plane's stored value, and the frozen top-left origin survives only where the browser applies none
 const _bitmap =
   (mime: string) =>
-  (arrival: GlbViewport.Arrival): Effect.Effect<Texture, GlbFault> =>
+  (payload: Glb.Payload): Effect.Effect<Texture, GlbFault> =>
     Effect.map(
       Effect.tryPromise({
         try: () =>
-          globalThis.createImageBitmap(new Blob([arrival.octets], { type: mime }), {
+          globalThis.createImageBitmap(new Blob([payload.octets], { type: mime }), {
             colorSpaceConversion: "none",
             premultiplyAlpha: "none",
             imageOrientation: "none",
           }),
-        catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: String(defect) }),
+        catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }),
       }),
       (bitmap) => {
-        // BOUNDARY ADAPTER — a bitmap-sourced texture uploads only once `needsUpdate` marks it
+        // BOUNDARY ADAPTER — a bitmap-sourced texture uploads only once `needsUpdate` marks it, and `flipY` is
+        // WRITTEN here because the base `Texture` class alone defaults it TRUE: the two DataTextureLoader legs and
+        // the deep store construct `DataTexture`/`CompressedTexture`, whose own constructors close it false. Left
+        // standing, three would flip the upload on both backends — `UNPACK_FLIP_Y_WEBGL` on WebGL, the copy's own
+        // flip on WebGPU — and undo the `imageOrientation: "none"` the decode just asked for.
         const texture = new Texture(bitmap)
+        texture.flipY = false
         texture.needsUpdate = true
         return texture
       },
@@ -1215,13 +1329,13 @@ const _bitmap =
 // dual-callback surfaces are the seam Effect.async owns; this instance is [5]'s configured transcoder, its declared
 // CompressedTexture is narrower than the DataTexture an uncompressed store yields, and the uncompressed branch
 // hands back NearestFilter and NoColorSpace, so the policy stamp closes the decode
-const _deep = (arrival: GlbViewport.Arrival, codecs: Glb.Codecs): Effect.Effect<Texture, GlbFault> =>
+const _deep = (payload: Glb.Payload, acquired: Glb.Acquired): Effect.Effect<Texture, GlbFault> =>
   Effect.async<Texture, GlbFault>((resume) =>
-    codecs.ktx2.parse(
-      arrival.octets.buffer,
+    acquired.codecs.ktx2.parse(
+      payload.octets.buffer,
       (texture) => resume(Effect.succeed(texture)),
       (defect) =>
-        resume(Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: String(defect) }))),
+        resume(Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }))),
     ))
 
 // This roster closes the frozen twelve: every container the wire can name has a row, and the browser answers in a column.
@@ -1267,14 +1381,14 @@ const _sniff = (octets: Uint8Array<ArrayBuffer>): Option.Option<Glb.Container> =
 // colour space at its own site
 const _decoded = (
   row: Glb.Container,
-  arrival: GlbViewport.Arrival,
-  codecs: Glb.Codecs,
+  payload: Glb.Payload,
+  acquired: Glb.Acquired,
   transfer: keyof typeof _TRANSFER,
   reason: GlbFault.Reason,
 ): Effect.Effect<Texture, GlbFault> =>
   Option.match(row.decode, {
-    onNone: () => Effect.fail(new GlbFault({ reason, mesh: `${arrival.key}`, detail: "<container-undecodable>" })),
-    onSome: (decode) => Effect.map(decode(arrival, codecs), (texture) => _filtered(texture, transfer)),
+    onNone: () => Effect.fail(new GlbFault({ reason, mesh: `${payload.key}`, detail: "<container-undecodable>" })),
+    onSome: (decode) => Effect.map(decode(payload, acquired), (texture) => _filtered(texture, transfer)),
   })
 
 // wire equirect is +Z-up, three samples +Y-up: remap the read basis, then rotate about world up — R = Ry(rotation) · Rx(-π/2);
@@ -1354,9 +1468,9 @@ const _rebind = (root: Scene, slot: Ref.Ref<Glb.Dome>) => (acquired: Glb.Acquire
 const _dome = (
   root: Scene,
   // the CELL: the boot rows read it once and the arrival lane reads it per arrival, so a dome landing after a
-  // re-init prefilters through the live generator instead of one its renderer already released
+  // re-init prefilters through the live generator and transcodes through the live pool instead of two handles its
+  // predecessor's renderer already released
   backplane: Glb.Backplane,
-  codecs: Glb.Codecs,
   arrivals: Stream.Stream<GlbViewport.Environment, GlbFault>,
   facts: Queue.Queue<Glb.ResidencyFact>,
   // every refusal is contained inside the forked lane, so the constructor itself carries no error channel
@@ -1401,7 +1515,7 @@ const _dome = (
                   Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: "<container-magic>" })),
                 onSome: Effect.succeed,
               })
-              const source = yield* _decoded(row, arrival, codecs, _ENV.transfer, "decode-refused")
+              const source = yield* _decoded(row, arrival, acquired, _ENV.transfer, "decode-refused")
               return yield* Effect.sync(() => ({
                 source: Option.some(source),
                 target: acquired.prefilter.fromEquirectangular(source),
@@ -1429,18 +1543,28 @@ const _dome = (
 
 ## [07]-[DRAW_COLLAPSE]
 
-- Owner: `Glb.draw` collapses merge, instancing, batching, visibility, tint, and culling into keyed rows.
+- Owner: `Glb.draw` collapses merge, instancing, batching, visibility, tint, culling, splat order, and the scene-tool queries into keyed rows.
 - Law: `Frame.Residency.kind` selects splat and culling posture once per graft.
+- Law: every per-view fold is a `Glb.Pass` over the camera — the cluster cull and the splat sort share one shape, so a frame driver folds one roster and no surface runs a private loop.
+- Law: ordering a splat composite is the CONSUMER's — the producer wire carries no ordering key, so back-to-front is re-derived on the camera epoch and never read off decode order.
+- Law: the tool rows carry no fault channel — a plane cutting nothing and a probe reaching no surface are absences the return spells, and the closed `GlbFault` roster names no query reason a tool miss could take without forking the family.
+- Boundary: `panel#CONTROL_SINKS` routes its `section` and `measure` sinks onto these rows; the world-space bake they descend belongs to the asking scope, never the residency ledger.
 
 ```typescript signature
 import { Array, Effect, Function, Option, type Scope } from "effect"
-import { BatchedMesh, Color, Frustum, InstancedMesh, LinearSRGBColorSpace, Matrix4, Sphere, Vector4 } from "three"
-import type { BufferGeometry, Material, Object3D, PerspectiveCamera } from "three"
+import {
+  BatchedMesh, BufferAttribute, Color, DynamicDrawUsage, Frustum, InstancedMesh, Line3, LinearSRGBColorSpace,
+  Matrix4, Plane as CutPlane, Sphere, Vector3, Vector4,
+} from "three"
+import type {
+  BufferGeometry, InterleavedBufferAttribute, Material, Object3D, PerspectiveCamera, Points,
+} from "three"
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js"
 import { bool, Fn, instancedArray, instanceIndex, select, uint, uniform } from "three/tsl"
 import { WebGPURenderer } from "three/webgpu"
 import type { StorageBufferNode, UniformNode } from "three/webgpu"
-import { MeshBVH, StaticGeometryGenerator } from "three-mesh-bvh"
+import { INTERSECTED, MeshBVH, NOT_INTERSECTED, StaticGeometryGenerator } from "three-mesh-bvh"
+import type { HitPointInfo } from "three-mesh-bvh"
 
 const _instanced = (geometry: BufferGeometry, material: Material, placements: ReadonlyArray<Matrix4>): InstancedMesh => {
   const built = new InstancedMesh(geometry, material, placements.length)
@@ -1489,7 +1613,8 @@ const _PLANES = 6
 const _CULL = { workgroup: [64, 1, 1] } as const satisfies { workgroup: ReadonlyArray<number> }
 
 declare namespace Glb {
-  // the pass holds its own GPU buffers for the batch's whole life, so the frame call carries only the camera
+  // the pass holds its own GPU buffers and scratch for its subject's whole life, so the frame call carries only
+  // the camera; the cull and the splat sort are both instances, which is why the frame driver folds one roster
   type Pass = (camera: PerspectiveCamera) => Effect.Effect<void>
   type Cluster = {
     readonly count: number
@@ -1497,6 +1622,13 @@ declare namespace Glb {
     readonly verdict: StorageBufferNode<"uint">
     readonly planes: ReadonlyArray<UniformNode<"vec4", Vector4>>
   }
+  // one snapped surface answer, verbatim from the descent, so no second hit vocabulary stands between the pick
+  // plane and the measure
+  type Hit = HitPointInfo
+  // the cut a section plane contributes, in descent order — the world-space polyline a section overlay draws
+  type Cut = ReadonlyArray<Line3>
+  // both measure endpoints snapped to the surface, with the span they subtend
+  type Span = { readonly from: Glb.Hit; readonly to: Glb.Hit; readonly length: number }
 }
 
 // BOUNDARY ADAPTER — the batched slot plane is an imperative per-instance surface and its readers write into
@@ -1590,6 +1722,13 @@ const _cull = (batch: BatchedMesh, acquired: Glb.Acquired): Effect.Effect<Glb.Pa
                 cluster.bounds.value.needsUpdate = true // the attribute wraps the draft, so the write IS the upload
               })
               yield* Effect.promise(() => renderer.computeAsync(kernel, cluster.count))
+              // `getArrayBufferAsync(attribute, target = null, offset = 0, count = -1)` accepts ANY buffer
+              // attribute — every attribute path grants `COPY_SRC`, so a storage-instanced attribute needs no
+              // second shape — and its only gate is that offset and count stay multiples of four. The three
+              // target arms are a real choice: `null` allocates a fresh `ArrayBuffer` per frame, a
+              // `ReadbackBuffer` holds a persistent mapped buffer that THROWS unless `.release()` ran since its
+              // last read, and a plain `ArrayBuffer` is copied into in place. This pass takes the third, so the
+              // per-frame allocation is zero and no release obligation crosses the frame boundary.
               const read = yield* Effect.promise(() => renderer.getArrayBufferAsync(cluster.verdict.value, store))
               yield* Effect.sync(() => _visible(batch, _verdicts(batch, new Uint32Array(read))))
             }),
@@ -1597,8 +1736,8 @@ const _cull = (batch: BatchedMesh, acquired: Glb.Acquired): Effect.Effect<Glb.Pa
     },
   )
 
-// this world-space peer bakes one assembly through its own transforms and indexes it by ONE tree, so section-plane
-// overlap and point-to-surface measure descend once instead of iterating parts. The build is synchronous because
+// this world-space peer bakes one assembly through its own transforms and indexes it by ONE tree, so the section
+// and measure rows below descend once instead of iterating parts. The build is synchronous because
 // it answers a query already in flight, not a graft — a residency tree is `[5]`'s and rides the worker — and it is
 // bracketed on the ASKING query's scope, because a bake outside the ledger has no release visitor to free it.
 const _baked = (subtree: Object3D): Effect.Effect<{ readonly geometry: BufferGeometry; readonly tree: MeshBVH }, never, Scope.Scope> =>
@@ -1610,22 +1749,152 @@ const _baked = (subtree: Object3D): Effect.Effect<{ readonly geometry: BufferGeo
       const geometry = generator.generate()
       return { geometry, tree: new MeshBVH(geometry, _options(Function.constVoid)) }
     }),
-    // the bake's own index frees ahead of the buffers it indexes, mirroring `[5]`'s release order exactly
+    // the buffers are the only RESOURCE the bake holds: a directly constructed tree parks on no geometry slot and
+    // owns no GPU handle, so it dies with the record and the release states the one free that is real. `[5]`'s
+    // extra `disposeBoundsTree` arm clears a slot the residency walk PARKED, which this bake never fills.
     (baked) => Effect.sync(() => void baked.geometry.dispose()),
   )
+
+// --- [SPLAT_ORDER]
+
+// The splat sort's own policy: sixteen-bit depth buckets, and the cosine below which the view axis counts as a new
+// epoch. A splat order is invariant under camera TRANSLATION — every point's depth shifts by the same amount — so
+// the axis alone is the epoch, and a still or dollying view re-sorts nothing.
+const _SPLAT = { buckets: 1 << 16, epoch: 0.9999 } as const satisfies { buckets: number; epoch: number }
+
+// BOUNDARY ADAPTER — the attribute reader is the one accessor both the interleaved and the flat layout answer, so
+// the fold never re-derives a stride the parse already owns
+const _depths = (
+  position: BufferAttribute | InterleavedBufferAttribute,
+  axis: Vector3,
+  depths: Float32Array,
+): void => {
+  for (let point = 0; point < depths.length; point += 1) {
+    depths[point] = position.getX(point) * axis.x + position.getY(point) * axis.y + position.getZ(point) * axis.z
+  }
+}
+
+// The radix pass: one bucket census, a prefix scan, one scatter — linear in the point count where a comparison
+// sort is not, which is what makes a per-view re-order affordable on a million-point payload. The scan walks the
+// FAR bucket down, so the scatter lands the farthest point first and the index IS the back-to-front draw order.
+const _ordered = (depths: Float32Array, keys: Uint16Array, census: Uint32Array, order: Uint32Array): void => {
+  // BOUNDARY ADAPTER — three flat passes over caller-held scratch; nothing allocates inside a frame
+  let low = depths[0] ?? 0
+  let high = low
+  for (let at = 0; at < depths.length; at += 1) {
+    const depth = depths[at] ?? 0
+    low = depth < low ? depth : low
+    high = depth > high ? depth : high
+  }
+  // a degenerate span collapses every point into bucket zero, which leaves the incoming order untouched rather
+  // than dividing by nothing — a single-plane scan has no depth order to resolve
+  const scale = high > low ? (_SPLAT.buckets - 1) / (high - low) : 0
+  census.fill(0)
+  for (let at = 0; at < depths.length; at += 1) {
+    const key = Math.round(((depths[at] ?? 0) - low) * scale)
+    keys[at] = key
+    census[key] = (census[key] ?? 0) + 1
+  }
+  let cursor = 0
+  for (let key = _SPLAT.buckets - 1; key >= 0; key -= 1) {
+    const held = census[key] ?? 0
+    census[key] = cursor
+    cursor += held
+  }
+  for (let at = 0; at < depths.length; at += 1) {
+    const key = keys[at] ?? 0
+    order[census[key] ?? 0] = at
+    census[key] = (census[key] ?? 0) + 1
+  }
+}
+
+// ONE per-view fold over a splat payload, composed as a `Glb.Pass` beside the cull. The scratch and the index are
+// held for the payload's life because a per-frame allocation at this arity is the named defect, and the pass mints
+// no handle the graft does not already own — the index attribute parks on the drawable's own geometry, so `[5]`'s
+// release visitor frees it under the same `geometry.dispose()` that frees the positions it orders.
+const _sorted = (points: Points): Effect.Effect<Glb.Pass> =>
+  Effect.sync(() => {
+    // BOUNDARY ADAPTER — the index is minted once at the payload's arity and rewritten in place thereafter
+    const position = points.geometry.getAttribute("position")
+    const depths = new Float32Array(position.count)
+    const keys = new Uint16Array(position.count)
+    const census = new Uint32Array(_SPLAT.buckets)
+    const order = new Uint32Array(position.count)
+    const index = new BufferAttribute(order, 1)
+    index.setUsage(DynamicDrawUsage)
+    points.geometry.setIndex(index)
+    const axis = new Vector3()
+    const held = new Vector3() // the zero seed never clears the epoch gate, so the first pass always sorts
+    return (camera) =>
+      Effect.sync(() => {
+        camera.getWorldDirection(axis)
+        if (held.dot(axis) > _SPLAT.epoch) return
+        held.copy(axis)
+        _depths(position, axis, depths)
+        _ordered(depths, keys, census, order)
+        index.needsUpdate = true
+      })
+  })
+
+// --- [TOOL_QUERY]
+
+// The SECTION row `panel#CONTROL_SINKS` routes its `section` sink onto: one descent over the baked assembly,
+// pruning every node the plane misses and cutting each surviving triangle into the one segment it contributes.
+// `CONTAINED` never arises — a plane bounds nothing — so the bounds column is the two-way prune the descent needs
+// and no third verdict is spelled. The bake is the caller's: `_baked` holds the world-space geometry and its tree
+// under the asking scope, so a tool session pays one bake and every plane drag descends it.
+const _section = (tree: MeshBVH, plane: CutPlane): Effect.Effect<Glb.Cut> =>
+  Effect.sync(() => {
+    // BOUNDARY ADAPTER — the descent writes into local scratch and the segment set detaches at the return
+    const cut: Array<Line3> = []
+    const edge = new Line3()
+    const crossed = new Vector3()
+    tree.shapecast({
+      intersectsBounds: (box) => (plane.intersectsBox(box) ? INTERSECTED : NOT_INTERSECTED),
+      intersectsTriangle: (triangle) => {
+        const corners = [triangle.a, triangle.b, triangle.c] as const
+        const met: Array<Vector3> = []
+        corners.forEach((corner, at) => {
+          edge.start.copy(corner)
+          edge.end.copy(corners[(at + 1) % corners.length]!) // sanctioned assertion: the modulus is the triangle's own arity
+          if (plane.intersectLine(edge, crossed) !== null) met.push(crossed.clone())
+        })
+        // a straddling triangle contributes exactly one segment; a coplanar or vertex-grazing one contributes
+        // none, because two coincident crossings carry no direction a section overlay can draw
+        if (met.length === 2 && !met[0]!.equals(met[1]!)) cut.push(new Line3(met[0]!, met[1]!))
+      },
+    })
+    return cut
+  })
+
+// the point-to-surface leaf both measure endpoints fold through: the descent answers the nearest surface point,
+// its distance, and the face it landed on. A probe outside every bound answers NONE rather than a fault, because
+// an unreached surface is an absence this return already spells
+const _nearest = (tree: MeshBVH, point: Vector3): Effect.Effect<Option.Option<Glb.Hit>> =>
+  Effect.sync(() => Option.fromNullable(tree.closestPointToPoint(point)))
+
+// the MEASURE row `panel#CONTROL_SINKS` routes its `measure` sink onto: both raw endpoints snap through the leaf
+// before the span is read, so a measurement always spans two points the assembly actually carries and never two
+// the pointer happened to land near
+const _measure = (tree: MeshBVH, from: Vector3, to: Vector3): Effect.Effect<Option.Option<Glb.Span>> =>
+  Effect.map(Effect.all([_nearest(tree, from), _nearest(tree, to)]), ([start, end]) =>
+    Option.map(Option.all([start, end]), ([head, tail]) =>
+      ({ from: head, to: tail, length: head.point.distanceTo(tail.point) }) satisfies Glb.Span))
 ```
 
 ## [08]-[APPEARANCE_BIND]
 
 - Owner: `Pbr` binds decoded OpenPBR values and addressed texture planes to declared Three.js slots.
-- Law: one role table owns channel seating, color transfer, packing, and refusal evidence.
+- Law: one role table owns channel seating, color transfer, packing, refusal evidence, and which slots exist only on the physical class.
+- Law: the widening upgrade is a NARROW copy through the standard prototype — the two idioms three appears to offer both destroy the target.
+- Law: alpha association is a blend fact the material owns; `Texture.premultiplyAlpha` reaches the browser-decoded legs alone — where the decode already demanded straight alpha and the flag stays at its false default — and is inert on every ArrayBufferView upload, so no leg multiplies and association lands on the material.
 
 ```typescript signature
 type MaterialRow = Material
 import { Array, Effect, HashMap, Option } from "effect"
 import {
-  ClampToEdgeWrapping, DoubleSide, FrontSide, LinearSRGBColorSpace, RepeatWrapping,
-  type Color, type MeshPhysicalMaterial, type Texture as Plane,
+  ClampToEdgeWrapping, DoubleSide, FrontSide, LinearSRGBColorSpace, MeshPhysicalMaterial, MeshStandardMaterial,
+  RepeatWrapping, type Color, type Texture as Plane,
 } from "three"
 
 declare namespace Pbr {
@@ -1647,14 +1916,16 @@ declare namespace Pbr {
     readonly worn: HashMap.HashMap<Digest.Key<"content">, Digest.Key<"content">>
   }
   type Seat = { readonly summary: AppearanceSummary; readonly set: Option.Option<TextureSet> }
-  // `slot` is null for the fifteen roles `MeshPhysicalMaterial` declares nothing for; `component` is the LOWEST
+  // `slot` is null for the roles `MeshPhysicalMaterial` declares nothing for; `component` is the LOWEST
   // stored texel width carrying the swizzle three's own shader chunk samples, so the width proof is arithmetic
   // against `TextureVocab.rows.plane[format].width` rather than a per-role exception; `scalar` is the lobe field a false pack
-  // slot neutralizes and the companion a debug view reads
+  // slot neutralizes and the companion a debug view reads; `physical` marks the rows whose slot or scalar exists
+  // ONLY on the physical class, which is the one column the standard-graft upgrade gate reads
   type RoleSlot = {
     readonly slot: keyof MeshPhysicalMaterial | null
     readonly component: 1 | 2 | 3 | 4 | null
     readonly scalar: keyof MeshPhysicalMaterial | null
+    readonly physical: boolean
   }
   // ONE seating request whichever row minted it: a channel row seats one role from its own plane and a pack row
   // seats its present slots from a shared one, so decode, stamp, assignment, and refusal have a single owner
@@ -1671,6 +1942,8 @@ declare namespace Pbr {
     readonly roles: typeof _ROLE_SLOT
     readonly index: typeof _index
     readonly resolve: typeof _resolve
+    readonly demands: typeof _demands
+    readonly upgrade: typeof _upgraded
     readonly seat: typeof _seat
   }
 }
@@ -1682,43 +1955,45 @@ declare namespace Pbr {
 // `metalnessmap_fragment` `.b`, the normal and colour reads `.xyz`/`.rgb`, and `lights_physical_fragment`'s
 // specular-intensity and sheen-roughness reads `.a`. Every unslotted row is POLICY: tangent frames are the
 // `TANGENT` accessor's, curvature and the subsurface pair are probe analysis planes, the rest are scalar lobes.
+// The `physical` column is the standard class's own declaration boundary: the coat, fuzz, transmission, thin-film,
+// anisotropy, and specular-tint families are physical-only, so a write against a standard target drops silently.
 const _ROLE_SLOT: { readonly [K in TextureVocab.Role]: Pbr.RoleSlot } = {
-  base_weight: { slot: null, component: null, scalar: null },
-  base_color: { slot: "map", component: 4, scalar: "color" },
-  base_metalness: { slot: "metalnessMap", component: 3, scalar: "metalness" },
-  base_diffuse_roughness: { slot: null, component: null, scalar: null },
-  base_specular_tint: { slot: null, component: null, scalar: null },
-  specular_weight: { slot: "specularIntensityMap", component: 4, scalar: "specularIntensity" },
-  specular_color: { slot: "specularColorMap", component: 3, scalar: "specularColor" },
-  specular_roughness: { slot: "roughnessMap", component: 2, scalar: "roughness" },
-  specular_roughness_anisotropy: { slot: "anisotropyMap", component: 3, scalar: "anisotropy" },
+  base_weight: { slot: null, component: null, scalar: null, physical: false },
+  base_color: { slot: "map", component: 4, scalar: "color", physical: false },
+  base_metalness: { slot: "metalnessMap", component: 3, scalar: "metalness", physical: false },
+  base_diffuse_roughness: { slot: null, component: null, scalar: null, physical: false },
+  base_specular_tint: { slot: null, component: null, scalar: null, physical: false },
+  specular_weight: { slot: "specularIntensityMap", component: 4, scalar: "specularIntensity", physical: true },
+  specular_color: { slot: "specularColorMap", component: 3, scalar: "specularColor", physical: true },
+  specular_roughness: { slot: "roughnessMap", component: 2, scalar: "roughness", physical: false },
+  specular_roughness_anisotropy: { slot: "anisotropyMap", component: 3, scalar: "anisotropy", physical: true },
   // three exposes no rotation MAP — the direction rides anisotropyMap's RG encode; the plane stays a scalar lobe
-  specular_roughness_anisotropy_rotation: { slot: null, component: null, scalar: "anisotropyRotation" },
-  specular_ior: { slot: null, component: null, scalar: "ior" },
-  transmission_weight: { slot: "transmissionMap", component: 1, scalar: "transmission" },
-  transmission_roughness: { slot: null, component: null, scalar: null },
-  subsurface_weight: { slot: null, component: null, scalar: null },
-  subsurface_radius: { slot: null, component: null, scalar: null },
-  coat_weight: { slot: "clearcoatMap", component: 1, scalar: "clearcoat" },
-  coat_color: { slot: null, component: null, scalar: null },
-  coat_roughness: { slot: "clearcoatRoughnessMap", component: 2, scalar: "clearcoatRoughness" },
-  coat_ior: { slot: null, component: null, scalar: null },
-  fuzz_weight: { slot: null, component: null, scalar: "sheen" },
-  fuzz_color: { slot: "sheenColorMap", component: 3, scalar: "sheenColor" },
-  fuzz_roughness: { slot: "sheenRoughnessMap", component: 4, scalar: "sheenRoughness" },
-  thin_film_weight: { slot: "iridescenceMap", component: 1, scalar: "iridescence" },
-  thin_film_thickness: { slot: "iridescenceThicknessMap", component: 2, scalar: "iridescenceThicknessRange" },
-  thin_film_ior: { slot: null, component: null, scalar: "iridescenceIOR" },
-  emission_color: { slot: "emissiveMap", component: 3, scalar: "emissive" },
-  emission_luminance: { slot: null, component: null, scalar: "emissiveIntensity" },
-  geometry_opacity: { slot: "alphaMap", component: 2, scalar: "opacity" },
-  geometry_normal: { slot: "normalMap", component: 3, scalar: "normalScale" },
-  geometry_coat_normal: { slot: "clearcoatNormalMap", component: 3, scalar: "clearcoatNormalScale" },
-  geometry_tangent: { slot: null, component: null, scalar: null },
-  geometry_coat_tangent: { slot: null, component: null, scalar: null },
-  height: { slot: "displacementMap", component: 1, scalar: "displacementScale" },
-  occlusion: { slot: "aoMap", component: 1, scalar: "aoMapIntensity" },
-  curvature: { slot: null, component: null, scalar: null },
+  specular_roughness_anisotropy_rotation: { slot: null, component: null, scalar: "anisotropyRotation", physical: true },
+  specular_ior: { slot: null, component: null, scalar: "ior", physical: true },
+  transmission_weight: { slot: "transmissionMap", component: 1, scalar: "transmission", physical: true },
+  transmission_roughness: { slot: null, component: null, scalar: null, physical: false },
+  subsurface_weight: { slot: null, component: null, scalar: null, physical: false },
+  subsurface_radius: { slot: null, component: null, scalar: null, physical: false },
+  coat_weight: { slot: "clearcoatMap", component: 1, scalar: "clearcoat", physical: true },
+  coat_color: { slot: null, component: null, scalar: null, physical: false },
+  coat_roughness: { slot: "clearcoatRoughnessMap", component: 2, scalar: "clearcoatRoughness", physical: true },
+  coat_ior: { slot: null, component: null, scalar: null, physical: false },
+  fuzz_weight: { slot: null, component: null, scalar: "sheen", physical: true },
+  fuzz_color: { slot: "sheenColorMap", component: 3, scalar: "sheenColor", physical: true },
+  fuzz_roughness: { slot: "sheenRoughnessMap", component: 4, scalar: "sheenRoughness", physical: true },
+  thin_film_weight: { slot: "iridescenceMap", component: 1, scalar: "iridescence", physical: true },
+  thin_film_thickness: { slot: "iridescenceThicknessMap", component: 2, scalar: "iridescenceThicknessRange", physical: true },
+  thin_film_ior: { slot: null, component: null, scalar: "iridescenceIOR", physical: true },
+  emission_color: { slot: "emissiveMap", component: 3, scalar: "emissive", physical: false },
+  emission_luminance: { slot: null, component: null, scalar: "emissiveIntensity", physical: false },
+  geometry_opacity: { slot: "alphaMap", component: 2, scalar: "opacity", physical: false },
+  geometry_normal: { slot: "normalMap", component: 3, scalar: "normalScale", physical: false },
+  geometry_coat_normal: { slot: "clearcoatNormalMap", component: 3, scalar: "clearcoatNormalScale", physical: true },
+  geometry_tangent: { slot: null, component: null, scalar: null, physical: false },
+  geometry_coat_tangent: { slot: null, component: null, scalar: null, physical: false },
+  height: { slot: "displacementMap", component: 1, scalar: "displacementScale", physical: false },
+  occlusion: { slot: "aoMap", component: 1, scalar: "aoMapIntensity", physical: false },
+  curvature: { slot: null, component: null, scalar: null, physical: false },
 }
 
 // glTF declares its scene in metres and the set declares its height span in millimetres: this is the ONE unit
@@ -1768,16 +2043,20 @@ const _lobes = (material: MeshPhysicalMaterial, groups: PbrGroups): MeshPhysical
   return material
 }
 
-// this set-level stamp reads four sources and nothing else. `flipY` is never written — the frozen storage origin is
-// top-left and every decode leg already defaults it false — and the KTX2 leg stamps `premultiplyAlpha` itself
-// off the DFD alpha flag, so this write is the authority for the bitmap and data-texture legs alone.
+// This set-level stamp reads the set row and the acquisition's sampling cap and nothing else. `flipY` is never
+// written HERE because `[6]`'s decode already closed it at the one leg whose class defaults it true, and both
+// backends honour it on every upload path, so a second opinion at the set stamp could only fight the decode.
+// `premultiplyAlpha` is never written either, but for the opposite reason: it rides `UNPACK_PREMULTIPLY_ALPHA_WEBGL`
+// on WebGL and the external-image copy's own flag on WebGPU, so it reaches the three browser-decoded legs and is
+// silently inert on every ArrayBufferView leg — and on the legs it does reach, the decode already asked for
+// straight alpha, so the false default is the correct write. The KTX2 leg's own stamp off the DFD alpha flag is
+// inert for the same reason. Association therefore lands on the material's blend at `_seat`.
 const _stamped = (plane: Plane, set: TextureSet, acquired: Glb.Acquired): Plane => {
   // BOUNDARY ADAPTER
   plane.wrapS = set.tiled ? RepeatWrapping : ClampToEdgeWrapping
   plane.wrapT = plane.wrapS
   plane.anisotropy = acquired.anisotropy
   plane.channel = 0
-  plane.premultiplyAlpha = set.alphaMode === "associated"
   acquired.renderer.initTexture(plane)
   return plane
 }
@@ -1812,6 +2091,32 @@ const _seatings = (set: TextureSet): ReadonlyArray<Pbr.Seating> => [
   }),
 ]
 
+// The upgrade GATE. `_lobes` writes the physical-only scalars unconditionally, so ANY resolved override already
+// demands the physical class; a set demands it wherever a present role's own `physical` column reads true. Every
+// other appearance seats entirely inside the standard declaration and earns no mint, which is what keeps the
+// upgrade off the majority of grafts.
+const _demands = (bound: Pbr.Bound): boolean =>
+  Option.isSome(bound.override) ||
+  Option.exists(bound.set, (set) =>
+    Array.some(_seatings(set), (seating) => Array.some(seating.present, (role) => _ROLE_SLOT[role].physical)))
+
+// THE one widening path, and it is a NARROW copy. `MeshStandardMaterial.prototype.copy` carries every shared
+// property onto the physical target and touches no physical lobe, so the constructor defaults survive and the
+// target keeps its own `uuid`, `type`, and `isMeshPhysicalMaterial`. The re-stamp is mandatory, not tidiness:
+// that copy assigns a fresh `{ STANDARD: "" }` and PHYSICAL is what gates `#define IOR` and `USE_SPECULAR` in the
+// shipped program.
+const _upgraded = (source: MeshStandardMaterial): MeshPhysicalMaterial => {
+  // BOUNDARY ADAPTER — two traps are foreclosed here and nowhere else. The apparent idiom
+  // `new MeshPhysicalMaterial().copy(standardSource)` THROWS: the widening copy writes `undefined` across the
+  // scalar lobes and then dereferences the source's absent `clearcoatNormalScale`, leaving a half-corrupted
+  // target behind. `setValues(standardSource)` completes but blind-assigns `type` and `uuid` from the source and
+  // ALIASES its `defines` object, so the target reports as standard and program routing reads `type`.
+  const target = new MeshPhysicalMaterial()
+  MeshStandardMaterial.prototype.copy.call(target, source)
+  target.defines = { STANDARD: "", PHYSICAL: "" }
+  return target
+}
+
 // every refusal a seating can carry, read off wire columns alone — no predicate widens as roles or packs grow
 const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): ReadonlyArray<GlbFault> => {
   const refuse = (reason: GlbFault.Reason, detail: string): GlbFault => new GlbFault({ reason, mesh, detail })
@@ -1840,7 +2145,6 @@ const _seated = (
   set: TextureSet,
   seating: Pbr.Seating,
   port: GlbViewport.Appearance,
-  codecs: Glb.Codecs,
   acquired: Glb.Acquired,
 ): Effect.Effect<ReadonlyArray<GlbFault>> =>
   Array.match(_unseatable(set, seating, `${set.setKey}/${seating.address[1]}`), {
@@ -1852,7 +2156,7 @@ const _seated = (
         const plane = yield* _decoded(
           _CONTAINERS[seating.container],
           { key: set.setKey, octets },
-          codecs,
+          acquired,
           seating.transfer,
           "plane-unbound",
         )
@@ -1889,25 +2193,36 @@ const _seat = (
   material: MeshPhysicalMaterial,
   bound: Pbr.Bound,
   port: GlbViewport.Appearance,
-  codecs: Glb.Codecs,
   acquired: Glb.Acquired,
 ): Effect.Effect<ReadonlyArray<GlbFault>> =>
   Effect.map(
     Option.match(bound.set, {
       onNone: () => Effect.succeed<ReadonlyArray<ReadonlyArray<GlbFault>>>([]),
       onSome: (set) =>
-        Effect.forEach(_seatings(set), (seating) => _seated(material, set, seating, port, codecs, acquired)),
+        Effect.forEach(_seatings(set), (seating) => _seated(material, set, seating, port, acquired)),
     }),
     (refusals) => {
       // BOUNDARY ADAPTER — the lobe fold runs first so a seated plane always modulates a carried scalar, and
       // `needsUpdate` closes the whole seat once: assigning a map where there was none demands the recompile
       Option.map(bound.override, (row) => _lobes(material, row.openPbr))
+      // the set's alpha mode is a BLEND fact, not an upload one: an associated payload arrives already
+      // multiplied, so the consumer's whole obligation is the equation, and asking the upload to multiply again
+      // would double it even on the DOM-source legs where the texture flag is not inert
+      Option.map(bound.set, (set) => void (material.premultipliedAlpha = set.alphaMode === "associated"))
       material.needsUpdate = true
       return Array.flatten(refusals)
     },
   )
 
-// this census IS the index: the summary roster fixes the appearance key space and every other roster joins onto it
+// This census IS the index: the summary roster fixes the appearance key space and every other roster joins onto
+// it. Both sides of every join carry the appearance key in its DECODED spelling, because `Digest.Key<"content">`
+// brands the seed-zero content hash as thirty-two LOWERCASE hex and the two codecs reaching it both land there:
+// `summary.appearanceKey` crosses on the bytes codec, whose hex encode is lowercase, and `set.appearanceKey` on
+// the wire codec, whose UPPERCASE egress form is lowered at decode and re-raised only at encode. They therefore
+// compare like for like and no site re-cases. A key meets a PATH exactly once, at the port's own egress-name
+// construction: `planes` takes the key and derives the address, where `_AssetIdentity`'s lowercase digest
+// admission has nothing left to lower and refuses an uppercased segment outright. Re-casing at a compare, or
+// carrying the wire's uppercase form into a path segment, are both the deleted direction.
 const _index = (document: GlbViewport.Appearance): Effect.Effect<Pbr.Index, GlbFault> =>
   Effect.gen(function* () {
     const seats = Array.reduce(
@@ -1955,31 +2270,98 @@ const _resolve = (index: Pbr.Index, mesh: Digest.Key<"content">): Option.Option<
       }
     }))
 
-const Pbr: Pbr.Shape = { roles: _ROLE_SLOT, index: _index, resolve: _resolve, seat: _seat }
+const Pbr: Pbr.Shape = {
+  roles: _ROLE_SLOT,
+  index: _index,
+  resolve: _resolve,
+  demands: _demands,
+  upgrade: _upgraded,
+  seat: _seat,
+}
 ```
 
 ## [09]-[INSTANCED_ROWS]
 
-- Owner: `Instanced` projects georeferenced instances into deck-layer values.
-- Boundary: the shared scene port supplies verified identities and appearance data.
+- Owner: `Instanced` folds resident grafts into georeferenced deck-layer values over one placement axis.
+- Law: the anchor roster is a fold over the residency ledger — a repeat outlives neither the graft it repeats nor the key that graft arrived under.
+- Law: placement is the `Matrix4` `[07]` already speaks, and deck's own matrix-XOR-triple law keeps it the only transform vocabulary this pair carries.
+- Law: colour crosses through `[08]`'s ingest — the linear triple seats under `LinearSRGBColorSpace` and reads back out under `SRGBColorSpace`, because deck instances take eight-bit display bytes.
+- Boundary: these rows mint deck layer DESCRIPTORS, not GPU handles — deck's reconciler allocates and finalizes at mount, so a `Scope` bracket here would fight it and free nothing, and the mesh and scenegraph payloads stay the caller's.
+- Boundary: the map coordinate is `geo#PROJECT`'s, the redraw clock is the overlay's, and `Tile3DLayer` hands its mesh and scenegraph tile content in through this pair.
 
 ```typescript signature
-import type { Color, Position } from "@deck.gl/core"
+import type { Color as Paint, Position } from "@deck.gl/core"
 import { ScenegraphLayer, SimpleMeshLayer } from "@deck.gl/mesh-layers"
+import { Array, HashMap, Option } from "effect"
+import { Color as Ink, type Matrix4, SRGBColorSpace } from "three"
 
 declare namespace Instanced {
+  // the georeferenced repeat of ONE resident graft: `key` is the verified content key its geometry arrived under
+  // — the ledger's own address, so an instance can be joined back to its residency row, its appearance, and its
+  // tree — while `placement` is `[07]`'s transform vocabulary rather than a second orientation-and-scale pair
   type Anchor = {
-    readonly id: string
-    readonly position: Position
-    readonly yaw: number
-    readonly scale: readonly [number, number, number]
-    readonly tint: Color
+    readonly key: Digest.Key<"content">
+    readonly anchor: Position
+    readonly placement: Matrix4
+    readonly tint: Paint
   }
+  // the geo counterpart of `GlbViewport.Addressed`, and total for the same reason: a resident graft the map has
+  // not placed yet is lawfully absent, and asking for a placement is never a request to compute one
+  type Placed = (key: Digest.Key<"content">) => Option.Option<{
+    readonly anchor: Position
+    readonly placement: Matrix4
+  }>
   type Shape = {
+    readonly anchors: typeof _anchors
     readonly mesh: typeof _mesh
     readonly scene: typeof _scene
   }
 }
+
+// deck reads instance colour as eight-bit DISPLAY bytes while every tint on this page is a working-space linear
+// triple, so the crossing runs through `[8]`'s own reader in both halves: `_tint` seats the triple under
+// `LinearSRGBColorSpace` and `getRGB` reads it out under `SRGBColorSpace`, which is the transfer three's
+// `ColorManagement` owns. A raw triple scaled to bytes skips both and renders the working value as display.
+const _INK = { full: 255 } as const satisfies { full: number }
+
+// the untinted floor: deck multiplies the instance colour into the sampled surface, so opaque white is the
+// identity a graft with no resolved override deserves
+const _NEUTRAL: Paint = [_INK.full, _INK.full, _INK.full, _INK.full]
+
+const _paint = (linear: readonly [number, number, number], scratch: Ink, display: Ink): Paint => {
+  // BOUNDARY ADAPTER — the scratch pair is caller-held and the byte tuple detaches at the return
+  _tint(scratch, linear).getRGB(display, SRGBColorSpace)
+  return [display.r * _INK.full, display.g * _INK.full, display.b * _INK.full, _INK.full]
+}
+
+// The anchor roster is a FOLD over the residency ledger, never a second census: a repeat exists only where the
+// graft it repeats is resident, so an eviction drops its instances in the same pass the release visitor frees the
+// buffers. The tint is the appearance `Pbr` already resolved rather than a second colour authority — a mesh no
+// appearance wears keeps the neutral, and a key the map has not placed drops out as lawful absence.
+const _anchors = (
+  ledger: Glb.Ledger,
+  index: Pbr.Index,
+  placed: Instanced.Placed,
+): ReadonlyArray<Instanced.Anchor> => {
+  // BOUNDARY ADAPTER — one scratch pair serves the whole sweep, because `_paint` copies into the tuple it returns
+  const scratch = new Ink()
+  const display = new Ink()
+  return Array.filterMap(HashMap.keys(ledger), (key) =>
+    Option.map(placed(key), (seat) => ({
+      key,
+      anchor: seat.anchor,
+      placement: seat.placement,
+      tint: Option.match(Option.flatMap(Pbr.resolve(index, key), (bound) => bound.override), {
+        onNone: () => _NEUTRAL,
+        onSome: (row) => _paint(row.openPbr.base.color.rgb, scratch, display),
+      }),
+    } satisfies Instanced.Anchor)))
+}
+
+// the deck-side policy beside the rows it feeds: `sizeScale` multiplies the placement matrix, so one is the
+// identity this page holds, and the animation SPEED is the only time column here — the frame the animator
+// advances against is the overlay's, which reads `geo#FRAME_CLOCK` like every other animated surface
+const _DECK = { sizeScale: 1, speed: 1 } as const satisfies { sizeScale: number; speed: number }
 
 const _mesh = (id: string, mesh: SimpleMeshLayer["props"]["mesh"], anchors: ReadonlyArray<Instanced.Anchor>) =>
   new SimpleMeshLayer<Instanced.Anchor>({
@@ -1987,10 +2369,12 @@ const _mesh = (id: string, mesh: SimpleMeshLayer["props"]["mesh"], anchors: Read
     data: anchors,
     mesh,
     pickable: true,
-    getPosition: (row) => row.position,
-    getOrientation: (row) => [0, row.yaw, 0],
-    getScale: (row) => [row.scale[0], row.scale[1], row.scale[2]],
+    getPosition: (row) => row.anchor,
+    // deck's matrix XOR: supplying this retires the orientation/scale/translation triple whole, which is exactly
+    // the second transform vocabulary this row refuses to carry
+    getTransformMatrix: (row) => row.placement.elements,
     getColor: (row) => row.tint,
+    sizeScale: _DECK.sizeScale,
   })
 
 const _scene = (id: string, scenegraph: string, anchors: ReadonlyArray<Instanced.Anchor>) =>
@@ -2000,13 +2384,13 @@ const _scene = (id: string, scenegraph: string, anchors: ReadonlyArray<Instanced
     scenegraph,
     pickable: true,
     _lighting: "pbr",
-    _animations: { "*": { speed: 1 } },
-    getPosition: (row) => row.position,
-    getOrientation: (row) => [0, row.yaw, 0],
-    sizeScale: 1,
+    _animations: { "*": { speed: _DECK.speed } },
+    getPosition: (row) => row.anchor,
+    getTransformMatrix: (row) => row.placement.elements,
+    sizeScale: _DECK.sizeScale,
   })
 
-const Instanced: Instanced.Shape = { mesh: _mesh, scene: _scene }
+const Instanced: Instanced.Shape = { anchors: _anchors, mesh: _mesh, scene: _scene }
 ```
 
 ## [10]-[EMBED_ROW]
@@ -2082,6 +2466,7 @@ declare namespace Glb {
     readonly renderer: typeof _renderer
     readonly backplane: typeof _backplane
     readonly lifecycle: typeof _booted
+    readonly served: typeof _served
     readonly codecs: typeof _codecs
     readonly warm: typeof _warm
     readonly graft: typeof _graft
@@ -2094,7 +2479,11 @@ declare namespace Glb {
     readonly visible: typeof _visible
     readonly tinted: typeof _tinted
     readonly cull: typeof _cull
+    readonly sorted: typeof _sorted
     readonly baked: typeof _baked
+    readonly section: typeof _section
+    readonly nearest: typeof _nearest
+    readonly measure: typeof _measure
     readonly pinned: typeof _pinned
     readonly embed: typeof _embed
   }
@@ -2119,6 +2508,7 @@ const Glb: Glb.Shape = {
   renderer: _renderer,
   backplane: _backplane,
   lifecycle: _booted,
+  served: _served,
   codecs: _codecs,
   warm: _warm,
   graft: _graft,
@@ -2131,7 +2521,11 @@ const Glb: Glb.Shape = {
   visible: _visible,
   tinted: _tinted,
   cull: _cull,
+  sorted: _sorted,
   baked: _baked,
+  section: _section,
+  nearest: _nearest,
+  measure: _measure,
   pinned: _pinned,
   embed: _embed,
 }
@@ -2148,9 +2542,4 @@ export { Glb, GlbFault, GlbViewport, Instanced, Pbr }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [APPEARANCE_KEY_SPELLING]-[OPEN]: which identity does `MaterialWire.key` carry; verify against the C# appearance projection.
-- [ACESCC_WORKING_SPACE]-[OPEN]: where does AP1-to-Rec.709 conversion occur; verify producer and three color management.
-- [PREMULTIPLY_ON_DATA_TEXTURE]-[OPEN]: does `premultiplyAlpha` affect data textures; verify three's upload implementation.
-- [TRANSCODE_TARGET_REBIND]-[OPEN]: can `detectSupport` rebind an existing KTX2 loader; verify the shipped loader source.
-- [STORAGE_READBACK_SHAPE]-[OPEN]: does WebGPU readback accept instanced storage attributes; verify the backend implementation.
-- [SPLAT_BLEND_ORDER]-[OPEN]: which blend and ordering policy does the splat encoding require; verify the producer contract.
+(none)

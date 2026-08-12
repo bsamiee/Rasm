@@ -89,7 +89,7 @@
 [ENTRYPOINT_SCOPE]: server, router, and middleware
 - rail: boundaries
 - `HttpRouter`: `.empty` `.get(path, handler)` `.mountApp(prefix, app)` `.use(middleware)`. `HttpServerResponse`: `.json(data)` `.schemaJson(schema)(value)` `.text` `.stream` `.file` `.setCookie` `.setHeaders`. `HttpServerRequest`: `.schemaBodyJson(schema)` `.schemaHeaders` `.schemaSearchParams` `.upgrade`. `HttpMiddleware`: `.cors(options)` `.logger` `.xForwardedHeaders` `.searchParamsParser`.
-- `HttpLayerRouter`: `.use` `.add(method, path, handler)` `.addAll` `.addHttpApi(api, { openapiPath? })` `.middleware` `.cors()` `.disableLogger` `.serve` `.toWebHandler` `.params` `.schemaJson` `.schemaPathParams`. `HttpMultiplex`: `.make` `.empty` `.add(predicate, app)` `.headerExact` `.headerRegex` `.headerStartsWith` `.hostExact` `.hostRegex`. `HttpServerRespondable`: `.symbol` `.toResponse` `.toResponseOrElse` `.isRespondable`. `ChannelSchema`: `.make` `.duplex` `.duplexUnknown({ inputSchema, outputSchema })`.
+- `HttpLayerRouter`: `.use` `.add(method, path, handler)` `.addAll` `.addHttpApi(api, { openapiPath? })` `.middleware` `.cors()` `.disableLogger` `.serve` `.toWebHandler` `.params` `.schemaJson` `.schemaPathParams`. `HttpMultiplex`: `.make` `.empty` `.add(predicate, app)` `.headerExact` `.headerRegex` `.headerStartsWith` `.hostExact` `.hostRegex`. `HttpServerRespondable`: `.symbol` `.toResponse` `.toResponseOrElse` `.isRespondable`. `ChannelSchema`: `.encode` `.encodeUnknown` `.decode` `.decodeUnknown` `.duplex` `.duplexUnknown({ inputSchema, outputSchema })` — no `make` exists; the duplex pair IS the constructor surface.
 - `HttpApiScalar.layer({ path? })` `.layerCdn` `.layerHttpLayerRouter({ api, path, scalar? })` `.layerHttpLayerRouterCdn({ api, path, version?, scalar? })` and `HttpApiSwagger.layer({ path })` / `.layerHttpLayerRouter({ api, path })` mount the docs UI — the router-native forms require `api`. `HttpApiError` prebuilt status faults: `.HttpApiDecodeError` `.BadRequest` `.Unauthorized` `.Forbidden` `.NotFound` `.Conflict` `.InternalServerError` `.ServiceUnavailable`.
 
 | [INDEX] | [SURFACE]                               | [SHAPE]        | [CAPABILITY]                                                                 |
@@ -105,6 +105,7 @@
 |  [09]   | `HttpApiScalar` / `HttpApiSwagger`      | docs ui        | `serve/api` — Scalar reference UI beside the derived OpenAPI route           |
 |  [10]   | `HttpApiError` faults                   | status faults  | status-tagged endpoint errors; `serve/problem` folds escaped ones            |
 |  [11]   | `ChannelSchema`                         | typed channel  | `serve/live` — `Schema`-typed bidirectional `Channel`                        |
+|  [12]   | `Effectify` / `OpenApiJsonSchema` / `HttpMethod` / `WorkerError` | idle capability | node-callback→Effect lifting, standalone JSON-Schema projection, the method literal union, and the worker fault family — verified members no fence composes yet; each enters at its consuming seam, never through a wrapper |
 
 [ENTRYPOINT_SCOPE]: system-API contracts and frame codecs
 - rail: system-apis
@@ -157,9 +158,11 @@ Shipped declarations for the platform members whose call shape and behavioral co
 [HEADERS]: `Headers extends Redactable { readonly [HeadersTypeId]: HeadersTypeId; readonly [key: string]: string }`
 [EMPTY]: `empty: Headers`
 [REDACT]: `redact.call(string|RegExp|ReadonlyArray<string|RegExp>) -> (self:Headers)=>Record<string,string|Redacted.Redacted>` `redact.call(Headers,string|RegExp|ReadonlyArray<string|RegExp>) -> Record<string,string|Redacted.Redacted>`
+[REDACTED_NAMES]: `currentRedactedNames: FiberRef<ReadonlyArray<string|RegExp>>` defaulting to `["authorization", "cookie", "set-cookie", "x-api-key"]`
 
 - `empty` mints the zero-entry frame every header-taking member accepts; `HeadersTypeId` brands the type, so an object literal refuses in its place and `fromInput()` with no argument returns this same value.
 - `redact` replaces matched values with `Redacted` carriers, so a logged header bag prints `<redacted>` for matched keys with zero call-site masking.
+- `Headers` satisfies `Redactable` by folding `redact` over `currentRedactedNames`, so a logged `Headers` VALUE already masks the credential quartet — the explicit fold is for a bag copied OUT of that shape, which keeps the key spelling and loses the protocol; `runtime/otel/emit#REDACTION` seals the same names on the OTel side for exactly those copies.
 
 [SIGNATURE_SCOPE]: `HttpTraceContext` — the span-context header codec
 - rail: boundaries
@@ -196,7 +199,7 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `effect`(`.api/effect.md`): every contract is an `Effect`-returning service keyed by `Context.Tag`; endpoint payloads, request/response bodies are `Schema`; middleware and client policy are effect transformers. Platform tier adds no new rail — `effect` applied to the boundary.
 - `@effect/platform-node`(`.api/effect-platform-node.md`): `NodeContext.layer` satisfies `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker` in one Layer, `NodeHttpServer.layer` binds `HttpServer`, `NodeHttpClient.layerUndici` binds `HttpClient`. `@effect/platform-bun`(`.api/effect-platform-bun.md`) and `-browser`(`.api/effect-platform-browser.md`) are peer swaps behind the same Tags.
 - `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `HttpClient.withTracerPropagation` and `HttpMiddleware` inject the W3C `traceparent`, `HttpTraceContext.toHeaders` seeds that frame by hand where egress leaves the client (an RPC hop), `HttpTraceContext.fromHeaders` recovers the inbound `ExternalSpan` for `Tracer.makeExternalSpan`/`withSpanContext` to continue into an Effect parent span, and `Otlp.layer` under the graph exports every server and client-egress span over the shared `HttpClient` with no handler change; `otel/emit` owns the extract-and-continue seam.
-- `security`(`security/.api/jose.md`, `arctic.md`, `node-rs-argon2.md`): `HttpApiSecurity.bearer`/`.apiKey` declares the endpoint scheme, `HttpApiBuilder.securityDecode` decodes the credential from `HttpServerRequest`, and the `security` middleware verifies it (`jose` JWKS validation, `@node-rs/argon2` API-key digest) inside the `Effect` rail.
+- `security`(`security/.api/jose.md`, `openid-client.md`, `node-rs-argon2.md`): `HttpApiSecurity.bearer`/`.apiKey` declares the endpoint scheme, `HttpApiBuilder.securityDecode` decodes the credential from `HttpServerRequest`, and the `security` middleware verifies it (`jose` JWKS validation, `@node-rs/argon2` API-key digest) inside the `Effect` rail.
 - `@effect/rpc`(`runtime/.api/effect-rpc.md`): `RpcGroup`/`RpcServer` is the second `serve` contribution family beside `HttpApiGroup`, served over a `Protocol` Layer built on `HttpRouter`/`HttpApp`/`Socket`/`Worker`. `@effect/cli`(`runtime/.api/effect-cli.md`): a `Command` value composes the `Terminal`/`FileSystem`/`Path` `Environment`, `Command.run` the argv boundary — one assembly law across HTTP, RPC, and CLI surfaces.
 - `@effect/sql`(`data/.api/effect-sql.md`) and `@effect/cluster`(`runtime/.api/effect-cluster.md`) build on these contracts (`Socket`, `FileSystem`) and expose `SqlClient`/`MessageStorage` Tags the app root satisfies with a `store` driver `Layer`; `SqlMessageStorage.layer` binds the cluster message store onto the SQL spine.
 

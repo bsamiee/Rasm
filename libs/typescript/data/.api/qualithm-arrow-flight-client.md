@@ -20,18 +20,21 @@
 | :-----: | :---------------------------------------------------- | :------------ | :-------------------------------------------------------------- |
 |  [01]   | `FlightClient`                                        | class         | low-level RPC; `close()` returns `void`, never a promise        |
 |  [02]   | `FlightSqlClient`                                     | class         | composes `FlightClient`, reached through its `flight` accessor  |
-|  [03]   | `FlightClientOptions` / `ResolvedFlightClientOptions` | struct        | `url`/`headers?`/`timeoutMs?`/`auth?`/`tls?`/`nodeOptions?`     |
+|  [03]   | `FlightClientOptions` / `ResolvedFlightClientOptions` | struct        | `url`/`headers?`/`timeoutMs?`/`auth?`/`authProvider?`/`tls?`    |
 |  [04]   | `TlsOptions` / `BasicAuthCredentials`                 | struct        | mTLS `cert`/`key`/`ca` PEM-or-`Buffer`, `passphrase`; user+pass |
 |  [05]   | `AuthOptions`                                         | union         | `bearer` / `basic` handshake / `none`; token a bare `string`    |
-|  [06]   | `ExecuteQueryOptions` / `ExecuteUpdateOptions`        | struct        | `{ transactionId?: Uint8Array }` — the one call-scoped knob     |
-|  [07]   | `DecodedFlightData`                                   | union         | `type: "schema"\|"batch"\|"empty"` — keep-alive-aware arm       |
-|  [08]   | `PreparedStatement` / `Transaction` / `UpdateResult`  | struct        | prepared/txn handles, param schema, affected `recordCount`      |
-|  [09]   | `FlightError` (+ family)                              | class         | `isError`-guarded tagged failures the lane boundary lifts       |
-|  [10]   | `FlightDescriptorInput` / `FlightTicket`              | union/struct  | `{type:"path",path}\|{type:"cmd",cmd}` and `{ticket}` — plain   |
-|  [11]   | `FlightCriteria` / `FlightAction`                     | struct        | `listFlights` filter; `doAction` `{type, body?}` request        |
-|  [12]   | `FlightInfo` / `PollInfo` / `FlightEndpoint`          | message       | plan, progress, and the per-split endpoints `doGet` redeems     |
-|  [13]   | `FlightData` / `FlightDescriptor` / `Ticket`          | message       | wire frames, type-only at the root; `Schema` values unreachable |
-|  [14]   | `ActionType` / `Result` / `SchemaResult`              | message       | action vocabulary, action results, IPC schema bytes             |
+|  [06]   | `AuthProvider`                                        | delegate      | `AuthOptions` thunk, sync or promised; outranks `auth`          |
+|  [07]   | `ExecuteQueryOptions` / `ExecuteUpdateOptions`        | struct        | `{ transactionId?: Uint8Array }` — the one call-scoped knob     |
+|  [08]   | `DecodedFlightData`                                   | union         | `type: "schema"\|"batch"\|"empty"` — keep-alive-aware arm       |
+|  [09]   | `PreparedStatement` / `Transaction` / `UpdateResult`  | struct        | prepared/txn handles, param schema, affected `recordCount`      |
+|  [10]   | `FlightError` (+ family)                              | class         | `isError`-guarded tagged failures the lane boundary lifts       |
+|  [11]   | `FlightDescriptorInput` / `FlightTicket`              | union/struct  | `{type:"path",path}\|{type:"cmd",cmd}` and `{ticket}` — plain   |
+|  [12]   | `FlightCriteria` / `FlightAction`                     | struct        | `listFlights` filter; `doAction` `{type, body?}` request        |
+|  [13]   | `FlightInfo` / `PollInfo` / `FlightEndpoint`          | message       | plan, progress, and the per-split endpoints `doGet` redeems     |
+|  [14]   | `FlightData` / `FlightDescriptor` / `Ticket`          | message       | wire frames, type-only at the root; `Schema` values unreachable |
+|  [15]   | `ActionType` / `Result` / `SchemaResult`              | message       | action vocabulary, action results, IPC schema bytes             |
+
+- `FlightClientOptions.nodeOptions` carries the `node:http2` connect knobs straight through to `createGrpcTransport`, the one leg of the record the client forwards to the transport beside `baseUrl`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -55,7 +58,7 @@
 |  [14]   | `getFlightInfo` / `pollFlightInfo` / `getSchema`                    | instance | descriptor-addressed plan, progress, schema bytes     |
 |  [15]   | `doGet(FlightTicket)` / `doPut(AsyncIterable<FlightData>)`          | instance | endpoint redemption; upload's FIRST frame holds it    |
 |  [16]   | `listFlights` / `listActions` / `doAction`                          | instance | dataset discovery and the server's action set         |
-|  [17]   | `authenticate()`; `handshake(payload?)` on `FlightClient` alone     | instance | explicit Flight Handshake on the low-level client     |
+|  [17]   | `authenticate()`; `handshake(payload?)` on `FlightClient` alone     | instance | handshake, and the eager `authProvider` re-resolve    |
 |  [18]   | `decodeFlightDataToTable` / `decodeFlightDataStream`                | static   | `FlightData` → `Table` / `RecordBatch` stream         |
 |  [19]   | `encodeRecordBatchesToFlightData(batches, schema)`                  | static   | batch stream → frames; the schema is required         |
 |  [20]   | `encodeTableToFlightData` / `createFlightDataFromIpc`               | static   | `Table` → frames; one raw IPC message → one frame     |
@@ -69,6 +72,8 @@
 - every result decodes zero-copy onto `apache-arrow` `Table`/`RecordBatch`; a row re-materialization never intervenes.
 - one `@connectrpc/connect` transport over `node:http2` carries every RPC; a second gRPC stack never enters the lane.
 - `timeoutMs` is INERT — `resolveOptions` defaults it onto the resolved record and the constructor passes `createGrpcTransport` only `baseUrl` and `nodeOptions`, so no deadline, `AbortSignal`, or per-call timeout reaches the wire and a consumer's whole bound is its own.
+- `authProvider` outranks `auth` and makes a rotated credential adoptable without reconstructing the client: the thunk resolves before the first request and again whenever the server refuses a call as unauthenticated, and the resolved credential caches between those points rather than being consulted per request.
+- `authenticate()` is the eager arm of that same rotation — a holder that already knows a credential turned over re-resolves through the provider rather than paying a refusal to learn it.
 - three refusal classes mint at this pin, not six: `FlightServerError` carries every ConnectRPC verdict, `FlightAuthError` reaches only a handshake answering nothing, `FlightConnectionError` only a raw `Error` carrying no `code` whose message names `ECONNREFUSED`, and `FlightTimeoutError`/`FlightCancelledError` are exported and thrown nowhere.
 - `FlightServerError.code` is DECLARED `string` and POPULATED from ConnectRPC's `ConnectError.code`, whose own declaration is the numeric `Code` enum, so the field holds a NUMBER for every transport verdict and a syscall STRING only when a raw socket error reaches the wrap; the package's internal auth branch compares that field against `"UNAUTHENTICATED"`/`"PERMISSION_DENIED"` NAMES and therefore never fires, which is why a 401 arrives as a server error rather than an auth error.
 - `FlightServerError.details` carries `ConnectError.rawMessage` — the server's own diagnostic without the status prefix — and a classifier reading only `String(cause)` drops it.
@@ -84,6 +89,7 @@
 - `@duckdb/node-api`(`.api/duckdb-node-api.md`): the Flight SQL row reaches a remote Arrow-Flight-speaking engine; below the distributed trigger the embedded row owns the workload.
 - `core/interchange/codec#LANDING_WIRE`: `Hops` carries the numeric gRPC code beside its retryability and fault class, so the lane resolves `FlightServerError.code` through that one status algebra and a second code roster never lands beside this client.
 - `lane/olap`: boundary-kernel wrapping scopes construction in an acquire-release graph with `close()` on release, seals `auth` and `tls` material behind `Redacted` through one unwrap, bounds every answer on its own governor and every emission on an idle budget, and lifts the refusal classes through `isError` guards into typed lane faults carrying `details` beside the thrown text.
+- `lane/olap`: `authProvider` carries a rotating credential as a thunk unwrapping `Redacted` per resolve, so sealed material never lands on the options record, and the lane's own rotation signal fires `authenticate()` rather than rebuilding the client under a fresh scope.
 - `lane/olap`: uploads reach `doPut` through the descriptor `getFlightInfo` echoes, and a caller already holding that message hands it back on its own `$typeName`, so a bulk run stamps every frame set off one plan read.
 
 [LOCAL_ADMISSION]:
@@ -93,5 +99,5 @@
 [RAIL_LAW]:
 - Package: `@qualithm/arrow-flight-client`
 - Owns: the Flight SQL wire of the OLAP lane — client construction, `query`/`executeUpdate`/prepared/transaction/catalog, the low-level RPC set behind the `flight` accessor, the Arrow IPC codecs, the `FlightError` family
-- Accept: the engine-blind columnar ingress/egress row on `@connectrpc/connect` transport, `Table`/`RecordBatch` decode, every endpoint of a partitioned plan consumed or raised on, scoped acquire-release with `close()` on release, `auth` and `tls` material sealed behind one unwrap, a consumer-owned bound on every answer and every emission
-- Reject: a second gRPC stack beside connect, row-materialized re-encoding off the Arrow plane, an assembled `FlightDescriptor` literal, a plan read paid per frame set where the echoed message already crossed, a classifier arm for a refusal class this pin never throws, a fault detail dropping `details`, a retry policy resting on `timeoutMs` or on the raw `code` field outside the numeric status algebra, an endpoint skipped rather than raised on, `tls.key` or `tls.passphrase` crossing unsealed, a threaded `TypeMap` sold as a decode guarantee, the Flight client as a record of truth, an unscoped client leak
+- Accept: the engine-blind columnar ingress/egress row on `@connectrpc/connect` transport, `Table`/`RecordBatch` decode, every endpoint of a partitioned plan consumed or raised on, scoped acquire-release with `close()` on release, `auth` and `tls` material sealed behind one unwrap, a rotating credential carried by `authProvider` and adopted eagerly through `authenticate()`, a consumer-owned bound on every answer and every emission
+- Reject: a second gRPC stack beside connect, row-materialized re-encoding off the Arrow plane, an assembled `FlightDescriptor` literal, a plan read paid per frame set where the echoed message already crossed, a classifier arm for a refusal class this pin never throws, a fault detail dropping `details`, a retry policy resting on `timeoutMs` or on the raw `code` field outside the numeric status algebra, an endpoint skipped rather than raised on, `tls.key` or `tls.passphrase` crossing unsealed, a client torn down and rebuilt to adopt a rotated credential, a threaded `TypeMap` sold as a decode guarantee, the Flight client as a record of truth, an unscoped client leak

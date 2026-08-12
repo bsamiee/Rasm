@@ -28,12 +28,11 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 [CRYPTO_TOKEN]:
 - `jose`
 - `@node-rs/argon2`
-- `@oslojs/crypto`
+- `@noble/hashes` — HMAC and SHA symmetric primitives the crypto authority composes; asymmetric verify rides WebCrypto.
 - `@oslojs/encoding`
 
 [CEREMONY]:
-- `arctic` — browser authorization-code redirect and provider rows.
-- `openid-client` — machine-grant OIDC lane: client-credentials, RFC 8693, device/CIBA, DPoP, introspection, revocation, registration, resource read.
+- `openid-client` — sole OAuth custodian: the browser authorization-code ceremony with its provider rows, and the whole machine-grant lane.
 - `@simplewebauthn/server`
 - `@simplewebauthn/browser`
 - `@otplib/core` — OTP substrate `otplib` composes.
@@ -52,3 +51,6 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 [PLATFORM]:
 - `@effect/platform`
 - `@effect/experimental`
+
+[MEASUREMENT]:
+- `mitata` — `crypt/sign.md` `[07]` samples each KDF cost row through the state-free `measure` kernel.

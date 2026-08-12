@@ -22,7 +22,7 @@
 |  [04]   | `ShouldPreventSpanCreation`            | delegate      | per-event span admission — the cardinality gate         |
 |  [05]   | `AttributeNames`                       | enum          | emitted span-attribute keys                             |
 
-- `AttributeNames`: `event_type` `target_element` `target_xpath` `http.url`
+- `AttributeNames`: `event_type` `target_element` `target_xpath` `url.full`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -39,11 +39,12 @@
 [TOPOLOGY]:
 - composition-root only — the row patches globals; a library registration double-instruments the host.
 - every admitted event is a span, so a high-frequency event (scroll, mousemove) enters only through a deliberate `eventNames` row gated by `shouldPreventSpanCreation`.
+- `AttributeNames.URL_FULL` spells the page URL on its semantic-convention key, so an estate rule keyed on the convention — a scrub seal, a deny-list view, a gateway strip — reaches interaction spans with no instrumentation-specific alias; the three interaction-local keys carry no convention and stay this row's own vocabulary.
 
 [STACKING]:
 - `opentelemetry-context-zone.md` `ZoneContextManager`: the row detects the patched `Zone` and parents the triggered fetch under the interaction span; absent the manager it degrades to `addEventListener` patching and async causality thins to same-tick work.
 - `opentelemetry-instrumentation-fetch.md` `FetchInstrumentation`: the click→fetch trace is these two rows composing — the interaction span parents, the fetch span childs, and `Vital.enrich` projects timing onto the child.
-- `otel/emit` `web` row: interaction spans register in the same web SDK configuration and ride its redaction scrub and pagehide flush.
+- `otel/emit` `web` row (within-lib): interaction spans register in the same web SDK configuration, and `AttributeNames.URL_FULL` lands exactly on the `url.full` key `Redaction.defaults` seals — so the interaction span's page URL scrubs at the export boundary through the row that already covers every other producer, with no interaction-local rule.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, browser lane; registration lives only in the browser boot graph.

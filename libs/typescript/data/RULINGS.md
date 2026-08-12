@@ -15,11 +15,12 @@
 - `ktx-parse` composes READ-ONLY — its `write` rewrites `KTXwriter` and answers a different digest, silently re-keying an immutable object.
 - `ktx validate` settles Khronos conformance, `ktx-parse` DECLARATION AGREEMENT — the verdict reads the report's `valid` field, never exit status.
 - `DateTime.distanceDurationEither` splits at `> 0` — a same-instant pair lands `Left`, so a gate admitting zero reads signed `DateTime.distance`.
+- S3 Object Lock is refused whole — the key IS the content, so no version exists to lock; preservation rides the `legal_hold` ledger and `held` tag.
 
 ## [02]-[SHAPE]
 
 - Organization edge relations carry NO repository — a producer re-reads its document whole, so replacement scopes to the source key, never one row.
-- Grouped results re-anchor on the model class's `.fields` where a predicate proves a `FieldOption` column — a group key unwrapping by throw is the deleted form.
+- Grouped results re-anchor on the model class's `.fields` where a predicate proves a `FieldOption` column — a group key never unwraps by throw.
 - `_RESIDENCES` states `cap` as a literal false, never a gap — unbounded dimensionality IS the plane, so a later pass overwrites a claim, not a hole.
 - `Retain.Policy` classes extend with `transitions` and foreclose `admit` and `tenancy` — writers stamp the class and `_GROOMS` settles sweep tenancy.
 - `Backend.admit` grades recovery on two proofs and takes its `Objective` as a supplied profile value — no branch-local durability table exists.
@@ -29,12 +30,26 @@
 - `_POINTS` keys its scalars per instrument KIND — a histogram relation holds no value column its sum sibling has, so one shared column empties tiles.
 - Lake metrics fold the emitting process's live registry into `_POINTS` on a tick — that snapshot IS the cold tail a metrics store cannot retain.
 - Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so the hoist waits on a SECOND consumer.
+- `object_ref.owner` is the closed `_OWNERS` vocabulary — prefix union, brand, and encoding mint derive from it; a new prefix lands its row first.
+- `subject:` owners mint only at the custody key's own projection — caller-supplied `dsar`-role prefixes refuse at `ObjectStore.admit` on `owner`.
+- `held` is a store-plane tag, never a `Retain.Class` — a hold has no clock, so no lifecycle rule matches and the object freezes at its depth.
+- Journal-stratum custody crosses `RefRead` and `Preserve`, ports the object plane satisfies — a fence naming a store member inverts the strata.
+- Digest-preimage payload columns are TEXT in EVERY dialect — JSONB respells bytes off the minted key; json survives where no digest addresses it.
+- Cross-tenant planes compose the `Tenancy.sweep` maintenance posture, never a bare client — FORCE RLS answers zero rows to an unpinned session.
+- Staging-band expiry never exceeds `_REAP_FLOOR` — the reap closes abandoned uploads band-blind, so a wider window promises an aborted resume.
+- Admission feeds bridge through `Stream.asyncScoped`, never the push bridge — a buffer-shed intake candidate is a loss no re-emission repairs.
+- Derivative cascades heal on the ledger side — each sweep pass closes with the orphan census, re-probing the source at the engine before re-running.
+- Registered lane scans admit only a pre-pumped bounded source — `rowCount` 0 spells exhausted and nothing-yet alike; `Atomics.wait` blocks fibers.
+- Lane scans pin `supportsProjectionPushdown` and predicate pushdown does not exist — the source row's ceiling is the one bound a filtered read holds.
 
 ## [03]-[COLLAPSE]
 
 - Both embedded DuckDB drivers mint ONE `Olap.Handle` family — a second read entry beside `Olap.read` leaves the worker taking unbounded statements.
 - `CacheLane.lease` owns the pool's ONE held-level series — a consumer minting a second row publishes the lane's lease under a name only it reads.
 - Driver divergence stays a ROW on `_DRIVERS` — result grain, bind vocabulary, and execution members ride columns, so no arm branches on a driver.
+- Table-function registration is undroppable, re-registration keeping the first mint — one name per source per handle, content resolved by name.
+- `DuckDBAppender` is refused as a residence fill — positional-only, node-only, and the volume path crosses no rows into JS.
+- One re-runnable subject slice serves the resume rail — tus finalize and the preservation port take one landing, so no coordinate drifts.
 
 ## [04]-[STRUCTURE]
 

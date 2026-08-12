@@ -11,7 +11,7 @@
 - effect-peer: `effect`, `@effect/platform`, `@effect/experimental`
 - dependency: `uuid` (bundled; binary-UUID mint for `Model.UuidV4Insert`)
 - module format: ESM + CJS dual (`dist/dts` typings); per-module deep-import subpaths (`@effect/sql/SqlClient`, `/Statement`, `/Model`, …), `sideEffects: []`
-- runtime: dialect-neutral abstract core with no driver binding; a `-pg`/`-sqlite-node`/`-sqlite-bun`/`-sqlite-wasm` package binds the `SqlClient` `Layer`, so the core rides every runtime the driver reaches
+- runtime: dialect-neutral abstract core with no driver binding; a `-pg`/`-sqlite-node`/`-sqlite-bun`/`-sqlite-wasm`/`-libsql`/`-d1`/`-mysql2`/`-mssql`/`-clickhouse` package binds the `SqlClient` `Layer`, so the core rides every runtime the driver reaches
 - rail: the `data` SQL contract every plane composes as its `SqlClient` port
 - modules: `SqlClient`, `Statement`, `SqlSchema`, `SqlResolver`, `SqlConnection`, `SqlError`, `SqlStream`, `Model`, `Migrator` (banned), `SqlEventJournal`, `SqlEventLogServer`, `SqlPersistedQueue`
 
@@ -77,6 +77,7 @@
 [ENTRYPOINT_SCOPE]: composing and running a statement
 - `` sql`… ${id}` `` yields `Statement<A>`; `yield*` runs it and `.stream`/`.values`/`.raw`/`.unprepared` project it, `.stream` over the `SqlStream.asyncPauseResume(register, bufferSize?)` backpressured cursor whose `register` emits `single`/`chunk`/`array`/`fail`/`end` with `onInterrupt`/`onPause`/`onResume`.
 - `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` requires all five arms; `sql.onDialectOrElse` requires `orElse` with each arm optional. DML: `sql.insert(rows)`/`update(row, omit?)`/`updateValues(rows, alias)`/`.returning(cols)`; clauses: `in`/`and`/`or`/`csv`/`join`; escapes: `unsafe`/`literal`/`Statement.unsafeFragment`; transformers: `setTransformer`/`withTransformer`/`withTransformerDisabled`.
+- `Statement.custom<C>(kind)` is the driver-owned segment constructor: it returns `(i0, i1, i2) => Fragment` carrying a `Custom` segment the driver's own `Compiler` case folds, so a dialect-native form reaches the DSL as a typed segment rather than an `unsafe` splice — `PgClient.json` is `Statement.custom("PgJson")` matched by a `"PgJson"` compiler arm.
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------------------- |
@@ -85,9 +86,10 @@
 |  [03]   | `sql.in`/`sql.and`/`sql.or`/`sql.csv`/`sql.join`      | clause build   | keyset/facet WHERE in `retrieve/hybrid`; `csv` for ORDER BY |
 |  [04]   | `sql.onDialect` / `sql.onDialectOrElse`               | dialect branch | emit pg vs sqlite SQL from one definition (arms in lead)    |
 |  [05]   | `sql.unsafe`/`sql.literal`/`Statement.unsafeFragment` | escape hatch   | provably-safe literal splice the fragment API can't express |
-|  [06]   | `Statement.compile(withoutTransform?)`                | reflect        | `lane/capability` probe, telemetry span attrs, SafeQL check |
-|  [07]   | `setTransformer`/`withTransformer`                    | name transform | Layer-wide snake↔camel mapping; off in raw passes           |
-|  [08]   | `SqlStream.asyncPauseResume(register, bufferSize?)`   | cursor stream  | backpressured async-emit a driver wraps its `pg-cursor` in  |
+|  [06]   | `Statement.custom<C>(kind)`                           | segment ctor   | driver-native `Custom` segment its compiler folds           |
+|  [07]   | `Statement.compile(withoutTransform?)`                | reflect        | `lane/capability` probe, telemetry span attrs, SafeQL check |
+|  [08]   | `setTransformer`/`withTransformer`                    | name transform | Layer-wide snake↔camel mapping; off in raw passes           |
+|  [09]   | `SqlStream.asyncPauseResume(register, bufferSize?)`   | cursor stream  | backpressured async-emit a driver wraps its `pg-cursor` in  |
 
 [ENTRYPOINT_SCOPE]: transactions, savepoints, and reactive reads
 - `sql.withTransaction(effect)` leases one connection for every inner statement, nesting to savepoints by `TransactionConnection` depth; `sql.reserve` yields `Effect<Connection, SqlError, Scope>` for LISTEN/NOTIFY, COPY, and advisory locks.
@@ -163,6 +165,6 @@
 
 [RAIL_LAW]:
 - Package: `@effect/sql`
-- Owns: the `SqlClient` neutral `Context.Tag` + `Connection`/`TransactionConnection` spine, the `sql` fragment DSL (`Statement`/`Fragment`/`Segment`/`Compiler` + unsafe/literal/insert/update/updateValues/in/and/or/csv/join/onDialect/onDialectOrElse), the `SqlStream.asyncPauseResume` backpressured-cursor primitive behind `.stream`, `SqlSchema` typed queries, `SqlResolver` batching resolvers, the `SqlError`/`ResultLengthMismatch` fault rail, the `Model` variant-schema system (six wire variants + field families + `makeRepository`/`makeDataLoaders`), `reserve`/`reactive`/`reactiveMailbox`/`withTransaction`, and the `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` overlay-storage Layers
+- Owns: the `SqlClient` neutral `Context.Tag` + `Connection`/`TransactionConnection` spine, the `sql` fragment DSL (`Statement`/`Fragment`/`Segment`/`Compiler` + unsafe/literal/custom/insert/update/updateValues/in/and/or/csv/join/onDialect/onDialectOrElse), the `SqlStream.asyncPauseResume` backpressured-cursor primitive behind `.stream`, `SqlSchema` typed queries, `SqlResolver` batching resolvers, the `SqlError`/`ResultLengthMismatch` fault rail, the `Model` variant-schema system (six wire variants + field families + `makeRepository`/`makeDataLoaders`), `reserve`/`reactive`/`reactiveMailbox`/`withTransaction`, and the `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` overlay-storage Layers
 - Accept: one driver `Layer` per runtime behind the neutral `SqlClient` Tag, the `sql` DSL + `onDialect` for all query construction, `SqlSchema`/`SqlResolver`/`Model` for typed I/O, `withTransaction` for atomic commits, `reactive` for read-your-writes, the SQL overlay bindings as the durable backing under `@effect/experimental` `[SQL_OVERLAY_BACKING]`/`[OVERLAY_BOUNDARY_RULING]`
 - Reject: a driver import outside the composition root / runtime subpaths, string-built or per-dialect-forked SQL, untyped `Connection.Row` reads, `query`/`getById`/`getMany` operation families, manual `BEGIN`/`COMMIT`, `makeRepository` on the event journal, and any `Migrator` use (migrations are banned — DDL is `iac`↔`data` declarative ensure)

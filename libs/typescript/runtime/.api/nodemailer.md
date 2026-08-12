@@ -25,7 +25,7 @@
 |  [03]   | `Mail.Address`                       | address value   | `{ name?, address }` recipient; escapes `Name <email>` |
 |  [04]   | `Mail.Attachment`                    | attachment      | a `report`/jszip byte artifact attaches here           |
 |  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression seam     |
-|  [06]   | `SentMessageInfo`                    | send receipt    | delivery evidence; `accepted`/`rejected` split         |
+|  [06]   | `SentMessageInfo`                    | send receipt    | TOP-LEVEL export is `any` — the shaped receipt is `SMTPTransport.SentMessageInfo`, so consumers declare their own widened band and never import the erased name |
 |  [07]   | `Transport<T, D>`                    | plugin contract | `{ name, version, send, verify?, close? }` backend     |
 
 [PUBLIC_TYPE_SCOPE]: connection, authentication, and signing policy
@@ -41,12 +41,12 @@
 |  [06]   | `SMTPConnection.DSNOptions`                      | delivery notify   | RFC-3461 delivery-status request                   |
 |  [07]   | `SMTPConnection.SMTPError` / `shared.Logger`     | fault / log       | `code` (`EAUTH`) retry discriminant; `Logger` sink |
 
-[ATTACHMENT]: `Attachment.content: string|Buffer|Readable` `Attachment.path: string` `Attachment.raw: string|Buffer|Readable` `Attachment.cid: string` `Attachment.contentType: string` `Attachment.contentTransferEncoding: string` `Attachment.encoding: string` `Attachment.contentDisposition: string`
-[SMTPCONNECTION_OPTIONS]: `host: string` `port: number` `secure: boolean` `requireTLS: boolean` `opportunisticTLS: boolean` `ignoreTLS: boolean` `tls: object` `auth: AuthenticationType` `authMethod: string` `lmtp: boolean` `connectionTimeout: number` `greetingTimeout: number` `socketTimeout: number` `dnsTimeout: number`
-[XOAUTH2_OPTIONS]: `XOAuth2Options.clientId: string` `XOAuth2Options.clientSecret: string` `XOAuth2Options.refreshToken: string` `XOAuth2Options.accessToken: string` `XOAuth2Options.accessUrl: string` `XOAuth2Options.privateKey: string`
-[DKIMKEY_OPTIONS]: `DKIMKeyOptions.domainName: string` `DKIMKeyOptions.keySelector: string` `DKIMKeyOptions.privateKey: string` `DKIMKeyOptions.hashAlgo: string` `DKIMKeyOptions.headerFieldNames: string` `DKIMKeyOptions.skipFields: string` `DKIMKeyOptions.cacheDir: string` `DKIMKeyOptions.cacheTreshold: number`
-[DSNOPTIONS]: `DSNOptions.notify: "SUCCESS"|"FAILURE"|"DELAY"|"NEVER"` `DSNOptions.ret: string` `DSNOptions.envid: string` `DSNOptions.orcpt: string`
-[SENT_MESSAGE_INFO]: `SentMessageInfo.accepted: Address[]` `SentMessageInfo.rejected: Address[]` `SentMessageInfo.rejectedErrors: Error[]` `SentMessageInfo.pending: Address[]` `SentMessageInfo.messageId: string` `SentMessageInfo.response: string` `SentMessageInfo.envelope: object` `SentMessageInfo.envelopeTime: number` `SentMessageInfo.messageTime: number` `SentMessageInfo.messageSize: number`
+[ATTACHMENT]: `Attachment.content: string|Buffer|Readable` `Attachment.path: string` `Attachment.raw: string|Buffer|Readable` `Attachment.cid: string` `Attachment.contentType: string` `Attachment.contentTransferEncoding: "7bit"|"base64"|"quoted-printable"|false` `Attachment.encoding: string` `Attachment.contentDisposition: "attachment"|"inline"`
+[SMTPCONNECTION_OPTIONS]: `host: string` `port: number` `secure: boolean` `requireTLS: boolean` `opportunisticTLS: boolean` `ignoreTLS: boolean` `tls: object` `auth: AuthenticationType` `authMethod: string` `lmtp: boolean` `connectionTimeout: number` `greetingTimeout: number` `socketTimeout: number` `dnsTimeout: number` — `AuthenticationType`'s `type` tag is OPTIONAL, so the union narrows on member presence, never a discriminant switch
+[XOAUTH2_OPTIONS]: `XOAuth2.Options` (namespace member, every field optional) — `clientId` `clientSecret` `refreshToken` `accessToken` `accessUrl` `privateKey`; a bare `XOAuth2Options` symbol resolves nowhere
+[DKIM_OPTIONS]: `DKIM.Options = SingleKeyOptions | MultipleKeysOptions` — the single arm carries `domainName` `keySelector` `privateKey` beside `hashAlgo` `headerFieldNames` `skipFields` `cacheDir` `cacheTreshold`, the multi arm a `keys` roster; a bare `DKIMKeyOptions` symbol resolves nowhere
+[DSNOPTIONS]: `DSNOptions.notify: "SUCCESS"|"FAILURE"|"DELAY"|"NEVER"` `DSNOptions.ret: "Full"|"HDRS"` `DSNOptions.envid: string` `DSNOptions.orcpt: string`
+[SENT_MESSAGE_INFO]: `SMTPTransport.SentMessageInfo` — `envelope` `messageId` `accepted` `rejected` `pending` `response`; `rejectedErrors` and the `envelopeTime`/`messageTime`/`messageSize` timing band ride the `SMTPConnection`/`SMTPPool` variants alone, which is why the consuming fence declares a widened optional band
 [SMTPERROR]: `SMTPError.code: string` `SMTPError.response: string` `SMTPError.responseCode: number` `SMTPError.command: string`
 
 ## [03]-[ENTRYPOINTS]
@@ -70,8 +70,8 @@
 
 | [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                     |
 | :-----: | :----------------------------------------------------------- | :-------------- | :--------------------------------------------- |
-|  [01]   | `wellKnown(key)` → `SMTPConnection.Options \| false`         | provider lookup | resolves `"Gmail"`/`"SendGrid"` to the dial    |
-|  [02]   | `shared.parseConnectionUrl(url)`                             | url decode      | decodes a `smtp://…` `Config` value to options |
+|  [01]   | `wellKnown(key)` → `SMTPConnection.Options \| false`         | provider lookup | DEEP import (`nodemailer/lib/well-known`), never a root entrypoint; resolves `"Gmail"`/`"SendGrid"` to the dial |
+|  [02]   | `shared.parseConnectionUrl(url)`                             | url decode      | DEEP import (`nodemailer/lib/shared`), never a root entrypoint; decodes a `smtp://…` `Config` value to options  |
 |  [03]   | `XOAuth2#getToken` / `#generateToken` / `#buildXOAuth2Token` | oauth token     | refresh → access-token flow behind `OAUTH2`    |
 |  [04]   | `DKIM#sign(input, extraOptions?)` → `PassThrough`            | dkim sign       | native signing; `Redacted` PEM key             |
 |  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>`        | test sink       | Ethereal capture; a real inbox, no delivery    |
@@ -84,8 +84,8 @@
 - `createTransport` is one polymorphic factory: the option shape selects the transport — `pool: true` → pooled SMTP, `SES: {...}` → SESv2, `streamTransport`/`jsonTransport` → inspect sinks, `sendmail: true` → local binary, else plain SMTP from a URL string or `Options`. One transport policy row per environment replaces a factory per backend.
 - `Mail.Options` is one shape decoded once, carrying every part — bodies, alternatives, attachments, headers, `list`, `dkim`, `envelope`. One outbound `Schema` decodes the caller payload at ingress and encodes to `Options` at the send seam, so `to`/`from`/`subject` never assemble untyped.
 - Authentication is a discriminated union with `Redacted` secrets end to end: `LOGIN` (`user`/`pass`), `OAUTH2` (`XOAuth2` refresh flow), and `CUSTOM` are `_tag`-style arms. `pass`, `clientSecret`, `refreshToken`, and the DKIM `privateKey` flow from `Config.redacted`, unwrapped with `Redacted.value` only at the `createTransport`/`sign` call.
-- `SentMessageInfo` is delivery evidence, splitting `accepted`/`rejected`/`rejectedErrors`/`pending` with `messageId` and timing. A partial rejection is a domain outcome the durable job records and reconciles, never a thrown failure.
-- Retry classifies on `SMTPError.code`: `EAUTH` is terminal, a `4xx` `responseCode` retries under a `Schedule`, a `5xx` is a permanent bounce. A `Data.taggedEnum` maps the code and drives `Effect.retry`/`catchTag` off the tag.
+- `SentMessageInfo` is delivery evidence, splitting `accepted`/`rejected`/`rejectedErrors`/`pending` with `messageId` and timing. Partial rejection is a domain outcome the durable job records and reconciles, never a thrown failure.
+- Retry classifies on `SMTPError.code`: `EAUTH` is terminal, a `4xx` `responseCode` retries under a `Schedule`, a `5xx` is a permanent bounce. `Data.taggedEnum` maps the code and drives `Effect.retry`/`catchTag` off the tag.
 - `Transporter` is a scoped resource: pooled connections and OAuth2 timers live for the `Layer` `Scope`, `close()` is the finalizer, `isIdle()`/the `idle` event are the outbox-relay backpressure signal, and `verify()` at build proves the credential before the first send.
 
 [STACKING]:

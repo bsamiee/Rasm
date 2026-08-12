@@ -323,9 +323,10 @@ const _paletteKeys: ReadonlyArray<string> = [
 ## [04]-[CLASS_RAIL]
 
 [CLASS_RAIL]:
-- Owner: `cn` — the folder's ONE class composer: `clsx` folds conditional inputs, one `extendTailwindMerge` instance resolves last-wins conflicts, and the extension table teaches it every custom group — the project `@theme` color scale and the `tw-animate-css` motion groups (`fade`/`zoom`/`spin`/`blur`/`slide` setters, `animation-duration`/`delay`/`repeat` modifiers) — so a `cva` variant, a `tailwindcss-react-aria-components` state variant, and a caller override all collapse to the intended winner.
+- Owner: `cn` — the folder's ONE class composer: `clsx` folds conditional inputs, one `extendTailwindMerge` instance resolves last-wins conflicts, and the extension table teaches it every custom group — the project `@theme` color scale and the `tw-animate-css` motion groups (`fade`/`zoom`/`spin`/`blur`/`slide` setters, the `animation-duration`/`delay`/`repeat`/`direction`/`fill-mode` timing modifiers, and the play-state pair) — so a `cva` variant, a `tailwindcss-react-aria-components` state variant, and a caller override all collapse to the intended winner.
 - Packages: `tailwind-merge` (`extendTailwindMerge`, `validators`; `fromTheme` where a custom group references a whole scale); `clsx` (`ClassValue` — the shared input vocabulary of the whole styling rail); `class-variance-authority` composes downstream (its `cx` IS `clsx`, so a recipe module imports `cn` from here, never a second composer).
 - Law: the theme extension DERIVES from the emission — the `color` scale list is `[03]`'s `_paletteKeys`, the exact key set `Theme.Palette.css` writes, so every default color group (`bg-`/`text-`/`ring-`/`border-`/…) resolves precisely the variables the stylesheet carries and neither list can drift; a hand-listed hue teaches the merge instance a name no `@theme` row emits, and `fromTheme` inside a theme scale is circular — both are named defects.
+- Law: a tone-slot key rides the theme scale WHOLE, hyphen and all — registration splits each theme value on the class separator into a trie chain, so `danger-surface` seats as the `bg → danger → surface` descent and lookup walks the same separator to reach it; `bg-danger-surface` therefore lands in the default `bg-color` group with its slot suffix intact and no flattened key, per-slot group, or separator escape is bought. A descent that dead-ends falls back to that node's validators against the REJOINED remainder rather than stranding, which is what keeps an arbitrary value valid beside the scale — but the default color group's fallback is the arbitrary-value pair alone, with no catch-all beneath it, so a key the derived list omits joins no group at all and merges as an unknown class: the derivation above is the whole guarantee, not a convenience.
 - Law: exactly one merge instance exists — a raw `twMerge` import or a per-component `extendTailwindMerge` silently mis-resolves custom utilities and is the named defect; `twJoin` is admitted only for provably conflict-free static token strings.
 - Law: ONE group owns every `animate-*` trigger — the `tw-animate-css` enter/exit pair, the Tailwind-core sustained animations `system/act#MOTION_ROWS` holds a surface in, and the `animate-none` guard together — because a trigger split across two groups leaves `motion-reduce:animate-none` unable to override its own animation; group membership is what makes the reduced-motion guard structural rather than incidental.
 - Law: the group table is data — a new custom utility family is one `classGroups` row over `validators.*` predicates or a `fromTheme` scale reference, never a parser change; `system/act` consumes these groups through its `Motion` row strings and never mints a sibling instance.
@@ -341,25 +342,47 @@ const _merge = extendTailwindMerge({
   extend: {
     theme: { color: _paletteKeys },
     classGroups: {
-      // one group for every animate-* trigger: the reduced-motion guard can only win against a sibling in its own group
-      "animate-trigger": ["animate-in", "animate-out", "animate-none", "animate-pulse", "animate-spin", "animate-ping"],
+      // one group for every animate-* trigger — enter/exit, every platform-sustained animation, the named component
+      // animations, and the guard: the reduced-motion guard can only win against a sibling in its own group
+      "animate-trigger": [
+        "animate-in",
+        "animate-out",
+        "animate-none",
+        "animate-pulse",
+        "animate-spin",
+        "animate-ping",
+        "animate-bounce",
+        "animate-accordion-down",
+        "animate-accordion-up",
+        "animate-collapsible-down",
+        "animate-collapsible-up",
+        "animate-caret-blink",
+      ],
       "motion-fade": [_motion("fade-in"), _motion("fade-out")],
       "motion-zoom": [_motion("zoom-in"), _motion("zoom-out")],
       "motion-spin": [_motion("spin-in"), _motion("spin-out")],
       "motion-blur": [_motion("blur-in"), _motion("blur-out")],
+      // the dir-aware `start`/`end` edges join their physical siblings: one group, or an RTL row and an LTR row both survive
       "motion-slide": [
         _motion("slide-in-from-top"),
         _motion("slide-in-from-bottom"),
         _motion("slide-in-from-left"),
         _motion("slide-in-from-right"),
+        _motion("slide-in-from-start"),
+        _motion("slide-in-from-end"),
         _motion("slide-out-to-top"),
         _motion("slide-out-to-bottom"),
         _motion("slide-out-to-left"),
         _motion("slide-out-to-right"),
+        _motion("slide-out-to-start"),
+        _motion("slide-out-to-end"),
       ],
       "motion-duration": [{ "animation-duration": [validators.isNumber, validators.isArbitraryValue] }],
       "motion-delay": [{ delay: [validators.isNumber, validators.isArbitraryValue] }],
       "motion-repeat": [{ repeat: ["0", "1", "infinite"] }],
+      "motion-direction": [{ direction: ["normal", "reverse", "alternate", "alternate-reverse"] }],
+      "motion-fill": [{ "fill-mode": ["none", "forwards", "backwards", "both"] }],
+      "motion-play": ["running", "paused", { "play-state": ["running", "paused"] }],
     },
   },
 })
@@ -540,4 +563,4 @@ export { cn, Theme }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[MERGE_SCALE_SEGMENTS]-[OPEN]: does a `tailwind-merge` `theme.color` entry carrying a hyphenated value (`danger-surface`) resolve `bg-danger-surface` into the default `bg-*` group, or does the matcher split on the first segment and strand the slot suffix; verify against `tailwind-merge`'s shipped class-group matcher under `node_modules`, and land the group form the matcher proves.
+(none)

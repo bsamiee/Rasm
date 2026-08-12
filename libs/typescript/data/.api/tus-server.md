@@ -66,6 +66,10 @@
 - Both hooks abort the request on throw, and the server reads `status_code`/`body` OFF the thrown value, falling back to `ERRORS.UNKNOWN_ERROR` with the message appended — so a typed refusal throws a `{ status_code, body }` carrier while a bare `Error` degrades to 500.
 - `onResponseError` closes every fault path last, taking the thrown value and returning a replacement `{ status_code, body }` or `undefined` to keep the derived pair: this is the error-MAPPING seam, and observation alone is a return of `undefined`.
 - `draft-ietf-httpbis-resumable-upload` carries the same offset/complete semantics; on RFC the protocol row swaps under unchanged store and hooks.
+- Built-in id extraction refuses a traversal before the store ever sees it: an id carrying `/`, `\`, or a NUL, or a percent-encoding that will not decode, answers no id at all, so a `DataStore` keyed on the raw id is safe without its own sanitizer.
+- `.getFileIdFromRequest` owns extraction WHOLE when it is set, and a request whose URL misses the mount route reaches it with no path argument — so a custom extractor addressing uploads off a header or a signed token serves routes the built-in pattern never matches, and it owes the same traversal refusal the built-in makes.
+- `.exposedHeaders` widens the protocol's own `Access-Control-Expose-Headers` roster; leaving it empty publishes that roster verbatim rather than a widened one.
+- Creation-with-upload replies with the PATCH leg's headers over the create leg's, so an `onUploadFinish` header set on the same request wins the merge.
 
 [STACKING]:
 - `@tus/s3-store`(`.api/tus-s3-store.md`): `S3Store` fills the `datastore` slot via `new S3Store({ s3ClientConfig: { bucket, ...clientConfig }, partSize })`, mapping tus offsets onto S3 multipart parts under the object plane's endpoint/credential `Config`.
@@ -83,4 +87,4 @@
 - Package: `@tus/server`
 - Owns: tus protocol conformance — creation, offset-verified PATCH resume, HEAD/DELETE, expiration sweep, the `ServerOptions` policy record with its CORS admission rows, the hook seams, `onResponseError` as the fault-to-reply map, the `Locker` contract, and the re-exported `@tus/utils` model (`Upload`, `DataStore`, `ERRORS`, `EVENTS`, `Metadata`)
 - Accept: one scoped `Server` per staging band, hooks as the admission/finalize seams, `{ status_code, body }` carriers as the refusal shape, `ERRORS` rows as the reply vocabulary, `handleWeb` for fetch-shaped runtimes, `maxSize` as the admission ceiling, `MemoryLocker` on a single node
-- Reject: per-request server construction, handler subclassing, `listen()` inside library code, finalize logic outside `onUploadFinish`, a bare `Error` thrown from a hook, a hand-minted status/body pair where an `ERRORS` row exists, a staging band without an expiration sweep
+- Reject: per-request server construction, handler subclassing, `listen()` inside library code, finalize logic outside `onUploadFinish`, a bare `Error` thrown from a hook, a hand-minted status/body pair where an `ERRORS` row exists, a staging band without an expiration sweep, an id sanitizer re-implemented over the built-in extraction, a `.getFileIdFromRequest` returning an id it never checked for traversal

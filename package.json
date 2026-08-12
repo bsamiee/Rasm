@@ -6,10 +6,13 @@
     "scripts": {
         "bench": "vitest bench --run",
         "coverage": "vitest run --coverage",
-        "e2e": "playwright test",
+        "e2e": "playwright install chromium webkit && playwright test",
         "mutation": "stryker run",
         "test": "vitest run"
     },
+    "browserslist": [
+        "baseline widely available"
+    ],
     "devDependencies": {
         "@ast-grep/cli": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
@@ -74,7 +77,6 @@
         "@electric-sql/pglite": "catalog:",
         "@electric-sql/pglite-tools": "catalog:",
         "@floating-ui/react": "catalog:",
-        "@floating-ui/react-dom": "catalog:",
         "@geoarrow/deck.gl-geoarrow": "catalog:",
         "@gltf-transform/core": "catalog:",
         "@gltf-transform/extensions": "catalog:",
@@ -93,6 +95,7 @@
         "@nats-io/nats-core": "catalog:",
         "@nats-io/obj": "catalog:",
         "@nats-io/transport-node": "catalog:",
+        "@noble/hashes": "catalog:",
         "@node-rs/argon2": "catalog:",
         "@nx-tools/nx-container": "catalog:",
         "@nx/devkit": "catalog:",
@@ -142,7 +145,6 @@
         "@opentelemetry/sdk-trace-node": "catalog:",
         "@opentelemetry/sdk-trace-web": "catalog:",
         "@opentelemetry/semantic-conventions": "catalog:",
-        "@oslojs/crypto": "catalog:",
         "@oslojs/encoding": "catalog:",
         "@otplib/core": "catalog:",
         "@perspective-dev/client": "catalog:",
@@ -174,8 +176,6 @@
         "@pulumiverse/grafana": "catalog:",
         "@pyroscope/nodejs": "catalog:",
         "@qualithm/arrow-flight-client": "catalog:",
-        "@radix-ui/react-label": "catalog:",
-        "@radix-ui/react-separator": "catalog:",
         "@radix-ui/react-slot": "catalog:",
         "@radix-ui/react-visually-hidden": "catalog:",
         "@react-aria/live-announcer": "catalog:",
@@ -190,6 +190,7 @@
         "@tailwindcss/vite": "catalog:",
         "@tanstack/react-table": "catalog:",
         "@tanstack/react-virtual": "catalog:",
+        "@tanstack/store": "catalog:",
         "@turf/turf": "catalog:",
         "@tus/s3-store": "catalog:",
         "@tus/server": "catalog:",
@@ -207,13 +208,13 @@
         "@visx/responsive": "catalog:",
         "@visx/scale": "catalog:",
         "@visx/shape": "catalog:",
+        "@vitejs/devtools": "catalog:",
         "@vitejs/plugin-react": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@vitest/ui": "catalog:",
         "@webgpu/types": "catalog:",
         "apache-arrow": "catalog:",
-        "arctic": "catalog:",
         "avsc": "catalog:",
         "babel-plugin-react-compiler": "catalog:",
         "basic-ftp": "catalog:",
@@ -278,8 +279,8 @@
         "uplot": "catalog:",
         "vaul": "catalog:",
         "vite": "catalog:",
-        "vite-plugin-compression": "catalog:",
-        "vite-plugin-csp": "catalog:",
+        "vite-plugin-compression2": "catalog:",
+        "vite-plugin-csp-guard": "catalog:",
         "vite-plugin-image-optimizer": "catalog:",
         "vite-plugin-inspect": "catalog:",
         "vite-plugin-pwa": "catalog:",
@@ -292,13 +293,21 @@
         "workbox-build": "catalog:",
         "workbox-window": "catalog:"
     },
-    "browserslist": [
-        "baseline widely available",
-        "not dead",
-        "not ie <= 11"
-    ],
     "engines": {
-        "node": ">=24"
+        "node": ">=24.15.0"
     },
-    "packageManager": "pnpm@11.9.0"
+    "devEngines": {
+        "packageManager": {
+            "name": "pnpm",
+            "version": ">=11.9.0 <12",
+            "onFail": "error"
+        }
+    },
+    "nx": {
+        "targets": {
+            "typecheck": {
+                "command": "tsc --noEmit -p tsconfig.json"
+            }
+        }
+    }
 }

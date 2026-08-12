@@ -1,13 +1,13 @@
 # [RUNTIME_FLAG]
 
-Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
+Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam, with `track` seating business outcomes on that same plane under the one targeting-identity join. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[TARGETING_RULES]: the recursive rule family, the deterministic bucket, the total `decide` fold; `Rollout`.
 - [03]-[STICKY_ROWS]: stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold; `Sticky`.
 - [04]-[VERDICT_CONTRACT]: the OpenFeature projection, the document and delta families, the JSON value arm; `Verdict`.
-- [05]-[PROVIDER_OWNER]: the SDK `Provider` implementation, events, hooks, the promise boundary; `Flags`.
+- [05]-[PROVIDER_OWNER]: the SDK `Provider` implementation, events, hooks, the tracking seat, the promise boundary; `Flags`.
 - [06]-[GATE_SERVICE]: the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction; `Flags`.
 
 ## [02]-[TARGETING_RULES]
@@ -295,23 +295,26 @@ declare namespace Verdict {
 [PROVIDER_OWNER]:
 - Owner: the SDK `Provider` implementation the Layer constructs over the live ruleset cell — `runsOn: "server"`, `metadata`, one `OpenFeatureEventEmitter`, the four `resolve*Evaluation` members delegating to one interior `_resolved(kind, flag, fallback, context)` that recalls the cell, folds `Rollout.decide` under the subject's salted bucket, resolves the variant's value from the definition's map, and answers `ResolutionDetails` — value, variant, reason, `errorCode` on degradation; the object kind rides `resolveObjectEvaluation` over the `_Json` arm, so the SDK's whole kind surface is real.
 - Law: the kind/value correlation is proven, never asserted — the `_Value` table maps each kind to its value type, `_guards` is the mapped guard record `(value: Verdict.Json) => value is _Value[K]`, and `_resolved` is generic over `K extends Verdict.Kind` returning `ResolutionDetails<_Value[K]>`, so the guard's narrowing IS the evidence and the three primitive members are cast-free; the SDK's `resolveObjectEvaluation<T extends JsonValue>` generic promises the caller's `T` with no runtime witness — a foreign contract unsound by its own declaration — so that one member is the marked boundary adapter: the guard proves the JSON-object shape and the pin crosses the SDK's own seam on one marked line, nowhere else.
-- Law: the promise members are the platform-forced boundary — each `resolve*` bridges through the runtime captured at Layer build (`Effect.runtime` then `Runtime.runPromise`), the sanctioned callback-seam spelling, and the bridged effect is total, so a provider promise never rejects on a domain condition; `initialize` resolves once registration completes and `onClose` releases nothing because the feed fiber's lifetime is the Layer scope.
-- Law: events are the invalidation edge and the HEALTH edge, and the server event map carries exactly four rows the feed fold drives from its own seams — every accepted patch emits `ConfigurationChanged` with the changed flag keys, a malformed patch emits `Error`, feed death emits `Stale` before the reconnect budget runs, and an accepted `Reset` emits `Ready` because a whole document is the plane's own recovery edge. Without them the cell freezes at its last epoch and `evaluate` keeps answering `CACHED`/`STATIC` off a document nobody refreshes, with no reason column separating that from health and nothing for `client.addHandler` consumers or the `Setting.flag.quarantine` posture to observe; `Rollout.Reason` already carries `STALE`, so the reason vocabulary was waiting on the producer. A poll or side-channel epoch probe beside the emitter is the rejected second signal.
-- Law: outcome association has no seat here, and the reason is a vocabulary gap rather than a member gap — `client.track` is real and synchronous (`void`, never a promise, so no runtime bridge applies), but the SDK client NO-OPS it unless the registered `Provider` implements the optional `track` member, so the seat is the provider literal and any service entry is only its caller. What blocks the seat is that a tracking event names a BUSINESS outcome, and `core/observe/convention` carries only `feature_flag.key`, `feature_flag.provider.name`, and `feature_flag.result.reason` — stamping an outcome name under a flag-key row asserts a value the row does not mean. The vocabulary lands at the convention owner first, this seat second.
-- Law: the subject projects from the SDK `EvaluationContext` — `targetingKey` is the subject key (absent folds to `TARGETING_KEY_MISSING` evidence on targeted rules), string-valued attributes are the axes — so context construction is the SDK's standard seam and transaction-context propagation composes at the app edge, never a parallel context shape.
+- Law: the promise members are the platform-forced boundary — each `resolve*` bridges through the runtime captured at Layer build (`Effect.runtime` then `Runtime.runPromise`), the sanctioned callback-seam spelling, and the bridged effect is total, so a provider promise never rejects on an evaluation condition.
+- Law: the optional lifecycle pair stays unimplemented by design — readiness is the cell's own epoch, which `PROVIDER_NOT_READY` already reports and the feed alone advances, so an `initialize` arm restates a readiness `setProviderAndWait` already awaits, and the Layer scope owns the feed fiber, so an `onClose` arm releases what the scope releases. `initialize`'s domain argument is the seam a multi-domain deployment specializes on; this owner registers one provider on the default domain, so the argument decides nothing here and a second domain earns a specialization arm rather than a second provider.
+- Law: events are the invalidation edge and the HEALTH edge, and the server event map carries exactly four rows the feed fold drives from its own seams — every accepted patch emits `ConfigurationChanged` with the changed flag keys, a malformed patch emits `Error`, feed death emits `Stale` before the reconnect budget runs, and an accepted `Reset` emits `Ready` because a whole document is the plane's own recovery edge. Without them the cell freezes at its last epoch and `evaluate` keeps answering `CACHED`/`STATIC` off a document nobody refreshes, with no reason column separating that from health and nothing for `client.addHandler` consumers or the `Setting.flag.quarantine` posture to observe; `Rollout.Reason` already carries `STALE`, so the reason vocabulary was waiting on the producer. `OpenFeatureEventEmitter` is the one health producer, so a poll or side-channel epoch probe beside it has no spelling.
+- Law: outcome association is a provider member, not a service entry — the client NO-OPS `track` unless the registered `Provider` implements the optional member, so the seat is the provider literal and any caller above it only forwards. The member projects the call onto convention rows: the event name is `rasm.flag.event`, the optional numeric `value` is `rasm.flag.value`, the remaining `TrackingEventDetails` members render into the one `rasm.flag.detail` payload, and `feature_flag.context.id` carries the targeting identity. That identity is the WHOLE join — a tracking call names a business outcome and carries no flag key, so the coordinate the telemetry hook already stamps on every evaluation is the only thing both planes share, and an outcome spelled under a flag-key row asserts a flag the call never named.
+- Law: the tracking member is the SDK's one synchronous seat — it answers `void`, never a promise, so the bridge is `Runtime.runSync` over a total effect rather than the promise bridge the `resolve*` members take; a promise here strands its work off the caller's stack, and the client wraps the call in a `try` that swallows a throw into a debug log, so any failure the seat could raise would vanish as silent evidence loss. The client freezes the MERGED context before the call, so global, client, and transaction altitudes all reach the member with no second context shape, and a track before readiness short-circuits inside the client and never arrives.
+- Law: the occurrence rides the metric plane beside the span rows, because a trace plane is sampled and an experiment reads its outcomes as a rate — `rasm.flag.tracked` is a frequency row whose word axis IS the event name, so the root declares its outcome roster once at the Layer factory, every declared word reports zero before its first occurrence, and an undeclared one still counts rather than being dropped. The magnitude never joins it: a caller-defined `value` carries no dimension, so one summed series would fold currency, duration, and arity into a code no UCUM row spells, and the wide event is where that evidence is read.
+- Law: the subject projects from the SDK `EvaluationContext` — `targetingKey` is the subject key (absent folds to `TARGETING_KEY_MISSING` evidence on targeted rules), string-valued attributes are the axes — so context construction is the SDK's standard seam and transaction-context propagation composes at the app edge, never a parallel context shape; that composition is an EXPLICIT install, because the SDK's default transaction propagator is the no-op — a root wanting request-scoped context sets the async-local-storage propagator through `OpenFeature.setTransactionContextPropagator` once at boot, and a deployment that never installs one reads only the global and per-call altitudes.
 - Law: kind agreement is evidence — a resolved value that fails the requested kind's guard answers the fallback with `TYPE_MISMATCH`; a cold cell (epoch 0) answers `PROVIDER_NOT_READY`; a populated cell missing the flag answers `FLAG_NOT_FOUND` — the error channel stays empty and every degradation is data.
-- Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`), `effect` (`Effect`, `Runtime`, `Option`, `HashMap`, `DateTime`).
+- Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`, `TrackingEventDetails`, `TrackingEventValue`), `effect` (`Effect`, `Runtime`, `Metric`, `Option`, `HashMap`, `DateTime`).
 
 ## [06]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
-- Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest and a `Sticky.Mode` policy value (the root selects `none | session | durable`, never a call-site knob). Its scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`net/channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell); the session reconnects internally under the feed budget, and only its exhaustion re-opens the feed on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
+- Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest, a `Sticky.Mode` policy value (the root selects `none | session | durable`, never a call-site knob), and the business-outcome roster the tracking counter preregisters. Its scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`net/channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell); the session reconnects internally under the feed budget, and only its exhaustion re-opens the feed on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
 - Law: `evaluate` is total — the memo's lookup calls the SDK client's `get*Details` member for the probe's kind, projects the `EvaluationDetails` into a `Verdict`, and folds any rejection to `reason: "ERROR"` with `GENERAL` code and the stated fallback, so the error channel is `never` and every degradation is verdict evidence policy reads.
 - Law: the mode row is executable — `none` calls the lookup directly, `session` and `durable` route through `Cache.makeWith`, and `durable` recalls and records `Sticky.Held` through `KeyValueStore.forSchema(Sticky.Held)` on top of that route. Recall validates both epoch and lease before projecting the held variant through the current definition; storage failure degrades to live evaluation, never fails `evaluate`, while an accepted live variant is persisted through an explicitly ruled best-effort tap. `ConfigurationChanged` invalidates the process memo wholesale; durable invalidation remains epoch-based, so no ledger sweep exists.
-- Law: one telemetry hook rides registration — an SDK `Hook` whose `after` stamps the active span with the flag key, provider name, and resolved reason as `core/observe/convention` rows under one `Convention.Attributes`-checked record — so evaluation evidence reaches the trace plane through the SDK's own lifecycle, never a hand tap inside `evaluate` and never a free-string attribute key.
+- Law: one telemetry hook rides registration — an SDK `Hook` whose `after` stamps the active span with the flag key, provider name, resolved reason, resolved variant, and targeting identity as `core/observe/convention` rows under one `Convention.Attributes`-checked record — so evaluation evidence reaches the trace plane through the SDK's own lifecycle, never a hand tap inside `evaluate` and never a free-string attribute key. The last two rows are what a tracked outcome lands against: without the identity an outcome joins nothing, and without the variant it counts but attributes to no arm.
 - Law: this owner is the one dialect crossing between the SDK's uppercase `StandardResolutionReasons` and the spec's lowercase result-reason values — `_SPEC` is the total keyed map, the convention owner holds the spec vocabulary alone, and an unrecognized SDK reason folds to the spec's own unknown row rather than reaching the wire raw.
 - Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never mounts a second `Flags.Default` beneath itself.
-- Entry: `Flags.Default(digest, mode)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph.
+- Entry: `Flags.Default(digest, mode, outcomes)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph; `client.track(event, context, details)` at the business-outcome site the roster names.
 - Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
 
 ```typescript signature
@@ -326,10 +329,13 @@ import {
     type Provider,
     ProviderEvents,
     type ResolutionDetails,
+    type TrackingEventDetails,
+    type TrackingEventValue,
 } from '@openfeature/server-sdk';
 import { KeyValueStore } from '@effect/platform';
 import {
-    Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Option, Predicate, Record, Runtime, Schedule, Schema, Stream, SubscriptionRef,
+    Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Metric, Option, Predicate, Record, Runtime, Schedule, Schema, Stream,
+    SubscriptionRef,
 } from 'effect';
 import { Convention, Fault } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
@@ -338,6 +344,23 @@ import { Feed } from '../net/channel.ts';
 
 const _shifted = Schema.decodeUnknown(Schema.parseJson(_Shift));
 const _heldKey = Schema.encodeSync(Schema.parseJson(Schema.Tuple(Schema.String, Schema.String)));
+
+// The tracking remainder is caller-keyed and admits instants, nested records, and arrays no attribute value accepts, so
+// the fused codec renders it whole and `Schema.Date` is where an instant becomes its ISO spelling. Encode-only by
+// construction: the string arm would swallow a rendered instant on the way back, and nothing here decodes.
+interface _DetailEncoded {
+    readonly [key: string]: boolean | null | number | string | ReadonlyArray<_DetailEncoded[string]> | _DetailEncoded;
+}
+const _Detail: Schema.Schema<TrackingEventValue, _DetailEncoded[string]> = Schema.Union(
+    Schema.Boolean,
+    Schema.Number,
+    Schema.String,
+    Schema.Null,
+    Schema.Date,
+    Schema.mutable(Schema.Array(Schema.suspend((): Schema.Schema<TrackingEventValue, _DetailEncoded[string]> => _Detail))),
+    Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.suspend((): Schema.Schema<TrackingEventValue, _DetailEncoded[string]> => _Detail) })),
+);
+const _rendered = Schema.encodeSync(Schema.parseJson(Schema.Record({ key: Schema.String, value: _Detail })));
 
 type _Probe = {
     readonly flag: string;
@@ -363,6 +386,25 @@ const _SPEC: { readonly [R in Rollout.Reason]: Convention.FlagReason } = {
     TARGETING_MATCH: Convention.value.flagTargeting,
     UNKNOWN: Convention.value.flagUnknown,
 };
+
+// The return annotation closes the record: a key outside the convention vocabulary cannot ride the span. Every optional
+// coordinate folds to an OMITTED key rather than an empty one, so a query never reads absence as a value.
+const _attributed = (provider: string, event: string, context: EvaluationContext, details: TrackingEventDetails): Convention.Attributes => ({
+    [Convention.incubating.flagProvider]: provider,
+    [Convention.rasm.flagEvent]: event,
+    ...Option.match(Option.fromNullable(context.targetingKey), {
+        onNone: () => ({}),
+        onSome: (subject) => ({ [Convention.incubating.flagContext]: subject }),
+    }),
+    ...Option.match(Option.liftPredicate(details.value, Predicate.isNumber), {
+        onNone: () => ({}),
+        onSome: (magnitude) => ({ [Convention.rasm.flagValue]: magnitude }),
+    }),
+    ...Option.match(Option.liftPredicate(Record.remove(details, 'value'), Predicate.not(Record.isEmptyRecord)), {
+        onNone: () => ({}),
+        onSome: (rest) => ({ [Convention.rasm.flagDetail]: _rendered(rest) }),
+    }),
+});
 
 const _kindOf = (value: Verdict.Json): Verdict.Kind =>
     Predicate.isBoolean(value) ? 'boolean' : Predicate.isString(value) ? 'string' : Predicate.isNumber(value) ? 'number' : 'object';
@@ -439,13 +481,15 @@ const _resolved =
         });
 
 class Flags extends Effect.Service<Flags>()('runtime/Flags', {
-    scoped: (digest: (text: string) => number, mode: Sticky.Mode) =>
+    scoped: (digest: (text: string) => number, mode: Sticky.Mode, outcomes: Convention.Word) =>
         Effect.gen(function* () {
             const setting = yield* Setting;
             const feed = yield* Feed;
             const ledger = (yield* KeyValueStore).forSchema(Sticky.Held);
             const cell = yield* SubscriptionRef.make(new Ruleset({ epoch: 0, flags: HashMap.empty() }));
             const events = new OpenFeatureEventEmitter();
+            const metadata = { name: 'rasm' } as const;
+            const tally = Convention.mount(Convention.metric.flagTracked, outcomes);
             const runtime = yield* Effect.runtime<never>();
             const resolve = _resolved(cell, digest);
             const pace = Schedule.spaced(setting.flag.cadence);
@@ -493,7 +537,7 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
 
             const provider: Provider = {
                 runsOn: 'server',
-                metadata: { name: 'rasm' } as const,
+                metadata,
                 events,
                 resolveBooleanEvaluation: (flag, fallback, context) => Runtime.runPromise(runtime)(resolve('boolean', flag, fallback, context)),
                 resolveStringEvaluation: (flag, fallback, context) => Runtime.runPromise(runtime)(resolve('string', flag, fallback, context)),
@@ -501,6 +545,13 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                 resolveObjectEvaluation: <T extends JsonValue>(flag: string, fallback: T, context: EvaluationContext) =>
                     // BOUNDARY ADAPTER: the SDK's object generic promises the caller's T with no runtime witness; the guard proved the JSON-object shape, this pin crosses the SDK's own unsound seam
                     Runtime.runPromise(runtime)(resolve('object', flag, fallback as _Value['object'], context)) as Promise<ResolutionDetails<T>>,
+                // the SDK's one synchronous member: it answers void, so the bridge runs sync against a total effect
+                // rather than stranding a promise off the caller's stack, and the client's own try swallows a throw
+                // from here into a debug log — a failure the seat could raise would vanish as silent evidence loss
+                track: (event, context, details) =>
+                    Runtime.runSync(runtime)(
+                        Effect.zipRight(Effect.annotateCurrentSpan(_attributed(metadata.name, event, context, details)), Metric.update(tally, event)),
+                    ),
             };
 
             const traced: Hook = {
@@ -509,8 +560,18 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                         Effect.annotateCurrentSpan({
                             // Convention.Attributes closes the record: a key outside the vocabulary cannot ride the span
                             [Convention.incubating.flagKey]: hooked.flagKey,
-                            [Convention.incubating.flagProvider]: provider.metadata.name,
+                            [Convention.incubating.flagProvider]: metadata.name,
                             [Convention.incubating.flagReason]: _SPEC[_isReason(details.reason) ? details.reason : 'UNKNOWN'],
+                            // the join a tracked outcome lands against: the identity pairs the two planes and the
+                            // variant names the arm the outcome is attributed to
+                            ...Option.match(Option.fromNullable(hooked.context.targetingKey), {
+                                onNone: () => ({}),
+                                onSome: (subject) => ({ [Convention.incubating.flagContext]: subject }),
+                            }),
+                            ...Option.match(Option.fromNullable(details.variant), {
+                                onNone: () => ({}),
+                                onSome: (variant) => ({ [Convention.incubating.flagVariant]: variant }),
+                            }),
                         } satisfies Convention.Attributes),
                     ),
             };
@@ -647,4 +708,4 @@ export { Flags, Rollout, Sticky, Verdict };
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[TRACK_VOCABULARY]-[BLOCKED]: which attribute rows carry an OpenFeature tracking event — its name, its numeric `value`, and its `TrackingEventDetails` members — onto the evaluation span; blocked on `core/observe/convention` holding no tracking row, since the incubating flag family stops at `feature_flag.key`/`.provider.name`/`.result.reason`. Verify against the convention owner's row tables once the rows land, then the `Provider.track` seat follows here.
+(none)

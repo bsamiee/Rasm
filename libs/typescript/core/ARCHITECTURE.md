@@ -229,6 +229,7 @@ flowchart LR
     Tap e23@-->|"[SHAPE]: Tap.Name/Modality/Handler"| Security
     Board e24@-->|"[SHAPE]: Board.Query.Residence"| Data
     Wire e25@-->|"[SHAPE]: Hops"| Data
+    Wire e32@-->|"[SHAPE]: Wire.TextureSet"| Data
     Data e26@-->|"[SHAPE]: Board.Query.Target"| Board
     Board e27@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Data
     Iac e28@-->|"[PROJECTION]: Board.Query.Target"| Board

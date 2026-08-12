@@ -15,7 +15,7 @@ Schema evolution without migrations and its read accelerator in one owner: every
 - Packages: `effect` (`Either`, `ParseResult`, `Schema`); `@effect/experimental` (`VariantSchema`); `@rasm/ts/core` (`Fault.Class`).
 - Growth: a new version of one event is one step pushed onto its chain and `latest` bumped by one — old steps never change, because the versions they lift are already in the log; a new storage dialect is one variant key on the envelope family.
 - Law: the envelope coordinate is ONE declaration projected per dialect — the relational rows spell the generation `event_version`, the host op-log entry spells it `eventVersion` — so every persisted projection spreads `Upcast.Envelope.<variant>.fields` and declares only the columns it owns; a struct restating the triple beside this family is the parallel-shape defect, and a form diverging in meaning rather than in spelling keeps its own declaration and reuses the field alone.
-- Law: `Upcast.Column` exists because the spine returns json columns as live objects while the sqlite profiles return TEXT — the dialect difference is one codec every payload-bearing field and `Result` schema composes, so the miss rides `ParseError` on the one admission rail; a malformed stored text is a projection-time `ParseError` because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
+- Law: `Upcast.Column` exists because two column postures reach one decode — every digest-preimage payload column is TEXT in every dialect by the append owner's byte-truth law, while the snapshot body and frontier floor stay json columns the spine driver hands back as live objects — so one codec admits string and object arrivals alike, the miss rides `ParseError` on the one admission rail, and a malformed stored text is a projection-time `ParseError` because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
 - Law: steps are total pure functions over encoded payloads — `(payload: unknown) => unknown` with no failure channel; partiality has nowhere to hide because the terminal decode re-proves every invariant the current schema states.
 - Law: completeness is positional — a chain of `latest: 4` carries exactly three steps; `_sized` proves it at plan construction as a value, `Either.right` the proven chain and `Either.left` the typed `ChainIncomplete`, so a roster mismatch is a wiring fault the composing Layer folds once, never a throw and never a read-time surprise.
 - Boundary: `_sized` is the one construction check on the page — `Upcast.plan` and `Upcast.chain` fold it through `Either.all`, so the constructors are total pure functions into `Either` and no throw, `die`, or defect exit is spellable anywhere on the page.
@@ -156,11 +156,13 @@ const Upcast = {
 - Law: the upsert is monotonic — `WHERE excluded.version > journal_snapshot.version` — a stale snapshotter racing a fresh one commits nothing, so cadence needs no coordination.
 - Law: `snapshot_schema_version` is stamped from `lift.latest` at save and consumed by `lift.decode` at load — write coordinate and read fold share one anchor exactly as events do.
 - Law: a load whose body fails the lift is `ParseError` on the admission rail — the consuming lane discards the snapshot and replays; corruption degrades to cost, never to wrong state.
+- Law: the snapshot relation registers `Tenancy.rls` like every tenant-carrying relation — saves and loads run inside the consuming lane's pin, and the maintenance plane never reads snapshots, so the registration costs no reader a posture it lacks.
 - Boundary: a peer-minted snapshot header arrives decoded through the interchange codec and lands here as an ordinary save by its consuming lane — this page never re-decodes wire bytes.
 
 ```typescript signature
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
+import { Tenancy } from "../lane/tenant.ts"
 import { Journal, StreamKey } from "./append.ts"
 
 declare namespace Snapshot {
@@ -182,7 +184,8 @@ const _ddl: Capability.Ensure = {
     snapshot_schema_version INT NOT NULL,
     body JSONB NOT NULL,
     taken_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (app, tenant, aggregate));`,
+    PRIMARY KEY (app, tenant, aggregate));
+  ${Tenancy.rls("journal_snapshot")}`,
   sqlite: `CREATE TABLE IF NOT EXISTS journal_snapshot (
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version INTEGER NOT NULL,

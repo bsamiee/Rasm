@@ -23,8 +23,9 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 - Growth: a new format is one arm behind the same dispatch; a new visual concern is a spec field every arm interprets or ignores by declaration.
 - Packages: `effect` (`Effect`, `Stream`, `Match`, `Duration`, `Deferred`, `Ref`, `Clock`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread ceiling).
 
-```typescript
-import ExcelJS from "exceljs"
+```typescript signature
+// named-only tree: the package ships no default export, so the namespace import is the one admissible spelling
+import * as ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import JSZip from "jszip"
 import Papa from "papaparse"
@@ -289,7 +290,7 @@ const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Eff
 - Growth: a new formatting capability is a spec field mapped to its vocabulary row in this one fold.
 - Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, `WorkbookStreamReaderOptions`, `WorksheetReader` with the locally declared `id`/`name`/`state` coordinate, `WorksheetState`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model); `effect` (`Stream.fromAsyncIterable`, `Stream.zipWithIndex`, `Option.fromNullable`).
 
-```typescript
+```typescript signature
 // the three members the shipped `WorksheetReader` omits, each traced to the machine that installs it: the
 // constructor assigns `id` from the zip path and `name` as the `Sheet<id>` placeholder, and the workbook
 // registry match reassigns `id`, `name`, and `state` from the sheet row its rel resolves
@@ -486,7 +487,7 @@ const _amended = (
 - Growth: a new document element (watermark, TOC) is a furniture field folded here; interactive AcroForm surfaces are a spec extension row, admitted when a consumer names them.
 - Packages: `jspdf` (`jsPDF`, `GState`, the table/outline/AcroForm/metadata surface).
 
-```typescript
+```typescript signature
 const _pdfPlan = <A>(spec: Report.Pdf<A>, cells: ReadonlyArray<ReadonlyArray<Report.Cell>>): PdfPlan => ({
     columns: Array.map(spec.columns, ({ header, key, width }) => ({ header, key, width })),
     furniture: {
@@ -620,7 +621,7 @@ const _worker = {
 - Growth: a delimiter or encoding posture is an `UnparseConfig` field on the spec's format row.
 - Packages: `papaparse` (`parse`, `unparse`, `NODE_STREAM_INPUT`, `Parser`).
 
-```typescript
+```typescript signature
 const _csv = <A, R>(spec: Report.Csv<A>, rows: Stream.Stream<A, never, R>): Effect.Effect<Report.Artifact<R>> =>
   Effect.flatMap(Ref.make(0), (counted) => {
     const encoder = new TextEncoder()
@@ -665,7 +666,7 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 - Growth: a container policy axis (per-tenant naming, manifest entry) is a fold parameter; a second archive format is a new arm at the spec dispatch, never a fork of this one.
 - Packages: `jszip` (`JSZip`, `generateInternalStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
-```typescript
+```typescript signature
 const _bundleStream = (spec: Report.Bundle) =>
   Stream.async<Uint8Array, ReportFault>((emit) => {
     const zip = new JSZip()

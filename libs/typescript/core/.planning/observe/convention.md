@@ -64,9 +64,11 @@ import {
   ATTR_CLOUDEVENTS_EVENT_SUBJECT,
   ATTR_CLOUDEVENTS_EVENT_TYPE,
   ATTR_DEVICE_MODEL_IDENTIFIER,
+  ATTR_FEATURE_FLAG_CONTEXT_ID,
   ATTR_FEATURE_FLAG_KEY,
   ATTR_FEATURE_FLAG_PROVIDER_NAME,
   ATTR_FEATURE_FLAG_RESULT_REASON,
+  ATTR_FEATURE_FLAG_RESULT_VARIANT,
   ATTR_HOST_NAME,
   ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
   ATTR_MESSAGING_CONSUMER_GROUP_NAME,
@@ -151,9 +153,14 @@ const _incubating = {
   cloudZone: ATTR_CLOUD_AVAILABILITY_ZONE,
   connectionType: ATTR_NETWORK_CONNECTION_TYPE,
   deviceModel: ATTR_DEVICE_MODEL_IDENTIFIER, // the UA client hints expose a model alone: device.manufacturer has no browser source to stamp
+  // Tracked outcomes name a business event and carry no flag key, so `feature_flag.context.id` — the targeting
+  // identity both planes stamp — IS the join back to the evaluations that produced it, and `feature_flag.result.variant`
+  // is the arm the outcome attributes to. Without the pair a tracking event lands as an unattributable count.
+  flagContext: ATTR_FEATURE_FLAG_CONTEXT_ID,
   flagKey: ATTR_FEATURE_FLAG_KEY,
   flagProvider: ATTR_FEATURE_FLAG_PROVIDER_NAME,
   flagReason: ATTR_FEATURE_FLAG_RESULT_REASON,
+  flagVariant: ATTR_FEATURE_FLAG_RESULT_VARIANT,
   hostName: ATTR_HOST_NAME,
   // Transport coordinates a binding row already decides, so a producer and a consumer stamp one vocabulary: the
   // destination a row routes on, the partition an ordering key selected, the group a durable consumer holds, and
@@ -209,6 +216,9 @@ const _value = {
 - Law: unit codes are UCUM and every unit answers both egress tables, so an unanswered code renames its own series at one receiver and renders unitless at the other.
 - Law: instrument rows carry their bucket layout, quantile window, and carrier width as columns, so a mount reads one row and a histogram never takes a bucket vector a caller assembled.
 - Law: a frequency row admits no dimension column, because its word axis IS the exported dimension the bridge appends and a second fan multiplies one census into many.
+- Law: a tracked outcome joins its evaluations on `feature_flag.context.id`, because the tracking call names a business event and carries no flag key — the targeting identity both planes stamp is the only shared coordinate, and an outcome spelled under `feature_flag.key` asserts a flag the call never named.
+- Law: the tracked magnitude rides the wide event and the occurrence rides the metric plane, because a caller-defined value carries no dimension — one summed series folds currency, duration, and arity into a code no UCUM row spells — while a sampled trace plane cannot count an outcome an experiment reads as a rate.
+- Law: `rasm.flag.detail` carries the tracking remainder as ONE rendered payload, because those members are caller-keyed and admit nested objects, arrays, and instants no attribute value type accepts, so the boundary is declared at the row rather than flattened into keys no roster closes.
 - Growth: a measure is one `_metric` name with one `_instrument` row; a dimension is one `_rasm` key; a domain is one `_domain` row naming its emitters.
 - Boundary: which site mounts which instrument is the emitting folder's; this cluster owns names, units, shapes, and their closure.
 - Packages: `effect` (`Duration`); `../value/schema.ts` (`Shape`).
@@ -238,6 +248,7 @@ const _domain = {
   export: { emitters: ["ui"], subject: "surface serialization into content-minted parcels and their egress routes" },
   fact: { emitters: ["data"], subject: "journal fact drain into the queryable fact table" },
   fanout: { emitters: ["runtime"], subject: "broker fanout publication and the consumer lanes draining it" },
+  flag: { emitters: ["runtime"], subject: "feature-flag decisions and the business outcomes attributed back to them" },
   form: { emitters: ["ui"], subject: "form submit round-trip settlement by outcome" },
   gateway: { emitters: ["core"], subject: "command-gateway dispatch by verb and outcome" },
   invoke: { emitters: ["core"], subject: "capability-plane calls crossing the interchange" },
@@ -256,7 +267,7 @@ const _domain = {
   slo: { emitters: ["core"], subject: "objective burn and severity axes" },
   stream: { emitters: ["data"], subject: "resumable-upload finalization" },
   vital: { emitters: ["runtime"], subject: "graded web-vital observations with the phase and subject decomposition attributing each" },
-  work: { emitters: ["runtime"], subject: "work-plane channel routing" },
+  work: { emitters: ["runtime"], subject: "work-plane channel routing and durable-actor identity" },
 } as const
 
 const _rasm = {
@@ -272,7 +283,7 @@ const _rasm = {
   auditTargetKey: "rasm.audit.target.key",
   auditTargetKind: "rasm.audit.target.kind",
   benchBand: "rasm.bench.band",
-  benchCounterKind: "rasm.bench.counter.kind", // the leaf axis: five addon counters share one band value, so the band alone cannot split them
+  benchCounterKind: "rasm.bench.counter.kind", // the leaf axis: the addon's platform-forked counters share one band value, so the band alone cannot split them; `Board.Bench.counterLeaves` closes the vocabulary
   benchLabel: "rasm.bench.label",
   benchSuite: "rasm.bench.suite",
   benchVerdict: "rasm.bench.verdict",
@@ -281,6 +292,9 @@ const _rasm = {
   exportFormat: "rasm.export.format",
   exportSource: "rasm.export.source",
   factStream: "rasm.fact.stream",
+  flagDetail: "rasm.flag.detail", // the rendered remainder: the member family admits nested objects, arrays, and instants no attribute value type accepts
+  flagEvent: "rasm.flag.event",
+  flagValue: "rasm.flag.value",
   formOutcome: "rasm.form.outcome",
   gatewayFrame: "rasm.gateway.frame",
   gatewayOutcome: "rasm.gateway.outcome",
@@ -343,6 +357,8 @@ const _rasm = {
   vitalSession: "rasm.vital.session",
   vitalState: "rasm.vital.state",
   workChannel: "rasm.work.channel",
+  workFamily: "rasm.work.family", // the actor family, static on every message span beside the package's own entity.type
+  workShard: "rasm.work.shard", // the instance's shard placement, stamped on the lifetime span alone: the message-span seat is a static record
 } as const
 
 const _ESTATE = ["ring", "tenant"] as const
@@ -371,6 +387,7 @@ const _metric = {
   factDeferred: "rasm.fact.deferred",
   factDrained: "rasm.fact.drained",
   factRefused: "rasm.fact.refused",
+  flagTracked: "rasm.flag.tracked",
   formSubmit: "rasm.form.submit",
   gatewayCommands: "rasm.gateway.commands",
   gatewayDuration: "rasm.gateway.duration",
@@ -427,7 +444,8 @@ const _metricKinds = [
   _metric.batchDuration, _metric.benchCounter, _metric.benchGc, _metric.benchHeap, _metric.benchTime,
   _metric.benchVerdicts, _metric.cacheEntries, _metric.cacheHits, _metric.cacheMisses, _metric.chartFrames,
   _metric.crashCaptured, _metric.derivativeActive, _metric.derivativeQueued, _metric.exportParcels, _metric.exportSize,
-  _metric.factDeduped, _metric.factDeferred, _metric.factDrained, _metric.factRefused, _metric.formSubmit,
+  _metric.factDeduped, _metric.factDeferred, _metric.factDrained, _metric.factRefused, _metric.flagTracked,
+  _metric.formSubmit,
   _metric.gatewayCommands, _metric.gatewayDuration,
   _metric.httpServerDuration, _metric.idempotencyOutcome, _metric.invokeCalls, _metric.invokeDuration,
   _metric.invokeFault, _metric.laneCheckpoint, _metric.meterUsage, _metric.objectReclaimed, _metric.objectSize,
@@ -596,6 +614,7 @@ const _instrument = {
   factDeferred: { description: "journal append attempts the durable plane refused", kind: "counter", name: _metric.factDeferred, unit: _unit.item },
   factDrained: { description: "journal facts drained to the fact table", dimensions: [_rasm.auditAction, _rasm.auditActorKind, _rasm.factStream], kind: "counter", name: _metric.factDrained, unit: _unit.item },
   factRefused: { description: "journal facts parked on the refused roster", dimensions: [_rasm.factStream], kind: "counter", name: _metric.factRefused, unit: _unit.item },
+  flagTracked: { description: "tracked business outcomes by event name", kind: "frequency", name: _metric.flagTracked, unit: _unit.event },
   formSubmit: { description: "settled submit trips by outcome", dimensions: [_rasm.formOutcome], kind: "counter", name: _metric.formSubmit, unit: _unit.trip },
   gatewayCommands: { description: "gateway dispatches by outcome", dimensions: [_rasm.gatewayOutcome], kind: "counter", name: _metric.gatewayCommands, unit: _unit.call },
   gatewayDuration: { bounds: { count: 5, factor: 4, ladder: "exponential", start: 25 }, description: "gateway dispatch wall span", kind: "histogram", name: _metric.gatewayDuration, unit: _unit.milli },
@@ -919,7 +938,7 @@ declare namespace Convention {
     : K extends (typeof _incubating)["flagReason"] ? FlagReason
     : K extends (typeof _incubating)["browserMobile"] ? boolean
     : K extends (typeof _attr)["containerImageTags"] | (typeof _incubating)["browserBrands"] ? ReadonlyArray<string>
-    : K extends `rasm.vital.phase.${string}` | (typeof _rasm)["vitalDelta" | "vitalSession"] ? number
+    : K extends `rasm.vital.phase.${string}` | (typeof _rasm)["flagValue" | "vitalDelta" | "vitalSession"] ? number
     : string
   type Attributes = { readonly [K in Key]?: ValueOf<K> }
   type Bag = { readonly [key: string]: Value }

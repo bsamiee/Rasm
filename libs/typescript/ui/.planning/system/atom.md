@@ -1,15 +1,15 @@
 # [UI_ATOM]
 
-The ONE_FOLD_ONE_BINDING law made code: `@effect-atom` is the single state binding of the folder, and this module owns the whole bridge — one `Store.make` standing the app's Layer graph behind the atom registry with a shared `MemoMap`, one registry policy row, the persisted-atom rows (`Atom.kvs`/`Atom.searchParam` with kernel `Schema` codecs), the `Hydration` SSR handoff pair, the `AtomHttpApi`/`AtomRpc` contract-binding rows with the typed `reactivityKeys` invalidation graph, the derivation plane (selectors, `family`, `debounce`, refresh triggers, the `AtomRef` fine-grained cursor, the live `Subscribable`/`SubscriptionRef` bridge — `Machine` actors included — paged `pull`, stream egress), the write-modality and async-fold laws every view row obeys, and the `History` undo/redo command fold. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. The module is `ui/src/system/atom.ts`.
+`@effect-atom` makes the ONE_FOLD_ONE_BINDING law code as the single state binding of the folder, and this module owns the whole bridge — one `Store.make` standing the app's Layer graph behind the atom registry with a shared `MemoMap`, one registry policy row, the persisted-atom rows (`Atom.kvs`/`Atom.searchParam` with kernel `Schema` codecs), the `Hydration` SSR handoff pair, the `AtomHttpApi`/`AtomRpc` contract-binding rows with the typed `reactivityKeys` invalidation graph, the derivation plane (selectors, `family`, `debounce`, refresh triggers, the `AtomRef` fine-grained cursor, the live `Subscribable`/`SubscriptionRef` bridge — `Machine` actors included — paged `pull`, stream egress), the write-modality and async-fold laws every view row obeys, and the `History` undo/redo command fold. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. Module: `ui/src/system/atom.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[STORE_ROOT]: `Store.make` — the runtime root, registry policy, shared `MemoMap`, persistence rows; `Store`.
-- [03]-[REMOTE_BINDING]: the `AtomHttpApi`/`AtomRpc` contract-binding rows; —.
+- [03]-[REMOTE_BINDING]: `AtomHttpApi` and `AtomRpc` carry the contract-binding rows; —.
 - [04]-[SELECTOR_RAIL]: projection law — `map`/`mapResult`/`transform`, `family`, `debounce`, reactivity keys; —.
 - [05]-[LIVE_BRIDGE]: host-fold ingress (`subscriptionRef`/`subscribable`), paged `pull`, stream egress; —.
 - [06]-[WRITE_AND_FOLD]: write modality, optimistic reconcile, refresh triggers, the Suspense/boundary rail; —.
-- [07]-[HISTORY_FOLD]: the `History` owner — command-vocabulary undo/redo stack over any value atom; `History`.
+- [07]-[HISTORY_FOLD]: `History` folds a command-vocabulary undo/redo stack over any value atom; `History`.
 
 ## [02]-[STORE_ROOT]
 
@@ -19,13 +19,13 @@ The ONE_FOLD_ONE_BINDING law made code: `@effect-atom` is the single state bindi
 - Entry: `Store.make` is the one runtime mint; a per-atom `Layer` provision, a second registry outside test isolation, or a module-level `Atom.runtime` call beside it is the named defect.
 - Law: one `RegistryProvider` at the app root supplies the store; scoped per-instance state covers component-local cells — a global atom keyed by component id never exists.
 - Law: persistence is Schema-coded and the package surface IS the row, no wrapper — `Atom.kvs({ runtime, key, schema, defaultValue })` backs an atom by the platform `KeyValueStore` and `Atom.searchParam(name, { schema })` links one to a URL search param, each with the owning kernel schema (a brand, a `Schema.Literal` vocabulary) as the only codec, so `localStorage`/IndexedDB is never touched raw and a malformed stored value re-decodes to the default instead of poisoning the store.
-- Law: URL write SHAPING is a combinator on the persisted atom, never a routing-package hook tier — `runtime:browser/route` owns the typed query codec through `nuqs/server` and refuses `throttle`/`debounce`/`LimitUrlUpdates` at that seam because `createSerializer` ignores them, deferring the rate question to the hook tier it names a `ui` surface; that tier is `Atom.debounce` composed on the `Atom.searchParam` node, so how fast a hot control writes the URL is one combinator on the owning atom and this folder imports no query hook, no adapter, and no second URL-state binding. A `useQueryState` beside the store is the second binding `ONE_FOLD_ONE_BINDING` forecloses, and a hand `URLSearchParams` write is the same defect wearing the platform's name.
+- Law: URL write SHAPING is a combinator on the persisted atom, never a routing-package hook tier — `runtime:browser/route` owns the typed query codec through `nuqs/server` and refuses `throttle`/`debounce`/`LimitUrlUpdates` at that seam because `createSerializer` ignores them, deferring the rate question to the hook tier it names a `ui` surface; that tier is `Atom.debounce` composed on the `Atom.searchParam` node, so how fast a hot control writes the URL is one combinator on the owning atom and this folder imports no query hook, no adapter, and no second URL-state binding. Placing `useQueryState` beside the store mints the second binding `ONE_FOLD_ONE_BINDING` forecloses, and a hand `URLSearchParams` write is the same defect wearing the platform's name.
 - Law: SSR handoff is a real member pair — `Store.dehydrate(registry)` emits the `DehydratedAtom` state the server serializes, `HydrationBoundary` rehydrates it before children read, `Atom.serializable(self, { schema })` marks the atoms that cross with the kernel schema as codec, and a client refetch of server-computed data is the named defect.
 - Law: the observe weave terminates here — `Store.make`'s `layer` is the ONE seam where an app's telemetry bridge rows (tracer, metric registry, log exporter) enter, so every `rasm.ui.<domain>.<verb>`-named rail behind a runtime atom exports the moment the app composes the bridge; owners state `Effect.withSpan`/`Effect.annotateLogs`/`Metric` rows at their own rails, span names share the `system/hook` rail vocabulary so a hook fact and its span correlate by name, and this folder imports zero collectors and mints zero exporters — removing the bridge layer removes every emission with zero owner edits.
 - Boundary: the `ManagedRuntime` and boot seam are the browser composition root's — this module never calls a `run*` method; the shared `memoMap` argument is how the app hands both runtimes one acquisition map at composition, with `Atom.defaultMemoMap` as the shared floor when the app supplies none.
 - Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call with its owning schema — the `KeyValueStore` Layer swap is app composition.
 
-```typescript
+```typescript signature
 import { Atom, Hydration } from "@effect-atom/atom-react"
 import { Duration, type Layer, type Types } from "effect"
 
@@ -65,7 +65,7 @@ const Store: Store.Shape = {
 - Law: identifier-grade `GlobalId` and `Digest.Key<"content">` context rides spans and logs, never metric attributes.
 - Boundary: the `HttpApi`/`RpcGroup` values are edge contract material the app supplies, so the binding class is an APP-SIDE declaration this page legislates the exact shape of — the fence below is that shape, not a member of this module's export surface.
 
-```typescript
+```typescript signature
 import { AtomHttpApi, AtomRpc } from "@effect-atom/atom-react"
 import type { HttpApi } from "@effect/platform"
 import { FetchHttpClient } from "@effect/platform"
@@ -109,8 +109,9 @@ const _commit = Rpc.mutation("commit")
 - Law: update shaping is a combinator on the owner — `Atom.debounce(ms)` rate-limits a hot derivation (search input feeding a filter), `Atom.withReactivity(keys)` re-runs on typed invalidation coordinates, `Atom.keepAlive`/`Atom.setIdleTTL` pin or age a node, `Atom.withFallback(fallbackAtom)`/`Atom.initialValue(value)` seed a first render; shaping never lives in an effect body.
 - Law: refresh triggers are combinator rows, never effects — `Atom.refreshOnWindowFocus` is the stale-while-focus row, and `Atom.makeRefreshOnSignal(signal)` derives a refresh trigger from any signal atom (`Atom.windowFocusSignal` is the shipped one); a `visibilitychange` listener beside the store restates them.
 - Law: fine-grained sub-value subscription is the `AtomRef` cursor — `AtomRef.make(value)` mints the mutable root, `useAtomRefProp(ref, key)` derives the per-property child so a large draft re-renders only the edited field, and `AtomRef.collection(items)` is the ordered ref collection for per-item subscriptions without re-running the owning atom; `view/form` drafts and `view/table` row edits ride exactly this cursor, and a per-field atom family over one draft is the named defect.
+- Law: a foreign store crossing is an adapter atom minted over the fold's own cell — `view/table`'s `Grid.edge` wraps a registry cell as a `@tanstack/store` `Atom` whose `get`/`set`/`subscribe` all delegate to the registry, so the effect-atom cell stays the ONE writer and the foreign store holds no second copy; a foreign-store base atom left live beside the fold is the two-writer defect the adapter exists to close.
 
-```typescript
+```typescript signature
 import { AtomRef } from "@effect-atom/atom-react"
 import type { Digest } from "@rasm/ts/core"
 import { Array, Duration, Number } from "effect"
@@ -139,11 +140,11 @@ const _cursor = AtomRef.make({ label: "", rank: 0, note: "" })
 - Law: the frame clock is one of those rows and the spatial stratum's ONLY time coordinate — `viewer/geo#FRAME_CLOCK` owns the single `requestAnimationFrame` registration and publishes its `{ now, delta }` frame as a `SubscriptionRef` the bridge binds here, so mixer advance, layer animation, and construction-sequence scrub all derive from one coordinate; a renderer minting a clock of its own beside this binding is a second time producer whose drift makes a scrub position mean two things at once, and a `requestAnimationFrame` registration anywhere but that owner is the named defect. Each renderer still owns its own DRAW cadence — the clock owns the time, never the pump.
 - Law: a paged stream is `Atom.pull(stream)` — the atom holds `PullResult` (`{ done, items }` folded into `Result`), a write advances the page, and the pull geometry never leaks as a cursor cell beside the atom.
 - Law: egress mirrors ingress — `Atom.toStream(atom)`/`Atom.toStreamResult(atom)` observe an atom as an Effect `Stream` where a pipeline (a wire egress, a probe fold) consumes view-plane state; `Atom.batch(f)` coalesces multi-atom writes into one notification pass at imperative seams.
-- Law: effectful reads from Effect code go through the accessor family — `Atom.get`/`Atom.set`/`Atom.refresh`/`Atom.getResult` return `Effect<_, _, AtomRegistry>` and resolve the ambient registry; imperative non-React drivers read through `registry.get`/`registry.modify(atom, f)` (value plus next state atomically) and `registry.subscribe`; a captured registry reference threaded by hand restates the Tag.
+- Law: effectful reads from Effect code go through the accessor family — `Atom.get`/`Atom.set`/`Atom.refresh`/`Atom.getResult` return `Effect<_, _, AtomRegistry>` and resolve the ambient registry; imperative non-React drivers read through `registry.get`/`registry.modify(atom, f)` (value and next state atomically) and `registry.subscribe`; a captured registry reference threaded by hand restates the Tag.
 - Law: a statechart actor binds through the SAME row — `Machine.boot(machine, input)` yields a `Machine.Actor` that IS a `Subscribable` of its state, so `Atom.subscribable(actor)` is the whole machine→view seam: `viewer/scene#BACKEND_SELECT`'s `Glb.lifecycle` (the realized viewer instance — its phase reaches React through exactly this row), wizard flows, and multi-step overlay statecharts reach React as ordinary atoms, `snapshot`/`restore` cross remounts, and no second machine-binding mechanism exists.
 - Boundary: `Stream` pipeline law is settled; which host folds exist is the owning runtime page's; `Machine` definitions live with the owning plane (`viewer/scene` lifecycle, `view/form` wizard) — this cluster owns only the crossing.
 
-```typescript
+```typescript signature
 import { Result } from "@effect-atom/atom-react"
 import type { Machine } from "@effect/experimental"
 import type { Stream, SubscriptionRef } from "effect"
@@ -169,11 +170,11 @@ const _stage = Atom.subscribable(_actor)
 - Owner: the modality and fold laws every consumer composes — no code beyond what the package ships, because the law IS the composition: `useAtomValue(atom, selector)` scopes re-render to the projected slice (the selector overload replaces every `useMemo`-over-selector idiom; react-compiler owns the rest); `useAtomSet(atom, { mode })` selects the write shape by value — `"value"` fire-and-forget, `"promise"` awaitable to `Success`, `"promiseExit"` awaitable to `Exit` — one hook, three shapes, never a sibling; `Atom.optimistic`/`Atom.optimisticFn` write the optimistic value and reconcile against the effect's real `Result`; `Atom.refreshOnWindowFocus` and `Atom.withReactivity(keys)` are the refresh triggers.
 - Law: async renders as a fold, never a flag pair — `useAtomValue` + `Result.match` for total inline arms, `Result.matchWithWaiting` where the stale-while-revalidate affordance is its own arm, `Result.builder(self).onInitial(…).onSuccess(…).orNull()` where arms accrete fluently, or `useAtomSuspense(atom)` where `waiting` suspends to `<Suspense>` and `Failure` throws `Cause.squash(cause)` (the squashed tagged `E`) to the nearest boundary; the `waiting`/`previous` arms keep last-good data visible so a refresh never blanks the view.
 - Law: multi-step optimism carries its reducer — `Atom.optimisticFn({ …, reducer })` folds a sequence of optimistic writes (a form field batch) into the pending value and reconciles the whole fold against the effect's real `Result`; bare `Atom.optimistic` is the single-value form.
-- Law: the failure rail is Suspense plus the boundary — `system/primitive#FAILURE_ENVELOPE` catches the squashed `E` and `Match.tagsExhaustive` folds it; `includeFailure: true` is the inline escape hatch; a per-component `try`/`catch` or `isLoading`/`error` boolean pair is the named defect.
-- Law: a mutation completing is awaited, never polled — a form submit awaits `mode: "promise"` inside `startTransition`; an atom poll to detect completion marks a missing write mode.
+- Law: the failure rail is Suspense with the boundary — `system/primitive#FAILURE_ENVELOPE` catches the squashed `E` and `Match.tagsExhaustive` folds it; `includeFailure: true` is the inline escape hatch; a per-component `try`/`catch` or `isLoading`/`error` boolean pair is the named defect.
+- Law: a mutation completing is awaited, never polled — the awaited mode is the one the caller's fold needs: `"promise"` where a plain success suffices, `"promiseExit"` where the Cause rail itself is folded (`view/form#SUBMIT_TRIP` reads refusal, defect, and interrupt off the `Exit` a rejecting promise erases); an atom poll to detect completion marks a missing write mode.
 - Boundary: `Match` mechanics and error-family design are settled law; the boundary component row is `system/primitive`'s; the form round-trip composing these modalities is `view/form`'s.
 
-```typescript
+```typescript signature
 declare const _quota: Atom.Atom<Result.Result<{ readonly used: number; readonly cap: number }, { readonly _tag: "QuotaFault" }>>
 
 const _ratio = Atom.map(_quota, (result) =>
@@ -198,14 +199,14 @@ const _draft = Atom.optimistic(Atom.make(0))
 
 [HISTORY_FOLD]:
 - Owner: `History` — the undo/redo owner: `History.make(seed, options?)` returns one writable atom whose read is the full `History.State<A>` (`past`/`present`/`future` over `Chunk`) and whose write is the closed command family `History.Op<A>` — `Push` (new present, past capped at `limit`, future cleared), `Undo`, `Redo`, `Clear`; the derived projections `History.present`, `History.undoable`, `History.redoable` are `Atom.map` folds consumers subscribe to individually so a stack mutation re-renders only the affected readers.
-- Packages: `@effect-atom/atom-react` (`Atom.writable`); `effect` (`Chunk`, `Data`, `Equal`, `Match`).
+- Packages: `@effect-atom/atom-react` (`Atom.writable`); `effect` (`Chunk`, `Data`, `Equal`, `Option`).
 - Entry: one `make` per undoable concern — selection sets, form drafts, camera bookmarks; the command union is the only write surface, so every mutation is replayable and the fold is total by `$match`.
 - Law: `Push` with an `Equal`-identical present is a no-op — identity-aware deduplication keeps gesture streams from flooding the stack; `limit` is a policy value, never an unbounded array.
 - Law: the fold is pure and lives in the write function — no effect, no clock; time-travel over effectful state is composition (`History` of the INPUT, replay through the owning fold), never a snapshot of an effect's output.
 - Boundary: `History` is the pure in-registry transition fold; a transition family that must answer typed requests, survive process restarts, or snapshot/restore is a `Machine` actor bound through `[5]`'s `Atom.subscribable` row — the two never shadow one concern.
-- Growth: a new stack behavior (a `Mark` checkpoint, a coalescing window) is one command case plus one fold arm — every consumer breaks loudly at the missing arm.
+- Growth: a new stack behavior (a `Mark` checkpoint, a coalescing window) is one command case and one fold arm — every consumer breaks loudly at the missing arm.
 
-```typescript
+```typescript signature
 import { Chunk, Data, Equal, Option } from "effect"
 
 declare namespace History {

@@ -38,14 +38,15 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Each collector registers one observable per series against the single bound `Meter`; the emitted set is the surface contract — delay gauges `nodejs.eventloop.delay.` `min` `max` `mean` `stddev` `p50` `p90` `p99`; `nodejs.eventloop.time` counter and `nodejs.eventloop.utilization` gauge; `v8js.gc.duration` histogram; heap gauges `v8js.memory.heap.` `limit` `used` `space.size` `space.available_size` `space.physical_size`; `v8js.resource.active` count.
+- Each collector registers one observable per series against the single bound `Meter`; the emitted set is the surface contract — delay gauges `nodejs.eventloop.delay.` `min` `max` `mean` `stddev` `p50` `p90` `p99`; `nodejs.eventloop.time` counter and `nodejs.eventloop.utilization` gauge; `v8js.gc.duration` histogram; heap series `v8js.memory.heap.` `used` `space.size` `space.available_size` `space.physical_size`; `v8js.resource.active` count.
+- Every heap series is per-space, so `v8js.heap.space.name` rides all four and no whole-heap scalar exists on this producer; a dashboard reading the V8 ceiling takes it from the deployment's own memory bound, and one reading pressure sums or slices the space series.
 - Series attributes `nodejs.eventloop.state` (`active`/`idle`), `v8js.gc.type`, `v8js.heap.space.name`, `v8js.resource.type` — the heap-space and gc-type dimensions are the high-cardinality fan the deny-list view guards.
 - Dotted `nodejs.*`/`v8js.*` names, the `@opentelemetry/semantic-conventions` vocabulary, ride the estate Prometheus translation unchanged; a rename breaks the downstream dashboard vocabulary.
 
 [STACKING]:
 - `otel/emit`: registers against the `Meter` whose `MeterProvider` the OTLP metric lane drains, so engine vitals inherit the same `service.name` resource as `HostMetrics` spans and logs.
 - `@opentelemetry/host-metrics`(`.api/opentelemetry-host-metrics.md`): co-registers on one meter — host-metrics owns os/process cpu/memory/network, this owns the V8/event-loop interior; the series namespaces never collide.
-- `@opentelemetry/sdk-metrics`(`.api/opentelemetry-sdk-metrics.md`): a `createDenyListAttributesProcessor` view drops the `v8js.heap.space.name` and `v8js.gc.type` dimensions where a deployment reads only the aggregate series, holding the cardinality fan.
+- `@opentelemetry/sdk-metrics`(`.api/opentelemetry-sdk-metrics.md`): a `createDenyListAttributesProcessor` view over the `v8js.*` instrument space drops `v8js.heap.space.name` and `v8js.gc.type`, holding the cardinality fan; since every heap series is per-space, denying the space name folds the four heap series to one point each, so the row trades space-level attribution for a bounded stream and a deployment that reads per-space pressure keeps the key and spends its `aggregationCardinalityLimit` instead.
 - `@opentelemetry/api-logs`(`.api/opentelemetry-api-logs.md`): `setLoggerProvider` binds the `LoggerProvider` the opt-in `captureUncaughtException` path emits crash records on, so a fatal exception leaves as a log record on the same export wire.
 
 [LOCAL_ADMISSION]:

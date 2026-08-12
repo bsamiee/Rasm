@@ -20,47 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[PROFILE_ANCHOR_COMPOSITION]-[BLOCKED]: Both long-lived correlation anchors compose the profiling bridge.
-- Capability: the actor lifetime and the gateway duplex carry the profile-link attribute, so cpu attribution joins trace identity at the anchors both core laws already promise it at.
-- Shape: the composing seam in `libs/typescript/runtime/.planning/work/entity.md` for the actor lane and `libs/typescript/runtime/.planning/serve/live.md`'s socket acquisition for the duplex; `libs/typescript/runtime/.planning/otel/profile.md` supplies the member unchanged.
-- Unlocks: a flamegraph query resolves from a trace view at the two anchors, closing the correlation half `otel/profile#BANDS` landed with no caller.
-- Anchors: `otel/profile#BANDS` `Profile.banded`; `core/state/machine#ACTOR`'s `machine/<name>` scoped span; `core/interchange/invoke#COMMAND_GATEWAY`'s `gateway/duplex` scoped span; `Convention._profile`'s attribute row.
-- Arms: runtime composes neither core span; `Realtime.socket` uses `Socket.toChannel` → `Ndjson.duplexString` → `ChannelSchema.duplexUnknown`.
-- Tension: core opens both spans and imports no runtime module, and each acquisition may resolve only at a composition root Tier-0 seats outside `libs/`; the effectful arm carries the attribute stamp alone because the engine's label set is thread-global, so sample labels reach a synchronous region alone.
-
-[EVENTLOG_SERVER_MOUNT]-[QUEUED]: EventLog server handler mounts and the overlay declares its remote.
-- Capability: `EventLogServer.makeHandlerHttp` serves the browser overlay's sync protocol with storage satisfied by the data plane; drives from IDEAS `[EVENTLOG_SYNC]`.
-- Shape: one mount row in `libs/typescript/runtime/.planning/serve/live.md` `[07]`; the overlay's remote registration declared at the seam in `libs/typescript/runtime/.planning/browser/persist.md`.
-- Unlocks: IDEAS.md [EVENTLOG_SYNC] — field capture syncs when connectivity returns, the browser plane gaining durable multi-device state without a second store.
-- Anchors: branch `.api/effect-experimental.md` (`EventLogServer.makeHandlerHttp`); `browser/persist.md` overlay bindings.
-
-[RATE_LIMIT_ROWS]-[QUEUED]: Store-backed rate-limit rows land on the serving edge and queue throttles.
-- Capability: per-principal and per-route token-cost admission with `Problem`-rendered refusal, sharing one limiter vocabulary with the durable-queue throttles; drives from IDEAS `[SERVE_LIMITER]`.
-- Shape: one ceremony row in `libs/typescript/runtime/.planning/serve/route.md`; one `RateLimiter.makeWithRateLimiter` policy row beside the keyed throttles in `libs/typescript/runtime/.planning/work/queue.md`.
-- Unlocks: IDEAS.md [SERVE_LIMITER] — multi-tenant fairness becomes data, the app-neutrality law holding under contention.
-- Anchors: branch `.api/effect-experimental.md` (`RateLimiter.makeWithRateLimiter`); `work/queue.md` throttle cluster.
-
-[CREDENTIAL_PROJECTION_ROWS]-[QUEUED]: Credential-projection rows mount the machine principal.
-- Capability: gRPC per-call metadata rows and the NATS connection-authentication row read the security-resolved principal with grant-lifecycle refresh — NATS credentials live on `ConnectionOptions` at dial (handshake and reconnect authentication, rotation replaces the connection), never message headers, which stay app metadata; drives from IDEAS `[WORKLOAD_CREDENTIAL]`.
-- Shape: one row on `libs/typescript/runtime/.planning/net/client.md`; one row on `libs/typescript/runtime/.planning/net/pubsub.md`.
-- Unlocks: IDEAS.md [WORKLOAD_CREDENTIAL] — service-to-service auth on every transport axis from one principal source, credential rotation never restarting a lane.
-- Anchors: security `authn/workload.md` principal projection (carded); `net/client.md` lane table.
-- Atomic: two credential rows.
-
-[MITATA_SAMPLING_MODALITY]-[QUEUED]: `proc/exec.md` measured-run sampling lands over verified mitata members.
-- Capability: the deep-sampling modality joins the settled base receipts without an `Unknown` evidence bag; drives from IDEAS `[BENCH_CLAIM_PRODUCER]`.
-- Shape: one modality row on `libs/typescript/runtime/.planning/proc/exec.md` `[05]-[MEASURED_RUN]`, its `[06]-[RESEARCH]` `[TRIAL_ENGINE]` row deleted on landing.
-- Unlocks: IDEAS.md [BENCH_CLAIM_PRODUCER] — typed sampling evidence completes the receipt producer.
-- Anchors: `libs/typescript/.api/mitata.md` (`measure` five overloads, `do_not_optimize`, the `stats` rung set, the `k_options` batch and GC knobs, the lib-subpath default constants); `proc/exec.md` `[05]-[MEASURED_RUN]` `_band`, whose three `Option.none()` slots are exactly the engine's `gc`/`heap`/`counters` bands.
-- Atomic: the counters band stamps `Convention.rasm.benchCounterKind` with the mitata leaf (`cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses`) — five measures share one band value, so the series is unreadable without the leaf axis the convention row already declares.
-
-[CONNECT_INTERCEPTOR_MOUNT]-[BLOCKED]: the guarded Connect mount lands over exact surfaces.
-- Capability: the `Seam.guard`-preserving server mount completes the settled transport dispatch; the egress print half is foreclosed at `core:interchange/invoke#DIAL_AXIS`; drives from IDEAS `[GRPC_LANE]`.
-- Shape: rows on `libs/typescript/runtime/.planning/serve/live.md` gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
-- Unlocks: IDEAS.md [GRPC_LANE] — served gRPC surfaces under the one guard law.
-- Arms: one published node-handler lift serves both the rail mount and `Mount.Row`.
-- Anchors: `.api/connectrpc-connect-node.md` `[02]` interceptor rows; `Interceptor` and its `RequestCommon.header` carrier at `core/.api/connectrpc-connect.md`; `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` as the lift `serve/route.md` already drives a node handler through; the rpc admission boundary at `libs/typescript/runtime/RULINGS.md` `[01]-[PACKAGES]`.
-- Tension: the server interceptor field is inherited from a package-internal options type, so the mount fence binds it as a declared trap and a bump re-proves it.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -68,6 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[AVRO_EVENT_ARM]-[COMPLETE]: `Format.event.fill` seats the host-bound seam at core; `net/channel`'s `Avro` mints the one codec both intakes consume, closing the zero-call-site `avsc` registration.
 [FAULT_CLASS_CONFORMANCE]-[COMPLETE]: every runtime fault family mints through `FaultClass.family` with `class` as a projection of `reason` — the three named pre-ruling holdouts converged (`browser/route.md` `_routeFamily`/`_flowFamily`, `browser/persist.md` `_kvFamily`, `proc/exec.md` `_exec`), and the residual literal-asserted pair at `serve/cli.md` collapsed into one two-reason `OpsFault`; no local rank, retry, or halting column survives anywhere in the folder. Mirrors `ui`/`data`/`iac`, whose sibling cards close on their own corpora.
 [CONSUMPTION_AXIS_RECORD]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
 [FETCH_TIMING_SETTLE]-[COMPLETE]: `browser/fetch.md` `[04]-[DIAL_SURFACE]` holds the caller span through body consumption and resolves the `PerformanceResourceTiming` race with the `_SETTLE` bounded poll; the page's `[08]-[RESEARCH]` emptied to `(none)`.
@@ -90,3 +51,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [CLOUDEVENTS_CODEC_ROWS]-[COMPLETE]: the codec rows landed as COMPOSITION of `core:interchange/carrier#EVENT_ENVELOPE` and `core:interchange/format#EVENT_FORMAT` rather than page-local fences — intake detects before decoding and never constructs, egress projects at claim time and signs once, while `net/channel.md` and `net/pubsub.md` took the same collapse so the branch carries one message-envelope owner across HTTP, MQTT, NATS, and Kafka; drives from IDEAS `[CLOUDEVENTS_ENVELOPE]`.
 [ENVELOPE_CODEC_DEDUP]-[COMPLETE]: `pubsub.md` preserves the opaque message-envelope body and band while `data/.planning/journal/append.md` owns strict CloudEvents projection and inverse carrier decode, eliminating the duplicate runtime codec.
 [CLOUD_PLACEMENT_TABLE]-[COMPLETE]: already realized — `emit.md` `_CLOUD` placement table (five aws arms + gcp), the `containerDetector` arm on `_placed`, and `browserDetector` on `_rum`.
+[PROFILE_ANCHOR_COMPOSITION]-[COMPLETE]: the blocker fell — the anchors are runtime's OWN long-lived spans, not the core spans runtime cannot reach: `work/entity.md` `[03]` opens `actor/<name>` on the builder seat and `serve/live.md` anchors `realtime/sse`/`realtime/socket`, each taking the profile band's effectful arm with the vocabulary published on its owner; `otel/profile.md` had three clauses refuted and repaired (the `cpu` row deleted as a wall-profiler alias, the unarmed-throw seat cell, the label-leak guard). The card's `gateway/duplex` anchor was a type name — the core span is `gateway/serve`.
+[EVENTLOG_SERVER_MOUNT]-[COMPLETE]: `serve/live.md` `[07]` mounts `EventLogServer.makeHandlerHttp` as a row effect over the `Storage` port (`Mount.Row` admits `Scope`, `Mount.of` takes effects uniformly), `persist.md` spells sync path ≡ mount prefix with the E2E-key law; the data-side `SqlEventLogServer.layerStorage` row is handed to the data pass.
+[RATE_LIMIT_ROWS]-[COMPLETE]: `serve/route.md` `Seam.priced` refuses on per-principal + per-route cost rows and `work/queue.md` `Throttle.pace` delays, both over one four-column grammar and the one `Fleet.RateLimiter` port with scope-joined keys; `api.md` `Gate.fenced` widened to `Gate.Spend`.
+[CREDENTIAL_PROJECTION_ROWS]-[COMPLETE]: `net/client.md` lands the `Machine` audience-keyed projection with the `present` lane column, `net/pubsub.md` the NATS thunk-authenticator at dial (rotation replaces the connection) and the Kafka SASL/OAUTHBEARER provider row (rotates in place); four catalogs repaired to the proved surfaces.
+[COOKIE_LOG_SEAL]-[COMPLETE]: `emit.md` `[03]` seals `cookie`/`set-cookie` (with `authorization`/`x-api-key` parity for copied bags); the serve-seam audit found every logged header bag already inside the scrub or the platform `Redactable` roster, so no `Headers.redact` fold was owed.
+[MITATA_SAMPLING_MODALITY]-[COMPLETE]: `exec.md` `[05]` replaced the hand-rolled kernel with mitata's own — typed gc/heap/counters bands through `Board.Bench.fromMitata`, counter absence as a host-fingerprint verdict, `benchCounterKind` stamping the platform-forked leaf; 13 mitata catalog rows repaired against the installed tree.
+[CONNECT_INTERCEPTOR_MOUNT]-[COMPLETE]: the blocker fell on installed-tree re-proof — the interceptor reach proved at the validate-copy mechanism and declared re-prove-on-bump, carrier continuation foreclosed at the mount (`Seam.guard` continues the one hop), `contextValues` named as the principal seam, adapter-rejection and prefix laws landed.

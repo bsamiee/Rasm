@@ -23,7 +23,7 @@ Every planning target clears the lib-grade foundation bar, never app scaffolding
 
 ## [03]-[WORKFLOW_ORCHESTRATION]
 
-Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each. Four adversarial stages carry it — DISCOVERY grounds the pass, CRITIQUE and RED-TEAM attack the work, and VERIFY proves and improves it to the root.
+Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each. Five adversarial stages carry it — DISCOVERY grounds the pass, CRITIQUE and RED-TEAM attack the work, VERIFY proves and improves it to the root, and INTEGRATE re-attacks the landed whole once the campaign's last landing settles.
 
 DISCOVERY grounds every downstream stage as read-only reconnaissance, its one concession. It full-reads every targeted page and its folder, enumerates both `.api` tiers and the doctrine inventory from a source-of-truth listing, and resolves scope against disk. Its map carries per-page composed and underused capability with verified members, contextual seams, stacking guidance, and a hostile weak/strong call, never a verdict, phantom, or guess. Downstream stages re-read and exceed the map; it never licenses a skim.
 
@@ -55,11 +55,22 @@ VERIFY agents WRITE the improvement their proof exposes; adversarial never confi
 - Status flips against evidence alone: a spike or gap marks finalized against a cited `.api` line or harness output.
 - `tools.assay` is that rail — `api` for member truth, `docs check` for fence-bearing pages, `provision` for Forge toolchain facts, `bridge` for live-host scenario facts.
 
+INTEGRATE holds writer authority over the whole touched corpus, never the closing pass's own diff. It runs the full CRITIQUE attack and then the full RED-TEAM attack as two separate passes over every fence-bearing page the campaign touched, each grading the corpus as it now stands rather than as any pass found it; landings that graded clean alone still answer INTEGRATE for how they sit in the whole.
+
+- Density: every landing extends its owner in place; tack-ons rebuild as rows, cases, and columns on the owner they widened.
+- Collapse: repeated construction folds into its algebraic owner; twins minted by concurrent legs merge at the narrowest owner.
+- Folder strata: each touched folder re-integrates its interior strata, re-routing every landing that bypassed a folder-local owner.
+- Branch strata: each folder re-derives what lower strata now supply, wiring landed substrate over every local approximation above it.
+- Unlocks: capability a landing freed but never wired, the unbound port or consumer-less row, wires here or lands as a complete card at its owner.
+- Cold close: INTEGRATE re-judges every VERIFY dimension against the integrated result before the campaign's verdict.
+
 All agents (main agent included) regardless of type (critique/redteam/other) always follow the same standards below:
 - Naivety is a defect on three orthogonal axes, all intolerable — COVERAGE, APPROACH, and AUTHORITY.
 - COVERAGE naivety — a thin slice of the concept: three obvious fields where the domain carries fifteen, a two-case family for a twenty-case domain.
 - APPROACH naivety — hardcoded enumerated instances where a parameterized algorithmic owner generates the space.
 - AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package is treated as the semantic owner.
+- Claims land proved on a live rail: installed-tree reflection, throwaway harness apps, provisioned-host probes, whichever rail reaches the fact.
+- Blockers, research rows, and cards chase to full realization on the whole tool estate; a residual survives only on an observable no rail fires.
 - Ruling violations route as cards — IDEA at concept grain, TASK at landing grain — never inline workarounds.
 - Items formulated in isolation of their folder's ground-up code-doctrine integration are corrected or removed.
 - Cross-language ideas land at their right touchpoints the same turn; full ripple coverage and refactoring to the ENTIRE splash radius.

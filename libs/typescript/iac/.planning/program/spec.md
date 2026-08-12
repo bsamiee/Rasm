@@ -24,10 +24,13 @@
 [SPEC_OWNER]:
 - Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
-- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `separation` carries the tenant-boundary posture the cluster realizes — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas; `objective` alone is a getter rather than a field, because the durability window follows from `topology` and a defaulted second declaration of it forks the pair the runner grades against.
+- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `capacity` sizes the node pool that escalation stands (the instance type and the EKS-optimized OS family off their providers' own rosters, beside the pool's floor and ceiling), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `separation` carries the tenant-boundary posture the cluster realizes — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas; `objective` alone is a getter rather than a field, because the durability window follows from `topology` and a defaulted second declaration of it forks the pair the runner grades against.
 - Law: `topology` is the deployment-shape axis a composition root supplies, not a fact a package infers — `proc/config#ADMISSION_ROWS` owns the closed roster and `ConsumptionProfile.topologies` spreads that one spelling into this schema, `service` is the deploy plane's own default, and a tier serving a proper subset refuses the rest at admission with typed evidence naming the axis and the rejected value; `operate/converge.md` is the first such refusal, `_SERVED` its subset; the same owner supplies the topology-keyed durability window through `ConsumptionProfile.recoveryOf`, so `objective` reads one branch table and this schema restates no window of its own.
+- Law: `rollout` is the backend-generation cutover strategy, never a traffic knob — `immediate` writes the generation pointer in one atomic update, `canary` proves the incoming generation under a measured traffic fraction before that write, and `bluegreen` stands the paired generation and cuts whole; `operate/converge.md` `[04]-[PUBLICATION]` is the one consumer and reads the strategy off the same profile row it already takes `topology` and `objective` from, so cutover posture reaches the pointer write with no second argument and the default reproduces the atomic flip every deployment already performs.
+- Law: a coordinate naming a provider's own vocabulary types off that vocabulary, never a bare string — `capacity.instanceType` spreads the generated `aws.types.enums.ec2.InstanceType` roster and `capacity.os` the `eks.OperatingSystem` roster into their admission alphabets, so an unspellable capacity refuses at decode where the value is still loggable rather than surfacing as a provider fault mid-apply, and the roster widens with the installed tree so no release literal rides this page; a coordinate whose governing roster is arm-dependent cannot close here at all — `region` reads an AWS roster on one arm and an unpublished Google one on the next — so it stays a plain coordinate and admits inside the arm that knows whose vocabulary governs, which is `provider.md`'s `_vocab` proof.
 - Law: `_Profile` is a `Schema.Class` for exactly one reason — a derived `objective` needs a body, and `Schema.Struct` carries none; the class seats `topology` beside that getter, which is what makes `StackSpec.Profile` satisfy `operate/converge` `Converge.Profile` structurally instead of by an adapter the deploy program hand-builds.
 - Law: `data` sizes its own cluster — `instances` and `storage` bound the estate and `requests`/`limits` bound each instance, because a cluster stating no resource block schedules BestEffort and the estate's only stateful workload is then the first pod the kubelet evicts under node pressure; both faces spell one quantity pair so a Guaranteed posture is a caller setting them equal rather than a second axis.
+- Law: `data.pool` sizes the pooler exactly as `data` sizes the cluster — the replica count, the request/limit pair the bouncer container carries, and the two connection ceilings (`clients` meters browser-side connections, `sessions` the server-side pool width) all enter as defaulted coordinates, because the CRD's own default of one replica and its silence on `resources` together schedule a BestEffort singleton in front of a Guaranteed database; `kube/data.md` `[CNPG_CLUSTER]` is the one consumer and owns both the operator's parameter spellings and the allowlist that proves them, so this owner states magnitudes and never a bouncer key.
 - Law: `data.pooling` is a capability input, not a chart knob — the mode selects the PgBouncer posture AND the primitive set that posture voids, `session` is the default because it voids none, `data.primitives` names the pooled-bind primitives the app composes, `kube/data.md` refuses the intersection at admission, and the realized mode publishes on the `data` plane so the runtime capability rail gates on deployment truth instead of assuming a session.
 - Law: a wire literal carries a refined brand, never a bare string — `_Quantity` holds the Kubernetes resource-quantity grammar every storage and sizing field spells, `_Cron` holds the six-field seconds-leading dialect the CNPG schedule consumes, and `_Window` holds the retention duration every store row's `retain` projection reads; a value failing its grammar fails at decode, where the coordinate is still loggable, never inside a chart the operator already accepted.
 - Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, `observe.ingest` the pg-server metrics arm, `observe.costs` the OpenCost pricing row, and `observe.ebpf` the privileged zero-code instrumentation row — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
@@ -41,10 +44,12 @@
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a cloud arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
 - Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new separation tier is one literal with its interpreting row in the owning tier and a new governance axis one `_Governance` field the same tier reads; a new consumption axis is one roster the runtime admission owner mints with one `_Profile` field spreading it.
-- Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Identity.App`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
+- Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s; the node group `capacity` sizes is `provider.md`'s aws `cluster` row; the cutover `rollout` selects is `operate/converge.md`'s pointer write.
+- Packages: `effect` (`Schema`); `@pulumi/aws` (`types.enums.ec2.InstanceType`); `@pulumi/eks` (`OperatingSystem`); `@rasm/ts/core` (`Identity.App`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
 
 ```typescript signature
+import * as aws from "@pulumi/aws"
+import * as eks from "@pulumi/eks"
 import { Identity } from "@rasm/ts/core"
 import { type Consumption, Profile as ConsumptionProfile } from "@rasm/ts/runtime"
 import { Schema } from "effect"
@@ -97,6 +102,41 @@ const _Doppler = Schema.Struct({
 // is the first pod the kubelet evicts under node pressure — on the estate's only stateful workload.
 const _Compute = Schema.Struct({ cpu: _Quantity, memory: _Quantity })
 
+// `_Capacity` sizes the node pool the `cluster` compute posture stands, and `instanceType` spreads the PROVIDER's
+// own generated roster into the admission alphabet: the node-group arg is `Input<string>`, so the SDK closes
+// nothing and this coordinate is the only surface that can, while the roster widens with the installed tree
+// rather than a literal set this page would chase. `min` doubles as the pool's desired size — a cluster whose
+// steady state is its own floor scales up under pressure and parks no capacity the scheduler never claimed.
+const _Capacity = Schema.Struct({
+  instanceType: Schema.optionalWith(Schema.Literal(...Object.values(aws.types.enums.ec2.InstanceType)), {
+    default: () => aws.types.enums.ec2.InstanceType.M7g_Large,
+  }),
+  // `os` is the pin, not `amiType`: the node-group component resolves the EKS-optimized image from this axis
+  // AND the instance types, so an arm64 capacity value picks its own arch, while `amiType` is the raw
+  // `Input<string>` twin that supersedes that derivation and forks it. The default names the FAMILY rather
+  // than the `RECOMMENDED` alias, whose value AWS moves — an alias pin re-images the pool on a bump that
+  // touched nothing this estate stated. Deprecated members ride the provider's own const because an estate
+  // never narrows a provider vocabulary, and `RECOMMENDED` collapses onto its family's literal here.
+  os: Schema.optionalWith(Schema.Literal(...Object.values(eks.OperatingSystem)), {
+    default: () => eks.OperatingSystem.AL2023,
+  }),
+  min: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 100)), { default: () => 2 }),
+  max: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 100)), { default: () => 4 }),
+})
+
+// PgBouncer stands in front of the cluster above it, so the pool states its own width and envelope: the CRD
+// defaults ONE replica, and a bouncer entry carrying no `resources` schedules BestEffort in front of a
+// Guaranteed database. `clients` and `sessions` are the two ceilings the bouncer meters by — the operator's
+// parameter spellings and its key-by-key admission allowlist are `kube/data.md`'s, never restated here — and
+// both bounds are this estate's own, floored at one connection because a pool admitting none is not a pool.
+const _Pool = Schema.Struct({
+  instances: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 9)), { default: () => 2 }),
+  requests: Schema.optionalWith(_Compute, { default: () => _Compute.make({ cpu: _Quantity.make("100m"), memory: _Quantity.make("128Mi") }) }),
+  limits: Schema.optionalWith(_Compute, { default: () => _Compute.make({ cpu: _Quantity.make("500m"), memory: _Quantity.make("256Mi") }) }),
+  clients: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 10000)), { default: () => 1000 }),
+  sessions: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 1000)), { default: () => 20 }),
+})
+
 const _Data = Schema.Struct({
   instances: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 9)), { default: () => 2 }),
   storage: Schema.optionalWith(_Quantity, { default: () => _Quantity.make("20Gi") }),
@@ -105,6 +145,7 @@ const _Data = Schema.Struct({
   backupCron: Schema.optionalWith(_Cron, { default: () => _Cron.make("0 0 3 * * *") }),
   retention: Schema.optionalWith(_Window, { default: () => _Window.make("30d") }),
   pooling: Schema.optionalWith(_Pooling, { default: () => "session" as const }),
+  pool: Schema.optionalWith(_Pool, { default: () => _Pool.make({}) }),
   primitives: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
 })
 
@@ -178,7 +219,9 @@ const _Observe = Schema.Struct({
 class _Profile extends Schema.Class<_Profile>("StackSpec.Profile")({
   scale: Schema.optionalWith(Schema.Literal("dev", "standard", "fleet"), { default: () => "standard" as const }),
   topology: Schema.optionalWith(Schema.Literal(...ConsumptionProfile.topologies), { default: () => "service" as const }),
+  rollout: Schema.optionalWith(Schema.Literal("immediate", "canary", "bluegreen"), { default: () => "immediate" as const }),
   compute: Schema.optionalWith(Schema.Literal("serverless", "cluster"), { default: () => "serverless" as const }),
+  capacity: Schema.optionalWith(_Capacity, { default: () => _Capacity.make({}) }),
   extensions: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
   objectEngine: Schema.optionalWith(Schema.Literal("minio", "ceph"), { default: () => "minio" as const }),
   exposure: Schema.optionalWith(Schema.Literal("direct", "tunnel", "internal"), { default: () => "direct" as const }),
@@ -232,11 +275,14 @@ declare namespace StackSpec {
   type Quantity = typeof _Quantity.Type
   type Window = typeof _Window.Type
   type Connection = InstanceType<typeof Connection>
+  type Capacity = typeof _Capacity.Type
   type Data = typeof _Data.Type
   type Pooling = Data["pooling"]
+  type Pool = typeof _Pool.Type
   type Observe = typeof _Observe.Type
   type Residence = Observe["analytics"]
   type Profile = InstanceType<typeof _Profile>
+  type Rollout = Profile["rollout"]
   type Separation = typeof _Separation.Type
   type Governance = typeof _Governance.Type
   type PgTier = (typeof _Isolated.Type)["pgTier"]

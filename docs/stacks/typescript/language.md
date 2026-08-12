@@ -4,11 +4,11 @@ TypeScript under the native TS7 `tsc` is the active language surface, and this p
 
 Everything above legality is shed by kind: type-level derivation rides `derivation.md`, value primitives and identity `values.md`, the kernel's earn test and algorithmic forms `computation.md`, shape authority `shapes.md`, call-surface collapse `surfaces-and-dispatch.md`, the carrier `rails-and-effects.md`, capability wiring `services-and-layers.md`, and edge admission `boundaries.md`.
 
-`tsconfig.base.json` owns the compiler-flag facts. This page names a flag only where it changes the form a source file may assume.
+Root `tsconfig.json` owns the compiler-flag facts. This page names a flag only where it changes the form a source file may assume.
 
 ## [01]-[ACTIVE_SURFACE]
 
-- Compiler floor: the native TS7 `tsc` under the one flag set in `tsconfig.base.json`; its diagnostic codes are the ones doctrine cites
+- Compiler floor: the native TS7 `tsc` under the one flag set in the root `tsconfig.json`; its diagnostic codes are the ones doctrine cites
 - Module law: every file is a module under `moduleDetection: "force"`; a specifier names a real file with its real `.ts` extension; resolution rides the package exports map; every side-effect specifier resolves (`TS2882` otherwise); the value-plane import graph is a DAG and a domain module's top level is declaration space
 - Syntax law: erased syntax only — `enum`, runtime `namespace`, constructor parameter properties, and `import =`/`export =` are `TS1294` at compile; decorators are legal JavaScript and still never appear — wrapping attaches through `pipe` at the owner declaration, never through a second composition channel
 - Import law: emit is verbatim — nothing elides by inference, so type-only traffic is spelled at every import and export; deferral is two distinct forms — `import defer` postpones evaluation at the boot edge, the boundary loader postpones loading at its seam

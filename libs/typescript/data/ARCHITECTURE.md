@@ -36,7 +36,7 @@ data/
 ## [02]-[STRATA]
 
 - S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
-- S1 `lane/tenant` — pins the tenancy write path over `Capability` and `Pg`, and projects its scope key into `Live`'s coordinate alphabet.
+- S1 `lane/tenant` — pins the tenancy write path, mints the maintenance-plane posture, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
 - S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction; `retain` ages and `fact` meters inside the stratum.
 - S2 `append` mints the CloudEvents relay message envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
@@ -95,6 +95,8 @@ flowchart TB
     Olap e17@-->|"[IMPORT]: Pg"| Postgres
     Sqlite e16@-->|"[IMPORT]: Pg"| Postgres
     Object e18@-->|"[IMPORT]: Hook"| Journal
+    Object e20@-->|"[IMPORT]: Tenancy"| Tenant
+    Read e21@-->|"[IMPORT]: Tenancy"| Tenant
     S0 f1@-->|"forbidden: upward import"| S4
 ```
 
@@ -162,16 +164,18 @@ flowchart LR
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
     Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
-    Append e29@-->|"[PORT]: AuditJournal"| Security
+    Fact e29@-->|"[PORT]: AuditJournal"| Security
     Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
     Core e32@-->|"[SHAPE]: Hops"| Olap
     Olap e31@-->|"[SHAPE]: Board.Query.Target"| Core
     Core e33@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Olap
     Iac e34@-->|"[PORT]: analytics residence"| Olap
     Core e35@-->|"[SHAPE]: Convention"| Asset
+    Core e38@-->|"[SHAPE]: Wire.TextureSet"| Asset
     Rhino e36@-->|"[WIRE]: OrganizationWire"| Fold
-    Core e36@-->|"[SHAPE]: Carrier.Context/Identity.Tenant"| Append
+    Core e39@-->|"[SHAPE]: Carrier.Context/Identity.Tenant"| Append
     Core e37@-->|"[EVENT]: Event.Fact"| Append
+    Append e40@-->|"[PORT]: EventLogServer.Storage"| Runtime
 ```
 
 ## [04]-[INTERNAL]

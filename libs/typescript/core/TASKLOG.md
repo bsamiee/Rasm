@@ -28,6 +28,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[FLAG_TRACK_PACK]-[COMPLETE]: `Board` gives tracked flag outcomes a standing pack; span-riding flag rows render through wide-event residence by ruling.
+[ACTOR_SPAN_KEYS]-[COMPLETE]: `rasm.work.family`/`rasm.work.shard` seat actor identity at the mint's two span seats; the static message seat refutes shard, which rides the lifetime span.
 [DIGEST_RAW_BYTE_SLOTS]-[DROPPED]: no live consumer needs content-key bytes, so `Digest.raw` has no owner.
 [FAULT_CLASS_CONFORMANCE]-[COMPLETE]: quantity faults derive classification through `Fault.Class.family`.
 [VOCABULARY_TABLE_OWNER]-[COMPLETE]: `Shape.vocabulary` drives the value, state, and wire vocabularies.

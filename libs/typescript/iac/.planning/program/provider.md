@@ -134,6 +134,7 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
 - Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
+- Law: a provider vocabulary is a roster the arm ADMITS against, not a type it trusts — `_vocab` lifts the coordinate and its roster in one step, so the aws arm's `region` refuses a value the provider never published on the same `input` fault every other coordinate mints, and the roster is the generated const itself, so it widens with the installed tree. Only the arm-dependent case earns this proof — a coordinate whose governing roster is the same on every arm closes at `spec.md` as an admission alphabet (`profile.capacity.instanceType` is that shape) and never reaches this family, while `region` names one roster on aws and an unpublished one on gcp and therefore cannot close at the schema at all.
 - Law: `Dispatch.Pins` carries deploy-time facts absent from `StackSpec`, including backend files, runner policy, publication identity, the site roster with its decoder digests, and each managed cell's own coverage row — a pin states what a chosen instance IS and CARRIES, so the conformance proofs read data rather than a literal any arm body could re-spell.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
@@ -141,12 +142,12 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 - Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
 - Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
 - Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary — the tier admissions (`ConvergeRefused`, `DataRefused`, `BackendFault`) union with the coordinate rail's `DeployFault`, so a new admitting tier widens one type alias and every arm body inherits it.
-- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`, `BackendFault`).
+- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`, `BackendFault`).
 
 ```typescript signature
 import type { PulumiFn } from "@pulumi/pulumi/automation"
 import type { Backend, BackendFault } from "@rasm/ts/data"
-import { Array, Config, Effect, Option, Redacted } from "effect"
+import { Array, Config, Effect, Option, Record, Redacted } from "effect"
 import type { Board, Reliability } from "@rasm/ts/core"
 import type { DataRefused, Postgres } from "../kube/data.ts"
 import { Traffic } from "../kube/traffic.ts"
@@ -201,7 +202,6 @@ declare namespace Dispatch {
     readonly port: number
     readonly context: string
     readonly registry?: { readonly address: string; readonly user: string }
-    readonly nodes: { readonly instanceType: string; readonly min: number; readonly max: number }
     readonly managedData: Managed
     readonly backend: {
       readonly projection: Backend.Projection
@@ -246,6 +246,21 @@ const _input = (spec: StackSpec, detail: string): DeployFault =>
 
 const _coord = <A>(spec: StackSpec, held: Option.Option<A>, name: string): Effect.Effect<A, DeployFault> =>
   Effect.mapError(held, () => _input(spec, `<missing-${name}>`))
+
+// Presence and vocabulary in ONE proof: the roster is the provider's own generated const, so the admitted
+// value carries the closed member type onward and the arm never re-checks it. The membership read is
+// `findFirst` rather than a boolean test because the narrowing is what makes the cast unnecessary.
+const _vocab = <A extends string>(
+  spec: StackSpec,
+  held: Option.Option<string>,
+  name: string,
+  roster: Record.ReadonlyRecord<string, A>,
+): Effect.Effect<A, DeployFault> =>
+  Effect.flatMap(_coord(spec, held, name), (value) =>
+    Option.match(Array.findFirst(Object.values(roster), (member) => member === value), {
+      onNone: () => Effect.fail(_input(spec, `<unpublished-${name}:${value}>`)),
+      onSome: Effect.succeed,
+    }))
 
 const _proven = (spec: StackSpec, material: Dispatch.Material): Effect.Effect<{
   readonly connection: StackSpec.Connection
@@ -391,11 +406,12 @@ class Bootstrap extends Tier {
 - Law: app images are one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. One rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
 - Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container loopback-published (`ip` bind + fence alias — the data plane exposes no public interface, in-fence consumers dial the alias, and the deployer's `postgresql.Provider` reaches it through one control-socket SSH forward riding the proven connection's own hardening coordinates, so `sslmode: "disable"` grades as a loopback fact rather than a cleartext credential hop) and finalized through that bridged provider at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the estate builder rides the rail its tiers admit on — `_estate` and every `_AWS` row return `Effect<Dispatch.Planes, Dispatch.EstateFault>`, so `Converge.admit`, `Postgres.admit`, and the `_coord` proofs compose in one `Effect.gen` and a refused axis surfaces as a typed value rather than a half-built graph; `_bodied` is the sole conversion, the `PulumiFn` seam where the engine's one in-band error contract takes the rail's failure, and a `throw` anywhere inside a tier or an arm body is the defect this owner deletes.
-- Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
+- Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`eks.AuthenticationMode.Api` for access entries, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from the profile's own `capacity` row — the node-group arg is `Input<string>`, so the closed instance-type roster is spent at the spec boundary and this row spells no capacity literal — binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
 - Law: the gcp arm binds `credentials` from the `GCP_CREDENTIALS` fan-in read, realizes the versioned `gcp.storage.Bucket` object cell and the `gcp.sql.DatabaseInstance` + `Database` + `User` data cell, and returns only those planes with optional served assets; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell with its `R2BucketLifecycle` aging row and the `PagesProject` static origin, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain — each returns exactly the planes it realizes.
 - Law: the distribution cells construct what the map advertises — the aws and gcp arms converge the built frontend through `Source.distribute` over their own object cells when `pins.site` arrives (the versioned `BucketV2` behind one `BucketVersioningV2` row on aws, the versioned bucket on gcp), each returning the caller-owned `served` slug-to-path record as an output plane; the cloudflare arm's static origin stays its `PagesProject` rows, whose build product uploads out of graph.
 - Law: a converging arm publishes the viewer's decoder leaves beside the app's artifacts, because `pins.site.decoders` is a digest map both arms forward unchanged — the decoder distributions are estate-invariant and `_DECODERS` owns their leaf names, so no arm body spells a filename and the ui codec gate resolves `draco`, `ktx2`, and `meshopt` off the served plane rather than refusing `codec-absent` against addresses nothing published; a baked texture or environment set rides the same plane through the composing root's `Source.set` mints, so decoder leaves and set planes share one digest-directory law and one presence gate.
 - Law: `enableServerSideApply` is armed for field-manager conflict detection over the estate's OWN objects, never to adopt foreign ones — every object `_estate` composes is authored by a tier on this branch, so the apply mode buys a named manager and a typed conflict when an operator edits out of band, while `<Kind>Patch` and `CustomResourcePatch` have no site anywhere: the SSA twins exist to mutate an object the program did not create, and an estate that installs its own operators and authors its own custom resources never holds one. A Patch row beside a tier that owns its object mints a second author for one field, which is precisely the conflict this mode exists to report.
+- Law: an object cell states its access posture rather than inheriting one — the aws arm's single `BucketV2` serves the object plane and the site origin together, so one lockdown covers both: `BucketOwnershipControls` declares `BucketOwnerEnforced` (which disables ACLs and is why no canned-ACL coordinate exists on this arm at all), `BucketPublicAccessBlock` sets all four refusals, and one `BucketPolicy` grants `s3:GetObject` to the CloudFront service principal under a `SourceArn` condition naming this distribution — the grant without which a closed bucket behind an OAC origin answers 403 to every request. Enforced ownership is already a fresh bucket's default and the row declares it anyway, because an unstated default is a posture `operate/policy.md` cannot assert and a provider bump can move. Coverage closes on one cell: the `cluster` posture mints no bucket at all (its object cell is the in-cluster engine), the gcp cell carries the same posture as `uniformBucketLevelAccess`, and R2 exposes no ACL model to close.
 - Law: every arm fronting served bytes folds the ONE header roster into its own dialect — the aws and gcp arms read `Source.distribute(...).edge`, the cloudflare arm reads `Source.edge` because it converges no folder, and `_EDGED` renders each row's `pattern`/`header`/`value` with no literal of its own: aws mints one `cloudfront.ResponseHeadersPolicy` per posture bound through the distribution's ordered behaviors over the site bucket's `OriginAccessControl` origin, gcp renders route rules carrying `headerAction.responseHeadersToAdds` on the `URLMap` fronting its CDN-enabled `BackendBucket` (`prefixMatch` for the bare-star pattern, `pathTemplateMatch` `/**.{ext}` for a suffix pattern — `regexMatch` is unspellable on the external managed scheme), and cloudflare rewrites through one `http_response_headers_transform` `Ruleset` over its Pages origin.
 - Law: dialect match semantics decide the fold shape — aws and gcp bind the FIRST matching behavior per request, so `_postures` folds each pattern's covering rows into one header set and orders patterns narrow to wide (under the two-shape grammar a covered pattern always spells longer than its coverer); the cloudflare rules engine applies EVERY matching header-transform rule, so its arm renders the roster rows verbatim, one rule per row in roster order.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
@@ -761,6 +777,23 @@ const _AWS: {
     }, opts)
     const bucket = new aws.s3.BucketV2("objects", {}, opts)
     new aws.s3.BucketVersioningV2("objects-versioning", { bucket: bucket.id, versioningConfiguration: { status: "Enabled" } }, opts)
+    // Ownership is DECLARED, not inherited: a fresh bucket already defaults to bucket-owner-enforced, and an
+    // unstated default is a posture the policy pack cannot read and a provider bump can move. Enforced
+    // ownership disables ACLs outright, which is why no canned-ACL coordinate exists anywhere on this arm.
+    new aws.s3.BucketOwnershipControls("objects-ownership", {
+      bucket: bucket.id,
+      rule: { objectOwnership: "BucketOwnerEnforced" }, // the arg is `Input<string>` — this SDK exports no ownership roster
+    }, opts)
+    // All four refusals ride one row: the distribution reaches the origin as a service principal under the
+    // policy below, never as a public reader, so blocking public ACLs and public policies costs the estate
+    // nothing and closes the bucket to every path except the front.
+    new aws.s3.BucketPublicAccessBlock("objects-closed", {
+      bucket: bucket.id,
+      blockPublicAcls: true,
+      blockPublicPolicy: true,
+      ignorePublicAcls: true,
+      restrictPublicBuckets: true,
+    }, opts)
     // the distribution cell the map advertises: the served plane arms the ui codec gate, and the edge
     // fold renders the same call's header roster onto the CloudFront front — one distribute, both ends
     const site = pins.site === undefined
@@ -772,7 +805,26 @@ const _AWS: {
           assets: pins.site.assets,
           decoders: pins.site.decoders,
         }, { providers: [opts.provider] }))
-    Option.map(site, (held) => _EDGED.aws("frontend", held.edge, { bucket }, opts))
+    // Granting the front is the other half of the lockdown — a closed bucket behind an OAC origin answers 403
+    // until a policy names it, and the `SourceArn` condition scopes that grant to THIS distribution so the
+    // service principal cannot be borrowed by another account's front. Composition rides the typed
+    // `PolicyDocument` shape under the provider's own version and effect constants, never serialized JSON.
+    Option.map(site, (held) => {
+      const front = _EDGED.aws("frontend", held.edge, { bucket }, opts)
+      new aws.s3.BucketPolicy("objects-origin", {
+        bucket: bucket.id,
+        policy: {
+          Version: aws.types.enums.iam.PolicyDocumentVersion.PolicyDocumentVersion_2012_10_17,
+          Statement: [{
+            Effect: aws.types.enums.iam.PolicyStatementEffect.ALLOW,
+            Principal: { Service: "cloudfront.amazonaws.com" },
+            Action: "s3:GetObject",
+            Resource: pulumi.interpolate`${bucket.arn}/*`,
+            Condition: { StringEquals: { "AWS:SourceArn": front.arn } },
+          }],
+        },
+      }, opts)
+    })
     return {
       object: { endpoint: bucket.bucketRegionalDomainName, bucket: bucket.bucket },
       ingress: { hostname: alb.loadBalancer.dnsName },
@@ -789,10 +841,13 @@ const _AWS: {
       createOidcProvider: true,
       skipDefaultNodeGroup: true,
     }, opts)
+    // `capacity` proved its vocabulary at decode, so this group states the pool and spells no roster of its own
+    const capacity = spec.profile.capacity
     new eks.ManagedNodeGroup("capacity", {
       cluster: plane,
-      instanceTypes: [pins.nodes.instanceType],
-      scalingConfig: { desiredSize: pins.nodes.min, minSize: pins.nodes.min, maxSize: pins.nodes.max },
+      instanceTypes: [capacity.instanceType],
+      operatingSystem: capacity.os,
+      scalingConfig: { desiredSize: capacity.min, minSize: capacity.min, maxSize: capacity.max },
     }, opts)
     const provider = new k8s.Provider("k8s", { kubeconfig: plane.kubeconfigJson, enableServerSideApply: true })
     return _estate(spec, pins, provider, app)
@@ -1009,7 +1064,9 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     ),
   aws: (spec, _material, pins) =>
     Effect.map(
-      Effect.all({ region: _coord(spec, spec.region, "region"), app: _staged(spec) }),
+      // aws is the one arm whose region roster its provider publishes, so an unpublished coordinate refuses here,
+      // where it stays loggable, instead of reaching the SDK as an endpoint failure naming no coordinate at all
+      Effect.all({ region: _vocab(spec, spec.region, "region", aws.types.enums.Region), app: _staged(spec) }),
       ({ region, app }) => () => {
         const provider = new aws.Provider("aws", { region })
         return _bodied(_AWS[spec.profile.compute](spec, pins, app, { provider }))

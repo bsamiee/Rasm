@@ -23,7 +23,7 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 - Law: reduction and encoding are separate owners — `Fold.Plan` owns the fold and `Lane.Spec.state` owns the persisted codec, so a storage-shape change is a codec swap with a rebuild, never a plan rewrite.
 - Law: organization admission is STRUCTURAL and whole-source — a containment edge naming an absent container or an absent entity target refuses `invalid` before any row lands, mirroring the producer's own orphan refusal, while a member target names a foreign key space and admits unresolved because its join miss belongs to the consuming query. Replacement is per source key, never per row: a producer re-reads its document whole, so a surviving stale entity from a prior fold is exactly the drift a scoped delete forecloses.
 - Law: content-key spelling lowers at the core landing and never here — `Wire.Organization` presents lowercase-hex addresses, so this fold moves strings and the 16-big-endian-byte face resolves once, at the one decode.
-- Law: each budget answers its own lifetime and admit, and none answers tenancy — `[3]` admits through the publish transaction's slot, `[4]` through a claimed journal page, `[5]` through an operator rebuild; a projection row lives until its lane rebuilds, a checkpoint until its lane retires, and a quarantine row until an operator replays or a groom schedule ages it. Tenancy is the owning scope's, never a column here: the lane binds inside `lane/tenant.md`'s scoped client, so a cross-tenant lane has no spelling and a tenancy field restates a scope the binding already carries. What each budget forfeits is its selection cost — budget zero pays commit latency, budget seconds pays bounded staleness and cannot read its own write, and the maintenance budget pays a full re-fold and a swap window.
+- Law: each budget answers its own lifetime, admit, AND tenancy — `[3]` admits through the publish transaction's slot and inherits its pin (`single`, the committing tenant), `[4]` admits through a claimed journal page and answers `multi` by `[4]`'s own stated law, `[5]` admits through an operator rebuild outside every request path; a projection row lives until its lane rebuilds, a checkpoint until its lane retires, and a quarantine row until an operator replays or a groom schedule ages it. Scope identity — app and isolation case — stays the binding's coordinate, so a tenancy COLUMN here restates what the pin or the page predicate already carries. What each budget forfeits is its selection cost — budget zero pays commit latency, budget seconds pays bounded staleness and cannot read its own write, and the maintenance budget pays a full re-fold and a swap window.
 - Growth: a new lane is one `Lane.Spec` value; a new position axis is one column on the DDL pair with its `_Position` field.
 - Boundary: `Fold.Plan`, `Clock.Hlc`, and the graph wire shapes arrive settled from core — this page binds them to a relation and re-derives no key, cell, or stamp.
 
@@ -332,14 +332,15 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 ## [04]-[DRAIN_ACTOR]
 
 - Owner: `Lane.daemon` — the seconds-budget lane: the checkpoint and quarantine ledgers, the claim, the paged drain cycle, the two-road wake, and the `Machine` actor whose held state is the lag read.
-- Packages: `@effect/experimental` (`Machine.makeWith`, `Machine.procedures`, `Machine.boot`, `Machine.retry`; `Reactivity`); `@effect/sql-pg` (`PgClient.listen`); `@effect/sql` (`SqlClient.SafeIntegers`, `sql.withTransaction`); `effect` (`Layer`, `Metric`, `Request`, `Schedule`, `Stream`); `@rasm/ts/core` (`Convention`, `Fault.Budget`, `Identity.App`).
+- Packages: `@effect/experimental` (`Machine.makeWith`, `Machine.procedures`, `Machine.boot`, `Machine.retry`; `Reactivity`); `@effect/sql` (`SqlClient.SafeIntegers`, `sql.withTransaction`); `effect` (`Layer`, `Metric`, `Request`, `Schedule`, `Stream`); `journal/append.md` (`Journal.wake` — the one notify road; `Journal.retryable` — the statement-fault gate); `@rasm/ts/core` (`Convention`, `Fault.Budget`, `Identity.App`).
 - Entry: an owning app composes `Lane.daemon(spec, app)` once per lane; every replica composes the same Layer and the claim alone decides which one drains.
 - Receipt: `Lane.Mark` carries lane, advanced checkpoint, and drained count; the mounted gauge tags by lane name and the actor's `Lane.State` is the subscription a lag dashboard reads.
 - Law: replicas cooperate with zero coordination — the claim is `FOR UPDATE SKIP LOCKED` over the lane's checkpoint row, so a losing replica answers `Option.none()` and idles instead of blocking, and no leader election, lease table, or external lock exists.
-- Law: retry gates stand DOWN by claim, never by classification — this cycle's `SqlError` family carries no `class` column, so the core's default retryability gate reads every transient connection fault as a defect and never re-drives; the lane claims transience over its whole channel and prices it by budget row.
+- Law: the drain's tenancy is `multi` and STATED, never inherited — `_page` predicates on `app` alone across every tenant, the checkpoint carries no tenant column, and the daemon's `SqlClient` is the app root's spine client (the same unpinned client the relay drains through), never a `Stores` subgraph and never `Tenant.within`: the subgraph hides the client behind the pin, and a drain started inside one tenant's pin folds that tenant's events alone while the checkpoint advances past every other tenant's rows — silent projection loss reporting a healthy `Mark`.
+- Law: the retry gate is the journal's OWN classifier, never the core default and never a blanket claim — a raw `SqlError` carries no `class` column, so the default property grader reads every connection blip as `defect` and never re-drives, while a whole-channel transience claim re-drives an absent relation or a violated check on the lease forever; `Journal.retryable` grades the driver fault through the append owner's code-and-message tables, and a decode refusal falls through the gate as shape-wrong evidence the machine reboot surfaces.
 - Law: poison never blocks the checkpoint — a decode refusal diverts to the idempotent quarantine row before any state moves, and a state refusal the batch grain cannot attribute replays the page one event at a time and quarantines exactly the refusing event; the enclosing transaction has committed nothing, so the abandoned batch leaves the repair nothing to double-apply.
 - Law: the advance IS the claimed page's last row — every row left applied or quarantined and the page reads ordered by sequence, so no verdict roster recovers a maximum the read already states.
-- Law: the wake is two roads merged, never one — LISTEN/NOTIFY wherever the pg client resolves and a spaced poll always, so a lane on a profile carrying no notification channel still drains and a dropped listener costs latency rather than liveness; a hint at or below the held checkpoint answers in zero round trips.
+- Law: the wake is two roads merged, never one — the append owner's `Journal.wake` stream (LISTEN wherever the pg client resolves, with reconnect and listener-loss policy spelled once at that owner) and a spaced poll always, so a lane on a profile carrying no notification channel still drains and a dropped listener costs latency rather than liveness; a hint at or below the held checkpoint answers in zero round trips.
 - Law: exhausted infrastructure recovery is a machine defect — the cycle dies past its budget so `Machine.retry` re-initializes from held state, because a lane swallowing its own exhaustion reports `caughtUp` while draining nothing.
 - Growth: a new drain policy is a budget row on `Fault.Budget`; a new operator verb is one `Machine.procedures` row beside `Wake` and `Poll`.
 - Boundary: the actor owns no fold — `_apply` is `[3]`'s, and the quarantine replay marker is an operator verb rather than an automatic re-drive.
@@ -381,7 +382,6 @@ sequenceDiagram
 ```typescript signature
 import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Schedule, Stream } from "effect"
 import { Machine, Reactivity } from "@effect/experimental"
-import { PgClient } from "@effect/sql-pg"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Convention, Fault, Identity } from "@rasm/ts/core"
 import { Upcast } from "../journal/evolve.ts"
@@ -433,12 +433,15 @@ const _quarantineDdl: Capability.Ensure = {
     PRIMARY KEY (lane, sequence));`,
 }
 
-// Core-compiled budget rows, gates stood down: the cycle's SqlError family carries no `class` column, so the
-// default `Fault.Class.retryable` gate would classify it `defect` and never re-drive — transience is this lane's
-// own claim over its whole channel, priced by the row (`lease` the drain cadence, `bulk` the machine reboot).
-const _RETRY = Fault.Budget.schedule("lease", Function.constTrue)
+// Core-compiled budget rows over the journal's own signal classifier: a raw `SqlError` carries no `class` column,
+// so the core's default property grader reads every connection blip as `defect` and never re-drives — and a blanket
+// `constTrue` overshoots the other way, re-driving an absent relation or a violated check on the lease forever.
+// `Journal.retryable` is the gate the append owner publishes for exactly this channel; a decode refusal is
+// shape-wrong evidence no schedule outlasts, so it falls through the gate and exits to the machine.
+const _RETRY = Fault.Budget.schedule("lease", (fault: SqlError.SqlError | ParseResult.ParseError) =>
+  fault._tag === "SqlError" && Journal.retryable(fault))
 
-const _REBOOT = Fault.Budget.schedule("bulk", Function.constTrue)
+const _REBOOT = Fault.Budget.schedule("bulk", Function.constTrue) // machine defects carry no classifier: the reboot claims re-initialization over its whole channel
 
 const _checkpointGauge = Convention.mount(Convention.metric.laneCheckpoint)
 
@@ -615,16 +618,9 @@ const _seqOf = (payload: string): Option.Option<bigint> =>
 
 const _wake = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: Identity.App.Key): Stream.Stream<Option.Option<bigint>> =>
   Stream.merge(
-    Stream.unwrap(
-      Effect.map(Effect.serviceOption(PgClient.PgClient), Option.match({
-        onNone: () => Stream.empty,
-        onSome: (pg) =>
-          Stream.retry(pg.listen(Journal.channel(app)), Schedule.spaced(spec.batch.window)).pipe(
-            Stream.map(_seqOf),
-            Stream.orDie, // unreachable by policy: the spaced retry re-registers forever; a reached failure is a defect
-          ),
-      })),
-    ),
+    // Notify rides the append owner's wake stream: profile absence, jittered re-listen, and listener loss are its
+    // policy spelled once — a second LISTEN registration here re-derives all three and drifts on the first edit.
+    Stream.map(Journal.wake(app), _seqOf),
     Stream.repeatEffectWithSchedule(Effect.succeedNone, Schedule.spaced(spec.batch.window)),
     { haltStrategy: "both" },
   )
@@ -647,9 +643,10 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 ## [05]-[MAINTENANCE]
 
 - Owner: `Lane.jobs` and `Lane.rebuild` — the maintenance budget: groom schedule rows total over retention's roster, and the shadow-table rebuild that re-folds a drifted model under a session advisory lock and swaps it atomically.
-- Packages: `effect` (`Array`, `Record`, `Schema`); `@effect/sql` (`sql.reserve`, `sql.withTransaction`, `sql.onDialectOrElse`, `executeUnprepared`); `journal/retain.md` (`Retain.Groomed`, `Retain.groomText`).
+- Packages: `effect` (`Array`, `Record`, `Schema`); `@effect/sql` (`sql.reserve`, `sql.withTransaction`, `sql.onDialectOrElse`, `executeUnprepared`); `journal/retain.md` (`Retain.Groomed`, `Retain.groomText`); `lane/tenant.md` (`Tenancy.sweep`, `Tenancy.sweepText` — the maintenance-plane posture both roads compose).
 - Entry: the provisioning plane installs `Lane.jobs()` as scheduled statements; an operator runs `Lane.rebuild(spec, drain)` outside every request path.
 - Law: cadence is this page's fact and the statement is retention's — the schedule record is total over the groom roster, so a relation retention starts aging without a cadence fails at this declaration rather than landing as a sweep nothing runs.
+- Law: every scheduled statement carries the maintenance-plane posture — `_jobs` composes `Tenancy.sweepText` around each rendering, because a job runs in its own unpinned session and the FORCE policy answers it zero rows, a sweep that deletes nothing and reports success; the posture is the tenancy owner's one word, never text this plane re-spells, and the rebuild's drain composes the same posture as `Tenancy.sweep` because it re-folds the spine across every tenant.
 - Law: rebuilds serialize on the LANE, never on the relation — a session advisory lock keyed by lane name admits one rebuild across replicas, and session close releases it regardless, so an unlock miss is not evidence; a profile carrying no advisory-lock verb rests on its own single-writer posture instead, which is the honest degradation this pair states rather than a lock it cannot take.
 - Law: the swap is one transaction and the invalidation follows it — rename, rename, and drop commit together and the lane's whole band invalidates afterward, so no reader observes a half-swapped relation and every reader re-reads the fresh one.
 - Law: the shadow inherits what its dialect can copy — the pg arm carries constraints, defaults, and indexes through `INCLUDING ALL`, and the neutral arm copies columns alone, so a rebuilt relation off the spine re-earns its indexes from the lane's own ensure roster.
@@ -660,6 +657,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 import { Array, type ParseResult, Record } from "effect"
 import type { SqlError } from "@effect/sql"
 import { Retain } from "../journal/retain.ts"
+import { Tenancy } from "../lane/tenant.ts"
 
 // Cadence is the maintenance plane's own fact and the statement is retention's, so this record carries exactly the
 // half this page owns and the record is total over the groom roster — a relation retention starts aging fails HERE
@@ -674,7 +672,10 @@ const _SPECS = {
 
 const _jobs = (): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> =>
   Array.flatMap(Record.toEntries(_SPECS), ([key, spec]) =>
-    Array.map(Retain.groomText(key), (statement, index) => ({ name: `groom_${key}_${index}`, spec, statement })))
+    Array.map(Retain.groomText(key), (statement, index) =>
+      // The posture rides every job unit: a scheduled session is unpinned, and the FORCE policy answers an unpinned
+      // DELETE zero rows — success over nothing, forever — so the plane word prefixes the statement session-locally.
+      ({ name: `groom_${key}_${index}`, spec, statement: Tenancy.sweepText(statement) })))
 
 const _shadowOf = Schema.decodeSync(Query.Relation.fields.table) // total by construction: the identifier pattern is closed under suffixing
 
@@ -701,7 +702,9 @@ const _rebuild = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>,
           orElse: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} AS SELECT * FROM ${sql(spec.relation.table)} WHERE 0`,
           pg: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} (LIKE ${sql(spec.relation.table)} INCLUDING ALL)`,
         })
-        const folded = yield* drain(shadow)
+        // The drain re-folds the spine across every tenant, so it runs under the maintenance-plane transaction —
+        // which is also the consistent snapshot a shadow fill wants; the swap below stays its own transaction.
+        const folded = yield* Tenancy.sweep(sql)(drain(shadow))
         yield* sql.withTransaction(
           Effect.gen(function* () {
             yield* sql`ALTER TABLE ${sql(spec.relation.table)} RENAME TO ${sql(retired)}`

@@ -4,11 +4,14 @@
 
 ## [01]-[PACKAGES]
 
-- `arctic` and `openid-client` are two custodians neither superseding — `arctic` runs every ceremony leg, `openid-client` the machine grants alone.
+- `openid-client` is the sole OAuth custodian — browser ceremony and machine grants share its `Configuration`s; `arctic` retired, no successor.
+- `otplib` omits `getRemainingTime`/`getTimeStepUsed` — a `@otplib/totp` admission prices a package for two modulo lines, so `_PERIOD` owns the leg.
+- `@oslojs/crypto` retired on publisher deprecation — `@noble/hashes` owns sync symmetric, WebCrypto async verify, `@oslojs/encoding` the wire codec.
 
 ## [02]-[SHAPE]
 
 - `Intake` holds the octets an inbound signature verifies — re-encoding respells floats, key order, and escapes, authenticating what no peer sent.
+- Credential storage rides the material's entropy class — guessable material earns argon2, random mints the SHA-256 compare; no table walks them.
 
 ## [03]-[COLLAPSE]
 

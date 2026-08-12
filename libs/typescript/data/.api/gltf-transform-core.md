@@ -96,9 +96,9 @@
 
 `[MATERIAL_TEXTURE_SLOT]: `BaseColor` `MetallicRoughness` `Normal` `Occlusion` `Emissive`` — each slot answers `get<Slot>Texture()`, `get<Slot>TextureInfo()`, and `set<Slot>Texture(texture)`; every other PBR channel is an extension property.
 
-`[ACCESSOR_MEMBER]: `getArray` `setArray` `getType` `setType` `getComponentType` `getElementSize` `getComponentSize` `getCount` `getByteLength` `getScalar` `setScalar` `setElement` `getMin` `getMax` `getMinNormalized` `getMaxNormalized` `getNormalized` `setNormalized` `getSparse` `setSparse` `getBuffer` `setBuffer``
+`[ACCESSOR_MEMBER]: `getArray` `setArray` `getType` `setType` `getComponentType` `getElementSize` `getComponentSize` `getCount` `getByteLength` `getScalar` `setScalar` `getElement` `setElement` `getMin` `getMax` `getMinNormalized` `getMaxNormalized` `getNormalized` `setNormalized` `getSparse` `setSparse` `getBuffer` `setBuffer``
 
-- `Accessor.getElement(index, target)` resolves at runtime and appears throughout the package's own JSDoc, yet `dist/index.d.ts` declares only `setElement` — the read half is untyped surface, so an element read spells `getScalar` per component or reads `getArray()` directly.
+- `Accessor.getElement<T extends number[]>(index, target)` fills and returns the caller's target array — the read twin of `setElement`, declared and runtime-real, so per-element reads never spell `getScalar` per component.
 
 `[IMAGE_PROBE]: `ImageUtils.getMimeType` `ImageUtils.getSize` `ImageUtils.getChannels` `ImageUtils.getVRAMByteLength` `ImageUtils.registerFormat` `ImageUtils.mimeTypeToExtension` `ImageUtils.extensionToMimeType`` — sniffing over a registered `ImageUtilsFormat` table, never a suffix read.
 

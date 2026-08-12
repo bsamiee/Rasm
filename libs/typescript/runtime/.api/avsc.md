@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_AVSC]
 
-`avsc` owns the Avro binary codec behind the `application/cloudevents+avro` event format and its batch sibling — the one format in the roster no admitted SDK ships and no descriptor compiler generates, because Avro carries its schema as a value rather than as generated code. One `Type` mints once from the frozen `io.cloudevents.AvroCloudEvent` schema and every encode and decode runs through it, so the union-wrapping posture and the logical-type registry arm before the first untrusted byte.
+`avsc` owns the Avro binary codec behind the `application/cloudevents+avro` event format — the one format in the roster no admitted SDK ships and no descriptor compiler generates, because Avro carries its schema as a value rather than as generated code; the format defines no batch envelope, so the structured single frame is the codec's whole surface. One `Type` mints once from the frozen `io.cloudevents.AvroCloudEvent` schema and every encode and decode runs through it, so the union-wrapping posture and the logical-type registry arm before the first untrusted byte.
 
 Bundled typings declare themselves incomplete: they cover the node entry alone, spell most payload positions `any`, and omit every member the browser build substitutes. Composition therefore binds the narrow proven core — `Type.forSchema`, `toBuffer`, `fromBuffer`, `isValid`, `fingerprint` — and lands each result through a `Schema` owner rather than reading an `any` forward.
 
@@ -71,7 +71,7 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 - Compilation runs once at module initialization; `Type.forValue` and `parse` infer a schema instead of binding the frozen one and never enter a contract path.
 
 [STACKING]:
-- `core/interchange/format`(`core/.planning/interchange/format.md`): the Avro row declares the media type, its batch sibling, and the empty `arm` whose `degrade` names this lane; the codec that fills it mints once here and no second `Type` is constructed anywhere.
+- `core/interchange/format`(`core/.planning/interchange/format.md`): the Avro row declares the media type and the empty `arm` whose `degrade` names this lane; the codec filling it mints once at `net/channel.md`'s `Avro` owner through the `Format.event.fill` seam, and no second `Type` is constructed anywhere.
 - `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): supplies the attribute record the `attribute` map carries and the extension roster whose value types the map's union admits.
 - `effect` `Schema`(`.api/effect.md`): `fromBuffer` yields an untyped tree; `Schema.decodeUnknown` lands it once into owned vocabulary and lifts a `ParseError` onto the rail, and `Either.try` converts the encode and decode throws at that one seam.
 - `@confluentinc/schemaregistry`(`runtime/.api/confluentinc-schemaregistry.md`): carries its own transitive `avsc` for Kafka PAYLOAD serdes under the registry framing; this catalogue's use encodes the message envelope and the two never share a `Type`.

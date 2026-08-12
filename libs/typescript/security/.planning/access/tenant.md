@@ -4,18 +4,18 @@ Tenancy contract: the ambient reference the request's active `Identity.Tenant` r
 
 ## [01]-[INDEX]
 
-- [02]-[SCOPE_BINDING]: the ambient tenancy reference, its principal mint, its request-scope provision, the metric tag aspect; `TenantScope`.
-- [03]-[RLS_CONTRACT]: the session-coordinate GUC vocabulary and the per-row projection; `SessionCoordinate`.
+- [02]-[SCOPE_BINDING]: ambient tenancy reference, principal mint, request-scope provision, metric tag aspect; `TenantScope`.
+- [03]-[RLS_CONTRACT]: session-coordinate GUC vocabulary and per-row projection; `SessionCoordinate`.
 
 ## [02]-[SCOPE_BINDING]
 
 [SCOPE_BINDING]:
-- Law: every bound `Principal` mints here — the edge names its subject, the data wave's explicit-tenant transformer omits it, and both take the shape from one member, so a coordinate the type acquires reaches every construction site at once instead of only the ones that remembered.
+- Law: every bound `Principal` mints here, and `of` takes both axes as optionals because the construction sites differ on each — the data wave's explicit-tenant transformer names a context and omits the subject, `access/claim` names a subject whose tenancy is an `Option`, and a machine-key admission names a subject under no tenancy at all. One member answers all three, so a coordinate the shape acquires reaches every construction site at once instead of only the ones that remembered, and an inline `{ context, subject }` literal at any call is the drift this law forbids.
 - Law: `metered` is the folder's one tenant-tag seam — a security owner emits plain effect-native `Metric` instruments, the serving edge wraps the request handler once in `TenantScope.metered`, and every instrument inside lands tagged; no owner re-reads the reference for telemetry and no exporter is named here.
 - Law: per-tenant series ride governed — `metered` tags with the core `Convention.rasm.tenant` key, the one dimension the runtime export lane's tenant metric-view row admits under its cardinality ceiling, so the per-tenant fan is bounded at the exporter and a free-string tenant key that dodges the governor is unspellable at this seam.
 - Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/ts/core` (`Convention`, `Identity.Tenant`).
 
-```typescript
+```typescript signature
 import { Convention, Identity } from "@rasm/ts/core"
 import { Context, Effect, Option } from "effect"
 
@@ -33,8 +33,10 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
     Option.map(principal.context, (context) => context.scope)
   static readonly bind = <A, E, R>(principal: Principal, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.provideService(effect, TenantScope, principal)
-  static readonly of = (context: Identity.Tenant, subject?: string): Principal => ({
-    context: Option.some(context),
+  // Both axes are optional because the sites differ on each: an explicit-tenant transaction names a context with no
+  // subject, a machine key names a subject with no context, and a resolved claim carries either. One mint holds them.
+  static readonly of = (context?: Identity.Tenant, subject?: string): Principal => ({
+    context: Option.fromNullable(context),
     subject: Option.fromNullable(subject),
   })
   static readonly scoped = <A, E, R>(effect: (principal: Principal) => Effect.Effect<A, E, R>): Effect.Effect<A, E, R | TenantScope> =>
@@ -51,13 +53,14 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 ## [03]-[RLS_CONTRACT]
 
 [RLS_CONTRACT]:
-- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (the RLS predicate key, projected off the core `Convention.rasm.tenant` symbol this page never respells), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. The tenant row's `guc` is the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting` — consumers read `SessionCoordinate.tenant.guc` directly, one hop, no promotion alias.
+- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (the RLS predicate key, projected off the core `Convention.rasm.tenant` symbol this page never respells), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. Consumers read `SessionCoordinate.tenant.guc` directly — the tenant row's `guc` is the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting`; one hop, no promotion alias. `plane` (`rasm.plane`, the maintenance-plane posture) is the one coordinate no principal projects: the data wave's maintenance transformer pins it and the RLS policy's plane arm reads it, so an estate-wide sweep is a stated admission, never a role accident.
 - Law: the contract is transport-free — this page never composes `@effect/sql` and never spells `SET LOCAL`; the data wave's transaction transformer folds the coordinate table over the bound principal, pinning each `Some` projection, so search-path, tenant, and audit subject travel one write path.
 - Growth: a new session coordinate the data wave pins (a shard key, a search-path override, a region) is one `SessionCoordinate` row; a GUC rename lands once in its row.
+- Law: the plane row is fail-closed like every coordinate — unset folds to NULL under `current_setting(name, true)`, a principal-pinned transaction never carries it because its projection answers `None` for every principal, and its `value` is the row's own published constant, so the policy arm and the maintenance transformer spell one word from one seat.
 - Boundary: the `set_config` write, the RLS `CREATE POLICY` ensure, and the per-isolation Layer construction are all the data wave's; this page declares the names and the projections the enforcement reads.
 - Packages: `effect` (`Option`); `@rasm/ts/core` (`Identity.Tenant`).
 
-```typescript
+```typescript signature
 const SessionCoordinate = {
   tenant: {
     guc: Convention.rasm.tenant,
@@ -72,6 +75,13 @@ const SessionCoordinate = {
   subject: {
     guc: "rasm.subject",
     read: (principal: Principal): Option.Option<string> => principal.subject,
+  },
+  plane: {
+    guc: "rasm.plane",
+    value: "maintenance",
+    // Principals never carry a plane: the None projection keeps every principal-pinned transaction plane-free,
+    // and the row anchors the GUC name and its one live value for the data wave's maintenance transformer.
+    read: (): Option.Option<string> => Option.none(),
   },
 } as const
 

@@ -243,7 +243,16 @@ const _cesqlFamily = Fault.Class.family(
 class CesqlFault extends Data.TaggedError("CesqlFault")<{
   readonly reason: Cesql.Reason
   readonly detail: string
-}> {}
+}> {
+  // `class` projects off the family mint like every branch fault: without it `Fault.Class.of` finds no `class`
+  // property and grades a subscription-admission refusal `defect` at whatever gate it crosses
+  get class(): Fault.Class.Kind {
+    return _cesqlFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<cesql:${this.reason}> ${this.detail}`
+  }
+}
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 

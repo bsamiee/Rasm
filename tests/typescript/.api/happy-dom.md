@@ -8,7 +8,9 @@
 - plane: `plane:dev` — the fast `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fidelity counterpart is `jsdom.md`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: dom-environment / fast-unit-lane.
 
-happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds. Two consumption seams — vitest selects it by the `environment: 'happy-dom'` string (vitest dynamically imports this package and installs its classes as globals; `test.environmentOptions.happyDOM` forwards `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`); the fidelity boundary — in-page `<script>` execution, exact computed-style, byte-exact WHATWG serialization — routes to `jsdom.md`.
+happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds.
+
+Two consumption seams carry it — vitest selects it by the `environment: 'happy-dom'` string (dynamically importing this package and installing its classes as globals, with `test.environmentOptions.happyDOM` forwarding `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`).
 
 ## [01]-[ENTRY_WINDOW]
 
@@ -77,7 +79,7 @@ declare class BrowserPage {
 interface IOptionalBrowserSettings {
   disableJavaScriptEvaluation?: boolean; disableJavaScriptFileLoading?: boolean   // the "no script execution" fast default
   disableCSSFileLoading?: boolean; enableImageFileLoading?: boolean
-  disableComputedStyleRendering?: boolean                                          // skip the layout-approximating style engine
+  disableComputedStyleRendering?: boolean                                          // opt out of computed-length resolution; values read back as authored
   handleDisabledFileLoadingAsSuccess?: boolean
   timer?: { maxTimeout?: number; maxIntervalTime?: number; maxIntervalIterations?: number; preventTimerLoops?: boolean }
   fetch?: { disableSameOriginPolicy?: boolean; disableStrictSSL?: boolean; interceptor?: IFetchInterceptor | null; virtualServers?: IVirtualServer[] | null }
@@ -91,7 +93,9 @@ interface IOptionalBrowserSettings {
 
 ## [04]-[DOM_SURFACE]
 
-Full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family (`CustomEvent`, `KeyboardEvent`, `PointerEvent`, `SubmitEvent`, …), the CSS-rule family (`CSSStyleSheet`, `CSSStyleRule`, `CSSMediaRule`, `CSSContainerRule`, …), the fetch/file family (`Request`, `Response`, `Headers`, `Blob`, `File`, `FormData`), and the observers (`MutationObserver`, `ResizeObserver`, `IntersectionObserver`) — is SEED DATA re-exported by the one barrel, never a list a consumer hand-enumerates. A spec reaches these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
+Full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family (`CustomEvent`, `KeyboardEvent`, `PointerEvent`, `SubmitEvent`, …), the CSS-rule family (`CSSStyleSheet`, `CSSStyleRule`, `CSSMediaRule`, `CSSContainerRule`, …), the fetch/file family (`Request`, `Response`, `Headers`, `Blob`, `File`, `FormData`), and the observers (`MutationObserver`, `ResizeObserver`, `IntersectionObserver`) — is SEED DATA re-exported by the one barrel, never a list a consumer hand-enumerates.
+
+Specs reach these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
 
 | [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                 |
 | :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
@@ -102,17 +106,17 @@ Full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family
 
 ## [05]-[INTEGRATION]
 
-[STACK: `happy-dom` environment + `@effect/vitest`] — the DOM lane and the effect-spec rail are one runtime. A DOM-touching spec sets `environment: 'happy-dom'` (config or a `// @vitest-environment happy-dom` docblock), then runs `it.effect`/`it.layer` bodies against the installed globals. When the effect under test schedules DOM async work (timers, `fetch`, microtasks), `window.happyDOM.waitUntilComplete()` is the settle point folded into the effect before the assertion — never a bare `await Promise.resolve()`. `layer(SharedLayer)(...)` still shares acquired resources across the block; the DOM environment is orthogonal to the Layer.
+[STACK: `happy-dom` environment + `@effect/vitest`] — the DOM lane and the effect-spec rail are one runtime. Specs touching the DOM set `environment: 'happy-dom'` (config or a `// @vitest-environment happy-dom` docblock), then run `it.effect`/`it.layer` bodies against the installed globals. When the effect under test schedules DOM async work (timers, `fetch`, microtasks), `window.happyDOM.waitUntilComplete()` is the settle point folded into the effect before the assertion — never a bare `await Promise.resolve()`. `layer(SharedLayer)(...)` still shares acquired resources across the block; the DOM environment is orthogonal to the Layer.
 
-[STACK: `happy-dom` + `@electric-sql/pglite`] — both are the FAST HALF of the `_testkit` unit lane: in-process, no server, no external process, microsecond-to-millisecond startup. A spec that needs both a DOM and a database composes the `PGlite` Layer (see `electric-sql-pglite.md`) under the `happy-dom` environment in one `layer(...)` block — the whole verification runs in-process with nothing to tear down but object graphs.
+[STACK: `happy-dom` + `@electric-sql/pglite`] — both are the FAST HALF of the `_testkit` unit lane: in-process, no server, no external process, microsecond-to-millisecond startup. Specs needing both a DOM and a database compose the `PGlite` Layer (see `electric-sql-pglite.md`) under the `happy-dom` environment in one `layer(...)` block — the whole verification runs in-process with nothing to tear down but object graphs.
 
 [STACK: `happy-dom` + `fast-check`] — a property that generates DOM inputs (markup fragments, event sequences, viewport dimensions) runs each generated case inside the window; `settings.timer.preventTimerLoops` and `maxIntervalIterations` bound a pathological generated case so shrinking terminates; the `Schema`-derived arbitraries in the `_testkit` law/arbitrary source feed the same predicate.
 
-[BOUNDARY vs `jsdom`] — happy-dom disables script execution and computed-style rendering by default and approximates (never implements) layout. A spec asserting in-page `<script>` side effects, exact `getComputedStyle` cascade, or byte-exact WHATWG fragment serialization is a `jsdom` spec by definition. Both are `plane:dev` DOM environments; neither may be imported from a `plane:runtime` folder.
+[BOUNDARY vs `jsdom`] — happy-dom runs no script by default and lays nothing out (`getBoundingClientRect` reads all zeros), while its style engine does resolve computed lengths to pixels until `disableComputedStyleRendering` opts out of that cost. Object model, never cascade, splits the two: a spec asserting in-page `<script>` side effects, byte-exact WHATWG fragment serialization, validated `CSS.supports` answers, the CSSOM rule graph (`cssRule.matches`, `styleSheet.ownerNode`), or XPath through `document.evaluate` is a `jsdom` spec by definition, and a viewport-conditional law stays here because `matchMedia` evaluates the media features `jsdom` leaves absent. Both are `plane:dev` DOM environments; neither may be imported from a `plane:runtime` folder.
 
 ## [06]-[RAIL_LAW]
 
 - Owns: an in-process, layout-free WHATWG DOM for the fast unit lane; global install via the vitest `happy-dom` environment, direct isolated construction via `new Window(...)`, headless multi-page navigation via `Browser`/`BrowserPage`, and async settling via `DetachedWindowAPI.waitUntilComplete()`.
 - Accept: `environment: 'happy-dom'` + `environmentOptions.happyDOM` for global specs; `new Window({ settings })` for isolated specs; `settings.timer`/`settings.fetch.virtualServers` to bound cost and stub network; `VirtualConsolePrinter.readAll()` for console-parity assertions.
-- Reject: `await`-ing raw promises instead of `waitUntilComplete()` (async DOM work silently outlives the assertion); in-page `<script>` / exact-computed-style / byte-exact-serialization assertions (route to `jsdom`); real network or a real browser process (that is the `playwright-test` e2e gauge); any import from a `plane:runtime` folder — dev environment only.
-- Boundary: no rendering, no real layout (`disableComputedStyleRendering` only toggles the approximation), no pixel output; visual-browser affordances are emulated. When a spec needs true rendering or cross-browser behavior it is a `playwright-test` browser spec, not a DOM-environment spec.
+- Reject: `await`-ing raw promises instead of `waitUntilComplete()` (async DOM work silently outlives the assertion); in-page `<script>` / CSSOM-rule-graph / byte-exact-serialization assertions (route to `jsdom`); real network or a real browser process (that is the `playwright-test` e2e gauge); any import from a `plane:runtime` folder — dev environment only.
+- Boundary: no rendering, no real layout, no pixel output — geometry reads back as zeros and `disableComputedStyleRendering` governs computed-length resolution alone; visual-browser affordances are emulated. When a spec needs true rendering or cross-browser behavior it is a `playwright-test` browser spec, not a DOM-environment spec.

@@ -17,7 +17,7 @@
 | [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------------------------- | :------------ | :------------------------------------------ |
 |  [01]   | `BrowserRuntime.runMain`                                                 | `RunMain`     | `browser/boot` single-boot law              |
-|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`         | KV layer      | `browser/persist`; EventLog identity        |
+|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`         | KV layer      | the WHOLE KV roster; EventLog identity      |
 |  [03]   | `BrowserWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `browser/fetch` decode worker pool          |
 |  [04]   | `BrowserWorkerRunner.layer` / `make` / `layerMessagePort`                | worker runner | worker entry; `ui/viewer` GLB decode        |
 |  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `browser/fetch` client row; OTLP transport  |
@@ -63,7 +63,7 @@
 [STACKING]:
 - `@effect/experimental`(`.api/effect-experimental.md`): `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` `EventLog.layerIdentityKvs({ key })` requires, `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` `EventLogRemote.layerWebSocket` requires, and `EventJournal.layerIndexedDb` backs the journal — the browser EventLog client is these Layers merged.
 - `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `BrowserHttpClient.layerXMLHttpRequest` is the `HttpClient` the native `Otlp.layer` requires in the browser, and `WebSdk.layer` is the browser SDK-bridge alternative — RUM export rides the XHR client.
-- `@effect/platform`(`.api/effect-platform.md`): `BrowserStream.fromEventListener*` feeds the `browser/boot` connectivity rows, and the XHR `HttpClient` composes the `net/client` default-policy transformers behind the `HttpClient` Tag like any other client.
+- `@effect/platform`(`.api/effect-platform.md`): `BrowserStream.fromEventListener*` feeds the `browser/boot` connectivity rows, and the XHR `HttpClient` composes the `net/client` default-policy transformers behind the `HttpClient` Tag like any other client. The `KeyValueStore` binding is where Tag-satisfaction stops short: `layerLocalStorage` and `layerSessionStorage` are the entire roster this package ships for that Tag, and no `FileSystem` or `Path` implementation exists anywhere in its tree, so `KeyValueStore.layerFileSystem(directory)` — which requires both — has nothing here to run on. A durable browser store therefore satisfies the Tag DIRECTLY through `KeyValueStore.make`, which takes exactly `get`, `getUint8Array`, `set`, `remove`, `clear`, and `size` and synthesizes `has`, `isEmpty`, `modify`, `modifyUint8Array`, and `forSchema` from them; the origin-private file system is one handle acquired under `Layer.effect` and projected onto those six, and `KeyValueStore.prefix` scopes the keyspace per app. `makeStringOnly` is the trap beside it — it base64-encodes binary payloads — and `layerStorage(evaluate)` binds a synchronous `Storage`, which the origin-private file system is not.
 - `browser/fetch` + `ui/viewer`: `BrowserWorker.layer(spawn)` backs the off-main-thread decode pool the worker side composes with `BrowserWorkerRunner.layer`; frame reassembly and content-key verify run off-thread, delegating the mint to `core/value/contentKey`.
 
 [LOCAL_ADMISSION]:
@@ -73,6 +73,6 @@
 
 [RAIL_LAW]:
 - Package: `@effect/platform-browser`
-- Owns: the `BrowserRuntime.runMain` boot, `KeyValueStore` over Web Storage, `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`, `HttpClient` over XHR, `Socket` over `WebSocket`, DOM-event `Stream` sources, and the `Clipboard`/`Geolocation`/`Permissions` services
+- Owns: the `BrowserRuntime.runMain` boot, `KeyValueStore` over Web Storage and nothing further, `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`, `HttpClient` over XHR, `Socket` over `WebSocket`, DOM-event `Stream` sources, and the `Clipboard`/`Geolocation`/`Permissions` services
 - Accept: `runMain` as the single browser boot, `layer*` values satisfying abstract `@effect/platform` Tags, `BrowserKeyValueStore`/`BrowserSocket` as EventLog-client backings, the XHR client for OTLP/binary transport, `BrowserWorker` for the decode pool, Web-API services as `ui`-declared ports
-- Reject: a second `runMain`, `@effect/platform-node`/`@effect/platform-bun`/`node:*` in `runtime:browser`, this package in `runtime:node`, `ui` importing it directly instead of through a declared port, hand-rolled Web-Storage/WebSocket/Worker wrappers
+- Reject: a second `runMain`, `@effect/platform-node`/`@effect/platform-bun`/`node:*` in `runtime:browser`, this package in `runtime:node`, `ui` importing it directly instead of through a declared port, hand-rolled Web-Storage/WebSocket/Worker wrappers, a browser `FileSystem` port built solely to reach `KeyValueStore.layerFileSystem`, and `makeStringOnly` under a store whose values are octets

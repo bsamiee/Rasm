@@ -276,7 +276,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Seam: `texture-set-by-key`
 - Class: domain
 - Producer: `csharp:Rasm.Materials/Raster/set#TEXTURE_SET`, keyed and projected through `csharp:Rasm.Materials/Appearance/interchange#TEXTURE_EGRESS`
-- Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` carries the family and `#LANDING_WIRE` lands it as `TextureSet`; `typescript:ui/viewer/scene#APPEARANCE_BIND` seats it through `Pbr.seat`/`Pbr.index` over the served asset directory; `python:runtime/transport/shapes#VOCABULARY` decodes it on the `texture_set_wire` row, decode-only.
+- Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` carries the family and `#LANDING_WIRE` lands it as `TextureSet`; `typescript:data/object/asset#ASSET_GATE` projects each `ktx2` channel row onto the ktx declaration and re-proves it against the fetched container; `typescript:ui/viewer/scene#APPEARANCE_BIND` seats it through `Pbr.seat`/`Pbr.index` over the served asset directory; `python:runtime/transport/shapes#VOCABULARY` decodes it on the `texture_set_wire` row, decode-only.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer has pressed no concrete set — `Rasm.Materials` is a fences-only planning surface whose `Raster/` press estate holds no realized source, so no runtime mints the channel-ordered plane-digest preimage the set key streams over. Its descriptor half is closed: `rasm/channels/v1/channels.proto` carries the texture messages both decode legs bind.

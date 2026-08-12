@@ -26,29 +26,33 @@
 |  [08]   | `StandardResolutionReasons` / `ErrorCode`    | vocabulary    | reason and degradation-code spellings `Verdict` mirrors       |
 |  [09]   | `OpenFeatureEventEmitter` / `ProviderEvents` | events        | emitter; `Ready`/`Error`/`ConfigurationChanged`/`Stale`       |
 
-[PROVIDER]: `resolve{Boolean,String,Number,Object}Evaluation(flagKey, defaultValue, EvaluationContext, Logger) -> Promise<ResolutionDetails<T>>`; lifecycle `metadata` `runsOn` `hooks?` `events?` `initialize?(EvaluationContext?)` `onClose?`
+[PROVIDER]: `resolve{Boolean,String,Number,Object}Evaluation(flagKey, defaultValue, EvaluationContext, Logger) -> Promise<ResolutionDetails<T>>`; lifecycle `metadata` `runsOn` `hooks?` `events?` `initialize?(EvaluationContext?, string?)` `onClose?`
+
+- `Provider.initialize`: receives the domain `setProvider(domain, provider)` bound this instance to, absent on the default registration — one provider class therefore specializes per domain at init instead of forking into a class per domain.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration, client reads, context altitude, transaction propagation. Leading-dot surfaces are `OpenFeature` singleton statics, `client.*` are instance reads, and `get{Boolean,String,Number,Object}Value`/`get*Details` take `(flag, fallback, context?)`.
+[ENTRYPOINT_SCOPE]: registration, client reads, context altitude, transaction propagation. Leading-dot surfaces are `OpenFeature` singleton statics, `client.*` are instance reads, and `get{Boolean,String,Number,Object}Value`/`get*Details` take `(flag, fallback, context?, options?: FlagEvaluationOptions)` — the fourth slot carries per-call `hooks`/`hookHints`.
 
 | [INDEX] | [SURFACE]                                                                 | [SHAPE]         | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------------------------------ | :-------------- | :----------------------------------------- |
 |  [01]   | `.setProviderAndWait(provider)` / `.setProvider(domain, provider)`        | static          | register the provider, await readiness     |
-|  [02]   | `.getClient(domain?)`                                                     | static          | mint the `Flags` service client            |
+|  [02]   | `.getClient()` / `.getClient(context)` / `.getClient(domain, context?)` / `.getClient(domain, version, context?)` | static | mint the `Flags` service client — the one-argument arm reads as CONTEXT when it is not a string, so a domain always travels with its own slot |
 |  [03]   | `client.get*Value` / `client.get*Details`                                 | instance        | value and `Verdict`-fed detail reads       |
 |  [04]   | `.setContext(context)` / `client.setContext(context)`                     | static/instance | context at global or client altitude       |
 |  [05]   | `.addHooks(...)` / `client.addHooks(...)` / invocation `{ hooks }`        | static/instance | register lifecycle hooks                   |
 |  [06]   | `.addHandler(ProviderEvents.X, handler)` / `client.addHandler`            | static/instance | observe readiness and config events        |
-|  [07]   | `.setTransactionContextPropagator(p)` / `.setTransactionContext(ctx, fn)` | static          | install the `AsyncLocalStorage` propagator |
+|  [07]   | `.setTransactionContextPropagator(p)` / `.setTransactionContext(ctx, fn)` | static          | install the `AsyncLocalStorage` propagator — the DEFAULT is the no-op propagator, so request-scoped context reaches nothing until a root installs one |
 |  [08]   | `.close()`                                                                | static          | scope-release teardown in `Flags` Layer    |
 |  [09]   | `client.track(name, context?, details?)`                                  | instance        | associate a flag outcome with an action    |
-|  [10]   | `InMemoryProvider`                                                        | class           | in-memory provider for SDK-seam specs      |
+|  [10]   | `TypedInMemoryProvider`                                                   | class           | in-memory provider for SDK-seam specs — the bare `InMemoryProvider` spelling survives only as a deprecated alias |
+|  [11]   | `CommonProvider.domainScoped?` / `CommonProvider.track?`                  | contract        | optional provider members — `track` is the outcome seat the provider literal implements, `domainScoped` opts a provider into per-domain instantiation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every flag read folds through the client, never the provider directly — the client owns hook firing, context altitude, and event handlers, while the provider answers `ResolutionDetails` as total data and never throws from a `resolve*` member.
+- Domain binding reaches the provider at init — `initialize` receives the domain the registration named, so a deployment serving several domains from one ruleset source specializes inside one provider class and the domain never becomes a second registry keyed outside the SDK.
 
 [STACKING]:
 - `effect`(`.api/effect.md`): the provider's promise members bridge through the runtime captured at Layer build — `Effect.runtime` + `Runtime.runPromise` for the callback seam, `Effect.tryPromise`/`Effect.promise` converting registration and `close` inside the `Flags` scoped build; a `Cache.makeWith` memo tier keys on reason with a TTL the `ConfigurationChanged` handler invalidates.
@@ -56,11 +60,11 @@
 - `net/channel` `Feed`: ruleset patches arrive over the SSE seam, and the provider emits `ConfigurationChanged` per accepted patch so consumers invalidate on the SDK's own signal.
 
 [LOCAL_ADMISSION]:
-- `proc/flag` implements exactly one `Provider`; a second or vendor provider is a roster decision, never a silent import.
+- `proc/flag` implements exactly one `Provider`; a second or vendor provider is a roster decision, never a silent import. Domain fan-out rides that one class through the `initialize` domain argument, costing a specialization arm rather than a provider.
 - Reason and error vocabularies mirror rather than import into wire shapes — `Rollout.reasons` and `Verdict.codes` anchor the branch spellings against the SDK constants.
 
 [RAIL_LAW]:
 - Package: `@openfeature/server-sdk`
-- Owns: the evaluation contract — `Provider`/`ResolutionDetails`/`EvaluationContext`, the client surface, hooks, events, transaction-context propagation, the reason and error-code vocabulary
+- Owns: the evaluation contract — `Provider`/`ResolutionDetails`/`EvaluationContext`, the client surface, domain-scoped registration, hooks, events, transaction-context propagation, the reason and error-code vocabulary
 - Accept: one `Provider` over the ruleset cell, `setProviderAndWait` at Layer build with `close()` on release, `get*Details` reads projected into `Verdict`, one telemetry hook, `ConfigurationChanged`-driven invalidation
 - Reject: a hand-minted evaluation contract, a throwing resolve member, provider-direct evaluation bypassing hooks, a second flag source beside the provider's cell

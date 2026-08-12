@@ -1,6 +1,8 @@
 # [IAC_TRAFFIC]
 
-The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issued certificate triple into the `kubernetes.io/tls` secret, fronts the workload service through the Gateway API — a typed `Gateway` listener terminating TLS on the sink plus one `HTTPRoute` per hostname, generated as committed `crd2pulumi` classes — fences the fronted workload pods with the default-deny `NetworkPolicy` the policy pack demands, automates DNS through the external-dns chart row reading the route state, and realizes the exposure as the `Edge` tagged family the provider arm proves on the rail: `Direct` carries the metal address external-dns publishes through the target annotation, `Tunnel` carries the account for the Zero-Trust row. The legacy `networking/v1.Ingress` survives as the fallback row of the `_EDGES` vocabulary for clusters whose controller predates the Gateway class — one table row, never a second code path. Certificate material is not minted here: the CA root and leaf issuance are `operate/secret.md`'s `Certs` pipeline, and this tier receives the issuance capability — the arm injects `Certs.issue` partially applied over its CA and profile, the tier calls it once with the derived hostname, and the `{ key, cert, renewal }` triple lands in the sink — so the material owner and the network edge cannot blur and the hostname exists once. `renewal` re-projects as the tier's rotation watch. A WAF posture is `waf` rows compiled onto one `cloudflare.Ruleset`, per-tenant vanity domains are `vanity` rows compiled onto `CustomHostname`, and one Cloudflare provider constructs per arm from the Doppler fan-in token and threads every record. The module is `iac/src/kube/traffic.ts`; a new exposure mode is one `Edge` case plus its `$match` arm, an mTLS mesh leaf is one more issuance call against the same CA, a WAF rule is one data row.
+The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issued certificate triple into the `kubernetes.io/tls` secret, fronts the workload service through the Gateway API — a typed `Gateway` listener terminating TLS on the sink plus one `HTTPRoute` per hostname, generated as committed `crd2pulumi` classes — fences the fronted workload pods with the default-deny `NetworkPolicy` the policy pack demands, automates DNS through the external-dns chart row reading the route state, and realizes the exposure as the `Edge` tagged family the provider arm proves on the rail: `Direct` carries the metal address external-dns publishes through the target annotation, `Tunnel` carries the account for the Zero-Trust row. The legacy `networking/v1.Ingress` survives as the fallback row of the `_EDGES` vocabulary for clusters whose controller predates the Gateway class — one table row, never a second code path. Certificate material is not minted here: the CA root and leaf issuance are `operate/secret.md`'s `Certs` pipeline, and this tier receives the issuance capability — the arm injects `Certs.issue` partially applied over its CA and profile, the tier calls it once with the derived hostname, and the `{ key, cert, renewal }` triple lands in the sink — so the material owner and the network edge cannot blur and the hostname exists once. `renewal` re-projects as the tier's rotation watch. A WAF posture is `waf` rows compiled onto one `cloudflare.Ruleset`, per-tenant vanity domains are `vanity` rows compiled onto `CustomHostname`, and one Cloudflare provider constructs per arm from the Doppler fan-in token and threads every record. The module is `iac/src/kube/traffic.ts`; a new exposure mode is one `Edge` case plus its `$match` arm, an mTLS mesh leaf is one more issuance call against the same CA, a WAF rule is one data row, and a staged generation is one `split` row.
+
+Weighted backendRefs carry the estate's traffic split: a `split` row fronts a staged candidate beside the incumbent, which is how `operate/converge.md`'s rollout strategies prove a generation under live traffic before its pointer moves.
 
 ## [01]-[INDEX]
 
@@ -12,6 +14,8 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 [EDGE_FAMILY]:
 - Owner: `Traffic.Edge`, the `Data.taggedEnum` the provider arm constructs after proving every coordinate on the `DeployFault` rail — `Direct` (domain, zone, the metal address shared with the bootstrap connection) and `Tunnel` (domain, zone, account); the tier receives a proven case and dispatches `$match`, so no constructor throw exists for a spec-derivable value and traffic without an address is unspellable rather than a runtime error.
 - Law: the edge api is the `_EDGES` vocabulary — the `gateway` row (the Gateway class name, the controller namespace, the typed `Gateway`+`HTTPRoute` realizer) is primary; the `ingress` row (`networking/v1.Ingress` with `ingressClassName`) is the legacy fallback a cluster without the Gateway class selects; both rows read one controller-identity anchor, so the routing class and the admission fence cannot drift, and a controller rename lands in one row edit.
+- Law: `split` is the weighted-backendRef capability, carried as a column on that same vocabulary — `true` on the `gateway` row, whose backendRefs each take a `weight`, and `false` on the legacy row, whose `Ingress` spec has no weight member anywhere; so a staged rollout and the fallback edge are an unpairable pair the arm refuses on the `DeployFault` rail beside every other spec coordinate, rather than a route that quietly serves the incumbent everything while a gate measures a candidate no request reached.
+- Law: the split fronts a candidate, never a second route — `split` names the candidate service and the share `operate/converge#PUBLICATION`'s strategy row declared, the row exists only while that generation stages, and the pointer keeps naming the incumbent for the whole window; the candidate stages under the workload tier's same published `selector`, so `_fenced` closes it with the incumbent and no staging-local policy exists.
 - Law: the fence closes the WORKLOAD, never the namespace — `podSelector` reads the workload tier's own published selector, so ingress to the fronted pods is admitted only from the edge row's controller namespace or the arm's tunnel connector pods on the service port while every other pod in the namespace stays unselected and therefore unrestricted; the arm seats the data plane, the fanout server, the object store, the collector, and the app in ONE namespace, so an empty `podSelector` denies the app its own Postgres pooler, its JetStream door, its object endpoint, and the collector it exports to, and denies the CNPG instances each other — a fence written to protect the edge that severs the estate's interior instead. Egress stays open, the connector row is inert under `Direct` because no pod carries the label, and the fence is what the policy pack's cross-resource row verifies exists wherever a `Deployment` does.
 - Law: material crosses as the triple only — `args.issue(hostname)` yields `Certs.Issued` with `key` and `cert` as state-encrypted `Output`s and `renewal` as the rotation boolean; the tier never sees a private-key PEM outside the sink write, and a second consumer of the same material is a second sink row, never a second issuance.
 - Law: the cert lanes stay split — the injected `Certs.issue` is the mesh/self-signed lane this sink consumes; browser-trusted certs outside a cluster are `operate/secret.md`'s acme lane; in-cluster ACME lands as `crd2pulumi`-generated cert-manager `Certificate`/`ClusterIssuer` rows with the `gatewayHTTPRoute` solver when an estate finalizes it, replacing the sink's input, never this tier's shape.
@@ -51,14 +55,19 @@ declare namespace Traffic {
     readonly apiToken: pulumi.Input<string>
     readonly edge: Traffic.Edge
     readonly api?: keyof typeof _EDGES
+    // candidate a rollout strategy stages behind this edge: `weight` is its share of the proportion pair this
+    // route writes, and the row exists only for the window in which that generation proves itself
+    readonly split?: { readonly candidate: pulumi.Input<string>; readonly weight: number }
     readonly waf?: ReadonlyArray<{ readonly expression: string; readonly action: "block" | "challenge" | "skip" }>
     readonly vanity?: ReadonlyArray<string>
   }
 }
 
 const _EDGES = {
-  gateway: { class: "nginx", namespace: "nginx-gateway" },
-  ingress: { class: "nginx", namespace: "ingress-nginx" },
+  // `split` is the weighted-backendRef capability itself: the Gateway row's backendRefs each take a `weight`
+  // while the legacy row's spec has none, so this column is what the arm pairs a rollout against.
+  gateway: { class: "nginx", namespace: "nginx-gateway", split: true },
+  ingress: { class: "nginx", namespace: "ingress-nginx", split: false },
 } as const
 
 const _connector = (name: string): { readonly "app.kubernetes.io/name": string } => ({
@@ -97,8 +106,10 @@ const _fenced = (
 - Law: `Tunnel` is the no-public-address row, settled whole — an epoch-keyed `RandomBytes` mints the tunnel secret, `ZeroTrustTunnelCloudflared` names the tunnel, its `…Config` `ingresses` rows route the hostname to the in-cluster service and close on the `http_status:404` catch-all, `getZeroTrustTunnelCloudflaredTokenOutput` feeds the secret-wrapped `TUNNEL_TOKEN` of the in-cluster `cloudflared` connector `Deployment`, and a `ZeroTrustAccessPolicy`/`…Application` pair fronts the edge.
 - Law: one provider per arm — the Cloudflare provider constructs once here from the fan-in token and threads `{ provider }` to every record; a per-record provider is the named defect.
 - Law: rules and vanity are data rows — `waf` rows compile onto one `cloudflare.Ruleset` (`phase: "http_request_firewall_custom"`, one rule per row) on the same provider, and `vanity` rows compile onto per-tenant `cloudflare.CustomHostname` rows against the proven zone, so a SaaS estate's custom domains and its WAF posture grow by rows the exposure dispatch never widens for.
-- Growth: a second zone is a second record set on the same provider; a `GRPCRoute`/`TLSRoute` is one more generated class row beside the HTTPRoute; a `BackendTLSPolicy` lands beside the route when the backend hop earns TLS.
-- Boundary: the token's mint and fan-in are `operate/secret.md`'s; the prepared `cloudflare` arm's own cells are `program/provider.md`'s; external-dns chart values drift with its pinned version.
+- Law: the weighted route is the staging window's own shape — the split writes the incumbent and the candidate as one proportion pair summing to 100, and the moment the pointer flips the candidate IS the incumbent and the route collapses back to its single backendRef, so no post-cutover weight row survives to drift and the edge holds no rollout state between applies.
+- Law: the candidate Service precedes the weight naming it — an invalid backendRef sheds nothing onto its sibling and answers its whole proportion with `500`, so a share written ahead of the backend converts that fraction of live traffic into errors rather than routing it to the incumbent; the arm orders the candidate's service set ahead of this route, and the staging gate's sample floor is what refuses to read a window that measured such a route.
+- Growth: a second zone is a second record set on the same provider; a staged rollout is one `split` row on the route this tier already writes, never a second route or a mirrored hostname; a `GRPCRoute`/`TLSRoute` is one more generated class row beside the HTTPRoute; a `BackendTLSPolicy` lands beside the route when the backend hop earns TLS.
+- Boundary: the token's mint and fan-in are `operate/secret.md`'s; the prepared `cloudflare` arm's own cells are `program/provider.md`'s; external-dns chart values drift with its pinned version; the strategy selecting the share and the gate admitting it are `operate/converge#PUBLICATION`'s — this tier writes the weight and grades nothing.
 - Packages: `@pulumi/cloudflare` (`Provider`, `DnsRecord`, `Ruleset`, `CustomHostname`, `ZeroTrustTunnelCloudflared`, `ZeroTrustTunnelCloudflaredConfig`, `getZeroTrustTunnelCloudflaredTokenOutput`, `ZeroTrustAccessApplication`, `ZeroTrustAccessPolicy`).
 
 ```typescript
@@ -214,10 +225,27 @@ const _EDGED: {
       spec: {
         parentRefs: [{ name: plane.metadata.name }],
         hostnames: [hostname],
-        rules: [{ backendRefs: [{ name: args.service, port: args.port }] }],
+        // `weight` is a PROPORTION — each backendRef takes weight/(sum of weights), never a percentage — so the
+        // staged pair is written to sum to 100 and the strategy row's number reads as the share it declared. A
+        // candidate at weight 0 stages dark: the entry resolves and no request is forwarded to it. Absent a
+        // split the lone backendRef carries no weight member, which is the whole of the traffic by the API's
+        // own single-backend rule, so the unstaged route is byte-identical to the one written before splits.
+        // BOTH entries state a weight because an omitted one is `1`, which would turn a stated share beside an
+        // omitted one into an even split; and an INVALID backendRef sheds nothing onto its sibling — its whole
+        // share answers 500 — so the candidate Service is a hard ordering dependency of the weight naming it.
+        rules: [{
+          backendRefs: args.split === undefined
+            ? [{ name: args.service, port: args.port }]
+            : [
+                { name: args.service, port: args.port, weight: 100 - args.split.weight },
+                { name: args.split.candidate, port: args.port, weight: args.split.weight },
+              ],
+        }],
       },
     }, child)
   },
+  // Legacy spec carries no weight member on any backend, so this row realizes the incumbent alone; a staged
+  // rollout never selects it, because the arm refuses the pairing rather than letting a split vanish here.
   ingress: (name, args, hostname, sink, child) =>
     void new k8s.networking.v1.Ingress(name, {
       metadata: { namespace: args.namespace },

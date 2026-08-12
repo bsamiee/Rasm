@@ -15,7 +15,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `MssqlClient` service and its config
-- `MssqlClient extends SqlClient`: providing the layer yields both Tags, so interop rows compose the neutral `SqlClient` and only construction with the SQL-Server-specific `config`/`param`/`call` reaches the concrete Tag. `MssqlClientConfig` carries the connection shape the rows below enumerate, seeding the compiler's `PrimitiveKind`→`DataType` binding through `parameterTypes`.
+- `MssqlClient extends SqlClient`: providing the layer yields both Tags, so interop rows compose the neutral `SqlClient` and only construction with the SQL-Server-specific `config`/`param`/`call` reaches the concrete Tag. `MssqlClientConfig` carries the connection shape the rows below enumerate; every field but `server` is optional, and `parameterTypes` swaps the compiler's whole `PrimitiveKind`→`DataType` fallback map.
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :----------------------------------------------------- | :------------------ | :-------------------------------------------------- |
@@ -26,10 +26,10 @@
 |  [05]   | `MssqlClientConfig.server` (required)                  | connection          | host or named endpoint; the one non-optional field  |
 |  [06]   | `MssqlClientConfig.database`/`.username`               | connection          | discrete target DB + login; `Config`-sourced        |
 |  [07]   | `MssqlClientConfig.domain`/`.instanceName`/`.authType` | auth shape          | Windows-domain and named-instance authentication    |
-|  [08]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | `encrypt` defaults true, `trustServer` defaults false |
+|  [08]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | `encrypt` true, `trustServer` false by default      |
 |  [09]   | `MssqlClientConfig.password` (`Redacted.Redacted`)     | credential          | pool auth; never a literal                          |
 |  [10]   | `MssqlClientConfig.minConnections`/`.maxConnections`   | pool sizing         | per-app pool budget; `connectionTTL` a `Duration`   |
-|  [11]   | `MssqlClientConfig.parameterTypes`                     | type override       | `PrimitiveKind`→`DataType` seed the compiler binds  |
+|  [11]   | `MssqlClientConfig.parameterTypes`                     | type override       | `Record<string, DataType>` replacing the default    |
 |  [12]   | `MssqlClientConfig.spanAttributes` + name transforms   | telemetry/transform | shared with every dialect driver                    |
 
 [PUBLIC_TYPE_SCOPE]: the typed parameter and stored-procedure families
@@ -47,7 +47,9 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
-- `layer`/`layerConfig` yield `MssqlClient | SqlClient` in one Layer under error `ConfigError | SqlError`; `make` returns `Effect<MssqlClient, SqlError, Scope | Reactivity>`. `makeCompiler` fixes `dialect: "mssql"`, seeding `db.system.name` and `server.address` per span; `defaultParameterTypes` is the built-in `PrimitiveKind`→`DataType` map, overridable via `MssqlClientConfig.parameterTypes`.
+- `layer`/`layerConfig` yield `MssqlClient | SqlClient` in one Layer under error `ConfigError | SqlError`; `make` returns `Effect<MssqlClient, SqlError, Scope | Reactivity>`. `make` — not the compiler — seeds every span: `db.system.name=microsoft.sql_server`, `server.address` off the required `server`, and `db.namespace` and `server.port` off the optional fields with `master` and `1433` filled where absent.
+- `makeCompiler` fixes `dialect: "mssql"` on bracket identifier escaping and positional parameter names, folding `RETURNING` into `OUTPUT INSERTED.*` for both insert and multi-row update. `defaultParameterTypes` is the built-in `Record<Statement.PrimitiveKind, DataType>` the compiler resolves an unannotated value's kind through; `MssqlClientConfig.parameterTypes` REPLACES that map whole rather than merging into it, so a partial override drops every kind it omits.
+- `MssqlClient.param` is `Statement.custom("MssqlParam")` and the compiler's `onCustom` arm passes its triple straight to the driver's own `addParameter`, so a `param` value bypasses `PrimitiveKind` inference entirely — that is the one path a declared `DataType` reaches the wire on.
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
 | :-----: | :-------------------------------------------------------- | :------------- | :--------------------------------------------- |
@@ -82,7 +84,10 @@
 - Provide the layer at the app root only; interop rows yield the neutral `SqlClient` and reach the concrete `MssqlClient` Tag solely for construction and the `param`/`call` surface.
 - `password` rides `Config.redacted`; pool sizing, `encrypt`/`trustServer` TLS posture, and named-instance auth are `Config`/`iac` facts, never row literals.
 - Both TLS knobs stay unset: the driver's own defaults encrypt the wire and validate the certificate, so `encrypt: false` transmits the credential in cleartext and `trustServer: true` accepts any presented certificate.
+- No pool-adoption entrypoint ships: `layer`/`layerConfig`/`make` each build their own pool, so one composition owns one pool per interop lane and the pg spine's `layerFromPool` fan-out has no counterpart here.
 - Stored procedures compose `Procedure.make`→`param`/`outputParam`/`withRows`→`compile` and run via `MssqlClient.call`; inline typed values splice through `MssqlClient.param` naming a `MssqlTypes` `DataType`, never a raw string-built parameter.
+- `Procedure.withRows<A>()` re-types the result set and decodes nothing, so a `Procedure.Result`'s `rows` and `output` scalars pass a `Schema` before domain code reads them, exactly as `SqlSchema` proves a `Connection.Row`.
+- `MssqlTypes` resolves through the package root alone — the distribution publishes no `MssqlTypes` subpath, so a deep import of the `DataType` catalog does not exist.
 - `MssqlMigrator` is banned branch-wide — DDL is `iac`↔`data` declarative ensure, runtime never mutates.
 
 [RAIL_LAW]:

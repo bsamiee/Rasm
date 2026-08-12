@@ -96,7 +96,10 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 
 `Prompt` is the conversation value: `make`/`fromMessages`/`fromResponseParts` build it, `merge`/`setSystem`/`prependSystem`/`appendSystem` assemble context; `RawInput` is what `generateText({ prompt })` accepts (string, encoded messages, or `Prompt`). `Response` is the discriminated part union `streamText` yields, folded on `part.type`.
 
-[SURFACES]: `RawInput` `empty` `make` `fromMessages` `fromResponseParts` `merge` `setSystem` `prependSystem` `appendSystem` `makePart` `FinishReason` `Usage`
+The three system combinators take a body ALONE — only `makeMessage(role, { content, options })` reaches a message's provider slot, so seating provider options rebuilds the array through `fromMessages`. `setSystem` is also the only one that DROPS the prior system message: `appendSystem`/`prependSystem` merge the found system content into a fresh message and prepend it to the array they were handed without removing the original, so N calls leave N system messages carrying N growing prefixes. `make(string)` mints a USER message, so a system block never enters through it. `fromResponseParts` re-mints each part with an EMPTY options slot, dropping every provider carrier the response held.
+
+[SURFACES]: `RawInput` `empty` `make` `fromMessages` `fromResponseParts` `merge` `setSystem` `prependSystem` `appendSystem` `makeMessage` `makePart` `systemMessage` `FinishReason` `Usage` `FromJson` — the fused parse-then-decode schema a stored prompt string admits through, so a persisted history re-enters typed rather than through a hand `JSON.parse`
+[FINISH_REASON]: `"stop"` `"length"` `"content-filter"` `"tool-calls"` `"error"` `"pause"` `"other"` `"unknown"` — providers map their own wire value in, so a family that publishes no counterpart for a band never produces it and an unmapped wire value arrives as `"unknown"`
 
 [AUGMENTATION_BASE]: the provider boundary-hook seam — every provider `declare module`-augments these interface twins, never the schema
 
@@ -116,9 +119,9 @@ Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Res
 
 [PUBLIC_TYPE_SCOPE]: stateful conversation and persistence
 
-`Chat` keeps history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns; `export`/`exportJson` serialize, `fromJson`/`fromExport`/`fromPrompt` restore, and `Persistence` + `layerPersisted` back durable sessions. The append is `Prompt.merge(prompt, Prompt.fromResponseParts(content))` over the FULL held history, so a chat-carried tool loop feeds only new material per call — re-feeding prior turns duplicates them; a `Persisted` chat writes to its backing store on EVERY generation, so a closing `save` after a generation is redundant.
+`Chat` keeps history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns; `export`/`exportJson` serialize, `fromJson`/`fromExport`/`fromPrompt` restore, and `Persistence` + `layerPersisted` back durable sessions. The append is `Prompt.merge(prompt, Prompt.fromResponseParts(content))` over the FULL held history, so a chat-carried tool loop feeds only new material per call — re-feeding prior turns duplicates them; a `Persisted` chat writes to its backing store on EVERY generation, so a closing `save` after a generation is redundant. Because that append runs through `fromResponseParts`, the stored history carries NO provider part options: every reasoning-continuity carrier is dropped before the next turn reads it. No member summarizes or rewrites a conversation — a digest compaction is composition over the generation trio, not a call.
 
-[SURFACES]: `Chat` `Service` `empty` `fromPrompt` `fromExport` `fromJson` `ChatNotFoundError` `Persistence` `Persisted` `makePersisted` `layerPersisted` `Layer`
+[SURFACES]: `Chat` `Service` `empty` `fromPrompt` `fromExport` `fromJson` `ChatNotFoundError` `Persistence` `Persisted` `makePersisted` `layerPersisted`
 
 ## [08]-[TOKENIZER]
 
@@ -145,6 +148,8 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 |  [06]   | `McpServer.elicit`                      | capability  | server-requested structured input    |
 |  [07]   | `McpSchema.*`                           | wire        | MCP protocol Schemas + typed errors  |
 |  [08]   | `McpSchema.param`                       | constructor | typed resource-template parameter    |
+|  [09]   | `McpServer.run` / `McpServer.layer`     | assembly    | bare-options run and layer forms beneath the transport pair — the interior the `layerStdio`/`layerHttp` rows compose; reach them only where a transport row cannot express the deployment |
+|  [10]   | `McpSchema.McpServerClient`             | client tag  | the server-side client handle elicitation rides; `Host.confirm` reaches it through `McpServer.elicit`, never directly |
 
 ## [10]-[TELEMETRY_IDS_ERRORS]
 
@@ -158,7 +163,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 [ALL_ATTRIBUTES]: `AllAttributes = BaseAttributes & OperationAttributes & TokenAttributes & UsageAttributes & RequestAttributes & ResponseAttributes`
 [MAKE_OPTIONS]: `alphabet: string` `prefix?: string` `separator: string` `size: number`
 [AI_ERROR]: `AiError = HttpRequestError | HttpResponseError | MalformedInput | MalformedOutput | UnknownError`
-[SURFACES]: `addGenAIAnnotations(Span, GenAITelemetryAttributeOptions) -> void` `addSpanAttributes(Span, GenAITelemetryAttributes) -> void` `defaultIdGenerator: Service` `make(MakeOptions) -> Effect<Service, Cause.IllegalArgumentException>` `layer(MakeOptions) -> Layer<IdGenerator, Cause.IllegalArgumentException>` `isAiError(unknown) -> u is AiError`
+[SURFACES]: `addGenAIAnnotations(Span, GenAITelemetryAttributeOptions) -> void` `addSpanAttributes(Span, GenAITelemetryAttributes) -> void` `SpanTransformer` — the provider-package hook interface a client layer accepts to reshape generation spans; the branch declines it (Convention owns every stamp) — `defaultIdGenerator: Service` `make(MakeOptions) -> Effect<Service, Cause.IllegalArgumentException>` `layer(MakeOptions) -> Layer<IdGenerator, Cause.IllegalArgumentException>` `isAiError(unknown) -> u is AiError`
 
 ## [11]-[IMPLEMENTATION_LAW]
 
@@ -173,7 +178,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 - `modelcontextprotocol-sdk.md` (`@modelcontextprotocol/sdk`): admits as MCP client only; `McpServer.toolkit` registering a `Toolkit` under one transport layer is the sole host path.
 - `@effect/platform`: every provider `layer*` requires `HttpClient` from `net/client`; `McpServer.layerHttp` composes `HttpRouter`.
 - `ai/model.ts`: folds the provider rows into one guardrail gate over `generateText`/`streamText` — input moderation before the call, output moderation and `Schema`-refusal admission over the `Response.Part` stream, a rejected call short-circuiting into `AiError`; tier-routing reads `Model.ProviderName` and finish-part cost metadata; `disableToolCallResolution: true` hands execution to the gate, `failureMode: "return"` keeps a failed call in-band.
-- `ai/embed.ts`: publishes the `EmbeddingModel` tag as the `Layer` wired into the `read/search` `Embedder` port, retrieval folding into a `Prompt` via `merge`/`appendSystem`; `ai/agent.ts` composes `Chat.Persistence` over `work` cluster entities.
+- `ai/embed.ts`: publishes the `EmbeddingModel` tag as the `Layer` wired into the `read/search` `Embedder` port, retrieval folding into a `Prompt` via `merge`/`setSystem`; `ai/agent.ts` composes `Chat.Persistence` over `work` cluster entities.
 
 [LOCAL_ADMISSION]:
 - `@effect/ai` with its five provider siblings is the admitted LLM surface; `@modelcontextprotocol/sdk` admits as MCP client only, never a second host.

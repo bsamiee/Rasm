@@ -249,6 +249,9 @@ const _capability = <G extends string, F extends string>(
             ? Either.right([row, installed] as const)
             : Either.left(new CapabilityFault({ reason: "floor", subject: row.extension, detail: installed })),
       }))
+    // Partition arms CARRY each starved row's unmet grant, so the terminal pass reports the demand that starved it
+    // without re-running the probe — and a cyclic row is a row whose unmet grant never arrives, so no separate cycle
+    // arm exists for a state the carried grant already names.
     const resolve = (
       accepted: typeof held,
       pending: typeof held,
@@ -257,25 +260,21 @@ const _capability = <G extends string, F extends string>(
         HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
         HashSet.fromIterable(Array.flatMap(accepted, ([row]) => row.capabilities)),
       )
-      const [waiting, ready] = Array.partitionMap(pending, (entry) => {
-        const [row] = entry
-        const unmet = Array.findFirst(demands, ([flag, grant]) =>
-          Array.contains(row.flags ?? [], flag) && !HashSet.has(available, grant))
-        return Option.isNone(unmet) ? Either.right(entry) : Either.left(entry)
-      })
+      const [starved, ready] = Array.partitionMap(pending, (entry) =>
+        Option.match(
+          Array.findFirst(demands, ([flag, grant]) =>
+            Array.contains(entry[0].flags ?? [], flag) && !HashSet.has(available, grant)),
+          {
+            onNone: () => Either.right(entry),
+            onSome: ([, grant]) => Either.left([entry, grant] as const),
+          },
+        ))
       return ready.length > 0
-        ? resolve([...accepted, ...ready], waiting)
+        ? resolve([...accepted, ...ready], Array.map(starved, ([entry]) => entry))
         : [
             accepted,
-            Array.map(waiting, ([row]) => {
-              const demand = Array.findFirst(demands, ([flag, grant]) =>
-                Array.contains(row.flags ?? [], flag) && !HashSet.has(available, grant))
-              return new CapabilityFault({
-                reason: "requires",
-                subject: row.extension,
-                detail: Option.match(demand, { onNone: () => "<cycle>", onSome: ([, grant]) => grant }),
-              })
-            }),
+            Array.map(starved, ([[row], grant]) =>
+              new CapabilityFault({ reason: "requires", subject: row.extension, detail: grant })),
           ]
     }
     const [granted, starved] = resolve([], held)
@@ -332,14 +331,16 @@ declare namespace Capability {
 - Law: artifact key order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so `_projection` proves the dependency keys and no path validates by sorting.
 - Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
 - Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
+- Law: capabilities enter an observation two ways and the split is the probe's REACH — a relational grant resolves through the adapter map against `report.granted`, while a provider plane whose custody no SQL catalog scans hands its canonical keys in already resolved on `Reading.granted`, the mirror of the `artifacts` slot beside it. `Capability.Grant<G>` stays closed against those keys: no probe ever finds a canonical contract key as a grant, and a roster admitting one fails every `require` that names it.
+- Law: the composition root builds ONE `Reading` from the relational report and adapters beside every provider plane's observed set — `granted` empty on a purely relational reading — so one `Backend.admit` verdict covers relational and object state together and no plane publishes a second generation against the same contract.
 - Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
 - Law: recovery is ONE verdict on two proofs, never two generations — contract identity proves the store carries the composed generation, and recency proves the frontier behind it is current for the window the deployment declared; both refuse through `BackendFault`, so a stale store never publishes as an admitted generation.
 - Law: the measured window derives from the observation's OWN stamps, so a provider hands in the readings it took and never a lag it computed against a clock this owner never saw; a lag admits at ZERO — a frontier stamped at its own reading instant is the freshest measured recency — and only a frontier stamped after that reading is skew grading as unmeasured.
 - Law: absence splits opposite ways — an unmeasured recovery point refuses, because a restore admitted with no recency evidence grades a window nobody took, while an absent restore duration passes on a store that never restored.
 - Law: the objective is a value the composition root supplies off its consumption profile row; this page grades a declared window and owns no durability table of its own.
 - Packages: `effect` Schema, JSONSchema, collections, and rails; core `Digest.Key`, `Digest`, and `Fault.Class`.
-- Growth: a provider adds adapter rows over its existing matrix; a new invariant is one `_Check` row; a generated field changes the one projection schema; a new recovery axis is one `Window` column with its absence law in `_exceeding` beside its `Objective` column.
-- Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence.
+- Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row; a generated field changes the one projection schema; a new recovery axis is one `Window` column with its absence law in `_exceeding` beside its `Objective` column.
+- Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence. Assembling the one `Reading` — relational report and adapters beside every provider plane's already-canonical grants and artifacts — is the composition root's obligation, and this page grades whatever that root hands it.
 
 ```typescript signature
 import { Digest, Fault } from "@rasm/ts/core"
@@ -487,11 +488,14 @@ declare namespace Backend {
     readonly rto: Option.Option<Duration.Duration>
   }
   // One reading row rather than a positional tail: an adapter states the catalogue it read AND the stamps it took
-  // in one value, so a provider cannot skip the recovery question by omitting an argument.
+  // in one value, so a provider cannot skip the recovery question by omitting an argument. `granted` is the
+  // already-canonical half — provider-shaped custody no SQL catalog can scan, carried as contract keys the way
+  // `artifacts` already is, because no grant vocabulary exists for it to enter through.
   type Reading<G extends string> = {
     readonly generation: Digest.Key<"content">
     readonly report: Capability.Report<G>
     readonly adapters: ReadonlyArray<Adapter>
+    readonly granted: HashSet.HashSet<string>
     readonly artifacts: HashSet.HashSet<string>
     readonly observedAt: DateTime.Utc
     readonly frontier: Option.Option<DateTime.Utc>
@@ -752,17 +756,22 @@ const Backend = {
         files,
       }
     }),
-  // `granted` is the one authoritative membership value the probe publishes — the closed grant vocabulary
+  // `report.granted` is the one authoritative membership value the PROBE publishes — the closed grant vocabulary
   // holding core spine keys, primitives, atomicity, and every capability an admitted extension carries.
   // `versions` keys on the probed EXTENSION name and answers floor evidence alone, so an adapter resolved
   // against it reports every core-seeded grant missing and every extension whose grant name differs from its
-  // own. An adapter therefore maps the contract's canonical capability key onto the grant that proves it.
+  // own. An adapter therefore maps the contract's canonical capability key onto the grant that proves it, and
+  // `reading.granted` unions in the keys a probe has no catalog to find — already canonical, so no adapter row
+  // could translate them and no grant row could hold them.
   observe: <G extends string>(reading: Backend.Reading<G>): Backend.Observation => ({
     generation: reading.generation,
-    capabilities: HashSet.fromIterable(
-      reading.adapters
-        .filter((row) => HashSet.has(reading.report.granted, row.local as Capability.Grant<G>))
-        .map((row) => row.canonical),
+    capabilities: HashSet.union(
+      reading.granted,
+      HashSet.fromIterable(
+        reading.adapters
+          .filter((row) => HashSet.has(reading.report.granted, row.local as Capability.Grant<G>))
+          .map((row) => row.canonical),
+      ),
     ),
     artifacts: reading.artifacts,
     observedAt: reading.observedAt,

@@ -154,6 +154,8 @@
 
     <PropertyGroup Label="RhinoWIP Host Paths">
         <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == '' and '$(RHINO_WIP_APP_PATH)' != ''">$(RHINO_WIP_APP_PATH)</RhinoWipAppPath>
+        <!-- McNeel renames the Rhino 9 bundle across prerelease phases (WIP -> BETA); the lane probes the installed name, BETA first. -->
+        <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == '' and Exists('/Applications/RhinoBETA.app')">/Applications/RhinoBETA.app</RhinoWipAppPath>
         <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == ''">/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>

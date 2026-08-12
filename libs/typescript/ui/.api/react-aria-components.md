@@ -34,18 +34,18 @@ Every component instantiates one pattern — `AriaHook ∘ StateHook ∘ RenderP
 
 Each row is a family of the `Xxx`/`XxxContext`/`XxxStateContext` triple; every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps`, and each `XxxRenderProps` exposes boolean state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`) as `data-*` selectors.
 
-| [INDEX] | [FAMILY]    | [COMPONENTS]                                                                                           |
-| :-----: | :---------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | actions     | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger`                                       |
-|  [02]   | collections | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar`                   |
-|  [03]   | pickers     | `Select` `ComboBox` `Autocomplete`                                                                     |
-|  [04]   | overlays    | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `OverlayArrow`          |
-|  [05]   | fields      | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField`                 |
-|  [06]   | toggles     | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar`                               |
-|  [07]   | date/time   | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker`                      |
-|  [08]   | color       | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb` |
-|  [09]   | structure   | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                         |
-|  [10]   | interaction | `Pressable` `Focusable` `VisuallyHidden`                                                               |
+| [INDEX] | [FAMILY]    | [COMPONENTS]                                                                                                         |
+| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | actions     | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger`                                                     |
+|  [02]   | collections | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar`                                 |
+|  [03]   | pickers     | `Select` `ComboBox` `Autocomplete`                                                                                   |
+|  [04]   | overlays    | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `PreviewTrigger` `OverlayArrow`       |
+|  [05]   | fields      | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField` `TokenField`(`Input`/`Token`) |
+|  [06]   | toggles     | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar`                                             |
+|  [07]   | date/time   | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker`                                    |
+|  [08]   | color       | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb`               |
+|  [09]   | structure   | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                                       |
+|  [10]   | interaction | `Pressable` `Focusable` `VisuallyHidden`                                                                             |
 
 Stateful families bind their react-stately state: fields carry `validationBehavior` + `ValidationResult`, date/time bind `@internationalized/date` values, color binds `parseColor`/`getColorChannels`, pickers add `useFilter` locale matching. Compound composition reads the `XxxStateContext` (`ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`) rather than prop-drilling; `XxxContext` injects props via `Provider`.
 
@@ -55,13 +55,15 @@ Collections, selection, sorting, virtualization, drag-drop, and async data are o
 
 [SURFACES]: `createLeafComponent` `createBranchComponent` `CollectionBuilder` `Collection` `Section` `Virtualizer` `Layout` `ResizableTableContainer` `useTableOptions` `Key` `Selection` `SelectionMode` `SortDescriptor` `SortDirection` `useDragAndDrop` `isFileDropItem` `useAsyncList`
 
-`TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize.
+`TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize. `keyboardNavigationBehavior` on the table and `focusMode`/`allowsArrowNavigation` on `Column`/`Cell`/`GridListItem`/`TreeItem` declare traversal per collection, and `Virtualizer`'s `shouldObserveItemSize` re-measures items whose content resizes in place.
 
 ## [05]-[OVERLAYS_FORMS_DND_TOAST_INFRA]
 
-- Overlays: `DialogTrigger`/`Dialog`/`Modal`/`ModalOverlay`/`Popover`/`Tooltip`/`OverlayArrow` own focus-trap, dismiss, and positioning; `Placement` is the anchor axis; `OverlayTriggerStateContext`/`RootMenuTriggerStateContext`/`TooltipTriggerStateContext` expose open state.
+- Overlays: `DialogTrigger`/`Dialog`/`Modal`/`ModalOverlay`/`Popover`/`Tooltip`/`OverlayArrow` own focus-trap, dismiss, and positioning; `Placement` is the anchor axis; `OverlayTriggerStateContext`/`RootMenuTriggerStateContext`/`TooltipTriggerStateContext` expose open state. `PreviewTrigger` carries the tooltip's hover/focus/long-press opening with a dwell `delay`/`closeDelay` while admitting interactive popover content, and `PopoverProps.shouldSkipAnimation` suppresses the exit transition where a caller drives it.
+- Context menus: `MenuTriggerProps.trigger` closes over exactly `'press' | 'longPress' | 'contextMenu'`, so a right-click menu is a trigger value on the one menu pattern; the trigger state carries the invocation `point` the popover anchors at. `contextMenu` alone forces `offset: 0` on the popover — every other trigger leaves the offset defaulted — and `usePopover` folds the point into geometry as `getTargetRect: () => new DOMRect(point.x, point.y, 0, 0)`, so the menu anchors to a zero-area rect at the cursor instead of to the trigger's own box.
+- Token field: `TokenField`/`TokenInput`/`Token`/`TokenFieldContext` are STABLE, unprefixed exports on the main barrel, which also re-exports the `react-stately` `TokenFieldValue` class the field's value algebra subclasses.
 - Forms: `Form` carries the `validationBehavior: 'native' | 'aria'` axis; `FieldError` renders a `ValidationResult`; `FormValidationContext` injects server or schema errors by field name.
-- Toast (pre-stable): `UNSTABLE_Toast`/`UNSTABLE_ToastRegion`/`UNSTABLE_ToastList`/`UNSTABLE_ToastContent` render a `UNSTABLE_ToastQueue<T>` whose region carries a built-in ARIA live region; `QueuedToast`/`ToastOptions`/`ToastState`/`UNSTABLE_ToastStateContext` type the queue.
+- Toast (pre-stable): the main barrel ships the roster prefixed WITHOUT EXCEPTION — `UNSTABLE_Toast`, `UNSTABLE_ToastList`, `UNSTABLE_ToastRegion`, `UNSTABLE_ToastContent`, `UNSTABLE_ToastStateContext`, and the react-stately queue re-exported as `UNSTABLE_ToastQueue` — while the per-component `react-aria-components/Toast` subpath dual-exports each under both its bare and its prefixed name, so an unprefixed `ToastContent` compiles from the subpath and fails from the barrel. `QueuedToast`/`ToastOptions`/`ToastState` type the queue and carry no politeness member; the region element is a labelled landmark, and the live semantics sit on each note's content element.
 - Transitions (pre-stable): `SharedElementTransition`/`SharedElement` pair with the native View Transitions plane.
 - Infra: `I18nProvider`/`useLocale`/`isRTL` (locale over native `Intl`), `RouterProvider` (client-nav integration, `RouterConfig`), `SSRProvider` (id stability), `useFilter` (locale-aware `contains`/`startsWith`/`endsWith`).
 - Shared vocab (`@react-types/shared`): `Key`, `Selection`, `PressEvent`, `RangeValue`, `ValidationResult`, `RouterConfig`, and the drag-drop event union (`DroppableCollection*Event`, `DraggableCollection*Event`, `DropItem`/`FileDropItem`/`TextDropItem`/`DirectoryDropItem`).
@@ -82,11 +84,11 @@ Collections, selection, sorting, virtualization, drag-drop, and async data are o
 [LOCAL_ADMISSION]:
 - Accessible interactive collection routes to RAC; a heavy grid or faceting model routes to `@tanstack/react-table`/`@tanstack/react-virtual`, wrapped in the react-aria `grid`/`row`/`columnheader`/`gridcell` ARIA + roving-keyboard spine — `aria-rowcount`/`aria-rowindex` carry the full logical count while only the visible span mounts.
 - `Placement` routes an aria overlay to RAC; bespoke non-aria anchoring routes to `@floating-ui/react`, one positioner per node.
-- In-field filtering is RAC `Autocomplete`, a global command palette is `cmdk`, a touch-drag bottom sheet is `vaul`; aria `Label`/`Separator`/`VisuallyHidden`/`render` are RAC, the non-aria styling plane is the radix primitives — a radix `Label` never enters an RAC field.
+- In-field filtering is RAC `Autocomplete`, a global command palette is `cmdk`, a touch-drag bottom sheet is `vaul`; `Label`, `Separator`, `VisuallyHidden`, and the `render` element override are RAC's outright, and the radix plane survives only where no aria part answers — `createSlot` polymorphism on a non-aria node and an element-scoped SR-only label.
 - RAC `children` rendering decoded wire HTML sanitizes through `isomorphic-dompurify` first; an async collection wraps in `react-error-boundary` around `renderEmptyState`; `SharedElementTransition` composes the `act/transition` View Transitions owner.
 
 [RAIL_LAW]:
 - Package: `react-aria-components`
-- Owns: the headless accessible component spine — the render-props/context/slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine, toast, and the i18n/router/SSR/filter infra.
+- Owns: the headless accessible component spine — the render-props/context/slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine, the collection-traversal axis, toast, and the i18n/router/SSR/filter infra.
 - Accept: composing the [02] pattern; `data-*` tailwind variants for state, the function form only where a variant cannot reach; `composeRenderProps` for styled wrappers; `Provider` for context collapse; `validationBehavior:'aria'` + `FieldError` fed by `Schema.standardSchemaV1`; controlled props bound to the atom; `I18nProvider`/`useLocale` over the intl plane; `createLeafComponent`/`createBranchComponent` for custom items; `Virtualizer` + a layout for large collections.
-- Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XxxContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix `Label`/`Separator`/`VisuallyHidden` inside an aria field; importing the bundled `*.css`.
+- Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XxxContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix primitive standing in for a part RAC owns — the label, the separator, the visually-hidden wrapper, or the element override `render` already performs; an unprefixed toast import from the main barrel; importing the bundled `*.css`.

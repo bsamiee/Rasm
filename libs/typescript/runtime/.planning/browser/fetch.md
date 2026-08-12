@@ -18,7 +18,7 @@ Browser runtime rows, byte-flow policy, worker decoding, and generation-scoped r
 - Law: `channel` forwards the socket's own close-code policy — a live feed closing 1000 or 1006 ends a subscription rather than failing it, and `closeCodeIsError` is where that reading is declared, so a channel row and its error vocabulary stay one decision.
 - Boundary: the app supplies URLs, the spawner, and root Layer composition; `route#SESSION_PLANE` owns the credential posture `[04]` stamps and the CSRF pair it echoes.
 
-```typescript
+```typescript signature
 import type { HttpClient, HttpClientError } from "@effect/platform"
 import { HttpClientRequest, type HttpClientResponse, Transferable, Worker, type WorkerError } from "@effect/platform"
 import { BrowserHttpClient, BrowserSocket, BrowserWorker } from "@effect/platform-browser"
@@ -53,7 +53,7 @@ const Web = {
 - Law: `_LINKS` keys on `boot#SIGNAL_CELLS`'s three-grade axis whole, never on `saveData` alone — a two-case frugal switch strands `steady` and `strained` on the swift budget, so the grade selects the row and the user's own `saveData` declaration floors it to `strained`; a host withholding the surface rides `swift`, because a withheld reading is no evidence of a poor link.
 - Growth: a new byte-feed class is one `_flows` row; a new grade on the signal owner breaks `_Links` until its budget lands.
 
-```typescript
+```typescript signature
 const _MUTATING = ["POST", "PUT", "PATCH", "DELETE"] as const
 const _SETTLE = { probe: "50 millis", probes: 6 } as const // the timing-entry settle window: six spaced probes mirror the reference observer wait
 
@@ -126,7 +126,7 @@ class FetchFault extends Data.TaggedError("FetchFault")<{
 - Law: `withCredentials` spells `include` alone — XHR sends same-origin cookies unconditionally, so `omit` has no expression on this transport and folds onto the constructor's own same-origin default rather than minting a client row that cannot honor it.
 - Boundary: `Client` owns transport retry and status admission; `Vital` owns browser timing enrichment.
 
-```typescript
+```typescript signature
 const _capped = (cap: Option.Option<number>) => <E, R>(bands: Stream.Stream<Uint8Array, E, R>): Stream.Stream<Uint8Array, E | FetchFault, R> =>
   Option.match(cap, {
     onNone: () => bands,
@@ -254,7 +254,7 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
 - Law: raster encode belongs to the pool, never the document — a readback band's PNG encode blocks the frame that produced it, so `Imprint` takes the plane and answers octets, and `OffscreenCanvas` is the encoder because a worker holds no DOM canvas.
 - Boundary: `Frame` owns artifact and residency decoding, `Wire` owns asset-manifest decoding, `Digest` owns minting, and `ui/view/export#SERIALIZER_MATRIX`'s readback arm is the raster consumer that hands `Imprint` its plane.
 
-```typescript
+```typescript signature
 const _poolFamily = Fault.Class.family(["parity", "sequence", "overrun", "codec"] as const, {
   parity: { class: "breached" },
   sequence: { class: "conflicted" },
@@ -356,7 +356,7 @@ class Pool extends Context.Tag("runtime/browser/Pool")<
 - Law: `warmDepot` refuses ADDING residency, never a pull — a near-full origin still serves the scene and an already-warm band still reads, so the admission gates the cache write alone and eviction pressure prices new rows.
 - Boundary: callers resolve served addresses and forward ledger, geometry arrivals, and dome arrivals to the UI port.
 
-```typescript
+```typescript signature
 const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const
 
 const _byOrder: Order.Order<Frame.ResidencyRow> = Order.combine(
@@ -519,7 +519,7 @@ export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
 - Law: raster encode runs on `OffscreenCanvas` — a worker thread reaches no DOM canvas, `convertToBlob` is its one encoder, and the codec row supplies the mime while quality reaches the lossy rows alone; a refused context or encoder folds to `codec` like every other boundary failure.
 - Boundary: the app owns worker script wiring and process boot.
 
-```typescript
+```typescript signature
 // runtime/src/browser/fetch.worker.ts — the decode-worker terminal entry; its own thread's boot, never part of the browser module
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"

@@ -71,12 +71,13 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 
 [EMBEDDING_MODEL_TYPE_SCOPE]: the batched and data-loader config extensions
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]         | [CAPABILITY]                                                   |
-| :-----: | :------------------ | :-------------------- | :------------------------------------------------------------- |
-|  [01]   | `Config`            | class (`Context.Tag`) | tag `.../OpenAiEmbeddingModel/Config`                          |
-|  [02]   | `Config.Batched`    | interface             | `maxBatchSize` with an optional `{capacity, timeToLive}` cache |
-|  [03]   | `Config.DataLoader` | interface             | `window: Duration` request coalescing                          |
-|  [04]   | `Model`             | union                 | `CreateEmbeddingRequestModelEnum` id                           |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]         | [CAPABILITY]                                                                     |
+| :-----: | :------------------ | :-------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `Config`            | class (`Context.Tag`) | tag `.../OpenAiEmbeddingModel/Config`                                            |
+|  [02]   | `Config.Service`    | interface             | the whole embedding request minus `input`, all optional                          |
+|  [03]   | `Config.Batched`    | interface             | `Service` less `model`, plus `maxBatchSize` and a `{capacity, timeToLive}` cache |
+|  [04]   | `Config.DataLoader` | interface             | `Service` less `model`, plus `window: Duration` and `maxBatchSize`               |
+|  [05]   | `Model`             | union                 | `CreateEmbeddingRequestModelEnum` id                                             |
 
 [EMBEDDING_MODEL_ENTRY_SCOPE]: the sole provider `EmbeddingModel` binding
 
@@ -89,6 +90,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 |  [05]   | `withConfigOverride(Config.Service) -> (Effect) -> Effect`                                | fold    | dual per-effect override |
 
 - every constructor requires the `OpenAiClient` tag; `model` discriminates on `mode` — `"batched"` coalesces calls up to `maxBatchSize` with an optional bounded cache, `"data-loader"` windows requests over a `Duration`.
+- both config extensions carry the FULL request band beside their own batching keys, so `dimensions` — the truncated output width, honoured by `text-embedding-3` and later and refused by earlier generations — rides either posture; `encoding_format` and `user` arrive the same way.
 - `makeDataLoader` also requires `Scope` for its background batcher; the layers scope internally, and `ai/embed.ts` reads this binding as the `read/search` `Embedder` port source.
 
 ## [05]-[TOKENIZER]

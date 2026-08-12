@@ -13,25 +13,26 @@
 
 ## [02]-[CHART_VALUES]
 
-| [INDEX] | [KEY]                             | [CAPABILITY]                                                                    |
-| :-----: | :-------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `server.retentionPeriod`          | bare integer means MONTHS; a unit character makes it explicit                   |
-|  [02]   | `server.extraArgs`                | `map` — the binary's own flags — the OTLP naming posture lives here             |
-|  [03]   | `server.http`                     | `[{ name, value, primary, tls, … }]` — the listen-address list; `:8428` primary |
-|  [04]   | `server.mode`                     | `statefulSet` \| `deployment` — the workload shape                              |
-|  [05]   | `server.persistentVolume`         | `{ enabled, size, storageClassName, accessModes, … }` — the data claim          |
-|  [06]   | `server.emptyDir`                 | the volatile alternative to a claim                                             |
-|  [07]   | `server.service`                  | the door — `clusterIP: None` by default                                         |
-|  [08]   | `server.fullnameOverride`         | `string` — the NESTED pin — renders the bare name, no `-server` tail            |
-|  [09]   | `server.*` placement              | placement and health                                                            |
-|  [10]   | `server.{ingress,route}`          | external reach                                                                  |
-|  [11]   | `server.vmbackupmanager`          | the enterprise backup sidecar                                                   |
-|  [12]   | `nameOverride` `fullnameOverride` | `string` — the TOP-LEVEL pair — the pin renders `<pin>-server`                  |
+| [INDEX] | [KEY]                             | [CAPABILITY]                                                                       |
+| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `server.retentionPeriod`          | bare integer means MONTHS; a unit character makes it explicit                      |
+|  [02]   | `server.extraArgs`                | `map` — the binary's own flags — the OTLP naming posture lives here                |
+|  [03]   | `server.http`                     | `[{ name, value, primary, tls, … }]` — the listen-address list; `:8428` primary    |
+|  [04]   | `server.mode`                     | `statefulSet` \| `deployment` — the workload shape                                 |
+|  [05]   | `server.persistentVolume`         | `{ enabled, size, storageClassName, accessModes, … }` — the data claim, DEFAULT-ON |
+|  [06]   | `server.emptyDir`                 | the volatile alternative to a claim                                                |
+|  [07]   | `server.service`                  | the door — `clusterIP: None` by default                                            |
+|  [08]   | `server.fullnameOverride`         | `string` — the NESTED pin — renders the bare name, no `-server` tail               |
+|  [09]   | `server.*` placement              | placement and health                                                               |
+|  [10]   | `server.{ingress,route}`          | external reach                                                                     |
+|  [11]   | `server.vmbackupmanager`          | the enterprise backup sidecar                                                      |
+|  [12]   | `nameOverride` `fullnameOverride` | `string` — the TOP-LEVEL pair — the pin renders `<pin>-server`                     |
 
 [PASSTHROUGH]: `server.env` `envFrom` `extraVolumes` `extraVolumeMounts` `extraContainers` `initContainers`
 [OVERRIDE_DUALITY]: verified by render — a top-level `fullnameOverride: obs-metrics` yields the Service `obs-metrics-server`, while `server.fullnameOverride: obs-metrics` yields `obs-metrics`. Both keys are live and they differ by exactly the component suffix, so a row must state WHICH one it set and derive its address from that answer. Default, with neither set, is `<release>-victoria-metrics-single-server`.
 [RETENTION_UNIT]: `retentionPeriod` accepts `h`, `d`, `w`, and `y` suffixes, and a bare number means MONTHS. The chart default of `1` is therefore one month, and a duration string carried from another store row's vocabulary must keep its unit character or silently change meaning.
 [TRANSLATION_POSTURE]: this dialect answers the OTLP naming question by leaving the flag off — `server.extraArgs["opentelemetry.usePrometheusNaming"] = "false"` ingests names as sent, so no escaping and no type or unit suffix rules run, and the row's translation column reads `NoTranslation` to match.
+[SERVER_CLAIM]: `server.persistentVolume` ships ARMED — `enabled: true`, `size: 16Gi`, `accessModes: [ReadWriteOnce]`, `mountPath: /storage` — so a row here is recording the SIZE rather than arming the volume, and an inherited size lets a chart bump resize the series plane silently. `server.emptyDir` is the volatile alternative the same block gates, and `existingClaim` binds a manually created PVC in place of the generated one.
 
 [FULLNAME]: two live keys with different results; see `[OVERRIDE_DUALITY]`.
 [SERVICE_NAME]: `<top-level pin>-server` or `<nested pin>`, serving the primary listen address on 8428 — the write path at `/opentelemetry` and the read path at the bare origin. The default `clusterIP: None` makes it headless, which is what the StatefulSet mode expects.
@@ -53,11 +54,11 @@
 - State which override key the row sets and derive the address from THAT answer; the two keys differ by the `-server` suffix and reading the wrong one is a dead address.
 - Carry a unit character on `retentionPeriod`; a bare number is months, which no other store row means.
 - Set the OTLP naming flag explicitly rather than inheriting the binary's default, so the row's `translation` column and the ingest behavior agree.
-- Arm `server.persistentVolume`; the `emptyDir` alternative loses the whole TSDB on reschedule.
+- State `server.persistentVolume.size`; the claim already ships armed, so what a row records here is the size, and the `emptyDir` alternative the same block gates loses the whole TSDB on reschedule.
 - Never render a quantile or fraction panel against this row assuming native histograms — the engine stores buckets and the row's `histogram` column says `classic`.
 
 [RAIL_LAW]:
 - Contract: `victoria-metrics-single` chart values
 - Owns: the lean single-binary metrics store — its listen addresses, retention, data claim, workload mode, binary flags, and the backup sidecar
-- Accept: one override key stated explicitly with the address derived from it; a unit-carrying `retentionPeriod`; `opentelemetry.usePrometheusNaming: "false"` matching the row's `NoTranslation` column; an armed persistent volume; the `/opentelemetry` write path on 8428
-- Reject: an address derived from the other override key; a bare-integer retention read as anything but months; an implicit naming posture; `emptyDir` where the series must survive; native-histogram or exemplar assumptions the engine cannot answer; an org-tenancy assumption on a label-tenancy row
+- Accept: one override key stated explicitly with the address derived from it; a unit-carrying `retentionPeriod`; `opentelemetry.usePrometheusNaming: "false"` matching the row's `NoTranslation` column; an explicitly sized `server.persistentVolume`; the `/opentelemetry` write path on 8428
+- Reject: an address derived from the other override key; a bare-integer retention read as anything but months; an implicit naming posture; an inherited claim size; `emptyDir` where the series must survive; native-histogram or exemplar assumptions the engine cannot answer; an org-tenancy assumption on a label-tenancy row

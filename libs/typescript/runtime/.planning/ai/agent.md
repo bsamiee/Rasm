@@ -12,13 +12,15 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 ## [02]-[SESSION]
 
 [SESSION]:
+- Law: the digest arm is a COMPOSITION this page owns, because no shipped member performs it — the chat substrate exposes its history, its serializers, and the generation trio, and none of them rewrites a conversation. The composition is three parts and each is load-bearing: the summarizing instruction rides APPENDED to the history being folded, since a model handed a bare transcript continues it instead of describing it; the free carrier runs the call, since a digest routed through the chat would append itself to the history it compacts; and the answer seats as a SYSTEM message, since the string arm of the prompt constructor mints a user message and would file the session's own memory as something the user said.
+- Law: both lanes land ONE system message — the trim lane truncates the held prompt and the digest lane replaces it, so the compaction write is a whole-history set either way and neither lane appends beside what it just folded.
 - Growth: a memory concern (pinned facts, user preferences) is a system block the digest lane preserves, never a second store.
 
-```typescript
+```typescript signature
 import { type AiError, Chat, type LanguageModel, Prompt, type Response, Tool, Toolkit } from "@effect/ai"
 import { Array, BigDecimal, Effect, Either, Function, HashSet, Match, Option, Record, Ref, Schema } from "effect"
 import { Fault, Transition } from "@rasm/ts/core"
-import { Guardrail, GuardrailFault, Ladder, Spend, Tokens } from "./model.ts"
+import { Guardrail, GuardrailFault, Ladder, Providers, Spend, Tokens } from "./model.ts"
 import type { Safety } from "./tool.ts"
 
 class Session extends Schema.Class<Session>("Session")({
@@ -40,6 +42,8 @@ declare namespace Session {
   type Key = Session["key"]
   type _Modes<K extends Session["mode"] = Safety.Mode> = K // guard: every Safety.Mode row is representable on the session row
 }
+
+const _DIGEST = "<rewrite-the-conversation-above-as-a-memory-block-keeping-decisions-commitments-and-open-threads>"
 
 const _backed = (fault: { readonly _tag: string }): AgentFault => new AgentFault({ reason: "session", detail: fault._tag })
 
@@ -72,11 +76,17 @@ const _open = (row: Session) =>
     const seeded = (policy: Guardrail.Policy, history: Prompt.Prompt) =>
       Match.value(row.compaction).pipe(
         Match.when("trim", () => Tokens.fit(history, row.budget)),
-        // the free carrier, deliberately: a digest routed through `chat` would append itself to the history it compacts
+        // The digest arm composes what no member ships. The instruction APPENDS to the folded history because a bare
+        // transcript reads as a conversation to continue; the free carrier runs it because a digest routed through
+        // `chat` would append itself to the history it compacts; and the answer seats through `setSystem` because the
+        // constructor's string arm mints a USER message and would file the session's memory as the user's own words.
         Match.when("digest", () =>
           Effect.map(
-            Guardrail.generate(policy, { _tag: "Text", options: { prompt: history, toolkit: Toolkit.empty } }),
-            (summary) => Prompt.make(`memory: ${summary.text}`),
+            Guardrail.generate(policy, {
+              _tag: "Text",
+              options: { prompt: Prompt.merge(history, Prompt.make(_DIGEST)), toolkit: Toolkit.empty },
+            }),
+            (summary) => Prompt.setSystem(Prompt.empty, `memory: ${summary.text}`),
           )),
         Match.exhaustive,
       )
@@ -93,9 +103,11 @@ const _open = (row: Session) =>
 ## [03]-[TURN]
 
 [TURN]:
+- Law: reasoning continuity does NOT survive the chat-carried loop, and the trap is declared rather than assumed away — the substrate rebuilds its history from the response parts through a constructor that re-mints each part and writes an EMPTY provider slot, so every family's continuity carrier is gone before the next turn reads it. The verdicts diverge and the divergence is what a caller must plan against: Google refuses outright on the missing thought signature, and because it grades that refusal a provider-side tool fault rather than a stop, the gate's finish-roster reader is what turns it into a typed refusal instead of a clean empty reply; the Anthropic, Bedrock, and OpenRouter reasoning blocks and the OpenAI reasoning item id and encrypted content all degrade quietly instead, re-deriving thinking the caller pays for a second time.
+- Law: a reasoning-continuity carrier is therefore never load-bearing across turns in this loop — a posture needing it holds the parts itself and rebuilds the prompt from them, because the persisted history is the substrate's value and this page does not reach inside it.
 - Growth: a loop concern (reflection pass, plan-then-act) is a phase row plus a fold arm, never a second loop.
 
-```typescript
+```typescript signature
 const _PHASES = ["idle", "thinking", "awaiting", "compacting"] as const
 const _Phase = Schema.Literal(..._PHASES) // the one anchor spread: the receipt literal, the machine's node guard, and the phase refinement all read it
 const _isPhase = Schema.is(_Phase)
@@ -209,6 +221,10 @@ const _stepped = <Tools extends Record<string, Tool.Any>>(drive: Agent.Drive<Too
     Effect.flatMap((response) =>
       Effect.all({ spent: Spend.accounted(drive.tier, response), held: _kept(roster, response) }).pipe(
         Effect.map(({ held, spent }) => {
+          // TRAP: the chat rebuilds history from the response parts through a constructor that re-mints each part
+          // with an EMPTY provider slot, so no family's reasoning-continuity carrier reaches the next turn. Google
+          // refuses on the missing signature and the gate's finish reader catches it as a typed refusal; the other
+          // four degrade silently into re-derived thinking. A posture needing the carrier holds the parts itself.
           const advanced: Agent.Turning = {
             prompt: Prompt.empty, // the chat already merged the assistant message and every resolved tool result into history
             left: state.left - 1,
@@ -242,10 +258,14 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
     const gate = yield* Effect.mapError(Guardrail.admitted(drive.policy), _folded)
     yield* _measured(opened, act.session, drive)
     const woven = yield* Effect.mapError(Tokens.weave(drive.charter, act.passages, act.session.budget), _folded)
+    // The breakpoint lands where the stable prefix ENDS: the weave has seated charter and passages and the utterance
+    // has not been merged yet, so this is the only point in the turn where the cacheable span is exactly closed. The
+    // tier names the row, the row's cell names the mechanism, and a row marking nothing hands the prompt straight back.
+    const primed = Providers.stamp(woven, drive.tier.provider)
     yield* Effect.mapError(drive.actor.feed("act"), _spent)
     const cursor = yield* Effect.iterate(
       Either.right<Agent.Turning, Agent.Turning>({
-        prompt: Prompt.merge(woven, Prompt.make(act.utterance)),
+        prompt: Prompt.merge(primed, Prompt.make(act.utterance)),
         left: act.session.budget.steps,
         spend: BigDecimal.make(0n, 0),
         reply: "",
@@ -281,7 +301,7 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
 [ACTOR]:
 - Packages: `@rasm/ts/core` (`Transition`, `Fault.Budget`); `effect` (`Function`); `../work/entity.ts` (`Actor` — the escalation mint).
 
-```typescript
+```typescript signature
 const _phaseNodes = {
   idle: { kind: "atomic", parent: "session" },
   thinking: { kind: "atomic", parent: "session" },
@@ -334,7 +354,7 @@ const _restore = (frozen: Transition.Frozen) => Effect.flatMap(_compiled, (compi
 [APPROVAL]:
 - Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/ts/core` (`Transition`).
 
-```typescript
+```typescript signature
 declare namespace Agent {
   type Held = typeof _Held.Type
   type Verdict = Held & { readonly approve: boolean }
@@ -402,5 +422,4 @@ export { Act, Agent, AgentFault, Session, Turn }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [COMPACT_DIGEST]-[OPEN]: which member performs the `digest` compaction arm, given the `trim` arm binds `Tokens.fit` while `digest` names a summarizing rewrite no `Chat` or `Prompt` member performs; verify against `@effect/ai/Chat` and `@effect/ai/Prompt` on the member rail.
-- [REASONING_CONTINUITY]-[OPEN]: whether a chat-carried multi-turn loop round-trips each provider's reasoning-continuity carrier (`AnthropicReasoningInfo`, `AmazonBedrockReasoningInfo`, `OpenRouterReasoningInfo`, the Google `thoughtSignature`, the OpenAI reasoning `itemId`/`encryptedContent`) through `Prompt.fromResponseParts`, since a dropped signature makes the next turn refuse; verify against `@effect/ai/Prompt` `fromResponseParts` and each provider's `Prompt` augmentation on the member rail.
+(none)

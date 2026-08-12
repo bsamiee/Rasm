@@ -8,6 +8,7 @@
 - `@effect/cluster-node` stays never-admitted — the runner is a runtime-row selection, so welding it deletes the `BunClusterSocket.layer` peer row.
 - Rpc on its own listener stays unadmitted — `@effect/rpc` dials outbound and Connect serving rides the `Mount` port, so HTTP keeps ONE front door.
 - `@confluentinc/kafka-javascript` admits over `kafkajs` — its librdkafka core is what C# `Confluent.Kafka` binds, so both branches speak one client.
+- `@pyroscope/nodejs`'s `cpu` profiler pair stays never-seated — it aliases the wall profiler, so a row beside `wall` arms one engine twice.
 
 ## [02]-[SHAPE]
 
@@ -22,6 +23,15 @@
 - `event-timing` readers share ONE floor — the INP registrar and `ui:system/vital`'s `durationThreshold` read it, so a literal at either strands both.
 - Fanout transport rows extend the descriptor with `serves` and `anchors` alone — `serves` maps the PORT MEMBERS a refusal mints off.
 - Every fanout engine answers `pulse` — a failure no await reaches projects onto the owner's fault family; a row behind none answers `Stream.empty`.
+- Foreign void-returning SDK members bridge through `Runtime.runSync` over a total effect — hosts swallow throws and the promise bridge strands work.
+- Provider verdicts read the whole finish roster as three bands — refusal, unfinished work, settlement — and one table serves every modality.
+- One store-backed limiter port serves every posture — serve refuses on it, work delays on it; the root Layer alone picks per-process or fleet-wide.
+- Credential-header masking is TWO disjoint rosters — `Redactable` covers a live `Headers` value, `Redaction.sealed` every bag copied out of it.
+- Inbound W3C hops continue exactly once, at `Seam.guard` — a mounted protocol re-extracting the same headers mints a second trace of one hop.
+- Long-lived regions take the profile band's effectful arm, their scoped span the anchor — sample labels ride synchronous kernels alone.
+- Transport credentials project off ONE `Machine` port keyed by AUDIENCE — a lane-keyed read hands one service's token to another.
+- `present` spells credential posture on every lane and engine row — where the credential lives, what a rotation costs; no second column states it.
+- Rotating credentials ride the transport's own refresh seam — dial-time authenticator, provider callback, or per-call stamp — never a lane timer.
 
 ## [03]-[COLLAPSE]
 

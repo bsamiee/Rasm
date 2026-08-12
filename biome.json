@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
     "vcs": {
         "enabled": true,
         "clientKind": "git",
@@ -103,6 +103,7 @@
     "linter": {
         "enabled": true,
         "domains": {
+            "playwright": "recommended",
             "project": "none",
             "test": "recommended",
             "types": "none"
@@ -144,7 +145,7 @@
             }
         },
         {
-            "includes": [".claude/skills/coding-applescript/**/*.js"],
+            "includes": [".claude/skills/coding-applescript/**/*.js", ".agents/skills/coding-applescript/**/*.js"],
             "linter": {
                 "rules": {
                     "correctness": {
@@ -174,7 +175,8 @@
         "enabled": true,
         "actions": {
             "source": {
-                "organizeImports": "on"
+                "organizeImports": "on",
+                "useSortedPackageJson": "on"
             }
         }
     }

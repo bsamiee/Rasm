@@ -4,11 +4,11 @@ Form owns Schema-driven input, submission, and resumable upload. One kernel `Sch
 
 ## [01]-[INDEX]
 
-- [02]-[SCHEMA_BINDING]: the Schema→aria validation seam and the one error-shape fold; `Form`.
-- [03]-[FIELD_ROSTER]: the field-family rows and their kernel-scalar commit seams; —.
-- [04]-[SUBMIT_TRIP]: the store-awaited action, pending state, reset, refusal reconciliation; `Form`.
+- [02]-[SCHEMA_BINDING]: Form projects one kernel Schema into aria validation and folds one error shape; `Form`.
+- [03]-[FIELD_ROSTER]: Form binds field-family rows to kernel-scalar commit seams under the two-owner token grammar; `Form`.
+- [04]-[SUBMIT_TRIP]: Form awaits the store on submit — pending state, reset, refusal reconciliation; `Form`.
 - [05]-[DRAFT_CURSORS]: field-grain re-render over one draft atom; —.
-- [06]-[UPLOAD_LANE]: the resumable tus session — resume proof, progress taps, typed refusal; `Form`.
+- [06]-[UPLOAD_LANE]: Form drives one resumable tus session — resume proof, progress taps, typed refusal; `Form`.
 
 ## [02]-[SCHEMA_BINDING]
 
@@ -19,7 +19,7 @@ Form owns Schema-driven input, submission, and resumable upload. One kernel `Sch
 - Law: the error shape is one fold — live per-field validation and server-refusal projection both land as `Readonly<Record<path, ReadonlyArray<string>>>` keyed by the `ParseError` tree's dotted path, so a refusal from the wire and a local decode render through the same `FieldError` rows.
 - Growth: a new form is a schema and its rows; a new constraint is a Schema refinement on the owning field — never a validation prop ladder.
 
-```typescript
+```typescript signature
 import { Array, Either, ParseResult, Record, Schema } from "effect"
 
 declare namespace Form {
@@ -43,11 +43,31 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 ## [03]-[FIELD_ROSTER]
 
 [FIELD_ROSTER]:
-- Law: a field kind is one RAC field row bound to its schema field — `TextField`/`NumberField` for scalars, `SearchField` for query drafts, `Checkbox`/`Switch`/`RadioGroup` for toggles and choices, `Slider` for bounded magnitudes, `Select`/`ComboBox` for vocabularies (option matching through `system/intl`'s `useFilter`), `DateField`/`TimeField`/`DatePicker`/`DateRangePicker` for temporal input, `ColorField`/`ColorPicker` for color input; every row styles through `system/primitive` recipes and the `invalid:`/`required:`/`disabled:` variants.
+- Law: a field kind is one RAC field row bound to its schema field — `TextField`/`NumberField` for scalars, `SearchField` for query drafts, `Checkbox`/`Switch`/`RadioGroup` for toggles and choices, `Slider` for bounded magnitudes, `Select`/`ComboBox` for vocabularies (option matching through `system/intl`'s `useFilter`), `DateField`/`TimeField`/`DatePicker`/`DateRangePicker` for temporal input, `ColorField`/`ColorPicker` for color input, `TokenField`/`TokenInput`/`Token` for an expression the user writes as prose and reads back as chips; every row styles through `system/primitive` recipes and the `invalid:`/`required:`/`disabled:` variants.
+- Law: a token field has TWO grammar owners and they never trade jobs — the subclassed value owns LIVE segmentation and the `Schema` codec owns the COMMITTED decode. `TokenFieldValue` is an immutable persistent sequence whose every mutator answers a new instance of its own type, carrying its caret `Position`, its range replacement and boundary search, and its undo history with the coalescing window, so a grammar is a `tokenize` override on the value — presentation-state grain, the same grain a motion value holds, outside the atom entirely — and the state hook stays the thin `{ value, setValue, isComposing, setComposing }` cell it ships as. Only what the field COMMITS crosses to the domain, decoded by the one Schema that decodes the wire payload, so a saved filter round-trips through a single codec and a parallel parser at either end is the named defect.
+- Law: the subclass seam is two overrides or none — `tokenize` states the grammar and `createFieldValue` keeps the type, so an override of the first without the second widens every edit back to the base value and the grammar is lost on the first keystroke.
 - Law: foreign field interiors commit as kernel scalars — a date row's `DateValue` crosses to the domain as `DateTime.Utc` through `system/intl`'s epoch seam at the controlled-prop boundary; a color row's committed value decodes through `Theme.Color`; the draft atom never stores a widget-interior currency.
 - Law: controlled rows bind the draft atom — `value`/`onChange` pairs read `useAtomValue` and write `useAtomSet` per `system/atom` law; uncommitted segment state (a half-typed date) stays widget-interior in react-stately and never mirrors.
 - Law: gauges are output, fields are input — `Meter`/`ProgressBar` render atom-derived readings and take no schema field; a disabled field standing in for a reading is the named defect.
 - Boundary: the roster composition pattern (`Xxx`/`XxxContext`/`XxxStateContext`, `Provider` values) is `system/primitive#ROSTER_LAW`'s; this page owns only the schema-field-to-row binding.
+
+```typescript signature
+import { Schema } from "effect"
+import { TokenFieldValue, type TokenFieldSegment } from "react-stately"
+
+// Tokenized owns the LIVE grammar: one subclass per field that owns a token vocabulary, and the caret, undo history, coalescing
+// window, and boundary search arrive with the base value — re-modelling any of them beside it forks the edit state
+declare class Tokenized<T> extends TokenFieldValue<T> {
+  protected tokenize(text: string): Array<TokenFieldSegment<T>>
+  protected createFieldValue(segments: ReadonlyArray<TokenFieldSegment<T>>): this
+}
+
+// TokenCodec marks the COMMITTED crossing, and the only one: a tokenized field's schema is the codec whose ENCODED side IS the segment
+// sequence the value holds, so `Form.standard` validates the live edit and that same owner restores a saved expression
+declare namespace Form {
+  type TokenCodec<A, T> = Schema.Schema<A, ReadonlyArray<TokenFieldSegment<T>>>
+}
+```
 
 ## [04]-[SUBMIT_TRIP]
 
@@ -61,7 +81,7 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Law: the trip is woven at the mutation effect — `Form.observed(write, registry, form)` is the composed trip the promiseExit write awaits: the veto consult leads, `Effect.withSpan("rasm.ui.form.submit")` carries the form id as span attribute and log annotation, and `Effect.onExit` both publishes the settled stage and feeds `1` through `Effect.withMetric` into `_SUBMITTED` tagged by the same bounded vocabulary (`resolved`/`refused`/`torn`) — so hook facts, metrics, and error rows cannot disagree.
 - Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
-```typescript
+```typescript signature
 import { Convention } from "@rasm/ts/core"
 import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
@@ -164,7 +184,7 @@ const _submit = (
 - Law: dirty-navigation guarding reads the draft — the route guard's dirty predicate is a derived atom comparing draft to committed (`Equal.equals`), consumed by the browser navigation plane through the atom bridge; a `beforeunload` listener beside it is the named defect.
 - Boundary: a multi-step wizard whose stage graph answers requests and survives remounts is a `Machine` actor bound through `system/atom#LIVE_BRIDGE` — the draft cursors ride inside each stage, and the stage machine never mirrors field state.
 
-```typescript
+```typescript signature
 import { AtomRef, useAtomRefProp, useAtomRefPropValue } from "@effect-atom/atom-react"
 import { useDeferredValue } from "react"
 
@@ -187,7 +207,7 @@ const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "ti
 - Law: the server owns finalization — content-address folding and object-store writes land server-side on the data folder's tus lane; this session is a protocol driver, and the finished object's identity returns on the wire.
 - Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
 
-```typescript
+```typescript signature
 import { Fault } from "@rasm/ts/core"
 import { Effect, Option, Schema } from "effect"
 import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
@@ -209,7 +229,7 @@ const _family = Fault.Class.family(["endpoint-denied", "payload-rejected", "tran
   "transfer-lost": { class: "unavailable" },
 })
 
-// the one status projection: the session's onShouldRetry hook and the rail's fault both read it, so the two
+// _refusal projects status once: the session's onShouldRetry hook and the rail's fault both read it, so the two
 // can never disagree about whether an offset is worth re-driving
 const _refusal = (status: Option.Option<number>): (typeof _family.reasons)[number] =>
   Option.match(status, {

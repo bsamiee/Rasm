@@ -29,7 +29,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
 - `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
 - `mqtt` — `net/channel.md` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
-- `avsc` — fills the empty arm `core/interchange/format`'s Avro media row leaves for a host-bound codec.
+- `avsc` — `net/channel.md` mints the one `AvroCloudEvent` codec filling the empty arm `core/interchange/format`'s Avro media row leaves.
 - `chevrotain` — `work/filter.md` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
 
 [INTELLIGENCE]:

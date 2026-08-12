@@ -14,14 +14,16 @@
 
 [PUBLIC_TYPE_SCOPE]: the worker-resident engine, its self-hosted bundle coordinates, and the file-residency protocol
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]  | [CONSUMER]                                                    |
-| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `AsyncDuckDB`                                       | engine handle  | main-thread proxy over the worker-resident engine             |
-|  [02]   | `DuckDBBundles` / `DuckDBBundle`                    | bundle roster  | self-hosted `mvp`/`eh` artifact coordinates                   |
-|  [03]   | `ConsoleLogger`                                     | logger         | engine log sink handed to the constructor                     |
-|  [04]   | `AsyncDuckDBConnection` (from `db.connect()`)       | session handle | `bindings` reaches its engine; `close()` releases memory      |
-|  [05]   | `AsyncPreparedStatement<T>`                         | bind surface   | the ONE parameterized path — `query`/`send` take `...params`  |
-|  [06]   | `DuckDBDataProtocol` (`HTTP`, `BROWSER_FILEREADER`) | file protocol  | `registerFileHandle`/`registerFileURL` residency discriminant |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `AsyncDuckDB`                                 | engine handle  | main-thread proxy over the worker-resident engine             |
+|  [02]   | `DuckDBBundles` / `DuckDBBundle`              | bundle roster  | self-hosted `mvp`/`eh` artifact coordinates                   |
+|  [03]   | `ConsoleLogger`                               | logger         | engine log sink handed to the constructor                     |
+|  [04]   | `AsyncDuckDBConnection` (from `db.connect()`) | session handle | `bindings` reaches its engine; `close()` releases memory      |
+|  [05]   | `AsyncPreparedStatement<T>`                   | bind surface   | the ONE parameterized path — `query`/`send` take `...params`  |
+|  [06]   | `DuckDBDataProtocol`                          | file protocol  | `registerFileHandle`/`registerFileURL` residency discriminant |
+
+- `DuckDBDataProtocol` carries six arms — `BUFFER`, `NODE_FS`, `BROWSER_FILEREADER`, `BROWSER_FSACCESS`, `HTTP`, `S3`; `lane/olap` admits `HTTP` for a presigned grant and `BROWSER_FILEREADER` for a picked file, and the remaining four stay unrostered because no browser session holds a node filesystem, an S3 credential, or a file-system access handle.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -40,13 +42,19 @@
 |  [08]   | `insertArrowTable(table, { name })`                            | arrow ingest   | the ONE columnar wire inbound                       |
 |  [09]   | `insertArrowFromIPCStream(bytes, { name })`                    | arrow ingest   | IPC-stream columnar ingest                          |
 |  [10]   | `registerFileHandle` / `registerFileURL`                       | file registry  | remote Parquet range reads; picked local files      |
-|  [11]   | `insertCSVFromPath` / `insertJSONFromPath` `(path, options)`   | typed ingest   | schema-typed CSV/JSON admission                     |
+|  [11]   | `registerFileBuffer` / `registerEmptyFileBuffer`               | file registry  | bytes in hand; a named sink an export writes into   |
+|  [12]   | `registerFileText` / `registerOPFSFileName`                    | file registry  | inline text residency; OPFS-backed durable file     |
+|  [13]   | `dropFile(name)` / `dropFiles()`                               | file release   | the scoped drop a per-view registration owes        |
+|  [14]   | `globFiles(pattern)`                                           | file listing   | the registry's own roster read                      |
+|  [15]   | `copyFileToBuffer` / `copyFileToPath` `(name, …)`              | file egress    | reading a registered or engine-written file back    |
+|  [16]   | `insertCSVFromPath` / `insertJSONFromPath` `(path, options)`   | typed ingest   | schema-typed CSV/JSON admission                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Engine resides in the worker; `AsyncDuckDB` proxies it over `postMessage`, so every member returns a promise the lane lifts.
 - Self-hosted bundles are the sole load path — `selectBundle` resolves owned artifact URLs; CSP forecloses the CDN load.
+- This build registers FILES and COLUMNS, never FUNCTIONS: no table-function surface is exported at all, and `createScalarFunction` reaches only the unexported synchronous bindings, so a source that becomes a relation through a registered scan on the node row becomes one here through the file registry or an Arrow insert.
 
 [STACKING]:
 - `apache-arrow`(`.api/apache-arrow.md`): `query<T>()` returns `arrow.Table<T>` and `send<T>()` yields an `arrow.AsyncRecordBatchStreamReader<T>` that lifts through `Stream.fromAsyncIterable`; inbound, a live `arrow.Table` rides `insertArrowTable` and IPC bytes ride `insertArrowFromIPCStream`.
@@ -61,6 +69,6 @@
 
 [RAIL_LAW]:
 - Package: `@duckdb/duckdb-wasm`
-- Owns: the browser analytical engine — worker instantiation, Arrow-native query/ingest, the prepared bind seam, file registry, streamed batches
+- Owns: the browser analytical engine — worker instantiation, Arrow-native query/ingest, the prepared bind seam, the file registry with its drop, glob, and copy-back arms, streamed batches
 - Accept: self-hosted bundles, scoped lifecycle wrap, the leased-session governor shared with the node row, prepared binds, Arrow interchange, range-read remote Parquet
 - Reject: CDN bundle loads, main-thread engine residency, a spliced value where `prepare` owns the bind, a read path outside the leased session, row-materialized interchange, browser analytics as authority

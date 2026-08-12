@@ -1,8 +1,24 @@
 # [CORE_BOARD]
 
+`Board` renders the estate's observability read surface from data alone: `Query` compiles one expression tree to every backend from a target parameter, `Panel` and `DashboardModel` encode dashboards as wire values the deploy plane realizes, `Bench` grades benchmark claims through an admission ladder, and the pack table gives every instrument family its standing consumer. Its module is `core/src/observe/board.ts`.
+
 ## [01]-[INDEX]
 
+- [02]-[QUERY]: target-parameterized expression algebra — PromQL and residence SQL from one tree; `Board.Query`.
+- [03]-[PANEL]: closed panel schema union every dashboard encodes; `Panel`.
+- [04]-[MODEL]: dashboard identity, grid layout, live-metric snapshot, pack dispatch; `Board.DashboardModel`.
+- [05]-[BENCH]: benchmark claims, mitata ingestion, admission-gated regression grading; `Board.Bench`.
+- [06]-[PACKS]: standing pack and suite builders over the instrument estate; `Board.DashboardModel.pack`/`suite`.
+
 ## [02]-[QUERY]
+
+- Owner: `Board.Query` compiles one tagged expression tree — instant, windowed, aggregate, binary, quantile, fraction, rank, const — and `render` answers each `Target` arm in that store's own dialect, so a panel authors one expression estate-wide.
+- Law: counter windows fold monotonic resets through the lag-increment leg, so a restarted process reads as its true increase rather than a negative spike.
+- Law: scalar-only binary arms fold to constants before any relation forms, so a threshold comparison never joins a relation against a broadcast constant.
+- Law: `breach`, `indicator`, and `burn` derive their expressions from `Reliability` values alone, so an objective's board query and its alert rule read one definition.
+- Growth: a rendering backend is one `_ENGINES` row; a windowed verb one `_FNS` row; an operator one `_OPS` row spelled in both dialects.
+- Boundary: residence DDL and datasource realization are the data and deploy planes'; this owner emits expression strings alone.
+- Packages: `effect` (`Data`, `Duration`, `Match`, `Schema`); `./convention.ts` (`Convention`); `./slo.ts` (`Reliability`).
 
 ```typescript signature
 import { Array, Data, Duration, Effect, Match, Metric, MetricPair, MetricState, Number, Option, Order, Predicate, Record, RegExp as Regex, Schema, Struct, pipe } from "effect"
@@ -404,6 +420,12 @@ const _Query: Data.TaggedEnum.Constructor<_Query> & {
 
 ## [03]-[PANEL]
 
+- Owner: `Panel` closes the panel union — timeseries, stat, gauge, heatmap, logs, table, geomap, nodes — each a tagged schema whose encoded form is the wire the deploy compiler binds.
+- Law: every variant composes the shared `_PanelFields` spine, so a new variant declares only its own render payload.
+- Growth: a panel kind is one tagged schema on the union; a shared affordance is one `_PanelFields` column every variant inherits.
+- Boundary: compilation to a store's dashboard JSON is `iac/operate/observe`'s; this owner freezes the encoded shape.
+- Packages: `effect` (`Schema`).
+
 ```typescript signature
 const _Span = Schema.Struct({
   h: Schema.Int.pipe(Schema.between(2, 24)),
@@ -523,6 +545,12 @@ type Panel = typeof Panel.Type
 
 ## [04]-[MODEL]
 
+- Owner: `Board.DashboardModel` mints dashboard identity from the app identity and a page value, lays panels onto the 24-column grid as a pure fold, snapshots live Effect metrics as typed `Signal` values, and dispatches pack payloads.
+- Law: `snapshot` admits only names the Convention census carries and pairs each with its declared kind, so a foreign series never reaches a board wire.
+- Growth: a board affordance — annotation, variable — is one schema column on the model.
+- Boundary: serving a snapshot and persisting a wire are data-plane concerns; this owner encodes and decodes the value.
+- Packages: `effect` (`Match`, `Metric`, `MetricPair`, `MetricState`, `Schema`); `../value/identity.ts` (`Identity`).
+
 ```typescript signature
 const _Uid = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]*$/), Schema.maxLength(40), Schema.brand("DashboardUid"))
 
@@ -627,6 +655,13 @@ declare namespace _DashboardModel {
 ```
 
 ## [05]-[BENCH]
+
+- Owner: `Board.Bench` decodes mitata measurements into `Claim` values and grades a candidate against a baseline through the ordered admission ladder — suite, host, duplicates, metric roster, sample floor, rung positivity — before any ratio computes.
+- Law: refusals carry both sides' projection on the failed axis, so a refused grade is diagnosable evidence rather than a boolean.
+- Law: polarity owns the ratio direction, so a maximize metric grades improved on growth without any consumer inverting a comparison.
+- Growth: a hardware-counter leaf is one `_COUNTER_PATHS` row joining the series estate-wide; an admission axis is one `_ADMISSION` row; a grading knob is one `Tolerance` field.
+- Boundary: benchmark execution and suite selection are the runtime bench owner's; this owner ingests and grades landed claims.
+- Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`).
 
 ```typescript signature
 const _MITATA_RUNGS = ["min", "max", "avg", "p25", "p50", "p75", "p99", "p999"] as const
@@ -739,9 +774,16 @@ class _Claim extends Schema.Class<_Claim>("Claim")({
   static readonly matches = (claim: _Claim, identity: Identity.App): boolean => claim.host.print === identity.host
 }
 
+// `_COUNTER_PATHS` carries BOTH platform planes — linux perf events and darwin kperf publish different leaves, with
+// only `cycles` and `instructions` shared — and the filterMap keeps exactly what the measuring host answered; per-leaf
+// presence is the host's own fact, and a leaf added here joins the series estate-wide.
 const _COUNTER_PATHS = {
   cycles: ["cycles", "avg"],
+  cyclesStalls: ["cycles", "stalls", "avg"],
   instructions: ["instructions", "avg"],
+  instructionsLoadsStores: ["instructions", "loads_and_stores", "avg"],
+  l1MissLoads: ["l1", "miss_loads", "avg"],
+  l1MissStores: ["l1", "miss_stores", "avg"],
   cache: ["cache", "avg"],
   cacheMisses: ["cache", "misses", "avg"],
   branchMisses: ["_bmispred", "avg"],
@@ -785,8 +827,10 @@ const _fromMitata = (stats: _MitataStats, mint: _Bench.Mint): _Claim =>
         },
         ticks: Option.some(stats.ticks),
         samples: Option.some(stats.samples),
-        gc: Option.fromNullable(stats.gc),
-        heap: Option.fromNullable(stats.heap),
+        // mitata seeds an empty aggregate with ±Infinity/NaN (zero qualifying samples leaves heap `_ === 0`), so
+        // finite decode drops such a band to absence rather than admitting a fabricated point into a finite slot
+        gc: Option.flatMap(Option.fromNullable(stats.gc), Schema.decodeUnknownOption(_BenchAggregate)),
+        heap: Option.flatMap(Option.fromNullable(stats.heap), Schema.decodeUnknownOption(_BenchAggregate)),
         counters: _mitataCounters(stats),
       },
       warmups: mint.warmups,
@@ -798,6 +842,7 @@ const _fromMitata = (stats: _MitataStats, mint: _Bench.Mint): _Claim =>
 declare namespace _Bench {
   type Rung = (typeof _RUNGS)[number]
   type MitataRung = (typeof _MITATA_RUNGS)[number]
+  type CounterLeaf = keyof typeof _COUNTER_PATHS
   type Band = typeof _BenchBand.Type
   type Metric = typeof _BenchMetric.Type
   type Polarity = (typeof _Polarity.kinds)[number]
@@ -953,12 +998,15 @@ const _Bench: Data.TaggedEnum.Constructor<_Bench.Verdict> & {
   readonly measured: (metric: _Bench.Metric, rung: _Bench.Rung) => Option.Option<number>
   readonly minSamples: typeof _MinSamples.make
   readonly slack: typeof _Slack.make
+  // `counterLeaves` closes the leaf axis behind `benchCounterKind`: consumers type against the vocabulary the counter-path table declares
+  readonly counterLeaves: ReadonlyArray<_Bench.CounterLeaf>
 } = {
   ..._Verdict,
   Rung: _Rung,
   MitataRung: _MitataRung,
   Grade: _Grade,
   Polarity: _Polarity,
+  counterLeaves: Struct.keys(_COUNTER_PATHS),
   fromMitata: _fromMitata,
   graded: _graded,
   measured: _measured,
@@ -968,6 +1016,12 @@ const _Bench: Data.TaggedEnum.Constructor<_Bench.Verdict> & {
 ```
 
 ## [06]-[PACKS]
+
+- Owner: `Board.DashboardModel.pack` builds one standing dashboard per instrument family from board targets alone, and `suite` folds every pack over one payload so an app mounts its whole read surface in one call.
+- Law: pack panels compose the shared pane tables — `_TRENDS`, `_FACETS`, `_LEVELS`, `_FLOWS` — so a family's read lands as one row in its pane table rather than a bespoke panel body.
+- Growth: a pack is one payload row, one `_PACKS` arm, and one `_SUITE` row; a new read in an existing pack is one pane-table row.
+- Boundary: realization to a running store is the deploy plane's; every pack admits only mounted Convention instruments.
+- Packages: `effect` (`Array`, `Option`, `Record`, `Struct`); `./slo.ts` (`Reliability`).
 
 ```typescript signature
 const _tenant = { [Convention.rasm.tenant]: "$tenant" } as const
@@ -1060,6 +1114,7 @@ const _TRENDS = {
   assetTransforms: { axes: [Convention.rasm.assetEngine, Convention.rasm.assetOutcome], fn: "rate", labels: {}, metric: Convention.metric.assetTransformed, span: { h: 8, w: 12 }, title: "asset transforms by engine and outcome" },
   auditActions: { axes: [Convention.rasm.auditAction], fn: "rate", labels: _tenant, metric: Convention.metric.factDrained, span: { h: 8, w: 16 }, title: "audit actions" },
   chartFrames: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.chartFrames, span: { h: 6, w: 8 }, title: "pivot delta frames" },
+  flagOutcomes: { axes: [Convention.wire.occurrence], fn: "rate", labels: {}, metric: Convention.metric.flagTracked, span: { h: 8, w: 12 }, title: "tracked outcomes by event" },
   formSubmits: { axes: [Convention.rasm.formOutcome], fn: "rate", labels: {}, metric: Convention.metric.formSubmit, span: { h: 8, w: 12 }, title: "submit trips by outcome" },
   gatewayOutcomes: { axes: [Convention.rasm.gatewayOutcome], fn: "rate", labels: {}, metric: Convention.metric.gatewayCommands, span: { h: 8, w: 12 }, title: "gateway outcomes" },
   idempotency: { axes: [Convention.rasm.admitDisposition], fn: "rate", labels: {}, metric: Convention.metric.idempotencyOutcome, span: { h: 8, w: 12 }, title: "idempotency dispositions" },
@@ -1090,6 +1145,7 @@ const _TRENDS = {
 const _FACETS = {
   auditActors: { axes: [Convention.rasm.auditActorKind, Convention.rasm.auditAction], labels: _tenant, metric: Convention.metric.factDrained, span: { h: 8, w: 8 }, title: "actors by action" },
   crashClasses: { axes: [Convention.attr.errorType], labels: {}, metric: Convention.metric.crashCaptured, span: { h: 8, w: 18 }, title: "captures by class" },
+  flagEvents: { axes: [Convention.wire.occurrence], labels: {}, metric: Convention.metric.flagTracked, span: { h: 8, w: 12 }, title: "outcomes settled by event word" },
   securityFacets: {
     axes: [Convention.rasm.securityKind, Convention.rasm.securityDialect, Convention.rasm.securitySurface, Convention.rasm.securityReason],
     labels: {},
@@ -1457,6 +1513,7 @@ declare namespace _DashboardModel {
     readonly audit: Record.ReadonlyRecord<never, never>
     readonly bench: { readonly suites: ReadonlyArray<string> }
     readonly crash: Record.ReadonlyRecord<never, never>
+    readonly flag: Record.ReadonlyRecord<never, never>
     readonly invoke: { readonly quantiles: ReadonlyArray<_Query.QuantileValue> }
     readonly lake: { readonly quantiles: ReadonlyArray<_Query.QuantileValue> }
     readonly meter: { readonly resources: ReadonlyArray<string> }
@@ -1505,6 +1562,17 @@ const _PACKS: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
       slug: "crash",
       tags: ["crash"],
       title: "crash",
+      variables: [],
+    }),
+  // `flagTracked` is the metric plane's whole flag surface: evaluation and tracking evidence rides span attributes,
+  // which the trace ruling renders through wide-event residence rather than a board query.
+  flag: (board) =>
+    _DashboardModel.of(board, {
+      annotations: [],
+      panels: [_trend(board, _TRENDS.flagOutcomes), _facets(board, _FACETS.flagEvents)],
+      slug: "flag",
+      tags: ["flag", "experiment"],
+      title: "flag outcomes",
       variables: [],
     }),
   invoke: (board, payload) =>
@@ -1668,6 +1736,7 @@ const _SUITE: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
   audit: (board) => _PACKS.audit(board, {}),
   bench: (board, payload) => _PACKS.bench(board, { suites: payload.suites }),
   crash: (board) => _PACKS.crash(board, {}),
+  flag: (board) => _PACKS.flag(board, {}),
   invoke: (board, payload) => _PACKS.invoke(board, { quantiles: payload.quantiles }),
   lake: (board, payload) => _PACKS.lake(board, { quantiles: payload.quantiles }),
   meter: (board, payload) => _PACKS.meter(board, { resources: payload.resources }),

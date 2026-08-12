@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `@types/react-dom`
 - package: `@types/react-dom` (MIT)
-- module: declaration-only `.d.ts`; subpaths `.` (in-tree DOM API), `./client` (`createRoot`/`hydrateRoot`), `./server` + `./server.{node,browser,bun,edge}` (SSR streaming), `./static` + `./static.{node,browser,edge}` (prerender), `./canary`, `./experimental`, `./test-utils` (deprecated)
+- module: declaration-only `.d.ts`; subpaths `.` (in-tree DOM API), `./client` (`createRoot`/`hydrateRoot`), `./server` + `./server.{node,browser,bun,edge}` (SSR streaming), `./static` + `./static.{node,browser,edge}` (prerender), `./canary`, `./experimental`
 - asset: no runtime, no ABI — `tsc` is the gate; peer-locked to `@types/react` (`.api/types-react.md`) sharing `ReactNode`/`ReactElement`/`Ref`, and consumed as the `react-dom` runtime's types (`.api/react-dom.md`)
 - marker: the server/static subpaths declare ambient `ReadableStream`/`WritableStream`/`AbortSignal` global stubs — a Node vs Web runtime is selected by subpath, never a flag
 - rail: the DOM-renderer type surface — `tsc` gates the three planes (client mount, in-tree DOM API, server/static render), no runtime output to test
@@ -87,7 +87,8 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 - `preload`/`preinit`/`preloadModule`/`preinitModule` share ONE preload option shape discriminated by `as` (`PreloadAs`/`PreinitAs`), with `prefetchDNS`/`preconnect` the origin-hint arm; a new asset hint is a call with a different `as`, never a new function family.
 - `renderToPipeableStream` (Node) and `renderToReadableStream` (Web) are ONE render space over different stream primitives, `prerender*`/`resume*` the resumable arm, and the subpath picks the runtime target.
 - `createRoot`/`hydrateRoot` are the only mounts — `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` are removed; error handling is root-level, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` the app-wide net while `react-error-boundary` (sibling `system/primitive`) owns in-tree recovery.
-- `useFormState` is deprecated → `useActionState` moved to `react` (`.api/types-react.md`); `react-dom` keeps `useFormStatus` (ambient form pending state) and `requestFormReset`, and auto-batching makes `unstable_batchedUpdates` interop-only.
+- `react-dom` owns the ambient DOM facts of a submission — `useFormStatus` for the enclosing form's pending state, `requestFormReset` for its reset — while `react` owns the action's own value through `useActionState` (`.api/types-react.md`), so the form seam splits by what each side reads; auto-batching makes `unstable_batchedUpdates` interop-only.
+- `./canary` adds `browser()` answering a `BrowserUsable`, registered into `react`'s `RendererUsable` so `use(browser())` suspends render until the client environment is live — the renderer's own arm on the one `use` input, gated behind the canary reference like every other pre-stable row.
 - `preload`/`preinit` warm assets and React hoists `<title>`/`<meta>`/`<link>` rendered anywhere in the tree, so the viewer's tile/font/model assets are hinted declaratively rather than through a head-manager library.
 
 [STACKING]:
@@ -109,4 +110,4 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 - Package: `@types/react-dom`
 - Owns: the DOM renderer type surface across three planes — the `react-dom/client` mount (`createRoot`/`hydrateRoot`, `RootOptions`/`HydrationOptions` + the React error triple), the in-tree DOM API (`createPortal`/`flushSync`/`useFormStatus`/`requestFormReset` + the `preload`/`preinit`/`prefetchDNS`/`preconnect` resource-hint space), and the `react-dom/server`+`react-dom/static` render space (`renderToPipeableStream`/`renderToReadableStream`/`renderToString`/`prerender`/`resume`)
 - Accept: `createPortal`/`flushSync` in `view` rows (via `react-aria` overlays), the resource hints discriminated by `as`, `useFormStatus` in a `FormBinding`, `createRoot`/`hydrateRoot` at the app boot root, `renderTo*` behind the `@effect/platform` SSR response, the peer `@types/react` element vocabulary
-- Reject: `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` (removed), `useFormState` (→ `react` `useActionState`), `unstable_batchedUpdates` for batching (auto-batched), a bare `createPortal` without the `react-aria` overlay layer, hand-injected `<link rel=preload>`/head-manager metadata, `createRoot`/`renderTo*` inside a `ui` `view` row
+- Reject: `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` (removed), an action's own value read here where `react` `useActionState` owns it, `unstable_batchedUpdates` for batching (auto-batched), a bare `createPortal` without the `react-aria` overlay layer, hand-injected `<link rel=preload>`/head-manager metadata, `createRoot`/`renderTo*` inside a `ui` `view` row

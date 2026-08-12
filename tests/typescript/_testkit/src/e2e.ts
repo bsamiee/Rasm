@@ -75,10 +75,10 @@ document.querySelector('[data-testid=detached]').textContent = String(buffer.byt
     },
     '/passkey': {
         title: 'passkey',
-        body: `<output data-testid="verdict">idle</output><button data-testid="mint">mint</button>
+        body: `<output data-testid="verdict">idle</output><button data-testid="mint">mint</button><button data-testid="assert">assert</button>
 <script>
+const verdict = document.querySelector('[data-testid=verdict]');
 document.querySelector('[data-testid=mint]').addEventListener('click', async () => {
-    const verdict = document.querySelector('[data-testid=verdict]');
     try {
         const credential = await navigator.credentials.create({ publicKey: {
             challenge: new Uint8Array(32),
@@ -89,6 +89,19 @@ document.querySelector('[data-testid=mint]').addEventListener('click', async () 
             timeout: 1000,
         } });
         verdict.textContent = credential ? 'minted' : 'empty';
+    } catch (fault) {
+        verdict.textContent = 'refused:' + fault.name;
+    }
+});
+document.querySelector('[data-testid=assert]').addEventListener('click', async () => {
+    try {
+        const credential = await navigator.credentials.get({ publicKey: {
+            challenge: new Uint8Array(32),
+            rpId: 'rasm.test',
+            userVerification: 'required',
+            timeout: 1000,
+        } });
+        verdict.textContent = credential ? 'held' : 'empty';
     } catch (fault) {
         verdict.textContent = 'refused:' + fault.name;
     }

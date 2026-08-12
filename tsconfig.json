@@ -1,5 +1,65 @@
 {
-    "extends": "./tsconfig.base.json",
-    "files": ["./playwright.config.ts", "./vite.config.ts", "./vite.factory.ts", "./vitest.config.ts"],
-    "references": []
+    "compilerOptions": {
+        "allowImportingTsExtensions": true,
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
+        "customConditions": ["types", "import"],
+        "erasableSyntaxOnly": true,
+        "exactOptionalPropertyTypes": true,
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "lib": ["esnext", "dom"],
+        "libReplacement": false,
+        "module": "preserve",
+        "moduleDetection": "force",
+        "noEmit": true,
+        "noErrorTruncation": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "noUncheckedIndexedAccess": true,
+        "noUncheckedSideEffectImports": true,
+        "resolveJsonModule": true,
+        "rootDir": ".",
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "strict": true,
+        "target": "esnext",
+        "types": ["node", "vite/client", "vitest"],
+        "verbatimModuleSyntax": true
+    },
+    "exclude": [
+        "**/node_modules",
+        "**/dist",
+        "**/build",
+        "**/.cache",
+        "**/.artifacts",
+        "**/.history",
+        "**/.archive",
+        "**/_archive",
+        "**/scratch",
+        "**/.scratch",
+        "**/_tmp",
+        "**/.tmp"
+    ],
+    "watchOptions": {
+        "excludeDirectories": [
+            "**/node_modules",
+            "**/.git",
+            "**/.nx",
+            "**/dist",
+            "**/build",
+            "**/.next",
+            "**/.vite",
+            "**/.cache",
+            "**/.artifacts",
+            "**/.history",
+            "**/.venv",
+            "**/.vscode",
+            "**/.idea"
+        ],
+        "fallbackPolling": "dynamicPriority",
+        "synchronousWatchDirectory": true
+    }
 }

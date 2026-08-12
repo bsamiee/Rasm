@@ -35,15 +35,20 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 |  [02]   | `ComboBoxState` / `SelectState` / `MenuTriggerState` / `TabListState` | picker/menu state | collection + selection + open state          |
 |  [03]   | `ToggleState` / `CheckboxGroupState` / `RadioGroupState`              | boolean field     | form toggles; group owns value + validation  |
 |  [04]   | `NumberFieldState` / `SearchFieldState` / `SliderState`               | value field       | committed value + `Schema` validation        |
-|  [05]   | `OverlayTriggerState` / `TooltipTriggerState`                         | overlay state     | popover/tooltip; `floating-ui` positions     |
-|  [06]   | `DisclosureState` / `DisclosureGroupState`                            | overlay state     | accordion open-close                         |
-|  [07]   | `CalendarState` / `RangeCalendarState` / `DatePickerState`            | date/time state   | latent date-picker `view` rows               |
-|  [08]   | `DateFieldState` / `TimeFieldState`                                   | date/time state   | segment editing (`DateSegment`)              |
-|  [09]   | `ColorPickerState` / `ColorAreaState` / `ColorFieldState`             | color state       | color-picker `view` rows                     |
-|  [10]   | `ColorSliderState` / `ColorWheelState`                                | color state       | `parseColor` types; `colorjs.io` space math  |
-|  [11]   | `ToastState<T>` / `QueuedToast<T>` / `ToastStateProps`                | toast queue       | toast; queue backs the live-region announce  |
-|  [12]   | `ListData<T>` / `AsyncListData<T>` / `TreeData<T>`                    | data store        | client collection rows mutate; Effect bridge |
-|  [13]   | `AsyncListLoadOptions`                                                | load options      | `useAsyncList` load params                   |
+|  [05]   | `TokenFieldState<T>` / `TokenFieldValue<T>` / `TokenFieldSegment`     | value field       | tokenized text value + caret/undo algebra    |
+|  [06]   | `OverlayTriggerState` / `TooltipTriggerState`                         | overlay state     | popover/tooltip; `floating-ui` positions     |
+|  [07]   | `DisclosureState` / `DisclosureGroupState`                            | overlay state     | accordion open-close                         |
+|  [08]   | `CalendarState` / `RangeCalendarState` / `DatePickerState`            | date/time state   | latent date-picker `view` rows               |
+|  [09]   | `DateFieldState` / `TimeFieldState`                                   | date/time state   | segment editing (`DateSegment`)              |
+|  [10]   | `ColorPickerState` / `ColorAreaState` / `ColorFieldState`             | color state       | color-picker `view` rows                     |
+|  [11]   | `ColorSliderState` / `ColorWheelState`                                | color state       | `parseColor` types; `colorjs.io` space math  |
+|  [12]   | `ToastState<T>` / `QueuedToast<T>` / `ToastStateProps`                | toast queue       | toast; queue backs the live-region announce  |
+|  [13]   | `ListData<T>` / `AsyncListData<T>` / `TreeData<T>`                    | data store        | client collection rows mutate; Effect bridge |
+|  [14]   | `AsyncListLoadOptions`                                                | load options      | `useAsyncList` load params                   |
+
+- `MenuTriggerType` is exactly `'press' | 'longPress' | 'contextMenu'`, and `OverlayTriggerState` carries the invocation `point` — `readonly point: {x, y} | null` with `setPoint(point)` writing it — so a pointer-anchored menu positions from state rather than a captured event. Coordinates are VIEWPORT-relative, unlike the target-relative pair `useContextMenu` reports, so a bridge between the two subtracts the target rect. That point type is declared local to the overlay module and never exported: a row typing against it matches structurally rather than importing a name. `Point`, the one name the barrel does export, denotes the virtualizer geometry class — a different concept under the same word.
+- `TokenFieldValue<T>` is a persistent immutable class, not a state bag: `segments` is a readonly array of `TextSegment {type:'text', text}` and `TokenSegment<T> {type:'token', text, value?}`; `caretPosition` is a `Position {index, offset}` (offset in UTF-16 code units) with `withCaretPosition`; editing is `replaceRange(start, end, text, coalesce?)`, `replaceRangeWithSegments`, `delete(position, segmenter, direction, coalesce?)`, `deleteLine`, and `slice`; search is `findBoundaryWithSegmenter(position, Intl.Segmenter, direction)`, `findLineBoundary`, and `findText(position, direction, string | RegExp)`; history is `undo()`/`redo()` with the `coalesce?` flag opening a window `endCoalescing()` closes. Every mutator answers a NEW `this`-typed instance. `TokenFieldValue.Direction` (`Forward = 1`, `Backward = -1`) types the direction argument, and the barrel carries those values only through that static. Two protected members carry the subclass seam — `tokenize(text)` states the grammar and `createFieldValue(segments)` preserves the subclass type through every mutator; overriding the first alone widens each edit back to the base class.
+- `useTokenFieldState` is deliberately thin — `{value, setValue, isComposing, setComposing}` and nothing else — because the value class already owns the caret, the history, and the grammar.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -78,7 +83,7 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 |  [01]   | `useToggleState` / `useToggleGroupState`                              | boolean field   | switch/toggle-group boolean value       |
 |  [02]   | `useCheckboxGroupState` / `useRadioGroupState`                        | group field     | shared value + validation               |
 |  [03]   | `useNumberFieldState` / `useSearchFieldState` / `useSliderState`      | value field     | numeric/search/slider committed value   |
-|  [04]   | `useSelectState` / `useComboBoxState`                                 | value field     | select/combobox committed value         |
+|  [04]   | `useSelectState` / `useComboBoxState` / `useTokenFieldState`          | value field     | select/combobox/token committed value   |
 |  [05]   | `useOverlayTriggerState` / `useMenuTriggerState`                      | open state      | popover/menu open-close                 |
 |  [06]   | `useSubmenuTriggerState` / `useTooltipTriggerState`                   | open state      | submenu/tooltip open-close              |
 |  [07]   | `useDisclosureState` / `useDisclosureGroupState` / `useTabListState`  | open state      | accordion/tabs open-close               |
@@ -102,6 +107,7 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 - `use<P>State` owns one ARIA pattern's interaction state and nothing else; a new pattern is a new hook over the shared substrate, never a fork of the selection engine or a god-object.
 - Collection-backed patterns expose one `Collection<Node<T>>` and one `MultipleSelectionManager` (the `.selectionManager` property), so focus, selection mode/behavior, disabled behavior, and keyboard navigation resolve once in the shared selection/collection modules and a row references `SelectionMode`/`SelectionBehavior`/`DisabledBehavior` by value.
 - `<P>State` holds only interaction-local data — the open overlay, the focused key, the uncommitted date segments — and defers domain state to the `@effect-atom` fold reached through the `useListData`/`useAsyncList`/`useTreeData` seam.
+- `TokenFieldValue` subclasses into the value algebra a token field edits: an immutable segment sequence carrying its own caret, range replacement, boundary search, and undo/redo coalescing, so a token grammar is a `tokenize` override on the value rather than a second state hook, and `TokenFieldState` holds only the value cell and the IME composing flag.
 - `react-aria-components` composes each `use<P>State` with its `use<P>` behavior hook and a DOM element and re-surfaces the live state to descendants through per-pattern state-context providers; standalone react-stately is the escape hatch — a custom primitive below RAC, a data-hook-driven dynamic collection, or a standalone selection model / `ToastQueue`.
 
 [STACKING]:

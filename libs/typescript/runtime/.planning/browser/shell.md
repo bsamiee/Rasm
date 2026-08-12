@@ -20,7 +20,7 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 - Boundary: cache identity and precache emission are `[3]`'s build rows; this owner carries only the manifest contract.
 - Packages: `effect` (`Schema`, `Option`).
 
-```typescript
+```typescript signature
 import { Fault } from "@rasm/ts/core"
 import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { RuntimeCaching, StrategyName } from "workbox-build"
@@ -152,7 +152,7 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 - Receipt: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
 - Boundary: the refresh affordance is `[6]`'s read; the worker asset, precache manifest, and offline shell are the app build's, emitted through `workbox-build`'s `injectManifest` over the authored SW.
 
-```typescript
+```typescript signature
 type SwLifecycle = Data.TaggedEnum<{
   Unregistered: {}
   Installing: {}
@@ -238,7 +238,7 @@ const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
 - Growth: a new cache posture is one `_lanes` row; a new strategy grade is one `_STRATEGIES` entry — the row type breaks until both align.
 - Packages: `workbox-build` (type-only `RuntimeCaching`, `StrategyName`); `effect` (`Option`, `Record`).
 
-```typescript
+```typescript signature
 const _STRATEGIES = {
   bank: "CacheFirst",
   live: "NetworkFirst",
@@ -307,7 +307,7 @@ const _build = (spec: { readonly mark: string; readonly shell: string }): {
 - Boundary: what the band contains and where `relay` dials is the composing app's selection over `fetch#DIAL_SURFACE`; this cluster owns durability, ordering, and wake fan-in only.
 - Packages: `effect` (`DateTime`, `Effect`, `Ref`, `Stream`); `./boot.ts` (`Boot`, `Connect`); `./persist.ts` (`Kv`).
 
-```typescript
+```typescript signature
 class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
   scoped: (script: string) =>
     Effect.gen(function* () {
@@ -432,7 +432,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 - Boundary: the worker phase and the apply handshake are `[3]`'s; the affordance rendering is the ui wave's through the app-composed port.
 - Packages: `effect` (`Data`, `Effect`, `Option`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Fault.Class`).
 
-```typescript
+```typescript signature
 type InstallStance = Data.TaggedEnum<{
   Browser: {}
   Ready: {}

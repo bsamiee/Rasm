@@ -4,11 +4,11 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 
 ## [01]-[INDEX]
 
-- [02]-[DEGRADATION_TABLE]: the grant-total capability-to-fallback matrix — the lane's whole difference as data.
+- [02]-[DEGRADATION_TABLE]: grant-total capability-to-fallback matrix — the lane's whole difference as data.
 - [03]-[PROFILE_ROWS]: Layer constructors and their runtime coordinates.
 - [04]-[PGLITE_PROFILE]: generation-qualified embedded PostgreSQL, neutral SQL Layer, and dump custody.
 - [05]-[SNAPSHOT_IO]: whole-database export/backup/seed, zero-copy transfer, extension load.
-- [06]-[PROFILE_HARVEST]: the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats.
+- [06]-[PROFILE_HARVEST]: per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats.
 
 ## [02]-[DEGRADATION_TABLE]
 
@@ -30,7 +30,7 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 ```typescript signature
 import { Pg } from "./postgres.ts" // Grant keys stay type-plane reads; profile receipt is the one consumed value.
 
-// The substitute vocabulary, closed before any cell may spell one: `builtIn` and `none` are the two terminal
+// Substitute vocabulary closes before any cell may spell one: `builtIn` and `none` are the two terminal
 // verdicts, and every other entry names a real mechanism some profile runs in the spine primitive's place.
 const _fallbacks = [
   "appCheck", "appMint", "appSide", "asyncLane", "batchInsert", "builtIn", "checkpointLane", "chunkedInsert",
@@ -432,9 +432,12 @@ type SqliteIo = Data.TaggedEnum<{
 
 const _Io = Data.taggedEnum<SqliteIo>()
 
-// Operation vocabulary derives from the case roster, so every byte case has exactly one fault spelling and a new
-// case cannot land without one.
+// Operation vocabulary binds to the case roster in BOTH directions — `satisfies` proves membership and the
+// completeness guard's default proves no case lacks a spelling — so a new `Sqlite.Io` case refuses to compile until
+// its operation token lands here.
 const _OPERATIONS = ["Snapshot", "Backup", "Extend", "Seed", "Dump"] as const satisfies ReadonlyArray<SqliteIo["_tag"]>
+
+type _Operations<T extends (typeof _OPERATIONS)[number] = SqliteIo["_tag"]> = T
 
 class SqliteFault extends Schema.TaggedError<SqliteFault>()("SqliteFault", {
   reason: _family.schema,
@@ -513,6 +516,11 @@ import { Pg } from "./postgres.ts"
 import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { Array, Duration, Schema } from "effect"
 
+// Verdict vocabulary closes exactly as the degradation table's does — `builtIn` and `none` are the terminal
+// verdicts and `probe` marks a compile-time engine fact answered per deployment — so a misspelled availability cell
+// refuses at this declaration instead of landing as a distinct posture no gate reads.
+const _AVAILABILITY = ["builtIn", "none", "probe"] as const
+
 const _harvest = {
   explainPlan: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn", pglite: "none" },
   pageStats: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "none", pglite: "none" },
@@ -532,9 +540,10 @@ const _ENGINE = {
 
 declare namespace Sqlite {
   type Evidence = keyof typeof _harvest
-  type Availability = (typeof _harvest)[Evidence][keyof (typeof _harvest)[Evidence]]
+  type Availability = (typeof _AVAILABILITY)[number]
   type ProfileEngine = (typeof _ENGINE)[Sqlite.Lane]
-  type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, string>> = typeof _harvest> = T
+  type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, Availability>> = typeof _harvest> = T // every cell a rostered verdict
+  type _Availabilities<V extends (typeof _harvest)[Evidence][Sqlite.Profile] = Availability> = V // no rostered verdict the table never spells
 }
 
 const _PlanRow = Schema.Struct({ id: Schema.Number, parent: Schema.Number, detail: Schema.String })

@@ -44,15 +44,13 @@
 |  [03]   | `RefCallback<T>` = `(instance: T \| null) => void \| (() => void)`                                   | ref callback   |
 |  [04]   | `ForwardedRef<T>` / `PropsWithoutRef<P>` / `PropsWithRef<P>`                                         | ref plumbing   |
 |  [05]   | `CSSProperties` (`extends CSS.Properties<string \| number>`)                                         | style value    |
-|  [06]   | `ElementRef<T>` (deprecated → `ComponentRef<T>`) / `LegacyRef<T>` (deprecated)                       | retired ref    |
 
 [CONSUMER_BOUNDARY]:
-- [01]: `system/primitive` — lift a wrapped element/component's props + ref-target; supersedes a hand-written interface
-- [02]: `act/gesture` + `view` — React `ref` value; `RefObject.current` mutable, `MutableRefObject` the retired alias
+- [01]: `system/primitive` — lift a wrapped element/component's props + ref-target; `ComponentRef<T>` extracts the ref target
+- [02]: `act/gesture` + `view` — React `ref` value; `RefObject.current` is mutable
 - [03]: `view` — React ref callbacks return a cleanup; `react-aria` `useObjectRef`/`mergeRefs` reconcile these
-- [04]: `forwardRef` render-fn ref param + prop ref-stripping; retired where `ref` is a plain prop
+- [04]: interop only — the `forwardRef` render-fn ref param and prop ref-stripping a `ref`-in-props row never reaches for
 - [05]: `token/theme` + `token/scale` — the typed `style` prop; custom `--*` props via the string index; typed by `csstype`
-- [06]: never author new — `ComponentRef<T>` is the ref-target extractor; string refs are gone
 
 [PUBLIC_TYPE_SCOPE]: the hook-contract + concurrent-primitive types — state dispatch, reducer/action arity, effect callbacks, and the concurrent primitives (`Usable` for `use`, the transition function shapes, the action-state arity); `atom/binding` and `view` rows type their callbacks against these rather than re-declaring closures.
 
@@ -61,14 +59,14 @@
 |  [01]   | `Dispatch<A>` / `SetStateAction<S>` / `DispatchWithoutAction`                        | state setter     |
 |  [02]   | `Reducer<S, A>` / `ReducerWithoutAction<S>` / `ActionDispatch<Arg>` / `AnyActionArg` | reducer/action   |
 |  [03]   | `EffectCallback` / `DependencyList` / `Destructor`                                   | effect shape     |
-|  [04]   | `Usable<T>` = `ReactPromise<T> \| Context<T>` / `ReactPromise<T>`                    | `use` input      |
+|  [04]   | `Usable<T>` (`ReactPromise<T>` / `Context<T>` / `RendererUsable<T>` arms)            | `use` input      |
 |  [05]   | `TransitionFunction` / `TransitionStartFunction`                                     | transition scope |
 
 [CONSUMER_BOUNDARY]:
 - [01]: `view` — the `useState`/`useReducer` setter; `@effect-atom` write hooks mirror this shape
 - [02]: `atom/derive` — `useReducer`/`useActionState` arity; `AnyActionArg = [] \| [any]` is the action-fn tail
 - [03]: `view` — `useEffect`/`useLayoutEffect`/`useInsertionEffect` bodies; `Destructor` is the cleanup return
-- [04]: `view` — `use(usable)` unwraps a promise or context in render; the promise arm suspends
+- [04]: `view` — `use(usable)` unwraps a promise or context in render; the promise arm suspends; `RendererUsable<T>` is the open registry a renderer augments to add an arm
 - [05]: `act/transition` — `startTransition`/`useTransition` scope fn; an async fn defers to a non-blocking transition
 
 [PUBLIC_TYPE_SCOPE]: the synthetic-event family, one contract instanced per device — `SyntheticEvent<T, E>` is ONE cross-browser event contract parameterized by target element `T` and native event `E`, the roster below its seed data (a new event kind is a row, never a new mechanism), and `EventHandler<E>` with its per-event aliases the matching handler contract; `act/gesture` binds behavior through `react-aria`'s normalized `PressEvent`/`HoverEvent`, and these prop-level handler types are the spread target.
@@ -136,7 +134,7 @@
 - [06]: `view/form` submit trip — server-action pending/error + optimistic UI; pairs `react-dom` `useFormStatus`
 - [07]: `act/transition` — behind a capability flag; import from `./canary`/`./experimental`
 
-[ENTRYPOINT_SCOPE]: the typed factories + exotic components — React makes `ref` a plain prop, so `forwardRef` is soft-deprecated and a new row takes `ref` in props; JSX (automatic runtime `./jsx-runtime`) is the normal element-construction path and `createElement` the escape hatch.
+[ENTRYPOINT_SCOPE]: the typed factories + exotic components — React makes `ref` a plain prop, so a new row declares `ref` in its prop type and `forwardRef` serves interop alone; JSX (automatic runtime `./jsx-runtime`) is the normal element-construction path and `createElement` the escape hatch.
 
 | [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY]    |
 | :-----: | :-------------------------------------------------------------------------------------------------------- | :---------------- |
@@ -161,8 +159,9 @@
 - Parameterized families, not flat lists: `SyntheticEvent<T, E>` is one event contract instanced per device, `HTMLAttributes<T>` one attribute base extended per element, `ComponentProps<T>` one extractor discriminating tag-vs-component, `Ref<T>`/`RefObject<T>`/`RefCallback<T>` one ref algebra, and the `ExoticComponent` set one family typing every built-in/factory result. Reach for the family member; never re-declare a parallel prop interface, event shape, or ref type a family already owns.
 - `ComponentProps<T>` is the anti-duplication law: a row wrapping a `<button>` or a `cmdk`/`radix` component lifts `ComponentPropsWithRef<typeof Target>` and extends it — it never hand-authors the prop set. `PropsWithChildren<P>` adds the `children` slot; `VariantProps` (`.api/class-variance-authority.md`) contributes the styling axes; the three intersect into the row's prop type.
 - `EventHandler` aliases type a `view` row's `on*` props as the DOM contract, not the interaction API — `act/gesture` binds behavior through `react-aria`'s normalized `PressEvent`/`HoverEvent` (`.api/react-aria.md`), never raw synthetic-event listeners; the synthetic types are the spread-bundle target, the aria hooks the source.
-- `ref` is a plain prop: function components receive `ref` in props, so a row is authored without `forwardRef` (soft-deprecated, still typed for interop); `RefCallback<T>` returns `void | (() => void)`, so a ref callback may return a cleanup and `react-aria` `useObjectRef` reconciliation and imperative attach/detach are cleanup-based. `RefObject<T>.current` is mutable; `MutableRefObject`/`ElementRef`/`LegacyRef` are retired aliases and string refs are gone.
+- `ref` is a plain prop: function components receive `ref` in props, so a row declares it in its prop type and `forwardRef` stays typed for interop with a class or library surface that demands it; `RefCallback<T>` returns `void | (() => void)`, so a ref callback may return a cleanup and `react-aria` `useObjectRef` reconciliation and imperative attach/detach are cleanup-based. `RefObject<T>.current` is mutable, and `ComponentRef<T>` extracts a wrapped target's ref type.
 - async and forms are primitives: `use(usable)` unwraps a promise (suspending) or context in render and in loops/conditionals, `useActionState`/`useOptimistic` model server-action pending-error-optimistic state, and `useFormStatus` (`react-dom`) reads ambient form-submission state; a `FormBinding` row folds these with a `Schema` decode, never a manual `isSubmitting`/`error` boolean pair.
+- `Usable<T>` grows by registry rather than by union edit: a renderer augments `RendererUsable<T>` with its own arm and `use` accepts it, so an unaugmented project sees the promise and context arms alone.
 - react-compiler owns memoization: `./compiler-runtime` is the enabled runtime, so `useMemo`/`useCallback`/`memo` are compiled, not hand-written in a `ui` row, and they remain in the type surface only for library and interop code. `useEffectEvent` extracts the non-reactive slice of an effect so a handler reads latest values without widening the dependency list.
 
 [STACKING]:
@@ -185,4 +184,4 @@
 - Package: `@types/react`
 - Owns: the React type vocabulary — the element/component value algebra (`ReactNode`/`ReactElement`/`FC`/`ComponentType`/`ExoticComponent`), the `ComponentProps`/`Ref`/`CSSProperties` prop-and-ref extractor family, the hook-contract shapes (`Dispatch`/`Usable`/`EffectCallback`/`TransitionFunction`), the `SyntheticEvent<T,E>` + `EventHandler` event family, the `HTMLAttributes<T>` + `JSX.IntrinsicElements` DOM-attribute family, and the typed hook/factory/exotic runtime surface
 - Accept: named ESM imports paired with `react`, `ComponentPropsWithRef<T>` prop lifting, `ref` as a plain prop, react-compiler-owned memoization, `use`/`useActionState`/`useOptimistic` async-form primitives, `react-aria` normalized events over raw synthetic listeners, `./canary` gated upgrades
-- Reject: hand-written prop interfaces where `ComponentProps` lifts them, `forwardRef`/`memo`/`useMemo`/`useCallback` in a row under react-compiler, string refs / `MutableRefObject` / `ElementRef` / `LegacyRef` (retired), raw synthetic-event listeners for gestures, manual loading/error booleans where the form primitives + `Schema` fold them, ungated canary imports on the stable path
+- Reject: hand-written prop interfaces where `ComponentProps` lifts them, `forwardRef`/`memo`/`useMemo`/`useCallback` in a row under react-compiler, a hand-declared ref type where `ComponentRef<T>` extracts it, raw synthetic-event listeners for gestures, manual loading/error booleans where the form primitives + `Schema` fold them, ungated canary imports on the stable path

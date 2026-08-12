@@ -19,28 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[LEASE_REALIZATION]-[QUEUED]: Security-minted leases realize as deploy custody cells.
-- Capability: the app-root fold decodes an encoded `LeaseSpec` into a config-scoped Doppler token and namespace custody cell as pure data, lease semantics never re-derived deploy-side.
-- Shape: the app-root Doppler-token and namespace-cell fold on `operate/secret.md`'s `Secrets` custodian, feeding `kube/workload.md`'s `Workload.Args`.
-- Unlocks: leased credentials with lease-bounded blast radius across the workload estate.
-- Anchors: `libs/typescript/security/.planning/crypt/secret.md` `LeaseSpec` owner and its `SECURITY_LEASE_SPEC` app-root fold; `operate/secret.md` `Secrets` custodian; `kube/workload.md` `Workload.Args`.
-- Ripple: `security` `[LEASE_SPEC_CONTRACT]`.
-
-[GENERATION_ROLLOUT_STRATEGY]-[QUEUED]: Backend generations cut over under a declared rollout strategy, not one atomic pointer flip.
-- Capability: cutover becomes a strategy row the deploy plane folds — immediate, canary over a traffic fraction, or paired blue-green targets — each carrying its own admission evidence and its own abort predicate, so a generation that proves in the cluster but fails under live traffic retires without a manual runbook.
-- Shape: one strategy vocabulary on `operate/converge.md` `[04]-[PUBLICATION]` threading the pointer write, with the traffic split reading the `kube/traffic.md` Gateway rows.
-- Unlocks: a generation reaches production behind a measured gate instead of an all-at-once pointer write, and rollback becomes strategy data rather than a second verb.
-- Anchors: `operate/converge.md` `[04]-[PUBLICATION]` retained-evidence and pointer rows; `kube/traffic.md` Gateway API edge; the Automation-API ledger serializing pointer writes.
-- Tension: the pointer write is the atomic cutover and the whole rollback story; a strategy row that keeps two generations live at once forces readiness to compare against a set rather than one pointer value.
-
-[RESIDENCE_SIGNAL_CENSUS]-[QUEUED]: Each residence row censuses what its plane HOLDS, not only what the gateway routes into it.
-- Capability: one column answers the whole residence question — which signals a plane holds and therefore which readers may join across it — so an evidence query resolves its plane from the row rather than from knowledge of who wrote the bytes.
-- Shape: the cold-tail row's `signals` answer on `operate/observe.md` `[03]-[CHART_ROWS]`, beside the residence law that reads it and the folder ruling stating the two-signal bound.
-- Unlocks: a board joining series to wide events picks its plane off the row, and a reader stops inferring residence contents from which branch owns the writer.
-- Anchors: the shared `_Plane` floor whose `signals` column the fan-out now reads; the collector-side law bounding the exporter to the wide-event pair; the cold tail's own ingest column naming a data-branch writer rather than a collector exporter.
-- Tension: the two residences fill by different mechanisms — the interactive plane takes a collector exporter the gateway bounds to logs and traces, while the cold tail takes data-branch writes including a metric point relation no exporter carries — so one column currently answers a routing question on one row and a contents question on the other, and the folder ruling reads as though it bounded both.
-- Tension: widening the cold-tail answer without re-reading the ruling reopens the third-signal case the ruling closed; the honest split states the routing bound at the exporter and the contents census at the column, which is a ruling edit rather than a value flip.
-- Ripple: `data` `[OLAP_LAKE_FILLS]`; the folder ruling bounding residence signals precedes any column edit.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -48,6 +27,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[LEASE_REALIZATION]-[COMPLETE]: closed by `operate/secret.md` `[02]-[STORE_HIERARCHY]` — `Secrets.lease` admits security's ENCODED `LeaseSpec` row, decodes it once at graph construction for `scope`/`keys`/`epoch` alone, and re-serializes the proved value through `Schema.parseJson(LeaseSpec)` into the custody cell; ttl, renewal, and revocation stay `crypt/secret#LEASED_CUSTODY`'s, and the security-side `_custody` read took the same `parseJson` codec so both ends share one serializer.
+[GENERATION_ROLLOUT_STRATEGY]-[COMPLETE]: closed on `operate/converge.md` `[04]-[PUBLICATION]` — `_STAGED` holds one gate case per `immediate | canary | bluegreen` member off the spec `rollout` coordinate; staging fronts the candidate behind `kube/traffic.md`'s `split` weighted backendRefs while the pointer names the incumbent, the pointer's single write stays the whole cutover and rollback story, and abort is structural weight teardown, never a second verb — the Tension resolved by never keeping two generations live on the pointer.
+[RESIDENCE_SIGNAL_CENSUS]-[COMPLETE]: closed as the census/routing split — `signals` censuses holdings and the new `exporter.routes` column bounds the gateway fan, so the lake row reads all three signals while fanning nothing; both Tensions resolved by seating the routing bound on its own column, the folder ruling reworded first, and `data/lane/olap.md` states the same census from the writer's end.
+[PROVIDER_CONSTANT_VOCABULARY]-[COMPLETE]: settled closed — a closed provider union spreads into the spec's admission alphabet (`capacity.instanceType` off `aws.types.enums.ec2.InstanceType`, `capacity.os` off `eks.OperatingSystem`) and arm-dependent rosters admit through `provider.md`'s `_vocab` proof; the Tension resolved toward decode-time refusal because the roster rides the dependency bump, not a page literal, and `CannedAcl`/`RecordType`/`StorageType` name services this estate never deploys.
 [UI_ASSET_ROSTER_SEAM]-[DROPPED]: refuted at the strata — iac imports no ui type (the branch `[02]-[STRATA]` gives iac core/data/runtime reads only), and the branch served-asset rulings seat the seam as two independent derivations, `_addressedAll` publishing and `Glb.assetPath`/`Glb.assetDir` reading one spelling with the multi-file pair moving as one wave; a shared identity type re-enters only as a core-homed owner, a different card.
 [PRODUCER_PACK_DESCRIPTORS]-[COMPLETE]: every signal-bearing producer now reaches the board plane as its own pack — the kernel `BoardPack` carries the provenance key as its first column, so all six C# packs seat beside `runtime.pulse` and `security.audit` and the tuple censuses closed in both directions; python geometry claims no seat because it mints a measure charter and a fault boundary rather than a board-and-alert projection.
 [SECURITY_PACK_INGEST]-[COMPLETE]: the producer landed and the seat returned — `Audit.pack`/`Audit.wire` on `libs/typescript/security/.planning/access/audit.md` seal the folder board beside its burn specs as one encoded value, so `security.audit` re-enters `_PACKS` under the tuple's own earn-test rather than as a wire nobody mints.

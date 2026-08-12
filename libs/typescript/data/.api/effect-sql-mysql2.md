@@ -21,7 +21,7 @@
 |  [01]   | `MysqlClient` (Tag) / `interface MysqlClient`            | service Tag         | `read/query` interop row; only ctor reaches Tag   |
 |  [02]   | `MysqlClient.config: MysqlClientConfig`                  | resolved config     | span/transform introspection                      |
 |  [03]   | `MysqlClientConfig.url` (`Redacted.Redacted`)            | connection          | URI override of discrete fields; `Config`-sourced |
-|  [04]   | `MysqlClientConfig.host`/`.port`/`.database`/`.username` | connection          | discrete DSN; `port` defaults `3306`              |
+|  [04]   | `MysqlClientConfig.host`/`.port`/`.database`/`.username` | connection          | discrete DSN; every field optional, driver-filled |
 |  [05]   | `MysqlClientConfig.password` (`Redacted.Redacted`)       | credential          | pool auth; never a literal                        |
 |  [06]   | `MysqlClientConfig.maxConnections`/`.connectionTTL`      | pool sizing         | per-app pool budget; TTL a `Duration` fact        |
 |  [07]   | `MysqlClientConfig.poolConfig` (`Mysql.PoolOptions`)     | raw pool knobs      | TLS/charset/timezone the shared fields omit       |
@@ -38,7 +38,8 @@
 |  [03]   | `MysqlClient.make(config)`                                | scoped make    | construction inside a larger acquire graph     |
 |  [04]   | `MysqlClient.makeCompiler(transform?)`                    | compiler       | `dialect: "mysql"` harness; lights `onDialect` |
 
-- `layer`/`layerConfig` yield `Layer<MysqlClient | SqlClient, ConfigError | SqlError>`, `make` yields `Effect<MysqlClient, SqlError, Scope | Reactivity>`, and `makeCompiler` seeds every span `db.system.name=mysql`/`server.address`/`server.port` (`3306`)/`db.namespace`.
+- `layer`/`layerConfig` yield `Layer<MysqlClient | SqlClient, ConfigError | SqlError>` and `make` yields `Effect<MysqlClient, SqlError, Scope | Reactivity>`. `make` — not the compiler — seeds every span: `db.system.name=mysql` beside `server.address` and `server.port` read off the config's optional fields, the driver filling `localhost` and `3306` where each is absent, and `db.namespace` appearing only when `database` is set.
+- `makeCompiler` fixes `dialect: "mysql"` on a `?` placeholder, and its `onCustom` and `onRecordUpdate` arms emit EMPTY — a `Statement.custom` segment and a `sql.updateValues` multi-row update each compile to nothing on this lane rather than failing, so neither reaches a MySQL statement.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -49,6 +50,9 @@
 [LOCAL_ADMISSION]:
 - Provide the Layer at the app root only; a neutral row yields `SqlClient` and reaches the concrete `MysqlClient` Tag solely for construction.
 - `url`/`password` ride `Config.redacted`; pool sizing (`maxConnections`/`connectionTTL`) and `poolConfig` are `Config`/`iac` facts, never row literals.
+- Every connection field is optional on the config, so a lane that means to pin a host, port, or database states it — the driver's own fallback is a silent default, never a declaration.
+- No pool-adoption entrypoint ships: `layer`/`layerConfig`/`make` each build their own pool, so one composition owns one pool per interop lane and the pg spine's `layerFromPool` fan-out has no counterpart here.
+- `sql.updateValues` and `Statement.custom` compile empty under this dialect, so neither belongs in a statement this client runs.
 - `MysqlMigrator` is banned branch-wide — an interop source is read, never schema-owned; DDL is `iac`↔`data` declarative ensure.
 
 [RAIL_LAW]:

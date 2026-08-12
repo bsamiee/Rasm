@@ -4,12 +4,12 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 
 ## [01]-[INDEX]
 
-- [02]-[SELECTION_FOLD]: the `GlobalId` set atom, the closed op vocabulary, the History ride; `Selection`.
-- [03]-[PICK_PIPES]: the closed hit vocabulary and one batched resolution — point, marquee, scene marquee, lasso; `Selection`.
-- [04]-[ECHO_ROWS]: the projections — GPU highlight, feature-state, grid selection, reveal; `Selection`.
+- [02]-[SELECTION_FOLD]: `GlobalId` set atom, closed op vocabulary, History ride; `Selection`.
+- [03]-[PICK_PIPES]: closed hit vocabulary and one batched resolution — point, marquee, scene marquee, lasso; `Selection`.
+- [04]-[ECHO_ROWS]: projections — GPU highlight, feature-state, grid selection, reveal; `Selection`.
 - [05]-[ANCHOR_PINS]: topic pins — world anchors, per-surface placement, the element-hotspot adapter; `Mark`.
-- [06]-[VIEWPOINT_RESTORE]: the viewpoint → camera-intent + selection-op fold with anchor evidence; `Mark`.
-- [07]-[TOPIC_BOARD]: the status and priority vocabularies, board rows and census, the write-egress intents; `Mark`.
+- [06]-[VIEWPOINT_RESTORE]: viewpoint → camera-intent + selection-op fold with anchor evidence; `Mark`.
+- [07]-[TOPIC_BOARD]: status and priority vocabularies, board rows and census, write-egress intents; `Mark`.
 
 ## [02]-[SELECTION_FOLD]
 
@@ -20,7 +20,7 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 - Law: modality lives in the op value — click maps to `Toggle` (modifier policy deciding `Replace` versus `Toggle` at the interaction row), marquee maps to `Add` or `Replace`, viewpoint restore maps to `Replace` — never a boolean knob on the fold.
 - Growth: a new set behavior (invert, filter-to-visible) is one op case and one fold arm.
 
-```typescript
+```typescript signature
 import { Wire } from "@rasm/ts/core"
 import { Data, HashSet, Option, Schema } from "effect"
 
@@ -54,21 +54,21 @@ const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
 ## [03]-[PICK_PIPES]
 
 [PICK_PIPES]:
-- Owner: `Selection.Hit` and `Selection.picked` — one closed hit vocabulary and ONE resolution entrypoint across every seam. A pipe mints `Hit` values at its own boundary and never resolves an id itself: `Row` carries an opaque foreign row (a deck `PickingInfo.object`, a GeoArrow row proxy, a lasso survivor, a basemap feature) whose id member decodes through the one `_decode`; `Tiled` carries a decoded 3D-tile content with the batch ordinal and the column its metadata keys on; `Grafted` carries a content key the element index resolves. Three arms because three RESOLUTIONS exist, not because four surfaces do — the deck, lasso, and basemap seams share one arm precisely because they share one answer.
-- Law: the foreign row crosses as `unknown` and decodes at this seam — a `Predicate.hasProperty` probe then `_decode` is the whole admission, so no provider shape (`MapGeoJSONFeature`, a GeoArrow proxy, a plain `Feature`) is named in a signature and a new row-bearing surface needs no arm; a typed provider union here would grow one member per surface for zero resolution difference.
-- Law: an unresolvable hit is absence, not a fault — a pick over empty space, a row without the id member, or a batch column the tileset never carried folds to `Option.none` and the op simply carries fewer ids; picking never mints faults.
+- Owner: `Selection.Hit` and `Selection.picked` — one closed hit vocabulary and ONE resolution entrypoint across every seam. Pipes mint `Hit` values at their own boundary and never resolve an id themselves: `Row` carries an opaque foreign row (a deck `PickingInfo.object`, a GeoArrow row proxy, a lasso survivor, a basemap feature) whose id member decodes through the one `_decode`; `Tiled` carries a decoded 3D-tile content with the batch ordinal and the column its metadata keys on; `Grafted` carries a content key the element index resolves. Three arms because three RESOLUTIONS exist, not because four surfaces do — the deck, lasso, and basemap seams share one arm precisely because they share one answer.
+- Law: the foreign row crosses as `unknown` and decodes at this seam — a `Predicate.hasProperty` probe then `_decode` is the whole admission, so no provider shape (`MapGeoJSONFeature`, a GeoArrow proxy, a plain `Feature`) is named in a signature and a new row-bearing surface needs no arm; a typed provider union here grows one member per surface for zero resolution difference.
+- Law: an unresolvable hit is absence, not a fault — a pick over empty space, a row without the id member, or a batch column the tileset never carried folds to `Option.none` and the op carries fewer ids; picking never mints faults.
 - Law: resolution is ONE batched fold over the whole hit set — `Selection.picked` sweeps every arm through `Effect.forEach(..., { batching: true })`, so a marquee's hundreds of graft keys collapse into one element-index traversal under the shared `RequestResolver.makeBatched` window while the row and tile arms answer in place at zero request cost; a per-hit lookup loop, or a second resolution path for the cheap arms, is the named defect.
 - Law: the request family is tagged — the resolver's batch window keys on request identity, and a `Request.TaggedClass` carries the tag, the payload equality that de-duplicates two picks of one key, and the success and failure types in one declaration.
 - Law: the tile arm reads the RAW metadata fields, never a convenience accessor the payload lacks — a decoded content carries `featureTableJson`/`featureTableBinary` and `batchTableJson`/`batchTableBinary` as four separate members, so the arm constructs `Tile3DBatchTable` from them with the feature-table `BATCH_LENGTH` as its count and reads the id column by name; the batch-table column is caller-supplied because it is the tileset's own authoring choice, never an estate constant.
 - Law: the three-arm point pick descends the tree, never the triangle list — `acceleratedRaycast` patches `Mesh.prototype.raycast` at the one prototype-owner seam, and `firstHitOnly` on the raycaster makes each mesh answer its nearest hit and stop, which is the whole reason the pick stays interactive over a merged CAD assembly.
-- Law: the marquee over the scene rides the package's OWN named specialization — `MeshBVH.intersectsBox(box, boxToBvh)` IS the `shapecast` descent under an oriented volume, so the row composes it rather than re-authoring the callback triple the library already specializes; the volume arrives as a box plus its world placement (the screen rect un-projected), and each graft's own inverse world matrix carries it into that tree's frame.
+- Law: the marquee over the scene rides the package's OWN named specialization — `MeshBVH.intersectsBox(box, boxToMesh)` IS the `shapecast` descent under an oriented volume, so the row composes it rather than re-authoring the callback triple the library already specializes; the volume arrives as a box with its world placement (the screen rect un-projected), and each graft's own inverse world matrix carries it into that tree's frame.
 - Law: the accelerated trees arrive stamped — a residency mutation or streamed-geometry edit rebuilds or refits at the graft, so a held descent re-reads the stamp rather than answering against a hierarchy the ledger already replaced; this page consumes the stamped structure and owns neither the build nor its invalidation.
-- Law: lasso is planar compute with a scale ladder — a freehand polygon hit-tests through `booleanPointInPolygon` against feature centroids with a `geojsonRbush` index making many-feature scenes sub-linear (`search(bbox)` prunes to the candidate band before the exact test); the index builds once per feature-set change and is held in a derived atom, because rebuilding it per gesture frame spends the very cost the index exists to remove.
+- Law: lasso is planar compute with a scale ladder — a freehand polygon hit-tests through `booleanPointInPolygon` against feature centroids with a `geojsonRbush` index making many-feature scenes sub-linear (`search(bbox)` prunes to the candidate band before the exact test); the index builds once per feature-set change and is held in a derived atom, because rebuilding it per gesture frame spends the cost the index exists to remove.
 - Packages: `@deck.gl/core` (`Deck`, `PickingInfo`); `@loaders.gl/3d-tiles` (`Tile3DBatchTable`, `Tiles3DTileContent`); `three` (`Raycaster`, `Matrix4`, the camera and intersection types); `three-mesh-bvh` (`MeshBVH.intersectsBox`, `acceleratedRaycast`, the `Raycaster.firstHitOnly` merge); `@turf/turf` (`bbox`, `booleanPointInPolygon`, `geojsonRbush`); `@types/geojson` (the feature value types); `effect` (`Array`, `Data`, `Effect`, `HashMap`, `Option`, `Predicate`, `Request`, `RequestResolver`).
 - Boundary: the gesture drawing the marquee/lasso is `system/act#CONTINUOUS_OWNER`'s; pixel→world math is `geo#PROJECT`'s; which surfaces are pickable is the owning layer row's toggle; the BVH build, its stamp, and the one legal `three` prototype patch are `scene#RESIDENCY_GRAFT`'s.
 - Growth: a new pickable surface is a `Hit.Row` producer and nothing else; a million-feature lasso graduates to the GPU fold — a `typegpu` centroid-in-polygon kernel over a `d.arrayOf` centroid buffer adopting the scene-published device (`scene#BACKEND_SELECT`'s compute seam); the CPU rbush ladder stays the floor, and the kernel is one growth row, never a second lasso vocabulary.
 
-```typescript
+```typescript signature
 import type { Deck, PickingInfo } from "@deck.gl/core"
 import { Tile3DBatchTable, type Tiles3DTileContent } from "@loaders.gl/3d-tiles"
 import { bbox, booleanPointInPolygon, geojsonRbush } from "@turf/turf"
@@ -89,7 +89,7 @@ declare namespace Selection {
 
 declare namespace Mark {
   type Resident = { readonly tree: MeshBVH; readonly node: Object3D }
-  // the pick plane's consumption of the graft ledger: one accelerated tree per resident key, one reverse read, and the
+  // pick plane consumes the graft ledger: one accelerated tree per resident key, one reverse read, and the
   // stamp a rebuild or refit advances so a held descent never answers against a replaced hierarchy
   type Trees = {
     readonly stamp: number
@@ -123,7 +123,7 @@ const _resolved = (hit: Selection.Hit, resolver: RequestResolver.RequestResolver
       ),
     Tiled: ({ batch, column, content }) =>
       Effect.succeed(
-        // the raw four are the payload's real members; the accessor is constructed, never read off a field that does not exist
+        // payload carries these four raw members; the accessor is constructed, never read off a field that does not exist
         _decode(
           new Tile3DBatchTable(
             content.batchTableJson,
@@ -146,7 +146,7 @@ const _marquee = (
   box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number },
 ): Effect.Effect<ReadonlyArray<Selection.Hit>> =>
   Effect.map(
-    // the WebGPU-safe async pair; the deprecated sync mirrors never appear
+    // deck answers through the WebGPU-safe async pair; the deprecated sync mirrors never appear
     Effect.promise(() => deck.pickObjectsAsync({ ...box, maxObjects: _MARQUEE.cap })),
     (hits) => Array.map(hits, (info: PickingInfo) => _Hit.Row({ row: info.object })),
   )
@@ -171,7 +171,7 @@ const _grafted = (trees: Mark.Trees, hits: ReadonlyArray<Intersection>): Readonl
   Array.filterMap(hits, (hit) => Option.map(trees.keyOf(hit.object), (key) => _Hit.Grafted({ key })))
 
 const _lasso = <P extends GeoJsonProperties>(index: Mark.Index<P>, polygon: Feature<Polygon>): ReadonlyArray<Selection.Hit> =>
-  // the index prunes to the polygon's own extent before any exact test runs; the scan the index removes is the O(n) defect
+  // index prunes to the polygon's own extent before any exact test runs; the scan it removes is the O(n) defect
   Array.filterMap(index.search(bbox(polygon)).features, (centroid) =>
     booleanPointInPolygon(centroid, polygon) ? Option.some(_Hit.Row({ row: centroid })) : Option.none())
 ```
@@ -185,7 +185,7 @@ const _lasso = <P extends GeoJsonProperties>(index: Mark.Index<P>, polygon: Feat
 - Law: non-view echo consumers subscribe through one bounded replay channel — `Selection.echoes` is the memoized `Layer` constructing `PubSub.sliding<Selection.Op>({ capacity, replay })` once per app, and `Selection.Echoes` is the shared service every publisher and subscriber yields; late and live wire egress, probe evidence, and sibling mirrors consume the retained operation window without touching the atom registry, saturation replaces the oldest retained operation, and a second subscription protocol is the named defect.
 - Law: `Selection.Echoes` is the adopted source behind the `rasm.ui.mark.op` hook point (`system/hook`, replay modality) — this page contributes the point row and `Selection.hook` yields the shared service, so the registry pumps this one channel and no second op publisher exists.
 
-```typescript
+```typescript signature
 import { Context, Effect, HashSet, Layer, Option, PubSub, Stream } from "effect"
 import { Hook } from "../../src/system/hook.ts"
 
@@ -270,20 +270,20 @@ const Selection: Selection.Shape = {
 - Boundary: the pin fold is pure and takes its projector as a parameter — the DOM anchor host is app composition and the projector itself is `geo#PROJECT`'s `Camera.anchor` on scene surfaces or `Mark.queried` on embed surfaces; this page mints the pin value and never the element.
 - Law: pins are projections of decoded topics — pin identity is the topic guid, a pin's screen position derives per camera settle from the anchor, and no pin holds its own position state. Look-at target anchors the pin: the eye is where the reviewer stood, never what the topic marks.
 - Law: the anchor is the viewpoint's own BCF world frame verbatim — every surface reads one frame and adaptation is the projector's, so a re-framed anchor (a lnglat crossing, a scene-space rebase) never lands on the pin; the model's own coordinates are what the GLB and every `<model-viewer>` hotspot were authored in, so the embed arm crosses nothing.
-- Law: placement is real absence — `Mark.Placed` arrives as `Option` because two of the three surface classes position their own node: the maplibre arm's projector is `Function.constant(Option.none())` since the `Marker` owns the point, the embed arm's is `Mark.queried` and answers none for an unmounted slot and a degenerate projection alike, and only the scene arm computes one. A fabricated origin standing for an unplaceable pin puts every off-screen topic in the viewport's corner.
+- Law: placement is real absence — `Mark.Placed` arrives as `Option` because two of the three surface classes position their own node: the maplibre arm's projector is `Function.constant(Option.none())` since the `Marker` owns the point, the embed arm's is `Mark.queried` and answers none for an unmounted slot and a degenerate projection alike, and only the scene arm computes one. Fabricated origins standing for unplaceable pins put every off-screen topic in the viewport's corner.
 - Law: pin glyph, tone, and emphasis key off the lifecycle vocabularies — `[7]`'s status and priority tables are the single styling source and `Mark.variant` their one join; a status conditional in a pin row marks the tables unused.
 - Law: `<model-viewer>` surfaces anchor through the element's own ray and its own hotspot slots — `Mark.ray` mints an anchor from an authoring gesture (`positionAndNormalFromPoint` for the model-space point and normal, `surfaceFromPoint` for the barycentric surface id that keeps the anchor glued while a clip plays) and `Mark.mounted`/`Mark.moved` carry pins as element hotspots; the embed adapter row, same vocabulary.
 - Law: the hotspot mount is declarative and the move is imperative — the element registers a hotspot ONLY from a slotted child whose slot name begins with the prefix, reading `data-position`/`data-normal`/`data-surface`/`data-model-index` at attach, so `Mark.mounted` IS the pin's existence; those attributes are unobserved, so re-rendering the child with a fresh dataset moves nothing and a viewpoint replacement reaches the element only through `Mark.moved`, which silently no-ops on a slot no child mounted. Every hotspot sharing a slot name shares one location and the first definition wins until that move, which is why the slot name is minted from the topic guid and from nothing else.
 - Law: back-facing dimming is a CSS variant, never a per-frame read — the mount record carries `data-visibility-attribute`, so the element toggles `data-facing` on the slotted node and dispatches its own `hotspot-visibility` event as the camera turns; `Mark.queried`'s `facing` serves the consumers outside that slot's subtree (a roster beside the viewport), and a per-frame `queryHotspot` sweep to style a marker is the named defect.
 - Boundary: pin press interaction rides `system/act#DISCRETE_ROWS`; rich topic text sanitizes through `system/primitive`'s gate before any DOM sink; the live camera an app joins to a gesture-minted anchor to mint a viewpoint is `geo#CAMERA`'s embed adapter row.
-- Growth: a new surface class is one projector plus its own anchor host; a new anchor facet the wire gains (a clipping-derived offset) is one `Mark.Anchor` field carried through both projections.
+- Growth: a new surface class is one projector with its own anchor host; a new anchor facet the wire gains (a clipping-derived offset) is one `Mark.Anchor` field carried through both projections.
 
-```typescript
+```typescript signature
 import type { ModelViewerElement } from "@google/model-viewer"
 import type { Wire } from "@rasm/ts/core"
 import { Option, pipe } from "effect"
 
-// the prefix is the element's own admission rule — a child whose slot name does not start with it is never
+// element admits on the prefix alone — a child whose slot name does not start with it is never
 // registered — and `facing` is the suffix the element toggles back as `data-facing` on the slotted node
 const _HOTSPOT = { prefix: "hotspot", facing: "facing" } as const
 
@@ -302,11 +302,13 @@ declare namespace Mark {
   type Project = (sited: Mark.Sited) => Option.Option<Mark.Placed>
   type Pin = Mark.Sited & {
     readonly title: string
-    readonly status: Wire.BcfTopic["status"]
-    readonly priority: Wire.BcfTopic["priority"]
+    // both keys arrive ADMITTED, never raw: `Mark.variant` joins them against `[7]`'s tables and the open wire
+    // priority has no row there, so the admission runs at the mint rather than at every styling read
+    readonly status: Mark.Status
+    readonly priority: Mark.Priority
     readonly placed: Option.Option<Mark.Placed>
   }
-  // the embed payload derives off the one imported element type; a second specifier into the package's interior
+  // payload derives off the one imported element type; a second specifier into the package's interior
   // file layout, or a hand-declared twin beside it, is the parallel restatement this derivation deletes
   type Hotspot = Parameters<ModelViewerElement["updateHotspot"]>[0]
   type Mount = {
@@ -319,15 +321,21 @@ declare namespace Mark {
   }
 }
 
-const _target = (camera: Wire.BcfViewpoint["camera"]): Mark.World => [
-  camera.position[0] + camera.direction[0],
-  camera.position[1] + camera.direction[1],
-  camera.position[2] + camera.direction[2],
+type _Camera = Option.Option.Value<Wire.BcfViewpoint["camera"]>
+
+// wire camera carries `position`/`direction` as `{ x, y, z }` structs while every projector and camera intent reads a
+// tuple, so the one axis-ordered crossing lives here — an indexed read off the struct takes `undefined` on all three
+const _axes = (vec: _Camera["position"]): Mark.World => [vec.x, vec.y, vec.z]
+
+const _target = (camera: _Camera): Mark.World => [
+  camera.position.x + camera.direction.x,
+  camera.position.y + camera.direction.y,
+  camera.position.z + camera.direction.z,
 ]
 
 const _slot = (guid: string): string => `${_HOTSPOT.prefix}-${guid}`
 
-// the element parses both attributes in its camera-target grammar and its own Vector3D.toString() emits exactly
+// element parses both attributes in its camera-target grammar and its own Vector3D.toString() emits exactly
 // this form, so one spelling serves the write and matches what a read hands back
 const _metres = (world: Mark.World): string => `${world[0]}m ${world[1]}m ${world[2]}m`
 
@@ -339,7 +347,7 @@ const _hotspot = (sited: Mark.Sited): Mark.Hotspot => ({
   ...(Option.isSome(sited.anchor.model) && { modelIndex: sited.anchor.model.value }),
 })
 
-// the mount record IS the pin's existence — the element creates a hotspot only from a slotted child and the move
+// mount record IS the pin's existence — the element creates a hotspot only from a slotted child and the move
 // below cannot conjure one; both projections read the same two spelling owners, so neither end can drift
 const _mounted = (sited: Mark.Sited): Mark.Mount => ({
   slot: _slot(sited.guid),
@@ -354,7 +362,7 @@ const _mounted = (sited: Mark.Sited): Mark.Mount => ({
 // write a viewpoint replacement reaches; an unmounted slot no-ops, which the mount record forecloses
 const _moved = (element: ModelViewerElement, sited: Mark.Sited): void => element.updateHotspot(_hotspot(sited))
 
-// the element owns projection on this surface, so the screen point is a READ: null covers an unmounted slot and a
+// element owns projection on this surface, so the screen point is a READ: null covers an unmounted slot and a
 // non-finite canvas position alike, and `facingCamera` is the back-face verdict nothing outside the slot can reach
 const _queried = (element: ModelViewerElement): Mark.Project => (sited) =>
   Option.map(Option.fromNullable(element.queryHotspot(_slot(sited.guid))), (held) => ({
@@ -362,7 +370,7 @@ const _queried = (element: ModelViewerElement): Mark.Project => (sited) =>
     facing: Option.some(held.facingCamera),
   }))
 
-// the authoring gesture pays a second descent to buy `surface`: the barycentric id keeps the anchor on its triangle
+// authoring gesture pays a second descent to buy `surface`: the barycentric id keeps the anchor on its triangle
 // while a clip plays, where a fixed model-space point drifts off animated geometry
 const _ray = (element: ModelViewerElement, pixel: readonly [number, number]): Option.Option<Mark.Anchor> =>
   Option.map(Option.fromNullable(element.positionAndNormalFromPoint(pixel[0], pixel[1])), (hit) => ({
@@ -373,23 +381,25 @@ const _ray = (element: ModelViewerElement, pixel: readonly [number, number]): Op
   }))
 
 const _pin = (topic: Wire.BcfTopic, viewpoint: Option.Option<Wire.BcfViewpoint>, project: Mark.Project): Option.Option<Mark.Pin> =>
-  Option.map(viewpoint, (held) =>
-    pipe(
-      { guid: topic.guid, anchor: { target: _target(held.camera), normal: Option.none(), surface: Option.none(), model: Option.none() } },
-      (sited: Mark.Sited) => ({ ...sited, title: topic.title, status: topic.status, priority: topic.priority, placed: project(sited) }),
-    ))
+  Option.flatMap(viewpoint, (held) =>
+    // a camera-less viewpoint anchors nothing spatial — it is a selection-only anchor and mints no pin
+    Option.map(held.camera, (camera) =>
+      pipe(
+        { guid: topic.guid, anchor: { target: _target(camera), normal: Option.none(), surface: Option.none(), model: Option.none() } },
+        (sited: Mark.Sited) => ({ ...sited, title: topic.title, status: topic.status, priority: _admit(topic.priority), placed: project(sited) }),
+      )))
 ```
 
 ## [06]-[VIEWPOINT_RESTORE]
 
 [VIEWPOINT_RESTORE]:
-- Owner: `Mark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position and direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive`; the `selection` array mints the existing `Selection.Op.Replace` case directly; and the anchor receipt reports which ids resolved against the live model — the partial-failure evidence the operator reads.
+- Owner: `Mark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the wire's `Option`-carried camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` where present — eye from the position rows, target from position and direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive`, and answers `Option.none` on a camera-less viewpoint (a selection-only anchor `review#ECHO_ROWS` frames); the `selectedGlobalIds` array mints the existing `Selection.Op.Replace` case directly; and the anchor receipt reports which ids resolved against the live model — the partial-failure evidence the operator reads.
 - Law: restore never re-derives — no view geometry computes beyond coordinate adaptation; the viewpoint IS the proof, and a restore that corrects the camera is the drift defect.
-- Law: the receipt is data — `{ requested, resolved, missing }` counts and the missing id list; it renders as an evidence row (`Message` plural forms), never throws, and a fully-missing selection still restores the camera.
+- Law: the receipt is data — `{ requested, resolved, missing }` counts and the missing id list; it renders as an evidence row (`Message` plural forms), never throws; a fully-missing selection still restores a carried camera, and a camera-less viewpoint restores selection alone.
 - Boundary: which elements are resident is `scene`'s graft ledger fact; intent dispatch is `geo#CAMERA`'s; the selection fold is `[2]`'s.
 
-```typescript
-import { Array, HashSet, pipe } from "effect"
+```typescript signature
+import { Array, HashSet, Option, pipe } from "effect"
 import { Camera } from "./geo.ts"
 
 declare namespace Restore {
@@ -404,17 +414,15 @@ const _restore = (
   viewpoint: Wire.BcfViewpoint,
   resident: HashSet.HashSet<GlobalId>,
   millis: number,
-): { readonly intent: Camera.Intent; readonly op: Selection.Op; readonly receipt: Restore.Receipt } =>
+): { readonly intent: Option.Option<Camera.Intent>; readonly op: Selection.Op; readonly receipt: Restore.Receipt } =>
   pipe(
-    Array.partition(viewpoint.selection, (id) => HashSet.has(resident, id)),
+    Array.partition(viewpoint.selectedGlobalIds, (id) => HashSet.has(resident, id)),
     ([missing, resolved]) => ({
-      intent: Camera.Intent.LookAt({
-        eye: viewpoint.camera.position,
-        target: _target(viewpoint.camera),
-        millis,
-      }),
+      // wire carries the camera as an Option: a camera-less viewpoint restores selection alone (review#ECHO_ROWS frames it)
+      intent: Option.map(viewpoint.camera, (camera) =>
+        Camera.Intent.LookAt({ eye: _axes(camera.position), target: _target(camera), millis })),
       op: _Op.Replace({ ids: resolved }),
-      receipt: { requested: viewpoint.selection.length, resolved: resolved.length, missing },
+      receipt: { requested: viewpoint.selectedGlobalIds.length, resolved: resolved.length, missing },
     }),
   )
 ```
@@ -424,8 +432,8 @@ const _restore = (
 [TOPIC_BOARD]:
 - Owner: `Mark.status` and `Mark.priority` — the two lifecycle vocabularies keyed against the wire's own axes: the status table carries the tone, the glyph (a `LucideIcon` per row — icon-as-identity), and the `live` column, while the priority table carries the glyph, the sort `rank`, the `escalated` column, and the emphasis class the marker recipe reads as its second variant axis; `Mark.board` folds decoded topics into ordered rows, `Mark.census` projects the header counts, and `Mark.Intent` is the whole write surface.
 - Packages: `lucide-react` (the glyph rows); `class-variance-authority` (`cva` — the marker recipe); `@rasm/ts/core` (`BcfTopic`); `effect` (`Array`, `Data`, `DateTime`, `Duration`, `Either`, `Option`, `Order`, `Record`); `system/token` (`Theme` — the roster the tone axis derives from); `system/intl` (`Format.instant`); `system/primitive` (`Primitive.sanitize`, the roster law).
-- Law: the vocabularies are closed AT THE WIRE — the tables key off `BcfTopic["status"]`/`["priority"]` through the guard pair, so a wire vocabulary change breaks these rows loudly at compile time; a locally-widened status or a re-spelled priority is the named defect, and the anchors stay bare `as const` because the exported owner's shape reaches them.
-- Law: the two axes are orthogonal by construction — status decides TONE and priority decides EMPHASIS, so `Mark.variant` is the one join both the pin and the board row read; a tone column on the priority table would put two palettes on one element and fork the roster the tone axis derives from.
+- Law: the two axes close differently and the tables say which — `BcfTopic["status"]` is a five-literal wire union, so the status table proves BOTH directions through the guard pair and a wire vocabulary change breaks these rows loudly at compile time, while `BcfTopic["priority"]` crosses as an open `Schema.String` that no guard can close. `Mark.admit` is that asymmetry's one seam: an unlisted producer priority folds to `normal` on the way into a row, so every table, census column, and recipe variant downstream keys on a word the ladder carries. Widening a status locally is the named defect, and the anchors stay bare `as const` because the exported owner's shape reaches them.
+- Law: the two axes are orthogonal by construction — status decides TONE and priority decides EMPHASIS, so `Mark.variant` is the one join both the pin and the board row read; a tone column on the priority table puts two palettes on one element and forks the roster the tone axis derives from.
 - Law: the status row's `live` column is the ONLY place liveness is decided — the overdue verdict reads it here and every surface filtering live topics reads the same column instead of re-listing which statuses count as open, so a closed topic past its date is history rather than a breach; the priority row's `escalated` column carries attention the same way, and a conditional over status or priority names re-derives a column the row already states.
 - Law: the due read is one `distanceDurationEither` — `Either.left` is time overdue and `Either.right` time remaining, so the verdict and its magnitude arrive together and no sentinel instant stands for an absent date; the row keeps the decoded `due` `Option` beside it so the order sorts dated before undated with no forged bound.
 - Law: the fold takes its instant as a PARAMETER — `now` arrives from the app's own clock read, so the board stays a pure projection re-folded on a tick the app owns and no ambient wall-clock read enters the module.
@@ -433,18 +441,18 @@ const _restore = (
 - Law: the board is roster-law list rows, never a second collection engine — `system/primitive#ROSTER_LAW` owns the RAC collection, its controlled `selectedKeys` binding, and its typeahead, so this page contributes the row set, the `Order` instance, the census, and the vocabularies; a bespoke row renderer or a second comparator beside `Mark.order` is the named defect.
 - Law: writes are egress, not state — `Mark.Intent` is the closed two-case family every affordance mints (`Comment` appends, `Amend` patches), the app encodes it at the wire, and this module holds no authored BCF value; an amendment's keys are indexed access off `BcfTopic` field-for-field, and its two absences are distinct — an omitted key is UNCHANGED while `Option.none()` in a present key is CLEARED.
 - Boundary: which topics a session holds is the app's atom state; the wire encode of an intent is the core interchange plane's; a comment's `viewpoint` resolves through `[6]`'s restore, never a camera write here.
-- Growth: a new lifecycle presentation is one status row; a new priority is one wire literal with its row; a new authored axis is one `Amendment` key; a new board facet — a clash count, a cost delta — is one row field and one arm in the same fold.
+- Growth: a new lifecycle presentation is one wire literal with its status row; a new priority is one `Mark.priority` row the admission then carries with no wire edit at all; a new authored axis is one `Amendment` key; a new board facet — a clash count, a cost delta — is one row field and one arm in the same fold.
 
-```typescript
+```typescript signature
 import { cva } from "class-variance-authority"
 import { Array, Data, DateTime, type Duration, Either, Option, Order, Record, pipe } from "effect"
 import type { LucideIcon } from "lucide-react"
-import { CircleAlert, CircleCheck, CircleDot, CircleSlash, Flame, SignalHigh, SignalLow, SignalMedium } from "lucide-react"
+import { CircleAlert, CircleCheck, CircleDot, CircleSlash, Flame, RotateCcw, SignalHigh, SignalLow, SignalMedium } from "lucide-react"
 import { Format } from "../../src/system/intl.ts"
 import { Primitive } from "../../src/system/primitive.ts"
 import { Theme } from "../../src/system/token.ts"
 
-const _statuses = ["open", "in-progress", "resolved", "closed"] as const
+const _statuses = ["open", "in-progress", "resolved", "closed", "reopened"] as const
 const _priorities = ["low", "normal", "high", "critical"] as const
 
 const _statusRows = {
@@ -452,9 +460,10 @@ const _statusRows = {
   "in-progress": { icon: CircleAlert, tone: "accent", live: true },
   resolved: { icon: CircleCheck, tone: "success", live: false },
   closed: { icon: CircleSlash, tone: "neutral", live: false },
+  reopened: { icon: RotateCcw, tone: "danger", live: true },
 } as const
 
-// the ring column is the recipe's second axis and carries no colour: the status row decides tone, this row decides
+// ring column is the recipe's second axis and carries no colour: the status row decides tone, this row decides
 // emphasis, so one element never resolves two competing palettes
 const _priorityRows = {
   low: { icon: SignalLow, rank: 0, escalated: false, ring: "ring-0" },
@@ -470,17 +479,24 @@ declare namespace Mark {
   type Priority = keyof typeof _priorityRows
   type StatusRow = { readonly icon: LucideIcon; readonly tone: Theme.Tone; readonly live: boolean }
   type PriorityRow = { readonly icon: LucideIcon; readonly rank: number; readonly escalated: boolean; readonly ring: string }
-  // closure runs both directions at each axis: no excess row against the wire, no wire literal without a row, and
-  // the tuple's own key set proved against the table — a one-way guard admits the vocabulary that silently loses a case
+  // status closure runs BOTH directions: no excess row against the wire, no wire literal without a row, and the
+  // tuple's own key set proved against the table — a one-way guard admits the vocabulary that silently loses a case
   type _Statuses<K extends Wire.BcfTopic["status"] = Mark.Status> = K
   type _StatusGap<K extends Mark.Status = Wire.BcfTopic["status"]> = K
   type _StatusRows<T extends Record.ReadonlyRecord<Statuses[number], StatusRow> = typeof _statusRows> = T
+  // priority carries no wire closure to prove against — `BcfTopic["priority"]` is an open string, so only the
+  // widening direction is checkable here and `_admit` below is what keeps an unlisted producer word off the tables
   type _Priorities<K extends Wire.BcfTopic["priority"] = Mark.Priority> = K
-  type _PriorityGap<K extends Mark.Priority = Wire.BcfTopic["priority"]> = K
   type _PriorityRows<T extends Record.ReadonlyRecord<Priorities[number], PriorityRow> = typeof _priorityRows> = T
 }
 
-// the tone axis DERIVES from the token roster's own keyed table, so a semantic added there lands on this recipe with
+// BOUNDARY ADAPTER: open wire axis, closed presentation ladder — the predicate carries the narrowing so no call site
+// casts, and an unlisted producer priority folds to `normal` at this ONE seam rather than keying a table that has no row
+const _known = (raw: Wire.BcfTopic["priority"]): raw is Mark.Priority => Object.hasOwn(_priorityRows, raw)
+
+const _admit = (raw: Wire.BcfTopic["priority"]): Mark.Priority => _known(raw) ? raw : "normal"
+
+// tone axis DERIVES from the token roster's own keyed table, so a semantic added there lands on this recipe with
 // zero edits, the class strings name only the generated slot utilities, and `VariantProps` keeps the literal tone
 // union a tuple fold would widen to `string`; this page holds no palette
 const _marker = cva("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 outline-none", {
@@ -491,7 +507,7 @@ const _marker = cva("inline-flex items-center gap-1 rounded-full border px-2 py-
   defaultVariants: { tone: "neutral", priority: "normal" },
 })
 
-// the ONE join of the two axes: every pin and every board row reads its variant pair here, so no surface resolves a
+// ONE join of the two axes lives here: every pin and every board row reads its variant pair, so no surface resolves a
 // tone off a priority or an emphasis off a status
 const _variant = (keys: { readonly status: Mark.Status; readonly priority: Mark.Priority }): {
   readonly tone: Theme.Tone
@@ -512,8 +528,8 @@ declare namespace Mark {
     readonly status: Mark.Status
     readonly priority: Mark.Priority
     readonly labels: Wire.BcfTopic["labels"]
-    readonly assignee: Wire.BcfTopic["assignee"]
-    readonly due: Wire.BcfTopic["due"]
+    readonly assignee: Wire.BcfTopic["assignedTo"]
+    readonly due: Wire.BcfTopic["dueDate"]
     readonly remaining: Option.Option<Either.Either<Duration.Duration, Duration.Duration>> // left overdue by, right due in
     readonly overdue: boolean
     readonly comments: ReadonlyArray<Mark.Comment>
@@ -527,15 +543,15 @@ declare namespace Mark {
     readonly unassigned: number
     readonly comments: number
   }
-  // every key is indexed access off the decoded owner, so the authored surface cannot drift from the wire; an
-  // omitted key is unchanged and `Option.none()` in a present key clears the field
+  // every key is the wire's OWN spelling under indexed access, so the authored surface cannot drift from the decoded
+  // owner; an omitted key is unchanged and `Option.none()` in a present key clears the field
   type Amendment = {
     readonly title?: Wire.BcfTopic["title"]
     readonly status?: Wire.BcfTopic["status"]
     readonly priority?: Wire.BcfTopic["priority"]
     readonly labels?: Wire.BcfTopic["labels"]
-    readonly assignee?: Wire.BcfTopic["assignee"]
-    readonly due?: Wire.BcfTopic["due"]
+    readonly assignedTo?: Wire.BcfTopic["assignedTo"]
+    readonly dueDate?: Wire.BcfTopic["dueDate"]
   }
   type Intent = Data.TaggedEnum<{
     Comment: { readonly topic: string; readonly body: string; readonly viewpoint: Option.Option<string> }
@@ -547,7 +563,7 @@ const _Intent = Data.taggedEnum<Mark.Intent>()
 
 const _byInstant: Order.Order<Wire.BcfTopic["comments"][number]> = Order.mapInput(
   DateTime.Order,
-  (note: Wire.BcfTopic["comments"][number]) => note.at,
+  (note: Wire.BcfTopic["comments"][number]) => note.date,
 )
 
 const _order: Order.Order<Mark.Row> = Order.combineAll([
@@ -560,25 +576,25 @@ const _order: Order.Order<Mark.Row> = Order.combineAll([
 const _thread = (topic: Wire.BcfTopic, now: DateTime.Utc): ReadonlyArray<Mark.Comment> =>
   Array.map(Array.sort(topic.comments, _byInstant), (note) => ({
     author: note.author,
-    stamp: Format.instant(note.at),
-    age: DateTime.distanceDuration(note.at, now),
-    body: Primitive.sanitize(note.body), // gated once at the fold: the row's body is the only spelling a DOM sink reaches
-    viewpoint: note.viewpoint,
+    stamp: Format.instant(note.date),
+    age: DateTime.distanceDuration(note.date, now),
+    body: Primitive.sanitize(note.text), // gated once at the fold: the row's body is the only spelling a DOM sink reaches
+    viewpoint: note.viewpointGuid,
   }))
 
 const _board = (topics: ReadonlyArray<Wire.BcfTopic>, now: DateTime.Utc): ReadonlyArray<Mark.Row> =>
   Array.sort(
     Array.map(topics, (topic) =>
       pipe(
-        { comments: _thread(topic, now), remaining: Option.map(topic.due, (due) => DateTime.distanceDurationEither(now, due)) },
+        { comments: _thread(topic, now), remaining: Option.map(topic.dueDate, (due) => DateTime.distanceDurationEither(now, due)) },
         ({ comments, remaining }) => ({
           guid: topic.guid,
           title: topic.title,
           status: topic.status,
-          priority: topic.priority,
+          priority: _admit(topic.priority),
           labels: topic.labels,
-          assignee: topic.assignee,
-          due: topic.due,
+          assignee: topic.assignedTo,
+          due: topic.dueDate,
           remaining,
           overdue: _statusRows[topic.status].live && Option.exists(remaining, Either.isLeft), // the live column decides it once
           comments,
@@ -588,7 +604,7 @@ const _board = (topics: ReadonlyArray<Wire.BcfTopic>, now: DateTime.Utc): Readon
     _order,
   )
 
-// the seed derives from the vocabularies themselves, so a new status or priority row lands in the census with no
+// seed derives from the vocabularies themselves, so a new status or priority row lands in the census with no
 // edit here and no key the header reads can go missing
 const _ZERO: Mark.Census = {
   statuses: Record.map(_statusRows, () => 0),
@@ -607,7 +623,7 @@ const _census = (rows: ReadonlyArray<Mark.Row>): Mark.Census =>
     priorities: { ...census.priorities, [row.priority]: census.priorities[row.priority] + 1 },
     escalated: census.escalated + (_priorityRows[row.priority].escalated ? 1 : 0),
     overdue: census.overdue + (row.overdue ? 1 : 0),
-    unassigned: census.unassigned + (Option.isNone(row.assignee) ? 1 : 0),
+    unassigned: census.unassigned + (row.assignee === "" ? 1 : 0), // the wire carries absence as the empty string, never an Option
     comments: census.comments + row.comments.length,
   }))
 
@@ -618,8 +634,10 @@ declare namespace Mark {
     readonly statuses: typeof _statuses
     readonly priority: typeof _priorityRows
     readonly priorities: typeof _priorities
+    readonly admit: typeof _admit
     readonly marker: typeof _marker
     readonly variant: typeof _variant
+    readonly axes: typeof _axes
     readonly target: typeof _target
     readonly pin: typeof _pin
     readonly ray: typeof _ray
@@ -640,8 +658,10 @@ const Mark: Mark.Shape = {
   statuses: _statuses,
   priority: _priorityRows,
   priorities: _priorities,
+  admit: _admit,
   marker: _marker,
   variant: _variant,
+  axes: _axes,
   target: _target,
   pin: _pin,
   ray: _ray,

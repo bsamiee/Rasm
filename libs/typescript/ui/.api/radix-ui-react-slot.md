@@ -12,16 +12,15 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the two exported types a slot consumer annotates against — the merged-prop shape and the reconciler contract.
+[PUBLIC_TYPE_SCOPE]: the one exported type a slot consumer annotates against — the merged-prop shape the host element receives.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                                           |
-| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `SlotProps<Elem, Props>` | type alias    | `Props & { children?, mergeProps? }` — host props plus a per-slot reconciler override  |
-|  [02]   | `MergePropsFunction`     | interface     | `(slotProps, childProps) -> ReturnProps` — the contract a custom reconciler implements |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :----------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `SlotProps<Elem, Props>` | type alias    | `Props & { children? }` — the host props one element child absorbs |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the factory, its default instances, the sibling-interleave marker, and the swappable reconciler.
+[ENTRYPOINT_SCOPE]: the two factories and the two default instances they seed — one merge component and one sibling-interleave marker.
 
 | [INDEX] | [SURFACE]                                 | [SHAPE]   | [CAPABILITY]                                                                    |
 | :-----: | :---------------------------------------- | :-------- | :------------------------------------------------------------------------------ |
@@ -29,23 +28,20 @@
 |  [02]   | `Slot` / `Root`                           | component | the default merge instance; `Slot === Root`                                     |
 |  [03]   | `createSlottable(ownerName) -> Slottable` | factory   | mints a named marker carrying the `__radixId: symbol` brand                     |
 |  [04]   | `Slottable`                               | component | marks which child receives the merge among static siblings                      |
-|  [05]   | `mergeProps(slotProps, childProps)`       | function  | the exported default reconciler, reusable standalone                            |
-|  [06]   | `SlotProvider` / `Provider`               | component | sets a custom `mergeProps` for every descendant `Slot`                          |
 
 - `Slottable`: `{children}` marks the slotted child directly; `{child, children: (slottable) => node}` drives the render-fn wrapper mode.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `Slot` clones exactly one React-element child and reconciles overlapping props through the default `mergeProps`; a text node, fragment, or multiple elements trips the `ownerName`-named single-child invariant.
+- `Slot` clones exactly one React-element child and reconciles overlapping props through one fixed algorithm the package keeps private; a text node, fragment, or multiple elements trips the `ownerName`-named single-child invariant.
 - event handlers (`on*`) compose — the child's own fires first, then the component's, both run, and the child handler's return survives.
 - `style` shallow-merges child-wins; `className` concatenates component then child; every other prop is child-wins (`{ ...slotProps, ...childProps }`); `ref` composes through the internalized `@radix-ui/react-compose-refs`.
 - `Slottable` interleaves static siblings: `<Icon/><Slottable>{children}</Slottable><Chevron/>` lands the merge on the marked child while icon and chevron render as ordinary siblings, so `asChild` survives a decorated trigger.
-- `SlotProvider` over a subtree or the per-`Slot` `mergeProps` prop over one instance swaps the whole reconciler algorithm, never an inline patch of a single prop's merge.
+- `Slot` fixes its reconciliation and exposes no swap, so a prop needing a merge the algorithm does not perform resolves to its final value before it reaches the slot — the caller composes, the slot relays.
 
 [STACKING]:
 - `class-variance-authority`/`clsx`/`tailwind-merge` (`.api/class-variance-authority.md`, `.api/clsx.md`, `.api/tailwind-merge.md`): `<Slot className={cn(...)}>` lands the `cva`-folded variant class on the caller's element under `asChild`, so `<Button asChild><a/></Button>` styles the anchor with no wrapper node.
-- `@radix-ui/react-label`/`@radix-ui/react-separator` (`.api/radix-ui-react-label.md`, `.api/radix-ui-react-separator.md`): both render `@radix-ui/react-primitive`, which is `Slot` behind an `asChild` flag, so each inherits this exact merge under its own owner name rather than re-cloning.
 - `react-aria-components` (`.api/react-aria-components.md`): the aria spine owns element override through each component's `render` prop; `Slot.asChild` owns override for the non-aria `cva` atoms off the react-aria state machine — one override per node, an RAC `render` and a `Slot` never stacked on one element.
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): `useAtomValue` resolves the child element's props (`href`, `isDisabled`) and `Slot` relays them onto the host element, the state binding staying the one fold while `Slot` only forwards the resolved props.
 - within-lib `system/primitive`: a polymorphic atom names its slot with `createSlot(name)`, forwards its `cva` class through `Slot className`, and lands each new atom as a row on the primitive spine.
@@ -56,6 +52,6 @@
 
 [RAIL_LAW]:
 - Package: `@radix-ui/react-slot`
-- Owns: the `asChild` element-override merge — clone one child, compose props, refs, and event handlers — via `createSlot`, the `Slottable` sibling-interleave marker, and the default `mergeProps` reconciler with the `SlotProvider` context that swaps it for descendant slots.
-- Accept: `<Slot {...props}>{singleChild}</Slot>` for polymorphic atoms; `createSlot(ownerName)` to name a slot; `Slottable` to interleave siblings around the slotted child; `cva`/`clsx`/`twMerge` classes forwarded through `Slot className`; a custom `mergeProps` via `SlotProvider` or the per-`Slot` prop.
-- Reject: `React.cloneElement` or manual prop-merge where `Slot` owns reconciliation; `Slot` on a react-aria component whose `render` owns override; more than one element child or a bare text/fragment under a `Slot`; a second `asChild` over an element already overridden by RAC `render`; re-implementing the default merge inline where `mergeProps`/`SlotProvider` swaps it.
+- Owns: the `asChild` element-override merge — clone one child, compose props, refs, and event handlers under one fixed reconciliation — via `createSlot`, and the `Slottable` sibling-interleave marker.
+- Accept: `<Slot {...props}>{singleChild}</Slot>` for polymorphic atoms; `createSlot(ownerName)` to name a slot; `Slottable` to interleave siblings around the slotted child; `cva`/`clsx`/`twMerge` classes forwarded through `Slot className`; a caller-resolved prop value where the fixed merge does not compose it.
+- Reject: `React.cloneElement` or manual prop-merge where `Slot` owns reconciliation; `Slot` on a react-aria component whose `render` owns override; more than one element child or a bare text/fragment under a `Slot`; a second `asChild` over an element already overridden by RAC `render`.

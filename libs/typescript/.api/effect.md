@@ -173,7 +173,7 @@
 |  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot      | fiber handoff, `haltWhen` signals, promise-once           |
 |  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel       | `work/queue` job intake with backpressure                 |
 |  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, quarantine, `journal/fact` drain    |
-|  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local   | `serve/api` middleware; built-in `currentLogAnnotations`  |
+|  [06]   | `FiberRef.make` + `Effect.locally`/`locallyWith`/`locallyScoped`/`locallyScopedWith` | fiber-local | `serve/api` middleware; built-in `currentLogAnnotations` — the locally family lives on `Effect`, not `FiberRef` |
 |  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
 |  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
 |  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
@@ -256,6 +256,7 @@
 - `BigDecimal` is the only exact-decimal carrier in the branch, and its exactness starts at the ACCUMULATOR: a JS `number` sum rounds past 2^53 and `BigInt` widens that rounded double without complaint, so a money preimage folds as `bigint` and lifts through `BigDecimal.make(total, 0)` once. `round` takes `{ mode, scale }` and belongs at the terminal alone — a per-row round accumulates drift a settlement cannot reconcile against its own aggregate.
 - `Data.tuple` is what makes a composite `HashMap` key work at all — a plain array key hashes by reference, so a rollup fold over `[a, b, c]` literals mints one bucket per row and reads as a working group-by that never groups.
 - `Record.map(self, f)` hands `f` the `(value, key)` pair and returns a record keyed identically, so a table of policy rows mints one derived value per row with the key in hand — the spelling a per-row instrument or projection fold takes instead of an entry-array round trip. JS `Array.prototype.map` passes an INDEX second, so a callback written against that habit reads a key as a number.
+- Idle module roster (verified on the tree, no fence composes them yet): `Micro`, `Channel`, `GroupBy`, `Graph`, `HashRing`, `PartitionedSemaphore`, `RcRef`/`Resource`/`ScopedCache`/`ScopedRef`, `Trie`/`RedBlackTree`/`SortedSet`, `Console`/`Random`/`Clock` service overrides, `PrimaryKey`, `Take`, the `TestClock` family, and the extended `STM` family — each enters at a consuming seam the day one earns it; `Trie` already lands at `serve/live`'s channel-rule read and `PrimaryKey` at the persisted-request families.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -31,7 +31,7 @@
 |  [11]   | `BuildType`               | union         | `'dev'\|'prod'` module-URL build selector                |
 
 - `StrategyName`: `"CacheFirst"\|"CacheOnly"\|"NetworkFirst"\|"NetworkOnly"\|"StaleWhileRevalidate"`; `networkTimeoutSeconds` binds only `NetworkFirst`/`NetworkOnly`.
-- `RuntimeCaching`: `handler: RouteHandler\|StrategyName`, `urlPattern: RegExp\|string\|RouteMatchCallback`, `method?: HTTPMethod`, `options?: {cacheName, expiration, backgroundSync:{name,options?:QueueOptions}, cacheableResponse, rangeRequests, networkTimeoutSeconds, plugins}`.
+- `RuntimeCaching`: `handler: RouteHandler\|StrategyName`, `urlPattern: RegExp\|string\|RouteMatchCallback`, `method?: HTTPMethod`, `options?: {cacheName, expiration, backgroundSync:{name,options?:QueueOptions}, cacheableResponse, rangeRequests, networkTimeoutSeconds, plugins, broadcastUpdate, precacheFallback, fetchOptions, matchOptions}` — the last four are idle capability: cross-tab update broadcast, per-route offline fallback, fetch-init and cache-match tuning; each enters as one `_lanes` column the day a row earns it.
 - `ManifestEntry.revision: string\|null` — a content-addressed URL sets it `null`, exempting the asset from cache-busting.
 - Option algebra: `GenerateSWOptions = BasePartial&GlobPartial&GeneratePartial&RequiredSWDestPartial&OptionalGlobDirectoryPartial`; `InjectManifestOptions` swaps `GeneratePartial`→`InjectPartial` and requires `globDirectory`; `GetManifestOptions = BasePartial&GlobPartial&RequiredGlobDirectoryPartial`, no SW destination.
 

@@ -138,6 +138,7 @@
 - `Service` methods map the low-level `HttpClientError | ParseError` rail onto `AiError`; the raw `Client.converse` alone surfaces the untranslated rail.
 - Credentials ride `Redacted`; `layerConfig` wraps each in `Config` and adds `ConfigError`.
 - Native guardrails are a per-call `Config.guardrailConfig` switch, and the assessment tree surfaces on `FinishPartMetadata.bedrock.trace`.
+- The stop-reason map covers six wire values and routes both a content filter and a guardrail intervention to `"content-filter"`. It has NO suspend entry, so an Anthropic-on-Bedrock turn halted mid-tool falls through to `"unknown"` and reads as an ordinary unremarkable finish — the same wire condition the Anthropic package surfaces as `"pause"`.
 
 [STACKING]:
 - `@effect/ai`(`.api/effect-ai.md`): `model(id)` satisfies `LanguageModel.LanguageModel`, the tools return core `Tool.ProviderDefined`/`Tool.FailureMode`, and the `bedrock` slot augments `Prompt.ProviderOptions`/`Response.ProviderMetadata`; no `EmbeddingModel`/`Tokenizer`/`Telemetry` tag binds.

@@ -77,7 +77,7 @@
 |  [06]   | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)` | cluster runner | HTTP-hosted / socket-transport runner       |
 
 - `BunCommandExecutor.layer: Layer<CommandExecutor, never, FileSystem>` and `BunWorker.layer(spawn: (id) => Worker): Layer<WorkerManager | Spawner>` back `proc/exec`.
-- `BunClusterHttp.layer` carries `{ transport: "http" | "websocket", serialization?: "msgpack" | "ndjson", clientOnly?, storage?: "local" | "sql" | "byo" }` — transport, serialization, and storage are policy values.
+- `BunClusterHttp.layer` carries `{ transport: "http" | "websocket", serialization?: "msgpack" | "ndjson", clientOnly?, storage?: "local" | "sql" | "byo", serializationMaxBufferSize? }` — transport, serialization, storage, and the frame-buffer ceiling are policy values.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

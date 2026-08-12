@@ -26,6 +26,12 @@
 |  [08]   | `DeliverPolicy`    | anchor rows    | `All`/`Last`/`New`/`LastPerSubject`/`StartSequence`/`StartTime` — `Fanout.Anchor` target |
 |  [09]   | `AckPolicy`        | ack rows       | `None`/`All`/`Explicit`; `Explicit` durable, ordered consumers fixed to `None`           |
 |  [10]   | `ReplayPolicy`     | replay pacing  | `Instant`/`Original`; original-timing replay is a growth row on the ordered lane         |
+|  [11]   | `JetStreamApiError` | fault         | server API rejection carrying `.code`; `coordinate`'s `_refused` and `pubsub`'s ensure arms discriminate on it |
+|  [12]   | `JetStreamApiCodes` | fault codes   | const roster — `StreamWrongLastSequence`/`StreamWrongLastSequenceUnknown` are the lost-race pair, `StreamNotFound`/`ConsumerNotFound` the ensure arms' converge probes |
+|  [13]   | `JetStreamError` / `JetStreamStatusError` | fault | the client-side base and status families beneath the API error; a non-API rejection folds to the engine's `dial` reason |
+|  [14]   | `ConsumerNotFoundError` / `StreamNotFoundError` | fault | typed subclasses of the API error; `instanceof` narrows where a code compare would re-spell the roster |
+|  [15]   | `StreamInfo`       | census fact    | `state.messages`/`first_seq`/`last_seq`/`first_ts` — the bounded-replay horizon `replay` validates against            |
+|  [16]   | `ConsumerInfo` / `Lister`  | census | `created`/`delivered`/`num_pending`/`num_ack_pending`/`num_redelivered` paged one turn at a time — the durable-consumer doctor read |
 
 [STREAMCONFIG]: `name` `subjects` `max_age` `duplicate_window` `retention` `storage` `num_replicas`
 [CONSUMERCONFIG]: `ack_policy` `deliver_policy` `durable_name` `opt_start_seq` `opt_start_time` `replay_policy` `idle_heartbeat` `flow_control`

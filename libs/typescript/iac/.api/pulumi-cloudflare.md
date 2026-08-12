@@ -61,7 +61,8 @@
 [SHAPES]: intent arg objects an implementer fills, keyed to the rows above.
 - [01]-[TUNNEL]: args `{ accountId, name (required), tunnelSecret?, configSrc? }`; `id` is the CNAME target base (`<id>.cfargotunnel.com`).
 - [02]-[ROUTING]: config args `{ accountId, tunnelId, config: { ingresses: [{ hostname?, service (required), path?, originRequest? }], originRequest? } }`; the last ingress row is the catch-all (`service: "http_status:404"`).
-- [03]-[ACCESS]: app args `{ accountId?, domain?, type?, name?, sessionDuration?, policies: [{ id?, decision?, … }] }`; policy args `{ accountId?, name (required), decision (required), includes: [{ everyone?, email?, group?, anyValidServiceToken?, … }] }`.
+- [03]-[ACCESS]: app args `{ accountId?, domain?, type?, name?, sessionDuration?, policies?: [{ id?, decision?, … }] }`; policy args `{ accountId (required), name (required), decision (required), includes?/excludes?/requires?: [{ everyone?, email?, group?, anyValidServiceToken?, … }] }` — a policy names its account while an app infers one, so the pair cannot share a coordinate record.
+- [03]-[ACCESS_REUSE]: `ZeroTrustAccessPolicy.reusable: Output<boolean>` and `.appCount: Output<number>` resolve the sharing posture the `id` binding creates — an app admits a policy by `policies[].id`, so one policy realized once fronts every app referencing it, and the two outputs read back whether the account granted that reuse and how many apps took it; both are resolved-only, never `ZeroTrustAccessPolicyArgs` fields, so a fence reads the posture and never requests it.
 - [05]-[TOKEN]: `({ accountId, tunnelId }) → { token }` — the `TUNNEL_TOKEN` the in-cluster cloudflared Deployment runs with.
 
 [TRAFFIC_SCOPE]: load balancing, rulesets, certificates

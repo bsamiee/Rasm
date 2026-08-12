@@ -9,7 +9,7 @@
 - effect-peer: `effect`, `@effect/sql` (the extended `SqlClient` core; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
 - backing: `@libsql/client` (embedded-replica + remote-sync protocol)
 - runtime: node/bun server and edge hosts; the browser lane is `@effect/sql-sqlite-wasm`
-- modules: `LibsqlClient`
+- modules: `LibsqlClient`, `LibsqlMigrator` (banned)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -55,6 +55,6 @@
 
 [RAIL_LAW]:
 - Package: `@effect/sql-libsql`
-- Owns: the libSQL binding of `SqlClient` — `layer`/`layerConfig`/`make`, the `Full`/`Live`/`Base` config family, the embedded-replica sync knobs, the interactive-transaction machinery
+- Owns: the libSQL binding of `SqlClient` — `layer`/`layerConfig`/`make`, the `Full`/`Live`/`Base` config family, the embedded-replica sync knobs, the interactive-transaction machinery, and the banned `LibsqlMigrator`
 - Accept: the edge-replica profile row under the one sqlite lane, `Config`-sourced credentials, database-per-tenant isolation
-- Reject: a driver import in a neutral row, a second relational contract for the edge, byte-level sqlite assumptions, a hardcoded sync cadence or credential
+- Reject: a driver import in a neutral row, a second relational contract for the edge, byte-level sqlite assumptions, a hardcoded sync cadence or credential, `LibsqlMigrator` or any runtime schema mutation

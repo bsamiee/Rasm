@@ -1,6 +1,9 @@
 {
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
     "defaultBase": "main",
+    "cacheDirectory": ".cache/nx/cache",
+    "useDaemonProcess": false,
+    "neverConnectToCloud": true,
     "workspaceLayout": {
         "appsDir": "apps",
         "libsDir": "libs/typescript"
@@ -18,10 +21,8 @@
             "{workspaceRoot}/tests/containers.json",
             "{workspaceRoot}/tests/contracts/**/*",
             "{workspaceRoot}/tools/biome/*.grit",
-            "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/tsconfig.json",
             "{workspaceRoot}/vite.config.ts",
-            "{workspaceRoot}/vite.factory.ts",
             "{workspaceRoot}/vitest.config.ts"
         ]
     },
@@ -50,18 +51,12 @@
             "outputs": ["{workspaceRoot}/.artifacts/typescript/e2e"]
         }
     },
+    "pluginsConfig": {
+        "@nx/js": {
+            "analyzeSourceFiles": false
+        }
+    },
     "plugins": [
-        {
-            "plugin": "@nx/js/typescript",
-            "options": {
-                "compiler": "tsc",
-                "typecheck": {
-                    "targetName": "typecheck",
-                    "configName": "tsconfig.json"
-                },
-                "build": false
-            }
-        },
         {
             "plugin": "@nx/vite/plugin",
             "options": {

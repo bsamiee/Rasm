@@ -159,6 +159,9 @@ flowchart LR
     Core e24@-->|"[EVENT]: Event.Fact"| Net
     Core e25@-->|"[EVENT]: Event.Fact"| Serve
     Core e26@-->|"[EVENT]: Event.Fact"| Work
+    Security e27@-->|"[SHAPE]: CookieSpec"| Serve
+    Security e28@-->|"[SHAPE]: MachinePrincipal"| Net
+    Data e19@-->|"[PORT]: EventLogServer.Storage"| Serve
 ```
 
 ```mermaid

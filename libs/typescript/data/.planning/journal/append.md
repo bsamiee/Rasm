@@ -21,7 +21,7 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 - Growth: a new stream dimension is a `StreamKey` field with a column pair in the ensure rows and one operand on the identity fragment — every keyed surface in the folder re-keys with it because the class is the one spelling of stream identity.
 - Law: the COMPOSED identity is one owned fragment with two composition shapes — `StreamKey.identity` joins a held key's bound values and `StreamKey.identityColumn` joins the relation's own escaped identifiers, both through one separator and one order — so the advisory lock's hash input and the head resolver's grouping key are provably the same string; a hand-repeated `|| ':' ||` at either site desyncs the lock from the resolver on the first separator or column-order edit, and nothing about that divergence is visible until two callers disagree over which stream they hold.
 - Law: events are app-authored closed `Schema.TaggedClass` families — the journal stores their encoded form with the `(tag, eventVersion)` coordinate and never interprets payloads, so a family evolves without touching this page.
-- Law: the payload column is `Model.JsonFromString` — TEXT in the database variants, native object in the JSON variants — so the object-versus-text dialect difference is the model's, and no page hand-parses a payload column.
+- Law: the payload column is `Model.JsonFromString` over TEXT in EVERY dialect, the pg spine included, because the stored bytes are the digest preimage the receipt's `subject` addresses — JSONB drops whitespace, key order, and duplicate keys at write, so a JSONB column hands every later read a respelling of the bytes the digest was minted over and the preservation slice, a dataref resolve, and any byte-true forward diverge silently; TEXT keeps stored bytes identical to inserted bytes, and no page hand-parses a payload column.
 - Law: `sequence` is the global total order (identity column), `version` the per-stream order (the OCC coordinate); both are engine-generated or engine-checked, never computed in process.
 - Law: the BIGINT read posture is PINNED, never inferred — `_safe` brackets every sequence-bearing statement with `SqlClient.SafeIntegers`, so the journal states the posture it reads under instead of accepting whatever a driver defaults to; the three-member codec below is the honest degrade for a driver that ignores the reference, never a substitute for declaring it.
 - Law: `sequence` is bigint-safe end to end — the persisted model and every process-side read decode through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; the STORED receipt rides `Schema.BigInt` alone, because that receipt round-trips through `Schema.parseJson` and the driver-posture union's identity member encodes `bigint` back out, which `JSON.stringify` refuses — one codec crosses a driver row, the other crosses a text column, and conflating them wedges the ledger settle on its first write.
@@ -117,7 +117,7 @@ const _journalDdl: Capability.Ensure = {
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version BIGINT NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991),
     tag TEXT NOT NULL, event_version INT NOT NULL CHECK (event_version > 0),
-    payload JSONB NOT NULL,
+    payload TEXT NOT NULL,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ${_STREAM_UNIQUE} UNIQUE (${_STREAM_KEY.join(", ")}));
   ${Tenancy.rls("journal_event")}`,
@@ -491,7 +491,7 @@ const _ledgerDdl: Capability.Ensure = {
   pg: `CREATE TABLE IF NOT EXISTS idempotency_ledger (
     key TEXT NOT NULL,
     app TEXT NOT NULL, tenant TEXT NOT NULL,
-    receipt JSONB,
+    receipt TEXT,
     first_writer BOOLEAN NOT NULL DEFAULT true,
     claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     touched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -781,13 +781,14 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, ids)` requires a non-empty bigint identity roster; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
 - Growth: a new deliverable dimension (deliver-at, shard affinity) is a column and a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: claim order is `(urgency, id)` — the urgency term ahead of insert identity, so ordering is a stamped policy value and FIFO is the degenerate case where every publisher stamps one number; the partial pending index leads on the same pair, because an ORDER BY term the index cannot serve turns each claim into a scan of the whole undelivered backlog.
-- Law: the relay's tenancy is `multi` and STATED, never inherited from the caller's scope — `claimBatch` predicates on `app` alone by design, one drain serving every tenant of an app, so it runs on an UNPINNED client: `outbox` registers RLS, and a drain started inside `Tenant.within` claims that tenant's rows exclusively while every other tenant's deliverables sit undelivered behind a lease that keeps lapsing, each pass reporting a healthy claim. `publish` answers the opposite coordinate — `single`, pinned, stamping the tenant column the drain later carries — so the two ends of one relation decide tenancy separately and each says which it is.
-- Law: `census` shares the relay's scope — it answers per `app` across every tenant, so its depth and age gauges describe the backlog the drain claims; sampled under a pin it reports one tenant's slice as the whole plane's health.
+- Law: the relay's tenancy is `multi` and STATED, never inherited from the caller's scope — `claimBatch` predicates on `app` alone by design, one drain serving every tenant of an app, so it runs under the MAINTENANCE-PLANE session posture `lane/tenant.md` mints: `outbox` registers RLS and the landed policy is FORCE, so an unpinned session reads ZERO deliverables and reports each empty claim as healthy, while a drain started inside `Tenant.within` claims that tenant's rows exclusively and every other tenant's deliverables sit undelivered behind a lease that keeps lapsing — the plane posture is the one session state that widens the claim to the app's whole estate, and its coordinate and policy arm are the tenancy owner's. `publish` answers the opposite coordinate — `single`, pinned, stamping the tenant column the drain later carries — so the two ends of one relation decide tenancy separately and each says which it is.
+- Law: `census` shares the relay's plane — it answers per `app` across every tenant, so its depth and age gauges describe the backlog the drain claims; sampled under a tenant pin it reports one tenant's slice as the whole plane's health, and sampled unpinned it reads an empty relation under the FORCE policy — both are the misreads the maintenance-plane posture forecloses.
 - Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and a live claimant is never raced; the sqlite arm serializes on the single writer and drops the lock clause while keeping the lease predicate. `SqlSchema.findAll` decodes every returned identity and payload through `_Deliverable`; raw driver rows never cross the data seam.
 - Law: each deliverable carries the journal's global `sequence` beside its stream version, so a drain receipt, checkpoint, or forensic join names the exact source fact without re-querying by payload coordinates.
 - Law: outbox observability is the census projected across the seam — `Journal.census` answers `{ depth, oldest, redelivered }` in one decoded aggregate, the runtime meter bridge samples it through its `Probe` port and sets the `Convention.metric.outboxDepth`/`outboxAge`/`outboxRedelivered` gauges, and this page mints no instrument: the outbox rows stay the evidence truth and the gauges stay the lossy dashboard projection.
 - Law: the announcement is a projection fold the claimed row owns and never a second record of truth — `_Deliverable.envelope` composes `Event.mint`, the branch's ONE mint entry, so this page states no attribute grammar, no extension roster, and no construction posture; a refusal arrives as `Event.Refusal` and folds to the `envelope` fault reason, and the raw throw the package raises never reaches a fiber.
 - Law: the addressed attributes decode ONCE through `Event.Fact` — `id` the landed global `sequence`, `source` the `StreamKey` spelled as one URI path, `type` the event tag verbatim, `time` the write instant, `subject` the stored content key, `dataschema` the registry coordinate, `datacontenttype` the arrow's media — so the proof that record satisfies the grammar rides the decoded value into the mint rather than dissolving in a widened attribute record on the next expression.
+- Law: `subject` and any `dataref` publish the content key as 32 LOWERCASE hex — this branch's content wire codec spells UPPER, so the envelope edge re-cases the encoded value at the mint and no shared codec changes case, which is the estate's mapping law for an upper-spelling branch.
 - Law: the app's event family spells its own `_tag` as the estate grammar's `rasm.<domain>.<subject>.<fact>.v<N>`, since the tag IS the announced `type`; a tag outside that grammar fails typed at the projection rather than reaching a subscription that keys on it.
 - Law: the two version axes stay disjoint — the `type` major `v<N>` moves only on a breaking change while `event_version` moves on every generation, so `dataschema` names `(tag, event_version)` as the registry coordinate the evolve plan already resolves and no consumer re-derives one from the other.
 - Law: the landed global `sequence` serves both roles it inhabits — `id` carries it as the producer's operation identity, so `(source, id)` dedups a redelivered claim structurally, and the `sequence` extension carries it as the per-source position under `sequencetype: "Integer"`; both cross as decimal TEXT, which is why no consumer of this branch arms the package's `CE_USE_BIG_INT` global JSON swap to move a 64-bit identity.
@@ -850,7 +851,7 @@ const _outboxDdl: Capability.Ensure = {
     version BIGINT NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991), tag TEXT NOT NULL,
     event_version INT NOT NULL CHECK (event_version > 0),
     subject TEXT NOT NULL, classification TEXT NOT NULL,
-    payload JSONB NOT NULL, urgency INT NOT NULL, attempts INT NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL, urgency INT NOT NULL, attempts INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     claimed_at TIMESTAMPTZ,
     delivered_at TIMESTAMPTZ);
@@ -935,7 +936,8 @@ const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.
           source: `rasm://journal/${app}/${tenant}/${aggregate}`,
           type: deliverable.tag,
           time: DateTime.formatIso(deliverable.created_at),
-          subject,
+          subject: subject.toLowerCase(), // the estate spells `subject` in 32 LOWERCASE hex; this branch's content wire is UPPER, and the envelope edge is the one re-case site
+
           dataschema: _SERDES.subject(deliverable.tag, deliverable.event_version),
           datacontenttype: _SERDES.media,
           data: deliverable.payload,

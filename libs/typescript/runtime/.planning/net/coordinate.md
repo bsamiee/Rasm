@@ -23,7 +23,7 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Entry: `yield* Accord` then the six members; engines land as `Accord.kv(bucket)` / `Accord.locks()` root Layers.
 - Packages: `effect` (`Context`, `Data`, `Option`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
 
-```typescript
+```typescript signature
 import { Chunk, Context, Data, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, Schema, type Scope, Stream } from "effect"
 import { type KV, Kvm } from "@nats-io/kv"
 import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream"
@@ -151,7 +151,7 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
 - Boundary: the connection is `pubsub#JETSTREAM_ROW`'s `Broker` — this engine never dials; the ordered watch iterator carries no ack surface, exactly as the fanout ordered lane.
 - Packages: `@nats-io/kv` (`Kvm`, `KV`), `@nats-io/jetstream` (`JetStreamApiCodes`, `JetStreamApiError`), `effect` (`Chunk`, `Duration`, `Effect`, `Layer`, `Random`, `Ref`, `Schedule`, `Stream`), `./pubsub.ts` (`Broker`).
 
-```typescript
+```typescript signature
 const _LEASE = { ttl: Duration.seconds(30), beat: Duration.seconds(15) } as const
 
 const _fact = (
@@ -340,7 +340,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
 - Boundary: cross-tab exclusion only — the arbiter scopes to the origin's agent cluster; process-plane coordination is the `kv` row's.
 - Packages: `effect` (`Deferred`, `Effect`, `Layer`), the host `navigator.locks` Web API at the sanctioned FFI seam.
 
-```typescript
+```typescript signature
 const _locks = (): Layer.Layer<Accord> =>
   Layer.succeed(
     Accord,

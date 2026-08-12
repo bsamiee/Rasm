@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `exceljs`
 - package: `exceljs` (MIT)
-- module: CJS default export (`import ExcelJS from "exceljs"`); `Workbook`, `stream.xlsx.WorkbookWriter`/`WorkbookReader`, and the model interfaces are the surface
+- module: CJS, named exports only (`import * as ExcelJS from "exceljs"` — the tree declares no default, so a default import refuses to typecheck); `Workbook`, `stream.xlsx.WorkbookWriter`/`WorkbookReader`, and the model interfaces are the surface
 - runtime: node/bun — the streaming writer/reader, `archiver`, and `readable-stream` bind node, so `work/report` runs exceljs on its node egress lane, never a browser bundle
 - rail: the `.xlsx` workbook-model and egress owner for `work/report`
 
@@ -41,7 +41,7 @@
 - `ConditionalFormattingRule` arms: `cellIs` `colorScale` `iconSet` `dataBar` `top10` `aboveAverage` `containsText` `timePeriod` `expression`.
 - `DataValidation` arms: `list` `whole` `decimal` `date` `textLength` `custom`.
 
-[PUBLIC_TYPE_SCOPE]: the constant-memory streaming options; writer options carry `stream`/`filename`, `useSharedStrings`, `useStyles`, `zip`, and reader options gate `worksheets`/`sharedStrings`/`hyperlinks`/`styles`/`entries` per part as `emit`|`cache`|`ignore`.
+[PUBLIC_TYPE_SCOPE]: the constant-memory streaming options; writer options carry `stream`/`filename`, `useSharedStrings`, `useStyles` (`zip` seats on `WorkbookStreamWriterOptions`, never the base writer options), and reader options gate each part on ITS OWN literal union — `worksheets`/`entries` admit `emit`|`ignore`, `styles` admits `cache`|`ignore`, and only `sharedStrings`/`hyperlinks` admit the full `cache`|`emit`|`ignore` triple — so a uniform per-part triple is a shape the tree refuses.
 
 | [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CAPABILITY]                              |
 | :-----: | :--------------------------------------------------------------- | :------------ | :---------------------------------------- |

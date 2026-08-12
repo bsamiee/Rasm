@@ -93,11 +93,10 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 - Prepared-row worth is the equivalence map, not the resource count: each `lane/capability` and `selfhosted-k8s` concern names one `service.Resource`, and a new capability is one more map row, never a structural change.
 
 [STACKING]:
-- `pulumi-pulumi.md`(`.api/pulumi-pulumi.md`): the `gcp` arm is a `Layer`-composed inline program run by `LocalWorkspace.createOrSelectStack`; realized `Output`s (Cloud SQL host, GKE endpoint, bucket URL) decode through `Schema` into the `RunReceipt` `StackOutputs` record — the `iac`→`work` `ShardingConfig` crossing.
-- `pulumi-pulumi.md`(`.api/pulumi-pulumi.md`): credentials cross resource boundaries only as `pulumi.secret(...)`-marked `Output`s, redacted in state and the run receipt.
-- `pulumi-policy.md`(`.api/pulumi-policy.md`): `validateResourceOfType(gcp.storage.Bucket, …)` / `validateResourceOfType(gcp.sql.DatabaseInstance, …)` narrow the CrossGuard pack against the exact classes exported here, gating every prepared-row run.
-- `pulumiverse-doppler.md`(`.api/pulumiverse-doppler.md`): the SA-key `credentials` value arrives as a Doppler `getSecrets` `Output`, never a literal.
-- `pulumi-kubernetes.md`(`.api/pulumi-kubernetes.md`): the equivalence map mirrors the `selfhosted-k8s` spine (GKE↔`apiextensions`-declared workloads, Cloud SQL↔CNPG `Cluster`), so an app crosses profiles without touching resource code.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the `gcp` arm is a `Layer`-composed inline program run by `LocalWorkspace.createOrSelectStack`; realized `Output`s (Cloud SQL host, GKE endpoint, bucket URL) decode through `Schema` into the `RunReceipt` `StackOutputs` record — the `iac`→`work` `ShardingConfig` crossing — and `ProviderArgs.credentials` crosses that boundary only as a `pulumi.secret(...)`-marked `Output`, redacted in state and in the receipt.
+- `@pulumi/policy`(`.api/pulumi-policy.md`): `validateResourceOfType(gcp.storage.Bucket, …)` / `validateResourceOfType(gcp.sql.DatabaseInstance, …)` narrow the CrossGuard pack against the exact classes exported here, gating every prepared-row run.
+- `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): the SA-key `credentials` value arrives as a Doppler `getSecrets` `Output`, never a literal.
+- `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): the equivalence map mirrors the `selfhosted-k8s` spine (GKE↔`apiextensions`-declared workloads, Cloud SQL↔CNPG `Cluster`), so an app crosses profiles without touching resource code.
 - within-lib: `provider/dispatch` `Match.exhaustive` selects the `gcp` arm on the `StackSpec` `target`, builds `gcp.Provider` from the value, then the equivalence-map resources for the capability profile — adding `gcp` was one dispatch arm + one `provider/surface` column, and finalizing is app data.
 
 [RAIL_LAW]:

@@ -1,33 +1,33 @@
 # [UI_GEO]
 
-The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. One rAF-fed `Clock` owner publishes the viewer stratum's single time coordinate, so every animated row and every renderer's draw cadence read one `{now, delta}` frame. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam — the decoded `Table` doubling as the multi-surface bus the chart owner consumes — tile streaming rides one engine with vector, terrain, 3D-tile, and LAS point-cloud payload rows behind a resilient TTL cache, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, position capability enters through the folder-declared `Position`/`Grant` ports, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON through one bounded op algebra — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. The module is `ui/viewer/src/geo.ts`.
+`Geo` is the one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. One rAF-fed `Clock` owner publishes the viewer stratum's single time coordinate, so every animated row and every renderer's draw cadence read one `{now, delta}` frame. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam — the decoded `Table` doubling as the multi-surface bus the chart owner consumes — tile streaming rides one engine with vector, terrain, 3D-tile, and LAS point-cloud payload rows behind a resilient TTL cache, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, position capability enters through the folder-declared `Position`/`Grant` ports, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON through one bounded op algebra — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. This owner ships as `ui/viewer/src/geo.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[SURFACE]: scoped map + interleaved overlay, relief/sky/globe rows, the closed chrome rail, position ports; `Geo`.
-- [03]-[FRAME_CLOCK]: the one rAF-fed time coordinate, its drive family, the atom bridge; `Clock`.
-- [04]-[CAMERA]: the `Camera.State` vocabulary, the closed intent family, backend adapter rows; `Camera`.
+- [03]-[FRAME_CLOCK]: one rAF-fed time coordinate, its drive family, the atom bridge; `Clock`.
+- [04]-[CAMERA]: `Camera.State` vocabulary, the closed intent family, backend adapter rows; `Camera`.
 - [05]-[PROJECT]: pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds; `Camera`.
-- [06]-[LAYER_ROWS]: the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, clouds, cells, trips, WMS; `Geo`.
+- [06]-[LAYER_ROWS]: atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, clouds, cells, trips, WMS; `Geo`.
 - [07]-[EXTENSION_ROWS]: both injection planes — the `LayerExtension` roster and the screen-space depth pass; `Geo`.
-- [08]-[PLANAR_OPS]: the turf peer algebra — relation, overlay, projection, traversal, measurement, and the CRS admission; `Geo`.
-- [09]-[STYLE_DATA]: the style sub-owner, the source-data sink, the feature-state echo, the glyph registry, DOM pins; `Geo`.
+- [08]-[PLANAR_OPS]: turf peer algebra — relation, overlay, projection, traversal, measurement, and the CRS admission; `Geo`.
+- [09]-[STYLE_DATA]: style sub-owner, the source-data sink, the feature-state echo, the glyph registry, DOM pins; `Geo`.
 
 ## [02]-[SURFACE]
 
 [SURFACE]:
 - Owner: `Geo.surface` — one scoped acquisition: `new MapLibreMap(options)` over the app-provided container, `new MapboxOverlay({ interleaved: true })` added through `map.addControl` (deck registers a `CustomLayerInterface` per layer into the shared context and depth buffer, so 3D deck geometry occludes against basemap layers); release removes the control — deck's full teardown rides the `IControl.onRemove` hook — then `map.remove()`: one context, one camera, one teardown order.
 - Law: relief, sky, and globe are scene-config rows on the one map — a `raster-dem` source through the `addSource` rail feeds `setTerrain({ source, exaggeration })`, `setSky` and `setLight` take `*Specification` data, and `setProjection({ type: "globe" })` swaps the projection without touching a layer; each row is a live re-config, never a map rebuild.
-- Law: chrome is a CLOSED family over one `addControl(control, position)` rail — `Geo.chrome` folds `Chrome.Rail` cases (`Navigate`, `Scale`, `Locate`, `Relief`, `Globe`) into their shipped classes and adds each at its row's `ControlPosition`, exactly as the overlay joins; the arms carry their own construction options because the shipped classes disagree on arity (`NavigationControl`/`ScaleControl` take an optional bag, `GeolocateControl`/`TerrainControl` a required one, `GlobeControl` none), so the discriminant is what keeps the rail uniform. A hand-built DOM widget over a shipped row is the named defect, and the add is `Effect.acquireRelease` because a control outliving its surface's scope holds a DOM node and an event subscription the map's own teardown never reaches.
+- Law: chrome is a CLOSED family over one `addControl(control, position)` rail — `Geo.chrome` folds `Chrome.Rail` cases (`Navigate`, `Scale`, `Locate`, `Relief`, `Globe`) into their shipped classes and adds each at its row's `ControlPosition`, exactly as the overlay joins; the arms carry their own construction options because the shipped classes disagree on arity (`NavigationControl`/`ScaleControl` take an optional bag, `GeolocateControl`/`TerrainControl` a required one, `GlobeControl` none), so the discriminant is what keeps the rail uniform. Hand-building a DOM widget over a shipped row is the named defect, and the add is `Effect.acquireRelease` because a control outliving its surface's scope holds a DOM node and an event subscription the map's own teardown never reaches.
 - Law: `Geo.Fix` carries the WHOLE platform coordinate, never a two-field slice — `lnglat` is the pair the camera vocabulary already speaks, `accuracy` is total, and `altitude`/`altitudeAccuracy`/`heading`/`speed` are `Option` because the platform reports each as absent on a device that cannot measure it, while `at` is the fix instant a survey trace joins on; a port narrower than the satisfying value forces the composition to author the lossy projection, and altitude with heading is exactly what a camera-follow atom folding `Camera.Intent.LookAt` reads.
 - Law: `Grant.query` is generic in the platform's own name axis — `<Name extends PermissionName>` returning the whole status record minus the re-narrowed `name`, so its `state` is the live verdict rather than a flattened literal and a new capability grant (the OPFS residency budget, an AR arm's camera) is a call site instead of a page edit; a hand-listed name union re-narrows what the platform already closes and re-forks on every addition.
 - Law: `Grant.changes` is the port's second modality and revocation is a live fact — the platform status record extends `EventTarget` and fires `change` on the same object `query` returned, so a viewer row gates on the current verdict rather than the one it read at mount; the ui-declared port carries the stream and the substrate satisfies it at the app root by lifting those events, because the platform ships the observable status and the query alone strands every revoke. Only `state` moves on a change, so the stream carries `PermissionState` and takes the name un-parameterized — a type argument the return never mentions is an unwitnessed generic.
 - Law: the grant port's fault channel is `never` by declaration — a refused permission is a `state` value on the record, while the substrate's own refusal reasons name a caller-side or document-state defect no viewer arm can act on, so the composing layer escalates them at the satisfying seam and `E` stays total over actionable faults.
-- Law: clipboard grant custody is NOT here and the name axis never reached it — the platform's `PermissionName` closes at nine members (`camera`, `geolocation`, `microphone`, `midi`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock`, `storage-access`) with no clipboard entry, so a clipboard query cannot type against this port at all; `system/primitive`'s `Clipboard` port owns the affordance, the sanitize gate, its fault, and whatever descriptor widening its own read demands. The generic name axis is exactly as wide as the platform union and never wider, so a grant this port cannot spell is evidence of a second owner rather than a missing arm.
+- Law: clipboard grant custody is NOT here and the name axis never reached it — the platform's `PermissionName` closes at nine members (`camera`, `geolocation`, `microphone`, `midi`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock`, `storage-access`) with no clipboard entry, so a clipboard query cannot type against this port at all; `system/primitive`'s `Clipboard` port owns the affordance, the sanitize gate, its fault, and whatever descriptor widening its own read demands. This port's generic name axis runs exactly as wide as the platform union and never wider, so a grant this port cannot spell is evidence of a second owner rather than a missing arm.
 - Law: events fold into atoms — `map.on(...)` returns `Subscription`s registered as scope finalizers, and each handler body rides `useEffectEvent` where it closes over changing values so the subscription never re-binds per render; React owns only mount/unmount and the imperative map lifecycle never leaks into render. Module-level worker policy (`prewarm`, `addProtocol` for authed tile transport) is app-composition material set before the first `Map`; `transformRequest` routes tile URLs through the app's auth boundary.
 - Growth: a second viewport is a second `surface` call with its own scope; the module never holds a singleton map.
 
-```typescript
+```typescript signature
 import { MapboxOverlay } from "@deck.gl/mapbox"
 import { Fault } from "@rasm/ts/core"
 import { Array, Context, Data, type DateTime, Effect, type Option, Schema, type Scope, type Stream } from "effect"
@@ -175,9 +175,9 @@ const _chrome = (surface: Geo.Surface, rows: ReadonlyArray<Chrome.Row>): Effect.
 - Law: the drive is a closed family, never a boolean — `Run` advances by real elapsed scaled by `rate` (a rate of `0` is not `Hold`: a held clock reports `delta: 0` while a zero-rate run still re-stamps), `Hold` freezes `now` and reports `delta: 0`, `Seek` jumps `now` to a scrub position and reports the signed jump as that frame's `delta` so a mixer lands on the sought pose in one step. `Seek` self-settles: the frame after a seek measures no distance and holds, so resuming is one `Run` write and no arm carries a one-shot flag.
 - Law: the stamp is the platform's own argument — the rAF callback receives its `DOMHighResTimeStamp` and every arm re-stamps the carried state, so no arm reads an ambient clock and the first advance after any drive change measures a real interval rather than the epoch.
 - Law: the frame bridge is freshest-wins — the stamp stream carries one slot under the sliding strategy, because a stalled consumer must never backpressure the browser's own frame callback and a dropped stamp costs a coarser `delta`, never a lost coordinate; frames are published by a scope-forked drain, so the clock never runs an effect from inside a callback.
-- Growth: a new drive temperament (a ping-pong scrub, a fixed-step replay) is one case plus one arm; a new consumer is one read of the published frame, never a second registration.
+- Growth: a new drive temperament (a ping-pong scrub, a fixed-step replay) is one case and one arm; a new consumer is one read of the published frame, never a second registration.
 
-```typescript
+```typescript signature
 import { Data, Effect, Ref, type Scope, Stream, SubscriptionRef } from "effect"
 
 declare namespace Clock {
@@ -258,21 +258,21 @@ const Clock: Clock.Shape = {
 
 [CAMERA]:
 - Owner: `Camera` — the camera vocabulary spanning every backend: `Camera.State` (center `[lng, lat]`, `zoom`, `bearing`, `pitch` — the shape both the maplibre getters and deck's `MapViewState` speak), the intent family `Camera.Intent` as a closed `Data.taggedEnum` (`JumpTo` instant, `EaseTo` animated, `FlyTo` curved, `FitBounds` extent-driven, `LookAt` eye/target — the 3D viewpoint carriage `mark`'s restore mints), and the fold pair: `Camera.drive(map, intent)` dispatches onto the maplibre `Camera` verbs, `Camera.settled(map)` reads the getters into a `State` — the `moveend` subscription writes it to the atom so the store always holds the authority's last settled truth.
-- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, the getters); `@rasm/ts/core` (`Wire.GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
+- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, `LngLat`, the getters); `@rasm/ts/core` (`Wire.GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
 - Boundary: the camera atom rides `system/atom#STORE_ROOT` and the gesture that mints an intent is `system/act#CONTINUOUS_OWNER`'s; this page owns the vocabulary and the folds, never the binding or the recognizer.
 - Law: one authority per surface — under `MapboxOverlay` the map owns pan/zoom/pitch and deck's view state syncs automatically; hand-syncing deck's camera under an overlay is the named defect; a map-less free `Deck` drives `viewState` from the same atom.
 - Law: intents are the only write path — a gesture (`system/act#CONTINUOUS_OWNER`), a viewpoint restore, and a fit-to-selection all mint `Camera.Intent` values on every surface class; nothing calls a map verb outside `Camera.drive`, so camera motion is replayable and undo is `system/atom#HISTORY_FOLD` over the camera atom by construction.
 - Law: the gesture owner is an intent PRODUCER because this page supplies both halves of its read/write pair — the floor's `Gesture.useCanvas` takes `read: () => <the three gesture axes off Camera.settled>` and `emit: (reading) => Camera.gestured({ ...held, ...reading })`, so the recognizer speaks only its own three-axis `Gesture.Reading` while `pitch` and every other geo-owned axis rides through the settled state untouched, and `Camera.gestured` folds the merged `State` into `JumpTo` because a continuous drag or pinch is already at its destination and an eased arm would fight the pointer; the intent family and the camera shape stay this page's, so a gesture, a restore, and a control intent all reach `Camera.drive` through the same closed family and the replay journal cannot tell them apart.
-- Law: intent payloads speak canonical shapes only — `FitBounds` carries the `Wire.GeoFeature.Extent` quadruple, never a maplibre bounds dialect; the maplibre arm alone respells the readonly quadruple into the map's mutable bounds at the drive boundary — the one boundary adaptation this fold carries.
-- Law: `LookAt` grounds on the map through the map's own solve — `calculateCameraOptionsFromTo(eye, eyeAltitude, target, targetAltitude)` derives center, zoom, bearing, AND pitch in the map's camera model, the camera landing at the eye because zoom derives from the eye→target distance against metre altitudes; the arm spreads the solved options into `easeTo`, and a hand tangent-plane fold beside this member is the named reimplementation defect.
+- Law: intent payloads speak canonical shapes only — `FitBounds` carries the `Wire.GeoFeature.Extent` quadruple, never a maplibre bounds dialect; the maplibre arm alone respells the readonly quadruple into the map's mutable bounds at the drive boundary, exactly as the `LookAt` arm mints the `LngLat` pair its own solve declares — those two respellings are the whole boundary adaptation this fold carries.
+- Law: `LookAt` grounds on the map through the map's own solve — `calculateCameraOptionsFromTo(eye, eyeAltitude, target, targetAltitude)` derives center, zoom, bearing, AND pitch in the map's camera model, the camera landing at the eye because zoom derives from the eye→target distance against metre altitudes; the arm spreads the solved options into `easeTo`, and a hand tangent-plane fold beside this member is the named reimplementation defect. The `Map` facade narrows that solve to `LngLat` INSTANCES where the camera class underneath takes `LngLatLike`, so the arm constructs the pair rather than handing the lng/lat prefix of its own eye tuple straight through — a 2-tuple does not type against the declared parameter.
 - Law: backend adapters translate, never own — the three arm folds control state into the atom on the `change` dispatch of the ONE control class the surface earns (`OrbitControls` for object inspection, `ArcballControls` for trackball-precision review, `MapControls` for plan-view pan-first navigation — one row each, `controls.target` follows a `LookAt` so orbit resumes around the looked-at point, position sets from `eye` through `Object3D.lookAt`); the model-viewer arm reads `getCameraOrbit()`/`getCameraTarget()` on `camera-change`, writes `cameraOrbit`/`cameraTarget`, and `jumpCameraToGoal()` settles — the element's own interpolation is respected, never fought per frame. Policy (bounds clamps, zoom limits) lives in the intent fold once, so every backend inherits it; `center` carries scene coordinates on non-geo surfaces under the same `State` shape.
 - Law: the settled state publishes for cross-app taps — the camera atom is the one truth, and a non-atom consumer (a wire egress, a sibling app's probe) observes it through `Atom.toStream(camera)` — never a second `moveend` subscription and never a mirrored cell; per-app soundness holds because each app's registry scopes its own camera stream.
 - Growth: a new motion kind (an orbit-around) is one intent case plus one dispatch arm per backend — consumers break loudly at the missing arm; a new control temperament is one adapter row, never a fourth camera vocabulary.
 
-```typescript
+```typescript signature
 import type { Wire } from "@rasm/ts/core"
 import { Data, pipe } from "effect"
-import type { Map as MapLibreMap } from "maplibre-gl"
+import { LngLat, type Map as MapLibreMap } from "maplibre-gl"
 
 declare namespace Camera {
   type State = {
@@ -308,7 +308,8 @@ const _drive = (map: MapLibreMap, intent: Camera.Intent): void =>
     FitBounds: ({ bounds, padding }) => void map.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], { padding }),
     LookAt: ({ eye, millis, target }) =>
       void map.easeTo({
-        ...map.calculateCameraOptionsFromTo([eye[0], eye[1]], eye[2], [target[0], target[1]], target[2]),
+        // the facade declares this solve over `LngLat` instances, not the `LngLatLike` its camera class takes
+        ...map.calculateCameraOptionsFromTo(new LngLat(eye[0], eye[1]), eye[2], new LngLat(target[0], target[1]), target[2]),
         duration: millis,
       }),
   })
@@ -331,10 +332,10 @@ const _gestured = (state: Camera.State): Camera.Intent => _Intent.JumpTo({ state
 - Law: mercator crossings are turf rows the planar owner holds — `[08]-[PLANAR_OPS]`' projection pair converts whole geometries at the boundary where planar compute meets the geographic camera, and a hand-rolled projection formula anywhere is the named defect.
 - Law: fit intents derive from geometry — `_fitFrom` folds `bbox` into `Camera.Intent.FitBounds` and centroid targets feed `EaseTo`; geometry-to-camera is a fold from decoded features to intent values. Tile-to-extent conversion happens here, never in `core`.
 - Law: the bbox fold reads its own arity — `bbox` returns the 4-tuple or, over altitude-bearing coordinates, the 6-tuple `[west, south, minAltitude, east, north, maxAltitude]`, so the fold selects the horizontal quadruple by length and the wire `Extent` shape survives without a cast; a positional read that assumes four members fits a 3D feature to its altitude band.
-- Law: a geometry-derived fit cannot express an antimeridian crossing — `bbox` is a coordinate extremum, so a feature straddling the seam flattens to a globe-wide box; a crossing survives only where the wire extent is fit material as-is (`west > east`, the wire's own law), and `cameraForBounds` adjusts the east limb by +360 before the camera solve. The two paths therefore stay distinct rows on one intent, never one derivation.
+- Law: a geometry-derived fit cannot express an antimeridian crossing — `bbox` is a coordinate extremum, so a feature straddling the seam flattens to a globe-wide box; a crossing survives only where the wire extent is fit material as-is. The wire `Extent` is an unordered quadruple carrying no `west < east` constraint, so a `west > east` pair reaches the map untouched and the CROSSING READING IS MAPLIBRE'S: `LngLatBounds.adjustAntiMeridian` adds 360 to the east limb inside the `cameraForBounds` every `fitBounds` routes through. The two paths therefore stay distinct rows on one intent, never one derivation.
 - Packages: `@deck.gl/core` (`WebMercatorViewport`); `@turf/turf` (`bbox`, the `AllGeoJSON` input union); `effect` (`pipe`).
 
-```typescript
+```typescript signature
 import { WebMercatorViewport } from "@deck.gl/core"
 import { type AllGeoJSON, bbox } from "@turf/turf"
 
@@ -395,19 +396,21 @@ const Camera: Camera.Shape = {
 - Law: the decoded `Table` is a multi-surface bus — the SAME frame `Geo.decoded` mints feeds the GeoArrow layers here, the pivot engine, and the aligned-series projection at `view/chart#REGIME_LAW`; a second IPC decode of one frame is the named defect.
 - Law: tile streaming is one engine with payload rows — `TileLayer.getTileData({ index, signal })` speaks the wire `Wire.GeoFeature.Tile` coordinate, the fetch rides the app's authed transport honoring the abort signal, and `renderSubLayers` projects each tile into ordinary rows bounded by the tile header's `boundingBox` (a proven `[[west,south],[east,north]]` pair — the marked adapter asserts the tuple); `MVTLayer` is the vector specialization (`binary: true`, cross-tile highlight by `uniqueIdProperty`), `TerrainLayer` reconstructs relief from an `elevationDecoder` row, `Tile3DLayer` streams 3D-tile hierarchies rendering mesh content through `scene#INSTANCED_ROWS`' pair, `PointCloudLayer` renders LAS scans, and `_WMSLayer` binds OGC image services — payload rows on one engine, never a second tiling machine; cache and throttle (`maxCacheByteSize`, `maxRequests`, `refinementStrategy`) are policy values.
 - Law: tile fetches ride a resilient TTL cache above deck's byte cache — `Cache.make({ capacity, timeToLive, lookup })` fronts the authed transport so a pan-return re-renders from the decoded cache instead of re-fetching, retry/backoff policy composes on the lookup rail as one `Schedule` value, and deck's `maxCacheByteSize` remains the GPU-side budget — two caches, two altitudes, one lookup path; cache keys cross as `Data.struct` values so lookup identity is structural — a plain tile literal hashes referentially and turns the cache into a permanent miss.
+- Law: the tile abort RACES the lookup, never threads into it — the load props' `signal` belongs to one viewport's demand for one tile while the cache entry is shared by every caller that keys the same coordinate, so wiring the signal through `lookup` would let an abandoned pan cancel the fetch its neighbours are still awaiting; racing the abort against `cache.get` interrupts only the asking fiber and leaves the entry to complete for whoever else wants it. Dropping the signal entirely is the other defect: a scrolled-away tile then holds a transport slot against `maxRequests` until the network answers.
 - Law: the 3D-tile transport is a closed discriminant, never a knob — `_tiles3d`'s `transport` selects `Tiles3DLoader` for an open tileset href, `CesiumIonLoader` for an Ion asset (whose token rides the loader's OWN `cesium-ion` option bag, the asset identity staying in the href), and the `Tiles3DArchiveFileLoader`-then-`Tiles3DLoader` pair for a `.3tz` archive (the archive loader unwraps one member to bytes at its `3d-tiles-archive` `path` and the tileset loader parses them, so the archive case is two loaders on one row, never a second layer).
 - Law: loaders arrive through the layer's `loaders` prop, never a host registry — `registerLoaders` mutates a process-global roster this library shares with every other owner on the page and ships deprecated in the pinned release, so a reusable surface passes its descriptor list per layer; the deprecated singular `loader` prop is likewise never spelled.
 - Law: the up-axis reconciliation is a LOADER option, not a layer prop — `assetGltfUpAxis` lives inside each loader's own option bag (`3d-tiles` for the open and archive rows, `cesium-ion` for the Ion row) and reaches the layer only through `loadOptions`, its `"z"` value re-basing a Z-up tile payload onto the Y-up frame three samples at the `scene#INSTANCED_ROWS` handoff; the pinned default is `null`, so a row that omits it hands the mesh peer an unrotated payload and every instance lies on its side. The tileset's own `asset.gltfUpAxis` field is decoded evidence, never the input knob.
 - Law: the DGGS cell family is ONE scheme-keyed table — `S2Layer.getS2Token`, `QuadkeyLayer.getQuadkey`, `GeohashLayer.getGeohash`, `A5Layer.getPentagon`, `H3ClusterLayer.getHexagons` specialize one `GeoCellLayer` pattern by index accessor, with `H3HexagonLayer` the high-precision GPU sibling; a new grid is one table row, and the GeoArrow cell mirrors take over when the index column is an Arrow batch.
 - Law: the LAS descriptor is picked by point-record format, never by extension — `LASLoader` is the package's own alias for `LAZPerfLoader`, the sync-capable common path whose header declines LAS 1.4, and `LAZRsLoader` reads the 1.4 extended formats; the grade is therefore a COLUMN on the scan policy rather than a parameter beside it, because the format that picks the descriptor also picks the decimation and precision the same row carries, and a caller holding a policy holds the whole decision.
-- Law: the LAS option bag is four policy rows under one `las` key — `skip` is the LOD decimation the zoom row supplies, `fp64` and `colorDepth` are precision rows, and `workerUrl` resolves through the `Glb.assetDir` roster (`scene#RESIDENCY_GRAFT`) because the shipped default fetches its worker from unpkg and every CSP the estate serves refuses it; an unset `workerUrl` is the named defect, not a default. `las.shape` is never spelled — the descriptor already fixes the output, and the option is inert.
-- Law: the scan's Arrow egress lands the bus frame on the envelope's `data` member — `LASArrowLoader.parse` answers the loaders.gl `ArrowTable` `{ shape: "arrow-table", schema?, data }` whose `data` column IS the `apache-arrow` `Table` (a hard dependency of the schema package, never a structural stand-in), so `_scanned` projects `.data` and joins the `Geo.decoded` bus type with no cast; the loader parses on the main thread (`worker: false`), its spread-inherited `parseSync` is never spelled because it returns the mesh shape its name does not promise, and `LASLoader`'s declared `las.shape: "arrow-table"` option is DEAD in the shipped release — the conversion call is commented out, so the option route silently answers a mesh and is never spelled; `parse` itself takes no option bag — the `las` rows reach it through `load`, never a second argument.
+- Law: the LAS option bag is four policy rows under one `las` key — `skip` is the LOD decimation the zoom row supplies, `fp64` and `colorDepth` are precision rows, and `workerUrl` resolves through the `Glb.assetDir` roster (`scene#RESIDENCY_GRAFT`) because the shipped default fetches its worker from unpkg and every CSP the estate serves refuses it; an unset `workerUrl` is the named defect, not a default. The bag's declared fifth row `shape` is DEAD across every descriptor — the parse body's mesh-to-table conversion is commented out in the shipped source, so each loader answers `LASMesh` unconditionally and a `shape: "arrow-table"` request silently receives a mesh; the row is never spelled, and Arrow egress rides its own loader instead of a knob on this one.
+- Law: the mesh lane and the Arrow lane are DISTINCT loaders, never one call parameterized — `_scan` takes the point-record descriptor, inherits `worker: true` from the shared descriptor so the decode rides the core pool at the roster-served `workerUrl`, and binds `LASMesh` attributes straight to the layer; `_scanned` takes `LASArrowLoader`, which is main-thread only (`worker: false`) and has no worker-side twin, so the bus frame is decoded on the render thread by construction. Its product is the loaders.gl `ArrowTable` `{ shape: "arrow-table", schema?, data }` whose `data` member IS the `apache-arrow` `Table` (a hard dependency of the schema package, never a structural stand-in), so `_scanned` projects `.data` and joins the `Geo.decoded` bus type with no cast.
+- Law: the Arrow lane accepts NO policy — its `parse` drops the options argument and re-enters the common parser with the buffer alone, so decimation and precision decode at the package defaults whatever `load` is handed, and a `Scan.Policy` spread onto that call is the dead-knob defect; a thinned bus frame is therefore a slice of the decoded table, never a loader row. The spread-inherited `parseSync` is likewise never spelled, because it returns the mesh shape its name does not promise.
 - Law: the tile-content vocabulary is a bounded row table, never a render branch this page owns — `TILE3D_TYPE` discriminates a decoded payload across composite, point-cloud, batched, instanced, geometry, vector, and glTF, and each row names which peer surfaces it: the batched and instanced rows hand off at `scene#INSTANCED_ROWS`, the point-cloud row lands on the same binary attribute seam the LAS scan takes, and the composite row is a container whose members re-enter the table. Deck's own traversal picks the sublayer; this table is what `onTileLoad` reads to route evidence and appearance, so a hand-written render switch beside it restates the tileset engine.
 - Law: motion is an animated row reading the ONE clock — `TripsLayer` binds `getTimestamps` against `currentTime` taken from `Clock.Frame.now` (`[03]-[FRAME_CLOCK]`) with `_animate` set on the overlay; `trailLength`/`fadeTrail` are the decay policy, and `scene#INSTANCED_ROWS`' `_animations` reads the same frame — one time coordinate across every animated surface, so a construction-sequence scrub moves trips and mixers together.
 - Law: layer assembly admits through `Planar.admit` (`[08]`) — a `geographic` collection feeds a layer directly, a `projected` one crosses `toWgs84` exactly once at that boundary, and an SRID `Wire.GeoFeature.Crs.of` cannot resolve refuses `crs-unresolved` so the layer renders nothing and the refusal surfaces as evidence; per-feature projection inside an accessor is the named defect because an accessor re-runs the crossing every draw.
 - Growth: a new payload format is one `getTileData`/`renderSubLayers` pair; a new 3D-tile transport is one discriminant case with its loader list; a new grid is one cell-table row; a new mark shape is one accessor sub-group on the owning row.
 
-```typescript
+```typescript signature
 import type { LayersList } from "@deck.gl/core"
 import {
   A5Layer, GeohashLayer, H3ClusterLayer, H3HexagonLayer, MVTLayer, QuadkeyLayer, S2Layer,
@@ -494,6 +497,17 @@ const _tileCache = (
       }).pipe(Effect.retry(policy.retry)),
   })
 
+// the abort leg of the tile lookup: deck fires the load props' signal when the viewport drops a pending tile, and an
+// already-aborted signal never fires again, so the settled case answers before any listener is bound
+const _untilAborted = (signal: AbortSignal): Effect.Effect<never> =>
+  signal.aborted
+    ? Effect.interrupt
+    : Effect.async<never>((resume) => {
+        const stop = (): void => resume(Effect.interrupt)
+        signal.addEventListener("abort", stop, { once: true })
+        return Effect.sync(() => signal.removeEventListener("abort", stop))
+      })
+
 const _rasterTiles = (
   id: string,
   cache: Cache.Cache<Wire.GeoFeature.Tile, ImageBitmap, GeoFault>,
@@ -501,7 +515,12 @@ const _rasterTiles = (
 ): TileLayer<ImageBitmap> =>
   new TileLayer<ImageBitmap>({
     id,
-    getTileData: ({ index }) => run(cache.get(Data.struct({ zoom: index.z, x: index.x, y: index.y }))),
+    getTileData: ({ index, signal }) => {
+      // the abort RACES the shared entry: threading it into `lookup` would cancel the fetch every other caller on this
+      // coordinate is awaiting, so only the asking fiber dies and the cache entry runs on for whoever else wants it
+      const at = Data.struct({ zoom: index.z, x: index.x, y: index.y })
+      return run(signal === undefined ? cache.get(at) : Effect.raceFirst(cache.get(at), _untilAborted(signal)))
+    },
     renderSubLayers: (props) => {
       // BOUNDARY ADAPTER
       const box = props.tile.boundingBox as [[number, number], [number, number]]
@@ -584,7 +603,6 @@ declare namespace Scan {
 const _scanDescriptors = { common: LASLoader, extended: LAZRsLoader } as const satisfies Record<Scan.Grade, Loader>
 
 const _scanOptions = (policy: Scan.Policy) => ({
-  // `shape` is never spelled: the descriptor already fixes the output and the option is inert
   las: { skip: policy.skip, colorDepth: policy.colorDepth, fp64: policy.fp64, workerUrl: policy.workerUrl },
 })
 
@@ -598,8 +616,8 @@ const _scan = (id: string, href: string, policy: Scan.Policy): PointCloudLayer =
     material: true,
   })
 
-// the loaders.gl envelope: `data` IS the apache-arrow `Table` — arrow is a hard dependency of the schema package —
-// and the `shape` discriminant goes unread here because the loader's own `dataType` already fixes it
+// the one-shape envelope: the loader hardcodes its `shape`, so the discriminant is a constant and the projection
+// below is a member read rather than a narrow
 type _ArrowEgress = Awaited<ReturnType<typeof LASArrowLoader.parse>>
 
 // the fused fetch-and-decode call can fail on either truth, so the caught value is triaged rather than assigned one reason:
@@ -610,11 +628,12 @@ const _scanFault: (defect: unknown) => GeoFault = pipe(
   Match.orElse((defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) })),
 )
 
-const _scanned = (href: string, policy: Scan.Policy): Effect.Effect<Table, GeoFault> =>
+const _scanned = (href: string): Effect.Effect<Table, GeoFault> =>
   Effect.map(
     Effect.tryPromise({
-      // the loader's OWN envelope projected at this seam: `parse` takes no option bag, so the las rows ride `load`
-      try: (signal) => load(href, LASArrowLoader, { ..._scanOptions(policy), fetch: { signal } }),
+      // the abort signal is the ONE row that reaches this lane, and it reaches the transport leg alone: core owns the
+      // fetch while the loader owns a decode that reads no option at all
+      try: (signal) => load(href, LASArrowLoader, { fetch: { signal } }),
       catch: _scanFault,
     }),
     (egress: _ArrowEgress) => egress.data,
@@ -664,18 +683,20 @@ const _push = (surface: Geo.Surface, layers: LayersList, effects: _Passes): void
 
 [EXTENSION_ROWS]:
 - Owner: `Geo.extensions` — the per-layer capability roster: one `LayerExtension` instance per GPU capability joins any layer's `extensions` array — `DataFilterExtension` (time-window/range filtering through `filterRange` driven by the atom clock), `BrushingExtension` (`brushingRadius` pointer reveal), `PathStyleExtension` (`getDashArray`/`getOffset` dash and offset), `FillStyleExtension` (`getFillPattern` pattern fill), `CollisionFilterExtension` (label declutter by `getCollisionPriority`), `MaskExtension` (geofence keyed by `maskId` to a layer carrying `operation: "mask"`), `ClipExtension` (`clipBounds` rectangular clip), `_TerrainExtension` (`terrainDrawMode` drape onto the relief surface).
-- Owner: `Geo.depth` — the screen-space half of the same injection concern: a `PostProcessEffect` wraps one shader pass and joins the surface's `effects` array, and eye-dome shading is the row a dense scan earns — a depth-derived darkening at every discontinuity, which is what makes an untextured cloud legible where flat point colour reads as noise.
+- Owner: `Geo.depth` — the screen-space half of the same injection concern: a `PostProcessEffect` wraps one shader pass and joins the surface's `effects` array, and eye-dome shading is the row a dense scan earns — a darkening at every discontinuity in the composited frame, which is what makes an untextured cloud legible where flat point colour reads as noise.
 - Packages: `@deck.gl/extensions` (the full roster); `@deck.gl/core` (`PostProcessEffect`).
 - Law: the two injection planes are disjoint and neither substitutes — a `LayerExtension` injects a shader module INTO one layer's own draw and rides that layer's `extensions` array, while a `PostProcessEffect` runs a full-screen pass over the composited frame and rides the surface's `effects` array; both reach the GPU through the one `setProps` sink, so the sink carries both arrays and a screen-space capability spelled as an extension has no layer to attach to.
 - Law: options versus props is the discriminant — constructor options are static shader-compilation switches set once at construction; the injected props are per-frame runtime values pushed through the same `setProps` sink, and an extension accessor closing over an atom value names its `updateTriggers` key exactly like a layer's own accessor.
 - Law: a cross-layer capability is an extension instance in the array, NEVER a layer subclass or a forked prop; extensions stack — each owns a disjoint shader-module injection.
 - Law: the pass module is viewer-authored and its CONSTRAINT derives from deck — the pinned `@luma.gl/shadertools` ships no post-process pass and `@luma.gl/effects` is unadmitted, so no shipped eye-dome exists to compose; the pass type therefore reads off `PostProcessEffect`'s own constructor rather than a direct luma import, which the deck substrate rule forbids, and the authored module is admitted through exactly the surface deck already publishes.
-- Law: the module lands FOUR members — `name`, `fs`, `uniformTypes`, `passes` — on luma's `ShaderPass` shape: `passes` is the sub-pass array deck's pass builder maps UNGUARDED, so its absence throws at mount, and `uniformTypes` order matches the `layout(std140)` block declaration by the shadertools position contract. Deck SYNTHESIZES `main()` from the sub-pass flag — `filter: true` calls `<name>_filterColor_ext(vec4, vec2, vec2)`, `sampler: true` calls `<name>_sampleColor(sampler2D, vec2, vec2)` — while the declared `action` field goes unread; a module `vs` is ignored because the clip-space model owns the geometry, `texSrc` is template-declared and never redeclared in the module `fs`, runtime props arrive keyed under the module NAME merged over each sub-pass's static `uniforms`, and `screen` is a reserved name the auto-mounted screen-uniforms module already holds.
+- Law: the module lands FOUR members — `name`, `fs`, `uniformTypes`, `passes` — on luma's `ShaderPass` shape, and `name` is the shape's ONE required field doing triple duty: it ids the mounted effect, keys the runtime prop bag, and prefixes the generated function call, so a rename re-keys the props and orphans the GLSL entry in the same stroke. `passes` is declared optional and READ as required — deck's pass builder maps it unguarded, so its absence throws at mount — and `uniformTypes` order matches the `layout(std140)` block declaration by the shadertools position contract. Deck SYNTHESIZES `main()` from the sub-pass flag — `filter` calls `<name>_filterColor_ext(vec4, vec2, vec2)`, `sampler` calls `<name>_sampleColor(sampler2D, vec2, vec2)` — while the declared `action` field goes unread; a module `vs` is ignored because the clip-space model owns the geometry, `texSrc` is template-declared and never redeclared in the module `fs`, and `screen` is a reserved name the auto-mounted screen-uniforms module already holds, supplying `texSize` while `texSrc` binds per frame. Runtime props arrive keyed under the module NAME with each sub-pass's static `uniforms` spread LAST, so a name a sub-pass pins is frozen there and the runtime value for it is silently discarded — a policy field the effect means to drive must not also appear in its own `passes` row.
+- Law: the sub-pass kind is the NEIGHBOUR discriminant — `filter` pre-samples one texel and hands the shader that `vec4` alone, so a ring tap has nothing to reach under it, while `sampler` hands the bound `sampler2D` through; eye-dome measures neighbours, so its row is `sampler` and a `filter` spelling of the same measure is unwritable rather than slower.
+- Law: the sub-pass flags are declared boolean and read as an OVERRIDE — a string in `filter`/`sampler` replaces the generated function name outright, a runtime capability the shipped type never spells; the row keeps the boolean and lets the name derive from `name`, because a string here buys a rename and costs the one convention that keeps module and shader in step.
 - Law: the pass samples the composited COLOUR frame alone — `texSrc` is the template's one bound sampler and no depth attachment reaches a screen pass — so the discontinuity measure is a luminance ring over composited colour, and a depth-buffer EDL is unspellable on this surface rather than a stronger variant this row declined.
 - Law: the sampling ring is a device-pixel distance — the policy carries a CSS-pixel radius and the row scales it by the surface's pixel ratio, because an unscaled radius shades a retina surface at half its intended reach and reads as a weaker effect rather than a wrong one.
 - Growth: a new per-layer capability is one factory row and every layer inherits it by concatenation; a new screen-space pass is one policy shape plus one row on the same sink.
 
-```typescript
+```typescript signature
 import { PostProcessEffect } from "@deck.gl/core"
 import {
   BrushingExtension, ClipExtension, CollisionFilterExtension, DataFilterExtension,
@@ -698,13 +719,13 @@ declare namespace Screen {
   type Depth = { readonly strength: number; readonly radius: number } // eye-dome: shading weight, and the neighbour sampling ring in CSS pixels
 }
 
+// the row's consumed default: a surface taking the standard shading passes its pixel ratio alone
 const _DEPTH: Screen.Depth = { strength: 1.2, radius: 2 }
 
-// the authored pass: the sub-pass is `sampler` because the ring taps its own neighbours, so deck's generated
-// main() calls `eyedome_sampleColor(texSrc, screen.texSize, coordinate)`; the std140 block order IS the
-// uniformTypes order, the shade folds the luminance drop against the brightest ring neighbour — the colour-frame
-// reading of the eye-dome discontinuity, since no depth attachment reaches a screen pass — and `radius` arrives
-// already scaled to device pixels so the shader divides by texSize alone
+// the authored pass, whose generated entry is therefore `eyedome_sampleColor(texSrc, screen.texSize, coordinate)`:
+// the std140 block order IS the uniformTypes order, the shade folds the luminance drop against the brightest ring
+// neighbour — the colour-frame reading of the eye-dome discontinuity, since no depth attachment reaches a screen
+// pass — and `radius` arrives already scaled to device pixels so the shader divides by texSize alone
 const _EYEDOME = {
   name: "eyedome",
   fs: `\
@@ -733,7 +754,7 @@ vec4 eyedome_sampleColor(sampler2D source, vec2 texSize, vec2 texCoord) {
   passes: [{ sampler: true }],
 } as const satisfies Screen.Pass
 
-const _depth = (policy: Screen.Depth, pixelRatio: number): PostProcessEffect<typeof _EYEDOME> =>
+const _depth = (pixelRatio: number, policy: Screen.Depth = _DEPTH): PostProcessEffect<typeof _EYEDOME> =>
   new PostProcessEffect(_EYEDOME, { strength: policy.strength, radius: policy.radius * pixelRatio })
 ```
 
@@ -752,7 +773,7 @@ const _depth = (policy: Screen.Depth, pixelRatio: number): PostProcessEffect<typ
 - Law: `truncate` is the re-encode gate — coordinate precision trims once before a derived feature crosses back to a wire or a source, so a buffer's float tail never inflates a payload nor forks a content key against the same geometry rounded elsewhere.
 - Growth: a new predicate is one row on `relation`, a new overlay arm one row on `overlay`; an op whose signature is genuinely its own joins as an owner member rather than distorting a table's uniform contract.
 
-```typescript
+```typescript signature
 import {
   type AllGeoJSON, area, type AreaUnits, bboxClip, booleanContains, booleanCrosses, booleanDisjoint,
   booleanIntersects, booleanOverlap, booleanTouches, booleanWithin, buffer, centroid, convertArea, convex,
@@ -862,50 +883,71 @@ const _planar: Planar.Shape = {
 
 [STYLE_DATA]:
 - Owner: `Geo.style` — the assembled style sub-owner over the one live map: `layer` adds an `AddLayerObject` at its `beforeId` slot, `paint` and `layout` write one correlated property each, `filter` swaps a `FilterSpecification`, and `data` re-feeds a `GeoJSONSource`. The three property writes stay separate members rather than one input union because the package correlates each name to its own value space (`AllPaintProperties[K]` against `AllLayoutProperties[K]`) and a union payload erases exactly that correlation — the discriminant the entrypoint law asks for does not exist at the value.
-- Packages: `maplibre-gl` (`addLayer`/`setPaintProperty`/`setLayoutProperty`/`setFilter`, the `AddLayerObject`/`FilterSpecification`/`AllPaintProperties`/`AllLayoutProperties`/`StyleImageMetadata` data types, `getSource`, `GeoJSONSource.setData`, `setFeatureState`/`removeFeatureState` with `FeatureIdentifier`, `addImage`/`hasImage`/`loadImage`/`addSprite`, `Marker.setLngLat`/`setPopup`/`addTo`/`remove`, `Popup.setDOMContent`); `effect` (`Array`, `Data`, `Effect`, `Option`, `Scope`); `geojson` (`GeoJSON` — the `setData` payload union).
+- Packages: `maplibre-gl` (`addLayer`/`setPaintProperty`/`setLayoutProperty`/`setFilter`, the `AddLayerObject`/`FilterSpecification`/`AllPaintProperties`/`AllLayoutProperties`/`StyleImageMetadata`/`StyleImageInterface`/`StyleImageWebGLTarget` data types, `getLayer`, `getSource`, `GeoJSONSource.setData`, `setFeatureState`/`removeFeatureState` with `FeatureIdentifier`, `addImage`/`hasImage`/`loadImage`/`addSprite`/`getSprite`, `Marker.setLngLat`/`setPopup`/`addTo`/`remove`, `Popup.setDOMContent`); `effect` (`Array`, `Data`, `Effect`, `Option`, `Scope`); `geojson` (`GeoJSON` — the `setData` payload union).
 - Law: basemap styling is `*Specification` data — `addLayer(AddLayerObject)`, `setPaintProperty`, `setLayoutProperty`, and `setFilter` consume expression data authored as values; style edits are live re-paints, never style-swap rebuilds, and no render code hand-evaluates an expression.
-- Law: a write against a coordinate the live style never declared refuses as `style-unbound` — `getSource` answers `undefined` for an undeclared id and every property write is silently dropped for an unknown layer, so the source sink lifts the miss into the family rather than resolving a promise nothing will settle; the class is `absent`, so a retry against the same style answers identically and the refusal reads as operator evidence.
+- Law: a write against a coordinate the live style never declared refuses as `style-unbound`, and the refusal is the SINK's because the host never raises one — `getSource` answers `undefined` for an undeclared id, an unknown layer id fires an internal error event and drops the property write, and a `beforeId` the order lacks drops the whole `addLayer`; every one of those silences is invisible to the caller, so each layer-addressed member probes `getLayer` before it writes and the miss lifts into the family. The class is `absent`, so a retry against the same style answers identically and the refusal reads as operator evidence.
+- Law: the layer add is IDEMPOTENT on its own id and REFUSING on its slot — a live id means the coordinate already holds, so the add is skipped exactly as the glyph registry skips a registered image, while an unresolvable `beforeId` is a slot the style has no place for and raises; conflating the two would turn a benign re-add into a fault and an unplaceable layer into a silence.
 - Law: hover/select echo is feature-state and its INPUT is `mark`'s own diff — `Geo.echo` takes the `{ entered, left }` pair `mark#ECHO_ROWS`' `Selection.diff` already computes, stamps `setFeatureState(target, { selected: true })` per entered id, and `removeFeatureState(target, "selected")` per left id, so data-driven paint tracks the one selection atom with no source re-add and no second diff; the echo writes exactly the key it removes, because a whole-state clear would drop a hover or a review tint some other row owns.
-- Law: symbol glyphs are registered material and registration is IDEMPOTENT — `Geo.glyphs` folds a closed `Glyph` family (`Image` over a fetched bitmap with its `pixelRatio`/`sdf` metadata, `Sprite` over a published sheet), guards each image on `hasImage` because a repeat `addImage` on a live id is refused upstream, and lifts a `loadImage` rejection as `tile-unreachable` since an unfetchable glyph is transport truth the schedule may re-drive; an inline data-URI glyph beside the registry is the named defect.
+- Law: symbol glyphs are registered material and registration is IDEMPOTENT on every arm — `Geo.glyphs` folds a closed `Glyph` family (`Image` over a fetched bitmap with its `pixelRatio`/`sdf` metadata, `Sprite` over a published sheet, `Drawn` over a GPU routine painting its own atlas slot), guards the two image arms on `hasImage` because a repeat `addImage` on a live id is refused upstream, guards the sheet on `getSprite` because that pair list IS the sprite registry and no `hasSprite` twin exists, and lifts a `loadImage` rejection as `tile-unreachable` since an unfetchable glyph is transport truth the schedule may re-drive; an inline data-URI glyph beside the registry is the named defect.
+- Law: the sheet arm's observable fault is the STYLE, never the fetch — `addSprite` hands its load outcome to a completion callback the map facade discards, so the sheet's transport leg is fire-and-forget and unliftable, while the style-not-yet-loaded refusal throws synchronously; the arm catches that throw as `style-unbound`, giving the sheet the same `absent` rail its image sibling answers on for an undeclared coordinate rather than a silent `void` beside two faulted arms.
+- Law: the `Drawn` arm is pure DATA and its GPU resources are DERIVED, never held — a context loss fires the image's `onRemove` and re-adds the SAME image with no matching `onAdd`, so an arm that captured a program at construction paints with a dead handle for the rest of the session; the descriptor therefore carries a `build` factory beside its `paint` routine, and the family caches the built kit against the live `gl` identity so a fresh context misses, rebuilds, and lets the dead entry collect. The kit's lifetime is its context's: `onRemove` receives no context handle, and holding one to free the kit is exactly the capture this law refuses, so a removed glyph's resources outlive it until the context goes.
+- Law: the slot is FIXED-SIZE once registered — `updateImage` refuses a width or height differing from the live image, so `width`/`height` ride the descriptor and a re-dimensioned glyph is a new id rather than an update; the redraw request is the arm's own probe rather than a flag, because `render` answering `true` is the ONE way an image asks for another paint, and an always-animated ring and a datum-driven wedge answer through that one field.
+- Law: the atlas rectangle is the arm's whole world and the scissor is its own to clear — the host hands the target texture unbound with no vertex array, restores every state it owns afterwards EXCEPT the scissor test, and calls the routine before first use, again on each `true` from the redraw probe, and once per atlas holding a slot this image has never painted, so one change can mean several calls against different targets; pixels are premultiplied and a pixel outside `x`/`y`/`width`/`height` corrupts a neighbouring glyph. Registration stays one call — `addImage` detects the WebGL `data` shape itself, banks a transparent atlas pad beside the live descriptor, and fires whatever `onAdd` the descriptor carries; `updateImage` is the OTHER rail, the one a context restore re-drives every WebGL image through with no `onAdd` behind it, which is exactly why the kit binds against the live `gl` instead of a handle taken at registration. A glyph the style asks for before the registry holds it enters through `setMissingStyleImageResolver`, the one async missing-image door.
 - Law: DOM anchors survive only for HTML-bearing overlays (`mark`'s pins) and the PAIR is one bracket — `Geo.pinned` acquires the `Marker` at its coordinate, binds an `Option`-carried `Popup` through `setPopup` so the marker owns its detail node's lifetime, and removes the marker on release; a popup bracketed apart from its marker outlives the anchor it belongs to, and a pin outliving the surface keeps a detached element and its listeners alive. GPU marks belong to deck rows, and the sanitize gate (`system/primitive#SANITIZE_GATE`) is what any wire-borne popup body crosses before it reaches a node — `setDOMContent` takes the gated node, never a raw HTML string.
 - Growth: a new style write is one member on the same sub-owner; a new glyph shape is one `Glyph` case with its arm; a new echo key is one column on the state record the same pair writes and removes.
 
-```typescript
+```typescript signature
 import { Array, Data, Effect, Option, type Scope } from "effect"
 import type { GeoJSON } from "geojson"
 import { Marker, Popup } from "maplibre-gl"
 import type {
   AddLayerObject, AllLayoutProperties, AllPaintProperties, FeatureIdentifier, FilterSpecification,
-  GeoJSONSource, StyleImageMetadata,
+  GeoJSONSource, StyleImageInterface, StyleImageMetadata, StyleImageWebGLTarget,
 } from "maplibre-gl"
 
 declare namespace Style {
   // the property writes stay three correlated members: `AllPaintProperties[K]` and `AllLayoutProperties[K]` are
   // disjoint key spaces the package correlates per name, so a union payload would erase the very correlation
   type Shape = {
-    readonly layer: (surface: Geo.Surface, layer: AddLayerObject, beforeId?: string) => Effect.Effect<void>
+    readonly layer: (surface: Geo.Surface, layer: AddLayerObject, beforeId?: string) => Effect.Effect<void, GeoFault>
     readonly paint: <K extends keyof AllPaintProperties>(
       surface: Geo.Surface,
       layerId: string,
       name: K,
       value: AllPaintProperties[K],
-    ) => Effect.Effect<void>
+    ) => Effect.Effect<void, GeoFault>
     readonly layout: <K extends keyof AllLayoutProperties>(
       surface: Geo.Surface,
       layerId: string,
       name: K,
       value: AllLayoutProperties[K],
-    ) => Effect.Effect<void>
-    readonly filter: (surface: Geo.Surface, layerId: string, filter: FilterSpecification) => Effect.Effect<void>
+    ) => Effect.Effect<void, GeoFault>
+    readonly filter: (surface: Geo.Surface, layerId: string, filter: FilterSpecification) => Effect.Effect<void, GeoFault>
     readonly data: (surface: Geo.Surface, sourceId: string, payload: GeoJSON) => Effect.Effect<void, GeoFault>
   }
 }
 
+// the probe every layer-addressed write shares: the host drops an unknown-id write behind an internal error event,
+// so the coordinate is proven here or the family carries the refusal — nothing downstream can observe the silence
+const _bound = (surface: Geo.Surface, layerId: string): Effect.Effect<void, GeoFault> =>
+  surface.map.getLayer(layerId) === undefined
+    ? Effect.fail(new GeoFault({ reason: "style-unbound", detail: `<layer:${layerId}>` }))
+    : Effect.void
+
 const _style: Style.Shape = {
-  layer: (surface, layer, beforeId) => Effect.sync(() => void surface.map.addLayer(layer, beforeId)),
-  paint: (surface, layerId, name, value) => Effect.sync(() => void surface.map.setPaintProperty(layerId, name, value)),
-  layout: (surface, layerId, name, value) => Effect.sync(() => void surface.map.setLayoutProperty(layerId, name, value)),
-  filter: (surface, layerId, filter) => Effect.sync(() => void surface.map.setFilter(layerId, filter)),
+  layer: (surface, layer, beforeId) =>
+    surface.map.getLayer(layer.id) !== undefined
+      ? Effect.void // the coordinate already holds: a re-add is the registry's own idempotence, never a fault
+      : Effect.zipRight(
+          Option.match(Option.fromNullable(beforeId), { onNone: () => Effect.void, onSome: (before) => _bound(surface, before) }),
+          Effect.sync(() => void surface.map.addLayer(layer, beforeId)),
+        ),
+  paint: (surface, layerId, name, value) =>
+    Effect.zipRight(_bound(surface, layerId), Effect.sync(() => void surface.map.setPaintProperty(layerId, name, value))),
+  layout: (surface, layerId, name, value) =>
+    Effect.zipRight(_bound(surface, layerId), Effect.sync(() => void surface.map.setLayoutProperty(layerId, name, value))),
+  filter: (surface, layerId, filter) =>
+    Effect.zipRight(_bound(surface, layerId), Effect.sync(() => void surface.map.setFilter(layerId, filter))),
   data: (surface, sourceId, payload) =>
     // the undeclared source is the one refusal this sink can raise: `getSource` answers undefined and there is no
     // promise to await, so the miss lifts here rather than resolving into a write the style silently dropped
@@ -935,13 +977,58 @@ const _echo = (
   })
 
 declare namespace Glyph {
+  // the per-context resources a drawing glyph binds: the family rebuilds them against whatever `gl` arrives and hands
+  // them to the paint routine, so no arm ever captures a handle a context loss silently invalidates
+  type Kit = {
+    readonly program: WebGLProgram
+    readonly array: WebGLVertexArrayObject
+    readonly frame: WebGLFramebuffer
+  }
   type Row = Data.TaggedEnum<{
     Image: { readonly id: string; readonly href: string; readonly pixelRatio: number; readonly sdf: boolean }
     Sprite: { readonly id: string; readonly href: string }
+    Drawn: {
+      readonly id: string
+      readonly width: number // the slot dimensions are FINAL: `updateImage` refuses a resize, so a re-dimensioned glyph is a new id
+      readonly height: number
+      readonly pixelRatio: number
+      readonly build: (gl: WebGL2RenderingContext) => Glyph.Kit
+      readonly paint: (target: StyleImageWebGLTarget, kit: Glyph.Kit) => void
+      readonly changed: () => boolean // the redraw probe: an always-animated ring answers `true`, a datum-driven wedge answers off its own datum
+    }
   }>
 }
 
 const _Glyph = Data.taggedEnum<Glyph.Row>()
+
+// the GPU arm rendered as pure data: the descriptor survives a context loss and the kit does not, so the build is
+// lazy against the live `gl` and the dead context's entry collects with the context that keyed it
+const _drawing = (row: Data.TaggedEnum.Value<Glyph.Row, "Drawn">): StyleImageInterface => {
+  const kits = new WeakMap<WebGL2RenderingContext, Glyph.Kit>()
+  return {
+    width: row.width,
+    height: row.height,
+    data: {
+      renderWithWebGL: (target) => {
+        // BOUNDARY ADAPTER — the atlas slot is the only rectangle this image owns: the texture arrives unbound with no
+        // vertex array, and the scissor test is the one state the host never restores, so the carve is cleared here
+        const gl = target.gl
+        const kit = kits.get(gl) ?? row.build(gl)
+        kits.set(gl, kit)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, kit.frame)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0)
+        gl.viewport(target.x, target.y, target.width, target.height)
+        gl.scissor(target.x, target.y, target.width, target.height)
+        gl.enable(gl.SCISSOR_TEST)
+        gl.useProgram(kit.program)
+        gl.bindVertexArray(kit.array)
+        row.paint(target, kit) // premultiplied alpha inside the carve alone: a pixel beyond it corrupts a neighbour
+        gl.disable(gl.SCISSOR_TEST)
+      },
+    },
+    render: row.changed,
+  }
+}
 
 const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFault> =>
   _Glyph.$match(row, {
@@ -959,7 +1046,22 @@ const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFa
               Effect.sync(() =>
                 void surface.map.addImage(id, response.data, { pixelRatio, sdf } satisfies Partial<StyleImageMetadata>)),
           ),
-    Sprite: ({ href, id }) => Effect.sync(() => void surface.map.addSprite(id, href)),
+    Sprite: ({ href, id }) =>
+      Effect.try({
+        // BOUNDARY ADAPTER — the pair list IS the sprite registry, and the guarded write is one host unit because the
+        // sheet's own fetch answers a callback the facade discards; the style-not-loaded refusal is what throws
+        try: () => {
+          if (Array.some(surface.map.getSprite(), (sheet) => sheet.id === id)) return
+          surface.map.addSprite(id, href)
+        },
+        catch: (defect) => new GeoFault({ reason: "style-unbound", detail: `<sprite:${id}> ${String(defect)}` }),
+      }),
+    // one call registers it: the host routes a GPU-backed image straight through its own update rail
+    Drawn: (drawn) =>
+      surface.map.hasImage(drawn.id)
+        ? Effect.void
+        : Effect.sync(() =>
+            void surface.map.addImage(drawn.id, _drawing(drawn), { pixelRatio: drawn.pixelRatio } satisfies Partial<StyleImageMetadata>)),
   })
 
 const _glyphs = (surface: Geo.Surface, rows: ReadonlyArray<Glyph.Row>): Effect.Effect<void, GeoFault> =>
@@ -985,7 +1087,7 @@ const _pinned = (
   )
 ```
 
-```typescript
+```typescript signature
 declare namespace Geo {
   type Shape = {
     readonly surface: typeof _surface
@@ -1062,5 +1164,4 @@ export { Camera, Clock, Geo, GeoFault, Grant, Position, PositionFault }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[LAS_ARROW_EGRESS]-[OPEN]: does the loaders.gl `ArrowTable` that `LASArrowLoader.parse` answers carry the `apache-arrow` `Table` on a member the bus can take, and under which key; read `@loaders.gl/schema`'s table-category declarations in the pinned tree.
-[EYE_DOME_PASS]-[OPEN]: which `ShaderModule` fields a viewer-authored eye-dome `ShaderPass` fills for `PostProcessEffect` to mount it; read `@luma.gl/shadertools`' shader-module declaration in the pinned tree.
+(none)

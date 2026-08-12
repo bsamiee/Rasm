@@ -163,7 +163,7 @@ TOOLS: tuple[Tool, ...] = (
         stage=Stage(project=True),
     ),
     # --- [TYPESCRIPT]
-    Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
+    Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
     Tool(
         "biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true", "--colors=off", "--reporter=json"), NONE, TS, Claim.STATIC, parser=Parser.BIOME
     ),

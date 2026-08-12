@@ -20,6 +20,7 @@
 |  [02]   | `KV`                     | kv surface    | the one revision-state surface; write mode is a member selection, never a wrapper       |
 |  [03]   | `KvEntry`                | entry fact    | the versioned read/watch unit; `.string()`/`.json()` decode helpers; fields keyed below |
 |  [04]   | `QueuedIterator<string>` | key census    | from `keys`; lifted through `Stream.fromAsyncIterable` like every NATS iterator         |
+|  [05]   | `KvWatchEntry` + `KvWatchInclude` | watch fact | the watch unit widens `KvEntry` with `isUpdate` (replay-versus-live discrimination), and `include` (`LastValue`/`AllHistory`/`UpdatesOnly`) selects the replay preamble a `watch` opens with |
 
 - [03]-[KVENTRY]: `bucket`, `key`, `value: Uint8Array`, `created`, `revision`, `delta?`, `operation: "PUT" \| "DEL" \| "PURGE"`.
 

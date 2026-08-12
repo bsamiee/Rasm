@@ -642,10 +642,11 @@ const _settled = (receipt: Receipt) =>
 - Law: quota precedes transmission — `Throttle.spend` runs before the wire and its exceeded posture is the durable delay, so a tenant's burst paces the drain inside the lease width instead of converting into provider-side rejections; a lease that expires mid-delay redelivers, attempts already incremented, and a quota-store fault (`RateLimiterError`) defers `unavailable`.
 - Law: pacing composes the mail pool — the mail lane row reads `Mailer.idle` per claim and defers while the pool reports no capacity, so mail never queues inside the transport and webhook claims drain regardless of pool state.
 - Law: the wake source is data-owned — the drain subscribes the journal's wake stream through the scope port; a poll loop or a second LISTEN binding here is unspellable.
+- Law: the claim rides the MAINTENANCE plane — one relay drains every tenant of an app, so `Journal.claimBatch` composes `Tenancy.sweep` per `queue#LANE_POLICY`'s posture law: unpinned it claims zero rows under FORCE RLS and each pass reports a healthy empty cycle over an aging backlog, and a `Tenant.within`-opened pass claims one tenant exclusively while every other tenant's deliverables lapse behind re-leased claims; the sweep transaction closes at the claim statement, so the settle fold, the transmits, and the meter fold all run outside it.
 - Law: the pass budget grades on `Journal.retryable`, never on the class default — every fault the pass raises is a store fault the journal already projects onto the shared class table, so a connection blip re-drives inside the tick and an undecodable claim batch refuses; accepting the property grader parks the whole shard's outbox on the first blip while the compiled budget records nothing.
 - Receipt: each pass folds `Lane.settle`'s verdict roster into one `deliver.drained` meter fact — claims, settled, deferred, parked — and marks the settled count onto the `Pulse` throughput counter in the same fold, so the OTel series and the journal fact cannot disagree on a pass.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
+- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`, `Tenancy`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
 // one interior field schema every list key composes: the bare URL and the annotated arm are one decoded shape,
@@ -821,11 +822,13 @@ const _drain = <R>(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const mailer = yield* Mailer
-    const claims = yield* Journal.claimBatch(sql, {
+    // Claims widen to the app's whole estate only under the stated plane pin; the sweep transaction closes here,
+    // so the lease predicate — not a held lock — guards the claims while the lanes transmit.
+    const claims = yield* Tenancy.sweep(sql)(Journal.claimBatch(sql, {
       app,
       take: WorkClass.bulk.concurrency * 4,
       leaseSeconds: Duration.toSeconds(Fault.Budget.at("bulk").attempt),
-    })
+    }))
     // Claimed rows own their announcement and this pass consumes it: each row projects under the drain's live
     // context, so a delivered body is the fact the journal recorded rather than a lane's re-derivation from its own
     // payload column, and a row that will not project parks as its own claim rather than failing the pass. The claim

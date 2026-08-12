@@ -206,21 +206,23 @@ class Nats extends Tier {
 - Law: Barman plugin rows own WAL archiving, scheduled backup, full recovery, and PITR against one typed `ObjectStore` resource.
 - Law: `Postgres.Recovery` admits empty or archive bootstrap; `RecoveryPoint` closes latest, time, LSN, XID, named, and immediate targets.
 - Archive recovery names a distinct source server; `_cluster` folds image, preload, slots, roles, backup, and recovery into every cluster.
-- Law: every instance carries its scheduling envelope — `spec.resources` reads the profile's own `data.requests`/`data.limits` pair, since a cluster CR stating neither runs BestEffort and makes the one workload holding durable state the first eviction candidate under node pressure; the quantity grammar is the spec's brand, so a malformed envelope fails at decode rather than at the operator.
+- Law: every instance carries its scheduling envelope — `spec.resources` is `core/v1` `ResourceRequirements` verbatim, the `requests`/`limits` quantity maps beside the `claims` list, and it reads the profile's own `data.requests`/`data.limits` pair, since a cluster CR stating neither runs BestEffort and makes the one workload holding durable state the first eviction candidate under node pressure; the stamp is PER-CONTAINER and the CR carries no pod-level seat at all — the operator copies that one envelope onto the `postgres` container, the `bootstrap-controller` init container, every primary Job it constructs (initdb, import, base-backup, full-recovery, join, snapshot-recovery), and the major-upgrade `prepare` container, so the pod's effective request stays the envelope rather than a multiple of it because the init container runs to completion before the postmaster starts, and the Guaranteed class the postmaster's OOM adjustment rides is earned only where requests equal limits on both axes. Quantity grammar rides the spec's brand, so a malformed envelope fails at decode rather than at the operator.
 - Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin and the floor is a lower bound the startup capability probe alone enforces, because CNPG's extension `version` field demands an exact match and a floor fed to it refuses every image shipping a newer build; an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed, `excludesSharding` bars a sharding engine from the same image, and `preload` marks the `shared_preload_libraries` demand.
 - Law: preload derives from the matrix flag — `_preload` filters the granted rows on the `preload` flag and stamps the cluster's `shared_preload_libraries` list, so the next preload-demanding extension lands as a data-matrix flag with zero code edit here; `pgaudit` is CNPG-managed — the operator injects its preload automatically — so no hand list exists and an unloaded preload cannot pass the startup probe.
 - Law: `admit` is the one entry — the extension matrix, the pooling axis, and every realized scope's recovery source prove on the typed `DataRefused` rail before a chart is declared, each fault naming its axis; a refused spec never half-constructs a tier and construction-time refusal has no spelling left on this page.
-- Law: the pooler mode is the spec's pooling axis, not a tier literal — `spec.profile.data.pooling` drives `pgbouncer.poolMode`, `pooling` publishes the realized mode on the tier and the `data` output plane, and each target exposes the operator-maintained direct host so convergence runners hold a session the pooler mode never truncates.
+- Law: the pooler mode is the spec's pooling axis, not a tier literal — `_POOLING` resolves `spec.profile.data.pooling` to the operator spelling `pgbouncer.poolMode` admits, `pooling` publishes that resolved mode on the tier and the `data` output plane, and each target exposes the operator-maintained direct host so convergence runners hold a session the pooler mode never truncates.
+- Law: the operator admits fewer modes than the bouncer does — the `Pooler` CRD closes `poolMode` on `session | transaction`, so `statement` is a PgBouncer posture with no CNPG spelling and the pooling axis refuses it here rather than letting the API server reject a CR the tier already declared; the same table prices the voided primitives, so one row states both what a mode costs and whether this operator can run it at all.
+- Law: the pooler is sized from the profile like the cluster above it — `data.pool` carries the replica count, the scheduling envelope, and the two connection ceilings (`max_client_conn`, `default_pool_size`) the bouncer meters clients and server sessions by, so `spec.instances` reads a profile column rather than a tier literal and the CRD's own default of ONE never decides a pool's width. Both ceilings ride `pgbouncer.parameters`, a `map[string]string` the admission webhook proves key-by-key against its own allowlist and rejects unlisted as `Invalid or reserved parameter` — so a ceiling is a string literal and a mistyped knob dies at the API server rather than inside a bouncer that already accepted the pod. Sizing lands on the one container entry named `pgbouncer`, which the operator merges BY NAME — patching image, command, ports, env, and probes while writing `resources` nowhere — so that entry is the only seat reaching the process, and `template.spec.containers` is mandatory the moment a template appears at all. `template.spec.resources` beside it is the alpha pod-level `PodLevelResources` field the operator reads to size the bootstrap init container alone, so a row stating only that leaves the bouncer BestEffort in front of a Guaranteed database.
 - Law: the credentials are ours, not the operator's, and they key by scope — `_custody` mints one `kubernetes.io/basic-auth` triple (`admin`, `app`, `analyst`) and one barman `ObjectStore` per realized cluster out of the caller's `auth(scope)` mint, the cluster's `superuserSecret`/`enableSuperuserAccess` rows pointing at that scope's admin and its two `managed.roles` rows at the others; a shared superuser secret or a shared WAL destination across dedicated clusters returns exactly the blast radius the dedicated tier buys, so the archive prefix carries the scope.
-- Law: dependent-CR cluster references are create-only and explicitly named — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs, the generators treat them as create-time constants, and re-pointing one is a new resource by construction; the `Cluster` CR states its `metadata.name` because a nameless metadata autonames under the provider, every literal `cluster.name` reference then dangles, and the cluster name is the `-rw` service-DNS root — referenced CRs and autonaming never mix.
+- Law: dependent-CR cluster references are create-only and explicitly named — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs, the generators treat them as create-time constants, and re-pointing one is a new resource by construction; the `Cluster` CR states its `metadata.name` because a nameless metadata autonames under the provider, every literal `cluster.name` reference then dangles, and the cluster name is the `-rw` service-DNS root — referenced CRs and autonaming never mix. Poolers carry a second name law beside that one: a pooler's own `metadata.name` may never equal a cluster name in the namespace, which the `-pool` suffix satisfies by construction.
 - Entry: `Postgres.admit("data", { spec, namespace, image, operatorVersion, barmanVersion, objects, auth, recovery, keyring? }, opts)` inside the k8s arm; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`, `postgres.pooling`.
 - Growth: a new operator fact is one typed CR row; a recovery criterion is one `RecoveryPoint` case; a new refusal axis is one `DataRefused` literal with its proof in `admit`; logical replication is `[5]`'s static pair.
 - Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s; the per-scope credential mint is the composing arm's `auth` callback.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/ts/data` (`Pg`); `effect` (`Array`, `Data`, `Effect`, `Record`).
+- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/ts/data` (`Pg`); `effect` (`Array`, `Data`, `Effect`, `Match`, `Option`).
 
 ```typescript signature
 import { Pg } from "@rasm/ts/data"
-import { Array, Data, Effect, Match, Option, Record } from "effect"
+import { Array, Data, Effect, Match, Option } from "effect"
 import * as cnpg from "../crds/cnpg"
 
 // --- [ERRORS] ----------------------------------------------------------------------------
@@ -237,6 +239,9 @@ const _preload = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArr
   )
 
 declare namespace Postgres {
+  // The operator's own enum, not the bouncer's: `statement` has no seat here, so the resolved mode is what
+  // the tier publishes and the runtime capability rail reads back.
+  type PoolMode = "session" | "transaction"
   type RecoveryBound = {
     readonly backup: Option.Option<string>
     readonly exclusive: boolean
@@ -279,13 +284,21 @@ declare namespace Postgres {
 
 const _BARMAN_PLUGIN = "barman-cloud.cloudnative-pg.io"
 
-// PgBouncer's mode decides which server-side state survives a client's next statement, so the mode
-// is a capability input: every primitive a row names dies under that mode across the pooled bind.
-const _VOIDS = {
-  session: [],
-  transaction: ["advisory", "channel"],
-  statement: ["advisory", "channel", "skipLocked"],
-} as const satisfies Record.ReadonlyRecord<StackSpec.Pooling, ReadonlyArray<Pg.Primitive>>
+// PgBouncer's mode decides which server-side state survives a client's next statement, so the mode is a
+// capability input: every primitive a row names dies under that mode across the pooled bind. `spelling` is
+// the operator's half of the same fact — the `Pooler` CRD's `poolMode` enum admits `session` and
+// `transaction` alone, so the bouncer's third posture resolves to nothing and admission refuses it on this
+// one table rather than in a second place that could disagree with it.
+const _POOLING: {
+  readonly [K in StackSpec.Pooling]: {
+    readonly spelling: Option.Option<Postgres.PoolMode>
+    readonly voids: ReadonlyArray<Pg.Primitive>
+  }
+} = {
+  session: { spelling: Option.some("session"), voids: [] },
+  transaction: { spelling: Option.some("transaction"), voids: ["advisory", "channel"] },
+  statement: { spelling: Option.none(), voids: ["advisory", "channel", "skipLocked"] },
+}
 
 // `_scopes` enumerates every cluster the data-tier escalation realizes, so recovery proves against
 // that whole set and never the primary alone.
@@ -544,13 +557,37 @@ class Postgres extends Tier {
     const custody = _custody(name, args, this.role, analystRole, this.child({ dependsOn: [barman] }))
     const cluster = _cluster(name, { args, granted, custody, role: this.role, analystRole },
       this.child({ dependsOn: [operator, custody.archive] }))
+    const pooled = args.spec.profile.data.pool
+    // Suffixing with `-pool` is load-bearing: the operator refuses a Pooler whose own name matches any
+    // cluster name in the namespace, and this tier declares both halves of that collision.
     const pool = new cnpg.postgresql.v1.Pooler(`${name}-pool`, {
       metadata: { namespace: args.namespace },
       spec: {
         cluster: { name },
-        instances: 2,
+        instances: pooled.instances,
         type: "rw",
-        pgbouncer: { poolMode: this.pooling },
+        pgbouncer: {
+          poolMode: this.pooling,
+          // `parameters` types as `map[string]string`, so a ceiling is a STRING — and the admission webhook
+          // proves every key against its own allowlist, rejecting an unlisted one as `Invalid or reserved
+          // parameter`. Both spellings here sit on that list, so the profile's ceilings are the ones that run.
+          parameters: {
+            "max_client_conn": `${pooled.clients}`,
+            "default_pool_size": `${pooled.sessions}`,
+          },
+        },
+        // CNPG merges this template by container NAME: it patches image, command, ports, env, and probes
+        // onto the entry named `pgbouncer` and writes `resources` on it NOWHERE, so this is the only seat
+        // reaching the bouncer. Pod-level `spec.resources` beside it sizes the bootstrap init container
+        // alone. `containers` is mandatory the moment a template exists — `[]` is the empty form.
+        template: {
+          spec: {
+            containers: [{
+              name: "pgbouncer",
+              resources: { requests: pooled.requests, limits: pooled.limits },
+            }],
+          },
+        },
       },
     }, this.child({ dependsOn: [cluster] }))
     const direct = pulumi.all([cluster.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}-rw.${namespace}.svc`)
@@ -747,5 +784,4 @@ export { DataRefused, Nats, ObjectStore, Postgres }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[CLUSTER_RESOURCES]-[OPEN]: does the committed `crds/cnpg` module spell `postgresql.v1.Cluster` `spec.resources` as the `core/v1` requests-and-limits quantity pair rather than a CNPG-local shape, and does the operator apply it to the instance container alone or to the whole pod; verification route: the generated `../crds/cnpg` `ClusterSpecArgs.resources` declaration regenerated from the operator's own CRD at the pinned version.
-[POOLER_SIZING]-[OPEN]: does `postgresql.v1.Pooler` carry `spec.instances` beside a `spec.template` resource envelope and a `spec.pgbouncer.parameters` map, so the pooler's replica count and connection ceilings become profile columns rather than the literal two this tier states; verification route: the generated `PoolerSpecArgs` chain at the pinned operator version.
+(none)

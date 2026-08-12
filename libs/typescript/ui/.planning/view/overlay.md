@@ -1,13 +1,13 @@
 # [UI_OVERLAY]
 
-Overlay owns anchored floats, drag-dismissable sheets, command palettes, and presence cursors. Floating-ui positions anchors, vaul owns sheets, cmdk owns palette filtering, and RAC owns standard aria overlays. React-aria props and floating refs merge only where semantics meet geometry; each surface keeps one positioner and one focus owner. Module: `ui/src/view/overlay.ts`.
+Overlay owns anchored floats, drag-dismissable sheets, the one command vocabulary its palette and its pointer-invoked surfaces both read, and presence cursors. Floating-ui positions anchors, vaul owns sheets, cmdk owns palette filtering, react-stately holds the invocation point, and RAC owns standard aria overlays. React-aria props and floating refs merge only where semantics meet geometry; each surface keeps one positioner and one focus owner. Module: `ui/src/view/overlay.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[ANCHOR_HOST]: the floating-anchor hook stack, middleware pipeline, dismiss policy, arrow, delay group; `Overlay`.
-- [03]-[SHEET_HOST]: the vaul sheet rows — detent policy, drag discipline, nesting; `Overlay`.
-- [04]-[PALETTE]: the `Overlay.Command` vocabulary, the cmdk hosting-shell law, the copy rail; `Overlay`.
-- [05]-[PRESENCE_COHORT]: live presence cursors — client-point and world-projected anchoring; —.
+- [02]-[ANCHOR_HOST]: Overlay stacks the floating-anchor hooks — middleware pipeline, dismiss policy, arrow, delay group; `Overlay`.
+- [03]-[SHEET_HOST]: Overlay hosts the vaul sheet rows — detent policy, drag discipline, nesting; `Overlay`.
+- [04]-[PALETTE]: Overlay owns the `Overlay.Command` vocabulary — scope, keymap census, hosting shells, the copy rail; `Overlay`.
+- [05]-[PRESENCE_COHORT]: live presence cursors — the roster projection, client-point and virtual-point anchoring; `Overlay`.
 
 ## [02]-[ANCHOR_HOST]
 
@@ -21,7 +21,7 @@ Overlay owns anchored floats, drag-dismissable sheets, command palettes, and pre
 - Law: the `size.apply` style write is floating-ui's platform-forced statement seam — the middleware hands a live element and the write is the documented application; the kernel carries the exemption.
 - Growth: a new anchored surface is one hook composition over the same pipeline; a new middleware concern is one pipeline row; a new dismiss behavior is one reason row — never a second positioner.
 
-```typescript
+```typescript signature
 import { arrow, autoUpdate, flip, offset, shift, size } from "@floating-ui/react"
 import type { OpenChangeReason, Placement, VirtualElement } from "@floating-ui/react"
 import { Effect, Option } from "effect"
@@ -95,7 +95,7 @@ const _middleware = (options: Overlay.Anchor) => [
 - Law: `dismissible: false` demands the controlled `open` this fold already supplies — an uncontrolled undismissible sheet traps itself open, so the two facts travel as one record.
 - Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Overlay.sheet` call — the detent policy row never forks.
 
-```typescript
+```typescript signature
 import type { ComponentProps } from "react"
 import { Drawer } from "vaul"
 
@@ -130,7 +130,7 @@ const _sheet = (
     handleOnly: true,
     ...(nesting === "flat" && { modal: true }), // a nested sheet inherits its parent's modality; only the flat arm states one
   },
-  content: { "aria-describedby": undefined }, // the Description part carries the description; the auto-wired id would name a node this fold never mounts
+  content: {}, // Title and Description always mount, so Radix's own aria-labelledby/describedby wiring names live nodes and nothing here overrides it
   handle: { preventCycle: true }, // the handle drags; detent cycling stays the atom's write
 })
 ```
@@ -138,104 +138,279 @@ const _sheet = (
 ## [04]-[PALETTE]
 
 [PALETTE]:
-- Owner: the palette law riding `Overlay` — the `Overlay.Command` vocabulary: one `as const satisfies Record<string, Overlay.Command>` table where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), and `run` (the intent write — an atom setter or callable atom the app wires); the palette renders the table through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
-- Packages: `cmdk` (`Command` compound, `CommandDialog`, `Command.Loading`, `useCommandState`, `defaultFilter`); `lucide-react` (`LucideIcon` — icon-as-identity); `system/intl` (labels, `useFilter` pre-normalization where locale-sensitive); `system/primitive` (`Clipboard` — the copy rail); `@tanstack/react-virtual` + `@floating-ui/react` `inner`/`useInnerOffset` (the virtualized lane).
-- Law: hosting picks exactly one shell, and `Overlay.hosts` is the row table that makes the choice checkable — each row names which package owns the portal and which owns the focus trap, so `modal` takes `CommandDialog` (cmdk's own Radix portal and trap), `sheet` takes a BARE `Command` inside `Drawer.Content` (vaul owns both), and `anchored` takes a bare `Command` inside `FloatingFocusManager` (floating-ui owns position, portal, and trap). Two focus traps on one surface is the named defect the `trap` column exists to expose, `CommandDialog` inside either non-modal host is that defect spelled twice, and `useListNavigation`/`useTypeahead` never stack over a cmdk list.
+- Owner: the command law riding `Overlay` — the `Overlay.Command` vocabulary: one table admitted through `Overlay.commands`, where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), `scope` (which surface the row answers on), `binding` (its canonical chord, or `null` where the row carries no key), and `run` (the intent Effect a boundary adapter hands the app runtime); the global subset renders through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
+- Packages: `cmdk` (`Command` compound, `CommandDialog`, `Command.Loading`, `useCommandState`, `defaultFilter`); `lucide-react` (`LucideIcon` — icon-as-identity); `react-aria` (`KeyboardShortcutBindings` — the record `system/act#DISCRETE_ROWS` feeds `useKeyboard`); `react-stately` (`MenuTriggerType`'s `contextMenu` arm, `OverlayTriggerState.point`/`setPoint`); `react-aria-components` (`MenuTrigger` — the aria-menu arm); `system/intl` (labels, `useFilter` pre-normalization where locale-sensitive); `system/primitive` (`Clipboard` — the copy rail); `@tanstack/react-virtual` + `@floating-ui/react` `inner`/`useInnerOffset` (the virtualized lane).
+- Law: ONE vocabulary, two readers — `scope` admits a row into a surface, so viewer marks, review rows, and tree nodes each reach their own subset through `Overlay.scoped` while the palette narrows to `global`; a second command table beside this one is the fork the column exists to foreclose, and a new surface class is one vocabulary member rather than a new record.
+- Law: pointer invocation SELECTS, then opens — the scoped surface establishes its own selection before the float mounts, so `run` stays a nullary intent reading that surface's selection atom and no row carries a subject; a `run` taking the invoked mark, row, or node forks the vocabulary once per scope.
+- Law: `run` is an Effect, never a thunk — the copy rail composes the `Clipboard` Tag from `system/primitive#CLIPBOARD_PORT` through the requirement channel and the row handles its own refusal into a toast note, so a row is total (`Effect<void, never, R>`) by the time it enters the table; cmdk's `onSelect` and the shortcut action are the two boundary adapters that hand it to the app runtime, and a `navigator.clipboard` read or a bare thunk in a spec row is the named defect.
+- Law: the positional surface is the anchored HOST carrying a point reference, never a fourth host row — `Overlay.hosts.anchored.anchor` is `reference`, and a reference is a trigger element OR a `VirtualElement` — `Overlay.virtual(rect)` wraps any live rect and `Overlay.point(x, y)` is its zero-size instance, which `autoUpdate` tracks like any anchor; an aria MENU of scoped rows instead rides RAC `MenuTrigger` at `trigger: "contextMenu"`, where RAC pins `offset: 0` and `usePopover` derives the same zero-size rect from `state.point`, and one surface takes exactly one of the two positioners.
+- Law: the invocation point converts ONCE, and here — `useContextMenu` answers `x`/`y` RELATIVE TO THE TARGET (`system/act#DISCRETE_ROWS` owns the gesture) while `OverlayTriggerState.point` is viewport-relative by definition, so the fold is `rect = target.getBoundingClientRect()` then `setPoint({ x: rect.x + e.x, y: rect.y + e.y })`, and a raw `ContextMenuEvent` coordinate reaching a positioner lands the float off by the target's origin. This page writes the point shape structurally and never imports it — react-stately exports no type for it, and its barrel `Point` is the virtualizer's geometry class.
+- Law: a chord is declared once and read twice — the `binding` column is the canonical shortcut string, projected by `Overlay.bindings` into the `shortcuts: KeyboardShortcutBindings` record `useKeyboard` matches and by `Overlay.chord` into the display tokens the row renders beside its label; `Mod` is the mandated spelling so one table serves Apple and non-Apple, and this page mints no platform probe — which expansion the DISPLAY shows arrives as the projection's `mod` value while the census runs both.
+- Law: the parse is this page's because the shipped one is private — `createKeyboardShortcutHandler` and its parse/canonicalize helpers are internal, `useKeyboard({ shortcuts })` being the one consumption path, so display and census re-derive the same canonical form: modifier tokens are case-insensitive and order-free, the recognized set is `Alt`/`Control`/`Meta`/`Shift`/`Mod` — a `Ctrl` spelling is NOT among them, the parser drops it into the key slot and the modifier vanishes, which `Overlay.Chord` refuses at the declaration — and the canonical form orders Alt, Control, Meta, Shift ahead of the lowercased, alias-folded key.
+- Law: `Overlay.commands` is the construction gate and its refusal carries evidence — two rows normalizing to one canonical form make the shipped matcher hand the key to whichever entry came LATER, a silent shadow no type sees, so the census refuses the whole table with the colliding form and the rows that produced it; it runs both `Mod` expansions apart, because a pair colliding only under Cmd still shadows on every Apple host, and a user-rebound key is one written value on the row re-entering this same gate.
+- Law: bindings ARM AT MOUNT of their scope surface — the global subset arms on the palette's document-level bundle and a scoped subset arms with its owner's mount, so an unmounted scope answers no key and dispatch always leaves through the one table; a surface binding a key handler beside the record re-opens the shadow the census closes.
+- Law: hosting picks exactly one shell, and `Overlay.hosts` is the row table that makes the choice checkable — each row names which package owns the portal, which owns the focus trap, and what the shell anchors against, all three closed unions so a mismatched pairing fails at the declaration rather than in review: `modal` takes `CommandDialog` (cmdk's own Radix portal and trap, viewport-centred), `sheet` takes a BARE `Command` inside `Drawer.Content` (vaul owns both, edge-docked), and `anchored` takes a bare `Command` inside `FloatingFocusManager` (floating-ui owns position, portal, and trap). Two focus traps on one surface is the named defect the `trap` column exists to expose, `CommandDialog` inside either non-modal host is that defect spelled twice, and `useListNavigation`/`useTypeahead` never stack over a cmdk list.
 - Law: a result set past the DOM budget virtualizes — the anchored combobox lane windows pre-filtered rows through `useVirtualizer` with `useListNavigation({ virtual: true })` keeping focus on the input (`scrollToIndex` reveals the active row), and `inner`/`useInnerOffset` anchor the tall scrollable list at the active item; cmdk's own list serves below the budget — one lane per palette, chosen by row count.
 - Law: item `value` is the stable spec key, never the visible label — filtering and selection survive label localization; `keywords` carry the localized aliases.
 - Law: async command sources set `shouldFilter={false}` and render pre-filtered rows from an atom (`Atom.debounce`d query, `Result`-folded, `Command.Loading` on the `waiting` arm) — the machine keeps keyboard/selection, the store owns matching.
-- Law: copy-shaped commands ride the port — a `run` that yields text (a share link, an id, an evidence row) composes the `Clipboard` Tag from `system/primitive#CLIPBOARD_PORT` and lands its refusal as a toast note; `navigator.clipboard` in a spec row is the named defect.
 - Law: palette motion is `Motion.palette` through the entering/exiting variants — or, where the palette morphs into its result surface, the `Motion` physical plane's `layoutId` morph; one owner per surface, never both.
-- Growth: a new command is one spec row; a new palette surface is one hosting-shell choice — the table never forks.
+- Growth: a new command is one spec row; a new scope is one vocabulary member its surface reads through the same selector; a new palette surface is one hosting-shell choice — the table never forks.
 
-```typescript
+```typescript signature
 import { Command, CommandDialog, defaultFilter, useCommandState } from "cmdk"
-import { Array, Record } from "effect"
+import { Array, Either, Option, Record, Schema, type Effect } from "effect"
 import type { LucideIcon } from "lucide-react"
 import type { ComponentProps } from "react"
+import type { KeyboardShortcutBindings } from "react-aria"
 
 const _hosts = {
-  modal: { shell: CommandDialog, portal: "cmdk", trap: "cmdk" },
-  sheet: { shell: Command, portal: "vaul", trap: "vaul" },
-  anchored: { shell: Command, portal: "floating-ui", trap: "floating-ui" },
+  modal: { shell: CommandDialog, portal: "cmdk", trap: "cmdk", anchor: "viewport" },
+  sheet: { shell: Command, portal: "vaul", trap: "vaul", anchor: "edge" },
+  anchored: { shell: Command, portal: "floating-ui", trap: "floating-ui", anchor: "reference" },
 } as const
 
+// which surface a row answers on: the palette reads `global`, a positional float reads its own member
+const _scopes = ["global", "mark", "node", "row"] as const
+
+// _ORDER, _MODIFIERS, and _ALIASES restate the shipped matcher's sort order, modifier tokens, and key aliases; `ctrl` is absent
+// from the token table on purpose — that spelling parses as a KEY and its modifier silently disappears
+const _ORDER = ["Alt", "Control", "Meta", "Shift"] as const
+
+const _MODIFIERS: Record.ReadonlyRecord<string, (typeof _ORDER)[number]> = {
+  alt: "Alt",
+  control: "Control",
+  meta: "Meta",
+  shift: "Shift",
+}
+
+const _ALIASES: Record.ReadonlyRecord<string, string> = {
+  del: "delete",
+  down: "arrowdown",
+  esc: "escape",
+  ins: "insert",
+  left: "arrowleft",
+  pagedown: "pagedown",
+  pageup: "pageup",
+  right: "arrowright",
+  space: " ",
+  up: "arrowup",
+}
+
+class CommandFault extends Schema.TaggedError<CommandFault>()("CommandFault", {
+  reason: Schema.Literal("chord", "clash"),
+  chord: Schema.String,
+  rows: Schema.Array(Schema.String),
+}) {
+  override get message(): string {
+    return `<command:${this.reason}:${this.chord}>`
+  }
+}
+
 declare namespace Overlay {
-  type Command = {
+  type Modifier = "alt" | "control" | "meta" | "mod" | "shift"
+  // a literal binding validates where it is written: every `+`-separated head is a recognized
+  // modifier and the tail is a real key, so a chord whose modifier the shipped parser would swallow never reaches a row
+  type Chord<S> = S extends string
+    ? S extends `${infer Head}+${infer Rest}`
+      ? Lowercase<Head> extends Overlay.Modifier ? ([Overlay.Chord<Rest>] extends [never] ? never : S) : never
+      : Lowercase<S> extends Overlay.Modifier | "" ? never : S
+    : S
+  type Scope = (typeof _scopes)[number]
+  type Owner = "cmdk" | "floating-ui" | "vaul"
+  type Command<R = never> = {
     readonly icon: LucideIcon
     readonly label: string // a system/intl catalog key: the scorer reads its RESOLVED text through keywords, never this key
     readonly keywords: ReadonlyArray<string>
-    readonly run: () => void
+    readonly scope: Overlay.Scope
+    readonly binding: string | null
+    readonly run: Effect.Effect<void, never, R> // total by construction: the row folds its own refusal into a note
   }
   type Host = keyof typeof _hosts
-  type HostRow = { readonly shell: typeof Command | typeof CommandDialog; readonly portal: string; readonly trap: string }
+  type HostRow = {
+    readonly shell: typeof Command | typeof CommandDialog
+    readonly portal: Overlay.Owner
+    readonly trap: Overlay.Owner
+    readonly anchor: "edge" | "reference" | "viewport"
+  }
+  type Entry = {
+    readonly item: ComponentProps<typeof Command.Item>
+    readonly chord: ReadonlyArray<string> // display tokens beside the label; empty where the row carries no key
+  }
   type Palette = {
     readonly root: ComponentProps<typeof Command>
-    readonly items: ReadonlyArray<ComponentProps<typeof Command.Item>>
+    readonly entries: ReadonlyArray<Overlay.Entry>
+  }
+  type Projection<R> = {
+    readonly table: Record.ReadonlyRecord<string, Overlay.Command<R>>
+    readonly resolve: (label: string) => string
+    readonly mod: "Control" | "Meta" // the host's `Mod` expansion for DISPLAY only; matching resolves inside useKeyboard
+    readonly fork: (run: Effect.Effect<void, never, R>) => void
+    readonly remote: boolean
   }
   type _Rows<T extends Record.ReadonlyRecord<Overlay.Host, Overlay.HostRow> = typeof _hosts> = T // row guard: a host missing its ownership columns fails at the declaration
 }
 
-const _palette = (
-  table: Record.ReadonlyRecord<string, Overlay.Command>,
-  resolve: (label: string) => string,
-  remote: boolean,
-): Overlay.Palette => ({
+const _chord = (binding: string, mod: "Control" | "Meta"): Option.Option<ReadonlyArray<string>> => {
+  const parts = Array.map(binding.split("+"), (part) => part.toLowerCase())
+  const held = Array.filterMap(parts, (part) => (part === "mod" ? Option.some(mod) : Record.get(_MODIFIERS, part)))
+  // every non-modifier token overwrites the shipped parser's key slot, so the LAST one is the chord's key
+  return Option.map(
+    Array.findLast(parts, (part) => part !== "mod" && !Record.has(_MODIFIERS, part)),
+    (key) =>
+      Array.append(
+        Array.filter(_ORDER, (name) => Array.contains(held, name)),
+        Option.getOrElse(Record.get(_ALIASES, key), () => key),
+      ),
+  )
+}
+
+const _canonical = (binding: string, mod: "Control" | "Meta"): string =>
+  Option.match(_chord(binding, mod), { onNone: () => binding, onSome: Array.join("+") })
+
+const _commands = <R, const T extends Record.ReadonlyRecord<string, Overlay.Command<R>>>(
+  table: T & { readonly [K in keyof T]: { readonly binding: Overlay.Chord<T[K]["binding"]> } },
+): Either.Either<T, CommandFault> => {
+  const bound = Array.filterMap(Record.toEntries(table), ([key, row]) =>
+    row.binding === null ? Option.none() : Option.some([key, row.binding] as const))
+  const malformed = Array.findFirst(bound, ([, chord]) => Option.isNone(_chord(chord, "Meta")))
+  // _commands censuses the two expansions APART: grouping them together reads one `Mod` row as its own rival
+  const collided = Array.findFirst(
+    Array.flatMap(["Control", "Meta"] as const, (mod) =>
+      Record.toEntries(Array.groupBy(bound, ([, chord]) => _canonical(chord, mod)))),
+    ([, rows]) => rows.length > 1,
+  )
+  return Option.match(
+    Option.orElse(
+      Option.map(malformed, ([key, chord]) => new CommandFault({ reason: "chord", chord, rows: [key] })),
+      () =>
+        Option.map(collided, ([chord, rows]) =>
+          new CommandFault({ reason: "clash", chord, rows: Array.map(rows, ([key]) => key) })),
+    ),
+    { onNone: () => Either.right(table), onSome: Either.left },
+  )
+}
+
+const _scoped = <R>(
+  table: Record.ReadonlyRecord<string, Overlay.Command<R>>,
+  scope: Overlay.Scope,
+): Record.ReadonlyRecord<string, Overlay.Command<R>> => Record.filter(table, (row) => row.scope === scope)
+
+const _bindings = <R>(
+  table: Record.ReadonlyRecord<string, Overlay.Command<R>>,
+  fork: (run: Effect.Effect<void, never, R>) => void,
+): KeyboardShortcutBindings =>
+  // an action returning nothing counts as HANDLED — the matcher preventDefaults and stops propagation,
+  // which is exactly the command semantics; a row wanting the key to travel on returns `false` instead
+  Record.fromEntries(Array.filterMap(Record.toEntries(table), ([, row]) =>
+    row.binding === null ? Option.none() : Option.some([row.binding, () => fork(row.run)] as const)))
+
+const _virtual = (rect: () => DOMRect): VirtualElement => ({ getBoundingClientRect: rect })
+
+// _point mints the zero-size rect the RAC arm derives from `state.point` through usePopover's own getTargetRect
+const _point = (x: number, y: number): VirtualElement => _virtual(() => new DOMRect(x, y, 0, 0))
+
+const _palette = <R>(projection: Overlay.Projection<R>): Overlay.Palette => ({
   // an async source hands the store the matching and renders pre-filtered rows; the local table keeps cmdk's scorer
-  root: { shouldFilter: !remote, loop: true, filter: defaultFilter },
-  items: Array.map(Record.toEntries(table), ([key, row]) => ({
-    value: key, // the stable spec key: filtering and selection survive label localization
-    keywords: [resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
-    onSelect: row.run,
+  root: { shouldFilter: !projection.remote, loop: true, filter: defaultFilter },
+  entries: Array.map(Record.toEntries(_scoped(projection.table, "global")), ([key, row]) => ({
+    item: {
+      value: key, // the stable spec key: filtering and selection survive label localization
+      keywords: [projection.resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
+      onSelect: () => projection.fork(row.run),
+    },
+    chord: row.binding === null ? [] : Option.getOrElse(_chord(row.binding, projection.mod), () => []),
   })),
 })
 
-const _matched = (): number => useCommandState((state) => state.filtered.count) // the count and empty rows read the store, so the list never re-renders to report its own size
+// rules-of-hooks reads the NAME, so the `use` prefix is load-bearing: this member holds a cmdk store subscription
+const _useMatched = (): number => useCommandState((state) => state.filtered.count) // the count and empty rows read the store, so the list never re-renders to report its own size
 ```
 
 ## [05]-[PRESENCE_COHORT]
 
 [PRESENCE_COHORT]:
-- Owner: the presence-cohort law riding `Overlay` — the collaborative-cursor cohort: the live roster (`Presence.roster` entering as an atom through `system/atom#LIVE_BRIDGE`) renders one cursor row per actor; the LOCAL pointer's own affordance (a cursor-attached label, a drag ghost) anchors through `useClientPoint(context)` — the shipped cursor-follow anchor, never a hand-built rect wrapper — while REMOTE actors anchor by `Overlay.virtual` wrapping each actor's world coordinate projected through the owning surface's projection (the viewer projection seam for map surfaces, plain viewport coordinates elsewhere); cursors mount in one `FloatingPortal` at the `Theme.Scale.z` cursor rank, motion rides `Motion.panel`, and idle actors age out by the roster's own lease verdicts — never a local timer per cursor.
-- Packages: `@floating-ui/react` (`useClientPoint`, `VirtualElement`, `FloatingPortal`); `@rasm/ts/core` (`Presence` — roster shape and lease law arrive settled).
-- Law: presence is render-only — cursors never intercept pointer events (`pointer-events: none` in the recipe) and carry no focus semantics; the cohort is a projection of state, not an interaction surface.
-- Law: per-actor identity is keyed by `Presence.Actor`; label/color derive from the actor's face metadata through the theme ramp — no per-actor style state in the component.
-- Boundary: the roster fold, lease policy, and status verdicts live in the core presence plane; the projection function arrives as a parameter so the cohort is surface-agnostic.
+- Owner: `Overlay.cursors(seen, horizon, lease, project)` — the collaborative-cursor projection: the presence fold table (per-actor `Presence.State`, entering the view plane as an atom through `system/atom#LIVE_BRIDGE`) folds against `Presence.roster`'s lease verdicts into one anchored row per SIGHTED actor — the actor's `cursor` axis mapped through the caller's projection and wrapped by `Overlay.point`, the worn `face` carrying name and hue, the `idle` flag carrying the dimming a recipe styles; a `gone` verdict and an actor whose cursor axis never arrived both leave the projection entirely, so ageing is the roster's lease and never a local timer per cursor.
+- Packages: `@floating-ui/react` (`useClientPoint`, `FloatingPortal`); `@rasm/ts/core` (`Presence` — the roster read, the lease law, and the `cursor`/`face` axes arrive settled; `Clock.Hlc` and `Fold.Table` type the horizon and the table); `effect` (`Array`, `HashMap`, `Option`).
+- Law: the LOCAL pointer never enters this projection — its own affordance (a cursor-attached label, a drag ghost) anchors through `useClientPoint(context)`, the shipped cursor-follow anchor, while every REMOTE actor anchors by point; a hand-built rect wrapper on either side restates one of the two.
+- Law: coordinates arrive projected — `project` maps a `Presence.Point` (tagged `Sheet` or `Scene`, each carrying its own surface id) into viewport coordinates, so a map surface's viewer projection and a plain sheet feed the same cohort and this page holds no coordinate math and no surface branch.
+- Law: presence is render-only — cursors mount in one `FloatingPortal` at the `Theme.Scale.z` cursor rank with `Motion.panel` on the row, never intercept pointer events (`pointer-events: none` in the recipe), and carry no focus semantics; the cohort is a projection of state, not an interaction surface.
+- Law: identity is the whole `Presence.Key` — tenant scope beside actor, because an actor id alone collides across tenants on a shared surface; name and hue derive from the worn `face` profile through the theme ramp, so no per-actor style state lives in the component.
+- Boundary: the roster fold, lease policy, and status verdicts live in the core presence plane; the horizon reads the one frame clock through the same bridge, and the projection arrives as a parameter so the cohort is surface-agnostic.
 
-```typescript
-const _virtual = (rect: () => DOMRect): VirtualElement => ({ getBoundingClientRect: rect })
+```typescript signature
+import { Presence, type Clock, type Fold } from "@rasm/ts/core"
+import { Array, HashMap, Option } from "effect"
 
 declare namespace Overlay {
+  type Cursor = {
+    readonly key: Presence.Key
+    readonly face: Option.Option<Presence.Profile>
+    readonly anchor: VirtualElement
+    readonly idle: boolean
+  }
   type Shape = {
+    readonly bindings: typeof _bindings
+    readonly chord: typeof _chord
+    readonly commands: typeof _commands
+    readonly cursors: typeof _cursors
     readonly dismiss: typeof _dismiss
     readonly hook: typeof _presentHook
     readonly hosts: typeof _hosts
-    readonly matched: typeof _matched
     readonly middleware: typeof _middleware
     readonly palette: typeof _palette
+    readonly point: typeof _point
     readonly present: typeof _present
     readonly roots: typeof _roots
+    readonly scoped: typeof _scoped
     readonly sheet: typeof _sheet
+    readonly useMatched: typeof _useMatched
     readonly virtual: typeof _virtual
   }
 }
 
+const _cursors = (
+  seen: Fold.Table<Presence.Key, Presence.State>,
+  horizon: Clock.Hlc,
+  lease: Presence.Lease,
+  project: (point: Presence.Point) => readonly [number, number],
+): ReadonlyArray<Overlay.Cursor> =>
+  Array.filterMap(HashMap.toEntries(Presence.roster(seen, horizon, lease)), ([key, status]) =>
+    status === "gone"
+      ? Option.none()
+      : Option.flatMap(HashMap.get(seen, key), (state) =>
+        // cursor-axis presence marks an actor SIGHTED here; a live actor who has never moved renders nothing
+        Option.map(state.cursor, (worn) => {
+          const [x, y] = project(worn.value)
+          return {
+            key,
+            face: Option.map(state.face, (face) => face.value),
+            anchor: _point(x, y),
+            idle: status === "idle",
+          }
+        })))
+
 const Overlay: Overlay.Shape = {
+  bindings: _bindings,
+  chord: _chord,
+  commands: _commands,
+  cursors: _cursors,
   dismiss: _dismiss,
   hook: _presentHook,
   hosts: _hosts,
-  matched: _matched,
   middleware: _middleware,
   palette: _palette,
+  point: _point,
   present: _present,
   roots: _roots,
+  scoped: _scoped,
   sheet: _sheet,
+  useMatched: _useMatched,
   virtual: _virtual,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Overlay }
+export { CommandFault, Overlay }
 ```
 
 ## [06]-[RESEARCH]
