@@ -248,7 +248,7 @@ dependencies = [
     # --- [PLOTTING_VIZ]
     "altair",
     "great-tables",                                       # [ARTIFACTS]: publication-quality display tables
-    "lets-plot; python_version<'3.15'",                   # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf; wheels cap at cp314 and the project ships no sdist
+    "lets-plot; python_version<'3.15'",                   # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf; wheels cap at cp314, the project ships no sdist, and no nixpkgs distribution exists, so reach waits on an upstream floor wheel or a floor move
     "matplotlib",                                         # [ARTIFACTS]: plotting
     "pyvista; python_version<'3.15'",                     # [ARTIFACTS]: 3D scientific visualization; pure-Python itself, the marker holds it beside its vtk engine, and `pyvista` imports live from the Forge python-overlay `.pth`
     "vegafusion",                                         # [ARTIFACTS]: server-side Vega transform and pre-transform export
@@ -284,14 +284,13 @@ dependencies = [
     "av",                                                 # [ARTIFACTS]: PyAV video/audio mux and encode
     "imagecodecs",                                        # [ARTIFACTS]: native codec substrate — EXR, rgbe, 16-bit PNG, float TIFF, JXL, AVIF, WebP, lcms2 ICC, BCn/DDS decode, meshopt
     "openexr",                                            # [ARTIFACTS]: named-channel, multi-part, and tiled EXR documents the flat imagecodecs EXR leg cannot address
-    "PhotoshopAPI; python_version<'3.15'",                # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
     "pillow",                                             # [ARTIFACTS_GEOMETRY]: image IO; WebP plane decode for the SOG gaussian-splat container
     "psd-tools",                                          # [ARTIFACTS]: PSD read/inspect plus pixel author
     "psdtags",                                            # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
     "pyktx",                                              # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
     "pysubs2",                                            # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
     "pyvips",                                             # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
-    "scikit-image; python_version<'3.15'",                # [ARTIFACTS]: image processing; pythran lowers through gast 0.6.0, which breaks on the 3.15 AST, and meson exposes no pythran toggle
+    "scikit-image",                                       # [ARTIFACTS]: image processing; sdist builds at the floor under the pythran dependency-metadata gast override below
     "simpleidml",                                         # [ARTIFACTS]: IDML package mutation and composition
     "tifffile",                                           # [ARTIFACTS]: TIFF container IO and extratag authoring
     # --- [TYPOGRAPHY_COLOR]
@@ -364,7 +363,6 @@ dev = [
     "sqlfluff",                     # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
-    "types-defusedxml",
     "types-geopandas",
     "types-grpcio",
     "types-grpcio-health-checking",
@@ -406,6 +404,15 @@ name = "colour-cxf"
 version = "0.1.1"
 requires-python = ">=3.10"
 requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"]
+
+# pythran 0.18.1 pins gast~=0.6.0, whose 3.15 AST shim raises on the required node fields CPython 3.15 introduced; gast 0.7.0 fixes it and beniget 0.4.2.post1
+# admits gast>=0.5.0, so only the pythran pin blocks the scikit-image pythran targets (both compile clean under gast 0.7.0, probed live). The override rewrites
+# that one pin for the build-env resolution; it is version-pinned, so a pythran release past 0.18.1 resolves natively and retires this block on its own bump.
+[[tool.uv.dependency-metadata]]
+name = "pythran"
+version = "0.18.1"
+requires-python = ">=3.7"
+requires-dist = ["ply>=3.4", "setuptools", "gast~=0.7.0", "numpy", "beniget~=0.4.0"]
 
 # colour-science 0.4.7 declares Requires-Python <3.15. PEP 440 sorts 3.15.0b3 below 3.15.0, so the cap is inert on the current Forge interpreter and bites the
 # instant that interpreter reaches a final 3.15.x: corrected static metadata drops the cap ahead of the flake bump and mirrors the real dependency set whole.
@@ -873,6 +880,9 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+# Roster bans the EAGER module-level form alone; the module-scope `lazy` proxy is the admitted deferral
+# (libs/python/.planning/RULINGS.md [04]). ruff 0.16 TID253 reads `lazy import X` identically to `import X`
+# (probed at py315), so realization gates the lazy form per-file until the rule learns the difference.
 banned-module-level-imports = [
     "adbc_driver_flightsql",
     "adbc_driver_snowflake",
