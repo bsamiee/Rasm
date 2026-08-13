@@ -862,7 +862,8 @@ public static class Cameras {
         key.AcceptValidated<UnitInterval>(candidate: double.Clamp(
             sample.Switch(
                 easedCase: static frame => (double)frame.Value,
-                sprungCase: static frame => frame.State.Position),
+                sprungCase: static frame => frame.State.Position,
+                glidedCase: static frame => (double)frame.Value),
             0.0,
             1.0));
 

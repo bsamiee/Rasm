@@ -28,7 +28,7 @@ using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Undo;
-using Rasm.Csp;
+using Rasm.Domain;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -222,7 +222,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.Undo;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 

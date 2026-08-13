@@ -24,7 +24,7 @@ A rebuild composes law legislated elsewhere: ring-metric mathematics is `Spatial
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Globalization;
-using Rasm.Csp;
+using Rasm.Domain;
 using LanguageExt;
 using Rasm.Domain;
 using Rhino.Geometry;
@@ -234,7 +234,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Rasm.Csp;
+using Rasm.Domain;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Processing;

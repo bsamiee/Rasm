@@ -13,13 +13,14 @@ Compute wraps `EncodedGeometry.Payload` and its descriptors as an `EncodedTensor
 
 - Owner: `PackKind` binds each representation to its active `EncodingChannel` set, each channel composing its live kernel reader as the sole owner of its curvature, geodesic, normal, or UV field through a `[UseDelegateFromConstructor]` `Read` column no channel can omit. `ChannelDtype` owns the quantization seam — width, tolerance, the `Complex` pairing column, and the bulk pack/unpack arms — as the ONE storage-type roster the `Rasm.Element` raster sample vocabulary and the `Rasm.Materials` plane depth vocabulary seat onto; every channel writes into one descriptor-tiled byte arena carrying its round-trip proof. `Uv` stays `Float32` by law — the surface parameter domain is unbounded and a normalized dtype clamps silently while passing its own witness — and it reads the per-corner UV column the `Meshing/edit` arena publishes through its `ToSpace` freeze, so a textured `MeshPatch` travels as one payload.
 - Cases: `ToolpathSpan` splits `Line` and `Arc`, the arc retaining its analytic centre and sense; the voxel sweep addresses through the `Numerics/atoms` `CellLattice`; `GaussianSplat` packs per-point scale, rotation, and SH-coefficient blocks over the SAME witness and schema identity; every `PackKind` shares one `Apply`, one `Read` column, and one witness fold.
-- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on the `Fin` rail and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[])> lanes, Op?)` is its raw-lane modality — the interchange seam's mint for a decode already holding per-lane floats, running the SAME reserve/pack/witness tail with the digest rooted on the packed payload. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `EncodingFault` 2444 routes a reader bind failure, an extent-versus-arity disagreement, or an unpack breaching `Dtype.Tolerance`; `DegenerateInput` 2400 routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
+- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on the `Fin` rail and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[])> lanes, Op?)` is its raw-lane modality — the interchange seam's mint for a decode already holding per-lane floats, running the SAME reserve/pack/witness tail with the digest rooted on the packed payload, so its witness stamps `DigestRoot.Payload` where `Apply` stamps `DigestRoot.Source`. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `EncodingFault` 2444 routes a reader bind failure, a doubled raw-lane channel, an extent-versus-arity disagreement, or an unpack breaching `Dtype.Tolerance`; `DegenerateInput` 2400 routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
 - Auto: `SourceDigest` projects a `ToolpathPath` through a canonical vertex stream, so reconciliation observes every analytic distinction rather than sampled chords.
-- Receipt: `EncodedGeometry` is the `IValidityEvidence` carrier; its claim set rejects any descriptor set that gaps, overlaps, or carries a non-finite witness error, so a hand-assembled carrier fails the acceptance oracle. `View<T>` dispatches on the `Dtype` row, answering the empty view for an absent channel or a width-mismatched `T`. Structural equality is Generator.Equals-generated with `Payload` excluded: `Witness.ContentHash` already keys the packed content, and an `ImmutableArray<byte>` carrier swap would re-type the public residency seam every wrapper composes.
+- Receipt: `EncodedGeometry` is the `IValidityEvidence` carrier; its claim set rejects any descriptor set that gaps, overlaps, or carries a non-finite witness error, so a hand-assembled carrier fails the acceptance oracle. `View<T>` dispatches on the `Dtype` row, answering the empty view for an absent channel or a width-mismatched `T`. Structural equality is Generator.Equals-generated with `Payload` excluded: `Witness.ContentHash` keys the content under its `Witness.Root` provenance, and an `ImmutableArray<byte>` carrier swap re-types the public residency seam every wrapper composes.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`, and BCL inbox.
 - Growth: a new modality is one `PackKind` row and one `PackOp` case; a new feature is one `EncodingChannel` row with its `Read` column; a new quantization is one `ChannelDtype` row over the SAME witness; a per-instance block descriptor is one column on `EncodingChannelDescriptor`. Zero new surface.
 - Law: `EncodingLaws` is the tier-2 law matrix — descriptor tiling, per-channel recovery within `Dtype.Tolerance`, active-set equality against `PackKind.Channels`, and schema-id agreement between kind declaration and packed instance.
-- Boundary: one `PackOp` `[Union]` folds through `Apply` with no per-kind encoder class; reconciliation owns the content digest, so the page binds `(form, digest)` pairs and cloud, mesh, and parametric byte layouts share one digest owner rather than crossing as raw bytes; raw `float`/`byte` stay inside the pack loop, and the only public residency seam is the `Payload`/descriptor pair.
+- Law: `BrepPatch` control-net quantization answers to the NURBS owner — any lane carrying the underlying control net ties to the `Rasm/Parametric/nurbs#NURBS_ENGINE` `NurbsForm` homogeneous SoA columns and the reconciliation `EncodeForm.Parametric` identity, whose admission gates (weights strictly positive, knots normalized) a dtype's rounding must preserve; a quantization whose round trip breaks either gate refuses at the witness rather than packing a net `Nurbs.Of` faults on re-admission.
+- Boundary: one `PackOp` `[Union]` folds through `Apply` with no per-kind encoder class; reconciliation owns the content digest, so the page binds `(form, digest)` pairs and cloud, mesh, and parametric byte layouts share one digest owner rather than crossing as raw bytes; raw `float`/`byte` stay inside the pack loop, and the only public residency seam is the `Payload`/descriptor pair. Digest provenance splits TWO ways — `Apply` roots `Witness.ContentHash` on the SOURCE through the `SourceDigest` → reconciliation `EncodeForm` chain, `Of` on the PACKED PAYLOAD through `ContentHash.Of` — and no validity claim can adjudicate which is right, so `RoundTripWitness.Root` names the root and a consumer keying dedup or lake identity MUST read it: a source-rooted and a payload-rooted digest of ONE geometry differ by construction.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -116,6 +117,16 @@ public sealed partial class ChannelDtype {
     }
 }
 
+// Digest provenance discriminant: Apply roots ContentHash on the SOURCE (SourceDigest → reconciliation
+// EncodeForm chain), Of on the PACKED PAYLOAD (ContentHash.Of over the arena). One geometry therefore keys
+// TWO different digests by construction, and the carrier cannot adjudicate which is right — so the witness
+// names its root and a dedup or lake-identity consumer dispatches on it instead of assuming one chain.
+[SmartEnum<int>]
+public sealed partial class DigestRoot {
+    public static readonly DigestRoot Source  = new(0);
+    public static readonly DigestRoot Payload = new(1);
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -185,14 +196,16 @@ public sealed record EncodingChannelDescriptor(EncodingChannel Channel, int Coun
     public int Bytes => Floats * Dtype.Width;
 }
 
-public sealed record RoundTripWitness(GeometryHash ContentHash, HashMap<string, double> ChannelError, bool Lossless) {
-    public static RoundTripWitness Of(GeometryHash digest, Seq<(EncodingChannel Channel, double Error)> errors) =>
-        new(digest,
+// Root rides beside the digest because ContentHash alone is ambiguous currency: both mint sites set it —
+// Witness stamps Source, PayloadWitness stamps Payload — and no consumer re-derives the provenance.
+public sealed record RoundTripWitness(GeometryHash ContentHash, DigestRoot Root, HashMap<string, double> ChannelError, bool Lossless) {
+    public static RoundTripWitness Of(GeometryHash digest, DigestRoot root, Seq<(EncodingChannel Channel, double Error)> errors) =>
+        new(digest, root,
             errors.Fold(HashMap<string, double>(), static (acc, e) => acc.Add(e.Channel.Key, e.Error)),
             errors.ForAll(static e => e.Error <= e.Channel.Dtype.Tolerance));
 }
 
-// Payload leaves equality by law: ReadOnlyMemory compares by buffer coordinates, and Witness.ContentHash already keys the packed content.
+// Payload leaves equality by law: ReadOnlyMemory compares by buffer coordinates, and Witness.ContentHash keys the content under its Root provenance.
 [Equatable]
 public sealed partial record EncodedGeometry(
     Seq<EncodingChannelDescriptor> Descriptors, [property: IgnoreEquality] ReadOnlyMemory<byte> Payload, int Count, RoundTripWitness Witness) : IValidityEvidence {
@@ -312,6 +325,18 @@ public static class Encode {
     public static Fin<EncodedGeometry> Of(int count, Seq<(EncodingChannel Channel, float[] Raw)> lanes, Op? key = null) {
         Op k = key.OrDefault();
         if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(k.InvalidInput());
+        // Foreign lanes are caller-shaped where Apply's channels are declaration rosters, so the doubled-channel
+        // lane refuses HERE: the witness keys per-channel error by channel, and a duplicate would otherwise
+        // throw at that persistent map Add instead of routing 2444.
+        Option<EncodingChannel> doubled = lanes.Fold(
+            (Seen: Set<string>.Empty, Dup: Option<EncodingChannel>.None),
+            static (acc, lane) => acc.Seen.Contains(lane.Channel.Key)
+                ? (acc.Seen, acc.Dup.IsNone ? Some(lane.Channel) : acc.Dup)
+                : (acc.Seen.Add(lane.Channel.Key), acc.Dup)).Dup;
+        if (doubled.Case is EncodingChannel dup) {
+            return Fin.Fail<EncodedGeometry>(new GeometryFault.EncodingFault(
+                dup, dup.Dtype, $"duplicate channel {dup.Key}").ToError());
+        }
         long bytes = lanes.Fold(0L, (extent, lane) => extent + ((long)count * lane.Channel.Arity * lane.Channel.Dtype.Width));
         if (bytes > Array.MaxLength) {
             EncodingChannel channel = lanes[0].Channel;
@@ -331,19 +356,10 @@ public static class Encode {
             .Bind(geometry => k.AcceptValue(geometry));
     }
 
-    // Payload-rooted witness for the raw-lane mint: identical per-channel round-trip screen, the digest the
-    // seed-zero content key over the packed payload — one identity space with every other content address.
-    static Fin<RoundTripWitness> PayloadWitness(PackedChannels packed) {
-        GeometryHash digest = GeometryHash.Create(ContentHash.Of(packed.Store.Payload));
-        Seq<(EncodingChannel Channel, double Error)> errors = toSeq(packed.Raws).Map(row => {
-            EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == row.Channel)!;
-            return (row.Channel, ChannelError(row.Raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), row.Channel.Dtype));
-        });
-        return errors.Find(e => e.Error > e.Channel.Dtype.Tolerance).Match(
-            Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
-                breach.Channel, breach.Channel.Dtype, $"round-trip {breach.Error:e3} > {breach.Channel.Dtype.Tolerance:e3}").ToError()),
-            None: () => Fin.Succ(RoundTripWitness.Of(digest, errors)));
-    }
+    // Payload-rooted witness for the raw-lane mint: the ONE round-trip screen, the digest the seed-zero
+    // content key over the packed payload, stamped DigestRoot.Payload so the carrier says so.
+    static Fin<RoundTripWitness> PayloadWitness(PackedChannels packed) =>
+        Screened(packed, GeometryHash.Create(ContentHash.Of(packed.Store.Payload)), DigestRoot.Payload);
 
     // --- [PACK]
     static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count, Op key) {
@@ -374,19 +390,25 @@ public static class Encode {
     }
 
     // --- [WITNESS]
-    // ONE digest chain: EncodeForm.Of(source) → Reconciliation.Apply(Encode) → ReconcileAnswer.Digest;
-    // reconciliation solely owns the canonical byte layouts. Error reduce = Subtract·Abs·MaxMagnitude, scale-relative.
+    // Source-rooted digest chain: EncodeForm.Of(source) → Reconciliation.Apply(Encode) → ReconcileAnswer.Digest,
+    // stamped DigestRoot.Source; reconciliation solely owns the canonical byte layouts. The raw-lane mint's
+    // PayloadWitness is the OTHER root. Error reduce = Subtract·Abs·MaxMagnitude, scale-relative.
     static Fin<RoundTripWitness> Witness(PackOp op, PackedChannels packed, Op key) =>
-        SourceDigest(op, key).Bind(digest => {
-            Seq<(EncodingChannel Channel, double Error)> errors = toSeq(packed.Raws).Map(row => {
-                EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == row.Channel)!;
-                return (row.Channel, ChannelError(row.Raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), row.Channel.Dtype));
-            });
-            return errors.Find(e => e.Error > e.Channel.Dtype.Tolerance).Match(
-                Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
-                    breach.Channel, breach.Channel.Dtype, $"round-trip {breach.Error:e3} > {breach.Channel.Dtype.Tolerance:e3}").ToError()),
-                None: () => Fin.Succ(RoundTripWitness.Of(digest, errors)));
+        SourceDigest(op, key).Bind(digest => Screened(packed, digest, DigestRoot.Source));
+
+    // Screened is the ONE round-trip screen both digest roots share — per-channel error against
+    // Dtype.Tolerance, the first breach routing 2444, the clean set folding into the witness under the root
+    // the mint stamps.
+    static Fin<RoundTripWitness> Screened(PackedChannels packed, GeometryHash digest, DigestRoot root) {
+        Seq<(EncodingChannel Channel, double Error)> errors = toSeq(packed.Raws).Map(row => {
+            EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == row.Channel)!;
+            return (row.Channel, ChannelError(row.Raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), row.Channel.Dtype));
         });
+        return errors.Find(e => e.Error > e.Channel.Dtype.Tolerance).Match(
+            Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
+                breach.Channel, breach.Channel.Dtype, $"round-trip {breach.Error:e3} > {breach.Channel.Dtype.Tolerance:e3}").ToError()),
+            None: () => Fin.Succ(RoundTripWitness.Of(digest, root, errors)));
+    }
 
     // Dtype tolerances are RELATIVE precision facts, so the max delta divides by max(1, ‖raw‖∞) — an
     // absolute bound would fault every real-scale channel above magnitude one; an infinite delta stays loud.
@@ -697,7 +719,7 @@ config:
 flowchart LR
     accTitle: Encoding channel flow
     accDescr: Pack operations select channel readers, write one typed byte arena, and bind round-trip evidence to the reconciliation digest.
-    PackOp["PackOp (PointCloud / MeshPatch / VoxelGrid / BrepPatch / Field / Toolpath)"] -->|PackKind.Channels active set| PackChannels
+    PackOp["PackOp (PointCloud / MeshPatch / VoxelGrid / BrepPatch / Field / Toolpath / GaussianSplat)"] -->|PackKind.Channels active set| PackChannels
     PackChannels -->|position / normal / curvature| Kernel["Rasm.Meshing MeshSpace / Rasm.Spatial VectorCloudMetric.OrientedNormals"]
     PackChannels -->|geodesic scalar lane| Fields["ScalarField.SampleDetailed"]
     PackChannels -->|occupancy SDF sign| Sdf["ScalarField.SignedDistanceFromMeshCase / SampleSdfDetailed"]

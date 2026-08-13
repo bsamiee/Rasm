@@ -2,7 +2,7 @@
 
 THE DECODED-PLANE TRANSFORM ALGEBRA. One `PlaneOp` `[Union]` closes the per-plane transform family — resample, convolve, height correspondence, height derivative, coverage dilation, tonal remap, and lane swizzle — under ONE `Apply` entry that PLANS every shape before it rents an output, SCHEDULES the sequence into stages by each op's own dependency class, and folds each stage over the plane's decoded row rails. `PlaneOp` holds a transform as a case, `ConvolveKernel` a convolution as a case, `RemapCurve` a tonal curve as a case, `HeightDerivative` a height derivative as a case, `HeightPolicy` a solver stop as a row, and `SwizzleLane` a lane projection as a row — never a per-transform entrypoint, a per-curve method, a constant inside a kernel, or a boolean selecting between two bodies.
 
-Scheduling is the page's load-bearing decision, and it exists because the ops genuinely differ in what they can see. `Levels` remaps one texel; a Gaussian reads a neighbourhood; a histogram remap must see the WHOLE plane before it can map its first texel; a normal-to-height integration is a global spectral or sparse-linear solve; a resample changes the grid itself. Fusing that mixture into one per-row pass is a fiction — a row action cannot supply a neighbour it has not written, a plane statistic it has not gathered, or a grid it has not resized — so each case declares its `StageKind` and the scheduler fuses only what genuinely fuses: consecutive pointwise ops collapse into ONE row pass, a neighbourhood op takes a bordered two-buffer pass under its own `EdgeMode`, and a global op takes a whole-plane pass. Adding an op therefore cannot corrupt its neighbours, and adding a dependency class is one row on the scheduler. `PlaneOp` composes the `plane#TEXTURE_PLANE` typed arena with its decoded `Read`/`Write` row rails, its `CellLattice` grid, its `Run` spatial grain, and its `PlaneFormat.For` retyping, the `codec#RASTER_FAULT` band-2460 rail for nothing at all (every refusal here is a SHAPE refusal on band 2450), TinyEXR.NET `ImageProcessing`/`Lut3D` for every separable resample, transfer, and LUT fold, the kernel `Nabla` lattice-stencil arm for every grid derivative, the kernel `WeightKernelFamily` for every Gaussian weight, the kernel `SpectralArena` transform band for the spectral integration, the kernel `SparseMatrix`/`CholeskySparse` for the bounded Poisson solve, the kernel `Deterministic` coordinate-keyed draw for the occlusion cast's per-texel rotation, and `CommunityToolkit.HighPerformance` `ParallelHelper` over `struct IAction` partitions — re-minting no resampler, no transform, no stencil, no weight profile, no factorization, and no random source.
+Scheduling is the page's load-bearing decision, and it exists because the ops genuinely differ in what they can see. `Levels` remaps one texel; a Gaussian reads a neighbourhood; a histogram remap must see the WHOLE plane before it can map its first texel; a normal-to-height integration is a global spectral or sparse-linear solve; a resample changes the grid itself. Fusing that mixture into one per-row pass is a fiction — a row action cannot supply a neighbour it has not written, a plane statistic it has not gathered, or a grid it has not resized — so each case declares its `StageKind` and the scheduler fuses only what genuinely fuses: consecutive pointwise ops collapse into ONE row pass, a neighbourhood op takes a bordered two-buffer pass under its own `EdgeMode`, and a global op takes a whole-plane pass. Adding an op therefore cannot corrupt its neighbours, and adding a dependency class is one row on the scheduler. `PlaneOp` composes the `plane#TEXTURE_PLANE` typed arena with its decoded `Read`/`Write` row rails, its `CellLattice` grid, its `Run` spatial grain, and its `PlaneFormat.For` retyping, the `codec#RASTER_FAULT` band-2460 rail for nothing at all (every refusal here is a SHAPE refusal on band 2450), TinyEXR.NET `ImageProcessing`/`Lut3D` for every separable resample, transfer, and LUT fold, the kernel `Nabla` lattice-stencil arm for every grid derivative, the kernel `WeightKernelFamily` for every Gaussian weight, the kernel `TapSeries` tap fold for every separable axis pass, the kernel `SpectralArena` transform band for the spectral integration, the kernel `SparseMatrix`/`CholeskySparse` for the bounded Poisson solve, the kernel `Deterministic` coordinate-keyed draw for the occlusion cast's per-texel rotation, and `CommunityToolkit.HighPerformance` `ParallelHelper` over `struct IAction` partitions — re-minting no resampler, no transform, no tap fold, no stencil, no weight profile, no factorization, and no random source.
 
 ## [01]-[INDEX]
 
@@ -18,13 +18,13 @@ Scheduling is the page's load-bearing decision, and it exists because the ops ge
 - Law: `SwizzleLane` is DATA — a source index, a scale, and a bias — so lane reordering, lane inversion, constant fill, and the `dx`→`gl` green flip are all one kernel over a row of rows. `SwizzleLane.FlipGreen` is exactly the `plane#PLANE_VOCABULARY` `NormalConvention` conversion and mints no second operation, so the corpus has one green-flip site rather than a conversion pair beside a swizzle. It spells `GNegate` and NOT `GInverse`: the lanes it folds are DECODED and signed, so the flip is a negation, where `1 − g` is the unit-range complement that maps `+1` to `0` and tilts every texel of the plane it was meant to correct. The two rows coexist because both arithmetics are real — a mask inverts, a normal negates — and naming them apart is what keeps a caller from reaching for the wrong one.
 - Law: `Remap` closes the tonal family on one case. `RemapCurve.Levels.Invert` is a ROW of the levels case — black at one, white at zero — so the `roughness = 1 − gloss` ingest inversion, a contrast stretch, and a gamma lift are one curve family rather than an `Invert` op beside a `Levels` op. Every curve evaluates in the LINEAR domain over decoded lanes, which is what makes an `srgb`-authored gloss plane invert correctly rather than forking the roughness silently. The VALUE AXIS IS UNBOUNDED at both ends on every curve, the same law the order statistic holds: no curve clamps to `[0,1]`, so an HDR plane keeps its headroom and a `Signed` plane its negative half, and the gamma takes the ODD extension — magnitude raised, sign restored — because the exponential answers `NaN` on a negative and one `NaN` texel poisons every fold below it. A display clamp belongs at `surface#TONE_MAP`, the one owner that knows a reference white.
 - Law: `Dilate` fills a plane's UNWRITTEN texels from their nearest written neighbours, ring by ring, which is what makes a chart-packed or atlased plane survive its own mip chain: a bilinear tap straddling a chart boundary otherwise reads the neutral, and every level halves that bleed further into the shaded surface. Coverage IS the alpha lane, so the op needs no second carrier and no unwritten-texel sentinel — a plane carrying no coverage REFUSES at `Project`, because inferring emptiness from a zero texel would dilate every legitimately black region into its neighbours.
-- Law: `Project` is TOTAL and runs before any rental. It folds the whole sequence into a final `PlaneShape`, so a shape refusal anywhere in the chain leaves the source untouched and costs nothing — a mid-chain refusal after three rentals is the failure mode the plan-first order forecloses. Retyping resolves through `PlaneFormat.For`, so a lane-count change lands on the storage row the semantic count rounds up to and never on a fabricated format.
+- Law: `Project` is TOTAL and runs before any rental. It folds the whole sequence into a final `PlaneShape` AND it is the page's one parameter admission: the convolve arm gates its kernel's scalar fields through `ConvolveKernel.Admitted` and the two declared-edge cases cross the `EdgeMode` defined-value gate, so a shape or parameter refusal anywhere in the chain leaves the source untouched and costs nothing — a mid-chain refusal after three rentals is the failure mode the plan-first order forecloses, and a kernel body below never sees an unadmitted sigma or an undefined edge integral. Retyping resolves through `PlaneFormat.For`, so a lane-count change lands on the storage row the semantic count rounds up to and never on a fabricated format.
 - Law: shape refusals rail `MaterialFault.Parameter` on band 2450. This page reaches band 2460 nowhere: a filter has no container, no device, and no synthesizer, so a `RasterFault` here would be a shape refusal wearing a mechanical code.
 - Entry: `PlaneOp.Apply(TexturePlane source, Seq<PlaneOp> ops, Op key, TimeProvider? clock = null, BakeGovernance governance = default)` is the ONE entry over every arity — an empty sequence returns the source with an empty receipt, a single op and a chain take the identical path, and no `ApplyOne`/`ApplyMany` pair exists; the clock rides so the receipt's elapsed is measured, the governance carrier rides so a chain over a sixteen-million-texel plane is abortable and watchable, and `press#TEXTURE_PRESS` threads both of its own. `PlaneOp.Digest` is the ONE canonical per-op spelling a content-key preimage folds — `press#PRESS_PLAN` pieces its post chains through it, and a consumer spelling an op through `ToString` re-keys on the next case rename.
 - Packages: `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of`/`Read`/`Write`/`Layer`/`Grid`/`Run`, `PlaneFormat.For`, `PlaneTransfer`, `AlphaMode`, `PlaneRange`, `NormalConvention`), TinyEXR.NET (composed — `ResizeFilter`/`EdgeMode` the resample vocabulary, `Lut3D.TryParseCube`/`Apply` the `.cube` curve), `Rasm.Numerics` (composed — `WeightKernelFamily.Gaussian.Weight` the ONE Gaussian profile, `Dimension`, `UnitInterval`), `Rasm.Domain` (`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Law: `OrderStatistics` is this folder's ONE empirical-quantile owner and it holds a distribution as SORTED SAMPLES: the histogram remap here and the `tile#TILE_SYNTH` Gaussian blend read the same forward quantile and the same interpolated inverse, and a second transcription drifts on the plotting position, the value-axis range, and the tail. The value axis is unbounded at both ends, so an HDR plane keeps its headroom and a `Signed` plane its negative half, where the unit-range binned form quantized the float substrate to its bin count and collapsed both tails. The plotting position is HAZEN, `(i + 0.5)/n`, because the Gaussian-space composition needs the symmetric position that keeps the extremes finite under `Normal.InvCDF`; the kernel `Distribution.Of` R-7 convention is a DIFFERENT owner answering a reported-percentile question and deliberately pinning the extremes at 0 and 1, so the divergence is two correct answers to two questions rather than one drift to reconcile.
 - Law: an arm the scheduler makes UNREACHABLE copies the source through. Every non-fusing stage rents its destination from the pool, so an arm returning without writing publishes the previous tenant's bytes as a plane; renting `AllocationMode.Clear` everywhere is the alternative and pays a full clear on every stage to cover arms that never run. The fused pass's tail arm holds the same discipline by writing every lane it read.
-- Growth: a new transform is one `PlaneOp` case declaring its `StageKind` with one `Project` arm, one `Digest` arm, and one kernel arm — the scheduler, the receipt, and every consumer are untouched. Every new curve is one `RemapCurve` case, a new derived field one `HeightDerivative` case, a new lane projection one `SwizzleLane` row. Every new convolution is one `ConvolveKernel` case AND its dispatch COLUMNS — `Separable`, `Sharpen`, `Range`, `Ordered` — so every kernel body reads the row and no site re-tests a case: `Gaussian` and `UnsharpMask` are separable and take the axis-pass pair, `Bilateral` and `Median` are not — a range weight and an order statistic each break the product — so both take a square-window body under the SAME `EdgeMode` addressing rather than a second edge law.
+- Growth: a new transform is one `PlaneOp` case declaring its `StageKind` with one `Project` arm, one `Digest` arm, and one kernel arm — the scheduler, the receipt, and every consumer are untouched. Every new curve is one `RemapCurve` case, a new derived field one `HeightDerivative` case, a new lane projection one `SwizzleLane` row. Every new convolution is one `ConvolveKernel` case AND its dispatch COLUMNS — `Separable`, `Sharpen`, `Range`, `Ordered`, its `Admitted` arm — so every kernel body reads the row and no site re-tests a case: `Gaussian` and `UnsharpMask` are separable and take the axis-pass pair, `Bilateral` and `Median` are not — a range weight and an order statistic each break the product — so both take a square-window body under the SAME `EdgeMode` addressing rather than a second edge law.
 - Boundary: this page transforms DECODED planes and decides nothing about what a plane MEANS. Channel semantics, neutrals, packing, and mip law are `set#TEXTURE_CHANNEL`'s; containers are `codec#RASTER_CODEC`'s; the mip chain is `plane#TEXTURE_PYRAMID`'s and `Resize` is deliberately NOT its alias — a level is the grid's own `Coarsen` step under a declared policy, so a resize can never produce a level a sampler then trilinearly blends against a different filter's neighbours.
 
 ```csharp signature
@@ -116,6 +116,27 @@ public abstract partial record ConvolveKernel {
         unsharpMask: static k => Math.Max(1, (int)Math.Ceiling(3.0 * k.Sigma)),
         bilateral:   static k => Math.Max(1, (int)Math.Ceiling(3.0 * k.Sigma)),
         median:      static k => Math.Max(1, k.Radius));
+
+    // Admission for the kernel's own scalar fields, run once at `Project` so a refused kernel costs no rental
+    // and the tap mint runs off admitted material alone: a NaN or non-positive sigma otherwise reaches the tap
+    // table as a NaN weight and the fold's refusal surfaces mid-stage where a plan-time refusal was free. Every
+    // sigma is strictly positive because the weight profile is undefined at zero support; Amount and Threshold
+    // admit at zero, since a zero-amount halo and a zero threshold are both lawful rows of the unsharp family.
+    public Fin<Unit> Admitted(Op key) => Switch(
+        gaussian: k => double.IsFinite(k.Sigma) && k.Sigma > 0.0
+            ? Fin.Succ(unit)
+            : MaterialFault.Parameter(key, $"<convolve-sigma:{k.Sigma}>"),
+        unsharpMask: k => double.IsFinite(k.Sigma) && k.Sigma > 0.0
+                       && double.IsFinite(k.Amount) && k.Amount >= 0.0
+                       && double.IsFinite(k.Threshold) && k.Threshold >= 0.0
+            ? Fin.Succ(unit)
+            : MaterialFault.Parameter(key, $"<unsharp-parameters:{k.Sigma}|{k.Amount}|{k.Threshold}>"),
+        bilateral: k => double.IsFinite(k.Sigma) && k.Sigma > 0.0 && double.IsFinite(k.RangeSigma) && k.RangeSigma > 0.0
+            ? Fin.Succ(unit)
+            : MaterialFault.Parameter(key, $"<bilateral-parameters:{k.Sigma}|{k.RangeSigma}>"),
+        median: k => k.Radius >= 1
+            ? Fin.Succ(unit)
+            : MaterialFault.Parameter(key, $"<median-radius:{k.Radius}>"));
 
     public string Digest => Switch(
         gaussian:    static k => string.Create(CultureInfo.InvariantCulture, $"gaussian|{k.Sigma:R}"),
@@ -325,13 +346,23 @@ public abstract partial record PlaneOp {
         remap:        static _ => "remap",
         swizzle:      static _ => "swizzle");
 
-    // TOTAL shape projection, folded across the whole sequence before the first rental — so a chain that cannot
-    // type costs nothing and leaves the source untouched.
+    // The defined-value gate over the foreign edge enum: TinyEXR's `EdgeMode` is a wire enum whose undefined
+    // integrals are representable, so the caller-declared mode admits here once — at the one seam a raw mode
+    // enters — and every interior switch over `EdgeMode` is total over admitted values.
+    private static Fin<EdgeMode> AdmittedEdge(EdgeMode edge, Op key) =>
+        edge is EdgeMode.Clamp or EdgeMode.Wrap or EdgeMode.Reflect
+            ? Fin.Succ(edge)
+            : MaterialFault.Parameter(key, $"<edge-mode:{(int)edge}>");
+
+    // TOTAL shape-and-parameter projection, folded across the whole sequence before the first rental — so a chain
+    // that cannot type costs nothing and leaves the source untouched. The two caller-parameterized cases admit
+    // their raw material here: the convolve arm gates its kernel's scalar fields and both declared-edge cases
+    // cross the defined-value gate, which is what makes every kernel body below total over admitted values.
     public Fin<PlaneShape> Project(PlaneShape input, Op key) => Switch(
         resize: op => input.Layers.Value is 1
-            ? Fin.Succ(input with { Width = op.Width, Height = op.Height })
+            ? AdmittedEdge(op.Edge, key).Map(_ => input with { Width = op.Width, Height = op.Height })
             : MaterialFault.Parameter(key, $"<resize-layered:{input.Layers.Value}>"),
-        convolve: _ => Fin.Succ(input),
+        convolve: op => op.Kernel.Admitted(key).Bind(_ => AdmittedEdge(op.Edge, key)).Map(_ => input),
         heightNormal: op => (op.Inverse, input.Format.Components) switch {
             (false, 1) => input.Retyped(3, AlphaMode.None, PlaneRange.Signed, key),
             // Inverse solves ONE bounded or periodic grid: the Laplacian and the spectral kernel are w x h
@@ -365,18 +396,18 @@ public abstract partial record PlaneOp {
 - Owner: `PlaneOp.Apply` the plan-schedule-run entry; `PlaneStage` the scheduled group; `BakeGovernance` the folder's ONE long-operation token-and-sink carrier; `PlaneReceipt` the evidence.
 - Entry: `Apply(source, ops, key)` returns the transformed plane paired with its receipt. Its source is never mutated and never disposed — the caller owns it, because a chain that consumed its input would make a receipt useless as evidence.
 - Law: GOVERNANCE is ONE carrier, never two tails. `BakeGovernance` pairs the cancellation token with an OPTIONAL `IProgress<double>` sink and its `Opened(done)` seam publishes the fraction and answers the token in one call, so no fold spells the two separately and no arm publishes progress it then cancels past. It is DEFAULT-INERT: a caller wanting neither passes nothing and an unwatched chain pays one struct copy. `Within(from, span)` NARROWS the carrier onto a sub-range, so one seam serves every depth: a stage hands its bands a governance reporting into the stage's own slice, and a band's `Opened(0..1)` reaches the caller as a true global fraction. That narrowing is what makes cancellation REAL — the token is answered per BAND inside a long pass rather than only between passes, so a cancelled sixteen-million-texel neighbourhood pass stops instead of running to completion, while the sampling stays coarse enough that a sink with one number to show is never flooded. The completed fraction is COUNT-DERIVED over the schedule rather than declared per row, because a chain's stage roster is the caller's own op sequence and there is no fixed vocabulary to declare fractions on; `press#TEXTURE_PRESS` and `environment#IBL_PREFILTER` compose this same carrier, so the corpus' three long operations report on one shape.
-- Law: A NEIGHBOURHOOD PASS WALKS BANDS, because a whole-plane staging is not affordable at the extents this estate bakes: one interleaved double run over a 16k four-lane plane is 8.6 GiB and the separable body once held four at once, which defeats the arena law the typed store exists to hold. `StagingCeiling` is the ONE declared budget every band computation reads, and each band stages its own rows plus the op's halo. The band fills BY ADDRESS rather than by contiguity — slot `i` carries whatever row the op's `EdgeMode` names for `origin − halo + i`, so `Wrap` genuinely reaches the opposite edge, `Reflect` mirrors, and a `Clamp`-dropped tap is an ABSENT slot every kernel skips. The edge law is therefore resolved exactly once, at the fill, and `PlaneOp.Edge` states each op's own mode: a convolution carries the caller's, the height stencils and the curvature Hessian are reflected because reflection IS the Neumann mirror the bounded solver assembles, and dilation clamps. Rings iterate INSIDE the band, since a ring advances the coverage front one texel and a `Rings`-deep halo holds every neighbour those rings read.
-- Law: A HALO IS A FUNCTION OF THE SHAPE, so `PlaneOp.Halo(shape)` takes the plane it runs at: an occlusion march reaches a FRACTION of the longer axis, which is 819 rows at 16k and 26 at 512, and a constant radius could only ever answer one of them. Where a halo alone exceeds the ceiling the walk COLLAPSES to one band over the whole plane — the arithmetic's own answer rather than a special case — and that degenerate band is exactly the extent-proportional op's declared cost: a 16k occlusion sweep stages its single-lane height field whole at 2.1 GiB. Every bounded-halo op bands genuinely.
+- Law: A NEIGHBOURHOOD PASS WALKS BANDS, because a whole-plane staging is not affordable at the extents this estate bakes: one interleaved double run over a 16k four-lane plane is 8 GiB and the separable body once held four at once, which defeats the arena law the typed store exists to hold. `StagingCeiling` is the ONE declared budget every band computation reads, and each band stages its own rows plus the op's halo. The band fills BY ADDRESS rather than by contiguity — slot `i` carries whatever row the op's `EdgeMode` names for `origin − halo + i`, so `Wrap` genuinely reaches the opposite edge, `Reflect` mirrors, and a `Clamp`-dropped tap is an ABSENT slot every kernel excludes — the square and ring walks per tap through `Slot`, the composed separable fold by narrowing its staged window onto the present run. The edge law is therefore resolved exactly once, at the fill, and `PlaneOp.Edge` states each op's own mode: a convolution carries the caller's, the height stencils and the curvature Hessian are reflected because reflection IS the Neumann mirror the bounded solver assembles, and dilation clamps. Rings iterate INSIDE the band, since a ring advances the coverage front one texel and a `Rings`-deep halo holds every neighbour those rings read.
+- Law: A HALO IS A FUNCTION OF THE SHAPE, so `PlaneOp.Halo(shape)` takes the plane it runs at: an occlusion march reaches a FRACTION of the longer axis, which is 819 rows at 16k and 26 at 512, and a constant radius could only ever answer one of them. Where a halo alone exceeds the ceiling the walk COLLAPSES to one band over the whole plane — the arithmetic's own answer rather than a special case — and that degenerate band is exactly the extent-proportional op's declared cost: a 16k occlusion sweep stages its single-lane height field whole at 2 GiB. Every bounded-halo op bands genuinely.
 - Law: THE EXPENSIVE KERNELS PARTITION. `Square` is O(r²) per texel and `Occlude` is rays × reach per texel, so both take the same `ParallelHelper` row partition the fused pointwise stage takes, over the band's own rows. Determinism is structural rather than promised: every row reads the READ-ONLY band and writes only its own texels, and the occlusion rotation is a COORDINATE-keyed draw with no sequence to reorder — so a re-run is byte-identical at every core count, which is what the content key requires. The fused pass partitions by BAND rather than by row, so its ping-pong rental and its widest-arity read amortize across the rows a partition walks instead of repeating per row.
 - Law: SCHEDULING is what makes the algebra honest. Consecutive `pointwise` ops fuse into ONE row pass over one intermediate; a `neighbourhood` op takes its own pass against a materialized previous stage under its `EdgeMode` addressing; a `global` op takes a whole-plane pass. One fused row action across the whole sequence is the deleted form — it cannot supply a neighbour it has not written, a plane statistic it has not gathered, or a grid it has not resized, so the ops whose correctness depends on any of those would silently read the wrong texels.
 - Law: fusion is a run-length fold over the sequence, not a special case: a chain of one op schedules identically to a chain of twenty, so the receipt reports the same stage structure at every arity and a benchmark reading it compares like with like.
 - Law: each stage rents ONE output and disposes the previous intermediate at the stage boundary, so a twenty-op chain holds at most two planes and the source. Its final stage's output is the returned plane; the source is untouched.
 - Law: EVERY Gaussian weight on this page is the kernel `Numerics/calculus#WEIGHT_PROFILES` `WeightKernelFamily.Gaussian` profile, and the bandwidth correspondence is READ off that row rather than copied from it. That row evaluates `exp(-B·(d/s)²)` under a frozen `B` it keeps private, so one probe at a known ratio recovers `B` at type initialization and the support that makes `Weight(d, support)` equal `exp(-d²/(2σ²))` is `σ·√(2B)` — a bandwidth change on the kernel row therefore moves every tap table here with no edit. Its three-sigma halo sits strictly inside that support, so no tap is zeroed by the row's own support cut and the truncation stays the page's declared one.
-- Law: the SEPARABLE CONVOLUTION BODY IS THIS PAGE'S and has no kernel owner to move to. The kernel transform band states the fact directly — no admitted package ships a separable convolution primitive, so a filter folds either as a spectral product between the transform legs or as a sample-domain tap fold — and its own separable routine transforms rather than convolves and is private to its kernel besides. A sample-domain fold over `TensorPrimitives` is refused on a second ground: the tap walk strides by LANE COUNT, so one lane of one row is not a contiguous span the primitive can address. The `[04]` height integration is the page's spectral leg and composes the band whole; this axis pass stays here, and the standing repair for a slow blur is a wider stage, never a re-seat.
+- Law: the SEPARABLE FOLD IS COMPOSED, never spelled. The kernel transform band owns BOTH routes of the one convolution correspondence — the spectral product between its transform legs and the sample-domain `TapSeries.Convolve` tap fold — so this page's two axis passes are two calls on that owner and the `[04]` height integration is the same owner's spectral leg. Tap GENERATION stays here, because which weights fill the series is raster policy: the Gaussian table reads the kernel weight row at the support the bandwidth probe resolved, and it stages UNNORMALIZED, since the fold's resolved-weight divisor is the ONE partition-of-unity site — the renormalization that keeps a dropped border tap from darkening the rim lives at the owner, not in a page-local loop. The vertical pass hands the band's present run as a `TapWindow` under `TapBorder.Zero` — the fill already resolved the plane's edge law BY ADDRESS, so absence is the only law left, and under `Clamp` the absent slots sit at the staged run's own ends so the window simply narrows onto it; the horizontal pass folds whole rows under the page's one `EdgeMode`→`TapBorder` mapping, where `Clamp` maps to `Zero` because this page's clamp DROPS a tap from the weight sum rather than repeating the border texel. The band walk, the lane premultiply, the unsharp tail, and the stage scheduling stay this page's plane orchestration.
 - Law: row work rides `ParallelHelper.For<TAction>` over a `struct IAction` whose fields are the two planes, the stage's ops, and the key. That action is `default`-constructed per partition or copied from the `in` seed, so the partition allocates nothing, inlines, and captures nothing — a `Parallel.For` over a closure would allocate one delegate and one display class per stage and defeat exactly the partition this shape exists for.
 - Law: the receipt carries the op KEYS from the union's own `Kind` projection, never a runtime type name. Reflected type names are stale by construction against a rename and allocate on every op; the case key is the same string the wire and the benchmark row read.
 - Law: layer work is per layer inside the row action: a layered plane's rows are one arena band per layer, so a stage walks `height × layers` rows and a resize refuses a layered plane outright rather than resampling across a face boundary that has no spatial meaning.
-- Packages: CommunityToolkit.HighPerformance (composed — `ParallelHelper.For<TAction>(int, int)` the row partition, `IAction` the allocation-free slot, `SpanOwner<T>.Allocate` the per-row lane scratch, `MemoryOwner<T>.Allocate` the whole-plane statistic staging), `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of`/`Read`/`Write`/`Run`/`Grid`, the decoded row rails every kernel reads), `Rasm.Numerics` (composed — `WeightKernelFamily.Gaussian.Weight(double, double)` the ONE Gaussian profile every tap table and every range weight reads), TinyEXR.NET (composed — `ImageProcessing.Resize(ReadOnlySpan<float>, int, int, Span<float>, int, int, int, ResizeFilter, EdgeMode, int)` with the extent groups bracketing the two spans and the channel count following BOTH, `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`), `Rasm.Domain` (`Op`), LanguageExt.Core.
+- Packages: CommunityToolkit.HighPerformance (composed — `ParallelHelper.For<TAction>(int, int)` the row partition, `IAction` the allocation-free slot, `SpanOwner<T>.Allocate` the per-row lane scratch, `MemoryOwner<T>.Allocate` the whole-plane statistic staging), `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of`/`Read`/`Write`/`Run`/`Grid`, the decoded row rails every kernel reads), `Rasm.Numerics` (composed — `WeightKernelFamily.Gaussian.Weight(double, double)` the ONE Gaussian profile every tap table and every range weight reads, `TapSeries.Of`/`Convolve` the sample-domain separable fold both axis passes call, `TapBorder` the closed border vocabulary the page's one edge mapping reaches, `TapWindow` the staged-window geometry the banded vertical pass states), TinyEXR.NET (composed — `ImageProcessing.Resize(ReadOnlySpan<float>, int, int, Span<float>, int, int, int, ResizeFilter, EdgeMode, int)` with the extent groups bracketing the two spans and the channel count following BOTH, `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`), `Rasm.Domain` (`Op`), LanguageExt.Core.
 - Law: the MEDIAN IS A SELECTION, not a sort. Only the middle rank is wanted, so the window folds through a median-of-three partition that recurses into the side holding that rank — linear expected work in the window — and insertion survives only strictly below `SelectionCrossover`, where a contiguous compare-and-shift over a cache-line-sized run beats a partition's branching. Insertion above it is quadratic in the WINDOW rather than in the radius: a radius-8 median holds 289 samples and pays some forty thousand comparisons per lane per texel. The median-of-three pivot is what keeps an already-sorted window — a flat region, which is most of any plane a despeckle runs over — off the quadratic path.
 - Growth: a new dependency class is one `StageKind` row with one arm in the runner; a new op reaching an existing class adds nothing here at all. A new halo law is one `Halo` arm and a new edge law one `Edge` arm, both read by the band fill with no kernel edit.
 - Boundary: the runner is the page's `[EXPRESSION_SPINE]` kernel exemption — fixed-extent index walks filling caller-owned buffers — while every admission, plan, schedule, and receipt surface is expression-bodied. Statements stop at the row kernel.
@@ -394,7 +425,8 @@ using LanguageExt.Common;                         // Error — the abandonment t
 using Rasm.Domain;                                // Op, Deterministic — the ONE replayable coordinate-keyed draw
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault
 using Rasm.Materials.Appearance.Texture;          // ShadeVec4 — the staged register plane the order statistic samples
-using Rasm.Numerics;                              // WeightKernelFamily — the ONE Gaussian profile
+using Rasm.Numerics;                              // WeightKernelFamily the ONE Gaussian profile; TapSeries, TapBorder,
+                                                  // TapWindow — the kernel sample-domain fold both axis passes call
 using Rhino.Geometry;                             // Point3d — the coordinate key the occlusion rotation draws on
 using static LanguageExt.Prelude;
 
@@ -675,13 +707,13 @@ internal static class PlaneKernel {
 
     // --- [BAND_BUDGET]
     // THE ONE STAGING CEILING. Every non-fusing pass stages DECODED lanes, and a whole-plane staging is unaffordable
-    // at the extents this estate bakes: one interleaved double run over a 16k four-lane plane is 8.6 GiB, and the
+    // at the extents this estate bakes: one interleaved double run over a 16k four-lane plane is 8 GiB, and the
     // separable body once held four of them at once. So a pass walks ROW BANDS sized against this ceiling, which is
     // the same 128 MiB order the accelerator lane's own binding floor takes — one number, declared, that every band
     // computation reads rather than a per-kernel guess. A halo that alone exceeds the ceiling collapses the walk to
     // ONE band over the whole plane: that is the honest degenerate case rather than a refusal, and the ops it
     // reaches are exactly the extent-proportional ones — an occlusion march at a five-percent reach on a 16k plane
-    // needs 819 rows of halo and stages its single-lane height field whole, which is 2.1 GiB and the declared cost
+    // needs 819 rows of halo and stages its single-lane height field whole, which is 2 GiB and the declared cost
     // of that op at that extent. Every bounded-halo op — every convolution, every dilation, the height forward
     // direction, the curvature stencil — bands genuinely.
     private const long StagingCeiling = 1L << 24;
@@ -827,8 +859,9 @@ internal static class PlaneKernel {
     // sides, the kernel writes that band's own rows alone, and the walk advances. The band is filled BY ADDRESS
     // rather than by contiguity — slot i carries the content of whatever row the stage's `EdgeMode` names for
     // `origin - halo + i`, so Wrap reaches the opposite edge, Reflect mirrors, and a Clamp-dropped tap is a slot the
-    // fill marks ABSENT. The edge law is therefore applied exactly ONCE, at the fill, and every kernel below reads a
-    // present slot or skips an absent one instead of re-deriving an addressing rule per tap.
+    // fill marks ABSENT. The edge law is therefore applied exactly ONCE, at the fill, and every kernel below reads
+    // present slots alone — the square and ring walks skip per tap, the composed separable fold narrows its staged
+    // window onto the present run — instead of re-deriving an addressing rule per tap.
     // Each band OPENS the governance seam, which is what makes cancellation real inside a pass that can run for
     // minutes: the token is answered per band rather than per stage, and the fraction the sink reads is the band's
     // own position inside the stage's slice of the whole operation.
@@ -851,14 +884,21 @@ internal static class PlaneKernel {
             if (abandoned.IsSome) { return Fin.Fail<Option<HeightEvidence>>(abandoned.IfNone(() => (Error)new Fault.Cancelled())); }
             int origin = band * rows, own = Math.Min(rows, height - origin);
             PlaneBand window = Fill(source, layer, origin, own, halo, edge, staging.Span, present.Span);
-            gathered += stage.Ops[0].Op.Switch(
-                convolve:     op => Convolve(window, source, destination, layer, op),
-                heightNormal: op => HeightField.ToNormalBand(window, source, destination, layer, op.Evidence),
-                fromHeight:   op => Derive(window, source, destination, layer, op),
-                dilate:       op => Dilate(window, source, destination, layer, op),
-                resize:       _ => CopyBand(window, destination, layer),
-                remap:        _ => CopyBand(window, destination, layer),
-                swizzle:      _ => CopyBand(window, destination, layer));
+            // Pattern dispatch here takes the same ref-struct seam the fused pass's Thread names: the band is a
+            // ref struct no generated dispatch state can carry, so the dispatch is statement-shaped and the
+            // family's own generated members (Halo, Edge, Digest, the evidence Switch below) keep the compile
+            // break a new case owes. A refused convolve fold PROPAGATES on the rail — a silent copy-through
+            // shipped an unfiltered plane wearing a success — while the discard arm holds the CopyBand
+            // discipline for the three scheduler-unreachable cases (resize, remap, swizzle).
+            Fin<double> banded = stage.Ops[0].Op switch {
+                PlaneOp.Convolve op => Convolve(window, source, destination, layer, op, key),
+                PlaneOp.HeightNormal op => Fin.Succ(HeightField.ToNormalBand(window, source, destination, layer, op.Evidence)),
+                PlaneOp.FromHeight op => Fin.Succ(Derive(window, source, destination, layer, op)),
+                PlaneOp.Dilate op => Fin.Succ(Dilate(window, source, destination, layer, op)),
+                _ => Fin.Succ(CopyBand(window, destination, layer)),
+            };
+            if (banded.Case is not double contribution) { return banded.Map(static _ => Option<HeightEvidence>.None); }
+            gathered += contribution;
         }
         // Only the two evidence-bearing cases publish a mean; every other arm accumulates zero and its evidence
         // stays absent, so the carrier is one number rather than a per-case accumulator roster.
@@ -957,30 +997,33 @@ internal static class PlaneKernel {
 
     // Convolve dispatches on the kernel's own SEPARABILITY column, never a type test: the separable pair
     // takes the axis-pass form and the non-separable pair takes the square window, both over the same band and both
-    // under the one edge law the fill already resolved. Neither contributes to the evidence mean, so both answer zero.
-    private static double Convolve(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.Convolve op) {
+    // under the one edge law the fill already resolved. Neither contributes to the evidence mean, so both answer
+    // zero — on the rail, because the separable route composes the kernel tap fold and its refusal PROPAGATES.
+    private static Fin<double> Convolve(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.Convolve op, Op key) {
         int colour = source.Alpha.Carries ? source.Lanes - 1 : source.Lanes;
-        if (op.Kernel.Separable) { Separable(window, source, destination, layer, op); } else { Square(window, destination, layer, colour, op); }
-        return 0.0;
+        if (op.Kernel.Separable) { return Separable(window, source, destination, layer, op, key); }
+        Square(window, destination, layer, colour, op);
+        return Fin.Succ(0.0);
     }
 
     // Separable takes the axis-pass pair: a Gaussian is TWO passes over one intermediate, which is O(2r) per texel
     // where a square kernel is O(r²) — at the three-sigma radius a sigma-8 blur costing 2401 taps square costs 98
-    // separable. The unsharp arm reuses that same blur rather than carrying a second kernel: the halo it subtracts
-    // IS the blur, and the threshold suppresses amplification of the noise floor a flat region carries. Every tap
-    // reads the kernel row's own Gaussian profile at the support the bandwidth probe resolved, so no exponential
-    // is spelled here; weights then normalize over the taps the edge mode actually admitted, which keeps a Clamp
-    // border from darkening or brightening the rim the way a fixed divisor does.
-    private static void Separable(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.Convolve op) {
-        int width = window.Width, lanes = window.Lanes, radius = op.Kernel.Radius, taps = (radius * 2) + 1;
-        using SpanOwner<double> weights = SpanOwner<double>.Allocate(taps);
-        double support = Support(op.Kernel.Sigma), total = 0.0;
-        for (int tap = -radius; tap <= radius; tap++) {
-            double weight = WeightKernelFamily.Gaussian.Weight(Math.Abs(tap), support);
-            weights.Span[tap + radius] = weight;
-            total += weight;
-        }
-        for (int tap = 0; tap < taps; tap++) { weights.Span[tap] /= total; }
+    // separable — and each pass is ONE call on the kernel tap fold, so no fold body is spelled here. The unsharp
+    // arm reuses that same blur rather than carrying a second kernel: the halo it subtracts IS the blur, and the
+    // threshold suppresses amplification of the noise floor a flat region carries. Tap GENERATION stays this
+    // page's: every tap reads the kernel row's own Gaussian profile at the support the bandwidth probe resolved,
+    // and the table stages UNNORMALIZED because the fold's resolved-weight divisor is the one partition-of-unity
+    // site — a border-dropped tap renormalizes at the owner, never against a fixed divisor that darkens the rim.
+    // `Project`'s kernel admission is what makes the tap mint total off a positive sigma, and a mint or fold
+    // refusal PROPAGATES on the rail carrying the kernel's own error — the copy-through this route once took
+    // shipped an unfiltered plane wearing a success, exactly the swallowed-refusal defect the solver rail names.
+    private static Fin<double> Separable(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.Convolve op, Op key) {
+        int width = window.Width, lanes = window.Lanes, radius = op.Kernel.Radius;
+        double support = Support(op.Kernel.Sigma);
+        double[] taps = new double[(radius * 2) + 1];
+        for (int tap = -radius; tap <= radius; tap++) { taps[tap + radius] = WeightKernelFamily.Gaussian.Weight(Math.Abs(tap), support); }
+        Fin<TapSeries> mint = TapSeries.Of(new Arr<double>(taps), key);
+        if (mint.Case is not TapSeries series) { return mint.Map(static _ => 0.0); }
 
         // Coverage premultiplies BEFORE the fold and divides back out after — the same law the mip fold
         // freezes — so a transparent texel never bleeds its colour across a coverage edge; the alpha lane itself
@@ -995,11 +1038,28 @@ internal static class PlaneKernel {
         }
         // The VERTICAL pass runs first and consumes the halo, collapsing the band to its own rows; the horizontal
         // pass then runs inside one row and needs no halo at all. That order is what makes the intermediate
-        // OWN-ROW sized rather than band sized, so the whole kernel holds one band plus one own-row run.
+        // OWN-ROW sized rather than band sized, so the whole kernel holds one band plus one own-row run. The fill
+        // already resolved the plane's edge law BY ADDRESS, so the staged band rides TapBorder.Zero — absence is
+        // the only law left — and the interleaved stride folds every lane of a record together, which is what makes
+        // the whole vertical pass ONE call. Under Clamp the absent slots are the out-of-plane rows at the staged
+        // run's own ends, so the window narrows onto the present run; Wrap and Reflect staged real rows and the
+        // border never fires. The horizontal pass folds each row whole under the page's one EdgeMode mapping.
+        int span = window.Own + (2 * window.Halo), bottom = window.Origin - window.Halo;
+        (int lead, int trail) = window.Edge == EdgeMode.Clamp
+            ? (Math.Max(0, -bottom), Math.Max(0, (bottom + span) - window.Height))
+            : (0, 0);
+        int present = span - lead - trail;
         using MemoryOwner<double> vertical = MemoryOwner<double>.Allocate(window.Own * width * lanes);
         using MemoryOwner<double> blurred = MemoryOwner<double>.Allocate(window.Own * width * lanes);
-        VerticalAxis(window, vertical.Span, radius, weights.Span);
-        HorizontalAxis(vertical.Span, blurred.Span, window.Own, width, lanes, radius, weights.Span, window.Edge);
+        TapWindow columns = new(Extent: present, Origin: 0, From: window.Halo - lead, Run: window.Own, Stride: width * lanes);
+        Fin<Unit> folded = series.Convolve(window.Staging.Slice(lead * width * lanes, present * width * lanes),
+            vertical.Span, columns, TapBorder.Zero, key);
+        for (int row = 0; folded.IsSucc && row < window.Own; row++) {
+            folded = series.Convolve(vertical.Span.Slice(row * width * lanes, width * lanes),
+                blurred.Span.Slice(row * width * lanes, width * lanes),
+                TapWindow.Whole(extent: width, stride: lanes), Border(window.Edge), key);
+        }
+        if (folded.Case is Error fault) { return Fin.Fail<double>(fault); }
         if (alphaLane >= 0) {
             for (int at = 0; at < blurred.Length; at += lanes) {
                 double coverage = blurred.Span[at + alphaLane];
@@ -1023,51 +1083,7 @@ internal static class PlaneKernel {
         for (int row = 0; row < window.Own; row++) {
             destination.Write(window.Origin + row, layer, blurred.Span.Slice(row * width * lanes, width * lanes));
         }
-    }
-
-    // The VERTICAL pass is the one that reads across rows, so it is the pass the band's halo exists for: every tap
-    // resolves through the band's own absolute-row Slot, and a tap the fill dropped simply leaves the weight sum —
-    // which is what keeps a Clamp border from darkening the rim the way a fixed divisor does.
-    private static void VerticalAxis(PlaneBand window, Span<double> output, int radius, ReadOnlySpan<double> weights) {
-        int width = window.Width, lanes = window.Lanes;
-        for (int row = 0; row < window.Own; row++) {
-            int y = window.Origin + row;
-            for (int x = 0; x < width; x++) {
-                for (int lane = 0; lane < lanes; lane++) {
-                    double sum = 0.0, admitted = 0.0;
-                    for (int tap = -radius; tap <= radius; tap++) {
-                        int slot = window.Slot(y + tap);
-                        if (slot < 0) { continue; }
-                        double weight = weights[tap + radius];
-                        sum += weight * window.Staging[(((slot * width) + x) * lanes) + lane];
-                        admitted += weight;
-                    }
-                    output[((((row * width) + x) * lanes) + lane)] = admitted > 0.0 ? sum / admitted : 0.0;
-                }
-            }
-        }
-    }
-
-    // The HORIZONTAL pass runs entirely inside one row, so it addresses through the shared edge fold and needs no
-    // band at all — the vertical pass already collapsed the halo away.
-    private static void HorizontalAxis(
-        ReadOnlySpan<double> input, Span<double> output, int rows, int width, int lanes,
-        int radius, ReadOnlySpan<double> weights, EdgeMode edge) {
-        for (int row = 0; row < rows; row++) {
-            for (int x = 0; x < width; x++) {
-                for (int lane = 0; lane < lanes; lane++) {
-                    double sum = 0.0, admitted = 0.0;
-                    for (int tap = -radius; tap <= radius; tap++) {
-                        int sx = Address(x + tap, width, edge);
-                        if (sx < 0) { continue; }
-                        double weight = weights[tap + radius];
-                        sum += weight * input[((((row * width) + sx) * lanes) + lane)];
-                        admitted += weight;
-                    }
-                    output[((((row * width) + x) * lanes) + lane)] = admitted > 0.0 ? sum / admitted : 0.0;
-                }
-            }
-        }
+        return Fin.Succ(0.0);
     }
 
     // Square serves the non-separable pair: a bilateral weight is the spatial Gaussian times a RANGE Gaussian over the whole
@@ -1238,41 +1254,43 @@ internal static class PlaneKernel {
         return 0.0;
     }
 
-    // Address is the ONE out-of-extent fold every neighbourhood kernel on this page reads. Wrap is what makes a
-    // tiled plane convolve without a seam, Reflect mirrors about the border texel rather than repeating it, and
-    // Clamp is stated as a NEGATIVE index the caller drops from its weight sum rather than as a duplicated edge
-    // texel — a clamped tap contributing its own value at full weight is a rim the blur brightens.
-    internal static int Address(int index, int extent, EdgeMode edge) =>
-        index >= 0 && index < extent
-            ? index
-            : edge switch {
-                EdgeMode.Wrap => ((index % extent) + extent) % extent,
-                EdgeMode.Reflect => Reflect(index, extent),
-                _ => -1,
-            };
+    // Border is the page's ONE EdgeMode mapping onto the kernel fold's closed border rows, held at this edge so
+    // internal code reads one vocabulary: Wrap is what makes a tiled plane convolve without a seam, Reflect maps to
+    // Mirror — about the border texel rather than repeating it — and Clamp maps EXPLICITLY to the DROPPING row,
+    // because this page's clamp DROPS a tap from the weight sum rather than repeating the border texel: a clamped
+    // tap contributing its own value at full weight is a rim the blur brightens, and the caller removes the
+    // dropped resolution from its weight sum exactly as the kernel fold does. The discard arm is the compiler's
+    // totality floor over a foreign enum, unreachable behind Project's defined-value gate, and it drops the tap
+    // exactly as Clamp does rather than minting a fourth border law.
+    internal static TapBorder Border(EdgeMode edge) => edge switch {
+        EdgeMode.Wrap => TapBorder.Wrap,
+        EdgeMode.Reflect => TapBorder.Mirror,
+        EdgeMode.Clamp => TapBorder.Zero,
+        _ => TapBorder.Zero,
+    };
 
-    private static int Reflect(int index, int extent) {
-        int period = Math.Max(1, (extent - 1) * 2);
-        int folded = ((index % period) + period) % period;
-        return folded < extent ? folded : period - folded;
-    }
+    // Address is the ONE out-of-extent fold every neighbourhood kernel on this page reads, resolved through the
+    // kernel border rows' own address columns — no wrap or reflection arithmetic is spelled beside the owner's.
+    internal static int Address(int index, int extent, EdgeMode edge) =>
+        index >= 0 && index < extent ? index : Border(edge).Resolve(index, extent);
 
     // Derive routes the height-derived fields. Occlusion sweeps its ray budget as a low-discrepancy azimuth fan rotated per
     // texel by the Deterministic coordinate draw; curvature projects the kernel Hessian's eigenvalue pair onto the
     // requested measure. Both read the SAME staged height run, so a set deriving both pays one materialization,
     // both walk LAYERS at a plane offset so a cube face never reads its neighbour's relief across the seam, and
     // both return the evidence carrying the field mean the inverse consumes.
-    // The route is the union's OWN generated dispatch, so each arm receives its case TYPED. The discard-plus-cast
-    // form it replaces re-asserted at runtime what the generator proves at compile time, and a third derivative
-    // row would have entered the cast arm silently and failed as an InvalidCastException at the first plane
-    // rather than as a missing arm at the first build.
+    // Routing takes the same ref-struct pattern seam Thread and the band dispatch name: the band is a ref struct
+    // no generated dispatch state can carry — a state tuple holding one is CS0306 — so the statement switch is the
+    // page's named exemption here, the discard arm holds the CopyBand write-through discipline, and the compile
+    // break a new derivative case owes rides the family's own generated Range, Halo, and Digest members.
     // Derive routes the band through the derivative's own kernel and answers the band's SUMMED height, which the
     // caller divides once over the whole plane — a per-band mean would average averages over unequal band heights.
     private static double Derive(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.FromHeight op) =>
-        op.Derivative.Switch(
-            state:     (Window: window, Source: source, Destination: destination, Layer: layer, Evidence: op.Evidence),
-            occlusion: static (s, cast) => Occlude(s.Window, s.Source, s.Destination, s.Layer, cast, s.Evidence),
-            curvature: static (s, measure) => Curve(s.Window, s.Source, s.Destination, s.Layer, measure, s.Evidence));
+        op.Derivative switch {
+            HeightDerivative.Occlusion cast => Occlude(window, source, destination, layer, cast, op.Evidence),
+            HeightDerivative.Curvature measure => Curve(window, source, destination, layer, measure, op.Evidence),
+            _ => CopyBand(window, destination, layer),
+        };
 
     // --- [UNREACHABLE_ARM]
     // The ONE discipline for an arm scheduling makes unreachable: copy the source through. Every non-fusing stage

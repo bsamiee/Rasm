@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using DoubleDouble;
-using Rasm.Csp;
+using Rasm.Domain;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;

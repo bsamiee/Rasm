@@ -28,7 +28,7 @@ Declarative painting for the Grasshopper boundary folds through one owner set â€
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;
@@ -334,7 +334,7 @@ public static class PaintAnchor {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -1055,7 +1055,7 @@ public static class PaintPlan {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Drawing;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Platform;
 using Rasm.Grasshopper.Shell;
 using Rasm.Numerics;
@@ -1155,7 +1155,7 @@ public sealed class CanvasOverlay : IDisposable {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;

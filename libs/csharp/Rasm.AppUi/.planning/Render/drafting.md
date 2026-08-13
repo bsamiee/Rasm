@@ -231,9 +231,9 @@ public sealed record SheetSet(string Key, SheetSize Size, Seq<Sheet> Sheets) {
 ## [03]-[PROJECTION]
 
 - Owner: `ProjectionBasis` the view-direction-and-scale projection; `Viewport2D` the model-view frame on a sheet region projecting the CAD-grade hidden-line edge sets AND the run's pattern fill to sheet space; `HiddenLineSeam` the composition-bound delegate column carrying the `Rasm.Fabrication/Documentation/projection#PROJECTION` package entry `Fabrication.Run` as the one in-process producer.
-- Entry: `public IO<Seq<SheetEntity>> Project(MeshSpace mesh)` — the `Viewport2D` record is the region plus the solver seam and reads its key and basis off that region, so `Project` folds the admitted mesh through the seam-bound Fabrication run to the world-space visible/hidden/silhouette edge sets plus the run's `Option<HatchResult>`, then projects each surviving sub-edge into a sheet-space `SheetEntity.Stroke` under the basis, tagging each with its `EdgeStyle` (visible solid `0.5`-weight, hidden dashed `0.25`-weight, silhouette emphasized `0.7`-weight) and clipping to the region — the silhouette set tags as the first-class `EdgeStyle.Silhouette` emphasized row, not folded into `Visible`, so the silhouette reads as a heavier outline — and folds the hatch's chained courses into ONE `SheetEntity.Fill`; the view projects directly into the drawn-primitive vocabulary, so no consumer re-maps an intermediate segment tuple. The rail is `IO` because the owner's entry is `ValueTask<Fin<RunEvidence>>` — a synchronous seam over an asynchronous package entry blocks the render thread on a kernel solve.
+- Entry: `public IO<Seq<SheetEntity>> Project(MeshSpace mesh)` — the `Viewport2D` record is the region with the solver seam and reads its key and basis off that region, so `Project` folds the admitted mesh through the seam-bound Fabrication run to the world-space visible/hidden/silhouette edge sets beside the run's `Option<HatchResult>`, then projects each surviving sub-edge into a sheet-space `SheetEntity.Stroke` under the basis, tagging each with its `EdgeStyle` (visible solid `0.5`-weight, hidden dashed `0.25`-weight, silhouette emphasized `0.7`-weight) and its kernel `Part` ordinal, and clipping to the region — the silhouette set tags as the first-class `EdgeStyle.Silhouette` emphasized row, not folded into `Visible`, so the silhouette reads as a heavier outline — and folds the hatch's chained courses into ONE `SheetEntity.Fill`; the view projects directly into the drawn-primitive vocabulary, so no consumer re-maps an intermediate segment tuple; its rail is `IO` because the owner's entry is `ValueTask<Fin<RunEvidence>>` — a synchronous seam over an asynchronous package entry blocks the render thread on a kernel solve.
 - Auto: `ProjectionBasis.From` derives the orthographic or perspective projection matrix from a `Viewpoint` camera so a saved 3D view drafts to a 2D viewport with the same basis — the drafting projection and the viewport camera share one camera vocabulary; standard views (top, front, right, iso) are basis presets; the projection scales model millimeters to sheet millimeters through the viewport scale so a 1:50 detail and a 1:1 detail are scale row values, never call-site arithmetic; visible-edge resolution composes the Fabrication package entry — the `HiddenLineSeam` delegate runs `Fabrication.Run` under a `FabricationPolicy.HiddenLine` whose `ProjectionPolicy` carries THIS basis as its `Views` row and `Scale`, so the kernel projects with the basis the region already holds and the page never re-derives the same matrix twice, and the exact quantitative-invisibility solve over the kernel's exact silhouette locus and screen crossing lattice returns through `RunEvidence.Result` as `FabricationResult.HiddenLineResult`, whose `ProjectionReceipt` run hands back a `DrawingProjection` ALREADY partitioned into visible and hidden projection-plane segments — `ProjectedSegment.State` publishes the Appel verdict the emission decided — from which the seam lifts the `EdgeKind.Silhouette` rows into their own set, so `Viewport2D.Project` places each set on the sheet and tags the style with no second projection, and a concave self-occluding solid resolves by exact sign rather than by a depth-sorted painter approximation; the SAME run carries the `Option<HatchResult>` — the kernel `Hatching.Apply` product Fabrication's `ProjectionRun` already holds, generated against that same `DrawingProjection` so the courses share the segments' plane — so a section's pattern fill arrives exactly clipped against the view's own loops and chained through the result's own `Next` column, and AppUi places the courses and never re-derives a pattern.
-- Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `MeshSpace` the admitted mesh carrier, `HatchResult` the exactly-clipped pattern-fill carrier and its `ToPolylines` chaining, `DrawingProjection`/`ProjectedSegment`/`EdgeKind` the solved projection-plane vocabulary), Rasm.Compute (project), Rasm.Fabrication (project — `Fabrication.Run`, `FabricationInput.Admit`, `FabricationRuntime.Admit`, `FabricationPolicy.HiddenLine`, `ProjectionPolicy`, `RunEvidence.Result`, `FabricationResult.HiddenLineResult`, `ProjectionReceipt`/`ProjectionRun`)
+- Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `MeshSpace` the admitted mesh carrier, `HatchResult` the exactly-clipped pattern-fill carrier and its `ToPolylines` chaining, `DrawingProjection`/`ProjectedSegment`/`EdgeKind` the solved projection-plane vocabulary — the seam carries the kernel segments WHOLE, so the `Part` provenance column rides each model-edge stroke into the per-part CAD layer split while `SourceFace` stays the receipt's attribution column), Rasm.Compute (project), Rasm.Fabrication (project — `Fabrication.Run`, `FabricationInput.Admit`, `FabricationRuntime.Admit`, `FabricationPolicy.HiddenLine`, `ProjectionPolicy`, `RunEvidence.Result`, `FabricationResult.HiddenLineResult`, `ProjectionReceipt`/`ProjectionRun`)
 - Law: `ProjectionBasis.Roll` is the figure's IN-PLANE rotation, applied after the camera projection and before the scale, so a north posture, a rotated detail, and a plan turned to fit its frame are one drawing rotation and none of them is a camera move; twisting the saved camera's `Up` to spell the same orientation mutates the registry view a frame merely NAMES, so two frames of one saved view could never state different norths. The frame's `Oriented` composition is what carries the posture into the kernel's own `ProjectionPolicy`, so the solve and the sheet stay one basis.
 - Growth: a new standard view is one `ProjectionBasis` preset; a new line style is one `EdgeStyle` row; a new hatch pattern is a kernel `HatchPattern` row that reaches the sheet as courses with no AppUi edit; the hidden-line and hatch algorithms deepen at their single owners, never in this page; zero new surface.
 - Boundary: `SheetRegion` is the ONE sheet correspondence every fold reads — `Place` seats a projection-plane pair and `Map` composes the basis ahead of it for a model anchor, so the two altitudes share one body and a second copy at the dimension-anchor site is the deleted form — and it fixes the two conventions the whole page rides: the projection CENTRES on the region (a camera-relative projection is signed about its own origin, so a corner anchor clipped away every point above and left of the camera) and sheet space is Y-DOWN, the frame the Skia canvas and the title-block layout already share. `ProjectionBasis` consumes the shared `ViewCamera`, and `MeshSpace` carries the admitted mesh whole so the view projects the canonical geometry without re-tessellation — its interior is the kernel's, so no AppUi fold reads a vertex off it and a page-local emptiness probe over a carrier whose buffers are internal is unspellable; admission defects surface as the owner's own typed refusal on the seam rail, and `DraftFault.EmptyView` names the one verdict THIS page owns — a solve that produced no visible, hidden, silhouette, or fill entity, a blank viewport with a fault rather than a silent empty region. `Fabrication.Run` supplies PROJECTION-PLANE visible, hidden, and silhouette edge sets plus the run's hatch through `HiddenLineSeam`; AppUi PLACES those sets on the sheet, emphasizes `Silhouette` with the `EdgeStyle.Silhouette` row, and pours the hatch courses onto `EdgeStyle.Fill` — projection, pattern generation, region clipping, and course chaining all stay the kernel owners', so a second projection at the sheet fold, a page-local hatch generator, a per-segment fill fold that discards the chaining, and a fabricated pattern where the run carries none are the deleted forms. Viewport scale remains millimeter-to-millimeter data, the model-anchor projection reads its camera triad off the `Render/pathtrace#BSDF_SHADING` `OracleFrame.OfCamera` owner (the prior page-local normalize fabricated `+Z` on zero length — the divergence the one-owner law deletes), and projected segments draw through `DrawSource.Owned`, so the page owns neither a second camera, hidden-line kernel, nor Skia surface.
@@ -311,23 +311,26 @@ public sealed partial class EdgeStyle {
     public float Weight { get; }
 }
 
-// The sets are PROJECTION-PLANE pairs, not model points: `ProjectedSegment` carries `ScreenA`/`ScreenB`, the
-// kernel's own once-rounded emission under the policy this region's basis raised, so the ordinate pair is
-// already scaled and already signed about the projection origin. Declaring a model-space triple here is the
-// deleted form — it is what invited a second projection at the sheet fold and made the kernel's exact solve
-// and the page's own camera two authorities over one figure. Silhouette is an `EdgeKind` row rather than a
-// visibility verdict, so it lifts OUT of the two visibility sets instead of overlaying them: a silhouette
-// edge draws once at its heavier weight, never twice with the light stroke underneath. Depth stays on the
-// kernel segment for a line-weight cue and reaches no sheet ordinate. The run's fill rides BESIDE the edges:
-// Fabrication's projection receipt already holds `Option<HatchResult>` per run, so dropping it here would
-// leave AppUi re-deriving a pattern fill the kernel already clipped exactly against the view's own loops.
-// The hatch arrives as the kernel carrier, not as pre-flattened segments, so the sheet fold chooses its own
-// chaining, and its courses share the segments' plane because `HatchOp.Projection` generated them against
-// this same `DrawingProjection`.
+// Edge sets are the kernel's OWN `ProjectedSegment` rows, partitioned and otherwise untouched: `ScreenA`/
+// `ScreenB` carry the once-rounded projection-plane emission under the policy this region's basis raised, so
+// each ordinate pair is already scaled and already signed about the projection origin, and the styling fold
+// reads the planar pair and drops the plane coordinate exactly as the hatch fold does. Re-declaring the rows
+// as anonymous coordinate tuples is the deleted form on two counts — it invited a second projection at the
+// sheet fold, and it silently discarded the `Part` provenance column the per-part CAD layer split reads, so
+// every declared capability on the kernel receipt died at the seam. Declaring a model-space triple is the
+// same deleted form one authority further back. Silhouette is an `EdgeKind` row rather than a visibility
+// verdict, so it lifts OUT of the two visibility sets instead of overlaying them: a silhouette edge draws
+// once at its heavier weight, never twice with the light stroke underneath. `Depth` and `SourceFace` stay on
+// each carried segment — a line-weight cue and the receipt's attribution column — and reach no sheet
+// ordinate. Fill rides BESIDE the edges: Fabrication's projection receipt already holds `Option<HatchResult>`
+// per run, so dropping it here would leave AppUi re-deriving a pattern fill the kernel already clipped
+// exactly against the view's own loops. Hatch arrives as the kernel carrier, not as pre-flattened segments,
+// so the sheet fold chooses its own chaining, and its courses share the segments' plane because
+// `HatchOp.Projection` generated them against this same `DrawingProjection`.
 public readonly record struct HiddenLineEdgeSets(
-    Seq<((double X, double Y) A, (double X, double Y) B)> Visible,
-    Seq<((double X, double Y) A, (double X, double Y) B)> Hidden,
-    Seq<((double X, double Y) A, (double X, double Y) B)> Silhouette,
+    Seq<ProjectedSegment> Visible,
+    Seq<ProjectedSegment> Hidden,
+    Seq<ProjectedSegment> Silhouette,
     Option<HatchResult> Hatch);
 
 // The seam binds `Fabrication.Run` — the package's SOLE public entry — never the internal solver behind it:
@@ -377,9 +380,11 @@ public sealed record Viewport2D(SheetRegion Region, HiddenLineSeam Hlr, Angle De
             : IO.pure(drawn)
         select entities;
 
-    private Seq<SheetEntity> Styled(Seq<((double X, double Y) A, (double X, double Y) B)> edges, EdgeStyle style) =>
-        edges.Choose(edge => Clip(Sheeted(edge.A), Sheeted(edge.B))
-            .Map(segment => (SheetEntity)new SheetEntity.Stroke(style, (segment.A.X, segment.A.Y), (segment.B.X, segment.B.Y))));
+    // Each planar pair reads off the carried kernel row and the `Part` ordinal rides the stroke, so the
+    // per-part layer split downstream is a column read — the seam re-solves nothing and discards nothing.
+    private Seq<SheetEntity> Styled(Seq<ProjectedSegment> edges, EdgeStyle style) =>
+        edges.Choose(edge => Clip(Sheeted((edge.ScreenA.X, edge.ScreenA.Y)), Sheeted((edge.ScreenB.X, edge.ScreenB.Y)))
+            .Map(segment => (SheetEntity)new SheetEntity.Stroke(style, (segment.A.X, segment.A.Y), (segment.B.X, segment.B.Y), Some(edge.Part))));
 
     // The kernel chains its courses through `Next`, so `ToPolylines` hands back the longest runs already
     // joined — placing those preserves the chaining a per-segment fold would destroy, and a course that
@@ -708,7 +713,7 @@ public abstract partial record Annotation {
 - Owner: `DraftFormat` `[SmartEnum<string>]` the emit-format axis; `DraftPolicy` the locale/version/ink/plot/declination policy value; `DraftSeams` the composition-bound seam bundle; `DraftFault` the fault family; `DraftEmit` the multi-format emit dispatch with its public `Page` projection and `Raster` canvas fold.
 - Cases: `SheetEntity` = Stroke | Sweep | TextRun | Glyph | Fill — the five drawn primitives; `DraftFormat` = pdf · svg · dwg · dxf under the locked kind literals; `DraftFault` = Text | RegionOutOfBounds | EmptyView | EmptySet | SheetSizeMismatch — codes derive through the `AppUiFaultBand.Draft` registry row (6140), `Code(3)` spent by a retired case.
 - Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, SheetSet set, DraftFormat format, DraftPolicy policy, DraftSeams seams, VisualDestination destination)` — `IO` rail; each sheet projects ONCE through `Page` into its complete `SheetEntity` run — per-frame hidden-line strokes under the frame's own layer context and north, stat-card frames and figures, frame-projected dimensions, annotations, title-block runs — then every format arm renders the set's page runs into ONE artifact and delivers it to the destination; `public static Seq<PaintSpec> Paints(DraftPolicy policy, PlotCanvas canvas)` is the page's contribution to the one `PaintCatalog` resolve — its pigment elected by the policy's plot posture and its width projected by the named canvas, so the composition root resolves the emit generation at `PlotCanvas.Paper` and the plot preview resolves its own at the live canvas from the identical mint.
-- Auto: PDF folds the set's page runs through one `VisualExport` open, one `SKDocument` page per sheet; SVG, DWG, and DXF consume the same `CadDocument` entity run through `SvgWriter`, `DwgWriter`, or `DxfWriter`, each sheet laid at its own model-space origin on the set's width-plus-gutter pitch. `Stroke`, `Sweep`, `TextRun`, `Glyph`, and `Fill` project once into `Line`, `Arc`, `MText`, and `LwPolyline`; every `EdgeStyle` row owns a registered layer and a real line type under the SAME `Role` projection its frozen raster paint keys on, including the ordered dash-gap pattern, so a fill layer toggles the whole pattern and the CAD layer set cannot name a style differently from the paint set. Every emit seals one drawing `RenderReceipt` with format, elapsed duration, and delivered destination.
+- Auto: PDF folds the set's page runs through one `VisualExport` open, one `SKDocument` page per sheet; SVG, DWG, and DXF consume the same `CadDocument` entity run through `SvgWriter`, `DwgWriter`, or `DxfWriter`, each sheet laid at its own model-space origin on the set's width-plus-gutter pitch. `Stroke`, `Sweep`, `TextRun`, `Glyph`, and `Fill` project once into `Line`, `Arc`, `MText`, and `LwPolyline`; every `EdgeStyle` row owns a registered layer and a real line type under the SAME `Role` projection its frozen raster paint keys on, including the ordered dash-gap pattern — a model-edge stroke carrying its kernel `Part` splits onto that role's `-part-{n}` layer, so parts toggle independently in any CAD host — so a fill layer toggles the whole pattern and the CAD layer set cannot name a style differently from the paint set. Every emit seals one drawing `RenderReceipt` with format, elapsed duration, and delivered destination.
 - Receipt: one `RenderReceipt` of kind drawing per emit; sealed through the visuals encode receipt sink.
 - Packages: SkiaSharp, ACadSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; a new drawn primitive is one `SheetEntity` case that breaks the Skia render and the `CadDocument` fold at compile time so no format can silently drop it; a new line style is one `EdgeStyle` row that mints its CAD layer by construction; zero new surface.
@@ -745,7 +750,10 @@ public sealed partial class DraftFormat {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SheetEntity {
     private SheetEntity() { }
-    public sealed record Stroke(EdgeStyle Style, (double X, double Y) A, (double X, double Y) B) : SheetEntity;
+    // `Part` is the kernel provenance a model-edge stroke keeps — the per-part CAD layer split reads it —
+    // while chrome linework (dimensions, annotations, the title block) measures no part and stays `None`, so
+    // absence is the carrier's, never a sentinel ordinal a fold must know to skip.
+    public sealed record Stroke(EdgeStyle Style, (double X, double Y) A, (double X, double Y) B, Option<int> Part = default) : SheetEntity;
     public sealed record Sweep(EdgeStyle Style, (double X, double Y) Center, double Radius, double StartDeg, double SweepDeg) : SheetEntity;
     public sealed record TextRun(string Value, (double X, double Y) At, double Height, string Role) : SheetEntity;
     public sealed record Glyph(string Symbol, (double X, double Y) At, double Height) : SheetEntity;
@@ -954,8 +962,8 @@ public static class DraftEmit {
     // ONE CadDocument entity fold every writer row consumes — a DWG, a DXF, and an SVG of one set carry
     // identical entities by construction; every EdgeStyle row owns a named layer bound to its linetype under
     // the SAME role projection the raster paints key on, so the layer structure round-trips the style tag,
-    // and text lands on the annotation layer as MText. Layers and line types register ONCE for the whole
-    // set — a per-sheet registration would mint duplicate table entries the writers reject.
+    // and text lands on the annotation layer as MText. Layers and line types register per DISTINCT key ONCE
+    // for the whole set — a per-sheet registration would mint duplicate table entries the writers reject.
     private static CadDocument BuildCadDocument(SheetSize size, Seq<Seq<SheetEntity>> pages) {
         double h = size.HeightMm;
         CadDocument doc = new();
@@ -968,16 +976,25 @@ public static class DraftEmit {
         // binding it per layer seats one distinct "Continuous" instance per style and the writers reject the
         // duplicate table rows — the same defect the once-per-set registration below exists to foreclose.
         LineType solid = doc.LineTypes.Continuous;
-        Dictionary<EdgeStyle, Layer> layers = EdgeStyle.Items.ToDictionary(
-            style => style,
-            style => {
-                Layer layer = new(Role(style)) { LineType = style.Dashed ? dashed : solid };
-                doc.Layers.Add(layer);
-                return layer;
-            });
+        // Layer keys are (style, part): a chrome stroke resolves the style layer under the shared Role
+        // projection, and a model-edge stroke carrying its kernel Part ordinal resolves the `-part-{n}` split
+        // layer, so a multi-part drawing's parts toggle independently in any CAD host — the provenance column
+        // riding the seam is CONSUMED here, never decorative. Part rosters are the run's own and no sheet
+        // declares them, so a split layer registers on first sight — still once per distinct key across the
+        // whole document, keeping the duplicate-row discipline the writers enforce.
+        Dictionary<(EdgeStyle Style, int Part), Layer> layers = new();
+        Layer LayerOf(EdgeStyle style, Option<int> part) {
+            (EdgeStyle Style, int Part) key = (style, part.IfNone(-1));
+            if (!layers.TryGetValue(key, out Layer? row)) {
+                row = new Layer(part.Match(Some: p => $"{Role(style)}-part-{p}", None: () => Role(style))) { LineType = style.Dashed ? dashed : solid };
+                doc.Layers.Add(row);
+                layers[key] = row;
+            }
+            return row;
+        }
         Layer note = new("draft-annotation") { LineType = solid };
         doc.Layers.Add(note);
-        pages.Map((page, sheet) => Placed(doc, h, sheet * (size.WidthMm + SheetGutterMm), page, layers, note)).Strict();
+        pages.Map((page, sheet) => Placed(doc, h, sheet * (size.WidthMm + SheetGutterMm), page, LayerOf, note)).Strict();
         return doc;
     }
 
@@ -986,10 +1003,12 @@ public static class DraftEmit {
     // travel with its linework by construction.
     private static Unit Placed(
         CadDocument doc, double heightMm, double originX, Seq<SheetEntity> entities,
-        Dictionary<EdgeStyle, Layer> layers, Layer note) =>
+        Func<EdgeStyle, Option<int>, Layer> layerOf, Layer note) =>
         entities.Iter(entity => doc.Entities.Add(entity.Switch(
-            state: (Doc: doc, Height: heightMm, Origin: originX, Layers: layers, Note: note),
-            stroke: static (ctx, s) => (Entity)new Line(Cad(ctx.Height, ctx.Origin, s.A), Cad(ctx.Height, ctx.Origin, s.B)) { Layer = ctx.Layers[s.Style] },
+            state: (Doc: doc, Height: heightMm, Origin: originX, LayerOf: layerOf, Note: note),
+            // Each stroke hands its carried Part to the layer resolver, so a model edge lands on its part's
+            // split layer and chrome linework (Part = None) on the style layer — one resolver, no second axis.
+            stroke: static (ctx, s) => (Entity)new Line(Cad(ctx.Height, ctx.Origin, s.A), Cad(ctx.Height, ctx.Origin, s.B)) { Layer = ctx.LayerOf(s.Style, s.Part) },
             // The mirror inverts sweep direction: Math.Atan2 over Y-down deltas is the Skia AddArc convention
             // (clockwise from +X) while an ACadSharp Arc always sweeps Start to End COUNTER-clockwise in a
             // Y-up frame, so the CAD bounds negate AND swap. Negating alone would draw the complementary arc,
@@ -998,7 +1017,7 @@ public static class DraftEmit {
                 Center = Cad(ctx.Height, ctx.Origin, s.Center), Radius = s.Radius,
                 StartAngle = double.DegreesToRadians(-(s.StartDeg + s.SweepDeg)),
                 EndAngle = double.DegreesToRadians(-s.StartDeg),
-                Layer = ctx.Layers[s.Style],
+                Layer = ctx.LayerOf(s.Style, None),
             },
             textRun: static (ctx, t) => new MText { Value = t.Value, InsertPoint = Cad(ctx.Height, ctx.Origin, t.At), Height = t.Height, Layer = ctx.Note },
             glyph: static (ctx, g) => new MText { Value = g.Symbol, InsertPoint = Cad(ctx.Height, ctx.Origin, g.At), Height = g.Height, Layer = ctx.Note },
@@ -1007,7 +1026,7 @@ public static class DraftEmit {
             // boundary the kernel already clipped against the view's own loops, so the CAD file would carry
             // a different fill than the PDF and the SVG. One entity per course keeps the three writers and
             // the raster arm byte-congruent by construction.
-            fill: static (ctx, f) => Filled(ctx.Doc, ctx.Height, ctx.Origin, f, ctx.Layers[f.Style]))));
+            fill: static (ctx, f) => Filled(ctx.Doc, ctx.Height, ctx.Origin, f, ctx.LayerOf(f.Style, None)))));
 
     // A fill lands as one polyline per chained course, every course on the one fill layer, so a layer
     // toggle hides the whole pattern and the entity count tracks the kernel's chaining rather than its
@@ -1321,7 +1340,7 @@ public static class SheetComposer {
 ## [07]-[CAD_BOUNDARY]
 
 - [DRAFT_ENTITY]: one `Seq<SheetEntity>` fold constructs the `ACadSharp` `CadDocument`, `Line`, `Arc`, `Layer`, and `MText` graph consumed by `DwgWriter.Write`, `DxfWriter.Write`, and `SvgWriter.Write`, taking the sheet size so the one Y-down-to-Y-up reframing lands here and nowhere else. `EdgeStyle` selects registered line-type and layer data under the shared `Role` projection, `CadVersionPolicy` carries DWG/DXF version and SVG line-weight policy, and `DraftFormat.Switch` is total across PDF, SVG, DWG, and DXF.
-- [HIDDEN_LINE_SEAM]: `Fabrication.Run` is the package's sole public entry and the seam's one bound producer — the internal solver behind it is unreachable from AppUi, so binding it by name is unspellable, not merely discouraged. Visibility there is EXACT ANALYTIC and no depth-sorted or space-partitioning structure participates: `Predicate.Orient3D` signs the eye against each face for the silhouette locus, the Appel quantitative-invisibility count resolves over an exact crossing lattice, and QuikGraph `ConnectedComponents` labels the candidate components the two-stage seeding culls. `HiddenLineSeam` binds `MeshSpace` and `ProjectionBasis` into that entry — the basis becoming the run's own `ProjectionPolicy` `Views` row and `Scale`, so ONE basis governs both ends — reads `RunEvidence.Result` as `FabricationResult.HiddenLineResult`, and folds its run's `DrawingProjection` into projection-plane visible, hidden, and silhouette sets plus the run's `Option<HatchResult>`. AppUi is left the PLACEMENT alone: the kernel emitted its ordinates already projected and already scaled, so a sheet-side re-projection would make the page a second view authority over the same figure. The rail is `IO` end to end because the entry is asynchronous.
+- [HIDDEN_LINE_SEAM]: `Fabrication.Run` is the package's sole public entry and the seam's one bound producer — the internal solver behind it is unreachable from AppUi, so binding it by name is unspellable, not merely discouraged. Visibility there is EXACT ANALYTIC and no depth-sorted or space-partitioning structure participates: `Predicate.Orient3D` signs the eye against each face for the silhouette locus, the Appel quantitative-invisibility count resolves over an exact crossing lattice, and QuikGraph `ConnectedComponents` labels the candidate components the two-stage seeding culls. `HiddenLineSeam` binds `MeshSpace` and `ProjectionBasis` into that entry — the basis becoming the run's own `ProjectionPolicy` `Views` row and `Scale`, so ONE basis governs both ends — reads `RunEvidence.Result` as `FabricationResult.HiddenLineResult`, and partitions its run's `DrawingProjection` into visible, hidden, and silhouette sets of the kernel's own `ProjectedSegment` rows beside the run's `Option<HatchResult>`; a multi-part run's segments carry `Part` and `SourceFace`, the `Part` ordinal riding each styled stroke into the CAD arm's per-part layer split while `SourceFace` stays the receipt's attribution column — a column read off the same fold, never a second solve. AppUi is left the PLACEMENT alone: the kernel emitted its ordinates already projected and already scaled, so a sheet-side re-projection would make the page a second view authority over the same figure. The rail is `IO` end to end because the entry is asynchronous.
 
 ## [08]-[RESEARCH]
 

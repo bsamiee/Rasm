@@ -32,7 +32,7 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` rail: Rhino-read material a
 - Owner: `MonotonicTimeline` sealed `[BoundaryAdapter]` service — `Of(TimeProvider, Op?)` admits an injected provider with a positive `TimestampFrequency`. Each timeline instance is its own identity token; serialized `Capture` mints an opaque `MonotonicStamp`, `Elapsed` derives a non-negative interval, `Order` returns negative, zero, or positive for left-before, identical, or left-after ordering, and `Beat` derives ordinal timer evidence from one `BeatSeed`. `Order` breaks equal-provider-tick ties by the stamp's private capture ordinal; every duration still calls the capturing provider's `GetElapsedTime`, and no counter or ordinal leaves `MonotonicStamp`.
 - Owner: `BeatSeed` `[Union<MonotonicStamp, MonotonicBeat>]` — `Origin` starts an independently branded sequence and `Previous` advances only that sequence's current tail. Generated case probes reject the struct's default ghost before the total `Switch` owns both modalities, and the atomic tail gate refuses replayed or concurrently substituted predecessors.
 - Receipt: `MonotonicBeat` exposes immutable `Ordinal`, `Stamp`, `Elapsed`, and `Delta` evidence. Its `ValidityClaim.All` fold requires one timeline, an origin-bound sequence brand, non-negative intervals, monotone elapsed time, and first-beat delta equality; the private origin and sequence brands prevent chain mixing.
-- Entry: `MotionInterpolation.Interpolate`/`Rotate` stay internal to the intent dispatch; `Easing.Evaluate`, `CyclePlan.Phase`, `SpringShape.Evaluate`/`Step`/`Settle`, `DecayShape.Project`/`Advance`/`Settle`, and `MonotonicTimeline.Of`/`Capture`/`Elapsed`/`Order`/`Beat` form the public motion-time surface, each fallible operation resolving one `Op` key and returning `Fin<T>`.
+- Entry: `MotionInterpolation.Interpolate`/`Rotate` form the branch's one rotor-interpolation law — public members the intent dispatch composes and every host-stratum rotor consumer calls directly; `Easing.Evaluate`, `CyclePlan.Phase`, `SpringShape.Evaluate`/`Step`/`Settle`, `DecayShape.Project`/`Advance`/`Settle`, and `MonotonicTimeline.Of`/`Capture`/`Elapsed`/`Order`/`Beat` complete the public motion-time surface, each fallible operation resolving one `Op` key and returning `Fin<T>`.
 - Packages: `TimeProvider` supplies monotonic timestamps and provider-defined elapsed conversion; Thinktecture owns generated `[SmartEnum]` and `[Union]` vocabularies; Foundation analyzer contracts own `[BoundaryAdapter]`; LanguageExt owns `Fin`, `Option`, and guards; RhinoCommon owns rotor and parametric evaluation; `FieldIntegrator` owns driven stepping.
 - Growth: `MonotonicTimeline` serves session latency, UI-event ordering, and timer beats through one branded evidence, so a new clock consumer composes it without a host-local counter; a new easing family is one kernel folded through the existing polarities, and a value-parameterized curve (an imported token) rides the `BezierEase` carrier, never a vocabulary row; a new physical modality is one shape struct beside `SpringShape` and `DecayShape` carrying its own admission and its own closed forms, never a per-consumer integration loop.
 - Boundary: `MotionInterpolation` starts where rotation requires a quaternion, vector arithmetic staying on the admitted direction algebra; `MonotonicTimeline` admits reference identity with the capturing timeline and provider before any `GetElapsedTime` call, and each beat sequence atomically admits only its current tail, so foreign timestamps and replayed predecessors never enter accepted timing evidence. The two settling reads partition by QUESTION: `Settle` answers how long a run must be BOUND before it starts, and a consumer's own per-frame band test answers when a stepped drive may STOP — the projection is conservative because an early answer truncates a tail, while the band test reads the state it already holds; a consumer computing a duration from a band test, or stepping until a projected duration expires, has crossed the two. An undamped shape settles never, so `Settle` refuses at zero damping rather than answering an infinity, and `DecayShape` refuses a retention at or outside the open unit interval for the same reason at its own rate.
@@ -42,7 +42,6 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` rail: Rhino-read material a
 using System;
 using System.Runtime.InteropServices;
 using LanguageExt;
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino;
@@ -207,7 +206,7 @@ public sealed partial class MotionInterpolation {
     public static readonly MotionInterpolation Slerp = new(key: 1, combine: static (a, b, t) => Quaternion.Slerp(a: a, b: b, t: t));
     [UseDelegateFromConstructor] private partial Quaternion Combine(Quaternion a, Quaternion b, double t);
 
-    internal Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key) =>
+    public Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key) =>
         from left in Admit.Plane(basis: a, key: key)
         from right in Admit.Plane(basis: b, key: key)
         from output in left.EpsilonEquals(other: right, epsilon: EpsilonPolicy.ZeroTolerance)
@@ -218,7 +217,7 @@ public sealed partial class MotionInterpolation {
                 : Fin.Fail<Plane>(key.InvalidResult())
         select output;
 
-    internal Fin<Direction> Rotate(Direction a, Direction b, UnitInterval t, Context context, Op key) =>
+    public Fin<Direction> Rotate(Direction a, Direction b, UnitInterval t, Context context, Op key) =>
         from rotor in a.Value.IsParallelTo(other: b.Value, angleTolerance: context.Angle.Value) switch {
             -1 => Fin.Succ(Quaternion.Rotation(Math.PI, VectorFrame.SeedPerpendicular(axis: a.Value))),
             _ => Transform.Rotation(startDirection: a.Value, endDirection: b.Value, rotationCenter: Point3d.Origin).GetQuaternion(quaternion: out Quaternion target)

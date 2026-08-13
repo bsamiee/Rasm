@@ -24,7 +24,6 @@
 using Eto.Drawing;
 using Eto.Forms;
 using Eto.Forms.ThemedControls;
-using Rasm.Csp;
 using Rasm.Domain;
 using System.Collections.Frozen;
 

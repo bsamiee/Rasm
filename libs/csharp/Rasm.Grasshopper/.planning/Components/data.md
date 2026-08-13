@@ -19,6 +19,10 @@
 - Boundary: a captured `OperationCanceledException` remains the kernel `Fault.Cancelled`; the `Try` capture inside `Hosted` is the platform exception seam.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Rasm.Domain;
+
 namespace Rasm.Grasshopper.Components;
 
 // --- [ERRORS] ----------------------------------------------------------------------------
@@ -105,6 +109,13 @@ public sealed record Notice(Severity Severity, string Title, string Detail, Seq<
 - Law: `GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` are the host's own dedicated typed reads and `Read<T>` composes them by preference where the target type matches — the host publishes them beside the generic path precisely because they own their conversion, so routing those two targets through `GetPear<T>` bets on an equivalence the host never states.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Grasshopper2.Data;
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -270,6 +281,11 @@ public static class GardenData {
 - Boundary: the `BrokerLedger` swap bodies and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives typed carriers and receipts only.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -446,6 +462,13 @@ public static class Coerce {
 - Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection. `ScalingTo` is the HOST's answer to a host question and never a second cross-context scale owner — a kernel-space rescale is `ModelUnit.ScaleTo` off the admitted `Context.Unit`, and a call that reaches for the host factor to convert kernel measures forks the one scale owner.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Rasm.Domain;
+using Rhino;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 public sealed record HostUnits(double Absolute, double Relative, Grasshopper2.Types.Numeric.Angle Angle, UnitSystem Units) {

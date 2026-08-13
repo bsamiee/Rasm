@@ -27,7 +27,7 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Rasm.Csp;
+using Rasm.Domain;
 using LanguageExt;
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -165,7 +165,7 @@ internal static partial class SegmentKernel {
 - Owner: `MeshFeatureAlgorithm` (`DihedralProxy`, the row future curvature-tensor detectors extend); `MeshFeatureKind` the edge taxonomy; `MeshFeaturePolicy` derives the curvature threshold and smoothing scale from the mean edge length at admission while the dihedral threshold stays caller intent, and optional per-face regions turn region boundaries into features.
 - Entry: `DetectFeatureEdgesDetailed` seats the derived policy from a dihedral angle or admits a full policy — one concept, input-shape discrimination.
 - Auto: topology edges classify by connected-face census, then smooth two-face edges classify by the signed dihedral against the threshold — ridge or valley when the length-normalized curvature signal also clears the curvature threshold, plain crease otherwise; region-boundary classification precedes the angle tests when face regions are declared, and the curvature signal is endpoint-smoothed against single-edge noise, so a raw per-edge threshold is the rejected form.
-- Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; the receipt's own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise.
+- Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; the receipt's own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise; per-face normals ride the memoized `MeshSpace.FaceNormals` column on the `Fin` rail, so detection never mutates the frozen snapshot.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -243,10 +243,8 @@ internal static partial class SegmentKernel {
         from receipt in DetectFeatureEdgesDetailed(space: space, policy: policy, key: key)
         select receipt;
     internal static Fin<FeatureReceipt> DetectFeatureEdgesDetailed(MeshSpace space, MeshFeaturePolicy policy, Op key) =>
-        policy.Admit(space: space, key: key).Map(activePolicy => {
+        policy.Admit(space: space, key: key).Bind(activePolicy => space.FaceNormals(key: key).Map(faceNormals => {
             Mesh mesh = space.Native;
-            _ = mesh.FaceNormals.ComputeFaceNormals();
-            Vector3f[] faceNormals = [.. mesh.FaceNormals];
             FeatureCurvatureSignals curvature = EdgeCurvatureSignals(mesh: mesh, faceNormals: faceNormals, smoothingScale: activePolicy.SmoothingScale.Value);
             List<FeatureEdge> features = new(capacity: mesh.TopologyEdges.Count);
             int[] counts = new int[MeshFeatureKind.Items.Count];
@@ -268,9 +266,9 @@ internal static partial class SegmentKernel {
                 counts[edge.Kind.Key]++;
             }
             return new FeatureReceipt(Edges: toSeq(features), BoundaryEdges: counts[MeshFeatureKind.Boundary.Key], CreaseEdges: counts[MeshFeatureKind.Crease.Key], NonManifoldEdges: counts[MeshFeatureKind.NonManifold.Key], UnweldedEdges: counts[MeshFeatureKind.Unwelded.Key], NgonInteriorSkippedEdges: counts[MeshFeatureKind.NgonInteriorSkipped.Key], DihedralThresholdRadians: activePolicy.DihedralThreshold.Value, UnclassifiedEdges: unclassified, RidgeEdges: counts[MeshFeatureKind.Ridge.Key], ValleyEdges: counts[MeshFeatureKind.Valley.Key], RegionBoundaryEdges: counts[MeshFeatureKind.RegionBoundary.Key], CurvatureThreshold: activePolicy.CurvatureThreshold.Value, SmoothingScale: activePolicy.SmoothingScale.Value, CurvatureFiniteVertices: curvature.FiniteVertices, CurvatureRejectedVertices: curvature.RejectedVertices, TopologyEdgeCount: mesh.TopologyEdges.Count, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
-        });
-    private static (MeshFeatureKind Kind, Option<double> Angle)? ClassifySmoothFeature(Mesh mesh, int edge, int[] faces, Vector3f[] faceNormals, MeshFeaturePolicy policy, double edgeCurvature, out Option<double> signed, out Option<double> signal) {
-        double rawAngle = Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]);
+        }));
+    private static (MeshFeatureKind Kind, Option<double> Angle)? ClassifySmoothFeature(Mesh mesh, int edge, int[] faces, Arr<Vector3d> faceNormals, MeshFeaturePolicy policy, double edgeCurvature, out Option<double> signed, out Option<double> signal) {
+        double rawAngle = Vector3d.VectorAngle(a: faceNormals[index: faces[0]], b: faceNormals[index: faces[1]]);
         double signedAngle = SignedDihedral(mesh: mesh, edge: edge, faces: faces, faceNormals: faceNormals, angle: rawAngle);
         Option<double> angle = double.IsFinite(x: rawAngle) ? Some(rawAngle) : Option<double>.None;
         signed = double.IsFinite(x: signedAngle) ? Some(signedAngle) : Option<double>.None;
@@ -283,16 +281,16 @@ internal static partial class SegmentKernel {
             return signedAngle >= 0.0 ? (MeshFeatureKind.Ridge, angle) : (MeshFeatureKind.Valley, angle);
         return rawAngle >= policy.DihedralThreshold.Value ? (MeshFeatureKind.Crease, angle) : null;
     }
-    private static double SignedDihedral(Mesh mesh, int edge, int[] faces, Vector3f[] faceNormals, double angle) {
+    private static double SignedDihedral(Mesh mesh, int edge, int[] faces, Arr<Vector3d> faceNormals, double angle) {
         Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: edge);
         if (!line.IsValid) return angle;
         Vector3d axis = line.To - line.From;
         if (!axis.Unitize()) return angle;
-        double sign = Vector3d.CrossProduct(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]) * axis;
+        double sign = Vector3d.CrossProduct(a: faceNormals[index: faces[0]], b: faceNormals[index: faces[1]]) * axis;
         return sign < 0.0 ? -angle : angle;
     }
     // Length-normalized signal blended toward the endpoint mean by length/(length+scale): single-edge noise damps out, high-curvature bands survive.
-    private static FeatureCurvatureSignals EdgeCurvatureSignals(Mesh mesh, Vector3f[] faceNormals, double smoothingScale) {
+    private static FeatureCurvatureSignals EdgeCurvatureSignals(Mesh mesh, Arr<Vector3d> faceNormals, double smoothingScale) {
         double[] edgeSignals = new double[mesh.TopologyEdges.Count];
         double[] edgeLengths = new double[mesh.TopologyEdges.Count];
         double[] vertexSum = new double[mesh.TopologyVertices.Count];
@@ -304,7 +302,7 @@ internal static partial class SegmentKernel {
             if (faces.Length != 2 || !line.IsValid) continue;
             double length = line.Length;
             if (!double.IsFinite(x: length) || length <= EpsilonPolicy.SqrtEpsilon) continue;
-            double angle = Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]);
+            double angle = Vector3d.VectorAngle(a: faceNormals[index: faces[0]], b: faceNormals[index: faces[1]]);
             if (!double.IsFinite(x: angle)) continue;
             double signal = Math.Abs(value: angle) / length;
             edgeSignals[e] = signal; edgeLengths[e] = length;

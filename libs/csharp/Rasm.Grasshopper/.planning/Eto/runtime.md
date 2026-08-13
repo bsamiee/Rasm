@@ -27,7 +27,7 @@ Every fallible operation rides an `Op`-keyed `Fin<T>` rail through the `Op.Catch
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 
 namespace Rasm.Grasshopper.Eto;
@@ -192,7 +192,7 @@ public static class EtoDispatch {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;
 
@@ -373,7 +373,7 @@ public sealed class UiClock : IDisposable {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -555,7 +555,7 @@ public static class Transfer {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 

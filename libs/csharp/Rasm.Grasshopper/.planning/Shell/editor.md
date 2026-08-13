@@ -41,7 +41,7 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rhino;
 

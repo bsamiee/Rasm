@@ -26,7 +26,6 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
@@ -53,6 +52,7 @@ internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N) {
     private static FrameBundle Compute(Mesh mesh) {
         int n = mesh.Vertices.Count;
         using Mesh active = mesh.DuplicateMesh();
+        // Deliberate divergence from the MeshSpace.FaceNormals column: the duplicate exists for the VERTEX-normal compute, whose averaging needs face normals on the same mutable copy — the column would remove neither.
         _ = active.FaceNormals.ComputeFaceNormals();
         _ = active.Normals.ComputeNormals();
         Vector3d[] normals = new Vector3d[n]; Vector3d[] xAxes = new Vector3d[n]; Vector3d[] yAxes = new Vector3d[n];

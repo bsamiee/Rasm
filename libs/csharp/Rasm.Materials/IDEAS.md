@@ -19,7 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[MATERIAL_SYMMETRY_AUTHORITY]-[QUEUED]: material construction rows author the symmetry law a placement consumes — one authority for grain, nap, and face direction.
+- Capability: the admitted rotation fold and mirror grant DERIVE from the material's own construction facts, so an illegal group-material pairing is unrepresentable at plan admission and no consumer hand-sets a legality knob beside a material that already models direction.
+- Shape: `libs/csharp/Rasm.Materials/.planning/Component/component.md` — one derivation member on the component owner projecting construction rows onto the kernel `MaterialSymmetry`; the timber along/across-grain orthotropic law at `libs/csharp/Rasm.Materials/.planning/Component/timber.md` and the veneer/laminate face facts are the first sources.
+- Unlocks: patternmap and panelize plans admit against the material instead of a caller-supplied law; Fabrication's directional nesting reads one derived legality; a book-match veneer row obligates its pairs from the material fact alone.
+- Anchors: kernel `MaterialSymmetry`/`SymmetryFold`/`MirrorGrant` at `libs/csharp/Rasm/.planning/Parametric/patternmap.md`, the `libs/csharp/Rasm.Materials/.planning/Component/timber.md` orthotropic grain law, the `ComponentRow` policy-row precedent at `libs/csharp/Rasm.Materials/.planning/Component/component.md`.
+- Ripple: cross-folder `Rasm.Fabrication` `[DIRECTIONAL_STOCK_NESTING]` — precedes (this derivation is the gate that search consumes).
 
 ## [02]-[CLOSED]
 

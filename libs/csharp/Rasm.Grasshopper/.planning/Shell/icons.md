@@ -56,7 +56,7 @@ Perceptual tint math for filter and state colour composes the kernel `Perceptual
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Reflection;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;

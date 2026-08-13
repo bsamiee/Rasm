@@ -19,7 +19,18 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[BALLOON_ANCHOR_DERIVATION]-[QUEUED]: parts-list callouts anchor themselves from the projection's own part-tagged visible runs.
+- Capability: BOM balloon placement as a pure derivation over solved drawing evidence — each part's leader anchors on its own longest visible run, so callout seating needs no second projection and no operator pre-pass.
+- Shape: `libs/csharp/Rasm.Fabrication/.planning/Documentation/projection.md` `[02]-[PROJECTION]` — one anchor-derivation fold beside `ProjectionAnchor`, reading the kernel `ProjectedSegment.Part` column and per-part visible sets off the run's `DrawingProjection`.
+- Unlocks: traveler and shop-sheet parts lists whose balloons land deterministically per view; the AppUi drafting leg places the leader from the anchor alone, mirroring the `FrameSymbolRow` precedent.
+- Anchors: kernel `DrawingProjection` part provenance (`Part`, per-part `EdgeHistogram` tallies), the `ProjectionAnchor` depth-gate precedent, successor-linked runs making longest-run a chain walk.
+
+[DIRECTIONAL_STOCK_NESTING]-[QUEUED]: nesting that honors material symmetry — flips and rotations gated by the stock's admitted point group instead of treated as free moves.
+- Capability: a placement search whose move set derives from material legality — mirror moves admitted only where the law merges or turns them, rotation moves clamped to the admitted fold with a grain-cone tolerance, refusal typed on the part and the stock row it cannot place.
+- Shape: `libs/csharp/Rasm.Fabrication/.planning/Nesting/nfp.md` — law-gated move rows on the placement search beside the existing rotation set; stock rows gain the grain vector and their admitted symmetry; `Nesting/stock.md` rectangle lanes read the same gate.
+- Unlocks: grain-correct nesting on directional stock — the kernel `PanelField.Flipped` parity and `InstanceStream.Mapped.PairOf` columns gain their load-bearing consumer, book-matched mates nest as adjacent units, and `PanelReceipt.ChiralSplit` prices the mould delta the layout must absorb.
+- Anchors: kernel `MaterialSymmetry`/`SymmetryFold`/`MirrorGrant` at `libs/csharp/Rasm/.planning/Parametric/patternmap.md`, the `ShapeClasses` law-conditional merge at `libs/csharp/Rasm/.planning/Parametric/panelize.md`, the NFP move set and `RectangleBinPack` admission ruling at `libs/csharp/Rasm.Fabrication/RULINGS.md`.
+- Ripple: cross-folder `Rasm.Materials` `[MATERIAL_SYMMETRY_AUTHORITY]` — follows (the derived law is the gate this search consumes).
 
 ## [02]-[CLOSED]
 

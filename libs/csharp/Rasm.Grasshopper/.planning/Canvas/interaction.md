@@ -35,7 +35,7 @@ One `ResponderSpec` declares a hit-testable input target as data, and one contai
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Grasshopper.Eto;
 
@@ -320,7 +320,7 @@ public static class Dispatch {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -477,7 +477,7 @@ public sealed class EdgeResize {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Shell;
 

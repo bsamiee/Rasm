@@ -1,6 +1,6 @@
 # [RASM_RHINO_ANNOTATION_HATCH]
 
-`PatternDef` round-trips complete detached pattern definitions, `HatchSpec` constructs placed fills through one boundary family, and `Hatches.Commit` folds pattern and object mutation through the shared drafting spine. Pattern batches compensate failed additions, placed state preserves every mutable hatch parameter, and all native geometry crosses the document boundary through explicit custody.
+`PatternDef` round-trips complete detached pattern definitions, `HatchSpec` constructs placed fills through one boundary family, and `Hatches.Commit` folds pattern and object mutation through the shared drafting spine. Pattern batches compensate failed additions, placed state preserves every mutable hatch parameter, and all native geometry crosses the document boundary through explicit custody. Exact fill synthesis — winding-parity courses over region loops — is `Rasm.Drawing`'s (`Hatching.Apply` onto the host-neutral `HatchResult` wire), so this page is the HOST hatch-table and placement altitude and never re-derives fill geometry.
 
 ## [01]-[INDEX]
 
@@ -355,7 +355,7 @@ public abstract partial record HatchSpec {
 
 ## [04]-[MUTATION]
 
-- Owner: `HatchOp` is the complete pattern-table and placed-hatch mutation program consumed by `Hatches.Commit`; `LineEdit` folds append, replace, remove, and clear into one detached generator-revision vocabulary `Reline` carries.
+- Owner: `HatchProgram` is the complete pattern-table and placed-hatch mutation program consumed by `Hatches.Commit`; `LineEdit` folds append, replace, remove, and clear into one detached generator-revision vocabulary `Reline` carries.
 - Law: pattern import, multi-hatch placement, and batch replacement fold through the shared `DocumentCommit.Compensated` landed-state algebra, with minted and cloned custody settled through its source-release policy.
 - Boundary: default and imported host patterns cross `PatternDef.Read` and `Mint`, so one canonical detached shape reaches every table addition; each host-minted roster — the `GetDefaultHatchPatterns` array and the `ReadFromFile` batch alike — releases through `DraftCustody` the moment its canonical copy exists, and every canonical copy leases across the `Add` the table copies it into.
 - Law: delete resolves and deduplicates every target before one batch table call; one retained row refuses the whole request.
@@ -364,7 +364,7 @@ public abstract partial record HatchSpec {
 - Law: `Reline` is the incremental generator rail beside that whole-aggregate replacement, mirroring the linetype page's `Resegment`/`SegmentEdit` pair — `LineEdit` revises a native `HatchPattern` copy in place and lands through the same `Modify`, so amending one generator of a thirty-line pattern never re-admits the twenty-nine it left alone and a legacy row whose angle or offset `LineDef` refuses stays editable. `new HatchPattern(other)` copy-constructs the whole native pattern including its name, the same shape the linetype `TableGrip` takes for the same reason.
 - Law: every `LineEdit` index bounds against the live `HatchLineCount` read from the copy, and `Clear` is the one edit that may empty a `Lines` pattern — an empty generator set under `FillKind.Lines` refuses at the next `PatternDef.Read`, so the batch proves a non-empty result before `Modify`.
 - Boundary: placed-hatch rework retains original and revised clones through compensation; the release policy settles both clones on every outcome, and a custody refusal after commit restores the originals.
-- Entry: `Hatches.Commit` preserves the frozen wire and accepts `DraftPlan<HatchOp>` with shared redraw and undo policy.
+- Entry: `Hatches.Commit` preserves the frozen wire and accepts `DraftPlan<HatchProgram>` with shared redraw and undo policy.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -399,20 +399,20 @@ public abstract partial record LineEdit {
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record HatchOp {
-    private HatchOp() { }
-    public sealed record Author(PatternDef Def) : HatchOp;
-    public sealed record AuthorDefault(ResourceName Name) : HatchOp;
-    public sealed record Amend(ResourceRef Target, PatternDef Def, HostInteraction Interaction) : HatchOp;
-    public sealed record Reline(ResourceRef Target, Seq<LineEdit> Edits, HostInteraction Interaction) : HatchOp;
-    public sealed record Retag(ResourceRef Target, HashMap<string, string> Tags, HostInteraction Interaction) : HatchOp;
-    public sealed record Rename(ResourceRef Target, ResourceName Name) : HatchOp;
-    public sealed record Delete(Seq<ResourceRef> Targets, HostInteraction Interaction) : HatchOp;
-    public sealed record Import(DraftPath Path, HostInteraction Interaction) : HatchOp;
-    public sealed record Export(DraftPath Path, Seq<ResourceRef> Targets) : HatchOp;
-    public sealed record Place(HatchSpec Spec, FillPlacement Placement, Option<ObjectAttributes> Attributes = default) : HatchOp;
-    public sealed record Regrade(TableTarget Target, FillGradient Fill) : HatchOp;
-    public sealed record Rescale(TableTarget Target, Transform Motion) : HatchOp;
+public abstract partial record HatchProgram {
+    private HatchProgram() { }
+    public sealed record Author(PatternDef Def) : HatchProgram;
+    public sealed record AuthorDefault(ResourceName Name) : HatchProgram;
+    public sealed record Amend(ResourceRef Target, PatternDef Def, HostInteraction Interaction) : HatchProgram;
+    public sealed record Reline(ResourceRef Target, Seq<LineEdit> Edits, HostInteraction Interaction) : HatchProgram;
+    public sealed record Retag(ResourceRef Target, HashMap<string, string> Tags, HostInteraction Interaction) : HatchProgram;
+    public sealed record Rename(ResourceRef Target, ResourceName Name) : HatchProgram;
+    public sealed record Delete(Seq<ResourceRef> Targets, HostInteraction Interaction) : HatchProgram;
+    public sealed record Import(DraftPath Path, HostInteraction Interaction) : HatchProgram;
+    public sealed record Export(DraftPath Path, Seq<ResourceRef> Targets) : HatchProgram;
+    public sealed record Place(HatchSpec Spec, FillPlacement Placement, Option<ObjectAttributes> Attributes = default) : HatchProgram;
+    public sealed record Regrade(TableTarget Target, FillGradient Fill) : HatchProgram;
+    public sealed record Rescale(TableTarget Target, Transform Motion) : HatchProgram;
 
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
@@ -610,7 +610,7 @@ public abstract partial record HatchOp {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Hatches {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<HatchOp> plan) =>
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, key) => operation.Apply(document: document, op: key),
             op: Op.Of(name: nameof(Hatches)));
@@ -625,7 +625,7 @@ public static class Hatches {
 ## [05]-[PROJECTION]
 
 - Owner: `PatternSnapshot` and `HatchState` preserve the complete detached definition and every mutable placed-hatch parameter.
-- Law: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values.
+- Law: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values; the loops they classify are shape-compatible ingress for the kernel's `HatchOp.Regions` — exact fill synthesized over host-authored boundaries.
 - Boundary: loops, display bounds, solid regions, and exploded pieces cross through `DraftCustody.Crossed`, the namespace's one detach fold, which releases accepted handles on crossing refusal and raw products on every exit; answer cases expose only `GeometryHandle` custody.
 - Law: default-pattern projection returns full `PatternDef` rows rather than a name census, so built-in capability remains authorable without a second lookup grammar.
 

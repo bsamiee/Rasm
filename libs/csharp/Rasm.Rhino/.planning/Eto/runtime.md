@@ -23,7 +23,6 @@
 using Eto.Drawing;
 using Eto.Forms;
 using LanguageExt.UnsafeValueAccess;
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Parametric;

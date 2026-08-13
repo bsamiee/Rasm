@@ -730,7 +730,7 @@ public abstract partial record DfmPackageEvidence {
 
 - Owner: `Manufacturability.Assess` owns the cross-modality fold; `DfmVerdict` owns one rule-against-evidence decision; `RoutingRow` and `RouteScore` own ranking; `StackupPrecheck` owns the assembly-allowance verdict; `DfmReport` owns the terminal receipt.
 - Law: the stackup precheck COMPOSES `ToleranceChain.Evaluate` — the chain's own method, its ranked contributions, and its bound verdict — and adds only what this page owns: whether the supplied allowances cover the chain's terms and whether their accumulated interval clears the same bound. A local worst-case fold here would be a third stackup algebra disagreeing with the two that already answer.
-- Law: mesh-derived evidence reads ONE scratch per assessment. Face normals have no kernel query — the `Faces` family decomposes BREP faces, whose index space is not a mesh's — so one native copy is taken, its normals computed once, and the draft, resting, overhang, access, and joint lanes all read those rows and one spatial index; bounds and defect samples ride the kernel queries with the `MeshSpace` subject and its own copy.
+- Law: mesh-derived evidence reads ONE scratch per assessment. Face normals ride the kernel — `MeshSpace.FaceNormals` is the memoized unit-normal column over the native face roster, and the `Faces` family stays a BREP decomposition whose index space is not a mesh's — so the draft, resting, overhang, access, and joint lanes all read those kernel rows and one spatial index, the one detached copy carrying only the face-box walk and the defect subject; bounds ride the kernel query with the `MeshSpace` subject.
 - Law: resting faces derive from the SAME normal rows the draft census reads, so the excluded set and the measured set share one index space — a face selection recovered from a second decomposition indexes a different topology and silently excludes the wrong faces.
 - Law: every gate refusal carries its OWN discriminant. The kernel `InvalidInput`/`InvalidResult` mints take no detail slot, so gates lowering onto them are refusals a caller cannot tell apart; each answers on the fabrication band under a declared locus.
 - Law: a degenerate profile, an unresolvable medial axis, or absent history contributes no observation rather than failing the report, so producibility gaps stay report rows and only kernel faults leave the rail.
@@ -1405,9 +1405,10 @@ public static class Manufacturability {
         effect.ToValidation();
 }
 
-// The ONE mesh scratch per assessment. `MeshSpace.Native` is internal and face normals have no kernel query — the
-// `Faces` family decomposes BREP faces, whose index space is not a mesh's — so one detached copy carries the face
-// normals, the resting-face split, the spatial index, and the defect subject, and every mesh lane reads it.
+// The ONE mesh scratch per assessment. Face normals ride `MeshSpace.FaceNormals` — the kernel's memoized
+// unit-normal column over the native face roster — and the `Faces` family stays a BREP decomposition whose index
+// space is not a mesh's, so the normal rows and the resting-face split index the same roster the face boxes walk,
+// and the one detached copy carries only the spatial index and the defect subject `MeshSpace.Native` keeps internal.
 internal sealed record MeshFacts(
     Mesh Native,
     Seq<(int Face, Vector3d Normal)> Faces,
@@ -1426,12 +1427,11 @@ internal sealed record MeshFacts(
 
     private static Fin<MeshFacts> Built(MeshSpace space) {
         Mesh native = space.DuplicateNative();
-        native.FaceNormals.ComputeFaceNormals();
-        Seq<(int Face, Vector3d Normal)> faces = toSeq(Enumerable.Range(0, native.Faces.Count))
-            .Map(index => (index, (Vector3d)native.FaceNormals[index]));
-        // The factory's own default IS the axis-aligned row; naming it here would bind this record's `Bounds`
-        // member rather than the kernel type, which is the name capture the defaulted call sidesteps.
-        return from bounds in Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(), space)
+        return from normals in space.FaceNormals(Manufacturability.DfmOp)
+               let faces = toSeq(Enumerable.Range(0, normals.Count)).Map(index => (Face: index, Normal: normals[index]))
+               // The factory's own default IS the axis-aligned row; naming it here would bind this record's `Bounds`
+               // member rather than the kernel type, which is the name capture the defaulted call sidesteps.
+               from bounds in Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(), space)
                    .ToFin()
                    .Bind(boxes => boxes.Head.ToFin(Manufacturability.MeshBounds))
                from index in Spatial
@@ -1469,7 +1469,7 @@ flowchart LR
     accTitle: Manufacturability assessment fold
     accDescr: One admitted request builds a single mesh scratch, derives geometric, package, tolerance, and procedure observations each carrying its own resolution, evaluates parameterized rules into verdicts, ranks routes on weighted dimensionless burdens, and composes the tolerance chain receipt into one stackup precheck.
     Request["DfmRequest — component, policy, supplied evidence"] --> Admit["Manufacturability.Admit — accumulated gates"]
-    Admit --> Facts["MeshFacts.Of — one native copy, normals, index, bounds"]
+    Admit --> Facts["MeshFacts.Of — kernel normal column, one native copy, index, bounds"]
     Facts --> Derived["Derived — policy, profile, wall, removal, forming, joining, additive"]
     Package["DfmPackageEvidence — sidecar receipts with their own step"] --> Evidence
     Derived --> Evidence["DfmObservation set — route + resolution per reading"]

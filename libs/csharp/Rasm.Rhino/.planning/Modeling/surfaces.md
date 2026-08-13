@@ -16,6 +16,18 @@
 - Law: one analytic vocabulary serves two representations — `AnalyticSeed.Build` dispatches the primitive once, while each `SurfaceForm` row supplies the four constructor delegates through `[UseDelegateFromConstructor]`; neither axis reconstructs the other.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NetContinuity {

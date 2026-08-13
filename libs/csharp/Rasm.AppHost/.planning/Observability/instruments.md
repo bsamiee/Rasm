@@ -370,7 +370,7 @@ public static class InstrumentFan {
 |  [07]   | `Rasm.Compute`     | typed fold — `ComputeInstrumentFan`    | `ReceiptSurface.Telemetry`         | host root      |
 |  [08]   | `Rasm.AppUi`       | typed fold — `EvidenceFan`             | `AppUiTelemetry.Contribute`        | host root      |
 |  [09]   | `Rasm.Rhino`       | observe taps on the mount registry     | `RhinoInstruments.Telemetry`       | plugin ALC     |
-|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project`   | `PlatformTelemetry.Open`           | plugin ALC     |
+|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project`   | app root — `GhInstruments.Rows`    | plugin ALC     |
 
 ## [04]-[PROVIDER_LIFETIME]
 

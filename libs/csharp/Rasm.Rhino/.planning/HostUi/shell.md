@@ -11,7 +11,7 @@
 - [06]-[RUNTIME]: `HostFacts`, `HostAssemblies`, `HostScripts`, and `ShellSkin` own capability probes, resolver receipts, collectible loading, the script engine, and the skin load-phase hook; `ShellHooks` mounts the skin phase route on the registry.
 - [07]-[CALLBACKS]: `CallbackObserver<T>`, `NamedKind`, `NamedBag`, and `NamedCallbacks` close guarded delivery and the typed named-parameter wire; `NodeFunctions` projects the node-in-code table onto the same crossing.
 - [08]-[NOTICES]: `NoticeSpec`, `NoticeLease`, and `Notices` mint, present, annotate, and observe host notifications under the assembly-restriction guard.
-- [09]-[TELEMETRY_ROOT]: `ShellTelemetry` opens the per-ALC telemetry capsule at the plugin app root and derives resource identity from the host snapshot.
+- [09]-[TELEMETRY_ROOT]: `ShellIdentity` and `ShellTelemetry.Resolve` mint the plugin-side identity record — discriminator, ALC, version, content root, host snapshot — the `apps/rhino/<Plugin>/` composition root binds when it opens the per-ALC AppHost telemetry capsule.
 
 ## [02]-[HOST_THREAD]
 
@@ -32,6 +32,7 @@ using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using Eto.Forms;
 using Microsoft.Extensions.Diagnostics.Latency;
 using Rasm.Analysis;
@@ -2329,39 +2330,39 @@ public static class Notices {
 
 ## [09]-[TELEMETRY_ROOT]
 
-- Owner: `ShellTelemetry` — the plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per feature.
-- Entry: `ShellTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>`.
-- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Rhino` — no package source names an AppHost or OpenTelemetry type.
-- Law: `ProfileSurface.Resolve` gates the `HostRows.Rhino` row before the capsule opens.
-- Law: `ProfileIdentity.ResourceAttributes` owns resource identity; this root supplies the resolved record and its discriminator rows alone.
-- Law: `TelemetryDomain.Qualify` renders `service.name` off the `TelemetryDomain.Rhino` row, never a literal.
-- Law: plugin id, host process, and host version all spell `TelemetryDomain.Host.Measure`; `Rostered` refuses an unrostered `rasm.` key.
+- Owner: `ShellIdentity` — the plugin-side identity record the telemetry capsule binds: admitted plugin discriminator, plugin `AssemblyLoadContext`, assembly version, resolved content root, and the one process `HostSnapshot`; `ShellTelemetry.Resolve` is its sole mint.
+- Entry: `ShellTelemetry.Resolve(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<ShellIdentity>`.
+- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Rhino` — no package source names an AppHost or OpenTelemetry type, and this section's fence compiles against `Rasm` alone.
+- Law: one `HostFacts.Probe(new HostProbe.Process())` at the identity mint carries the modeling host's executable name and version, never re-probed per signal.
+- Law: content root resolves at the mint because it is plugin knowledge — plugins load from their own install directory, and a host reporting no location for a collectible or single-file assembly falls to the process base, the one path that then resolves.
+- Boundary: the AppHost lacing is composition-root work, homed whole at the `apps/rhino/<Plugin>/` shell per the branch composition-root ruling — over one resolved `ShellIdentity` the root gates `ProfileSurface.Resolve` on the `HostRows.Rhino` row (`Tenancy.None`, `DeploymentTopology.InHost`, `LifecycleOwner.CallerOwned`, `Isolation.InProc`, no providers — Rhino owns the process and the plugin binds no provider port, so the row samples whole and projects its logs locally) under `TelemetryDomain.Rhino.Key`, `Environments.Production`, and the identity's content root and version, then opens `PluginTelemetryHost.Open` on the identity's `Alc` with `Seq(RhinoInstruments.Telemetry(version))` as the contributor set and the plugin, process, and version discriminators read off the identity; `Resolve` gates the axis values BEFORE the capsule opens, so an unservable row refuses while no provider exists to dispose.
+- Law: capsule cardinality is one per plugin `AssemblyLoadContext`, opened once at plugin load, never per feature; a second plugin is a second identity mint and a second open with its own discriminator.
+- Law: `ProfileIdentity.ResourceAttributes` owns resource identity; this package supplies the identity record and its discriminator rows alone.
+- Law: `TelemetryDomain.Qualify` renders `service.name` off the `TelemetryDomain.Rhino` row, never a literal; plugin id, host process, and host version all spell `TelemetryDomain.Host.Measure`, and `Rostered` refuses an unrostered `rasm.` key.
 - Law: semconv `host.*` stays the machine facts `AddHostDetector` supplies, never a rasm-owned discriminator.
-- Law: one `HostFacts.Probe(new HostProbe.Process())` at open carries the modeling host's executable name and version, never re-probed per signal.
 - Law: `Environments.Production` floors the environment row; the `OTEL_RESOURCE_ATTRIBUTES` detector outranks it at deploy.
 - Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law.
 - Boundary: every Rasm meter in the plugin process reaches the capsule `IMeterFactory`; a process-static `Meter` stays the named defect.
-- Packages: app root only — Rasm.AppHost, Rasm, Microsoft.Extensions.Hosting, NodaTime, BCL inbox.
-- Growth: a new resource dimension is one `extra` row here or one detector row inside `ResourceIdentity.Compose`.
-- Growth: a second plugin is a second `Open` call with its own discriminator.
+- Boundary: the root registers the four `MarshalLatency` checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and seats `MarshalLatency.Mount` under the plugin identity — the composing side of the `[02]` marshal-ledger law.
+- Packages: `Rasm` and BCL inbox alone — `Rasm.AppHost`, `Microsoft.Extensions.Hosting`, and `NodaTime` are `apps/rhino/<Plugin>/` references, never this package's.
+- Growth: a new plugin-side resource dimension is one `ShellIdentity` column; a new machine dimension is one detector row inside `ResourceIdentity.Compose` at the root.
 
 ```csharp signature
-// --- [APP_ROOT_PRELUDE] ---------------------------------------------------------------------
-// This fence compiles in the plugin app-shell project — the one assembly referencing Rasm.AppHost
-// beside Rasm.Rhino — under the shell project's own namespace; no Rasm.Rhino package source
-// composes AppHost or OpenTelemetry types.
-using System.Reflection;
-using System.Runtime.Loader;
-using Microsoft.Extensions.Hosting;
-using NodaTime;
-using Rasm.AppHost.Observability;
-using Rasm.AppHost.Runtime;
-using Rasm.Domain;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.HostUi;
+// --- [TYPES] --------------------------------------------------------------------------------
+// [BOUNDARY]: the AppHost lacing over this record — the ProfileSurface.Resolve gate on the HostRows.Rhino
+// row, PluginTelemetryHost.Open with RhinoInstruments.Telemetry as the contributor set, the TelemetryDomain
+// discriminator spellings, and the MarshalLatency name registration and mount — is the apps/rhino/<Plugin>/
+// composition root's alone: the one assembly referencing Rasm.AppHost beside Rasm.Rhino.
+public sealed record ShellIdentity(
+    string Plugin,
+    Version Version,
+    string ContentRoot,
+    AssemblyLoadContext Alc,
+    HostSnapshot Snapshot);
 
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class ShellTelemetry {
-    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, string plugin, Op? key = null) {
+    public static Fin<ShellIdentity> Resolve(Assembly pluginRoot, string plugin, Op? key = null) {
         ArgumentNullException.ThrowIfNull(pluginRoot);
         Op op = key.OrDefault();
         return from name in op.AcceptText(value: plugin)
@@ -2371,35 +2372,17 @@ public static class ShellTelemetry {
                from snapshot in fact is HostFact.ProcessCase process
                    ? Fin.Succ(value: process.Snapshot)
                    : Fin.Fail<HostSnapshot>(error: op.InvalidResult())
-               // Rhino owns the process and the plugin binds no provider port, so this row samples
-               // whole and projects its logs locally. Resolve gates the axis values BEFORE the capsule
-               // opens, so an unservable row refuses while no provider exists to dispose.
-               from resolved in ProfileSurface.Resolve(
-                   profile: new ConsumptionProfile(
-                       Tenancy: Tenancy.None,
-                       Topology: DeploymentTopology.InHost,
-                       Lifecycle: LifecycleOwner.CallerOwned,
-                       Isolation: Isolation.InProc,
-                       Providers: [],
-                       Host: Some(HostRows.Rhino)),
-                   applicationName: TelemetryDomain.Rhino.Key,
-                   environmentName: Environments.Production,
-                   contentRoot: ContentRoot(pluginRoot),
-                   serviceVersion: version.ToString(),
-                   clock: SystemClock.Instance)
-               from capsule in op.Catch(() => Fin.Succ(value: PluginTelemetryHost.Open(
-                   alc: alc,
-                   resolved: resolved,
-                   contributors: Seq(RhinoInstruments.Telemetry(version.ToString())),
-                   new KeyValuePair<string, object>(TelemetryDomain.Host.Measure("plugin"), name),
-                   new KeyValuePair<string, object>(TelemetryDomain.Host.Measure("process"), snapshot.ProcessName),
-                   new KeyValuePair<string, object>(TelemetryDomain.Host.Measure("version"), snapshot.ProcessVersion.ToString()))))
-               select capsule;
+               select new ShellIdentity(
+                   Plugin: name,
+                   Version: version,
+                   ContentRoot: ContentRoot(pluginRoot),
+                   Alc: alc,
+                   Snapshot: snapshot);
     }
 
     // Plugins load from their own install directory; a host reporting no location for a collectible or
     // single-file assembly falls to the process base, the one path that then resolves.
-    static string ContentRoot(Assembly root) =>
+    private static string ContentRoot(Assembly root) =>
         Path.GetDirectoryName(root.Location) is { Length: > 0 } held ? held : AppContext.BaseDirectory;
 }
 ```

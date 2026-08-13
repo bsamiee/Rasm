@@ -542,7 +542,7 @@ One owner per axis; capability is a case, column, or fold arm, never a sibling s
 |  [01]   | location aspect       | `Location`             | `Operation<TGeometry,TOut>() → Operation` |    6    |
 |  [02]   | addressing            | `Locator`              | `ResolveParameter → Fin<double>`          |    6    |
 |  [03]   | value rows            | `LocationValue`        | `Resolve → Operation<TGeometry,TOut>`     |    8    |
-|  [04]   | subdivision           | `Division`             | `Operation → Operation<TGeometry,TOut>`   |    2    |
+|  [04]   | subdivision           | `Division`             | `Operation → Operation<TGeometry,TOut>`   |    4    |
 |  [05]   | curvature reading     | `CurvatureMode`        | derivation (pure)                         |    2    |
 |  [06]   | curvature aggregation | `CurvatureAggregation` | carrier (read by the sweep)               |    2    |
 |  [07]   | operation spine       | `Locate`               | `Operation.Build → Eff<Env, Seq<TOut>>`   |    —    |

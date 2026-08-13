@@ -9,7 +9,7 @@
 - [04]-[GLIDES]: `GlidePlan` + `TimingCurve` + `Glides` + `Curves` — host-owned animation attachment and the standard timing-function vocabulary.
 - [05]-[EFFECTS]: `FilterKind` + `HapticCue` + `VibrancyPane` + `Effects` — CoreImage filter minting, haptic feedback, and visual-effect views.
 - [06]-[WIDE_COLOR]: `WideColor` — profile-aware kernel projection crossing into AppKit and CoreAnimation, and the appearance-live inverse.
-- [07]-[TELEMETRY_ROOT]: `PlatformTelemetry` — the per-ALC telemetry capsule opened at the GH2 plugin app root with the plugin resource discriminator.
+- [07]-[TELEMETRY_ROOT]: `PlatformIdentity` + `PlatformTelemetry.Resolve` — the plugin-side identity mint (typed `HookScope` discriminator, ALC, version, content root) the `apps/grasshopper/<Plugin>/` composition root binds when it opens the per-ALC AppHost telemetry capsule.
 
 ## [02]-[GRAPH]
 
@@ -67,71 +67,55 @@
 
 ## [07]-[TELEMETRY_ROOT]
 
-- Owner: `PlatformTelemetry` — the GH2 plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component.
-- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, HookScope plugin, Op? key = null)` → `Fin<PluginTelemetryHost>`.
+- Owner: `PlatformIdentity` — the plugin-side identity record the telemetry capsule binds: typed `HookScope` plugin discriminator, plugin `AssemblyLoadContext`, assembly version, and resolved content root; `PlatformTelemetry.Resolve` is its sole mint.
+- Entry: `PlatformTelemetry.Resolve(Assembly pluginRoot, HookScope plugin, Op? key = null)` → `Fin<PlatformIdentity>`.
+- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Grasshopper` — no package source names an AppHost or OpenTelemetry type, and this section's fence compiles against `Rasm` and this folder's `HookScope` alone.
 - Law: the plugin discriminator admits through the typed `Shell/hooks.md` `HookScope` — the same key space the hook registry and the `gh.plugin` meter tag share — so the telemetry resource attribute and every other per-plugin surface spell one identity by construction, and the raw-string parameter this seam once carried is the deleted fork.
-- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Grasshopper` — no package source names an AppHost or OpenTelemetry type.
-- Law: `ProfileSurface.Resolve` gates the `HostRows.Gh2` row before the capsule opens.
-- Law: `ProfileIdentity.ResourceAttributes` owns resource identity; this root supplies the resolved record and its discriminator alone.
-- Law: `TelemetryDomain.Qualify` renders `service.name` off the `TelemetryDomain.Grasshopper` row, never a literal.
-- Law: plugin discriminators spell `TelemetryDomain.Host.Measure("plugin")`; `SignalGovernance.Rostered` refuses a bare `rasm.plugin`.
-- Law: `PlatformTelemetry` contributes a scope coordinate and no `InstrumentSpec` row, so `Views` reads GH streams on its foreign arm.
+- Law: content root resolves at the mint because it is plugin knowledge — plugins load from their own install directory, and a host reporting no location for a collectible or single-file assembly falls to the process base, the one path that then resolves.
+- Boundary: the AppHost lacing is composition-root work, homed whole at the `apps/grasshopper/<Plugin>/` shell per the branch composition-root ruling — over one resolved `PlatformIdentity` the root gates `ProfileSurface.Resolve` on the `HostRows.Gh2` row (`Tenancy.None`, `DeploymentTopology.InHost`, `LifecycleOwner.CallerOwned`, `Isolation.InProc`, no providers — Rhino owns the canvas process and the plugin binds no provider port, so the row samples whole and projects its logs locally) under `TelemetryDomain.Grasshopper.Key`, `Environments.Production`, and the identity's content root and version, then opens `PluginTelemetryHost.Open` on the identity's `Alc` with the one self-minting `TelemetryContributorPort` `Shell/telemetry.md`'s port boundary spells — `TelemetrySource.Grasshopper.Key` scope, empty `Instruments` (handles live on the meter `GhInstruments` mints through the capsule factory, so the root binds nothing), `GhInstruments.Rows` published, `GhInstruments.Board` on the pack column — and the plugin discriminator read off the identity as `TelemetryDomain.Host.Measure("plugin")`; `Resolve` gates the axis values BEFORE the capsule opens, so an unservable row refuses while no provider exists to dispose.
+- Law: capsule cardinality is one per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component; a second plugin is a second identity mint and a second open with its own discriminator.
+- Law: `ProfileIdentity.ResourceAttributes` owns resource identity; this package supplies the identity record and its discriminator alone.
+- Law: `TelemetryDomain.Qualify` renders `service.name` off the `TelemetryDomain.Grasshopper` row, never a literal; the plugin discriminator spells `TelemetryDomain.Host.Measure("plugin")`, and `SignalGovernance.Rostered` refuses a bare `rasm.plugin`.
+- Law: the port carries a scope coordinate and no `InstrumentSpec` row, so `Views` reads GH streams on its foreign arm.
 - Law: `Environments.Production` floors the environment row; `OTEL_RESOURCE_ATTRIBUTES` detection outranks it at deploy.
 - Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law.
-- Boundary: `MacGate` admission stays unneeded, because telemetry composition touches no AppKit surface.
-- Packages: app root only — Rasm.AppHost, Rasm, Microsoft.Extensions.Hosting, NodaTime, BCL inbox.
-- Growth: a new resource dimension is one `extra` row here or one detector row inside `ResourceIdentity.Compose`.
-- Growth: a first GH-declared `InstrumentSpec` row is one entry on the port's `Instruments` seq, which then takes the rostered view arm.
+- Boundary: `MacGate` admission stays unneeded, because the identity mint touches no AppKit surface.
+- Packages: `Rasm` and BCL inbox alone — `Rasm.AppHost`, `Microsoft.Extensions.Hosting`, and `NodaTime` are `apps/grasshopper/<Plugin>/` references, never this package's; `Shell/hooks.md` (`HookScope`) is the one composed folder owner.
+- Growth: a new plugin-side resource dimension is one `PlatformIdentity` column; a new machine dimension is one detector row inside `ResourceIdentity.Compose` at the root.
+- Growth: a first GH-declared `InstrumentSpec` row is one entry on the port's `Instruments` seq at the root, which then takes the rostered view arm.
 
 ```csharp signature
-// App-root composition: the GH2 plugin root assembly references Rasm.AppHost beside Rasm.Grasshopper
-// and owns this seam; no Rasm.Grasshopper package source composes AppHost or OpenTelemetry types.
+// --- [TYPES] --------------------------------------------------------------------------------
+// [BOUNDARY]: the AppHost lacing over this record — the ProfileSurface.Resolve gate on the HostRows.Gh2
+// row, PluginTelemetryHost.Open with the self-minting GhInstruments contributor port, and the
+// TelemetryDomain discriminator spelling — is the apps/grasshopper/<Plugin>/ composition root's alone:
+// the one assembly referencing Rasm.AppHost beside Rasm.Grasshopper.
+public sealed record PlatformIdentity(
+    HookScope Plugin,
+    Version Version,
+    string ContentRoot,
+    AssemblyLoadContext Alc);
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PlatformTelemetry {
-    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, HookScope plugin, Op? key = null) {
+    public static Fin<PlatformIdentity> Resolve(Assembly pluginRoot, HookScope plugin, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(pluginRoot);
         Op op = key.OrDefault();
-        // HookScope IS the admission — a default-constructed struct throws on its key read and lands the rail here.
-        return from root in op.Need(pluginRoot)
-               from name in op.Catch(body: () => Fin.Succ((string)plugin))
-               from alc in Optional(AssemblyLoadContext.GetLoadContext(root)).ToFin(op.MissingContext())
-               from version in Optional(root.GetName().Version).ToFin(op.MissingContext())
-               // Rhino owns the canvas process and the plugin binds no provider port, so this row
-               // samples whole and projects its logs locally. Resolve gates the axis values BEFORE the
-               // capsule opens, so an unservable row refuses while no provider exists to dispose.
-               from resolved in ProfileSurface.Resolve(
-                   profile: new ConsumptionProfile(
-                       Tenancy: Tenancy.None,
-                       Topology: DeploymentTopology.InHost,
-                       Lifecycle: LifecycleOwner.CallerOwned,
-                       Isolation: Isolation.InProc,
-                       Providers: [],
-                       Host: Some(HostRows.Gh2)),
-                   applicationName: TelemetryDomain.Grasshopper.Key,
-                   environmentName: Environments.Production,
-                   contentRoot: ContentRoot(root),
-                   serviceVersion: version.ToString(),
-                   clock: SystemClock.Instance)
-               from capsule in op.Catch(body: () => Fin.Succ(value: PluginTelemetryHost.Open(
-                   alc: alc,
-                   resolved: resolved,
-                   // Self-minting port: HANDLES live on the meter GhInstruments mints through the capsule
-                   // factory, so `Instruments` stays empty and the root binds nothing, while `Published` carries
-                   // those same declarations — branch naming gate proves every name, view predicate reads each
-                   // stream on its foreign arm under that row's own tag keys. `Board` rides the same port and
-                   // admits against that published roster, so this pack proves where a mounted-set admission
-                   // could never have reached it and the estate board plane earns its provenance wire.
-                   contributors: Seq(new TelemetryContributorPort(
-                       Scope: TelemetrySource.Grasshopper.Key,
-                       Version: version.ToString(),
-                       Instruments: Seq<InstrumentSpec>(),
-                       Published: GhInstruments.Rows,
-                       Board: GhInstruments.Board)),
-                   new KeyValuePair<string, object>(TelemetryDomain.Host.Measure("plugin"), name))))
-               select capsule;
+        // HookScope IS the admission — a default-constructed struct throws on its key read and lands the
+        // rail here, so the record carries only a scope the factory has proved.
+        return from _scope in op.Catch(body: () => Fin.Succ((string)plugin))
+               from alc in Optional(AssemblyLoadContext.GetLoadContext(pluginRoot)).ToFin(Fail: op.MissingContext())
+               from version in Optional(pluginRoot.GetName().Version).ToFin(Fail: op.MissingContext())
+               select new PlatformIdentity(
+                   Plugin: plugin,
+                   Version: version,
+                   ContentRoot: ContentRoot(pluginRoot),
+                   Alc: alc);
     }
 
     // Plugins load from their own install directory; a host reporting no location for a collectible or
     // single-file assembly falls to the process base, the one path that then resolves.
-    static string ContentRoot(Assembly root) =>
+    private static string ContentRoot(Assembly root) =>
         Path.GetDirectoryName(root.Location) is { Length: > 0 } held ? held : AppContext.BaseDirectory;
 }
 ```
@@ -147,7 +131,7 @@ using CoreImage;
 using Eto.Mac;
 using Foundation;
 using ObjCRuntime;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rasm.Numerics;
 using Rasm.Parametric;

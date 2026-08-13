@@ -14,6 +14,19 @@
 `CurveFit` collapses loft and sweep fitting into one discriminant. `SweepOneMode` and `SweepTwoStations` encode native modality before dispatch, while `FrozenSet<SweepTwoShapeFeature>` composes height and auto-adjust capabilities. `SweepFrameLaw` alone maps roadlike semantics for both Rhino sweep and SubD sweep consumers.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SweepFrameLaw {

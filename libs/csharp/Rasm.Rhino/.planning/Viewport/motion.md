@@ -1,6 +1,6 @@
 # [RASM_RHINO_MOTION]
 
-Host motion-pacing adapter (`Rasm.Rhino.Viewport`). Sampling mathematics is kernel-owned — `Easing`, `CyclePlan`, `SpringShape`, `FieldIntegrator`, and `PerceptualColor` arrive from `Rasm.Parametric` and `Rasm.Numerics`. This page owns host cadence: redraw landing, clock selection, accessibility posture, screen-rate projection, bounded frame deltas, attachment lifetime, and the `MotionPump` composition. Display-link advance reads `CADisplayLink.TargetTimestamp`; timer and idle advance through `MonotonicTimeline` over the injected `TimeProvider`.
+Host motion-pacing adapter (`Rasm.Rhino.Viewport`). Sampling mathematics is kernel-owned — `Easing`, `CyclePlan`, `SpringShape`, `DecayShape`, `FieldIntegrator`, and `PerceptualColor` arrive from `Rasm.Parametric` and `Rasm.Numerics`. This page owns host cadence: redraw landing, clock selection, accessibility posture, screen-rate projection, bounded frame deltas, attachment lifetime, and the `MotionPump` composition. Display-link advance reads `CADisplayLink.TargetTimestamp`; timer and idle advance through `MonotonicTimeline` over the injected `TimeProvider`.
 
 ## [01]-[INDEX]
 
@@ -386,14 +386,15 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 
 ## [04]-[PUMP]
 
-- Owner: `MotionScript` `[Union]` owns kernel-sampled tween and spring plans; `MotionStepPolicy` bounds driven-spring frame deltas, and each `MotionDrive` owns its retarget atom. `MotionSample` `[Union]` carries the sampled value plus `MotionPresentation`, so reduce-motion, contrast, color differentiation, and transparency facts reach the consumer instead of becoming dead probes. `MotionDrive` owns pause, resume, retarget, completion, and disposal.
+- Owner: `MotionScript` `[Union]` owns kernel-sampled tween, spring, and glide plans; `MotionStepPolicy` bounds driven-spring frame deltas, and each `MotionDrive` owns its retarget atom. `MotionSample` `[Union]` carries the sampled value plus `MotionPresentation`, so reduce-motion, contrast, color differentiation, and transparency facts reach the consumer instead of becoming dead probes. `MotionDrive` owns pause, resume, retarget, completion, and disposal.
 - Entry: `MotionPump.Drive(session, script, target, TimeProvider, apply, clock?, integrator?, Op?) : Fin<MotionDrive>` executes sample → apply → invalidate per tick. Accessibility probes fresh inside `Drive`; `Pause`, `Resume`, `Retarget`, `Completion`, and `Dispose` expose the complete lifecycle.
-- Law: reduced motion is a collapse, not a skip — when `MotionPresentation.ReduceMotion` holds, the drive applies the terminal sample once (`t = 1` for a tween, the settled state for a spring), invalidates once, and completes; perceivable state changes still land, motion does not.
-- Law: the tick body computes nothing — `CyclePlan.Phase`, `Easing.Evaluate`, and `SpringShape.Step` are the kernel calls, the apply is the consumer's, the invalidation is the target row's; a numeric expression in the pump beyond elapsed-time bookkeeping is the census defect this page exists to kill.
+- Law: reduced motion is a collapse, not a skip — when `MotionPresentation.ReduceMotion` holds, the drive applies the terminal sample once (`t = 1` for a tween, the settled state for a spring, the `DecayShape.Project` resting position for a glide), invalidates once, and completes; perceivable state changes still land, motion does not.
+- Law: the tick body computes nothing — `CyclePlan.Phase`, `Easing.Evaluate`, `SpringShape.Step`, and `DecayShape.Advance` are the kernel calls, the apply is the consumer's, the invalidation is the target row's; a numeric expression in the pump beyond elapsed-time bookkeeping is the census defect this page exists to kill.
 - Law: `MotionValue` preserves every finite easing result, including overshoot; a consumer whose domain is bounded performs its own projection at that boundary, so a back, elastic, or spring excursion never terminates a drive at an admission gate the producing law licensed it to exceed.
 - Law: every policy default either DERIVES from a named anchor or declares itself conventional in one clause — `MotionStepPolicy.Interactive` derives both bounds from `FrameRatePolicy.Portable`, and that row declares its band conventional because no portable surface publishes a refresh rate; an undived magic constant beside a policy name is the deleted form.
 - Law: one per-drive `Lock` — minted by the drive fold and threaded into `MotionDrive` — serializes tick, clock fault, pause, resume, retarget, and disposal transitions; disposal waits for an in-flight tick and no callback begins host work after release. Gate arity is per drive, never per target: concurrent drives on one view coalesce at the host's own redraw.
 - Law: spring settling is evidence-driven — `|position − target| ≤ EpsilonPolicy.SqrtEpsilon · max(1, |target|)` and `|velocity| ≤ EpsilonPolicy.SqrtEpsilon` — so a drive terminates on state, never on an iteration guess; a color tween is a tween whose apply samples `PerceptualColor.Mix` at the eased parameter, needing no third script case.
+- Law: released input coasting to rest with no target is a glide — the flick tail of a pan, zoom, or orbit — and its run is bound at admission, never stepped to a band: `MotionScript.Glide` reads `DecayShape.Settle` once, threads the bound through the finite gate — the kernel's closed form overflows on admissible near-unity retention, and an infinite tail is an unbounded run wearing a bound — and carries the admitted tail on the script row, the tick's one kernel call is `DecayShape.Advance` at the accumulated elapsed, and the drive completes when elapsed crosses that bound — the kernel partitions the two settling questions and a closed-form drive asks the BOUND one, where the stepped spring alone owns the band test. Release toward a chosen stop is no third case: it seeds `MotionScript.Spring` from the live release velocity — the kernel's own decay-then-approach composition — so `Retarget` on a glide refuses exactly as on a tween, because steering a coast means minting the spring.
 - Law: `MotionDrive` latches terminal intent, pauses and releases the attachment, then publishes one typed outcome; the tick rail folds every kernel, consumer, invalidation, pause, and release fault onto that terminal before any waiter resumes.
 - Law: pause, resume, retarget, and disposal serialize on one lifecycle gate — disposal waits out an in-flight call, no call reaches a disposed clock, and a released drive refuses with `InvalidContext`; `Dispose` enters the same terminal fold as natural completion.
 - Boundary: one drive owns one clock attachment; concurrent drives on one target coexist because invalidation coalesces at the host — the pump never de-duplicates redraws across drives.
@@ -405,6 +406,7 @@ public abstract partial record MotionSample {
     private MotionSample() { }
     public sealed record EasedCase(MotionValue Value, CyclePhase Phase, MotionPresentation Presentation) : MotionSample;
     public sealed record SprungCase(SpringState State, bool Settled, MotionPresentation Presentation) : MotionSample;
+    public sealed record GlidedCase(MotionValue Value, bool Settled, MotionPresentation Presentation) : MotionSample;
 }
 
 [ValueObject<double>]
@@ -432,6 +434,7 @@ public abstract partial record MotionScript {
     private MotionScript() { }
     public sealed record TweenCase(Easing Curve, MotionPeriod Period, CyclePlan Plan) : MotionScript;
     public sealed record SpringCase(SpringShape Shape, SpringState From, double Target, MotionStepPolicy Step) : MotionScript;
+    public sealed record GlideCase(DecayShape Shape, double Origin, double Velocity, double Tail) : MotionScript;
 
     public static Fin<MotionScript> Tween(Easing curve, double periodSeconds, Option<CyclePlan> plan = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -455,6 +458,22 @@ public abstract partial record MotionScript {
                    From: from,
                    Target: goal,
                    Step: step.IfNone(MotionStepPolicy.Interactive));
+    }
+
+    // Admission evidence rides the tail: `Settle` bounds the closed-form run BEFORE it starts, so no tick
+    // re-asks the settling question and the drive's terminal is a duration crossing, never a band probe on
+    // kernel state. That bound re-enters the finite gate because the kernel's closed form overflows on
+    // admissible inputs — a near-unity retention divides the release velocity by a vanishing rate, and an
+    // infinite tail is an unbounded run wearing a bound — so a glide the arithmetic cannot bound refuses
+    // here, before any clock mounts.
+    public static Fin<MotionScript> Glide(DecayShape shape, double origin, double velocity, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in guard(shape.IsValid, op.InvalidInput()).ToFin()
+               from start in op.Finite(value: origin)
+               from release in op.Finite(value: velocity)
+               from bound in shape.Settle(velocity: release, epsilon: EpsilonPolicy.SqrtEpsilon, key: op)
+               from tail in op.Finite(value: bound)
+               select (MotionScript)new GlideCase(Shape: shape, Origin: start, Velocity: release, Tail: tail);
     }
 }
 
@@ -581,7 +600,11 @@ public static class MotionPump {
                 from value in ctx.Op.AcceptValidated<MotionValue>(candidate: tween.Curve.Evaluate(t: end))
                 select (MotionSample)new MotionSample.EasedCase(Value: value, Phase: phase, Presentation: ctx.Presentation),
             springCase: static (ctx, spring) => Fin.Succ(
-                (MotionSample)new MotionSample.SprungCase(State: new SpringState(Position: spring.Target, Velocity: 0.0), Settled: true, Presentation: ctx.Presentation)))
+                (MotionSample)new MotionSample.SprungCase(State: new SpringState(Position: spring.Target, Velocity: 0.0), Settled: true, Presentation: ctx.Presentation)),
+            glideCase: static (ctx, glide) =>
+                from rest in glide.Shape.Project(velocity: glide.Velocity, key: ctx.Op)
+                from value in ctx.Op.AcceptValidated<MotionValue>(candidate: glide.Origin + rest)
+                select (MotionSample)new MotionSample.GlidedCase(Value: value, Settled: true, Presentation: ctx.Presentation))
         from _ in key.Catch(() => apply(terminal))
         from __ in landing.Invalidate(session: session, key: key)
         select new MotionDrive(
@@ -661,7 +684,12 @@ public static class MotionPump {
                         from settled in Fin.Succ(
                             Math.Abs(next.Position - target.Value) <= EpsilonPolicy.SqrtEpsilon * Math.Max(1.0, Math.Abs(target.Value))
                             && Math.Abs(next.Velocity) <= EpsilonPolicy.SqrtEpsilon)
-                        select ((MotionSample)new MotionSample.SprungCase(State: next, Settled: settled, Presentation: ctx.Presentation), settled)));
+                        select ((MotionSample)new MotionSample.SprungCase(State: next, Settled: settled, Presentation: ctx.Presentation), settled),
+                    glideCase: static (ctx, glide) =>
+                        from position in glide.Shape.Advance(origin: glide.Origin, velocity: glide.Velocity, elapsed: ctx.At, key: ctx.Op)
+                        from value in ctx.Op.AcceptValidated<MotionValue>(candidate: position)
+                        from finished in Fin.Succ(ctx.At >= glide.Tail)
+                        select ((MotionSample)new MotionSample.GlidedCase(Value: value, Settled: finished, Presentation: ctx.Presentation), finished)));
                 _ = advanced
                     .Bind(frame => key.Catch(() => apply(frame.Sample))
                         .Bind(_ => landing.Invalidate(session: session, key: key))
@@ -701,8 +729,8 @@ config:
 ---
 flowchart LR
     accTitle: Rhino viewport motion pump
-    accDescr: Kernel easing, cycle, spring, and field samplers feeding the motion pump beside the frame-clock tick and the reduce-motion gate, screen refresh policy rebinding the clock, and the pump landing samples on consumer apply, redraw targets, and the spring retarget.
-    Kernel["Rasm.Parametric Easing · CyclePlan · SpringShape / Rasm.Numerics PerceptualColor · FieldIntegrator"] -->|samples| Pump["MotionPump.Drive"]
+    accDescr: Kernel easing, cycle, spring, decay, and field samplers feeding the motion pump beside the frame-clock tick and the reduce-motion gate, screen refresh policy rebinding the clock, and the pump landing samples on consumer apply, redraw targets, and the spring retarget.
+    Kernel["Rasm.Parametric Easing · CyclePlan · SpringShape · DecayShape / Rasm.Numerics PerceptualColor · FieldIntegrator"] -->|samples| Pump["MotionPump.Drive"]
     Clock["FrameClock — CADisplayLink · UITimer · RhinoApp.Idle"] -->|FrameTick — TargetTimestamp| Pump
     Gate["MotionGate — NSWorkspace reduce-motion family"] -->|collapse decision| Pump
     Screen["NSScreen.MaximumFramesPerSecond · ObserveDidChangeScreenParameters"] -->|FrameRatePolicy · rebind| Clock

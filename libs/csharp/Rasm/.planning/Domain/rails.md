@@ -24,7 +24,6 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -111,7 +110,6 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -216,7 +214,6 @@ public abstract partial record Lease<T> where T : class, IDisposable {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
-using Rasm.Csp;
 using Rhino;
 
 namespace Rasm.Domain;

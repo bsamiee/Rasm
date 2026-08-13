@@ -1,6 +1,6 @@
 # [RASM_RHINO_PERSISTENCE_USERTEXT]
 
-`TextOperation` closes document text, attribute text, geometry text, detached reads, and wildcard search as one concern. `Texts.Commit` resolves one document session, derives undo and table needs from the active case, and returns a case-matched detached answer.
+`TextOperation` closes document text, attribute text, geometry text, detached reads, and wildcard search as one concern. `UserTexts.Commit` resolves one document session, derives undo and table needs from the active case, and returns a case-matched detached answer.
 
 ## [01]-[VOCABULARY]
 
@@ -231,7 +231,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-public static class Texts {
+public static class UserTexts {
     public static Fin<TextAnswer> Commit(
         DocumentSession session,
         TextOperation operation,
@@ -723,11 +723,11 @@ public static class Texts {
 
 ## [04]-[LIFECYCLE]
 
-`TextOperation` admits once, `Texts.Commit` resolves one session, and the active case selects pure read, wildcard search, document undo, or object-table commit. Host-key folds reject canonical collisions before map insertion. A document batch reads the string table twice regardless of length — once to seed the fold, once to settle it — and a divergence between the folded and settled maps fails the whole bracket. Object plans admit complete evidence before `Tables.Commit`, and each attribute callback must reproduce its planned delta before host mutation. Every object write settles on the stored value alone: a host acceptance that stored something else and a host refusal that left an intended change unwritten are both typed failures. Mutation receipts derive from the same clones and native values sent to the host, and their counts include only prior/current transitions.
+`TextOperation` admits once, `UserTexts.Commit` resolves one session, and the active case selects pure read, wildcard search, document undo, or object-table commit. Host-key folds reject canonical collisions before map insertion. A document batch reads the string table twice regardless of length — once to seed the fold, once to settle it — and a divergence between the folded and settled maps fails the whole bracket. Object plans admit complete evidence before `Tables.Commit`, and each attribute callback must reproduce its planned delta before host mutation. Every object write settles on the stored value alone: a host acceptance that stored something else and a host refusal that left an intended change unwritten are both typed failures. Mutation receipts derive from the same clones and native values sent to the host, and their counts include only prior/current transitions.
 
 Search policy remains one value across admission and projects `SearchRoute` and `CaseSensitive` only inside `FindByUserString`. Store rows retain independent host routing, and each match carries the exact contributing row set.
 
-`DocumentStream` alone observes `RhinoDoc.UserStringChanged`; `Texts.Commit` never creates a parallel event surface. Object mutation terminates at `Tables.Commit`, while document text remains under the session's undo bracket.
+`DocumentStream` alone observes `RhinoDoc.UserStringChanged`; `UserTexts.Commit` never creates a parallel event surface. Object mutation terminates at `Tables.Commit`, while document text remains under the session's undo bracket.
 
 ## [05]-[RESEARCH]
 

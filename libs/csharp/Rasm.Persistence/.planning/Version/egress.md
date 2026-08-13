@@ -277,8 +277,7 @@ public static class EgressPump {
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 using System.Net.Mime;
 using CloudNative.CloudEvents;
-using Rasm.Domain;                                // the branch envelope owner — Domain/event
-using Rasm.Csp;                                   // Op — the operation key every fallible kernel threads
+using Rasm.Domain;                                // the branch envelope owner (Domain/event) + Op, the operation key every fallible kernel threads
 
 namespace Rasm.Persistence.Version;
 

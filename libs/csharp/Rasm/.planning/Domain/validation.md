@@ -24,7 +24,6 @@ Validation composes `normalization.md`'s `Kind`/`KindOf` coercion and exhaustive
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -183,7 +182,6 @@ public sealed partial record Requirement {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq.Expressions;
-using Rasm.Csp;
 using Rhino;
 
 namespace Rasm.Domain;
@@ -263,7 +261,6 @@ internal static partial class OpAcceptance {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 

@@ -14,7 +14,7 @@ Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `Fi
 - Entry: `Fit.Apply(FitOp, Context, Op?) → Fin<FitReceipt>` is the one fitting entrypoint; its `Context.Absolute` band sets the inlier threshold through `FitPolicy.Threshold` and the LM convergence floor, never a domain-local epsilon. Admission ACCUMULATES every defect through one `Validation<Error, T>` traverse exiting `.ToFin()`, each `GeometryFault.DegenerateInput` carrying its kind `Carrier` and the offending index; a consensus never reaching `FitPolicy.InlierFloor` routes `GeometryFault.FitFault`.
 - Auto: one `Apply` call internalizes the pipeline — kd-tree index built once, draw order derived, per-kind adaptive-budget draw and score, lowest cost kept across kinds, `InlierFloor` gated, winner refined — so a caller supplies data and policy alone, and the trial budget re-estimates downward as the inlier fraction rises.
 - Receipt: `FitReceipt` is typed `IValidityEvidence` over the refined primitive and its consensus evidence, never a generic ledger; `Rasm.Bim` reconstruction reads `Primitive`+`Inliers` to mint a `ReconstructionPrimitive`+`ElementPredicate`, and the learned-segmentation peer graduates onto this SAME shape.
-- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigenDetailed` + `EigenSolveReceipt.PairsIn`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), `Rasm.Domain` (`Deterministic.Stream`/`Deterministic.NextBelow` — the ONE threaded draw state), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`/`ddouble.Erf`/`ddouble.Exp`/`ddouble.Log` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Option`, accumulating `Traverse`), BCL inbox (`BitArray`, `[InlineArray]`).
+- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigenDetailed` + `EigenSolveReceipt.PairsIn`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Circle`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), `Rasm.Domain` (`Deterministic.Stream`/`Deterministic.NextBelow` — the ONE threaded draw state), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`/`ddouble.Erf`/`ddouble.Exp`/`ddouble.Log` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Option`, accumulating `Traverse`), BCL inbox (`BitArray`, `[InlineArray]`).
 - Growth: a new fittable primitive is ONE `FitKind` row and one `FitPrimitive` case with its fold arms — or, where its chart derivative resists hand differentiation, its `Distance` arm alone stated over the `Solving/solver` `Dual<ddouble>` scalar and admitted through an `IDualResidual` conformance beside `FitModel`, the derived Jacobian being exact on either route; a new consensus cost is ONE `ConsensusScore` row's `Cost` delegate, a new draw strategy ONE `DrawOrder` row, a new refine knob one `FitPolicy` column on the same functor; multi-primitive extraction is a consumer fold over `Apply` with inlier masking, never a second sampler.
 - Boundary: one `Fit.Apply` over one `FitOp` owns fitting entirely — never a per-kind fitter family nor a `Detect` surface — and every `FitPrimitive` dispatch is the compile-exhaustive generated `Switch`, so a new case breaks every fold arm loudly. Consensus defaults to the truncated-cost M-estimator (`Msac`) with the MLESAC mixture likelihood one `ConsensusScore` row beside it, both under the two-gate law: distance band AND `Agreement ≥ NormalBand` whenever the op carries normals, so a plane cutting a cylinder's diameter collects distance-near points whose normals disagree and charges them the saturated `t²`; the score folds accumulate at 106 bits so the likelihood row's cancelling terms survive a hundred-thousand-point reduce. Bounded-support pruning is exact by saturation and gates on the cost row's own `Saturating` column — a saturating candidate exposing `Support` scores its ball and charges every outside point `t²`, while a non-saturating cost row (the mixture NLL, still rising past the band) and a kind exposing no `Support` both reduce the full cloud. Refinement minimizes true orthogonal distance with every `Gradient` arm closed-form, and every draw advances ONE `Deterministic.Stream`-minted state seeded from `FitPolicy.Seed` and the kind-set lanes at the `Apply` entry, so a fit replays across runtimes and the candidate shuffle and the minimal-set draws are independent reads of one sequence — never two same-seed mints correlating the permutation with the first trials. `Apply` is total over `Fin` with every failure a band-2400 `GeometryFault` case; the trial loops, the score reduces, the defect-collect pass, and the `Gradient` arms are the named span-kernel statement exemption.
 
@@ -51,6 +51,8 @@ public sealed partial class FitKind {
     public static readonly FitKind Cone     = new("cone",     minimalSamples: 7, freeParameters: 6, needsNormals: true,  carrier: Kind.Cone,     MinimalCone,     UnpackCone);
     public static readonly FitKind Torus    = new("torus",    minimalSamples: 8, freeParameters: 7, needsNormals: true,  carrier: Kind.Torus,    MinimalTorus,    UnpackTorus);
     public static readonly FitKind Line     = new("line",     minimalSamples: 2, freeParameters: 4, needsNormals: false, carrier: Kind.Line,     MinimalLine,     UnpackLine);
+    // Rows APPEND: the replay lane reads the declaration ordinal, so a mid-roster insert re-seeds every standing fit.
+    public static readonly FitKind Circle   = new("circle",   minimalSamples: 3, freeParameters: 6, needsNormals: false, carrier: Kind.Circle,   MinimalCircle,   UnpackCircle);
 
     public int MinimalSamples { get; }
     public int FreeParameters { get; }
@@ -146,6 +148,27 @@ public sealed partial class FitKind {
         return direction.IsTiny()
             ? Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Line, draw[0], "coincident-sample").ToError())
             : Fin.Succ((FitPrimitive)new FitPrimitive.Line(new Rhino.Geometry.Line(a, b)));
+    }
+
+    // Three-point circle: plane normal from the sample cross, circumcenter in the same (u,v)⊥ chart the cylinder
+    // section reads, lifted back along the normal — both degeneracies are one collinear cause, one typed refusal.
+    static Fin<FitPrimitive> MinimalCircle(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+        Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]];
+        Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
+        if (normal.IsTiny())
+            return Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Circle, draw[0], "collinear-sample").ToError());
+        Vector3d n = Unit(normal);
+        double azimuth = Math.Atan2(n.Y, n.X), polar = Math.Acos(Math.Clamp(n.Z, -1.0, 1.0));
+        Vector3d u = AzimuthTangent(azimuth), v = PolarTangent(azimuth, polar);
+        return Circumcenter(
+                InFrame(a - Point3d.Origin, u, v), InFrame(b - Point3d.Origin, u, v), InFrame(c - Point3d.Origin, u, v))
+            .Match(
+                Some: section => {
+                    Point3d center = Point3d.Origin + section.U * u + section.V * v + (((a - Point3d.Origin) * n) * n);
+                    return Fin.Succ((FitPrimitive)new FitPrimitive.Circle(
+                        new Rhino.Geometry.Circle(new Rhino.Geometry.Plane(center, n), center.DistanceTo(a))));
+                },
+                None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Circle, draw[0], "collinear-sample").ToError()));
     }
 
     // Torus axis: cross of two tube-radial normals (exact on the equator, consensus-graded elsewhere); parallel normals fall to the first — a burned trial.
@@ -267,6 +290,10 @@ public sealed partial class FitKind {
         return new FitPrimitive.Line(new Rhino.Geometry.Line(anchor, anchor + direction));
     }
 
+    static FitPrimitive UnpackCircle(double[] p) =>
+        new FitPrimitive.Circle(new Rhino.Geometry.Circle(
+            new Rhino.Geometry.Plane(new Point3d(p[0], p[1], p[2]), AxisFrom(p[3], p[4])), Math.Max(p[5], 0.0)));
+
     internal static Vector3d AxisFrom(double azimuth, double polar) =>
         new(Math.Sin(polar) * Math.Cos(azimuth), Math.Sin(polar) * Math.Sin(azimuth), Math.Cos(polar));
 
@@ -362,6 +389,7 @@ public abstract partial record FitPrimitive {
     public sealed record Cone(Point3d Apex, Vector3d Axis, double HalfAngle) : FitPrimitive;
     public sealed record Torus(Point3d Center, Vector3d Axis, double Major, double Minor) : FitPrimitive;
     public sealed record Line(Rhino.Geometry.Line Axis) : FitPrimitive;
+    public sealed record Circle(Rhino.Geometry.Circle Curve) : FitPrimitive;
 
     public FitKind Kind =>
         Switch(
@@ -370,7 +398,8 @@ public abstract partial record FitPrimitive {
             cylinder: static _ => FitKind.Cylinder,
             cone:     static _ => FitKind.Cone,
             torus:    static _ => FitKind.Torus,
-            line:     static _ => FitKind.Line);
+            line:     static _ => FitKind.Line,
+            circle:   static _ => FitKind.Circle);
 
     public double Distance(Point3d query) =>
         Switch(
@@ -380,7 +409,9 @@ public abstract partial record FitPrimitive {
             cylinder: static (q, c) => AxisDistance(c.Surface.Center, c.Surface.Axis, q) - c.Surface.Radius,
             cone:     static (q, k) => ConeDistance(k.Apex, k.Axis, k.HalfAngle, q),
             torus:    static (q, t) => TorusDistance(t.Center, t.Axis, t.Major, t.Minor, q),
-            line:     static (q, ln) => AxisDistance(ln.Axis.From, ln.Axis.Direction, q));
+            line:     static (q, ln) => AxisDistance(ln.Axis.From, ln.Axis.Direction, q),
+            // Circle reads as the zero-minor torus spine, so the torus kernel owns its orthogonal distance.
+            circle:   static (q, c) => TorusDistance(c.Curve.Center, c.Curve.Normal, c.Curve.Radius, 0.0, q));
 
     // Chart poles λ-damp inside the functor, so no arm guards them.
     public PartialRow Gradient(Point3d query) =>
@@ -391,7 +422,8 @@ public abstract partial record FitPrimitive {
             cylinder: static (q, c) => CylinderGradient(q, c),
             cone:     static (q, k) => ConeGradient(q, k),
             torus:    static (q, t) => TorusGradient(q, t),
-            line:     static (q, ln) => LineGradient(q, ln));
+            line:     static (q, ln) => LineGradient(q, ln),
+            circle:   static (q, c) => CircleGradient(q, c));
 
     public double[] Pack() =>
         Switch(
@@ -400,7 +432,8 @@ public abstract partial record FitPrimitive {
             cylinder: static c => [c.Surface.Center.X, c.Surface.Center.Y, c.Surface.Center.Z, Math.Atan2(c.Surface.Axis.Y, c.Surface.Axis.X), Math.Acos(Math.Clamp(FitKind.Unit(c.Surface.Axis).Z, -1.0, 1.0)), c.Surface.Radius],
             cone:     static k => [k.Apex.X, k.Apex.Y, k.Apex.Z, Math.Atan2(k.Axis.Y, k.Axis.X), Math.Acos(Math.Clamp(FitKind.Unit(k.Axis).Z, -1.0, 1.0)), k.HalfAngle],
             torus:    static t => [t.Center.X, t.Center.Y, t.Center.Z, Math.Atan2(t.Axis.Y, t.Axis.X), Math.Acos(Math.Clamp(FitKind.Unit(t.Axis).Z, -1.0, 1.0)), t.Major, t.Minor],
-            line:     static ln => PackLine(ln.Axis));
+            line:     static ln => PackLine(ln.Axis),
+            circle:   static c => [c.Curve.Center.X, c.Curve.Center.Y, c.Curve.Center.Z, Math.Atan2(c.Curve.Normal.Y, c.Curve.Normal.X), Math.Acos(Math.Clamp(FitKind.Unit(c.Curve.Normal).Z, -1.0, 1.0)), c.Curve.Radius]);
 
     // Bounded-support ball: every inlier of the kind lies inside it; None marks an unbounded kind the prefilter cannot cut.
     public Option<(Point3d Center, double Reach)> Support(double threshold) =>
@@ -411,9 +444,10 @@ public abstract partial record FitPrimitive {
             cylinder: static (_, _) => Option<(Point3d, double)>.None,
             cone:     static (_, _) => Option<(Point3d, double)>.None,
             torus:    static (t, r) => Some((r.Center, r.Major + r.Minor + t)),
-            line:     static (_, _) => Option<(Point3d, double)>.None);
+            line:     static (_, _) => Option<(Point3d, double)>.None,
+            circle:   static (t, c) => Some((c.Curve.Center, c.Curve.Radius + t)));
 
-    // Agreement in [0,1]: surface arms read |n̂·N̂(q)| at the footpoint, the LINE arm perpendicularity — an edge normal is ⊥ the edge with free roll.
+    // Agreement in [0,1]: surface arms read |n̂·N̂(q)| at the footpoint, the CURVE arms perpendicularity — an edge normal is ⊥ the edge with free roll.
     public double Agreement(Point3d query, Vector3d normal) =>
         Switch(
             state: (Query: query, Normal: normal),
@@ -422,7 +456,8 @@ public abstract partial record FitPrimitive {
             cylinder: static (s, c) => Math.Abs(FitKind.Unit(s.Normal) * AxisFrame(c.Surface.Center, FitKind.Unit(c.Surface.Axis), s.Query).Dir),
             cone:     static (s, k) => Math.Abs(FitKind.Unit(s.Normal) * ConeNormal(s.Query, k)),
             torus:    static (s, t) => Math.Abs(FitKind.Unit(s.Normal) * TorusNormal(s.Query, t)),
-            line:     static (s, ln) => Perpendicularity(FitKind.Unit(s.Normal) * FitKind.Unit(ln.Axis.Direction)));
+            line:     static (s, ln) => Perpendicularity(FitKind.Unit(s.Normal) * FitKind.Unit(ln.Axis.Direction)),
+            circle:   static (s, c) => Perpendicularity(FitKind.Unit(s.Normal) * CircleTangent(s.Query, c)));
 
     // --- [GRADIENT_ARMS]
     static PartialRow PlaneGradient(Point3d query, Plane pl) {
@@ -519,6 +554,26 @@ public abstract partial record FitPrimitive {
         return row;
     }
 
+    // CircleGradient deletes the minor column from the torus gradient: the circle is the zero-minor torus spine,
+    // so ∂/∂radius inherits the torus's ∂/∂major and the residual w stays the unsigned distance to the rim.
+    static PartialRow CircleGradient(Point3d query, Circle c) {
+        PartialRow row = new();
+        Vector3d axis = FitKind.Unit(c.Curve.Normal);
+        (double along, double radial, Vector3d dir, Vector3d rel) = AxisFrame(c.Curve.Center, axis, query);
+        double inPlane = radial - c.Curve.Radius;
+        double w = Math.Max(Math.Sqrt(inPlane * inPlane + along * along), EpsilonPolicy.ZeroTolerance);
+        double rg = Math.Max(radial, EpsilonPolicy.ZeroTolerance);
+        Vector3d az = AxisAzimuth(axis), pol = AxisPolar(axis);
+        double angular = along * c.Curve.Radius / (w * rg);
+        row[0] = -(inPlane * dir.X + along * axis.X) / w;
+        row[1] = -(inPlane * dir.Y + along * axis.Y) / w;
+        row[2] = -(inPlane * dir.Z + along * axis.Z) / w;
+        row[3] = (rel * az) * angular;
+        row[4] = (rel * pol) * angular;
+        row[5] = -inPlane / w;
+        return row;
+    }
+
     // --- [DISTANCE_KERNELS]
     static double AxisDistance(Point3d origin, Vector3d axis, Point3d query) {
         Vector3d rel = query - origin;
@@ -557,6 +612,14 @@ public abstract partial record FitPrimitive {
         double inPlane = radial - t.Major;
         double w = Math.Max(Math.Sqrt(inPlane * inPlane + along * along), EpsilonPolicy.ZeroTolerance);
         return (inPlane / w) * dir + (along / w) * axis;
+    }
+
+    // Rim tangent at the footpoint — axis × radial dir; an on-axis query has no footpoint direction and the zero
+    // tangent scores full agreement, matching the frame guards' degenerate leniency.
+    static Vector3d CircleTangent(Point3d query, Circle c) {
+        Vector3d axis = FitKind.Unit(c.Curve.Normal);
+        (_, _, Vector3d dir, _) = AxisFrame(c.Curve.Center, axis, query);
+        return Vector3d.CrossProduct(axis, dir);
     }
 
     static double Perpendicularity(double alignment) => Math.Sqrt(Math.Max(0.0, 1.0 - alignment * alignment));
@@ -924,7 +987,7 @@ flowchart LR
     Op["FitOp (Seq&lt;FitKind&gt; · cloud · normals · policy)"] -->|accumulating Validation| Admit
     Admit -->|"NeighborIndex.Of(StaticCase) once"| KdTree["Supercluster kd-tree lane"]
     KdTree -->|"NAPSAC seed → GraphOf neighborhood"| Draw["normal-gated truncated-cost sampler per kind"]
-    KdTree -->|"Support ball → GraphOf radius"| Shell["exact shell prefilter (sphere/torus)"]
+    KdTree -->|"Support ball → GraphOf radius"| Shell["exact shell prefilter (sphere/torus/circle)"]
     Draw -->|"lowest cost across kinds"| Best[Candidate]
     Shell --> Draw
     Best -->|"FitModel : ILmModel"| Lm["Solving/solver Lm.Minimize"]

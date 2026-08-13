@@ -17,6 +17,19 @@
 - Law: an absent optional lowers to the host's own sentinel, never a zero — `BlendRadius` is `Option<CurveScalar>` mapped to `RhinoMath.UnsetValue` and `PlaneVector` is `Option<Vector3d>` mapped to `Vector3d.Unset`, so "no blend" and "a zero-radius blend" stay distinct requests instead of collapsing on a default-constructed slot.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Globalization;
+using System.Linq;
+using System.Runtime.InteropServices;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct CurveScalar {

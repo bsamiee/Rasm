@@ -11,13 +11,13 @@ Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; descriptive, regression, 
 
 ## [02]-[ESTIMATOR_LANE]
 
-- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `GlmFamily` rows carry one exponential-family law — exact unit deviance, variance function, canonical link, response support, and the θ-dependent torch deviance kernel; `LinkFunction` rows carry the inverse link in both the scalar and tensor arities; `KernelRow` rows carry one positive-definite kernel and its Gram, `KernelParams` its per-occurrence parameters; `TimeSeriesModel` rows carry forecast or detector fit behavior; `CurveForm` rows carry the coefficient fit and the evaluator for one curve shape; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`, `CurveSpec` the parameterized curve generator deriving its `CurveForm`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `PredictQuery` types prediction ingress as evidence or horizon; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy and `ScaleCeiling` caps the quadratic and cubic kernels; `FitContext` carries the proven correspondence beside the composition-supplied clock and dense substrate; `IterativeEngine` owns torch-loss fitting; `InformationCriterion` rows score a fitted likelihood, `SelectionPolicy` admits the selection request and `SelectionReport` carries its ranked verdict; `EstimatorFold` owns `Fit`, `Predict`, `Validate`, and `Select`.
-- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows, `glm` being ONE row parameterized by `GlmFamily` and `c-svm` the sparse-dual sibling of the dense `svm`; `GlmFamily` owns gaussian · poisson · binomial · gamma · inverse-gaussian; `LinkFunction` owns identity · logit · log · inverse · inverse-squared; `KernelRow` owns linear · polynomial · rbf · sigmoid; `InformationCriterion` owns aic · bic; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `CurveForm` owns polynomial · exponential · power · logarithm · combination; `TemporalSpec` and `CurveSpec` each carry one parameter-complete case per row; `Estimator.Curve` reports the regression family so the held-out validator scores it with no second split policy; `EstimatorModel` adds `Curve` and `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
+- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `GlmFamily` rows carry one exponential-family law — exact unit deviance, variance function, canonical link, response support, and the θ-dependent torch deviance kernel; `LinkFunction` rows carry the inverse link in both the scalar and tensor arities; `KernelRow` rows carry one positive-definite kernel and its Gram, `KernelParams` its per-occurrence parameters; `TimeSeriesModel` rows carry forecast or detector fit behavior; `RegressionForm` rows carry the coefficient fit and the evaluator for one curve shape; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`, `CurveSpec` the parameterized curve generator deriving its `RegressionForm`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `PredictQuery` types prediction ingress as evidence or horizon; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy and `ScaleCeiling` caps the quadratic and cubic kernels; `FitContext` carries the proven correspondence beside the composition-supplied clock and dense substrate; `IterativeEngine` owns torch-loss fitting; `InformationCriterion` rows score a fitted likelihood, `SelectionPolicy` admits the selection request and `SelectionReport` carries its ranked verdict; `EstimatorFold` owns `Fit`, `Predict`, `Validate`, and `Select`.
+- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows, `glm` being ONE row parameterized by `GlmFamily` and `c-svm` the sparse-dual sibling of the dense `svm`; `GlmFamily` owns gaussian · poisson · binomial · gamma · inverse-gaussian; `LinkFunction` owns identity · logit · log · inverse · inverse-squared; `KernelRow` owns linear · polynomial · rbf · sigmoid; `InformationCriterion` owns aic · bic; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `RegressionForm` owns polynomial · exponential · power · logarithm · combination; `TemporalSpec` and `CurveSpec` each carry one parameter-complete case per row; `Estimator.Curve` reports the regression family so the held-out validator scores it with no second split policy; `EstimatorModel` adds `Curve` and `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
 - Entry: `Design.Admit(Matrix<double>, Option<Vector<double>>)` proves non-empty, finite, aligned evidence. `Fit` proves family correspondence, policy ranges, estimator support, kernel parameters, row-count ceilings, and `TemporalSpec` history/ranges before dispatch. `Predict` projects, assigns, forecasts, or scores anomalies through the total `EstimatorModel` switch over one `PredictQuery` ingress. `Validate` scores supervised held-out folds and forecasting forward chains; unsupervised detectors do not fabricate validation labels. `Select(Estimator, Design, Seq<EstimatorPolicy>, SelectionPolicy, IClock, DenseSubstrate)` fits each candidate, scores its information criterion where the fit carries a likelihood, folds its validation spread, and returns one ranked `SelectionReport`. Every fold entry takes the composition-selected `DenseSubstrate` beside the clock and seats it on `FitContext`, so the closed-form thin-QR, the LS-SVM KKT solve, and the AR lag solve each declare the dense leg they run on.
 - Auto: `Fit` flattens the estimator's typed payloads once into `FitContext` — which carries the policy union member itself, never a zero-filled scalar tail — then dispatches the row kernel. Every GLM cell is ONE composition: the family's θ-dependent unit-deviance kernel evaluated at the link's own tensor inverse, so a `Link` override changes fit and prediction together and no per-(family, link) loss row exists. Curve rows run one shared kernel that captures the library fit, proves the coefficient census and finiteness, and scores `RSquared` and `StandardError` on the original response scale rather than the linearized one the library fits on, so an exponential row's quality compares with a polynomial's. `c-svm` runs SMO with second-order working-set selection under a byte-budgeted column-LRU kernel cache. Temporal forecasting routes AR through thin QR and ARMA/Holt/state-space through `LevenbergMarquardt`; detection fits one admitted multivariate Gaussian baseline through `Admission.Definite`, then CUSUM folds whitened innovation magnitude, Bayesian-online maintains a budget-capped run-length posterior with conjugate known-covariance mean updates, and correlated-residual scoring reads a `ChiSquared.InvCDF` threshold over Mahalanobis evidence. `Validate` derives contiguous, forward-chain, or unsupported behavior from the typed estimator case.
 - Receipt: a fit emits the dedicated `Fit` `ComputeReceipt` case `Runtime/receipts#RECEIPT_UNION` declares for this lane (one case row per measured concern, as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` and the optimizer/sweep/clash/twin/uncertainty cases each own a row rather than overloading a sibling), carrying family, estimator key, carrier parameter count, iteration count, residual, converged flag, the named fit-quality value, the metric label read off the row's `Metric` column (never a per-arm literal), and retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId`. Fit-quality and rank read back operator-visibly through the receipt stream (a stall through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier.
 - Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (temporal-fit exact-Jacobian scalar-AD — recurrences authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), PeterO.Numbers (exact criterion accumulation), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.Persistence (project), BCL inbox
-- Growth: a new exponential family is one `GlmFamily` row and the `glm` kind is untouched; a new link is one `LinkFunction` row carrying both arities; a new kernel is one `KernelRow` row every kernel consumer inherits; a new selection criterion is one `InformationCriterion` row. A new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; a new curve shape is one `CurveSpec` case deriving one `CurveForm` row carrying its coefficient fit and evaluator, with the shared kernel untouched; each spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, per-family GLM kinds, per-kernel Gram helpers, and universal temporal knob records are rejected.
+- Growth: a new exponential family is one `GlmFamily` row and the `glm` kind is untouched; a new link is one `LinkFunction` row carrying both arities; a new kernel is one `KernelRow` row every kernel consumer inherits; a new selection criterion is one `InformationCriterion` row. A new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; a new curve shape is one `CurveSpec` case deriving one `RegressionForm` row carrying its coefficient fit and evaluator, with the shared kernel untouched; each spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, per-family GLM kinds, per-kernel Gram helpers, and universal temporal knob records are rejected.
 - Boundary: each row binds its genuine mechanism; forced SVD or torch-loss routing is rejected. Curve rows are univariate by construction — a multi-column design is a typed refusal, not a silent first-column read — and each row proves the support its own linearization needs, so a non-positive response never reaches an exponential log and a non-positive feature never reaches a power or logarithm log.
 - Boundary: the GLM deviance is elementary — the exponential-family normalizer cancels between the fitted and the saturated model, so NO `MathNet.Numerics.Distributions` member enters the deviance, the deviance-explained metric, or the scaled deviance. `Poisson` and `Binomial` expose no `InvCDF` at all, `InverseGaussian` spells its instance quantile `InvCDF(double)` where every sibling spells `InverseCumulativeDistribution`, its `Median` Brent-solves and can throw, and `Gamma` is rate-parameterized (`WithShapeScale` is the scale form) — so a family that reached for a distribution instance would reach for four different contracts.
 - Boundary: `LinkFunction.Inverse` is `g(μ)=1/μ` with domain `η > 0`, the statsmodels `InversePower` link; LBFGS steps out of that domain on the way to the optimum, so the Gamma inverse-link arm gates `η > 0` and refuses typed rather than returning a NaN loss — statsmodels ships `safe_links = [Log]` for exactly this reason and the log link stays the canonical route.
@@ -319,29 +319,29 @@ public sealed partial class TimeSeriesModel {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class CurveForm {
-    public static readonly CurveForm Polynomial = new(
+public sealed partial class RegressionForm {
+    public static readonly RegressionForm Polynomial = new(
         "polynomial",
         static (spec, x, y) => Fit.Polynomial(x, y, spec.Terms - 1, DirectRegressionMethod.QR),
         static (_, c, x) => MathNet.Numerics.Polynomial.Evaluate(x, [.. c]));
-    public static readonly CurveForm Exponential = new(
+    public static readonly RegressionForm Exponential = new(
         "exponential",
         static (_, x, y) => Pair(Fit.Exponential(x, y, DirectRegressionMethod.QR)),
         static (_, c, x) => c[0] * Math.Exp(c[1] * x));
-    public static readonly CurveForm Power = new(
+    public static readonly RegressionForm Power = new(
         "power",
         static (_, x, y) => Pair(Fit.Power(x, y, DirectRegressionMethod.QR)),
         static (_, c, x) => c[0] * Math.Pow(x, c[1]));
-    public static readonly CurveForm Logarithm = new(
+    public static readonly RegressionForm Logarithm = new(
         "logarithm",
         static (_, x, y) => Pair(Fit.Logarithm(x, y, DirectRegressionMethod.QR)),
         static (_, c, x) => c[0] + c[1] * Math.Log(x));
-    public static readonly CurveForm Combination = new(
+    public static readonly RegressionForm Combination = new(
         "combination",
         static (spec, x, y) => Fit.LinearCombination(x, y, [.. spec.Functions]),
         static (spec, c, x) => spec.Functions.Map((basis, k) => c[k] * basis(x)).Fold(0.0, static (total, term) => total + term));
 
-    private CurveForm(
+    private RegressionForm(
         string key,
         Func<CurveSpec, double[], double[], double[]> fit,
         Func<CurveSpec, Vector<double>, double, double> evaluate) : this(key) {
@@ -416,7 +416,7 @@ public abstract partial record TemporalSpec {
 }
 
 // `CurveSpec` generates a curve row exactly as `TemporalSpec` generates a temporal one, owning every parameter its
-// form cannot reconstruct and deriving the `CurveForm` that binds the kernel.
+// form cannot reconstruct and deriving the `RegressionForm` that binds the kernel.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveSpec {
     private CurveSpec() { }
@@ -427,10 +427,10 @@ public abstract partial record CurveSpec {
     public sealed record Logarithm : CurveSpec;
     public sealed record Combination(Seq<Func<double, double>> Basis) : CurveSpec;
 
-    public CurveForm Form => Switch(
-        polynomial: static _ => CurveForm.Polynomial, exponential: static _ => CurveForm.Exponential,
-        power: static _ => CurveForm.Power, logarithm: static _ => CurveForm.Logarithm,
-        combination: static _ => CurveForm.Combination);
+    public RegressionForm Form => Switch(
+        polynomial: static _ => RegressionForm.Polynomial, exponential: static _ => RegressionForm.Exponential,
+        power: static _ => RegressionForm.Power, logarithm: static _ => RegressionForm.Logarithm,
+        combination: static _ => RegressionForm.Combination);
 
     // Fitted-parameter count, the degrees of freedom `GoodnessOfFit.StandardError` consumes: a polynomial of order n
     // fits n+1 coefficients, the log-linearized rows fit two, and a combination fits one per basis function.

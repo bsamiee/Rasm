@@ -27,7 +27,7 @@ Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous
 |  [10]   | `rasm.grasshopper.shell.terminate`     | `Veto`     | `Application.Terminating` carries `CancelEventArgs`                    |
 
 - Law: a point's modality is admission — a raise on an `Observe` point folds no vetoes because the capsule holds none, and a veto-capable raise site consults the settled `Fin` verdict before committing its host mutation.
-- Packages: Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Csp` (`Op`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`), `Document/document.md`/`Document/history.md`/`Canvas/interaction.md`/`Canvas/paint.md` raise-site owners.
+- Packages: Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Domain` (`Op`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`), `Document/document.md`/`Document/history.md`/`Canvas/interaction.md`/`Canvas/paint.md` raise-site owners.
 - Growth: a new hook point is one row with its ruled modality; a mis-ruled modality is a defect against the host surface, never a configuration choice.
 
 ## [03]-[RAIL]
@@ -40,12 +40,11 @@ Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous
 - Law: replay is deterministic capture re-entry — captured signals come from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order at exactly one scope, so a late-mounted panel reads the recent path without a second recording surface; the capsule's own bounded buffer hands a fresh subscriber the recent window on attach.
 - Law: subscription state is per-load-context — the registry and evidence cells live in plugin ALC statics, so co-resident plugins hold disjoint rails even before scoping discriminates.
 - Boundary: raise sites are the owning pages — the document gate raises `document.mutate` around its transaction, `PaintAnchor` raises the paint points inside its contained callbacks, and the interaction capsules raise `interaction.verdict`; this page owns the rail, never a raise; fire is synchronous, so an effect-rail raise site lifts at its own composition seam (`IO.lift(() => GhHooks.Raise(...))`).
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`), Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Csp` (`Op`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`), Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Domain` (`Op`).
 - Growth: zero on the gates — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Shell;

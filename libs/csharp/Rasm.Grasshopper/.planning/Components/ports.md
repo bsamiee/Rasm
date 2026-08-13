@@ -18,6 +18,10 @@
 - Boundary: `Side`, `Access`, and `Requirement` never travel past a binding delegate; interior code holds only the folder vocabulary.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Rasm.Domain;
+
 namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -120,6 +124,16 @@ public sealed record PortAxes(
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Grasshopper2.Data;
+using Grasshopper2.Parameters;
+using Grasshopper2.Parameters.Standard;
+using Grasshopper2.UI;
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 [SmartEnum]
@@ -282,6 +296,14 @@ public sealed record PinPlan {
 - Boundary: a host `Add*` marked `[Obsolete]` is never suppressed — the row mints its parameter and attaches it through the public `InputAdder.Add(IParameter, Requirement)` seam, which is the same declaration with no diagnostic to silence.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Grasshopper2.Data;
+using Grasshopper2.Parameters;
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [SERVICES] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -506,6 +528,13 @@ public sealed partial class PortRow {
 - Boundary: a rejected policy never reaches the host; presets and assistants are observed through their get-only host contracts rather than projected as plan setters.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Grasshopper2.Components;
+using Grasshopper2.Parameters;
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 public static class Ports {
@@ -582,3 +611,4 @@ public static class Ports {
 -->
 
 (none)
+

@@ -25,7 +25,7 @@ Eight canvas paint fences are `Canvas/paint.md`'s executor and never appear as r
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;
@@ -149,7 +149,7 @@ public readonly record struct UiEvent(UiSource Source, UiFact Fact, long Stamp) 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;
@@ -440,7 +440,7 @@ public sealed partial class UiSource {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;
@@ -527,7 +527,7 @@ public static class UiEvents {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Threading.Channels;
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Shell;
 

@@ -27,7 +27,6 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -185,7 +184,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using NodaTime;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -414,7 +412,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Numerics;
 using System.Text.Json;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -1106,7 +1103,6 @@ public static class TelemetryIdentity {
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -1395,7 +1391,6 @@ public sealed class SpanBand : IDisposable {
 using System.Collections.Frozen;
 using System.Text.Json.Serialization;
 using NodaTime;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -1732,7 +1727,6 @@ public static class Slo {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Diagnostics;
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -1767,7 +1761,6 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 
 namespace Rasm.Domain;
 

@@ -21,7 +21,6 @@
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Csp;
 using Rasm.Domain;
 
 namespace Rasm.Rhino.Eto;

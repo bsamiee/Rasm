@@ -13,6 +13,15 @@
 `SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native boolean tuples only inside a consuming arm, and the open-or-solid offset grant is a named `bool` because its whole content is that one bit. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission, and an all-absent selection refuses because six `false` flags let `DuplicateEdgeCurves` answer nothing but an empty spread. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Runtime.InteropServices;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CreasePreset {

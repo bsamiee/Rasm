@@ -20,7 +20,6 @@
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Forms;
-using Rasm.Csp;
 using Rasm.Domain;
 
 namespace Rasm.Rhino.Eto;

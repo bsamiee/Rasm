@@ -33,7 +33,7 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rasm.Parametric;
 using Rhino.UI;
@@ -228,7 +228,7 @@ public static class GhSession {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Caching.Hybrid;
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Shell;
 
@@ -314,13 +314,13 @@ flowchart LR
 
 ## [05]-[ROOT]
 
-- Owner: `PlatformCache` — the GH plugin app-root cache composition seam, the cache twin of `Platform/composition.md`'s `PlatformTelemetry`: one registration block per plugin root discharging the `libs/csharp/.api/api-hybrid-cache.md` `Rasm.Grasshopper` obligations, so `[04]`'s consumers read a substrate the root has actually provisioned.
+- Owner: `PlatformCache` — the GH plugin app-root cache composition seam, the cache twin of `Platform/composition.md` `[07]`'s AppHost telemetry lacing: one registration block per plugin root discharging the `libs/csharp/.api/api-hybrid-cache.md` `Rasm.Grasshopper` obligations, so `[04]`'s consumers read a substrate the root has provisioned.
 - Entry: `PlatformCache.Compose(IServiceCollection services, long rasterCeiling)` → `IServiceCollection` — the one registration block; the ceiling is the byte size of the largest admitted canvas raster, supplied by the root as a policy value.
 - Law: codec admission PRECEDES `AddHybridCache` — the substrate seeds `TimeProvider.System`, an `IMemoryCache`, a JSON factory, and the inbuilt `string`/`byte[]` codecs through try-add, so the encoded-raster codec registered ahead of the seed is the one that binds; `ImmutableArray<byte>` is the boundary's raster carrier and ships no inbuilt codec, which is exactly the gap this admission closes.
 - Law: `MaximumPayloadBytes` sizes against the raster ceiling because an over-quota payload logs and returns uncached silently — an undersized cap disables raster caching with no fault; `MaximumKeyLength` holds the substrate default, which the `CacheSlot` 64-column ceiling already rides far below, so no composed key can reach the silent-bypass floor.
 - Law: `ReportTagMetrics` arms the per-document hit/miss dimension — the `gh-doc:{documentId:N}` tag `[04]` mints reads off the `HybridCache` EventSource at the root, and no folder instrument doubles it.
-- Law: no L2 registers here — the plugin root runs L1-only by construction (the substrate drops a plain in-process `MemoryDistributedCache` behind the default L1), so `Resident`'s L2 bypass is belt-over-braces and `Recency`'s L2 re-read arm engages only in a root that later binds a real `IBufferDistributedCache`.
-- Boundary: this cluster is app-root material exactly as `PlatformTelemetry` is — the boundary's packages never reference `Microsoft.Extensions.DependencyInjection`, and the root that composes this block is the same root that admits the meter and the redactor.
+- Law: no L2 registers here and `AddHybridCache` registers none — L2 binds only an `IDistributedCache` the root explicitly registers, and the substrate DISCARDS a registered plain in-process `MemoryDistributedCache` as redundant beside the default L1 — so this block is pure L1 by construction, `Resident`'s L2 bypass is belt-over-braces, and `Recency`'s L2 re-read arm engages only in a root that later binds a real distributed store, `IBufferDistributedCache` for the zero-copy leg.
+- Boundary: this cluster is app-root material exactly as the telemetry capsule open is — the boundary's packages never reference `Microsoft.Extensions.DependencyInjection`, and the root that composes this block is the same root that admits the meter and the redactor.
 - Packages: app root only — Microsoft.Extensions.Caching.Hybrid (`AddHybridCache`, `IHybridCacheBuilder.AddSerializer`, `HybridCacheOptions`), Microsoft.Extensions.DependencyInjection, BCL inbox (`IBufferWriter<byte>`, `ReadOnlySequence<byte>`, `ImmutableCollectionsMarshal`).
 - Growth: a new cached carrier type is one codec registration ahead of the seed; a new option pin is one property row in the one options lambda.
 

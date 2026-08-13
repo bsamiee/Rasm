@@ -19,6 +19,7 @@ One polymorphic owner mints, rehydrates, persists, reads, assigns, pulses a butt
 - Boundary: `LoopingAction`, `LoopRepeats`, `Loop`, and `LoopingIteration` are assembly-internal; the public `Cluster.LoopSolution` switch is the only loop state this boundary may assign.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
 namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -70,6 +71,12 @@ public sealed partial class BoundaryRole {
 - Boundary: `Empty` selects the row's parameterless constructor; every other value enters through the row's own `Mint`. Four payload columns are read-and-seed only, because the host publishes no public setter: `Slider.Value` and `Number.Value` (`InternalNumber` is derived from the internal slider and picker), `Complexes.Values` and `Moment.Value` (`internal set`), and `Ramp.Value` (`Gradient` projects `GripGradientInteraction.ModifiedGradient`, so `Interaction` is the writable source). `Histogram` carries the integral `BucketCount` and never its `BucketCountText` spelling, which restates the same fact through the negative `Buckets*` sentinel constants.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using System.Collections.Frozen;
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -492,6 +499,11 @@ public sealed partial class NativeKind {
 - Boundary: `NumberSliderObject.InternalNumber` and `NumberPickerObject.InternalNumber` are read-only and seed only through their public constructors; the slider preserves its complete non-null `UiNumber`, while the picker carries its public `decimal` read through the host's lossy `double` constructor boundary. `ComplexPickerObject.Values` and `TemporalPickerObject.Date` carry `internal set`, so both rows are `Sealed` and their `Write` refuses rather than silently succeeding. `PresetPickerObject.UserNames`, including its `null` state, owns persisted selection; assignment expires and restarts a solution only when that state changes. `ValueListObject.ItemCount` and `Items` are read-only, so a selection assigns index by index through `SelectItem`/`DeselectItem` under the list's own `Mode` law, and `SelectPrev`/`SelectNext` are cyclic steps carried by `Step`, never a selection set. `DataRecorderObject.Paused` is the recorder's writable state, and its `IsEmpty` answers true when recorded buckets exist — the member name and XML summary invert the installed behavior — so a presence probe reads a true `IsEmpty` as data-present evidence. `DataPanelObject.ChangeDisplay` writes the six display flags in one host call and `VerticalOffset` writes beside it. `FunctionEditorObject`, `QuickGraphObject`, and `Chain` publish no readable or writable value state, so they take the `Inert` arm and read as `Empty`. `Boundary` rejects null pins from the oblivious host arrays. Incomplete host chain ordering and validation members, the internal loop driver, and private `ImageSamplerObject.SampleContinuous` never enter this operation surface.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [TYPES] -----------------------------------------------------------------------------
 
 [SmartEnum]
@@ -671,6 +683,11 @@ public static class NativeObject {
 - Boundary: the host requires a loadable GH1 runtime during processing. Wrapper conversion allocates the ETO bitmap retained by `GH1InteropComponent`; the receipt neither exposes nor disposes that component-retained icon.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Rasm.Domain;
+
+namespace Rasm.Grasshopper.Components;
+
 // --- [BOUNDARIES] ------------------------------------------------------------------------
 
 public sealed record Gh1Receipt(Guid SourceId, string SourceName, string SourceXml);

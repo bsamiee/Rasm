@@ -15,10 +15,10 @@
 - Law: the operand ordinal is the position an operand took in its OWN boolean leg — the accumulated model enters at `0` and the operand at `1`, which is exactly what `ManifoldProvenance.OperandOf(face)` returns. A running count across legs makes every leg past the first attribute to nothing, because no leg ever sees an ordinal above one. Attribution therefore walks the legs in REVERSE: the last leg's provenance describes the final faces, an operand-`1` hit names that leg's source, and an operand-`0` hit falls through to the leg that produced the accumulated model.
 - Law: every scalar knob is dimensioned or bounded at admission — `CreaseDihedralRadians` enters as an `Angle`, the intersection inflation as a `Length`, the spatial leaf as a positive count, and `BetaSquared` as the squared silhouette-tolerance ratio the kernel's own crease test consumes. A bare double angle beside a typed length is the fork this admission deletes.
 - Law: an anchor is projected evidence, not a cross product. A characteristic anchors in a view only where its locus projects to a FINITE POSITIVE depth in that view's own camera, so a locus behind the camera or on its plane records no anchor rather than a screen point a sheet would place.
-- Law: face-grain attribution reaches the RECEIPT, never the projected segment. `ProjectedSegment.SourceA`/`SourceB` are source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, so a per-segment operand column has no transport until the kernel's projection carries a face id.
+- Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionReceipt.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part seam or section segment) attributes to nothing, the honest answer.
 - Entry: `Fabrication.Run` remains the sole public package entry; `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
 - Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `Ratio Scale` from its sheet scale — so no view or scale value originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
-- Receipt: `ProjectionReceipt` retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, and `EdgeHistogram`, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, and the anchor stream carrying its symbol rows.
+- Receipt: `ProjectionReceipt` retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, and the anchor stream carrying its symbol rows.
 - Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanReceipt`, `ManifoldProvenance`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrameReceipt`, `FrameSymbolRow`, `CharacteristicId`).
 - Boundary: a boolean returns SHELLS, so a severing operand refuses typed mid-fold rather than silently framing one component of a disconnected model; silhouette, crease, and intersection loci are whole-model reads and projecting the first shell would drop geometry the operand legitimately produced.
 
@@ -142,16 +142,18 @@ public abstract partial record ProjectionView {
 
     // A projected row carrying the section kind has no cut plane to lower, and admission already refuses it; the
     // arm answers a typed refusal so no plane is forged for a case the roster cannot hold.
+    // The composed solid enters as a roster of one — the kernel's union solve is the same walk either way,
+    // and a future multi-part traveler view is roster data here, never a second lowering.
     internal Fin<ViewOp> Lower(MeshSpace model, Camera camera, ViewPolicy policy) => Switch(
-        state: (Model: model, Camera: camera, Policy: policy),
+        state: (Parts: Seq(ViewSubject.Of(model)), Camera: camera, Policy: policy),
         projected: static (state, view) => view.Operation.Switch(
-            silhouette: _ => Fin.Succ<ViewOp>(new ViewOp.Silhouette(state.Model, state.Camera, state.Policy)),
-            hiddenLine: _ => Fin.Succ<ViewOp>(new ViewOp.HiddenLine(state.Model, state.Camera, state.Policy)),
-            outline: _ => Fin.Succ<ViewOp>(new ViewOp.Outline(state.Model, state.Camera, state.Policy)),
+            silhouette: _ => Fin.Succ<ViewOp>(new ViewOp.Silhouette(state.Parts, state.Camera, state.Policy)),
+            hiddenLine: _ => Fin.Succ<ViewOp>(new ViewOp.HiddenLine(state.Parts, state.Camera, state.Policy)),
+            outline: _ => Fin.Succ<ViewOp>(new ViewOp.Outline(state.Parts, state.Camera, state.Policy)),
             section: _ => Fin.Fail<ViewOp>(new FabricationFault.PolicyInadmissible(
                 FabConcern.Documentation, $"projection:section-without-plane:{view.Key.Value}"))),
         section: static (state, view) => Fin.Succ<ViewOp>(
-            new ViewOp.Section(state.Model, view.Cut, state.Camera, state.Policy)));
+            new ViewOp.Section(state.Parts, view.Cut, state.Camera, state.Policy)));
 }
 
 [ComplexValueObject]

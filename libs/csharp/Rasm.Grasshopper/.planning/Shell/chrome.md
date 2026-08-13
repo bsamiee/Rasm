@@ -58,7 +58,7 @@ A bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of 
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;

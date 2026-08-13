@@ -25,6 +25,19 @@
 - Growth: a new evidence payload is one `BuildBody` case; a new custody modality is one `ModelGate` member; a new bench dimension is one `BenchEvidence` field; sibling pages add zero spine surface.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Geometry;
+using Rhino.Runtime;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SourceAxis {

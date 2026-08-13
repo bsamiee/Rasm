@@ -10,7 +10,7 @@ Rebuilds compose the `Rasm.Domain` rails as the receipt validity floor and stays
 - [03]-[DENSE_OWNERS]: dense and packed-symmetric owners with the decomposition carriers holding live factors for repeated right-hand sides.
 - [04]-[SPARSE_OWNERS]: CSR and Hermitian owners with their structural invariants and the lock-guarded AMD factor cache.
 - [05]-[RECEIPTS]: typed solve, eigen, and gauge evidence carriers on the rails validity fold.
-- [06]-[TRANSFORM_BAND]: the caller-arena spectral transform, its taper roster, and the fitted-interpolant carrier over one sampled axis.
+- [06]-[TRANSFORM_BAND]: `SpectralArena`'s caller-arena spectral transform, the sample-domain tap fold closing the convolution correspondence beside it, the taper roster, and the fitted-interpolant carrier over one sampled axis.
 - [07]-[SOLVE_KERNEL]: `MatrixKernel`, the one MathNet and CSparse access path for every decomposition, solve, eigen, and transform route.
 
 ## [02]-[SOLVE_VOCABULARY]
@@ -630,12 +630,12 @@ public readonly record struct GaugeReceipt(
 
 ## [06]-[TRANSFORM_BAND]
 
-- Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `SpectralReceipt` the evidence a transform leaves; `WindowTaper` the taper roster carrying FFT framing as a column on the row rather than a second roster; `InterpolationRoute` the twelve-scheme fit route and `Interpolant` the fitted carrier whose case states what the fitted instance will actually serve.
-- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case is its discriminant, so no per-carrier entrypoint family and no mode flag exist; `WindowTaper.Of(width, framing, shape, key)` samples a taper; `InterpolationRoute.Fit(points, values, slopes, key)` mints a carrier, and `Interpolant.OfSegments`/`OfTransformed` reach the two schemes the factory roster omits — the quadratic spline through its own coefficient constructor, the transformed fit through its own static.
-- Auto: rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair, and symmetric scaling composes per axis (`1/sqrt(w) · 1/sqrt(h) = 1/sqrt(w·h)`), so the folded transform carries the convention the 1D row declares and `RoundTripFactor` reads the cell count once; `Power` reads `MagnitudeSquared` on the interleaved bins and the vectorized `Multiply`-then-`MultiplyAdd` pair on the split spans — the reason the split case exists — and never a square root it would only square back; `Axis` derives the bin count from the lattice census and the sampling rate from the affine's own per-axis column norm, so a spectrum reads its own axis instead of a caller-passed rate that can disagree with the grid.
-- Packages: MathNet.Numerics (`IntegralTransforms.Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`, the `Window` roster, `Interpolate`, `Interpolation.IInterpolation`/`QuadraticSpline`/`TransformedInterpolation`, `ComplexExtensions.MagnitudeSquared`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`IsFiniteAll`), `Numerics/atoms` (`CellLattice` the addressing carrier, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.FiniteComplexSpan`, the validity fold), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`).
-- Growth: a taper is one roster row and its FFT-framing twin a column on that row; an interpolation scheme is one route row; a scaling convention is one `SpectralScaling` row governing both transform owners at once, its `FourierConvention`/`HartleyConvention` columns published so a package binding MathNet's transform entrypoints directly reads this row instead of forking a second convention vocabulary; a buffer layout is one `SpectralArena` case whose arms break every fold at compile time.
-- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the page's own managed-provider pin makes them unservable by construction and the separable fold IS the platform-total N-dimensional transform. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and the receipt names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` on `TensorPrimitives` or on the `Tensor` static owner — so a filter folds over this transform pair with a pointwise spectral product between the legs, or over `TensorPrimitives.MultiplyAdd`/`Dot` in the sample domain. `CellLattice` is the addressing carrier for a lattice-backed plane and the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law; `MathNet.Numerics.Interpolation` is one-dimensional whole, so a bicubic or scattered-surface reconstruction is the regression route's and never a row here.
+- Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `SpectralReceipt` the evidence a transform leaves; `TapSeries` the admitted sample-domain convolution kernel, `TapBorder` its closed out-of-extent vocabulary, and `TapWindow` the staged-window geometry a banded caller states; `WindowTaper` the taper roster carrying FFT framing as a column on the row rather than a second roster; `InterpolationRoute` the twelve-scheme fit route and `Interpolant` the fitted carrier whose case states what the fitted instance will serve.
+- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case is its discriminant, so no per-carrier entrypoint family and no mode flag exist; `series.Convolve(source, folded, window, border, key)` folds one strided axis in the sample domain and `TapSeries.Convolve(values, lattice, axes, border, key)` is its separable lattice form — one series per axis, arity in the request shape, never an entrypoint sibling; `WindowTaper.Of(width, framing, shape, key)` samples a taper; `InterpolationRoute.Fit(points, values, slopes, key)` mints a carrier, and `Interpolant.OfSegments`/`OfTransformed` reach the two schemes the factory roster omits — the quadratic spline through its own coefficient constructor, the transformed fit through its own static.
+- Auto: rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair, and symmetric scaling composes per axis (`1/sqrt(w) · 1/sqrt(h) = 1/sqrt(w·h)`), so the folded transform carries the convention the 1D row declares and `RoundTripFactor` reads the cell count once; the tap fold divides every output by its RESOLVED-weight sum, so partition of unity holds at every border by construction — no caller pre-normalizes a table, a series and its scalar multiple fold identically, a `Zero`-dropped tap leaves the divisor rather than darkening the rim, and a rim record whose resolved sum cancels refuses typed rather than certifying a fabricated zero sample — and its lattice form is the SAME per-axis line fold the rank-2/3 transform law declares, walking the lattice's own linearization strides; `Power` reads `MagnitudeSquared` on the interleaved bins and the vectorized `Multiply`-then-`MultiplyAdd` pair on the split spans — the reason the split case exists — and never a square root it only squares back; `Axis` derives the bin count from the lattice census and the sampling rate from the affine's own per-axis column norm, so a spectrum reads its own axis instead of a caller-passed rate that can disagree with the grid.
+- Packages: MathNet.Numerics (`IntegralTransforms.Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`, the `Window` roster, `Interpolate`, `Interpolation.IInterpolation`/`QuadraticSpline`/`TransformedInterpolation`, `ComplexExtensions.MagnitudeSquared`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`Sum`/`IsFiniteAll`), `Numerics/atoms` (`CellLattice` the addressing carrier, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.FiniteComplexSpan`, the validity fold), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`).
+- Growth: a taper is one roster row and its FFT-framing twin a column on that row; a border law is one `TapBorder` row every tap fold reads with no kernel edit; an interpolation scheme is one route row; a scaling convention is one `SpectralScaling` row governing both transform owners at once, its `FourierConvention`/`HartleyConvention` columns published so a package binding MathNet's transform entrypoints directly reads this row instead of forking a second convention vocabulary; a buffer layout is one `SpectralArena` case whose arms break every fold at compile time.
+- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the page's own managed-provider pin makes them unservable by construction and the separable fold IS the platform-total N-dimensional transform. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and the receipt names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` on `TensorPrimitives` or on the `Tensor` static owner — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`SpectralReceipt.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION — which weights fill the series — stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law; `MathNet.Numerics.Interpolation` is one-dimensional whole, so a bicubic or scattered-surface reconstruction is the regression route's and never a row here.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -747,6 +747,29 @@ public sealed partial class WindowTaper {
             fftFrame: () => Fin.Fail<Arr<double>>(key.InvalidInput()));
 }
 
+// TapBorder closes the tap fold's out-of-extent law at four rows, each carrying its address fold as the
+// column the kernel reads — so no fold body re-derives an addressing rule per tap. Clamp repeats the border
+// sample, Wrap reaches the opposite edge, Mirror reflects about the border sample without repeating it, and
+// Zero resolves NEGATIVE: an absent tap the fold drops from its weight sum, never a fabricated sample —
+// which is what a caller whose staging already resolved its own edge law by address composes.
+[SmartEnum<int>]
+public sealed partial class TapBorder {
+    public static readonly TapBorder Clamp = new(key: 0, resolve: static (index, extent) => Math.Clamp(value: index, min: 0, max: extent - 1));
+    public static readonly TapBorder Wrap = new(key: 1, resolve: static (index, extent) => ((index % extent) + extent) % extent);
+    public static readonly TapBorder Mirror = new(key: 2, resolve: static (index, extent) => Reflected(index: index, extent: extent));
+    public static readonly TapBorder Zero = new(key: 3, resolve: static (_, _) => -1);
+
+    [UseDelegateFromConstructor] internal partial int Resolve(int index, int extent);
+
+    // Reflection about the border sample — period (extent−1)·2 — so the edge never doubles the way a repeated
+    // border tap would brighten a rim under a weighting kernel.
+    private static int Reflected(int index, int extent) {
+        int period = Math.Max(val1: 1, val2: (extent - 1) * 2);
+        int folded = ((index % period) + period) % period;
+        return folded < extent ? folded : period - folded;
+    }
+}
+
 internal delegate Fin<IInterpolation> FitKernel(Arr<double> points, Arr<double> values, Option<Arr<double>> slopes, Op key);
 
 // Twelve factory schemes as rows on ONE route. The Hermite row is the only one consuming prescribed slopes, so the slope
@@ -842,6 +865,47 @@ public abstract partial record Interpolant {
         double.IsFinite(value) ? key.AcceptValue(value: value) : Fin.Fail<double>(key.InvalidResult());
 }
 
+// TapWindow states the staged-window geometry a tap fold addresses: a logical axis of Extent records, Stride
+// scalars each, staged from record Origin, folding records [From, From+Run). Interleaved lanes RIDE the
+// stride — the fold moves every scalar of a record together, which is exactly the layout a lane-interleaved
+// plane row or column presents and the reason no per-lane entrypoint exists. Whole is the unwindowed common
+// case: the full axis staged, the full axis folded. Coverage against the series' own radius is the kernel's
+// admission, because the geometry cannot know a reach it does not carry.
+public readonly record struct TapWindow(int Extent, int Origin, int From, int Run, int Stride) {
+    public static TapWindow Whole(int extent, int stride) => new(Extent: extent, Origin: 0, From: 0, Run: extent, Stride: stride);
+    public bool IsValid => Extent >= 1 && Stride >= 1 && Run >= 1 && From >= 0 && Origin >= 0 && Origin <= From && From + Run <= Extent;
+}
+
+// TapSeries carries the admitted sample-domain convolution kernel: an odd tap count so the centre tap is
+// structural, every weight finite, and a total sum bounded away from zero because the fold normalizes by its
+// resolved portion — a zero-sum series is a DIFFERENCE stencil and `Numerics/calculus#NABLA` owns those,
+// so the refusal is the seam between the two owners rather than a silent divide-by-nothing. Admission is the
+// ONE gate; every fold below runs total on its taps. Convolve is the one entry over both input shapes: the
+// instance form folds one strided axis, the static form is the separable rank-2/3 fold — one series per
+// lattice axis, walking the lattice's own linearization strides exactly as the spectral row-column fold
+// does — and arity lives in the request shape, never in a name.
+public readonly record struct TapSeries {
+    private TapSeries(Arr<double> taps) => Taps = taps;
+
+    public Arr<double> Taps { get; }
+    public int Radius => Taps.Count / 2;
+    // Default-ghost read for the fold seams: an array- or default-minted TapSeries carries an empty tap
+    // roster no admission saw, and the fold entrypoints refuse it on this one member — Of already proved
+    // the rest (odd count, finite weights, non-cancelling sum) once, so no seam re-validates.
+    public bool IsValid => Taps.Count >= 1;
+
+    public static Fin<TapSeries> Of(Arr<double> taps, Op? key = null) =>
+        taps.Count >= 1 && int.IsOddInteger(taps.Count) && TensorPrimitives.IsFiniteAll<double>(taps.AsSpan())
+            && Math.Abs(value: TensorPrimitives.Sum<double>(taps.AsSpan())) > EpsilonPolicy.ZeroTolerance
+            ? Fin.Succ(new TapSeries(taps: taps))
+            : Fin.Fail<TapSeries>(error: key.OrDefault().InvalidInput());
+
+    public Fin<Unit> Convolve(ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op? key = null) =>
+        MatrixKernel.TapFold(series: this, source: source, folded: folded, window: window, border: border, key: key.OrDefault());
+    public static Fin<Unit> Convolve(Span<double> values, CellLattice lattice, Arr<TapSeries> axes, TapBorder border, Op? key = null) =>
+        MatrixKernel.TapFoldLattice(values: values, lattice: lattice, axes: axes, border: border, key: key.OrDefault());
+}
+
 // Every transform OVERWRITES the caller's buffer, so the arena is the unit of work and an immutable spectrum value is
 // unrepresentable. Each case carries exactly the extent its arm consumes: the interleaved case rides the CellLattice
 // (Layers == 1 IS the plane, so no sibling 2D arena exists) and the three one-dimensional cases carry their own sampling
@@ -905,7 +969,7 @@ public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense
 - Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale — relative gates, never absolute literals — and witnesses the true residual against the original un-shifted operator; `LobpcgCore` seeds its basis deterministically off the `Domain/identity` splitmix64 owner for bit-stable replay and terminates typed, never a hidden dense fallback; CSR compression is the storage owner's — `OfIndexedEnumerable` sorts each row, `NormalizeDuplicates` sums the coincident run the admission APPENDS, and `PopulateExplicitZerosOnDiagonal` restores the structural diagonal the zero-drop erases before any preconditioner walks it.
 - Packages: MathNet.Numerics (the managed provider path only — `UseManaged`, no `Control.UseNative*` call, no provider package — its CSR storage repairs, the 1D transform pairs, and the taper and interpolation rosters), CSparse (`SparseCholesky`, `SparseLU`, `SparseQR`, AMD ordering, the transposed solves and the rank-1 factor moves), Rasm.Domain (`Op`, `Context`, `Deterministic` splitmix64), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble`, the 106-bit residual-witness lane), BCL (`System.Numerics.Complex`, `IProgress<double>`).
 - Growth: a new route, gauge case, eigen substrate, or arena layout adds one kernel arm over its vocabulary row and the existing receipt shape.
-- Boundary: statement loops inside `SolvePin`, `SolveKkt`, the MGS pass, and the separable axis gather-scatter are the named statement-kernel exemption — measured assembly, elimination, and strided-line hot paths; `BiCgStabDivergenceFactor` (divergence ceiling) and `KktPivotTolerance` (CSparse full-partial-pivot column threshold) are the named kernel policy constants.
+- Boundary: statement loops inside `SolvePin`, `SolveKkt`, the MGS pass, the separable axis gather-scatter, and the tap-fold record walk are the named statement-kernel exemption — measured assembly, elimination, and strided-line hot paths; `BiCgStabDivergenceFactor` (divergence ceiling) and `KktPivotTolerance` (CSparse full-partial-pivot column threshold) are the named kernel policy constants.
 
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -1797,10 +1861,11 @@ internal static class MatrixKernel {
             1 => (Count: lattice.Rows.Value, SampleRate: 1.0 / lattice.CellSize.Y),
             _ => (Count: lattice.Layers.Value, SampleRate: 1.0 / lattice.CellSize.Z),
         };
-    // The convolution theorem's whole content, and the reason no convolution member exists beside it. The symbol
-    // addresses interleaved bins, so the packed and Hartley layouts refuse rather than have the band re-derive the
-    // package's own bin packing; the destination aliases its operand legally, so the product runs over the caller's
-    // arena with no staging copy.
+    // SpectralModulate carries the convolution theorem's whole content — the SPECTRAL half of the one
+    // convolution correspondence, whose sample-domain half is the tap fold below. The symbol addresses
+    // interleaved bins, so the packed and Hartley layouts refuse rather than have the band re-derive the
+    // package's own bin packing; the destination aliases its operand legally, so the product runs over the
+    // caller's arena with no staging copy.
     internal static Fin<SpectralReceipt> SpectralModulate(SpectralReceipt receipt, ReadOnlySpan<Complex> symbol, Op key) =>
         receipt.Arena is SpectralArena.Interleaved plane && plane.Values.Length == symbol.Length && Admit.FiniteComplexSpan(symbol)
             ? Modulated(plane: plane, symbol: symbol, receipt: receipt, key: key)
@@ -1808,6 +1873,87 @@ internal static class MatrixKernel {
     private static Fin<SpectralReceipt> Modulated(SpectralArena.Interleaved plane, ReadOnlySpan<Complex> symbol, SpectralReceipt receipt, Op key) {
         TensorPrimitives.Multiply<Complex>(plane.Values, symbol, plane.Values);
         return SpectralReceiptOf(arena: plane, sense: receipt.Sense, scaling: receipt.Scaling, key: key);
+    }
+
+    // --- [TAP_FOLD] ------------------------------------------------------------------------------
+    // TapFold folds the sample-domain half of the convolution correspondence. Admission proves the window's
+    // staging covers every in-extent tap the run reaches, and the RESOLVING border rows — Clamp, Wrap, Mirror —
+    // demand the whole axis staged, because a wrapped or clamped index resolves anywhere on the axis and a
+    // partial window cannot answer it; a partial window therefore rides `TapBorder.Zero` alone, the caller
+    // having already resolved its own edge law by address at its fill. Each output divides by the
+    // RESOLVED-weight sum — partition of unity at every border, no pre-normalized table, no rim a dropped
+    // tap darkens — and a resolved sum the drops cancel refuses typed rather than scaling by zero.
+    internal static Fin<Unit> TapFold(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
+        int stride = window.Stride, staged = stride >= 1 ? source.Length / stride : 0;
+        bool whole = window.Origin == 0 && staged == window.Extent;
+        return !series.IsValid || !window.IsValid || border is null
+            || source.Length != staged * stride || folded.Length != window.Run * stride
+            || window.Origin > Math.Max(val1: 0, val2: window.From - series.Radius)
+            || window.Origin + staged <= Math.Min(val1: window.Extent - 1, val2: window.From + window.Run - 1 + series.Radius)
+            || (!whole && border != TapBorder.Zero)
+            ? Fin.Fail<Unit>(key.InvalidInput())
+            : TapFoldCore(series: series, source: source, folded: folded, window: window, border: border, key: key);
+    }
+
+    // TapFoldLattice runs the separable lattice fold: per axis, every line at that axis's stride gathers into
+    // one contiguous run, takes the SAME 1D fold, and scatters back — the identical walk FoldSeparable takes
+    // for the transform, reading the lattice's own linearization as per-axis steps (1, Columns, Columns·Rows)
+    // rather than re-deriving an index expression the lattice already owns. In place over the caller's values,
+    // mirroring the transform's arena law.
+    internal static Fin<Unit> TapFoldLattice(Span<double> values, CellLattice lattice, Arr<TapSeries> axes, TapBorder border, Op key) {
+        // Axes arrive caller-shaped, so the default-ghost gate reads every series' key member before any
+        // lattice value moves — an array-minted default(TapSeries) otherwise reaches the core and throws
+        // off the rail instead of routing InvalidInput.
+        if (lattice is null || border is null || axes.Count != lattice.Rank || values.Length != lattice.CellCount
+            || axes.Exists(static series => !series.IsValid)) {
+            return Fin.Fail<Unit>(key.InvalidInput());
+        }
+        int columns = lattice.Columns.Value, rows = lattice.Rows.Value, layers = lattice.Layers.Value;
+        int cells = values.Length, longest = Math.Max(val1: columns, val2: Math.Max(val1: rows, val2: layers));
+        double[] line = new double[longest], result = new double[longest];
+        for (int axis = 0; axis < axes.Count; axis++) {
+            (int count, int stride) = axis switch { 0 => (columns, 1), 1 => (rows, columns), _ => (layers, columns * rows) };
+            TapWindow window = TapWindow.Whole(extent: count, stride: 1);
+            for (int origin = 0; origin < cells; origin++) {
+                if (origin / stride % count != 0) { continue; }
+                for (int k = 0; k < count; k++) { line[k] = values[origin + (k * stride)]; }
+                Fin<Unit> lineFold = TapFoldCore(series: axes[axis], source: line.AsSpan(0, count), folded: result.AsSpan(0, count), window: window, border: border, key: key);
+                if (lineFold.IsFail) { return lineFold; }
+                for (int k = 0; k < count; k++) { values[origin + (k * stride)] = result[k]; }
+            }
+        }
+        return Fin.Succ(unit);
+    }
+
+    // TapFoldCore owns the fold body — a fixed-extent record walk on the named statement-kernel exemption. An
+    // in-extent tap reads its staged record directly; an out-of-extent tap routes through the border row's own
+    // address column, and a negative resolution drops the tap AND its weight. All Stride lanes of a record move
+    // together, so one call folds an interleaved plane row or column whole. A resolved-weight sum the drops
+    // cancel below the epsilon floor refuses TYPED naming the record — mixed-sign taps under a Zero border can
+    // cancel at a rim record, and a 0.0-scale fall-through would certify a fabricated zero sample as folded.
+    private static Fin<Unit> TapFoldCore(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
+        ReadOnlySpan<double> taps = series.Taps.AsSpan();
+        int radius = series.Radius, stride = window.Stride;
+        for (int at = 0; at < window.Run; at++) {
+            int record = window.From + at, seat = at * stride;
+            folded.Slice(seat, stride).Clear();
+            double admitted = 0.0;
+            for (int tap = -radius; tap <= radius; tap++) {
+                int logical = record + tap;
+                int resolved = logical >= 0 && logical < window.Extent ? logical : border.Resolve(index: logical, extent: window.Extent);
+                if (resolved < 0) { continue; }
+                double weight = taps[tap + radius];
+                admitted += weight;
+                int from = (resolved - window.Origin) * stride;
+                for (int lane = 0; lane < stride; lane++) { folded[seat + lane] += weight * source[from + lane]; }
+            }
+            if (Math.Abs(value: admitted) <= EpsilonPolicy.ZeroTolerance) {
+                return Fin.Fail<Unit>(key.InvalidResult(detail: $"resolved tap-weight sum cancelled at record {record}"));
+            }
+            double scale = 1.0 / admitted;
+            for (int lane = 0; lane < stride; lane++) { folded[seat + lane] *= scale; }
+        }
+        return Fin.Succ(unit);
     }
 }
 ```

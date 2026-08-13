@@ -19,7 +19,6 @@ One implicit-field algebra over three closed field unions — `ScalarField`, `Ve
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;

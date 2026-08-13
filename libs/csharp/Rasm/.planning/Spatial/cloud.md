@@ -25,7 +25,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using MIConvexHull;
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 

@@ -22,7 +22,7 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route g
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 
@@ -118,7 +118,7 @@ public static class Traced {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 
@@ -163,7 +163,7 @@ public static class WirePick {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 

@@ -31,7 +31,7 @@ Host absorption owns every solver: the `SnappingAction` factory family owns alig
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 
@@ -252,7 +252,7 @@ public static class StretchPlan {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;

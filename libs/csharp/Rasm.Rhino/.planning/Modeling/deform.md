@@ -14,6 +14,18 @@
 `MorphKind` is the sole deformation discriminant. `BendBehavior`, `FlowBehavior`, `TaperBehavior`, `MorphExtent`, and `MorphBehavior` replace positional booleans with bounded policy. Every concrete engine enters the same duplicate-morph-own kernel, including `MorphControl`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class BendBehavior {

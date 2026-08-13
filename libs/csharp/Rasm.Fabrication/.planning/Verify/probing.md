@@ -17,7 +17,7 @@
 - Law: equidistribution is the kernel's. `Deterministic.RadicalInverse` is the van der Corput coordinate a page-local golden-conjugate constant stood in for, and a chart sweeping one axis uniformly draws its second axis from it, so contacts spread over the whole chart instead of banding on one meridian. No page-local draw sequence exists.
 - Law: a composite's charts share a DIMENSION, so the allocation weight is each chart's own measure and the column never mixes a length with an area.
 - Cases: `FeatureSpec` carries the contact floor, the optional ceiling, the substitute-fit kind, and the `FitFilter` naming WHICH contacts feed that fit. `Bore`, `Boss`, and `Cylinder` fit `FitKind.Cylinder` over wall contacts alone, so a cap contact never enters a cylinder's normal matrix. `Web` fits `FitKind.Plane` over the contacts aligned with ONE face, because a plane fitted across two antiparallel faces returns the mid-plane, which is no measured face.
-- Law: three features carry no substitute fit, each for its own settled reason. `Circle` and `Slot` await the kernel `FitKind.Circle` row — the kernel primitive roster carries plane, sphere, cylinder, cone, torus, and line, and forcing a circle's coplanar contacts through the six-parameter cylinder leaves the axis direction unconstrained, so the solve is rank-deficient rather than substituted; a slot is two end arcs and two parallel flanks sharing one width, which composes from a circle row and a line row once that member lands. `Surface` carries no fit by its own nature: a free-form feature is measured as deviation to its nominal geometry and no primitive stands in for it. All three answer per-contact residuals meanwhile, and a page-local fit body is a second fitting owner.
+- Law: `Circle` fits the kernel `FitKind.Circle` row over its rim contacts — the coplanar contact set that leaves a six-parameter cylinder's axis unconstrained determines the circle's plane, centre, and radius exactly, so the substitute fit composes the roster member and no rank-deficient stand-in survives. Two features carry no substitute fit, each for its own settled reason. `Slot` is two end arcs and two parallel flanks sharing one width — a constrained composite over a circle pair and a line pair that the one-kind `FeatureSpec` fit column cannot carry, so its composite fit stays a downstream consumer fold over `Fit.Apply` and the slot answers per-contact residuals here. `Surface` carries no fit by its own nature: a free-form feature is measured as deviation to its nominal geometry and no primitive stands in for it. Both answer per-contact residuals, and a page-local fit body is a second fitting owner.
 - Entry: `Probe.Inspect` is the sole public operation; each generated `ProbeTarget` carries the exact `ProbeTargetKey` whose one `Text` spelling posting, telemetry, residuals, and result identity all read. Every owner admits through its generated `Validate` onto the `Admission.Admitted` bridge; a throwing `Create` at a construction site is the deleted form.
 - Exemption: `ContactChart.Allocate` is a statement kernel — integer budget allocation with floors and a rounding residue has no expression form that spends the budget exactly.
 - Auto: one `Validation<Error, Unit>` fan-in proves feature coverage, target uniqueness, observation references, evidence identity, and datum traceability, so an inadmissible demand reports every violated invariant rather than the first.
@@ -270,17 +270,17 @@ public abstract partial record ProbeFeature {
         point: static _ => new FeatureSpec(1, Some(1), None, FitFilter.All, None),
         line: static _ => new FeatureSpec(FitKind.Line.MinimalSamples, None, Some(FitKind.Line), FitFilter.All, None),
         plane: static _ => new FeatureSpec(FitKind.Plane.MinimalSamples, None, Some(FitKind.Plane), FitFilter.All, None),
-        // Three points in the probe plane determine the circle. No substitute fit is named: the kernel primitive
-        // roster carries no circle, and forcing coplanar contacts through the six-parameter cylinder leaves the
-        // axis direction unconstrained, so the solve is rank-deficient rather than substituted.
-        circle: static _ => new FeatureSpec(3, None, None, FitFilter.All, None),
+        // The rim's coplanar contacts determine plane, centre, and radius through the kernel circle row — the
+        // six-parameter cylinder those contacts would leave rank-deficient is nobody's substitute.
+        circle: static _ => new FeatureSpec(FitKind.Circle.MinimalSamples, None, Some(FitKind.Circle), FitFilter.All, None),
         bore: static row => new FeatureSpec(
             FitKind.Cylinder.MinimalSamples + 1, None, Some(FitKind.Cylinder), FitFilter.PerpendicularTo, Some(row.Frame.ZAxis)),
         boss: static row => new FeatureSpec(
             FitKind.Cylinder.MinimalSamples + 1, None, Some(FitKind.Cylinder), FitFilter.PerpendicularTo, Some(row.Frame.ZAxis)),
-        // Two end arcs and two parallel flanks sharing one width: a constrained composite, not a primitive. It
-        // composes from a circle row and a line row once the kernel carries the circle, so the slot answers
-        // per-contact residuals meanwhile and a page-local composite fit would be a second fitting owner.
+        // Two end arcs and two parallel flanks sharing one width: a constrained composite over a circle pair and
+        // a line pair, which the one-kind fit column cannot carry — its composite fit is a downstream consumer
+        // fold over `Fit.Apply`, so the slot answers per-contact residuals here and a page-local composite fit
+        // would be a second fitting owner.
         slot: static _ => new FeatureSpec(5, None, None, FitFilter.All, None),
         // A plane fitted across both antiparallel faces returns the mid-plane, which is no measured face, so the
         // fit takes the contacts aligned with one face alone: that face's minimal set plus one contact proving
@@ -303,7 +303,8 @@ public abstract partial record ProbeFeature {
         plane: static row => new ContactSource.Charted(Seq(
             ContactChart.Rectangle(row.Frame, row.WidthMm, row.HeightMm, row.Frame.ZAxis, FitKind.Plane.MinimalSamples))),
         circle: static row => new ContactSource.Charted(Seq(
-            ContactChart.Wall(row.Frame, 0.0, ProbeSense.Outside, _ => row.RadiusMm, static radial => radial, floor: 3))),
+            ContactChart.Wall(row.Frame, 0.0, ProbeSense.Outside, _ => row.RadiusMm, static radial => radial,
+                FitKind.Circle.MinimalSamples))),
         bore: static row => new ContactSource.Charted(Seq(
             ContactChart.Wall(row.Frame, row.DepthMm, ProbeSense.Inside, _ => row.DiameterMm * 0.5, static radial => radial,
                 FitKind.Cylinder.MinimalSamples),

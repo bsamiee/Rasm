@@ -26,7 +26,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rhino;
@@ -566,7 +565,6 @@ public static partial class Analyze {
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Processing;

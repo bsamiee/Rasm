@@ -21,7 +21,7 @@ Modality variation lives in role rows — `TextRole`, `ChoiceRole`, `ButtonRole`
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -72,7 +72,7 @@ public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Val
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -243,7 +243,7 @@ public sealed record StackChild(ControlSpec Item, bool Stretch);
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -306,7 +306,7 @@ public abstract partial record ControlSpec {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 

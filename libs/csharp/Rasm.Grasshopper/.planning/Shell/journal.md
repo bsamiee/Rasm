@@ -15,7 +15,7 @@ Journal consumption stays off the UI thread: one single-reader loop drains `Evid
 - Owner: `JournalRow` readonly record struct — one appended fact under its `Sequence` ordinal, optional owning document, and the `MonotonicStamp` the journal's own timeline captured at append; validity claims a nonnegative sequence and live stamp evidence, and a partition's rows are monotone by construction because one timeline stamps every append.
 - Law: stamps are journal-local — `UiEvent.Stamp` stays the sink-publication ordinal it was minted as, `SolutionTrace` keeps its own monotone claim, and the journal's `MonotonicStamp` is the one cross-family ordering authority inside a partition; no wall-clock read enters a row.
 - Law: document attribution derives from the fact — a `DocumentCase` fact keys its own partition through its `DocumentToken` id, a `GhEvidence` receipt keys the document its projector named, and an unattributable fact lands in the session partition rather than being dropped; a `GraphCase` subject id is object-instance identity and never keys a partition.
-- Packages: LanguageExt.Core, `Rasm.Csp` (`Op`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`).
+- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`).
 - Growth: a new journalable family is one `JournalFact` case; the row shape never widens per family.
 
 ## [03]-[FOLD]
@@ -27,12 +27,12 @@ Journal consumption stays off the UI thread: one single-reader loop drains `Evid
 - Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source and appends each event through the same `Append` gate. Disposal marks release before cancellation, and the consumer suppresses only the resulting append rejection while recording every live append fault; cancellation then joins the task before the journal releases, so no unowned consumer survives its lease.
 - Law: replay grounding is the export — `Shell/hooks.md` `Replay` consumes `JournalExport.Rows` projected back to signals, so replay capture and analytics export are one record, never two recordings.
 - Boundary: serialization, upload, and bundle formats are app-root concerns over the detached export; the journal never names a serializer or a wire.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`), .NET (`TimeProvider`, `CancellationTokenSource`, `Task`), `Rasm.Csp` (`Op`, `Lease<T>`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/events.md` (`EvidenceDrain`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`), .NET (`TimeProvider`, `CancellationTokenSource`, `Task`), `Rasm.Domain` (`Op`, `Lease<T>`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/events.md` (`EvidenceDrain`).
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Shell;

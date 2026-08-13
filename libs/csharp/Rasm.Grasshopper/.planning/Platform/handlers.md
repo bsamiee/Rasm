@@ -28,7 +28,7 @@ Every GH2 panel, plugin chrome, and native-integration surface composes these ro
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Platform;
 
@@ -117,7 +117,7 @@ public static class PlatformSeam {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Platform;
 
@@ -236,7 +236,7 @@ public static class Handlers {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Platform;
 
@@ -305,7 +305,7 @@ public static class Styler {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Platform;
 

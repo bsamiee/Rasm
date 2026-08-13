@@ -20,6 +20,19 @@
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport rail; this frame ends at the projection compute.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Threading;
+using Rasm.Domain;
+using Rasm.Numerics;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Viewport;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectionFrame {

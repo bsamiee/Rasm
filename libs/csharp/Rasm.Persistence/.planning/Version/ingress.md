@@ -25,7 +25,7 @@ using CloudNative.CloudEvents.Kafka;
 using Confluent.Kafka;
 using Rasm.Domain;                                // CorrelationId — the S0 causal half the frame seats
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
-using Rasm.Csp;                                   // Op — the operation key every fallible kernel threads
+using Rasm.Domain;                                   // Op — the operation key every fallible kernel threads
 
 namespace Rasm.Persistence.Version;
 

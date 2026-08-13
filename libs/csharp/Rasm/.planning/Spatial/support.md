@@ -22,7 +22,6 @@ This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 using Rasm.Domain;
 
 namespace Rasm.Spatial;

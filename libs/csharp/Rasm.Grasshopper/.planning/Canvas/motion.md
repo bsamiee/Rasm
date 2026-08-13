@@ -30,7 +30,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.UI.Animation;
@@ -175,7 +175,7 @@ public static class FlexDrive {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Eto.Drawing;
 using Grasshopper2.UI.Animation;
 using Rasm.Numerics;
@@ -278,7 +278,7 @@ public static class GlyphPath {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Platform;
 using Rasm.Grasshopper.Shell;
@@ -469,7 +469,7 @@ flowchart LR
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Platform;
 using System.Runtime.InteropServices;
 

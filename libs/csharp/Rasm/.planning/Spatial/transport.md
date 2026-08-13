@@ -17,7 +17,6 @@ Transport mass is the cluster's own admitted normalized mass (`cloud.md` `MassOf
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 

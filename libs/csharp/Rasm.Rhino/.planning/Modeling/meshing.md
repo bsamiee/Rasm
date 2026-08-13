@@ -14,6 +14,23 @@
 `MeshFidelity` is the sole fidelity discriminant. `MeshLaw` validates the complete custom parameter set, `MeshPreset` carries live host factories, and `Rig` creates one disposable `MeshingParameters` carrier inside the consuming arm.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino.Collections;
+using Rhino.FileIO;
+using Rhino.Geometry;
+using Rhino.Geometry.Intersect;
+using Rhino.Render;
+
+namespace Rasm.Rhino.Modeling;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshPreset {

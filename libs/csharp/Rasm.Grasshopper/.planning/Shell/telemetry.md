@@ -72,7 +72,7 @@ Instrument cells and rasm-owned tag cells extend the `rasm.grasshopper.` prefix;
 - Law: per-document tag fan-out is bounded by open documents, and the app-root views own cardinality caps; the fold never re-validates a receipt — the typed owner already admitted it, and `IsValid` stays the acceptance oracle at the emitting seam.
 - Law: a refused write rides the returned rail outward to the composition that subscribed the fold, which hands it to the capsule's rail-shaped `Observe`, so an unmounted name or a family mismatch parks as `IsolatedFault` evidence rather than vanishing into a void write.
 - Boundary: span brackets, hook rails, and log emission are sibling surfaces — the kernel `TelemetrySink` owns `rasm.kernel.*`, `Shell/hooks.md` owns the veto/observe/replay points, and this fold owns only metric projection; `EtoDispatch` lane latency arrives as `DispatchCase` through the `EtoDispatch.Watch` tap and a hook fault as `HookFaultCase` minted from each `IsolatedFault` the `GhHooks.Faults` cell's `Change` tap appends (the composition root projects `fault.Point.ToString()` as the point tag), both subscribed at the composition root so neither emitting owner names an instrument.
-- Packages: BCL inbox, LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Csp` (`Op`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/solution.md`/`Shell/session.md` receipt owners.
+- Packages: BCL inbox, LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/solution.md`/`Shell/session.md` receipt owners.
 - Growth: a new evidence case is one union case and one arm with its roster row; a new tag axis on an existing write is one `Tag` pair at the arm.
 
 ```csharp signature
@@ -81,7 +81,6 @@ using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Grasshopper.Canvas;
 using Rasm.Grasshopper.Document;

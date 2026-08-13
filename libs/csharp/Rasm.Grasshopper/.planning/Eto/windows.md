@@ -25,7 +25,7 @@ Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the 
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Eto;
@@ -192,7 +192,7 @@ public static class CommandForge {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -353,7 +353,7 @@ public static class MenuForge {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;
 
@@ -543,7 +543,7 @@ public static partial class WindowHost {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Eto;
 

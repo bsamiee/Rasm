@@ -2,7 +2,7 @@
 
 Rasm.Compute owns the compute-and-transport half of artifact interchange: the codecs laying simulation fields and structural geometry deltas down as bytes, the companion hop turning IFC into geometry, the streamable octree partitioning that geometry beneath its semantic layer, and the content-addressed identity every one of them keys on. `Rasm.Bim` owns the IFC/glTF/STEP semantic object model and its import-export surface, reached at the companion seam; this lane is HOST-LOCAL and carries no TS_PROJECTION.
 
-`FieldCodec`/`DeltaCodec`, the `TessellationJob` companion bridge, the `TileSet` octree with its `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` family, and the `CanonicalForm`/`InterchangeIdentity` content-key own the lane, composing the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` precedent, the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` shape, the SharpGLTF glTF-extension write surface, the meshoptimizer LOD kernels, and the `Substrate.RemoteGrpc` companion hop.
+`FieldCodec`/`DeltaCodec`, the `TessellationJob` companion bridge, the `TileSet` octree with its `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` family, and the `CanonicalForm`/`InterchangeIdentity` content-key own the lane, composing the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` precedent, the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` shape, the kernel `EncodeForm.Parametric` stream, the SharpGLTF glTF-extension write surface, the meshoptimizer LOD kernels, and the `Substrate.RemoteGrpc` companion hop.
 
 GLB geometry-content identity composes the kernel seed-zero `XxHash128` `GeometryHash` here, never re-minted with a policy seed.
 
@@ -317,16 +317,19 @@ public static class InterchangeIo {
 }
 
 // Shared codec quantization law, composed by the field quantizer, the residual quantizer, and the
-// [GEOMETRY_DELTA] normalizer: scale is one absolute-extremum SIMD reduction (never a Max/Min/Abs hand-roll),
-// step the bit-budget grid, residual the relative rounding error a receipt records.
+// [GEOMETRY_DELTA] normalization rows: scale is one absolute-extremum SIMD reduction (never a Max/Min/Abs
+// hand-roll), step the bit-budget grid, residual the relative rounding error a receipt records. One generic
+// declaration serves every IEEE width — the float32 field and residual lanes and the float64 parametric net —
+// through `TensorPrimitives.MaxMagnitude<T>`, so a per-width overload pair is the deleted form.
 public static class Quantization {
-    public static (float Scale, float Step) Steps(ReadOnlySpan<float> source, int bits) {
-        float scale = MathF.Abs(TensorPrimitives.MaxMagnitude(source));
+    public static (T Scale, T Step) Steps<T>(ReadOnlySpan<T> source, int bits) where T : IFloatingPointIeee754<T> {
+        T scale = T.Abs(TensorPrimitives.MaxMagnitude(source));
         int levels = (1 << bits) - 1;
-        return (scale, levels > 0 ? scale / levels : 0f);
+        return (scale, levels > 0 ? scale / T.CreateChecked(levels) : T.Zero);
     }
 
-    public static float Code(float value, float step) => step == 0f ? value : MathF.Round(value / step) * step;
+    public static T Code<T>(T value, T step) where T : IFloatingPointIeee754<T> =>
+        step == T.Zero ? value : T.Round(value / step) * step;
 
     public static double Residual(float value, float coded, float scale) => scale == 0f ? 0.0 : Math.Abs(value - coded) / scale;
 }
@@ -864,24 +867,28 @@ public sealed class HdfWriter : IDisposable {
 - Owner: `GeometryDeltaKind` `[SmartEnum<string>]` structural-diff target rows; `GeometryDelta` the content-addressed delta record; `DeltaCodec` the static FastCDC-chunked structural-diff surface over meshes, B-reps, point clouds, and NURBS with quantization-aware bounded-lossy chunks, columnar layout, and progressive transmission.
 - Cases: `GeometryDeltaKind` rows mesh-vertex · mesh-topology · brep-face · pointcloud-octant · nurbs-control.
 - Entry: `public static Fin<GeometryDelta> Diff(GeometryDeltaKind kind, ReadOnlyMemory<byte> baseBytes, ReadOnlyMemory<byte> targetBytes, DeltaPolicy policy)` content-defined-chunks both artifacts and emits the ordered target chunk recipe (`TargetChunks`) with the new-chunk payload (`Added`, hashes absent from the base); `public static Fin<ReadOnlyMemory<byte>> Apply(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes)` walks the recipe and reconstructs the NORMALIZED target exactly, pulling each chunk from the payload or the re-chunked base — `TargetHash` is taken over the normalized bytes, so the verify proves the reconstruction bit-for-bit and `GeometryDelta.GeometricError` states the residual that separates it from the caller's original target; `Fin<T>` aborts on invalid chunk policy or float alignment, base or target hash mismatch, corrupt payload framing, and an unresolved recipe hash.
-- Auto: `Diff` first `Normalize`s a quantizable kind (vertex/point/control-point floats round to the finer of the bit-budget grid and `Tolerance` so a sub-tolerance perturbation hashes to one chunk, bounded-lossy within `Tolerance`; topology and B-rep-face streams pass verbatim), then runs FastCDC over the normalized bytes — a 256-entry SplitMix64 `Gear` table rolls the fingerprint, a STRICT mask below `AvgChunk` and a LOOSE mask above normalize the chunk-size distribution so an inserted vertex shifts only its local chunk; `TargetChunks` records the ordered hash recipe, `Added` the distinct new chunks, and the delta's own `GeometricError` the quantization step every one of them was rounded to (zero on a kind that passed verbatim), so the residual is stated once rather than restated per chunk; the progressive column orders new chunks largest-first so a transmission renders coarse coverage before fine detail; the delta carries its own `DeltaPolicy` so `Apply` re-chunks the base identically and round-trips deterministically.
+- Auto: `Diff` first runs each kind's row-owned `Normalize` — the float-column kinds (vertex/point) round every float to the finer of the bit-budget grid and `Tolerance` so a sub-tolerance perturbation hashes to one chunk, bounded-lossy within `Tolerance`; topology and B-rep-face streams pass verbatim; the `nurbs-control` parametric stream rounds its control-net coordinate block alone, knots and weights crossing verbatim — then runs FastCDC over the normalized bytes — a 256-entry SplitMix64 `Gear` table rolls the fingerprint, a STRICT mask below `AvgChunk` and a LOOSE mask above normalize the chunk-size distribution so an inserted vertex shifts only its local chunk; `TargetChunks` records the ordered hash recipe, `Added` the distinct new chunks, and the delta's own `GeometricError` the quantization step every one of them was rounded to (zero on a kind that passed verbatim), so the residual is stated once rather than restated per chunk; the progressive column orders new chunks largest-first so a transmission renders coarse coverage before fine detail; the delta carries its own `DeltaPolicy` so `Apply` re-chunks the base identically and round-trips deterministically.
 - Receipt: the `Cache` receipt carries the delta content-key, the changed-chunk count, the base byte count, and the delta byte count so a structural diff's compression ratio is auditable; a progressive transmission stamps the coarse-chunk-first ordering count.
-- Packages: System.IO.Hashing, System.Numerics.Tensors, LanguageExt.Core, Rasm.Persistence (project), BCL inbox (`System.Numerics.BitOperations` mask sizing)
-- Growth: a new diffable geometry kind is one `GeometryDeltaKind` row carrying its `Quantizable` column; a new chunk policy is one column on `DeltaPolicy`; the quantization law is the shared `Quantization` kernel ([FIELD_RESULT_CODEC]); zero new surface.
-- Boundary: geometry delta is the structural diff the blob-level delta never owned — the Persistence blob delta diffs opaque bytes, this diffs by geometry structure so an edit-resilient mesh/B-rep/point-cloud/NURBS change transmits only touched chunks; the diff algebra mirrors the `Runtime/wire#PROTO_VOCABULARY` `GraphDiff`/`SubtreeFetch` wire shape, Compute owning the structural chunking and the Persistence sync lane the closure-graph diff, neither re-deriving the other; the chunker is real FastCDC — a `Gear` rolling fingerprint with a STRICT-below / LOOSE-above-`AvgChunk` dual-mask tightening the size distribution so a local edit shifts only its own chunk, a fixed-block or single-mask shift-add chunker the rejected form; reconstruction is order-faithful and hash-verified — `TargetChunks` places a mid-stream insert at its true position, not the tail, and `Apply` re-chunks the base under the delta's OWN `DeltaPolicy`, never a hardcoded one — but LOSSLESS is a per-KIND property this codec never claims whole: a non-quantizable kind (`mesh-topology`, `brep-face`) passes `Normalize` verbatim, so its reconstruction IS the original target, while a quantizable kind hashes the NORMALIZED bytes, so `Apply` returns the target rounded to the delta's own grid and `GeometryDelta.GeometricError` carries that step — the finer of the bit grid and `Tolerance`, the residual law the `DeltaPolicy` row decides — as a bound the caller STATES rather than assumes; a delta advertised lossless across every kind is what turns a bounded-lossy round trip into a silent one, and a per-chunk restatement of the one step is the column that collapse deleted; the bounded-lossy `Normalize` never exceeds the geometry tolerance; the new-chunk set transmits progressively through the `SubtreeFetch` server-stream and content-key-dedups against the Persistence blob lane (never a second delta store); the geometry-kind discriminant scopes quantization, so a topology-only edit never quantizes and a position-only edit never re-transmits the topology column.
+- Packages: System.IO.Hashing, System.Numerics.Tensors, LanguageExt.Core, Rasm (project — the kernel reconciliation `EncodeForm.Parametric` canonical stream the `nurbs-control` payload rides), Rasm.Persistence (project), BCL inbox (`System.Numerics.BitOperations` mask sizing)
+- Growth: a new diffable geometry kind is one `GeometryDeltaKind` row carrying its row-owned `Normalize` law; a new chunk policy is one column on `DeltaPolicy`; the quantization law is the shared `Quantization` kernel ([FIELD_RESULT_CODEC]); zero new surface.
+- Boundary: geometry delta is the structural diff the blob-level delta never owned — the Persistence blob delta diffs opaque bytes, this diffs by geometry structure so an edit-resilient mesh/B-rep/point-cloud/NURBS change transmits only touched chunks; the diff algebra mirrors the `Runtime/wire#PROTO_VOCABULARY` `GraphDiff`/`SubtreeFetch` wire shape, Compute owning the structural chunking and the Persistence sync lane the closure-graph diff, neither re-deriving the other; the chunker is real FastCDC — a `Gear` rolling fingerprint with a STRICT-below / LOOSE-above-`AvgChunk` dual-mask tightening the size distribution so a local edit shifts only its own chunk, a fixed-block or single-mask shift-add chunker the rejected form; reconstruction is order-faithful and hash-verified — `TargetChunks` places a mid-stream insert at its true position, not the tail, and `Apply` re-chunks the base under the delta's OWN `DeltaPolicy`, never a hardcoded one — but LOSSLESS is a per-KIND property this codec never claims whole: a non-quantizable kind (`mesh-topology`, `brep-face`) passes `Normalize` verbatim, so its reconstruction IS the original target, while a quantizable kind hashes the NORMALIZED bytes, so `Apply` returns the target rounded to the delta's own grid and `GeometryDelta.GeometricError` carries that step — the finer of the bit grid and `Tolerance`, the residual law the `DeltaPolicy` row decides — as a bound the caller STATES rather than assumes; a delta advertised lossless across every kind is what turns a bounded-lossy round trip into a silent one, and a per-chunk restatement of the one step is the column that collapse deleted; the bounded-lossy `Normalize` never exceeds the geometry tolerance; the new-chunk set transmits progressively through the `SubtreeFetch` server-stream and content-key-dedups against the Persistence blob lane (never a second delta store); the geometry-kind discriminant scopes quantization, so a topology-only edit never quantizes and a position-only edit never re-transmits the topology column; the `nurbs-control` payload IS the kernel `Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE` `EncodeForm.Parametric` canonical counted stream — the one frozen parametric byte layout, read here the way Persistence reads the frozen mesh layout, so a Compute-local NURBS byte encoding is the deleted second layout — and its row's `Normalize` scopes the tolerance grid to the control-net coordinate block ALONE, knot and weight bytes crossing verbatim: the `Rasm/Parametric/nurbs#NURBS_ENGINE` `Nurbs.Of` admission law (normalized clamped knots, strictly positive weights) holds by CONSTRUCTION on every emitted delta, so a rounded net the owner faults is unrepresentable rather than guarded — a whole-stream float grid rounding knots and weights, driving a weight non-positive or de-normalizing a knot vector, is the rejected form — while a malformed counted layout refuses the typed `<delta-parametric-layout:…>` fault at normalization, and a post-quantization re-admission call re-validating what the scoped grid already preserves is the interior re-validation the admission law forecloses.
 
 ```csharp signature
+// Each row carries its whole normalization law as a behavior column — the bytes the chunker hashes and the one
+// grid step the delta reports — so the per-kind admission, grid scope, and verbatim passes live on the
+// vocabulary, never re-derived in the codec body: a new kind is one row, zero codec edits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class GeometryDeltaKind {
-    public static readonly GeometryDeltaKind MeshVertex = new("mesh-vertex", quantizable: true);
-    public static readonly GeometryDeltaKind MeshTopology = new("mesh-topology", quantizable: false);
-    public static readonly GeometryDeltaKind BrepFace = new("brep-face", quantizable: false);
-    public static readonly GeometryDeltaKind PointCloudOctant = new("pointcloud-octant", quantizable: true);
-    public static readonly GeometryDeltaKind NurbsControl = new("nurbs-control", quantizable: true);
+    public static readonly GeometryDeltaKind MeshVertex = new("mesh-vertex", DeltaCodec.NormalizeFloatColumns);
+    public static readonly GeometryDeltaKind MeshTopology = new("mesh-topology", DeltaCodec.NormalizeVerbatim);
+    public static readonly GeometryDeltaKind BrepFace = new("brep-face", DeltaCodec.NormalizeVerbatim);
+    public static readonly GeometryDeltaKind PointCloudOctant = new("pointcloud-octant", DeltaCodec.NormalizeFloatColumns);
+    public static readonly GeometryDeltaKind NurbsControl = new("nurbs-control", DeltaCodec.NormalizeParametricNet);
 
-    public bool Quantizable { get; }
+    [UseDelegateFromConstructor]
+    internal partial Fin<(ReadOnlyMemory<byte> Bytes, double Step)> Normalize(ReadOnlyMemory<byte> bytes, DeltaPolicy policy);
 }
 
 public sealed record DeltaPolicy(int MinChunk, int AvgChunk, int MaxChunk, int QuantizationBits, double Tolerance, bool Progressive) {
@@ -907,23 +914,23 @@ public sealed record GeometryDelta(
     long DeltaBytes);
 
 public static class DeltaCodec {
-    public static Fin<GeometryDelta> Diff(GeometryDeltaKind kind, ReadOnlyMemory<byte> baseBytes, ReadOnlyMemory<byte> targetBytes, DeltaPolicy policy) {
-        if (!Valid(kind, policy, baseBytes, targetBytes)) { return Fin.Fail<GeometryDelta>(new ComputeFault.ModelRejected($"<delta-policy:{kind.Key}:{policy.MinChunk}:{policy.AvgChunk}:{policy.MaxChunk}:{policy.QuantizationBits}:{policy.Tolerance:R}>")); }
-        ReadOnlyMemory<byte> normalizedBase = Normalize(kind, baseBytes, policy);
-        ReadOnlyMemory<byte> normalizedTarget = Normalize(kind, targetBytes, policy);
-        float error = QuantError(kind, targetBytes, policy);
-        HashSet<UInt128> baseSet = FastCdc(normalizedBase.Span, policy).Map(static c => c.Hash).ToHashSet();
-        Seq<DeltaChunk> targetChunks = FastCdc(normalizedTarget.Span, policy);
-        Seq<DeltaChunk> added = toSeq(targetChunks.Filter(c => !baseSet.Contains(c.Hash)).DistinctBy(static c => c.Hash));
-        Seq<DeltaChunk> ordered = policy.Progressive ? toSeq(added.OrderByDescending(static c => c.ByteLength)) : added;
-        return Fin.Succ(new GeometryDelta(kind,
-            XxHash128.HashToUInt128(baseBytes.Span), XxHash128.HashToUInt128(normalizedTarget.Span),
-            targetChunks.Map(static c => c.Hash), ordered, Concatenate(ordered, normalizedTarget), policy, error,
-            baseBytes.Length, ordered.Sum(static c => (long)c.ByteLength)));
-    }
+    public static Fin<GeometryDelta> Diff(GeometryDeltaKind kind, ReadOnlyMemory<byte> baseBytes, ReadOnlyMemory<byte> targetBytes, DeltaPolicy policy) =>
+        !ValidPolicy(policy)
+            ? Fin.Fail<GeometryDelta>(new ComputeFault.ModelRejected($"<delta-policy:{kind.Key}:{policy.MinChunk}:{policy.AvgChunk}:{policy.MaxChunk}:{policy.QuantizationBits}:{policy.Tolerance:R}>"))
+            : kind.Normalize(baseBytes, policy).Bind(normalizedBase =>
+              kind.Normalize(targetBytes, policy).Map(normalizedTarget => {
+                  HashSet<UInt128> baseSet = FastCdc(normalizedBase.Bytes.Span, policy).Map(static c => c.Hash).ToHashSet();
+                  Seq<DeltaChunk> targetChunks = FastCdc(normalizedTarget.Bytes.Span, policy);
+                  Seq<DeltaChunk> added = toSeq(targetChunks.Filter(c => !baseSet.Contains(c.Hash)).DistinctBy(static c => c.Hash));
+                  Seq<DeltaChunk> ordered = policy.Progressive ? toSeq(added.OrderByDescending(static c => c.ByteLength)) : added;
+                  return new GeometryDelta(kind,
+                      XxHash128.HashToUInt128(baseBytes.Span), XxHash128.HashToUInt128(normalizedTarget.Bytes.Span),
+                      targetChunks.Map(static c => c.Hash), ordered, Concatenate(ordered, normalizedTarget.Bytes), policy, normalizedTarget.Step,
+                      baseBytes.Length, ordered.Sum(static c => (long)c.ByteLength));
+              }));
 
     public static Fin<ReadOnlyMemory<byte>> Apply(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes) =>
-        !Valid(delta.Kind, delta.Policy, baseBytes)
+        !ValidPolicy(delta.Policy)
             ? Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.CacheCorrupt($"<delta-policy:{delta.Kind.Key}>"))
             : XxHash128.HashToUInt128(baseBytes.Span) == delta.BaseHash
             ? Reconstruct(delta, baseBytes).Bind(target => XxHash128.HashToUInt128(target.Span) == delta.TargetHash
@@ -931,26 +938,59 @@ public static class DeltaCodec {
                 : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.CacheCorrupt($"<delta-target-mismatch:{delta.TargetHash:x32}>")))
             : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.CacheCorrupt($"<delta-base-mismatch:{delta.BaseHash:x32}>"));
 
-    static bool Valid(GeometryDeltaKind kind, DeltaPolicy policy, params ReadOnlySpan<ReadOnlyMemory<byte>> payloads) =>
+    static bool ValidPolicy(DeltaPolicy policy) =>
         policy.MinChunk > 0 && policy.MinChunk <= policy.AvgChunk && policy.AvgChunk <= policy.MaxChunk
-            && policy.QuantizationBits is >= 0 and <= 24 && double.IsFinite(policy.Tolerance) && policy.Tolerance > 0d
-            && (!kind.Quantizable || payloads.ToArray().All(static payload => !payload.IsEmpty && payload.Length % sizeof(float) == 0));
+            && policy.QuantizationBits is >= 0 and <= 24 && double.IsFinite(policy.Tolerance) && policy.Tolerance > 0d;
 
-    static ReadOnlyMemory<byte> Normalize(GeometryDeltaKind kind, ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
-        if (!kind.Quantizable || policy.QuantizationBits <= 0) { return bytes; }
+    // --- [NORMALIZATION_ROWS]
+
+    internal static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> NormalizeVerbatim(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) =>
+        Fin.Succ((bytes, 0d));
+
+    internal static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> NormalizeFloatColumns(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
+        if (bytes.IsEmpty || bytes.Length % sizeof(float) != 0) { return Fin.Fail<(ReadOnlyMemory<byte> Bytes, double Step)>(new ComputeFault.ModelRejected($"<delta-float-alignment:{bytes.Length}>")); }
+        if (policy.QuantizationBits <= 0) { return Fin.Succ(((ReadOnlyMemory<byte>)bytes, 0d)); }
         float[] source = MemoryMarshal.Cast<byte, float>(bytes.Span).ToArray();
-        float step = QuantStep(source, policy);
+        float step = GridStep<float>(source, policy);
         float[] quantized = source.Select(value => Quantization.Code(value, step)).ToArray();
-        return MemoryMarshal.AsBytes(quantized.AsSpan()).ToArray();
+        return Fin.Succ(((ReadOnlyMemory<byte>)MemoryMarshal.AsBytes(quantized.AsSpan()).ToArray(), (double)step));
     }
 
-    static float QuantStep(ReadOnlySpan<float> source, DeltaPolicy policy) {
-        float bitStep = Quantization.Steps(source, policy.QuantizationBits).Step;
-        return bitStep <= 0f ? (float)policy.Tolerance : MathF.Min(bitStep, (float)policy.Tolerance);
+    // nurbs-control payload is the kernel EncodeForm.Parametric canonical counted stream (little-endian: direction
+    // count; per direction degree, knot count, knots; weight count, weights; control count, xyz doubles). The grid
+    // touches the CONTROL-NET block alone — knot and weight bytes copy verbatim — so the Nurbs.Of gate (normalized
+    // clamped knots, strictly positive weights) holds by construction on every emitted delta, and a malformed
+    // counted layout lands the typed refusal instead of a BCL slice-range message wearing this codec's verdict.
+    internal static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> NormalizeParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) =>
+        Try.lift(() => ParametricNet(bytes, policy)).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<delta-parametric-layout:{error.Message}>"));
+
+    static (ReadOnlyMemory<byte> Bytes, double Step) ParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
+        ReadOnlySpan<byte> stream = bytes.Span;
+        int directions = BinaryPrimitives.ReadInt32LittleEndian(stream);
+        int cursor = sizeof(int);
+        for (int direction = 0; direction < directions; direction++) {
+            int knots = BinaryPrimitives.ReadInt32LittleEndian(stream[(cursor + sizeof(int))..]);
+            cursor += (sizeof(int) * 2) + (knots * sizeof(double));
+        }
+        int weights = BinaryPrimitives.ReadInt32LittleEndian(stream[cursor..]);
+        cursor += sizeof(int) + (weights * sizeof(double));
+        int controls = BinaryPrimitives.ReadInt32LittleEndian(stream[cursor..]);
+        int netOffset = cursor + sizeof(int);
+        if (directions < 1 || weights != controls || netOffset + (controls * 3 * sizeof(double)) != stream.Length) { throw new InvalidDataException($"<extent:{directions}:{weights}:{controls}:{stream.Length}>"); }
+        if (policy.QuantizationBits <= 0) { return (bytes, 0d); }
+        byte[] normalized = stream.ToArray();
+        Span<double> net = MemoryMarshal.Cast<byte, double>(normalized.AsSpan(netOffset));
+        double step = GridStep<double>(net, policy);
+        foreach (ref double coordinate in net) { coordinate = Quantization.Code(coordinate, step); }
+        return (normalized, step);
     }
 
-    static float QuantError(GeometryDeltaKind kind, ReadOnlyMemory<byte> bytes, DeltaPolicy policy) =>
-        kind.Quantizable && policy.QuantizationBits > 0 ? QuantStep(MemoryMarshal.Cast<byte, float>(bytes.Span), policy) : 0f;
+    static T GridStep<T>(ReadOnlySpan<T> source, DeltaPolicy policy) where T : IFloatingPointIeee754<T> {
+        T bitStep = Quantization.Steps(source, policy.QuantizationBits).Step;
+        T tolerance = T.CreateChecked(policy.Tolerance);
+        return bitStep <= T.Zero ? tolerance : T.Min(bitStep, tolerance);
+    }
 
     static Seq<DeltaChunk> FastCdc(ReadOnlySpan<byte> data, DeltaPolicy policy) {
         Seq<DeltaChunk> chunks = Seq<DeltaChunk>();
@@ -1009,8 +1049,8 @@ public static class DeltaCodec {
     static Fin<ReadOnlyMemory<byte>> Reconstruct(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes) =>
         Try.lift(() => SplitPayload(delta.Payload)).Run()
             .MapFail(static error => (Error)new ComputeFault.CacheCorrupt($"<delta-payload:{error.Message}>"))
-            .Bind(addedByHash => {
-                ReadOnlyMemory<byte> normalizedBase = Normalize(delta.Kind, baseBytes, delta.Policy);
+            .Bind(addedByHash => delta.Kind.Normalize(baseBytes, delta.Policy).Bind(normalized => {
+                ReadOnlyMemory<byte> normalizedBase = normalized.Bytes;
                 System.Collections.Generic.Dictionary<UInt128, ReadOnlyMemory<byte>> baseByHash = new();
                 foreach (DeltaChunk chunk in FastCdc(normalizedBase.Span, delta.Policy)) { baseByHash[chunk.Hash] = normalizedBase.Slice(chunk.Offset, chunk.ByteLength); }
                 return delta.TargetChunks
@@ -1025,7 +1065,7 @@ public static class DeltaCodec {
                         int written = pieces.Fold(0, (cursor, piece) => { piece.Span.CopyTo(target.AsSpan(cursor)); return cursor + piece.Length; });
                         return (ReadOnlyMemory<byte>)target.AsMemory(0, written);
                     });
-            });
+            }));
 
     static System.Collections.Generic.Dictionary<UInt128, ReadOnlyMemory<byte>> SplitPayload(ReadOnlyMemory<byte> payload) {
         System.Collections.Generic.Dictionary<UInt128, ReadOnlyMemory<byte>> map = new();
@@ -1366,7 +1406,7 @@ public static class TilePartition {
 ## [07]-[CONTENT_ADDRESSING]
 
 - Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `CanonicalForm` the static byte-normalization kernel reducing every keyed input to one machine-independent canonical byte form before the hash seed; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding canonicalized source bytes with the complete ordered output-policy vector into one policy-seeded `XxHash128` identity (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key and `SeedZero` minting the empty-artifact sentinel; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
-- Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from canonical bytes and the complete ordered policy vector, while the geometry case frames the kernel arena's own payload digest, its descriptor roster, and the index column by ordinal and byte length before one incremental hash; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the empty-artifact sentinel identity; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector, discriminating on the payload's own shape — a contiguous `ReadOnlyMemory<byte>` or a pooled `ReadOnlySequence<byte>` whose key folds incrementally before any contiguity is demanded — and `ByteCount` derives off the carried payload rather than travelling as a second stored column a caller contradicts.
+- Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from canonical bytes and the complete ordered policy vector, while the geometry case frames the kernel arena's own witness digest WHOLE — the `DigestRoot` key byte ahead of `ContentHash`, the kernel `RoundTripWitness.Root` dedup law read into the preimage — beside its descriptor roster and the index column by ordinal and byte length before one incremental hash; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the empty-artifact sentinel identity; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector, discriminating on the payload's own shape — a contiguous `ReadOnlyMemory<byte>` or a pooled `ReadOnlySequence<byte>` whose key folds incrementally before any contiguity is demanded — and `ByteCount` derives off the carried payload rather than travelling as a second stored column a caller contradicts.
 - Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, and `CanonicalForm.Write` lays the length-prefixed tag, the policy scalar count, and every ordered policy scalar little-endian — injective framing, so distinct `(formatKey, policy)` tuples never share a canonical byte vector; artifact bytes pass into the byte hash verbatim. `Key` seeds `XxHash128.HashToUInt128` with the `XxHash3.HashToUInt64` of that canonical vector, so tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold while field residence folds bits and bound. Zero-length artifact bytes route to `SeedZero` over the same policy vector, so absent and present-but-empty stay distinct. `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns.
 - Receipt: the `Cache` receipt carries the content-key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; a sentinel-keyed empty artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Rasm (project — the kernel `EncodedGeometry` arena the geometry key frames), Rasm.Persistence (project), BCL inbox
@@ -1453,13 +1493,17 @@ public static class InterchangeIdentity {
     // Channel-generic geometry identity over the ONE kernel arena, replacing the retired vertices/indices/normals
     // triple that silently EXCLUDED every lane it did not name — UV and colour among them — so a roster growth
     // moved no key and two leaves differing only in their UV unwrap collided. Three ordinal-framed components
-    // seal it: seed-zero payload digest (every declared lane's bytes at once), descriptor roster (WHICH channels
-    // at WHICH storage width and element count produced them), and Indices (the one non-channel column). New
-    // EncodingChannel rows therefore re-key by construction and are named nowhere here.
+    // seal it: the witness composite WHOLE — one DigestRoot key byte ahead of ContentHash, per the kernel
+    // RoundTripWitness.Root law that a dedup or lake-identity consumer reads the root beside the digest, so a
+    // source-rooted Apply witness and a payload-rooted Of witness share no preimage even where their bytes
+    // coincide, never a digest-only fold leaning on preimage-domain disjointness — descriptor roster (WHICH
+    // channels at WHICH storage width and element count produced them), and Indices (the one non-channel column).
+    // New EncodingChannel rows therefore re-key by construction and are named nowhere here.
     public static UInt128 Key(string formatKey, EncodedGeometry lanes, ReadOnlySpan<byte> indices, ReadOnlySpan<double> policy) {
         if (lanes.Descriptors.IsEmpty && indices.IsEmpty) { return SeedZero(formatKey, policy); }
-        Span<byte> digest = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(digest, lanes.Witness.ContentHash.Value);
+        Span<byte> digest = stackalloc byte[17];
+        digest[0] = (byte)lanes.Witness.Root.Key;
+        BinaryPrimitives.WriteUInt128BigEndian(digest[1..], lanes.Witness.ContentHash.Value);
         XxHash128 hasher = new(CanonicalForm.Seed(formatKey, policy));
         AppendComponent(hasher, 0, digest);
         AppendComponent(hasher, 1, Encoding.UTF8.GetBytes(Roster(lanes)));
@@ -1522,21 +1566,26 @@ public static class InterchangeIdentity {
 public sealed record GeometryDataset(PackKind Kind, string Model, Seq<EncodedGeometry> Instances) {
     public PackSchema Schema => PackSchema.Of(Kind);
 
-    // Preimage seats the schema identity ahead of every instance digest in landed order: order IS content because
+    // Preimage seats the schema identity ahead of every instance record in landed order: order IS content because
     // its row ordinal joins a scan back to the encode, and the schema is identity-bearing because it decides which
-    // columns each generation carries. Sixteen-byte fixed-width digests concatenate injectively, so the spine needs
+    // columns each generation carries. Each instance record is the witness composite WHOLE — one DigestRoot key
+    // byte ahead of Witness.ContentHash — so a source-rooted Apply mint and a payload-rooted Of mint of ONE
+    // geometry key distinct generations structurally, the preimage reading Root beside the digest exactly as the
+    // kernel RoundTripWitness.Root dedup law demands, never a digest-only fold leaning on preimage-domain
+    // disjointness. Seventeen-byte fixed-width records concatenate injectively, so the spine needs
     // no length framing; big-endian is the estate's one persisted spelling where `MemoryMarshal` writes host order.
     // Corpus size is unbounded, so the spine rents rather than `stackalloc`s, and the write loop is a fold no rail
     // combinator can carry — a `Span` cannot be captured by any lambda, which is the named statement seam here.
     public UInt128 ContentKey {
         get {
-            using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(checked((Instances.Count + 1) * 16));
+            using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(checked(16 + (Instances.Count * 17)));
             Span<byte> spine = rent.Span;
             BinaryPrimitives.WriteUInt128BigEndian(spine, Schema.SchemaId);
             int offset = 16;
             foreach (EncodedGeometry instance in Instances) {
-                BinaryPrimitives.WriteUInt128BigEndian(spine[offset..], instance.Witness.ContentHash.Value);
-                offset += 16;
+                spine[offset] = (byte)instance.Witness.Root.Key;
+                BinaryPrimitives.WriteUInt128BigEndian(spine[(offset + 1)..], instance.Witness.ContentHash.Value);
+                offset += 17;
             }
             return ContentHash.Of(spine);   // every byte overwritten, so the pooled rent needs no clear
         }
@@ -1646,7 +1695,9 @@ public static class ArrowBatch {
     // material this fold allocates is the two identity columns. Column order IS the kind's declared active-set
     // order, so the schema and the array sequence share one declaration and cannot drift apart.
     static RecordBatch Batch(Schema wire, Seq<EncodingChannel> channels, EncodedGeometry instance, MemoryAllocator? allocator) {
-        string source = $"{instance.Witness.ContentHash.Value:x32}";
+        // Root-qualified join token: the witness composite crosses WHOLE, so a scan joining back to the encode
+        // never merges a source-rooted and a payload-rooted instance whose digest bytes coincide.
+        string source = $"{instance.Witness.Root.Key}:{instance.Witness.ContentHash.Value:x32}";
         Seq<IArrowArray> columns = channels.Map(channel => Lane(channel, instance)) + Seq<IArrowArray>(
             new StringArray.Builder().Reserve(instance.Count)
                 .AppendRange(Enumerable.Repeat(source, instance.Count)).Build(allocator),

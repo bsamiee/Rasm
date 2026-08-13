@@ -25,7 +25,7 @@ Grasshopper's canvas boundary owns one command gate and one projection gate over
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Numerics;
 using Grasshopper2.UI.Skinning;
@@ -380,7 +380,7 @@ internal readonly ref struct CanvasLens {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;
 using Grasshopper2.Parsing;
