@@ -2,7 +2,7 @@
 
 Local recipe execution — the one owner turning a queenbee-schema simulation workflow into a typed deliverable. `RecipeExecution.execute` is the single modality-polymorphic entry: it absorbs one `RecipeSpec` or a `Block[RecipeSpec]`, acquires remote assets through the `transport/roots#RESOURCE` rail, gates the external Radiance/OpenStudio/EnergyPlus engines through `reliability/resilience#RESILIENCE` `guarded_sync` BEFORE the subprocess spends minutes, executes `queenbee local run` off the event loop through the `execution/lanes#LANE` offload, and reads the typed deliverable back through `output_value_by_name` — the product is the handled output value set, never the raw project folder, and the parsed luigi evidence decides the rail, never the exit path alone. Each run is content-keyed over the recipe identity and the handled `inputs.json` bytes, so a parametric batch drains as `keyed` units and an identical simulation replays from the lane cache rather than re-running the engine.
 
-Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi scheduler, no handler resolution, and no engine-version probe — it composes `Recipe`/`RecipeSettings`/`Recipe.run` and projects the contract through `RecipeInterface.from_recipe` for the submission-constructing consumer (geometry energy/simulate binds `Job`/`RecipeInterface` construction to this owner, the named `python:` consumer). One `RECIPES` seed table is the executable catalog — outputs, engine set, worker sizing as row data — so a new workflow is one row, never a per-recipe method or a sibling runner. `lbt-recipes`/`pollination-handlers` distributions and the `queenbee-local` luigi runner are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — engines run as external subprocesses, the AGPL tree imports function-local at the execution boundary, and nothing links into a distributed host binary.
+Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi scheduler, no handler resolution, and no engine-version probe — it composes `Recipe`/`RecipeSettings`/`Recipe.run` and projects the contract through `RecipeInterface.from_recipe` for the submission-constructing consumer (geometry energy/simulate binds `Job`/`RecipeInterface` construction to this owner, the named `python:` consumer). One `RECIPES` seed table is the executable catalog — outputs, engine set, worker sizing as row data — so a new workflow is one row, never a per-recipe method or a sibling runner. `lbt-recipes`/`pollination-handlers` distributions and the `queenbee-local` luigi runner are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — engines run as external subprocesses, and nothing links into a distributed host binary. That charter bans the MODULE-SCOPE BINDING itself, not merely the import cost: a static license audit reads the import graph, so an lbt name bound at module scope marks every importer of this module AGPL-coupled, and the deferred-import dialect cannot serve the ban — a `lazy` statement is lexically module-scope by design, carrying the very graph edge whose load it defers. Every lbt binding therefore stays function-local at its boundary seam, confining the lexical coupling to the one function that crosses; annotations resolve through `if TYPE_CHECKING:`, which binds nothing at runtime, and `ENGINE_CHECK` carries probe NAMES its seam resolves by `getattr` because no module-scope `version` handle exists to hold. `queenbee` is MIT and carries no copyleft of its own, but every site reaching it here holds an lbt `Recipe` first, so it rides this one band law rather than a second posture.
 
 ## [01]-[INDEX]
 
@@ -37,7 +37,7 @@ from rasm.runtime.receipts import OPEN, DrainReceipt, Receipt, receipted
 from rasm.runtime.resilience import RetryClass, guarded_sync
 from rasm.runtime.roots import Delivery, ResourceRoot
 
-if TYPE_CHECKING:  # the AGPL lbt tree loads function-local at the execution boundary; annotations resolve here
+if TYPE_CHECKING:  # AGPL isolation bans the module-scope binding, so annotations resolve here — this guard binds nothing at runtime
     from lbt_recipes.recipe import Recipe
     from lbt_recipes.settings import RecipeSettings
     from queenbee.recipe.recipe import RecipeInterface
@@ -76,7 +76,7 @@ class Engine(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # each engine keys its lbt_recipes.version probe name; the gate resolves the callable inside the
-# boundary kernel so the AGPL tree never loads at module scope and a new engine is one row.
+# boundary kernel so the AGPL tree never binds at module scope and a new engine is one row.
 ENGINE_CHECK: Final[Map[Engine, str]] = Map.of_seq([
     (Engine.RADIANCE, "check_radiance_date"),
     (Engine.OPENSTUDIO, "check_openstudio_version"),
@@ -280,7 +280,7 @@ def _rooted(spec: RecipeSpec) -> str:
     # project root resolves BEFORE any asset byte lands: the caller's settings folder when supplied, else the recipe's
     # own default project folder — one folder owns asset landing, handler reads, and the `run` execution alike, where a
     # cwd-anchored landing strands every asset outside the folder the handler chains read.
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
 
     root = Path(
         spec.settings.bind(lambda held: Option.of_optional(held.folder)).default_with(lambda: Recipe(str(spec.recipe)).default_project_folder)
@@ -320,9 +320,9 @@ def _declared(recipe: "Recipe") -> tuple[str, ...]:
 def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
     # ONE coercion seam — engine gate, Recipe construction, input assignment, handled inputs.json; the run key derives from the recipe
     # identity + handled bytes, so an identical simulation elides through the lane cache and the persistence ledger dedupes at the wire.
-    from lbt_recipes import version  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level]
-    from lbt_recipes.settings import RecipeSettings  # ruff:ignore[import-outside-top-level]
+    from lbt_recipes import version  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
+    from lbt_recipes.settings import RecipeSettings  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
 
     row = spec.row()
     gate = traverse(
@@ -375,8 +375,8 @@ def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
 
 
 def _interface(spec: RecipeSpec) -> "RecipeInterface":
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level]
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
+    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level] — boundary import beside the AGPL tree
 
     return RecipeInterface.from_recipe(BakedRecipe.from_folder(Recipe(str(spec.recipe)).path))
 

@@ -36,6 +36,8 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from zarr import codecs as zc
 
+lazy import tensorstore as ts
+
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, scoped
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
@@ -568,14 +570,12 @@ def _ts_spec(
 
 @functools.cache
 def _ts_context() -> "Any":
-    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
-
+    # the module-scope `lazy` binding reifies HERE, behind the `reached` floor gate every TENSORSTORE leg
+    # crosses at `create`, so a below-floor selection reads its named refusal before the proxy is ever touched.
     return ts.Context()
 
 
 async def _ts_open(spec: JsonSpec, *, create: bool) -> "Any":
-    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
-
     return await ts.open(spec, create=create, delete_existing=create, context=_ts_context())
 
 
@@ -594,8 +594,6 @@ async def _ts_write(ref: ResourceRef, region: TensorRegion, data: "np.ndarray") 
 
 
 async def _ts_write_atomic(ref: ResourceRef, regions: "tuple[Write, ...]") -> int:
-    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
-
     txn = ts.Transaction(atomic=True)
     store = await ts.open(_ts_spec(ref), create=False, context=_ts_context(), transaction=txn)
     for region, data in regions:

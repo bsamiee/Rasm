@@ -13,7 +13,7 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Owner: `Scene3d` discriminates modality over the closed `SceneOp` family; every case carries its own typed payload — a `SceneGrid` admitted owner, never an erased `object` the worker discovers the shape of. Binary CSG and sampling ride the dedicated two-operand `Compose` modality because `FieldFilter.apply` has one fielded operand.
 - Cases: `Frames` is one arm the rotating-scene and chart-over-time sources share; its `rgb24` rasters cross to `media/container#CONTAINER` through `framed()` without a file round-trip, and a non-frames op refuses the egress at the boundary. `Image` is the raster fast path minting the `_sized` dims band; `Export` at the same `PNG` target rides the `ExportRow` law and threads dataset facts — one target, two evidence bands. `Ingest` re-admits an existing scene through the worker importer, applies `RenderSpec.viewed`, and re-serializes through `render_ingest`. `Compose` folds two grids through the worker's boolean-CSG or field-sample table under the terminal arm — the worker refuses a non-manifold operand, yet a watertight fold can still spin on coincident surfaces, so the kill budget bounds it where a cooperative cancel cannot.
 - Auto: `_canon` lowers each arm onto `scene/spec#SPEC`'s `framed`/`CANON` identity-preimage discipline — `SceneGrid.spans` shape-plus-buffer chunks beside one deterministic-msgpack spec chunk — so `_key` mints through the bare `ContentIdentity.key` and merkle-folds `parents` when present.
-- Receipt: every arm mints `ArtifactReceipt.Scene(key, target, bytes, facts)` where `key` is the node's input key (`receipt.slot == node.key`) and the produced payload's content address rides `facts.address`. `Export` adds the staged dataset's `points` and `cells` counts to that band, and USD targets merge stage evidence without a parallel receipt case.
+- Receipt: every arm mints `ArtifactReceipt.Scene(key, target, bytes, facts)` where `key` is the node's input key (`receipt.slot == node.key`) and the produced payload's content address rides `facts.address`. `Export` adds the staged dataset's `points` and `cells` counts to that band, and USD targets merge stage evidence without a parallel receipt case. `_emit` awaits `Journal.record` over `receipt.evidence()` ONCE above the render fan — one `OPERATIONAL` fact and its `STORAGE` charge for whichever arm ran, so a sixth arm inherits the seat instead of needing its own — and the band never reaches that diff; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
 - Growth: a new modality is one `SceneOp` case plus one `_rendered` arm, one `_canon` arm, and one worker kernel name; a new render-evidence fact is one `ArtifactReceipt.Scene.facts` key. `SceneOp` remains the single modality owner.
 - Boundary: `_emit` runs the arm under `async_boundary` and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as the boundary fault, never a custom exception re-crossed inward.
 
@@ -22,11 +22,12 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 from typing import Literal, assert_never
 
 from builtins import frozendict
-from expression import case, tag, tagged_union
+from expression import Error, Result, case, tag, tagged_union
 from msgspec import Struct
 
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
@@ -104,8 +105,18 @@ class Scene3d(Struct, frozen=True):
         return await self.lane.offload(Kernel.of((WORKER_MODULE, kernel), KernelTrait.HOSTILE, enforcement=enforcement, idempotent=True), *args)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+        # ONE durable seat for every arm, placed above the render fan rather than inside it: each arm returns the
+        # same settled `Scene` case, so a per-arm record would be five copies of one fold and a sixth arm would land
+        # without one. A produced scene is `OPERATIONAL` under the case's own retention row, its diff naming the
+        # render target and byte volume — the band carrying extent, frame count, and content address never enters,
+        # because a band leaf set is this producer's own instrumentation. Recording suspends, so the seat is here
+        # and `contribute` stays the synchronous projection.
         railed = await async_boundary(f"scene.{self.op.tag}", self._rendered)
-        return railed.bind(lambda rail: rail)
+        match railed.bind(lambda rail: rail):
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     async def _rendered(self) -> RuntimeRail[ArtifactReceipt]:
         key = self._key
@@ -190,7 +201,7 @@ async def _no_sequence() -> Frames:
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

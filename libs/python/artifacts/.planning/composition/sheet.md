@@ -29,7 +29,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, assert_never
 from xml.etree.ElementTree import Element, QName, SubElement, register_namespace, tostring
 
-from beartype import BeartypeConf, beartype
+from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
 from builtins import frozendict
@@ -40,7 +40,7 @@ from msgspec import Struct, msgpack, structs
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 from rasm.artifacts.composition.compose import Rule, arranged
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -643,7 +643,7 @@ class Sheet(Struct, frozen=True):
         yield from self.composed.map(lambda live: tuple(self._receipt(self._key, live).contribute())).default_value(())
 
     def layers(self, names: tuple[str, ...] = ()) -> tuple[Layer, ...]:
-        return _placed_layers(self.composed, names)
+        return self.composed.map(lambda live: Layer.renamed(live.layer_rows, names)).default_value(())
 
 
 class SheetSet(Struct, frozen=True):
@@ -720,8 +720,9 @@ class SheetSet(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # a malformed `TitleBlock`/`FigurePlacement`/`Box`/`Viewport` inside a well-tagged `SheetOp` raises
-# `BeartypeCallHintViolation` from this guarded fold, the `_FAULTS` tuple admits.
-_GUARD = beartype(conf=BeartypeConf(violation_type=BeartypeCallHintViolation))
+# `BeartypeCallHintViolation` from this guarded fold, the `_FAULTS` tuple admits. The conf is the runtime's own
+# `FAULT_CONF`, not a local re-mint: one owner declares the canonical violation type the `_FAULTS` row reads.
+_GUARD = beartype(conf=FAULT_CONF)
 
 
 @_GUARD
@@ -1024,15 +1025,6 @@ _FRAME: frozendict[Engine, Author] = frozendict({
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
-def _placed_layers(composed: Option[Composed], names: tuple[str, ...]) -> tuple[Layer, ...]:
-    return composed.map(
-        lambda live: tuple(
-            structs.replace(layer, name=names[index] if index < len(names) else layer.name)
-            for index, layer in enumerate(live.layer_rows)
-        )
-    ).default_value(())
-
-
 def _escape(value: str) -> str:  # typst markup escaping has no stdlib owner; HTML escaping rides `html.escape`
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -1104,7 +1096,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

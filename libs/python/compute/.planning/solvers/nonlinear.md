@@ -188,7 +188,9 @@ class NonlinearIntent:
 
 
 # Seven gated JAX modules folded into one value object; carrier methods read the handles off `self`, never a helper re-import or a
-# loose (lx, optx, optax) triple. `gated()` floats to float64 and imports once.
+# loose (lx, optx, optax) triple. `gated()` floats to float64 and imports once. These imports stay function-local against the
+# module-scope `lazy` dialect on the compute RULINGS [04] x64 ruling: the config seam must precede the first jax dereference, and
+# the frozen carrier enforces that structurally — every `self.` handle exists only after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class NonlinearEngine:
     jax: object
@@ -201,15 +203,17 @@ class NonlinearEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import equinox as eqx
-        import jax
-        import jax.numpy as jnp
-        import jax.tree_util as jtu
-        import lineax as lx
-        import optax
-        import optimistix as optx
+        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
 
-        jax.config.update("jax_enable_x64", True)  # 1e-8 (rtol, atol) is below float32 eps; JAX defaults to float32
+        jax.config.update("jax_enable_x64", True)  # armed before any dependent import: 1e-8 (rtol, atol) is below float32 eps; JAX defaults to float32
+
+        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax.tree_util as jtu  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import lineax as lx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import optax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import optimistix as optx  # ruff:ignore[import-outside-top-level] — x64 config seam
+
         return cls(jax=jax, jnp=jnp, jtu=jtu, eqx=eqx, optx=optx, lx=lx, optax=optax)
 
     def norm(self, kind: NormKind) -> Callable[[object], object]:

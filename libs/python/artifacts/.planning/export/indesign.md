@@ -10,12 +10,12 @@ SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses th
 
 ## [02]-[INDESIGN]
 
-- Owner: `Idml` binds `base: IdmlSource`, `steps: tuple[IdmlStep, ...]`, and `lane: LanePolicy`. `IdmlSource` carries bytes, prefix, destination `at`, and source selector `only`. `IdmlStep.facts` feeds fail-fast admission: `sources` carry template data and prefixes, `blobs` carry XML/PDF bodies, `batches` carry plural cardinality, `pages` carry positive page indices, `anchors` carry both XPath axes, and `identifiers` carry layer/story/content ids and tags. `PdfCrop.value` is the verified `import_pdf(crop=)` token.
+- Owner: `Idml` binds `base: IdmlSource`, `steps: tuple[IdmlStep, ...]`, and `lane: LanePolicy`. `IdmlSource` carries bytes, prefix, destination `at`, and source selector `only`. `IdmlStep.facts` feeds one accumulating admission: `sources` carry template data and prefixes, `blobs` carry XML/PDF bodies, `batches` carry plural cardinality, `pages` carry positive page indices, `anchors` carry both XPath axes, and `identifiers` carry layer/story/content ids and tags — every axis scans whole and every casualty reduces through the associative `IdmlFault.combined` monoid, so one refusal names every offending index across all seven axes. `PdfCrop.value` is the verified `import_pdf(crop=)` token.
 - Cases: `IdmlStep` cases fold over the one held package — `insert` (`insert_idml` at a destination anchor), `add_pages` (the batch `add_pages_from_idml`), `import_xml` (honoring the source's content-control attributes), `place_pdf` (`import_pdf` carrying the `PdfCrop` mode and page), `set_attributes` (the verified `href` image-relink — an empty `href` removes the page item), `add_note`, `merge_layers`/`suffix_layers`/`remove_layer`/`remove_orphan_layers`/`remove_guides` (the designmap layer algebra), `remove_content` (the template-reset inverse of `insert`), `add_story` (`add_story_with_content`), `leaf_to_node` (a `Rectangle` leaf promoted to a `TextFrame` node so tagged content nests) — dispatched by one total `match`; the legacy monolithic `Compose`/`Combine`/`Import`/`Place` ops collapse into this step fold over one base.
 - Auto: `_mutate` runs the worker seam — it spills `base.data` to a path-backed temporary file, opens and prefixes it, and folds `Block.of_seq(plan.steps)` over one `ExitStack` that registers every spill and returned instance for close-on-exit. Each mutation returns a fresh path-backed instance, so the fold threads that successor into the next step. Nested `spill`, `resolved`, and `apply` kernels own the platform statements: file lifetime, live-tree XPath admission, and provider mutation dispatch never escape as module-level helpers. `_resolved` validates each XPath against the current `package.xml_structure` before its mutation; layer and story ids skip XPath admission because they key the design map and story files. `_mutate` drains bytes and structural inventory from the terminal instance.
 - Output: `IdmlFact` is the picklable evidence carrier — the serialized `data` plus the `spreads`/`stories`/`pages`/`fonts`/`styles`/`layers`/`tags`/`nodes` structural inventory read off the final package and the applied-`steps` count.
-- Receipt: `_emit` maps the worker rail onto `ArtifactReceipt.Office(self._key, len(fact.data), inventory)` — the structural inventory riding the Office `finish.*` band; IDML is an Office-class structured-document ZIP, so no parallel receipt case exists. `IdmlFact` forces terminal package bytes and structural inventory through one worker result the receipt projection preserves. `ContentIdentity.key` mints the pre-run key over the spec's deterministic-msgpack bytes, and the same key seeds `ArtifactWork`.
-- Growth: a SimpleIDML mutation is one `IdmlStep` case plus one `apply` arm plus one `facts` arm over the verified algebra; a source attribute is one `IdmlSource` field; a structural fact is one required `IdmlFact` field; an admission cause is one `IdmlFault` case; an untrusted ingress is one `IndesignPayload` band line; a crop mode is one `PdfCrop` token. Another deliverable is one `ArtifactWork` node the `ArtifactPipeline` schedules.
+- Receipt: `_emit` maps the worker rail onto `ArtifactReceipt.Office(self._key, len(fact.data), inventory)` — the structural inventory riding the Office `finish.*` band; IDML is an Office-class structured-document ZIP, so no parallel receipt case exists. `IdmlFact` forces terminal package bytes and structural inventory through one worker result the receipt projection preserves. `ContentIdentity.key` mints the pre-run key over the spec's deterministic-msgpack bytes, and the same key seeds `ArtifactWork`. `_emit` then awaits `Journal.record` over `receipt.evidence(*self._diff)` — an editable designer deliverable is `OPERATIONAL` production evidence whose package volume charges `STORAGE`, and whose diff carries the ORDERED step sequence because the receipt's `finish.steps` band leaf is a count no audit row ever sees; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
+- Growth: a SimpleIDML mutation is one `IdmlStep` case plus one `apply` arm plus one `facts` arm over the verified algebra; a source attribute is one `IdmlSource` field; a structural fact is one required `IdmlFact` field; an admission cause is one `IdmlFault` case beside one casualty comprehension the monoid already reduces; an untrusted ingress is one `IndesignPayload` band line; a crop mode is one `PdfCrop` token. Another deliverable is one `ArtifactWork` node the `ArtifactPipeline` schedules.
 - Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML receipts are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
 
 ```python signature
@@ -35,6 +35,7 @@ from msgspec.msgpack import Encoder
 from pydantic import StringConstraints, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import RuntimeRail
@@ -181,8 +182,13 @@ class IdmlFact(Struct, frozen=True):
 @tagged_union(frozen=True)
 class IdmlFault:
     # closed ADMISSION vocabulary `of` produces; a worker provider raise converts to the runtime
-    # `BoundaryFault` at the lane boundary, never this vocabulary.
-    tag: Literal["payload", "empty_data", "empty_blob", "empty_batch", "invalid_page", "bad_prefix", "empty_anchor", "empty_ref"] = tag()
+    # `BoundaryFault` at the lane boundary, never this vocabulary. `aggregate` is the monoid carrier every
+    # admission casualty accumulates into, so one refusal names every offending index across all seven axes at
+    # once — a first-offender abort hides the sibling casualties one repair pass would otherwise re-discover
+    # seven times.
+    tag: Literal[
+        "payload", "empty_data", "empty_blob", "empty_batch", "invalid_page", "bad_prefix", "empty_anchor", "empty_ref", "aggregate"
+    ] = tag()
     payload: tuple[str, ...] = case()  # the rejected `IndesignPayload` key paths from the `TypeAdapter` miss
     empty_data: int = case()  # source-row index carrying empty `.idml` payload bytes
     empty_blob: int = case()  # XML/PDF body index carrying no bytes
@@ -191,6 +197,17 @@ class IdmlFault:
     bad_prefix: int = case()  # source-row index whose prefix is empty or fails `\A\w+\Z`
     empty_anchor: int = case()  # step-anchor index carrying an empty `at` destination or `only` source xpath
     empty_ref: int = case()  # step-identifier index carrying an empty layer/story/content id
+    aggregate: tuple["IdmlFault", ...] = case()
+
+    @staticmethod
+    def _members(fault: "IdmlFault", /) -> tuple["IdmlFault", ...]:
+        return fault.aggregate if fault.tag == "aggregate" else (fault,)
+
+    @staticmethod
+    def combined(left: "IdmlFault", right: "IdmlFault", /) -> "IdmlFault":
+        # associative and flattening on both sides, so a reduce over any casualty ordering yields one flat
+        # aggregate rather than a nesting whose depth records the fold shape instead of the evidence.
+        return IdmlFault(aggregate=(*IdmlFault._members(left), *IdmlFault._members(right)))
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -229,30 +246,19 @@ class Idml(Struct, frozen=True):
         pages = tuple(page for facts in projected for page in facts.pages)
         anchors = tuple(anchor for facts in projected for anchor in facts.anchors)
         identifiers = tuple(ref for facts in projected for ref in facts.identifiers)
-        bad_data = next((i for i, src in enumerate(sources) if not src.data), None)
-        bad_blob = next((i for i, blob in enumerate(blobs) if not blob), None)
-        bad_batch = next((i for i, size in enumerate(batches) if size == 0), None)
-        bad_page = next((i for i, page in enumerate(pages) if page <= 0), None)
-        bad_prefix = next((i for i, src in enumerate(sources) if not _PREFIX.match(src.prefix)), None)
-        bad_anchor = next((i for i, anchor in enumerate(anchors) if not anchor), None)
-        bad_ref = next((i for i, ref in enumerate(identifiers) if not ref), None)
-        match (bad_data, bad_blob, bad_batch, bad_page, bad_prefix, bad_anchor, bad_ref):
-            case (int(index), _, _, _, _, _, _):
-                return Error(IdmlFault(empty_data=index))
-            case (_, int(index), _, _, _, _, _):
-                return Error(IdmlFault(empty_blob=index))
-            case (_, _, int(index), _, _, _, _):
-                return Error(IdmlFault(empty_batch=index))
-            case (_, _, _, int(index), _, _, _):
-                return Error(IdmlFault(invalid_page=index))
-            case (_, _, _, _, int(index), _, _):
-                return Error(IdmlFault(bad_prefix=index))
-            case (_, _, _, _, _, int(index), _):
-                return Error(IdmlFault(empty_anchor=index))
-            case (_, _, _, _, _, _, int(index)):
-                return Error(IdmlFault(empty_ref=index))
-            case _:
-                return Ok(cls(base=base, steps=steps, lane=lane))
+        # every axis scanned WHOLE and every casualty kept: a template whose steps carry three empty anchors and a
+        # non-positive page reports all four coordinates on one refusal, so a caller repairs once instead of
+        # re-submitting per rejected index.
+        casualties = Block.of_seq((
+            *(IdmlFault(empty_data=index) for index, src in enumerate(sources) if not src.data),
+            *(IdmlFault(empty_blob=index) for index, blob in enumerate(blobs) if not blob),
+            *(IdmlFault(empty_batch=index) for index, size in enumerate(batches) if size == 0),
+            *(IdmlFault(invalid_page=index) for index, page in enumerate(pages) if page <= 0),
+            *(IdmlFault(bad_prefix=index) for index, src in enumerate(sources) if not _PREFIX.match(src.prefix)),
+            *(IdmlFault(empty_anchor=index) for index, anchor in enumerate(anchors) if not anchor),
+            *(IdmlFault(empty_ref=index) for index, ref in enumerate(identifiers) if not ref),
+        ))
+        return Ok(cls(base=base, steps=steps, lane=lane)) if casualties.is_empty() else Error(casualties.reduce(IdmlFault.combined))
 
     def emit(self, /) -> ArtifactWork:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
@@ -263,13 +269,20 @@ class Idml(Struct, frozen=True):
         # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         return ContentIdentity.key(_KIND, _CANON.encode((self.base, self.steps)))
 
+    @property
+    def _diff(self) -> tuple[Change, ...]:
+        # durable diff finer than the receipt ledger: `finish.steps` is a COUNT, and a band leaf never enters an
+        # audit row at all, so nothing the receipt carries recovers the ordered mutation sequence — which template
+        # operations ran, in which order. One entry per step, positional.
+        return tuple(Assigned(path=f"/steps/{index}", next=step.tag) for index, step in enumerate(self.steps))
+
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # one lane crossing, one rail: the mutation crosses the IDML worker seam, only the picklable `IdmlFact`
         # returns, and `.map` threads the PRE-RUN key onto the receipt (receipt.slot == node.key).
         crossed = await self.lane.offload(Kernel.of(_mutate, KernelTrait.HOSTILE), self)
         # structural inventory SURVIVES the receipt boundary on the `finish.*` band — spreads, stories,
         # pages, fonts, styles, layers, tags, nodes, steps are facts, never projected away.
-        return crossed.map(
+        settled = crossed.map(
             lambda fact: ArtifactReceipt.Office(
                 self._key,
                 len(fact.data),
@@ -279,6 +292,15 @@ class Idml(Struct, frozen=True):
                 }),
             )
         )
+        # a mutated designer template is an editable deliverable somebody re-opens and re-issues, so the
+        # production lands `OPERATIONAL` durable evidence carrying the step sequence as its diff and the package
+        # volume as its `STORAGE` charge. The seat is this awaitable fold — recording suspends where the
+        # synchronous `contribute` projection cannot — and the rail binds into the emit's own verdict.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence(*self._diff))).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -388,7 +410,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

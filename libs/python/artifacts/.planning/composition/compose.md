@@ -27,7 +27,7 @@ from itertools import pairwise
 from typing import TYPE_CHECKING, Annotated, Final, Literal, NoReturn, Self, assert_never
 
 from concurrent.futures.process import BrokenProcessPool
-from beartype import BeartypeConf, beartype
+from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
 from builtins import frozendict
@@ -37,7 +37,7 @@ from msgspec import Struct, msgpack, structs
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 # PATH and REGION own the imported vector surface: `RegionOp.Clip` the per-shape crop, `Boolean` the N-ary
 # set-op, `Outline` the fixed-width offset, and `Serialize` the `Fragment` document fold.
@@ -114,8 +114,9 @@ _CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage en
 # `_fit`/`_rows`/`arranged` admission seams refine their `Extent`/`Columns`/`Fan` parameters, so a degenerate
 # extent, non-positive grid count, or empty arrange fan rails as `BeartypeCallHintViolation` rather than a
 # `ZeroDivisionError` or degenerate empty document deep in the fold — only a direct parameter is checked, never
-# a `Bounds`/case field.
-_GUARD = beartype(conf=BeartypeConf(violation_type=BeartypeCallHintViolation))
+# a `Bounds`/case field. The conf is the runtime's own `FAULT_CONF`, not a local re-mint: one owner declares the
+# canonical violation type, so the `_FAULTS` row above and the runtime `CLASSIFY` `api` row can never disagree.
+_GUARD = beartype(conf=FAULT_CONF)
 
 # per-arm crossing trait — engine truth, never one declared trait spanning heterogeneous engines: `pdf` rides the
 # GIL-releasing `vl_convert` native on the thread band; the `skia-pathops` set-ops (`crop`/`merge`/`matte`), the
@@ -467,7 +468,7 @@ class Figure(Struct, frozen=True):
         yield from self.placed.map(lambda live: tuple(live.receipt.contribute())).default_value(())
 
     def layers(self, names: tuple[str, ...] = ()) -> tuple[Layer, ...]:
-        return _placed_layers(self.placed, names)
+        return self.placed.map(lambda live: Layer.renamed(live.layers, names)).default_value(())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -505,16 +506,6 @@ def _placed_now(op: FigureOp) -> Placed:
             extent = _extent(data)
             key = ContentIdentity.key(f"figure-{op.tag}", _CANON.encode(op))
             return Placed(key, data, ArtifactReceipt.Preview(key, int(extent[2] - extent[0]), int(extent[3] - extent[1]), len(data)), extent, layers)
-
-
-def _placed_layers(placed: Option[Placed], names: tuple[str, ...]) -> tuple[Layer, ...]:
-    return placed.map(
-        lambda live: tuple(structs.replace(layer, name=_name(names, index, layer.name)) for index, layer in enumerate(live.layers))
-    ).default_value(())
-
-
-def _name(names: tuple[str, ...], index: int, fallback: str = "") -> str:
-    return names[index] if index < len(names) else fallback or f"layer-{index}"
 
 
 # `_GUARD`-contracted division seams — the one place the placement math admits an external scalar.
@@ -931,7 +922,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

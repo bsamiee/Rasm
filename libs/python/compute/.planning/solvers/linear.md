@@ -13,9 +13,9 @@ Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` 
 
 - Owner: `LinearIntent` — the four route cases on the one solver, each reading one `LinearMap` operand; `Eigen` carries the `EigenScheme` sparse-eigen row (`ARPACK`/`LOBPCG`/`SHIFT_INVERT`) and its `sigma` shift. `LinearIntent.solve(lane)` is the one `async` method, the inner `match self` dispatching all four routes through `assert_never` — identical in shape to `NonlinearIntent.solve`/`DifferentialIntent.solve`/`FieldQuery.evaluate`, never a free `solve(intent)` beside a free `_dispatch`.
 - Cases: `LinearMap` is the ONE `@tagged_union` operand carrying one `MatrixStructure` field, exposing four total `match` projections so every route reads ONE projection rather than a raw `self.dense[0]` that raises on a mis-routed operand — `scipy_op` (the sparse-linalg operand), `dense_array` (the LAPACK operand), `matrix` (the actual sparse container the `SuperLU` factorizations need, since a factor admits no `LinearOperator`), and `residual`. Its lineax-operator projection is NOT on `LinearMap` — it lives on `LinearEngine.operator` so the value object never imports the gated `jnp`/`lx`, and the sparse case there stays matrix-free (never `a.toarray()`) so a FEM/graph-Laplacian operand stays sparse through the differentiable solve. `LinearPolicy` is the ONE frozen tuning value over every route (`tol`/`maxiter`/`preconditioner`): the scheme discriminant carries the METHOD, this policy the TUNING, so a re-tuned solve is one value, not a re-spelled `Krylov(kind, rtol, maxiter, M)`; the multi-RHS sweep discriminates on the RHS rank itself, never a `batched` knob. `SparseScheme` is the ONE sparse-route discriminant, its Krylov member indexing the full `KrylovKind` family whose enum value IS its `scipy.sparse.linalg` callable name.
+- Law: only the dense route holds a singular spectrum, so `condition` is measured there alone — `_condition` answers `None` on an empty or rank-deficient spectrum where no finite ratio exists, and every sparse, ARPACK-stalled, and lineax-operator arm constructs its receipt without the slot. The receipt's declared-residual ledger then omits an unmeasured slot and the hub refuses a conditioning ceiling by key coverage; a `float("nan")` or `float("inf")` in the slot is the deleted form, since either enters the ledger as a value and breaches the hub's finiteness refinement on every sparse crossing instead of grading.
 - Entry: `LinearIntent.solve` composes `lane.offload` on the `_TRAIT` family row under the hub `evidence_run` weave, threading the caller's composition `ScopeKey` onto the weave and `graduates` onto the crossing so an embedded composition's lifecycle and admission facts key to it; both default `DEFAULT_SCOPE`. `boundary` converts an unexpected host fault to the runtime fault rail; the *expected* non-convergence is carried inside the success receipt as `SolveStatus`, so the two failure notions stay distinct.
 - Auto: structure values drive backend selection with no per-route branch. `MatrixStructure` values ARE the scipy `solve(assume_a=...)` driver strings, so a symmetric or SPD dense system reaches the LAPACK symmetric/Cholesky driver instead of the general LU floor. For the lineax tier the `_TAG_NAMES` projection resolves the structure to a `frozenset` of documented tags that `AutoLinearSolver(well_posed=True)` reads to pick `Cholesky` → `Triangular` → `Tridiagonal` → `Diagonal` → `LU` — `well_posed=True` is load-bearing: `well_posed=None` is the rank-deficient least-squares SVD path `MIN_NORM`/`LSMR` owns and discards the structure, so the square route never passes it. A matrix-free SPD operand routes `lineax.Normal(lineax.CG(...))`, the documented normal-equations composite, NEVER the deprecated `lineax.NormalCG`.
-- Absence: only the dense route holds a singular spectrum, so `condition` is measured there alone — `_condition` answers `None` on an empty or rank-deficient spectrum where no finite ratio exists, and every sparse, ARPACK-stalled, and lineax-operator arm constructs its receipt without the slot. The receipt's declared-residual ledger then omits an unmeasured slot and the hub refuses a conditioning ceiling by key coverage; a `float("nan")` or `float("inf")` in the slot is the deleted form, since either enters the ledger as a value and breaches the hub's finiteness refinement on every sparse crossing instead of grading.
 - Output: every route folds into the one `SolverReceipt`, and every iterative/operator route folds the backend's *termination reason* into a typed `SolveStatus` — the scipy `info` through `_info_status`, the `lsqr`/`lsmr` `istop` through the shared `_ISTOP`, and the `lineax.Solution.result` member name through the receipt-owned `verdict` fold. `lineax.linear_solve(..., throw=False)` returns its verdict rather than raising, so a CG/GMRES non-convergence or singular factorization is a first-class verdict, never a silent residual-floor pass and never a raise. Its batched sweep carries the true aggregate verdict (worst column by `jnp.max` over the per-row codes) rather than a `result=None` fiction.
 - Packages: `scipy` (`linalg.solve`/`lstsq`/`eigh`/`svdvals`/`norm`, the `sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack` operand builders, `sparse.linalg` `LinearOperator`/`spsolve`/`splu`/`spilu`/`factorized`/`eigsh`/`svds`/`lobpcg`/`minres`, the Krylov family `cg`/`minres`/`gmres`/`bicgstab`/`qmr`/`tfqmr`/`lgmres`/`gcrotmk`, `lsqr`/`lsmr`); `lineax` (`MatrixLinearOperator`/`FunctionLinearOperator`/`DiagonalLinearOperator`/`TridiagonalLinearOperator`, `AutoLinearSolver`/`linear_solve`/`QR`/`LSMR`/`CG`/`Normal`, the six structure tags, `Solution`/`RESULTS` — `AutoLinearSolver(well_posed=True)` owns direct-solver selection so `LU`/`Cholesky`/`Triangular`/`Tridiagonal`/`Diagonal` are never named and `NormalCG` is deleted); `equinox` (`filter_vmap` the batched multi-RHS sweep); `jax` (`config.update` floating the gated solve to float64, `ShapeDtypeStruct` the domain-sized `FunctionLinearOperator` input, `numpy.diagonal`/`asarray`/`linalg.norm`/`max`); `numpy` (dense floors); `jaxtyping` (`Float[Array, ...]` on the gated residual, checked through `beartype(conf=FAULT_CONF)`); `solvers/receipt#RECEIPT`, hub (`EvidenceScope`/`evidence_run`), `msgspec` (`Struct` for `LinearPolicy`), `dataclasses` (frozen `LinearEngine`), `expression.collections` (`Map` the table rail), runtime (`RuntimeRail`/`FAULT_CONF`/`LanePolicy`/`Kernel`/`KernelTrait`, and `ScopeKey`/`DEFAULT_SCOPE` for the composition key both entries thread).
 - Growth: a new structure class is one `MatrixStructure` row with its `_TAG_NAMES` entry (the `assume_a` driver is the value itself); a new Krylov method one `KrylovKind` row (the value resolves the callable through `getattr(spla, kind.value)`); a new sparse scheme one `SparseScheme` case; a new operand backend one `LinearMap` case with its `scipy_op`/`dense_array`/`matrix`/`krylov_preconditioner`/`LinearEngine.operator` arms; a new lineax solver cell one `LinearEngine.solver` `match shape` arm; a new tuning axis one `LinearPolicy` field; a new termination code one `_info_status` branch or `_ISTOP` row; a new sparse-eigen method one `EigenScheme` row with its `_eigen_receipt` arm. Never a parallel dense/sparse owner, a free `lineax_solve`, a parallel matrix-free operand union, a boolean `least_squares`/`spectral` knob, or a Python loop over a multi-RHS stack.
@@ -42,6 +42,12 @@ from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
+
+# cold scientific dependencies: the `lazy` binds defer the scipy trees to the first operand projection or
+# receipt body. The jax family is NOT here — it rides the `LinearEngine` carrier behind its x64 config seam.
+lazy import scipy.linalg as sla
+lazy import scipy.sparse as sp
+lazy import scipy.sparse.linalg as spla
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -209,8 +215,6 @@ class LinearMap:
     # one operand the `scipy.sparse.linalg` bodies accept: dense/sparse pass through, free lifts
     # matrix-free. No gated import — the lineax lift lives on `LinearEngine`.
     def scipy_op(self) -> object:
-        import scipy.sparse.linalg as spla
-
         match self:
             case LinearMap(tag="dense", dense=(a, _)) | LinearMap(tag="sparse_mat", sparse_mat=(a, _)):
                 return a
@@ -235,8 +239,6 @@ class LinearMap:
     # sparse container the direct-factorization schemes require (a `SuperLU` factor admits no
     # `LinearOperator`): `SparseMat` returns its container, `Dense`/`Free` lift to CSR.
     def matrix(self) -> object:
-        import scipy.sparse as sp
-
         match self:
             case LinearMap(tag="sparse_mat", sparse_mat=(a, _)):
                 return a
@@ -261,21 +263,28 @@ class LinearMap:
 
 # gated jnp/lx modules folded into one carrier read off `self.lx`/`self.jnp` rather than re-imported
 # per helper, matching the sibling JAX-route `.gated()` discipline. `gated()` imports once behind the band
-# and floats the rail to float64.
+# and floats the rail to float64. These imports stay function-local against the module-scope `lazy` dialect
+# on the compute RULINGS [04] x64 ruling, and the arm leads them: `jax` imports alone, `jax_enable_x64`
+# fires, and only then do jnp/equinox/lineax import — a module-level array a dependent mints before the arm
+# is float32 forever — while the frozen carrier seconds it structurally, `self.jnp`/`self.lx` existing only
+# after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class LinearEngine:
     jax: object
     jnp: object
     lx: object
+    eqx: object
 
     @classmethod
     def gated(cls) -> Self:
-        import jax
-        import jax.numpy as jnp
-        import lineax as lx
+        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
 
-        jax.config.update("jax_enable_x64", True)  # 1e-10 (rtol, atol) is below float32 eps; JAX defaults to float32
-        return cls(jax=jax, jnp=jnp, lx=lx)
+        jax.config.update("jax_enable_x64", True)  # armed FIRST: 1e-10 (rtol, atol) is below float32 eps; JAX defaults to float32
+        import equinox as eqx  # ruff:ignore[import-outside-top-level] — post-arm dependent
+        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — post-arm dependent
+        import lineax as lx  # ruff:ignore[import-outside-top-level] — post-arm dependent
+
+        return cls(jax=jax, jnp=jnp, lx=lx, eqx=eqx)
 
     # single `LinearMap` -> lineax-operator projection, structure-tagged; the `Tridiagonal` constructor
     # takes the three diagonals via `jnp.diagonal`, never the `lineax.tridiagonal` extractor reading them from
@@ -445,8 +454,6 @@ def _dense_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape) -> SolverRece
         residual = float(residuals[0]) if residuals.size else float(np.linalg.norm(a @ x - b))
         return SolverReceipt.LeastSquares(residual, int(rank), 0)
     try:
-        import scipy.linalg as sla
-
         # `assume_a=m.structure.value` IS the LAPACK driver selector: `"pos"` reaches the Cholesky `?posv`
         # driver, `"sym"` `?sysv` — no SPD-special-case `cho_*` pair.
         x = sla.solve(a, b, assume_a=m.structure.value)
@@ -457,8 +464,6 @@ def _dense_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape) -> SolverRece
 
 # PUBLIC: `solvers/quadrature#QUADRATURE` composes this by name for its FEM arm, never a private `_sparse_receipt`.
 def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
-    import scipy.sparse.linalg as spla
-
     # Direct schemes read `m.matrix()` (only a sparse container admits a `SuperLU`); Krylov/lsqr read the
     # matrix-free `m.scipy_op()` so a `Free` FEM operand reaches them without materialising a matrix.
     # Every direct sparse arm constructs WITHOUT `condition`: a `SuperLU` factor exposes no singular spectrum, so the
@@ -504,14 +509,10 @@ def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme
             w, v = np.linalg.eigh(dense)
             return SolverReceipt.Eigen(float(np.linalg.norm(dense @ v - v * w)), int(w.size), _condition(np.linalg.svdvals(dense)))
         case (_, SpectralMode.SPECTRUM):
-            import scipy.sparse.linalg as spla
-
             op = m.scipy_op()
             u, s, vt = spla.svds(op, k=k)
             return SolverReceipt.Eigen(float(np.linalg.norm(op @ vt.conj().T - u * s)), int(s.size), _condition(np.asarray(s)))
         case (_, SpectralMode.EIGENPAIRS):
-            import scipy.sparse.linalg as spla
-
             op = m.scipy_op()
             try:
                 match scheme:
@@ -546,8 +547,6 @@ def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme
 # raising. Batched vmaps one operator over the RHS stack through `filter_vmap(in_axes=(None, 0))` as one
 # compiled solve, a second contracting the per-row residual.
 def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: LinearPolicy) -> SolverReceipt:
-    import equinox as eqx
-
     e = LinearEngine.gated()
     operator = e.operator(m)  # input_structure rides the operand's column count, so no RHS is needed to build it
     solver = e.solver(shape, m.structure, spd_free=_spd_free(m), tol=policy.tol, maxiter=policy.maxiter)
@@ -557,8 +556,8 @@ def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: Li
     # stack rides the vmapped sweep, a 1-D vector the single solve — recoverable from the operand.
     if b.ndim == 2:
         stack = e.jnp.asarray(b)
-        solution = eqx.filter_vmap(run, in_axes=(None, 0))(operator, stack)
-        per_row = eqx.filter_vmap(lambda v, rhs: e.residual(operator, v, rhs), in_axes=(0, 0))(solution.value, stack)
+        solution = e.eqx.filter_vmap(run, in_axes=(None, 0))(operator, stack)
+        per_row = e.eqx.filter_vmap(lambda v, rhs: e.residual(operator, v, rhs), in_axes=(0, 0))(solution.value, stack)
         status, iterations = e.verdict(solution.result), int(np.asarray(solution.stats.get("num_steps", 0)).max())
         residual = float(e.jnp.max(per_row))
     else:
@@ -580,8 +579,8 @@ def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: Li
 
 - Owner: `SparseExchange` — the two-container correspondence with `csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` `ReadArchive`/`WriteArchive`, hand-copied as a deliberate non-import mirror per estate law: `.mtx` through `scipy.io` is the SuiteSparse interop surface, and the scipy-convention HDF5 group (`indptr`/`indices` int32, `values` float64, `permutation` int32, `shape`/`format` group attributes) carries the `kind`/`ordering`/`fill`/`frobenius`/`symmetric` reproduction metadata `.mtx` drops. Both containers read and write here because the C# lane landed both directions of each: a reproduction artifact from a failed C# factorization re-factors python-side under its recorded policy, and a python-authored operand crosses back through the same two doors.
 - Cases: `ExchangeMeta` types the archive's metadata attributes; `ordering` carries the CSparse `ColumnOrdering` ordinal the producer wrote (`0` Natural, `1` MinimumDegreeAtPlusA, `2` MinimumDegreeStS, `3` MinimumDegreeAtA — decompile-proven declaration order) and `permc` projects it onto the `splu` `permc_spec` vocabulary, `MinimumDegreeStS` landing on `COLAMD` as the closest scipy ordering with the divergence stated here rather than hidden.
-- Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
 - Law: both write legs carry the `composition` custody key and an awaitable twin — `write_mtx_async`/`write_archive_async` over the one `_written` half — because the sync bodies are pure `h5py`/`scipy.io` calls opening no loop while recording suspends. Each twin lands one `OPERATIONAL` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes written, through one `_evidence` fold so the two containers cannot drift into two vocabularies for one crossing; the container token rides the diff rather than the verb, since both legs write the same kind of thing to two encodings. `OPERATIONAL` is earned: a sparse operand is a reproduction artifact re-derivable from the factorization that produced it. The record rail BINDS into the verdict, and a refused write records nothing since there is no artifact to name. Reads land no evidence — an exchange plane recording each `read_mtx` prices the read path for rows no reconstruction ever reads.
+- Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
 - Auto: `.mtx` symmetry writes off the operand's `MatrixStructure` (`SYMMETRIC`/`SPD` emit `symmetry="symmetric"`), mirroring the C# rule that the flag reads off the factor row and never a caller knob; reads lift `mminfo` symmetry onto the structure axis so a symmetric corpus reaches the symmetric drivers without re-derivation.
 - Output: reads land a `LinearMap.SparseMat` the `[02]-[LINEAR]` routes consume directly — the exchange is solver currency, never a gridded field, so no gridded-plane page owns any of this.
 - Packages: `scipy` (`io.mmread`/`io.mmwrite`/`io.mminfo`, `sparse.csr_array`/`csc_array`, `sparse.linalg.norm`); `h5py` (module-top; `File`, `create_group`/`create_dataset`, attribute IO) under the compute-tier `.api/h5py.md` admission.

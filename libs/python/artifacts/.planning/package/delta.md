@@ -12,9 +12,9 @@
 
 - Owner: `Delta` the one diff/patch producer wrapping the `Bundle` carrier with a `delta`-case profile and its `lane: LanePolicy`; `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout`, the delta `Literal` axes, and the `DELTA_MATRIX` admission gate are bundle-page vocabulary, so a delta bundle is one profile row on the one union, never a parallel owner. `Delta.pack`/`Delta.recover` are the `PackWorker` port kernels over `(payloads, profile)`, total over the one row.
 - Cases: the admitted `(algorithm, patch_type)` pair selects the `detools` create kernel, each combination reading only the axes it exercises — an out-of-matrix pair, a bandless or impossible-memory `in-place`, and a firmware band off `bsdiff`×`sequential` all refused by `Bundle.of`'s `_delta_admitted` gate before any arm runs, never surfaced by provider execution; `_delta_apply` is the ONE header-keyed reconstruction kernel both legs share — never one `apply_patch` for the self-describing, in-place, and headerless-`BSDIFF40` kinds — reading any firmware dfpatch back so recovery re-supplies no offsets. A `DeltaCompression` token frames the patch payload through admitted `lz4`/`zstandard`/`heatshrink2` plus stdlib, resolved from the header so `_delta_apply` re-supplies neither codec nor algorithm.
-- Entry: `Delta.of(policy, payload, lane=lane)` binds the parent at construction — the policy carries `from_image` (the only side-input either leg needs) and `parent_key`, and the node reads `parents=(parent_key,)`, so a content-addressed delta keyed by its parent is the storage AND the graph shape; `packed` offloads `Delta.pack` for the byte-holding consumer, `_emit` maps it onto the receipt, and `unpack` names the recovered member `f"from-{parent_key.hex}"` so it traces its parent.
+- Entry: `Delta.of(policy, payload, lane=lane)` binds the parent at construction — the policy carries `from_image` (the only side-input either leg needs) and `parent_key`, and the node reads `parents=(parent_key,)`, so a content-addressed delta keyed by its parent is the storage AND the graph shape; `packed` offloads `Delta.pack` for the byte-holding consumer, `_emit` maps it onto the receipt and awaits `Journal.record` over `receipt.evidence()` — the `OPERATIONAL` fact whose diff names the patch algorithm and the achieved ratio a later parent bump is compared against, seated at that awaitable fold because the pack kernel runs in a worker where nothing suspends — and `unpack` names the recovered member `f"from-{parent_key.hex}"` so it traces its parent.
 - Output: `_proved_size` reads the to-image size off the patch header via `detools.patch_info` (slot per kind through `_TO_SIZE_AT`, the headerless `bsdiff` patch falling back to the reconstructed length), requires the header kind, compression, effective in-place memory/segment/slide band (the header echoes the computed slide `max(memory - segment * ceil(from/segment), minimum)`, never the `minimum_shift_size` knob verbatim), firmware data-format token, and reconstructed length to agree in both pack and recovery, and leaves `level`/`dict_id` zero since compression is header-encoded. Pack adds the first ordered gate — byte-identical round-trip — before `_proved_size` proves header identity, selects its size slot, and proves reconstructed length; each component fails as `<delta-verify:round-trip|header|size>` before `BundleEvidence`/`ArtifactReceipt` materializes.
-- Packages: `detools` (lazy — `create_patch`/`apply_patch*`/`patch_info`; runtime deps `bitstruct`/`heatshrink2`/`lz4`/`pyelftools`/`zstandard` ride it), `xxhash` (the recovered-image digest), `expression` (`Map.of_seq` the header-slot row), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `rasm.artifacts.core.plan`/`core.receipt`/`package.bundle`.
+- Packages: `detools` (lazy — `create_patch`/`apply_patch*`/`patch_info`; runtime deps `bitstruct`/`heatshrink2`/`lz4`/`pyelftools`/`zstandard` ride it), `xxhash` (the recovered-image digest), `expression` (`Map.of_seq` the header-slot row, `Result` the settled-receipt match at the durable seat), `msgspec` (`Struct`), runtime `identity`/`faults`/`journal`/`lanes`/`resilience`, `rasm.artifacts.core.plan`/`core.receipt`/`package.bundle`.
 - Growth: a new patch type is one bundle-page `DeltaPatchType` token, its `DELTA_MATRIX` pairings, plus one `_delta_apply` arm; a new diff algorithm/codec/architecture/suffix-array constructor is one token on its bundle-page axis; a new tuning knob is one named `DeltaKnobs` field with `Delta.of(policy, payload, lane=lane)` unchanged — the in-place and firmware bands are the anticipatory collapse already absorbed, zero new verb beside `emit`/`packed`/`unpack`.
 - Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), no corpus modality (a corpus diff is N parent-bound nodes, never one), no receipt-case widening, no zero-`verified` receipt standing in for a failed proof (failure rides the rail, never a receipt field).
 
@@ -24,10 +24,12 @@ from io import BytesIO
 from typing import Final
 
 import xxhash
+from expression import Error, Result
 from expression.collections import Map
 from msgspec import Struct
 
 from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -69,7 +71,15 @@ class Delta(Struct, frozen=True):
         return await self.lane.offload(Kernel.of(Delta.pack, KernelTrait.RELEASING), self.bundle.payloads, self.bundle.profile)
 
     async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
-        return (await self.packed()).map(lambda pe: pe[1].receipt(self.bundle.key))
+        # The durable seat is this awaitable fold and never `Delta.pack`, which runs in the offloaded worker where
+        # nothing suspends and no journal custody is bound. `OPERATIONAL` comes off the case's own retention row and
+        # the diff names the patch algorithm and the achieved ratio — a delta's whole claim is its size against the
+        # image it reconstructs, so that ratio is the fact a later parent bump is compared against.
+        match (await self.packed()).map(lambda pe: pe[1].receipt(self.bundle.key)):
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
         rows = await self.lane.offload(Kernel.of(Delta.recover, KernelTrait.RELEASING), blob, self.bundle.profile)
@@ -190,7 +200,7 @@ def _proved_size(k: DeltaKnobs, blob: bytes, recovered: bytes, /) -> int:
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

@@ -14,11 +14,11 @@ Every route folds its termination verdict, the objective, and the maximum constr
 
 - Owner: `ProgramIntent` — the discriminant is the program shape, so the gradient loop and the math program are sibling owners on one sub-domain; `Constrained` threads the `LinearConstraint`/`NonlinearConstraint` carriers DIRECTLY, never lowered to the legacy `{"type": "ineq", "fun": ...}` dicts scipy also accepts; a pure-inequality, pure-equality, or mixed LP is one `Linear` shape with each block passed only when non-empty, never a parallel equality-LP owner.
 - Cases: `GlobalMethod` rides the `Global` factory's keyword-only `method` parameter — not the `solve` entry `design.md` carries `descent` on — because it discriminates the ONE stochastic route while `Descent` spans all three design routes, so an engine knob on `program.solve` is `None` for the four routes it cannot reach; `DE` carries its `workers=-1`/`polish=True`/`strategy` advanced surface so the population search runs process-parallel and L-BFGS-B-polished at full catalogued power, never the two-argument subset.
-- Backend: the retained-solver payload's PRESENCE is the discriminant, recoverable from the intent itself, so no `backend: str` knob rides beside a value that already answers; the `direct` route column declares which routes admit the arm at all, and a `None` there makes an unsupported warm solve unspellable rather than a runtime refusal. An integer program carrying a `NonlinearConstraint` declines the direct arm and keeps the `milp` facade, because HiGHS reads a two-sided linear row band and dropping the row silently would solve a different program. The model thunk assembles once — `getNumCol() == 0` is the not-yet-loaded probe — so a caller mutating columns, rows, or coefficients between solves pays back-substitution, never re-encoding. The retained handle rides the `RELEASING` thread band the LP and MIP routes already declare, which is what makes the arm expressible at all: a shared address space carries a live native handle where the `TERMINAL` process crossing the stochastic route declares would have to pickle it, so the one route that cannot hold a retained solver is also the one that declares no direct arm.
+- Law: objective and violation are read on a CONVERGED carrier alone and spell absence on every refusal, because an `inf` in either slot enters the graduation ledger as a value and breaches the hub's finiteness refinement on every infeasible crossing — an absent slot leaves the ledger instead, and the hub's key-coverage gate refuses the crossing against the `violation` ceiling as the rejection it is. The stability band and the certificate size are likewise absent wherever the backend surfaces neither, so a facade solve never reports a zero indistinguishable from a measured margin of nothing, and an all-unbounded cost-range set reports no binding margin rather than an `inf`.
 - Entry: `ProgramSolve` is one closed family over the three carrier shapes a solve produces — the scipy carrier bound to its own adjudicator shape, the assignment pair, the retained solver with its verdict and evidence — so the iterate read, the verdict fold, and the evidence read are each ONE total match and the route row sheds the `iterate` and `termination` columns it once carried in step. Nothing is derived at construction: an infeasible `linprog` whose `result.x`/`result.fun` are `None` folds its typed `INFEASIBLE` verdict, never a `float(None)` crash captured as a generic fault; the violation reduces through one typed carrier `match`, never a `hasattr(con, "A")` reflective probe.
-- Absence: objective and violation are read on a CONVERGED carrier alone and spell absence on every refusal, because an `inf` in either slot enters the graduation ledger as a value and breaches the hub's finiteness refinement on every infeasible crossing — an absent slot leaves the ledger instead, and the hub's key-coverage gate refuses the crossing against the `violation` ceiling as the rejection it is. The stability band and the certificate size are likewise absent wherever the backend surfaces neither, so a facade solve never reports a zero indistinguishable from a measured margin of nothing, and an all-unbounded cost-range set reports no binding margin rather than an `inf`.
+- Auto: the retained-solver payload's PRESENCE is the discriminant, recoverable from the intent itself, so no `backend: str` knob rides beside a value that already answers; the `direct` route column declares which routes admit the arm at all, and a `None` there makes an unsupported warm solve unspellable rather than a runtime refusal. An integer program carrying a `NonlinearConstraint` declines the direct arm and keeps the `milp` facade, because HiGHS reads a two-sided linear row band and dropping the row silently would solve a different program. The model thunk assembles once — `getNumCol() == 0` is the not-yet-loaded probe — so a caller mutating columns, rows, or coefficients between solves pays back-substitution, never re-encoding. The retained handle rides the `RELEASING` thread band the LP and MIP routes already declare, which is what makes the arm expressible at all: a shared address space carries a live native handle where the `TERMINAL` process crossing the stochastic route declares would have to pickle it, so the one route that cannot hold a retained solver is also the one that declares no direct arm.
 - Receipt: this owner mints only the `OutcomeReceipt.Program` factory case — the `.facts` projection, the `contribute` fold, and the `graduates` solver-axis crossing live on the shared owner at `optimization/design#DESIGN`, never a program-specific body.
-- Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/receipt#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `HighsModelStatus` is strictly richer than that five-code table, so `_HIGHS_STATUS` separates the declared-limit haltings from resource exhaustion, the stage errors, and an external interrupt; `getRanging`/`getIis`/`getDualRay`/`getPrimalRay` each answer a status-led tuple and each cost range is a `HighsRangingRecord` whose `value_` array spans columns and rows, so the read slices to the column count; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate under `TYPE_CHECKING` and the gated package never imports at runtime.
+- Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/receipt#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `HighsModelStatus` is strictly richer than that five-code table, so `_HIGHS_STATUS` separates the declared-limit haltings from resource exhaustion, the stage errors, and an external interrupt; `getRanging`/`getIis`/`getDualRay`/`getPrimalRay` each answer a status-led tuple and each cost range is a `HighsRangingRecord` whose `value_` array spans columns and rows, so the read slices to the column count; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate through the `TYPE_CHECKING`-only `opt` alias while the live entrypoints ride module-scope `lazy` binds, so the SciPy and HiGHS trees load on the first route that solves rather than at page import.
 - Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new backend for an existing route is one `direct` column value and one entry closure, the carrier family absorbing its result shape as one case; a new global solver is one `GlobalMethod` case and one `solve` arm, never a new `ProgramIntent` tag; a new facade result shape is one `Termination` member and one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` or `_HIGHS_STATUS` row.
 
 ```python signature
@@ -40,8 +40,28 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
+# cold trees deferred to first dereference: `scipy.optimize`/`scipy.sparse` pull the full SciPy extension set and `highspy`
+# a native solver library, so the page-level binds cost nothing until a route actually solves and the missing-package
+# `ImportError` still lands inside the `boundary` fence. Every table below carries closures or member-NAME strings, so no
+# module-scope cell reifies one of these proxies at import.
+lazy import highspy
+lazy from scipy.optimize import (
+    Bounds,
+    LinearConstraint,
+    NonlinearConstraint,
+    differential_evolution,
+    direct,
+    dual_annealing,
+    linear_sum_assignment,
+    linprog,
+    milp,
+    minimize,
+    shgo,
+)
+lazy from scipy.sparse import csc_matrix
+
 if TYPE_CHECKING:
-    import scipy.optimize as opt  # `OptimizeResult`/`Bounds` annotation carriers only; the gated package never imports at runtime
+    import scipy.optimize as opt  # `OptimizeResult`/`Bounds` annotation carriers only; the `opt` alias itself never binds at runtime
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -89,8 +109,8 @@ class Termination(StrEnum):
 class GlobalMethod:
     # derivative-free global-search family as ONE engine-as-policy union (the `design.md` `Descent`
     # shape): `DE` carries its `(workers, polish, strategy)` advanced surface, the rest are bare cases.
-    # `solve` is the one total projection binding each arm's `scipy.optimize` entrypoint behind the
-    # gated import, threading the SPEC-007 `rng` seed so a reproducible content-keyed global solve maps
+    # `solve` is the one total projection dispatching to each arm's `scipy.optimize` entrypoint off the
+    # module-scope `lazy` bind, threading the SPEC-007 `rng` seed so a reproducible content-keyed global solve maps
     # to a fixed iterate — never four parallel `ProgramIntent` cases beside the LP/MILP solve.
     tag: Literal["de", "annealing", "simplicial", "direct"] = tag()
     de: tuple[int, bool, str] = case()  # (workers, polish, strategy)
@@ -115,8 +135,6 @@ class GlobalMethod:
         return cls(direct=None)
 
     def solve(self, func: Objective, box: np.ndarray, seed: int) -> "opt.OptimizeResult":
-        from scipy.optimize import differential_evolution, direct, dual_annealing, shgo
-
         pairs = box.reshape(-1, 2)
         match self:
             case GlobalMethod(tag="de", de=(workers, polish, strategy)):
@@ -293,8 +311,6 @@ class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful so
 
     @classmethod
     def opened(cls, *, ranging: bool = True, witness: bool = True) -> Self:
-        import highspy
-
         held = highspy.Highs()
         held.silent()
         return cls(held, ranging, witness)
@@ -427,8 +443,6 @@ def _warmed(intent: ProgramIntent) -> "Warm | None":
 
 
 def _row_shaped(constraint: object) -> bool:
-    from scipy.optimize import LinearConstraint
-
     return isinstance(constraint, LinearConstraint)
 
 
@@ -479,8 +493,6 @@ def _engine_tag(intent: ProgramIntent) -> str:
 
 
 def _bounds(box: np.ndarray) -> "opt.Bounds | None":
-    from scipy.optimize import Bounds
-
     pairs = box.reshape(-1, 2)
     return Bounds(pairs[:, 0], pairs[:, 1]) if pairs.size else None  # the one `Bounds` carrier linprog/milp/minimize all accept
 
@@ -488,8 +500,6 @@ def _bounds(box: np.ndarray) -> "opt.Bounds | None":
 def _violation(constraints: Constraints, x: np.ndarray) -> float:
     # reached with a CONVERGED iterate alone, so no empty-iterate arm survives to fabricate an `inf` the ledger then
     # publishes as a measurement; an unconstrained program's violation is the honest `0.0` the default supplies.
-    from scipy.optimize import LinearConstraint, NonlinearConstraint
-
     def residual(con: "opt.LinearConstraint | opt.NonlinearConstraint") -> float:
         match con:
             case LinearConstraint():
@@ -508,8 +518,6 @@ def _violation(constraints: Constraints, x: np.ndarray) -> float:
 
 
 def _entry_linear(fields: Carried, _: int) -> ProgramSolve:
-    from scipy.optimize import linprog
-
     cost, ub_mat, ub_rhs, eq_mat, eq_rhs, box, _warm = fields
     return ProgramSolve.Host(
         linprog(
@@ -526,8 +534,6 @@ def _entry_linear(fields: Carried, _: int) -> ProgramSolve:
 
 
 def _entry_integer(fields: Carried, _: int) -> ProgramSolve:
-    from scipy.optimize import milp
-
     cost, flags, box, constraints, _warm = fields
     return ProgramSolve.Host(milp(cost, integrality=flags, bounds=_bounds(box), constraints=list(constraints) or None), Termination.CODED)
 
@@ -538,8 +544,6 @@ def _entry_stochastic(fields: Carried, seed: int) -> ProgramSolve:
 
 
 def _entry_constrained(fields: Carried, _: int) -> ProgramSolve:
-    from scipy.optimize import minimize
-
     objective_fn, start, box, constraints = fields
     return ProgramSolve.Host(
         minimize(objective_fn, start, method="trust-constr", bounds=_bounds(box), constraints=list(constraints)), Termination.FLAGGED
@@ -547,8 +551,6 @@ def _entry_constrained(fields: Carried, _: int) -> ProgramSolve:
 
 
 def _entry_assignment(fields: Carried, _: int) -> ProgramSolve:
-    from scipy.optimize import linear_sum_assignment
-
     (matrix,) = fields
     return ProgramSolve.Matched(linear_sum_assignment(matrix))
 
@@ -586,8 +588,6 @@ def _iterate(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]
 
 
 def _carriers_linear(fields: Carried, _: ProgramSolve) -> Constraints:
-    from scipy.optimize import LinearConstraint
-
     _cost, ub_mat, ub_rhs, eq_mat, eq_rhs, _box, _warm = fields
     return (*(LinearConstraint(ub_mat, -np.inf, ub_rhs),) * bool(ub_rhs.size), *(LinearConstraint(eq_mat, eq_rhs, eq_rhs),) * bool(eq_rhs.size))
 
@@ -630,9 +630,6 @@ def _highs_model(cost: np.ndarray, mat: np.ndarray, lower: np.ndarray, upper: np
     # triplet directly and the catalog names a dense constraint duplicate as a reject. `kHighsInf` is the free-bound
     # sentinel an absent box resolves to, and the integrality vector is what selects the branch-and-bound engine —
     # an all-continuous model with no Hessian runs the simplex/IPM/PDLP arm instead.
-    import highspy
-    from scipy.sparse import csc_matrix
-
     lp = highspy.HighsLp()
     pairs = box.reshape(-1, 2)
     lp.num_col_, lp.num_row_ = int(cost.size), int(upper.size)

@@ -7,7 +7,7 @@ Vocabulary here is TRANSCRIBED from the frozen cross-branch fragment and re-deci
 ## [01]-[INDEX]
 
 - [02]-[PLANE]: `Plane` carries the `float32` working array, its storage/transfer/primaries/association/mip vocabularies, the level-carrying `DeepPlane` record under a total admission, and the depth, transfer, and association conversions every codec boundary runs.
-- [03]-[CODEC]: `DeepFormat` rosters every container over one `DeepCodecRow` table, sniffs magic through `decode`, dispatches `encode` by row under the row's own `EncodePolicy` default, owns both KTX2 legs, and measures a lossy row's error through `fidelity`.
+- [03]-[CODEC]: `DeepFormat` rosters every container over one `DeepCodecRow` table, sniffs magic through `decode`, reads a container's own colour declaration back through `_CICP_SOURCE`, dispatches `encode` by row under the row's own `EncodePolicy` default, owns both KTX2 legs, and measures a lossy row's error through `fidelity`.
 
 ## [02]-[PLANE]
 
@@ -32,20 +32,29 @@ Vocabulary here is TRANSCRIBED from the frozen cross-branch fragment and re-deci
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+from atexit import register as at_exit
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import cache
 from importlib.util import find_spec
 from itertools import takewhile
 from math import log10
 from pathlib import Path
 from subprocess import run as spawn
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from threading import Lock
 from typing import Final, Literal, assert_never
 
 import numpy as np
 from builtins import frozendict
+from exiftool import ExifToolHelper
+from exiftool.exceptions import ExifToolException
+# ^ EAGER, alone among the provider imports: `PyExifTool` is a pure-Python driver over a subprocess, shipping no
+# binary and no native extension, so its import reifies nothing and costs nothing. The `lazy` proxy below exists for
+# NATIVE cores, and deferring a typed exception family behind it would reify the proxy inside an `except` clause —
+# where a failure to resolve raises DURING handling and buries the fault the guard was written to read.
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from expression.extra.result import catch
@@ -53,7 +62,7 @@ from msgspec import Struct, structs
 from numpy.typing import NDArray
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.profiles import KTX_TOOL, resolved
+from rasm.runtime.profiles import EXIFTOOL_TOOL, KTX_TOOL, resolved
 
 lazy import colour
 lazy import imagecodecs
@@ -66,6 +75,11 @@ lazy from pyktx import (
 # scattered form the import law refuses, and the `lazy` proxy costs nothing until an arm touches a member. Every
 # module-scope table below holds member NAMES rather than the members themselves, so nothing here reifies at import
 # and a host without the binding still loads this module and takes the spawned floor.
+lazy from pyvips import Error as VipsError, Image as VipsImage
+# ^ the JPEG XL colour-declaration leg ALONE: libjxl parses the codestream on load and publishes the ICC profile it
+# synthesizes from the colour-encoding bundle, which is the one surface that opens a `jxlc` codestream at all. The
+# resampler this binding also owns stays `derive#DERIVE`'s, so no pixel crosses pyvips on this page.
+lazy from skimage import metrics  # the fidelity leg's structural-similarity half; the sibling raster pages read the same submodule
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -170,9 +184,12 @@ class Envmap(StrEnum):
 
 
 class FidelityMetric(StrEnum):
-    # WHICH numbers a `PlaneFidelity` carries, so an absent `delta_e` is a DECLARED absence and never a measured zero.
-    SIGNAL = "signal"  # mse/nrmse/psnr alone: a non-colour plane, or a colour plane outside the three/four-component reach
-    PERCEPTUAL = "perceptual"  # the signal set PLUS the CIE 2000 difference over the colour slice
+    # The DEEPEST leg a `PlaneFidelity` carries, so an absent `delta_e` or `ssim` is a DECLARED absence and never a
+    # measured zero. It RANKS rather than replaces: both `Option` slots stay readable on the value, so a consumer
+    # wanting the exact pair reads them and this token stays the coarse routing answer.
+    SIGNAL = "signal"  # mse/nrmse/psnr alone: neither optional leg reached the plane
+    STRUCTURAL = "structural"  # the signal set PLUS the windowed structural agreement, on a plane the colour leg does not reach
+    PERCEPTUAL = "perceptual"  # the signal set PLUS the CIE 2000 difference over the colour slice, structural reading included wherever the plane seats a window
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -330,6 +347,8 @@ _SRGB_BREAK: Final[float] = 0.0031308  # IEC 61966-2-1 linear-segment break on t
 _PQ_CONSTANTS: Final[tuple[float, float, float, float, float]] = (0.1593017578125, 78.84375, 0.8359375, 18.8515625, 18.6875)  # m1, m2, c1, c2, c3
 _HLG_CONSTANTS: Final[tuple[float, float, float]] = (0.17883277, 0.28466892, 0.55991073)  # a, b, c of the ITU-R BT.2100 OETF upper segment
 _PQ_PEAK: Final[float] = 10000.0  # cd/m² the ST 2084 curve normalizes against, so `linear` recovers an absolute luminance
+_SSIM_WINDOW: Final[int] = 7  # the provider's own default neighbourhood; `fidelity` caps the derived window at it and never above
+_SSIM_FLOOR: Final[int] = 3  # the smallest window carrying degrees of freedom — below it a neighbourhood statistic has no neighbourhood
 _CHROMATICITY: Final[frozendict[PlanePrimaries, tuple[float, ...]]] = frozendict({
     # The EXR-side spelling of the carrier's own datum: red, green, blue, and white `xy` pairs as ONE eight-float
     # tuple (an ndarray is REFUSED by the attribute setter). Only the chromaticities a scene-linear product actually
@@ -525,7 +544,9 @@ def converted(plane: DeepPlane, container: DeepFormat, /, *, depth: PlaneDepth, 
 - Law: A POLICY `level` IS BOUND BY ITS OWN COMPRESSION FAMILY, and the row proves the band before the writer runs. MEASURED on the linked core: `exr_encode` reads `level` as the ZIP compression level on `ZIP`/`ZIPS` — bounded `0..9`, raising `ExrError: exr_set_zip_compression_level returned EXR_ERR_INVALID_ARGUMENT` at anything past it — and as the DWA quality on `DWAA`/`DWAB`, where `45.0` is the meaningful default and `100.0` carries roughly `2e-1` absolute error; every remaining row ignores it. One float, two meanings: the estate's own `("zip", 45.0)` default therefore RAISED on every deep write, and the band on the compression row is what turns that into a typed refusal the caller reads.
 - Law: THE EXR HTJ2K ROWS ARE LOSSY FOR THIS ESTATE. MEASURED across the extent range a mip ladder spans, `HTJ2K256` and `HTJ2K32` do not round-trip a float plane: a `16x16` level decodes ALL-NaN, a `2x512` sheet decodes NaN, extents at or below eight decode inexact, and only the mid range is byte-exact — while `ZIP` is exact at every one of them. A ladder folding to `1x1` therefore crosses the broken range on every set, so both rows join the lossy set, the deterministic floor excludes an EXR encoded under them, and `lossless` answers False rather than certifying a round trip the core does not perform.
 - Law: A CONTAINER'S COLOUR TAGS ARE WRITTEN, NEVER GUESSED. `avif_encode` and `jpegxl_encode` each take `transfer=` and `primaries=`, so an environment plane the AVIF row admits at `pq` writes the ST 2084 tag and a foreign reader stops applying a curve the bytes never carried. `matrix=IDENTITY` rides every AVIF write, because a YUV matrix over a `YUV444` full-quality row is what makes the LOSSLESS claim true. `photometric` rides the JXL write on a ONE-COMPONENT width ALONE — MEASURED: the `RGB` member is `0` and the codec reads `0` as absent, raising `ValueError: photometric 0 not supported by codec`, so RGB is the default and only `GRAY` is passed.
-- Law: NEITHER FLAT DECODER HANDS THE TAGS BACK. `avif_decode` and `jpegxl_decode` return an array and nothing else, so the transfer a file declares is unrecoverable through this surface — the decode arm carries the row's declared tag and the producer's own declaration is the override `set#TEXTURE_SET` `MapSource.encoded` already threads. The gap is a `[04]` research row with its route, never prose asserting a read that does not exist.
+- Law: NEITHER FLAT DECODER HANDS THE TAGS BACK, AND THE FILE STILL DECLARES THEM. `avif_decode` and `jpegxl_decode` return an array alone, so the declaration is read off the METADATA surfaces beside the codec rather than through it, and `_CICP_SOURCE` is the one table naming where each container files it. AVIF states it in the `nclx` box the container reader opens direct. JPEG XL states it in the `jxlc` CODESTREAM, which no box walker opens at all — a walk of a JXL file returns nothing colour-shaped — so `pyvips` `jxlload` publishes the ICC v4.4 profile libjxl synthesizes from that bundle and the profile's `cicp` tag carries the same pair. Both legs read as NUMERIC CICP codes: the printed strings are display text a binary revision re-words, and the integers are the key `_CICP_TRANSFER` and `_CICP_PRIMARIES` lower onto this page's own rosters. A hand-rolled box or codestream walk is REFUSED — a container parser is a capability an admitted package owns, and both parses here are the package's.
+- Law: THE READBACK IS TOTAL AND THE DECLARED TAG IS ITS FLOOR. A row with no `_CICP_SOURCE` entry, a payload whose source publishes nothing, an unreadable declaration, and a CICP code outside these rosters resolve identically to the row's own tag — a plane whose declaration cannot be read is exactly the plane that tag was written for. The two axes resolve INDEPENDENTLY, so a file stating a transfer and no chromaticity keeps the declared chromaticity rather than dragging one axis's silence onto the other. A provider raise lands as that same silence and never a `TextureFault`: an unreadable declaration is a fact about the file's METADATA, and faulting the decode would refuse a payload whose texels this page reads perfectly. The producer's own declaration stays the OUTER override `set#TEXTURE_SET` `MapSource.encoded` threads, above the file and above the floor alike.
+- Law: THE READBACK CARRIES THE TWO AXES THE CARRIER HOLDS AND NO MORE. `MatrixCoefficients` and `VideoFullRangeFlag` ride the same declaration and are never requested: both are applied by the decoder before it hands back an array, so a carrier field for either would seat a datum no arm can consume — the decorative-density defect a receipt column nothing reads already names. The gain is at the consuming surface rather than here: a `pq` capture now decodes as `pq` and meets `set#TEXTURE_SET`'s display-transfer refusal, where the declared-tag-only read passed it into a bake as a scene-referred plane it was never authored as.
 - Law: `openexr` owns the NAMED-CHANNEL document and `imagecodecs` the anonymous component plane, and the named leg READS WITH `separate_channels=True`. MEASURED: at the default mode a file authored `{diffuse.R, diffuse.G, diffuse.B, Z}` reads back as `{Z: (H, W), diffuse: (H, W, 3)}` — the components FUSED and the `<layer>.<component>` keys destroyed, on exactly the AOV bundle the leg exists to carry — while `separate_channels=True` reads back all four keys as their own 2-D arrays. A plain `{R, G, B}` file fuses to the single key `RGB`, which is the correct read for a component consumer and the wrong one here.
 - Law: the named leg's HEADER is where a plane declares what the format itself can hold — the `envmap` tag (`ENVMAP_LATLONG` round-trips and reads back `Envmap.ENVMAP_LATLONG`), the `chromaticities` eight-float tuple carrying the same datum `PlanePrimaries` declares (an ndarray is REFUSED; the plain tuple is the admitted form), `ONE_LEVEL` tiled storage for a sheet past the scanline comfort range, a `PreviewImage` thumbnail, and `Part` objects for a multi-part document. Every one is a header key or a `Part`, never a builder.
 - Law: SNIFFING IS THE PACKAGE'S, never a magic table this page maintains. `imagecodecs` ships `<codec>_check` beside every `encode`/`decode`/`_version` member and each one discriminates the whole roster exactly; a hand-rolled prefix mis-sniffs four of these nine rows on the estate's OWN output — `jpegxl_encode` writes the ISOBMFF-boxed container rather than the naked `\xff\x0a` codestream, an AVIF `ftyp` box carries a variable size ahead of its brand, TIFF admits big-endian and BigTIFF, and a bare `RIFF` prefix claims every AVI and WAV. `KTX2` is the one row `imagecodecs` carries no codec for and the only one holding a container identifier of its own.
@@ -556,14 +577,14 @@ def converted(plane: DeepPlane, container: DeepFormat, /, *, depth: PlaneDepth, 
 - Law: the WRITE side records transfer THROUGH the VkFormat and association through the canonical column, never through the binding's own properties — `oetf` and `premultipled_alpha` are READ-ONLY on `KtxTexture2` (measured: no setter), the DFD transfer DERIVES from the format (`_SRGB` rows read back `2`, UNORM/SFLOAT rows `1`), and every plane this page writes is `straight` per the row's canonical association, so there is nothing left to record. The read-back's `oetf`/`premultipled_alpha` reads exist for FOREIGN files; the DFD vocabulary carries no RAW row, so a `raw` plane rides the linear enumerator on both legs — the identity transfer either way — and the ROLE law re-tags it at classification.
 - Law: THE TWO LEGS DISAGREE ON PRIMARIES AND THE REFUSAL IS WHAT KEEPS THEM ONE CODEC. The CLI leg states the field on every create; the in-process binding CANNOT — MEASURED, `KtxTexture2` exposes no member matching `prim`, `dfd`, or `color`, and `oetf` is the only DFD colour member and read-only. So a plane declaring a chromaticity written in process would ship `UNSPECIFIED` while the same plane on a CLI host ships the stated value, silently, on a field the shared-leg agreement law claims. The in-process leg therefore REFUSES a plane whose `primaries` is anything but `NONE`, naming the pair; a leg that cannot state a field never writes the plane that needs it.
 - Law: `--convert-primaries` is DELIBERATELY REFUSED. It exists on the spawned leg and would convert rather than relabel, but `pyktx` carries no counterpart — a converting CLI leg beside a non-converting in-process leg is two codecs wearing one name, which is the exact defect the shared leg admission exists to foreclose. A gamut move is the caller's, composed at `graphic/color/managed#MANAGED` before the plane arrives, and the create STATES what the numbers already are.
-- Law: FIDELITY IS THE COMPLETION OF `lossless`, SO IT LIVES ON THE SAME ROW. `lossless` answers whether a row round-trips; `fidelity` answers by how much it does not, and no other page in this estate measures the error of `dwaa`, `b44`, `pxr24`, a non-lossless JXL/AVIF/WebP policy, or a UASTC/ETC1S payload — the KTX2 conformance gate grades container LEGALITY and says nothing about pixels. `data_range` DERIVES from the operand's own store and is never seeded, `mse`/`nrmse`/`psnr` are pure array folds over the float32 working planes at any depth, and the perceptual leg reads the `_TRANSFER` `color` column that until now no arm read.
+- Law: FIDELITY IS THE COMPLETION OF `lossless`, SO IT LIVES ON THE SAME ROW. `lossless` answers whether a row round-trips; `fidelity` answers by how much it does not, and no other page in this estate measures the error of `dwaa`, `b44`, `pxr24`, a non-lossless JXL/AVIF/WebP policy, or a UASTC/ETC1S payload — the KTX2 conformance gate grades container LEGALITY and says nothing about pixels. `data_range` DERIVES from the operand's own store and is never seeded, `mse`/`nrmse`/`psnr` are pure array folds over the float32 working planes at any depth, the structural leg composes the estate's one SSIM implementation under a window the plane's own smaller side sizes rather than the provider's photographic default, and the perceptual leg reads the `_TRANSFER` `color` column that until now no arm read. Those two legs gate INDEPENDENTLY — window reach and colour reach — so `FidelityMetric` names the deepest one that ran while both `Option` slots stay readable beside it.
 - Law: BLOCK COMPRESSION TAKES AN EIGHT-BIT STORE ON BOTH LEGS. `compress_basis` returns `INVALID_OPERATION` and `compress_astc` returns `UNSUPPORTED_FEATURE` on any `u16`, `f16`, or `f32` texture, and the `ktx create --encode` roster admits the `R8*_UNORM`/`R8*_SRGB` formats alone. `ktx_payload_of` therefore resolves `NONE` at every deeper depth and the file ships UNCOMPRESSED at its own `_KTX_VK` row — which is the one HDR container route either leg carries, and which the specular pyramid takes.
 - Law: `rawBcn` REFUSES here rather than substituting. libktx ships no BCn encoder, so the row's own `refusal` names the missing capability; mapping the class onto the UASTC parameter pair wrote a UASTC file whose `ktx_payload` field then misreported its own contents to every consumer. `astc` is the block class libktx does ship — `compress_astc` writes ASTC blocks DIRECT, so the file reports `needs_transcoding` False and needs no transcoder, and it is branch-local for exactly the reason `rawBcn` is: the `ktx-parse` and basis-transcoder path a web consumer runs cannot read it. `uastc` carries the vector channels with RDO disabled, `etc1s` the color channels at the default quality policy, and a set-level quality floor raises a color channel to `uastc`.
-- Entry: `encode(plane, fmt, policy)` and `decode(payload)` are the two total surfaces; `_ktx_encoded` is the one leg-dispatching interior and `fidelity(reference, decoded)` the one measurement. `EncodePolicy` is a `@tagged_union` with one case per container's real option set and a `default` case, `DeepCodecRow.accepts` proves the pairing BEFORE the writer runs — the exact admission shape `graphic/raster/process#PROCESS` `TransformArm.accepts` already carries — and `encode` resolves the row default once so every arm sees a policy of its own tag.
+- Entry: `encode(plane, fmt, policy)` and `decode(payload)` are the two total surfaces; `_ktx_encoded` is the one leg-dispatching interior, `_declared_colour(payload, fmt, space, primaries)` the one colour readback every tag-bearing decode arm composes, and `fidelity(reference, decoded)` the one measurement. `EncodePolicy` is a `@tagged_union` with one case per container's real option set and a `default` case, `DeepCodecRow.accepts` proves the pairing BEFORE the writer runs — the exact admission shape `graphic/raster/process#PROCESS` `TransformArm.accepts` already carries — and `encode` resolves the row default once so every arm sees a policy of its own tag.
 - Auto: the encode fold is row admission, then the row's own refusal, then transfer and association conversion into the row's canonical form, then quantization, then the writer. `converted` is the single site that moves any axis, so a container's canonical association is honored once and no writer re-derives it.
-- Packages: `imagecodecs` (`exr`, `rgbe`, `png`, `tiff`, `jpegxl`, `avif`, `webp`, `lerc`, `htj2k`, `ultrahdr`, `zfp`, `quantize` quadruples, the `<CODEC>` capability objects, `EXR.COMPRESSION`, `TIFF.COMPRESSION`/`PREDICTOR`, `AVIF.PIXEL_FORMAT`/`TRANSFER_CHARACTERISTICS`/`COLOR_PRIMARIES`/`MATRIX_COEFFICIENTS`, `JPEGXL.TRANSFER_FUNCTION`/`PRIMARIES`/`COLOR_SPACE`, `ULTRAHDR.CT`/`CG`, `ZFP.MODE`, `QUANTIZE.MODE`); the runtime tool roster (`resolved`/`KTX_TOOL` — the estate's one discovery answer for the provisioned binary); `openexr` (`File` as both writer and read-side context manager under `separate_channels=`, `Part`, `Channel.name`/`pixels`, `TileDescription`, `PreviewImage`, `Storage`, `LevelMode`, `ENVMAP_LATLONG`/`ENVMAP_CUBE`, `isOpenExrFile`); `pyktx` (`KtxTexture2` with `compress_basis`/`compress_astc`/`deflate_zstd`/`oetf`/`premultipled_alpha`/`vk_format`/`needs_transcoding`/`is_cubemap`/`num_faces`/`kv_data`, `KtxTextureCreateInfo`, `KtxBasisParams`, `KtxAstcParams`, `KtxPackAstcBlockDimension`, `KtxPackAstcEncoderMode`, `KtxPackAstcQualityLevels`, `VkFormat`, `KtxTranscodeFmt`); the provisioned `ktx` CLI (`create` and `extract`, both legs owned here); `colour` (`delta_E` under its `method=` axis, `XYZ_to_Lab`, `sRGB_to_XYZ`).
-- Growth: a new container is one `DeepFormat` row with one `DEEP_CODEC` entry and one `EncodePolicy` case when its options are not already covered; a new KTX2 payload class is one `KtxPayload` row with one `_ktx_encoded` arm and, where Basis writes it, one `_KTX_BASIS` entry; a new EXR compression is one `_EXR_ROW` entry carrying its exactness and its level band, and `lossless`, `lossy`, and the refusal all re-derive with no arm edit; a new guarantee shape is one `DeclaredBound` case with one `bound` arm, breaking every consumer at type-check; a new storage-capability axis is one `DeepCodecRow` column beside `mips`/`cubes` with one `encode` gate arm; a new producing tool is one `ProducerTool` row on the owning `DeepCodecRow`; a capability an engine lacks for one pairing is one `DeepCodecRow.refusal` arm, never a substitution inside a writer.
-- Boundary: block ENCODE is not claimed here — `bcn_encode` and `dds_encode` raise `NotImplementedError` in `imagecodecs` and the KTX2 legs own every block payload; `bcn_decode`/`dds_decode` are the READ-BACK leg a verify pass uses to prove block bytes without a second encoder. Resampling, folding, and every pixel transform stay `derive#DERIVE`'s; a chromaticity MOVE and every config-driven working-space resolution stay `graphic/color/managed#MANAGED`'s, and this page declares the datum without ever converting it. Container conformance grading, the egress grammar, and the receipt fold stay `set#TEXTURE_SET`'s. Container-level tiling exists for a large scanline EXR and carries no pyramid.
+- Packages: `imagecodecs` (`exr`, `rgbe`, `png`, `tiff`, `jpegxl`, `avif`, `webp`, `lerc`, `htj2k`, `ultrahdr`, `zfp`, `quantize` quadruples, the `<CODEC>` capability objects, `EXR.COMPRESSION`, `TIFF.COMPRESSION`/`PREDICTOR`, `AVIF.PIXEL_FORMAT`/`TRANSFER_CHARACTERISTICS`/`COLOR_PRIMARIES`/`MATRIX_COEFFICIENTS`, `JPEGXL.TRANSFER_FUNCTION`/`PRIMARIES`/`COLOR_SPACE`, `ULTRAHDR.CT`/`CG`, `ZFP.MODE`, `QUANTIZE.MODE`); the runtime tool roster (`resolved`/`KTX_TOOL`/`EXIFTOOL_TOOL` — the estate's one discovery answer for every provisioned binary this page spawns); `openexr` (`File` as both writer and read-side context manager under `separate_channels=`, `Part`, `Channel.name`/`pixels`, `TileDescription`, `PreviewImage`, `Storage`, `LevelMode`, `ENVMAP_LATLONG`/`ENVMAP_CUBE`, `isOpenExrFile`); `pyktx` (`KtxTexture2` with `compress_basis`/`compress_astc`/`deflate_zstd`/`oetf`/`premultipled_alpha`/`vk_format`/`needs_transcoding`/`is_cubemap`/`num_faces`/`kv_data`, `KtxTextureCreateInfo`, `KtxBasisParams`, `KtxAstcParams`, `KtxPackAstcBlockDimension`, `KtxPackAstcEncoderMode`, `KtxPackAstcQualityLevels`, `VkFormat`, `KtxTranscodeFmt`); the provisioned `ktx` CLI (`create` and `extract`, both legs owned here); `colour` (`delta_E` under its `method=` axis, `XYZ_to_Lab`, `sRGB_to_XYZ`); `scikit-image` (`metrics.structural_similarity` under `data_range`/`channel_axis`/`win_size` — the estate's one structural-similarity implementation, the same submodule the sibling raster measurement half reads); `pyexiftool` (`.api/pyexiftool.md`: `ExifToolHelper` under `common_args`, `get_tags`, `terminate`, and the `ExifToolException` family — the colour-declaration reader over both `nclx` and `cicp`); `pyvips` (`.api/pyvips.md`: `Image.new_from_buffer`, `get_typeof`/`get("icc-profile-data")`, `Error` — the JPEG XL codestream's synthesized profile ALONE, every pixel transform staying `derive#DERIVE`'s).
+- Growth: a new container is one `DeepFormat` row with one `DEEP_CODEC` entry and one `EncodePolicy` case when its options are not already covered; a new KTX2 payload class is one `KtxPayload` row with one `_ktx_encoded` arm and, where Basis writes it, one `_KTX_BASIS` entry; a new EXR compression is one `_EXR_ROW` entry carrying its exactness and its level band, and `lossless`, `lossy`, and the refusal all re-derive with no arm edit; a new guarantee shape is one `DeclaredBound` case with one `bound` arm, breaking every consumer at type-check; a new storage-capability axis is one `DeepCodecRow` column beside `mips`/`cubes` with one `encode` gate arm; a new producing tool is one `ProducerTool` row on the owning `DeepCodecRow`; a capability an engine lacks for one pairing is one `DeepCodecRow.refusal` arm, never a substitution inside a writer; a container that RECORDS its own colour declaration is one `_CICP_SOURCE` row naming its group, its sniff suffix, and the arm that extracts the declaring bytes, and a code either roster does not yet lower is one `_CICP_TRANSFER` or `_CICP_PRIMARIES` entry.
+- Boundary: block ENCODE is not claimed here — `bcn_encode` and `dds_encode` raise `NotImplementedError` in `imagecodecs` and the KTX2 legs own every block payload; `bcn_decode`/`dds_decode` are the READ-BACK leg a verify pass uses to prove block bytes without a second encoder. Resampling, folding, and every pixel transform stay `derive#DERIVE`'s; a chromaticity MOVE and every config-driven working-space resolution stay `graphic/color/managed#MANAGED`'s, and this page declares the datum without ever converting it. Container conformance grading, the egress grammar, and the receipt fold stay `set#TEXTURE_SET`'s. Container-level tiling exists for a large scanline EXR and carries no pyramid. The colour READBACK reads a declaration and moves nothing: it recovers the transfer and chromaticity a file states so `converted` and the consuming surfaces see the truth, and the transform those axes imply stays `graphic/color/managed#MANAGED`'s exactly as the write side's does. Descriptive metadata — EXIF, IPTC, XMP, and the whole cross-format tag estate the same binary reads — stays `exchange/metadata#METADATA`'s, which holds its own helper; this page requests two tags by name and folds no facet.
 
 ```python signature
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -626,6 +647,13 @@ class PlaneFidelity(Struct, frozen=True, gc=False):
     mse: float
     nrmse: float
     data_range: float
+    ssim: Option[float] = Nothing
+    # ^ the local structural agreement — luminance, contrast, and covariance over a sliding neighbourhood — the one
+    # fidelity number that answers WHERE the error sits rather than only how much of it there is, so a block payload
+    # smearing one region and a codec dithering the whole plane stop reading alike at equal `psnr`. ABSENT where the
+    # plane's smaller side cannot seat the minimum window, because SSIM is a NEIGHBOURHOOD statistic and a plane with
+    # no neighbourhood has no reading to give: `1.0` is the perfect-match value and `0.0` the worst, so neither
+    # spells "never measured" and a consumer thresholding the slot would read a mip tail as flawless or as ruined.
     delta_e: Option[float] = Nothing
     # ^ ABSENT on a plane the perceptual leg does not reach, because a required slot defaulting to `0.0` cannot
     # spell absence at all: `0.0` IS the reading a perfect colour match produces, so the two states are one value
@@ -633,9 +661,11 @@ class PlaneFidelity(Struct, frozen=True, gc=False):
 
     @property
     def metric(self, /) -> FidelityMetric:
-        # DERIVED from the one primary fact rather than stored beside it: the perceptual leg ran exactly when it
-        # produced a number, so a stored discriminant is a second truth that can contradict the slot it describes.
-        return FidelityMetric.PERCEPTUAL if self.delta_e.is_some() else FidelityMetric.SIGNAL
+        # DERIVED from the primary facts rather than stored beside them: each leg ran exactly when it produced a
+        # number, so a stored discriminant is a second truth that can contradict the slots it describes. The two
+        # gates are INDEPENDENT — colour reach and window reach — and this names the deepest leg that ran, losing
+        # nothing, because both slots stay on the value for a consumer reading the exact pair.
+        return FidelityMetric.PERCEPTUAL if self.delta_e.is_some() else FidelityMetric.STRUCTURAL if self.ssim.is_some() else FidelityMetric.SIGNAL
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -883,6 +913,16 @@ def _jxl_encoded(plane: DeepPlane, policy: EncodePolicy, /) -> bytes:
     )
 
 
+def _jxl_decoded(payload: bytes, fmt: DeepFormat, floor: PlaneSpace, /) -> Result[DeepPlane, TextureFault]:
+    # ONE arm both JXL rows take, parameterized by the FLOOR each declares rather than split into two bodies: the
+    # rows differ in the transfer they fall back to and in nothing else, so a second arm would be one declaration
+    # copied twice. `jpegxl_decode` hands back the array alone, and the file's own declaration reaches this page
+    # through the ICC profile libjxl synthesizes from the codestream — so the floor now stands only where that
+    # profile is absent or states a curve outside this roster.
+    space, primaries = _declared_colour(payload, fmt, floor, PlanePrimaries.BT709)
+    return decoded_plane(imagecodecs.jpegxl_decode(payload), space, AlphaMode.STRAIGHT, primaries)
+
+
 def _avif_encoded(plane: DeepPlane, policy: EncodePolicy, /) -> bytes:
     # 12-bit AVIF takes a uint16 array whose samples span `_AVIF_BITS` FULL SCALE, never the dtype's own ceiling:
     # `bitspersample=12` declares the sample precision and the encoder clamps at 4095, so a 65535-scaled array
@@ -911,10 +951,13 @@ def _avif_decoded(payload: bytes, /) -> Result[DeepPlane, TextureFault]:
     # arrives uint8 at its own full scale, and threading `bits` at it divides by 4095 and quantizes upward.
     # Without the uint16 thread every 12-bit read landed a SIXTEENTH of its own scale: the exact defect `lifted`'s
     # comment names, live on the decode row that declared the sub-depth.
-    # The TAG the encode wrote is unrecoverable here — `avif_decode` returns an array and nothing else — so the row's
-    # declared pair stands and a producer's own declaration is the override the set-level pass-through arm threads.
+    # The TAG the encode wrote is unrecoverable through the CODEC — `avif_decode` returns an array and nothing else —
+    # so the declaration is read off the container's own `nclx` box instead, and the row's declared pair is the floor
+    # under it. A `pq` environment capture therefore decodes as `pq` and reaches `set#TEXTURE_SET`'s display-transfer
+    # refusal, where reading it as `srgb` passed it into a bake as a scene-referred plane it was never authored as.
     stored = imagecodecs.avif_decode(payload)
-    return decoded_plane(stored, PlaneSpace.SRGB, AlphaMode.STRAIGHT, PlanePrimaries.BT709, bits=_AVIF_BITS if stored.dtype == np.uint16 else 0)
+    space, primaries = _declared_colour(payload, DeepFormat.AVIF12, PlaneSpace.SRGB, PlanePrimaries.BT709)
+    return decoded_plane(stored, space, AlphaMode.STRAIGHT, primaries, bits=_AVIF_BITS if stored.dtype == np.uint16 else 0)
 
 
 def _webp_encoded(plane: DeepPlane, policy: EncodePolicy, /) -> bytes:
@@ -1084,6 +1127,140 @@ _JXL_PRIMARIES: Final[frozendict[PlanePrimaries, str]] = frozendict({
     # vocabulary exists to make unspellable.
     row: _JXL_WIDE.get(row, "SRGB") for row in PlanePrimaries
 })
+
+
+_EXIF_GATE: Final = Lock()
+# ^ the helper's `-stay_open` batch subprocess is ONE stdin/stdout pipe, and the RELEASING lane runs sibling decodes
+# on sibling threads of one process: two unserialized `get_tags` exchanges interleave protocol frames the driver
+# never recovers from, and `functools.cache` de-duplicates the VALUE, not the racing first construction — two
+# concurrent misses mint two Perl subprocesses and cache one. Every caller brackets resolution AND call under this
+# gate, so exactly one helper is ever minted, no losing instance exists to retire, and each exchange on the pipe is
+# whole; the lock guards exactly the shared cell that loses serialization — the runtime law's narrow form — never a
+# coarse gate over the codec work around it.
+
+
+@cache
+def _exiftool() -> ExifToolHelper:
+    # ONE worker-process-static helper: the driver holds a `-stay_open` batch subprocess, so the Perl interpreter
+    # start is paid once per process rather than once per decoded plane. `common_args` pins the family-0 grouping
+    # every key below spells and `-n`, the NUMERIC print conversion — the CICP integers are the STABLE key and the
+    # printed strings (`SMPTE ST 2084, ITU BT.2100 PQ`) are display text a binary revision re-words at will.
+    # `exchange/metadata#METADATA` holds its own helper and the two never share one: `graphic/texture` imports the
+    # floor, the runtime shapes, and its own siblings alone, so a peer-plane reach would break the acyclic law for a
+    # subprocess. Discovery is the runtime roster's, the spawn spelling this page's — the same split the `ktx` leg
+    # holds — so an off-PATH host answers identically here and at the bench floor. A host resolving no binary caches
+    # a helper whose every call raises, which lands the readback floor.
+    helper = ExifToolHelper(executable=resolved(EXIFTOOL_TOOL).default_value(EXIFTOOL_TOOL), common_args=["-G", "-n"])
+    at_exit(helper.terminate)
+    return helper
+
+
+def _jxl_icc(payload: bytes, /) -> bytes:
+    # The JPEG XL colour declaration lives in the `jxlc` CODESTREAM, which no box walker opens — MEASURED, `exiftool`
+    # over a JXL file reads the `ftyp`/`jxll` boxes and returns nothing colour-shaped at all. libjxl parses that
+    # codestream on load and SYNTHESIZES an ICC v4.4 profile carrying the same declaration in its `cicp` tag, which
+    # `jxlload` publishes as `icc-profile-data` — MEASURED on every transfer this page writes, `linear` and `srgb`
+    # included, so the leg is live for the whole roster and not for the display rows alone. The parse is libjxl's
+    # and the tag read is exiftool's, so no container is walked by hand anywhere on this route.
+    # `get_typeof` is the admitted presence probe — a bare `get` RAISES on absence — and an unprovisioned libvips
+    # raises the dlopen `OSError` past this guard to `_declared_colour`'s, which reads it as a silent readback.
+    try:
+        image = VipsImage.new_from_buffer(payload, "")
+        return image.get("icc-profile-data") if image.get_typeof("icc-profile-data") else b""
+    except VipsError:
+        return b""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CicpSource:
+    # WHERE a container files its own colour declaration, and the bytes a reader parses to find it. The GROUP is
+    # load-bearing rather than decoration: a BARE tag request lets a file publishing two declarations collapse to
+    # whichever the binary printed last, while a group-qualified one answers from exactly one namespace and reads
+    # EMPTY from every other — MEASURED, `ICC_Profile:ColorPrimaries` over an AVIF returns no key at all. The
+    # SUFFIX is the spelling the binary type-sniffs the handed bytes under, which an ICC blob needs because its
+    # own signature sits past the header rather than at offset zero.
+    group: str
+    suffix: str
+    extract: Callable[[bytes], bytes]  # container payload -> the bytes carrying the declaration; TOTAL, `b""` where none does
+
+
+_CICP_SOURCE: Final[frozendict[DeepFormat, CicpSource]] = frozendict({
+    # The rows whose containers RECORD a colour declaration a reader can recover. AVIF files it in the `nclx` box
+    # the container walker reads DIRECT, so its extract is the identity and the payload itself is handed over; both
+    # JXL rows share one arm because the sibling split is depth-shaped and the colour bundle is the same codestream
+    # field either way. Every other row is absent by construction — `exr` and `lerc` carry no such declaration,
+    # `ktx2` states it in its own data-format descriptor that leg reads, and an absent row IS the declared floor.
+    DeepFormat.AVIF12: CicpSource(group="QuickTime", suffix=".avif", extract=lambda payload: payload),
+    **{row: CicpSource(group="ICC_Profile", suffix=".icc", extract=_jxl_icc) for row in (DeepFormat.JXL, DeepFormat.JXL_F16)},
+})
+_CICP_TRANSFER: Final[frozendict[int, PlaneSpace]] = frozendict({
+    # ITU-T H.273 transfer-characteristics codes onto this page's own transfer roster, PARTIAL by construction:
+    # `1` (BT.709), `4` (gamma 2.2), `6` (BT.601), and `14`/`15` (BT.2020) are gamma curves `PlaneSpace` carries no
+    # row for, and `2` is the explicit UNSPECIFIED an untagged write files — MEASURED, a bare `avif_encode` writes
+    # `2` on BOTH axes. Each of them reads the row's declared floor, because lowering a curve this page cannot
+    # apply onto the nearest one it can is a relabel wearing a readback.
+    8: PlaneSpace.LINEAR,
+    13: PlaneSpace.SRGB,
+    16: PlaneSpace.PQ,
+    18: PlaneSpace.HLG,
+})
+_CICP_PRIMARIES: Final[frozendict[int, PlanePrimaries]] = frozendict({
+    # The chromaticity half against `PlanePrimaries`, whose values are the `khr_df_primaries_e` enumerators — two
+    # rosters minted from different standards, so the correspondence is STATED here and derived nowhere. `11`
+    # (SMPTE RP 431, DCI-P3) carries no row on purpose: it shares Display P3's chromaticities under a DIFFERENT
+    # white point, so answering `DISPLAYP3` would state a white point the file denies. `ACES`, `ACESCC`, and
+    # `ADOBERGB` are unreachable from this side at all — H.273 names no code for any of them.
+    1: PlanePrimaries.BT709,
+    4: PlanePrimaries.NTSC1953,
+    5: PlanePrimaries.BT601_EBU,
+    6: PlanePrimaries.BT601_SMPTE,
+    7: PlanePrimaries.BT601_SMPTE,  # SMPTE 240M shares the 170M chromaticities and differs in its transfer alone
+    9: PlanePrimaries.BT2020,
+    10: PlanePrimaries.CIEXYZ,
+    12: PlanePrimaries.DISPLAYP3,
+    22: PlanePrimaries.BT601_EBU,  # EBU Tech 3213-E restates the BT.470BG chromaticities under its own code
+})
+
+
+def _rostered_tag[Axis](read: dict[str, object], key: str, roster: frozendict[int, Axis], floor: Axis, /) -> Axis:
+    # ONE per-axis lowering both CICP axes take, and TOTAL: an ABSENT key and a code outside this page's own roster
+    # resolve identically to the floor, because neither is a declaration this vocabulary can carry, and collapsing
+    # the two states removes the sentinel a `code or 0` reading would have to invent. The `int` narrowing is what
+    # makes `-n` load-bearing — under print conversion the same field arrives as prose and matches no roster row.
+    code = read.get(key)
+    return roster[code] if isinstance(code, int) and code in roster else floor
+
+
+def _declared_colour(payload: bytes, fmt: DeepFormat, space: PlaneSpace, primaries: PlanePrimaries, /) -> tuple[PlaneSpace, PlanePrimaries]:
+    # WHAT THE FILE ITSELF DECLARES, with the row's own tag as the floor beneath it. TOTAL over every input: a
+    # container with no `_CICP_SOURCE` row, a payload whose source publishes nothing, an unprovisioned `exiftool` or
+    # `libvips`, and a code outside the rosters all resolve to the floor — a plane whose declaration cannot be read
+    # is exactly the plane the row's declared tag was written for. The two axes resolve INDEPENDENTLY, because a
+    # file stating a transfer and no chromaticity is ordinary and pairing them would drag one axis's silence onto
+    # the other. Provider raises land as that same silence rather than a `TextureFault`: an unreadable declaration
+    # is a fact about the FILE's metadata, never about its pixels, and faulting the decode would refuse a payload
+    # whose texels this page reads perfectly. `MatrixCoefficients` and `VideoFullRangeFlag` ride the same box and
+    # are deliberately NOT requested — the decoder applied both before it handed back an array, so carrying either
+    # onto the carrier would seat a datum no arm can consume and no axis can hold.
+    if fmt not in _CICP_SOURCE:
+        return (space, primaries)
+    source = _CICP_SOURCE[fmt]
+    transfer_key, primaries_key = f"{source.group}:TransferCharacteristics", f"{source.group}:ColorPrimaries"
+    try:
+        with NamedTemporaryFile(suffix=source.suffix) as sink:
+            # the reader is a SUBPROCESS over a path, so the payload crosses a file exactly as the KTX2 read-back
+            # does; `-stay_open` owns the driver's own stdin, which is why a `-` stdin hand-off deadlocks the pipe
+            sink.write(source.extract(payload))
+            sink.flush()
+            with _EXIF_GATE:  # one pipe, one caller: helper resolution and the tag exchange serialize together
+                read = _exiftool().get_tags([sink.name], tags=[transfer_key, primaries_key])[0]
+    except (ExifToolException, OSError, ImportError):
+        # the typed driver family plus the two PROVISION shapes: an absent binary surfaces as `FileNotFoundError`
+        # (MEASURED — not an `ExifToolException`), and an absent `libvips` as the dlopen `OSError`/`ImportError`
+        return (space, primaries)
+    return (_rostered_tag(read, transfer_key, _CICP_TRANSFER, space), _rostered_tag(read, primaries_key, _CICP_PRIMARIES, primaries))
+
+
 _KTX_VK: Final[frozendict[tuple[PlaneDepth, int, bool], str]] = frozendict({
     # (storage depth, storage width, srgb) -> the VkFormat member name; `_STORAGE_WIDTH` rounds the semantic
     # count first. The THIRD key is the transfer's own record: the binding's `oetf` is a READ-ONLY property
@@ -1372,7 +1549,10 @@ def _ktx_bound_encode(plane: DeepPlane, policy: EncodePolicy, /) -> bytes:
     # PROVENANCE lands in the container's own metadata block, so a KTX2 separated from its manifest still names what
     # wrote it — `tool` and `tool_version` ride the manifest alone otherwise, and the spawned leg's own create stamps
     # the same key, so neither leg ships an anonymous file and the two agree on what the FILE declares.
-    texture.kv_data[_KTX_WRITER] = f"{ProducerTool.KTX.value}:{KtxLeg.IN_PROCESS.value}".encode()
+    # `kv_data` is a `KtxHashList`, NOT a mapping: item assignment raises `TypeError: 'KtxHashList' object does not
+    # support item assignment`, and `add_kv_pair(key: str, value: bytes)` is the write. The key rides as `str` and the
+    # value as `bytes`, and `find_value` is the read half that recovers it across a file crossing.
+    texture.kv_data.add_kv_pair(_KTX_WRITER, f"{ProducerTool.KTX.value}:{KtxLeg.IN_PROCESS.value}".encode())
     return texture.write_to_memory()
 
 
@@ -1441,7 +1621,10 @@ def _ktx_bound(payload: bytes, /) -> Result[DeepPlane, TextureFault]:
     # associated plane as straight, and the next conversion then applies a curve the bytes never carried.
     space = _KTX_OETF.get(int(texture.oetf), PlaneSpace.RAW)
     alpha = (AlphaMode.ASSOCIATED if texture.premultipled_alpha else AlphaMode.STRAIGHT) if channels == 4 else AlphaMode.NONE
-    width, height, store = texture.base_width, texture.base_height, bytes(texture.data)
+    # `data` is a METHOD on this binding, not a property — it answers a `_cffi_backend.buffer` and an unparenthesized
+    # read hands back the bound method itself, which `bytes` then refuses. `data_size` beside it IS a property, so the
+    # store and its measure do not share one shape and neither spelling transfers to the other.
+    width, height, store = texture.base_width, texture.base_height, bytes(texture.data())
     # LEVEL-MAJOR OVER FACES, matching the carrier: `image_offset` takes the same (level, layer, face) triple the
     # write placed on, so a cubemap reads back into one carrier declaring `faces=6` and a 2-D texture into the same
     # carrier declaring one — no second shape, and no consumer branching on which the payload held.
@@ -1528,7 +1711,7 @@ DEEP_CODEC: Final[frozendict[DeepFormat, DeepCodecRow]] = frozendict({
         probe=lambda: imagecodecs.JPEGXL.available,
         tool=ProducerTool.IMAGECODECS,
         encode=_jxl_encoded,
-        decode=lambda payload: decoded_plane(imagecodecs.jpegxl_decode(payload), PlaneSpace.SRGB, AlphaMode.STRAIGHT),
+        decode=lambda payload: _jxl_decoded(payload, DeepFormat.JXL, PlaneSpace.SRGB),
     ),
     DeepFormat.JXL_F16: DeepCodecRow(
         sniff=lambda payload: imagecodecs.jpegxl_check(payload),
@@ -1542,7 +1725,7 @@ DEEP_CODEC: Final[frozendict[DeepFormat, DeepCodecRow]] = frozendict({
         probe=lambda: imagecodecs.JPEGXL.available,
         tool=ProducerTool.IMAGECODECS,
         encode=_jxl_encoded,
-        decode=lambda payload: decoded_plane(imagecodecs.jpegxl_decode(payload), PlaneSpace.LINEAR, AlphaMode.STRAIGHT),
+        decode=lambda payload: _jxl_decoded(payload, DeepFormat.JXL_F16, PlaneSpace.LINEAR),
     ),
     DeepFormat.AVIF12: DeepCodecRow(
         sniff=lambda payload: imagecodecs.avif_check(payload),
@@ -1684,10 +1867,12 @@ def _resolved_row(candidates: tuple[DeepFormat, ...], plane: DeepPlane, /) -> De
 
 def decode(payload: bytes, /) -> Result[tuple[DeepFormat, DeepPlane], TextureFault]:
     # The resolved row DECODES AGAIN when it is not the one that ran: a sibling pair does not differ in dtype
-    # alone — `jxl` decodes `srgb`/`straight` and `jxl_f16` `linear`, and the AVIF12 row lifts against its own
+    # alone — `jxl` FLOORS at `srgb`/`straight` and `jxl_f16` at `linear`, and the AVIF12 row lifts against its own
     # twelve-bit scale — so relabelling the first candidate's product publishes a plane whose transfer, alpha,
     # and sample scale belong to the row that did not win. One extra decode fires only on a genuine sibling
-    # split, and the first pass is what supplied the depth the split reads.
+    # split, and the first pass is what supplied the depth the split reads. The re-decode stays load-bearing under
+    # the colour readback rather than despite it: where the synthesized profile answers, both JXL floors resolve to
+    # the same transfer and the second pass merely agrees, and where it is silent the floors are what still differ.
     def _split(candidates: tuple[DeepFormat, ...], plane: DeepPlane, /) -> Result[tuple[DeepFormat, DeepPlane], TextureFault]:
         resolved = _resolved_row(candidates, plane)
         return Ok((resolved, plane)) if resolved is candidates[0] else DEEP_CODEC[resolved].decode(payload).map(lambda split: (resolved, split))
@@ -1772,6 +1957,12 @@ def fidelity(reference: DeepPlane, decoded: DeepPlane, /) -> Result[PlaneFidelit
     )
     mse = float(np.mean((reference.base - decoded.base) ** 2))
     perceptual = _TRANSFER[reference.space].color and reference.channels in {3, 4}
+    # The largest ODD neighbourhood the plane's smaller side admits, capped at the provider's own default. The window
+    # DERIVES for the same reason `data_range` does: a fixed seven is the provider's assumption about photographic
+    # extents, and every mip tail this page's ladders fold down to would raise on it. Below three there is no
+    # neighbourhood at all — a one-texel window divides by its own zero degrees of freedom — so the leg declines.
+    side = min(_SSIM_WINDOW, reference.base.shape[0], reference.base.shape[1])
+    window = side - 1 + side % 2
     return Ok(
         PlaneFidelity(
             # an exact round trip is INFINITE signal-to-noise, not a division by zero the caller has to guard
@@ -1779,6 +1970,15 @@ def fidelity(reference: DeepPlane, decoded: DeepPlane, /) -> Result[PlaneFidelit
             mse=mse,
             nrmse=float(np.sqrt(mse)) / span,
             data_range=span,
+            # the one structural-similarity implementation the estate admits, composed over the SAME derived
+            # `data_range` the signal folds scored against so the two readings share one scale. `channel_axis=-1`
+            # holds for every plane here by construction — `DeepPlane.of` admits `(H, W, C)` rank alone — so the
+            # component count is a shape fact and never a branch.
+            ssim=(
+                Some(float(metrics.structural_similarity(reference.base, decoded.base, data_range=span, channel_axis=-1, win_size=window)))
+                if window >= _SSIM_FLOOR
+                else Nothing
+            ),
             # the CIE 2000 difference over the colour slice is the only perceptually meaningful number for a lossy
             # base-colour encode, and no other admitted package carries it. `_TRANSFER`'s `color` column selects the
             # leg — its first reader — so a normal, roughness, or height plane carries NOTHING on the slot, where a
@@ -1811,7 +2011,9 @@ flowchart LR
     Probe --> Sniff["_sniffed: shipped &lt;codec&gt;_check -> container candidates"]
     Sniff -->|"nothing claims it"| FDec["TextureFault.decode"]
     Sniff --> Dec["DeepCodecRow.decode -> lifted(dtype) -> decoded_plane"]
+    Dec --> Tags["_declared_colour: _CICP_SOURCE -> nclx box or jxlload synthesized ICC cicp -> CICP codes, the row's tag its floor"]
     Dec --> Row["_resolved_row: DECODED depth splits the siblings one check claims"]
+    Tags --> Row
     Row --> Rec["DeepPlane(levels, depth, space, alpha, primaries, faces)"]
     Rec --> Conv["converted: linearized -> associated -> encoded_transfer, over the COLOUR slice; primaries pass through"]
     Conv --> Enc["encode(plane, fmt, policy) -> DeepCodecRow.options resolves the row default ONCE"]
@@ -1830,10 +2032,8 @@ flowchart LR
 
 ## [04]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [ASTC_HDR_BLOCKS]-[BLOCKED]: which build option lets an `ASTC_*_SFLOAT_BLOCK` payload be WRITTEN from a float plane — `KtxTexture2.compress_astc(KtxAstcParams())` over a `VK_FORMAT_R16G16B16A16_SFLOAT` texture raises `KtxError: ktxTexture2_compressAstcEx returned with 17`, the `UNSUPPORTED_FEATURE` code, and `ktx create --format ASTC_6x6_SFLOAT_BLOCK` refuses for non-raw input as an unsupported create format, so the HDR encoder mode is unreachable on both legs of the provisioned toolchain; re-probe by building a float `KtxTexture2` and reading the returned code after any `ktx-tools` bump, and until then the deep KTX2 route is the uncompressed `_KTX_VK` store.
-- [PLANE_SSIM]-[BLOCKED]: which admitted package carries a structural-similarity implementation `fidelity` can compose — `skimage.metrics.structural_similarity` is the only one in the estate and `skimage` does not import at the interpreter floor, while a `scipy.ndimage.uniform_filter` hand-roll is a kernel an admitted package owns and doctrine refuses; the arming condition is the `scikit-image` interpreter gate lifting, so re-probe by importing `skimage.metrics` at the floor and, on success, land one `PlaneFidelity` field and one `FidelityMetric` row beside the perceptual leg.
-- [DEEP_TAG_READBACK]-[OPEN]: whether ANY admitted surface hands back the AVIF and JPEG XL transfer and primaries tags the encode arms now write — three were measured against a file authored `transfer=PQ, primaries=BT2020` and all three refuse. `imagecodecs.avif_decode(data, /, index, *, numthreads, out)` and `jpegxl_decode(data, /, index, *, keeporientation, numthreads, out)` return the array alone, with no tags slot, no out-parameter, and no `<codec>_colorspace` reader beside them; `pyvips` `heifload` publishes `heif-primary`, `heif-compression`, and `bits-per-sample` and no nclx field at all, so its `interpretation` reads `rgb16` for a PQ file exactly as for an sRGB one; the Pillow AVIF plugin leaves `Image.info` empty. So a `pq` file this page authored still decodes under the row's declared tag and the producer's own declaration is the only override. The arming observable is a tags return, an out-parameter, or a dedicated colour reader on either decode member, or an nclx field appearing in the `pyvips` heif field roster; re-probe those three surfaces, and on arrival read the tag into `decoded_plane` and retire the declared-tag fallback. A hand-rolled nclx box walk is the refused alternative — a container parser is a capability an admitted package owns.
+(none)

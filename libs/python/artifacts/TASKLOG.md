@@ -20,6 +20,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+(none)
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
@@ -36,7 +38,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [FILTER_DRAIN_KERNEL]-[COMPLETE]: landed — one `_drained` kernel on `media/filtergraph.md` carrying the live-probed `av.error.BlockingIOError`/`av.error.EOFError` pair (both subclass `FFmpegError` AND their builtin twins, the recorded trap); the three prior copies carried Python 2 `except` grammar that never parsed, so one vocabulary was a SyntaxError rather than a divergence.
 [XFADE_BLEND_OWNER]-[COMPLETE]: landed — `FilterNode.xfade` payload narrowed to the one real axis `Transition` and the dissolve arm reads it (`offset` had no in-process arm, `duration` was a second authority over `window`); timeline's `_MASK` folded into filtergraph's `_WEIGHT` as spatially-constant rows and `_blended` is one unbranched `wired` call.
 [WIRED_FAULT_ARMS]-[COMPLETE]: landed — one `ValueError`-to-`invalid` arm on `_transcode` seated BELOW the `FFmpegError` arm, ordering load-bearing because `av.error.InvalidDataError` is itself a `ValueError` subclass.
-[LAYER_RENAME_PROJECTION]-[COMPLETE]: landed — `Layer.renamed(layers, names)` on `export/layered.md`; the three `_placed_layers` copies deleted; fallback reconciled to one policy (roster name, else the row's non-blank own name, else `layer-{index}`) because the synthetic is unique by construction under `LayeredExport.of`'s duplicate refusal.
+[LAYER_RENAME_PROJECTION]-[COMPLETE]: landed — `Layer.renamed(layers, names)` on `export/layered.md`; the three `_placed_layers` copies deleted; fallback reconciled to one policy (the chosen name — roster override when the index is covered, else own name — falls to `layer-{index}` whenever blank) because the synthetic is unique by construction under `LayeredExport.of`'s duplicate refusal while a blank-override fall-through to a non-blank own name can re-mint the duplicate collision the synthetic prevents.
 [FORMULA_SINGLE_TYPESET]-[COMPLETE]: landed — `_typeset` lays each math note once per render and threads the laid fragment to measure and render consumers; the second heavy typeset died along with its color-divergence defect (measure typeset without `color`, render with it).
 [ANNOTATION_LEAF_CONSTRUCTOR]-[COMPLETE]: landed — `LayerNode.Annotation(name, source, *, aec, z)` on `graphic/layer.md`; the four drawing `_row` copies plus `marks/encode.md`'s fifth hand-build compose it; `aec` defaults `Nothing` with dimension passing `Some(_DIMS)` at its own call sites.
 [DXF_EXTENT_HELPER]-[COMPLETE]: landed — `extent(msp, fallback)` beside the standard owner over `bbox.extents(msp, fast=True)`; the two byte-identical copies and the float sibling deleted, rounding unified at the receipt seam.

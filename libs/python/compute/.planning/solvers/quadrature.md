@@ -11,8 +11,8 @@ Reused `Readout` axis spans both numeric routes; the FEM route consumes the `Ass
 ## [02]-[QUADRATURE]
 
 - Owner: `QuadratureIntent` carries the integrate/interpolate/fem cases on one solver; the `fem` case carries the assembled stiffness/load/dof system itself, never the `MeshField`, so this route condenses and solves and never reaches into mesh assembly.
+- Law: `QuadratureIntent.graduates` is the sibling-shaped solver-axis crossing over the `_CEILING` family row — the weak-form `condense -> solve` result is the terminal evidence of the whole mesh-assemble-solve chain, so withholding it would leave that chain unable to reach the hub while its linear, nonlinear, and differential peers cross on the same axis with the same projection. Ceiling default is governed policy beside the trait rows and a caller's tighter row overrides at the projection.
 - Entry: `QuadratureIntent.solve(lane)` is the one union method matching `LinearIntent.solve`/`DifferentialIntent.solve`, composing the `_TRAIT`-routed `lane.offload` under the hub `evidence_run` weave — `HOSTILE` for the gated quadax/interpax routes (x64 is process-global native state), `RELEASING` for the scipy FEM — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing owner from the trait row; the caller's composition `ScopeKey` threads onto the weave and the crossing alike.
-- Graduation: `QuadratureIntent.graduates` is the sibling-shaped solver-axis crossing over the `_CEILING` family row — the weak-form `condense -> solve` result is the terminal evidence of the whole mesh-assemble-solve chain, so withholding it would leave that chain unable to reach the hub while its linear, nonlinear, and differential peers cross on the same axis with the same projection. Ceiling default is governed policy beside the trait rows and a caller's tighter row overrides at the projection.
 - Output: the shared `Readout` axis carries output shape for both routes — scalar integral, running antiderivative, `nu`-th derivative, analytic antiderivative — never a `cumulative`/`derivative` boolean knob or parallel `IntegrateOutput`/`InterpOutput` enums.
 - Receipt: the adaptive `QuadratureInfo` termination bitfield folds into the `Iterative` receipt's typed `SolveStatus` (estimated error in `residual`, evaluation count in `iterations`), exactly as the sparse Krylov `_info_status` fold does; a `VECTORIZED` per-component `err`/`status` reduces to the worst scalar (`np.max` error, `np.bitwise_or.reduce` flag union), `NO_CONVERGE` decodes to divergence rather than the distinct `MAX_NINTER` step-budget verdict, and every scipy/numpy floor passes `result=None` to the shared `solvers/receipt#RECEIPT` `status_of` residual floor.
 - Packages: `quadax`/`interpax` the JAX-native differentiable adaptive/fixed/sampled and interpolant floor, `scipy` the host bodies (never the deprecated `interp1d`; no scipy node-derivative Hermite drop-in, so the `HERMITE` scipy floor is the degree-`k` `make_interp_spline` C2 cubic), `skfem` the `condense`/`solve` half only (`Basis`/`asm` stays on `solvers/mesh#EXCHANGE`), `jax` the x64 float64 promotion, `numpy` the unconditional floor owning `_prefix_trapezoid` locally (numpy exposes no `cumulative_trapezoid`; that spelling is SciPy-owned), otherwise per the fence imports.
@@ -42,6 +42,11 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
+# cold scientific dependencies: the `lazy` binds defer the scipy and FEM trees to the first floor body.
+# The jax family is NOT here — it rides the `QuadEngine` carrier behind its x64 config seam.
+lazy import scipy.integrate as integ
+lazy import scipy.interpolate as interp
+lazy import skfem
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -148,7 +153,9 @@ class InterpRow(Struct, frozen=True):
 
 # Gated quadax/interpax/jax modules folded into ONE frozen value object, behavior built once per `gated()`:
 # `integrate` the SINGLE row-keyed (value, QuadratureInfo) driver, `sampled` the bare-array fold, `interpolant` the
-# interpax constructor-and-readout fold.
+# interpax constructor-and-readout fold. These imports stay function-local against the module-scope `lazy` dialect on the
+# compute RULINGS [04] x64 ruling: the config seam must precede the first jax-dependent import, and the frozen carrier enforces
+# that structurally — `self.quadax`/`self.interpax` exist only after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class QuadEngine:
     quadax: object
@@ -156,12 +163,14 @@ class QuadEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import interpax
-        import jax
-        import quadax
-        import quadax.sampled  # bind the sampled submodule the SAMPLED_SIMPSON / CUMULATIVE rows read
+        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
 
         jax.config.update("jax_enable_x64", True)  # epsabs 1e-10 / epsrel 1e-8 are below float32 eps; JAX defaults to float32
+
+        import interpax  # ruff:ignore[import-outside-top-level] — binds after the arm so no import-time constant bakes float32
+        import quadax  # ruff:ignore[import-outside-top-level] — binds after the arm so no import-time constant bakes float32
+        import quadax.sampled  # ruff:ignore[import-outside-top-level] — bind the sampled submodule the SAMPLED_SIMPSON / CUMULATIVE rows read
+
         return cls(quadax=quadax, interpax=interpax)
 
     # ONE callable-integrand driver: `row.adaptive` names the quadax specialization, so one row-keyed call site
@@ -360,8 +369,6 @@ def _integrate_scipy(
     fn: object, lo: float, hi: float, row: QuadRow, policy: QuadPolicy, profile: EngineProfile | None = None
 ) -> SolverReceipt:
     try:
-        import scipy.integrate as integ
-
         match row.scipy:
             case "simpson":
                 samples = np.asarray(fn)
@@ -449,8 +456,6 @@ def _interpolate_scipy(
             return np.asarray(np.gradient(base, xq))
         return _cumulative_readout(base, xq, policy.readout)
     try:
-        import scipy.interpolate as interp
-
         ctor = getattr(interp, row.scipy_class)
         spline = _construct(ctor, points, values, kind, policy, dydx, node_derivatives=False)
         return _read_spline(spline, xq, policy)
@@ -496,8 +501,6 @@ def _read_spline(spline: object, xq: np.ndarray, policy: QuadPolicy) -> np.ndarr
 # `(cond_a, cond_b, *_restore)` bundle, then the caller's scheme solves it through `sparse_receipt` — honest
 # `‖cond_a @ x - cond_b‖`, MatrixStructure.SYMMETRIC exposing SPD.
 def _fem_receipt(system: AssembledSystem, dirichlet: float, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
-    import skfem
-
     seed = np.zeros(system.dof_count) + dirichlet
     cond_a, cond_b, *_restore = skfem.condense(system.stiffness, system.load, x=seed, D=system.dirichlet_dofs, expand=False)
     return sparse_receipt(LinearMap.SparseMat(cond_a, MatrixStructure.SYMMETRIC), np.asarray(cond_b), scheme, policy)

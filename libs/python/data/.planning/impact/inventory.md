@@ -22,11 +22,16 @@ The pipeline's linking quality is a RECEIPT, never a print: `statistics()`'s `(n
 
 ```python signature
 from enum import StrEnum
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 from expression import case, tag, tagged_union
 from msgspec import Struct
 from opentelemetry import trace
+
+lazy import bw2data as bd
+lazy import bw2io
+lazy import bw_processing as bp
 
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -110,9 +115,6 @@ class Inventory(Struct, frozen=True):
 
     def bootstrap(self) -> "RuntimeRail[None]":
         def run() -> None:
-            import bw2data as bd  # ruff:ignore[import-outside-top-level] — banded boundary import
-            import bw2io  # ruff:ignore[import-outside-top-level]
-
             bd.projects.set_current(self.project)
             bw2io.bw2setup()  # idempotent on an existing biosphere
 
@@ -125,9 +127,6 @@ class Inventory(Struct, frozen=True):
         # file imports run the blocking pipeline on the band hop; the network one-shots additionally ride the
         # HTTP retry class because a release download is a transient-faulting remote leg.
         def run() -> IngestReceipt:
-            import bw2data as bd  # ruff:ignore[import-outside-top-level] — banded boundary import
-            import bw2io  # ruff:ignore[import-outside-top-level]
-
             bd.projects.set_current(self.project)
             match source:
                 case IngestSource(tag="ecoinvent_release", ecoinvent_release=(version, system_model)):
@@ -141,7 +140,7 @@ class Inventory(Struct, frozen=True):
                     return self._release_receipt(f"exiobase:{major}.{minor}.{patch}")
                 case filed:
                     # every file-backed case routes the one pipeline; the importer name rides the case's own table row.
-                    return self._pipeline(bw2io, filed, resolution, strategies)
+                    return self._pipeline(filed, resolution, strategies)
 
         remote = source.tag in {"ecoinvent_release", "useeio", "exiobase"}
         with _TRACER.start_as_current_span(f"inventory.ingest.{source.tag}", attributes={"rasm.impact.project": self.project}):
@@ -151,11 +150,9 @@ class Inventory(Struct, frozen=True):
             return railed.bind(lambda rail: rail)
 
     def _pipeline(
-        self, bw2io: object, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]"
+        self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]"
     ) -> IngestReceipt:
         # the canonical extract -> strategies -> statistics -> resolve -> write flow, statistics AS the receipt.
-        from pathlib import Path  # ruff:ignore[import-outside-top-level]
-
         path = getattr(source, source.tag)
         imp = getattr(bw2io, source.importer)(path, self.database)
         imp.apply_strategies(verbose=False)
@@ -180,8 +177,6 @@ class Inventory(Struct, frozen=True):
         )
 
     def _release_receipt(self, coordinate: str) -> IngestReceipt:
-        import bw2data as bd  # ruff:ignore[import-outside-top-level] — banded boundary import
-
         key = ContentIdentity.key("impact", coordinate.encode())
         counts = len(bd.Database(self.database)) if self.database in bd.databases else 0
         return IngestReceipt(database=self.database, nodes=counts, edges=0, unlinked=0, multifunctional=0, content_key=key)
@@ -210,8 +205,6 @@ class MatrixPackage(Struct, frozen=True):
         # aligned float vector, flip the sign mask — the exact triple bw2calc mounts; the handle returns for
         # further vectors, and `finalize_serialization` is the caller's terminal on the same handle.
         def build() -> object:
-            import bw_processing as bp  # ruff:ignore[import-outside-top-level] — banded boundary import
-
             package = bp.create_datapackage(name=self.name)
             package.add_persistent_vector(matrix=matrix.value, indices_array=indices, data_array=data, flip_array=flip)
             return package
@@ -222,8 +215,6 @@ class MatrixPackage(Struct, frozen=True):
     @staticmethod
     def loaded(fs: object) -> "RuntimeRail[object]":
         def read() -> object:
-            import bw_processing as bp  # ruff:ignore[import-outside-top-level] — banded boundary import
-
             return bp.load_datapackage(fs)
 
         return boundary("inventory.package.load", read)

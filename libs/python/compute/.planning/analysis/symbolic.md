@@ -39,8 +39,8 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 
 `SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to one typed `SymbolicReceipt` from one shared `cse` lowering, never parallel entries per artifact.
 
-- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)` — the span carries terminal, op-count, and symbol discriminants, the weave harvest emits the receipt on the clean exit, and no second un-railed constructor exists; the graduation gate reads the `source` evidence through the symbolic `HandoffAxis` case.
 - Cases: `ExprForm` is the polymorphic input — a `str` spelling, a `MatrixForm` of cell spellings, or a constructed `Expr` — discriminated by one `derive` entry rather than `derive`/`derive_matrix`/`derive_expr` siblings.
+- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)` — the span carries terminal, op-count, and symbol discriminants, the weave harvest emits the receipt on the clean exit, and no second un-railed constructor exists; the graduation gate reads the `source` evidence through the symbolic `HandoffAxis` case.
 - Auto: the runtime content owner mints the derivation key over the canonical `SymbolicPayload`, never a hand-rolled canonical encode; two derivations differing in assumption context, op pipeline, or terminal route key distinctly.
 - Receipt: `outcome` is the terminal `Outcome` case owning its `facts()` projection, and the carried `LoweredSpec` is a VALUE consumers project off the outcome, never a receipt fact; a derivation graduates through the self-wired `graduates` producer — `Precision.CERTIFIED` ships its arb radius, a reproducibly `HEURISTIC` run ships zero instability — against the `_CEILING` family row.
 - Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case with its `facts()` arm and one terminal `apply` arm.
@@ -60,6 +60,16 @@ from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+
+# cold trees deferred to first dereference: sympy is the heaviest pure-Python import on the route, `python-flint` is the
+# native extension only the exact grounds reach, and the autowrap/codegen surfaces pull a host C/Fortran toolchain behind
+# them. Every table below rides a thunk or a member name, so no module-scope cell reifies one of these proxies at import.
+lazy import flint
+lazy import sympy
+lazy from flint import arb, fmpq, fmpq_mat, fmpq_poly, fmpz
+lazy from sympy import srepr
+lazy from sympy.utilities.autowrap import autowrap, ufuncify
+lazy from sympy.utilities.codegen import codegen
 
 if TYPE_CHECKING:
     from sympy import Expr
@@ -514,8 +524,6 @@ def _poly_route(sym: object, expr: "Expr", primary: "Expr", route: SolveRoute, g
 
 
 def _flint_poly(sym: object, poly: object, route: SolveRoute) -> Outcome:
-    from flint import fmpq_poly
-
     # `fmpq_poly` (not `fmpz_poly`) so a rational-coefficient poly lowers exactly through `_as_fmpq` rather than an `int(c)` coerce
     # that TypeErrors on a non-integer. `metric` is `|res(p, p')|` — the discriminant up to lead-coefficient/sign normalization,
     # matching the squarefree fact the SYMPY ground reads off `Poly.discriminant`; a symbolic-coefficient poly faults at `_as_fmpq`.
@@ -577,8 +585,6 @@ def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain)
 
 
 def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> Outcome:
-    from flint import fmpq_mat
-
     fm = fmpq_mat([[_as_fmpq(sym, matrix[i, j]) for j in range(matrix.shape[1])] for i in range(matrix.shape[0])])
     dimension = fm.nrows()
     match route:
@@ -630,8 +636,6 @@ def _number(sym: object, expr: "Expr", route: NumberRoute, ground: GroundDomain)
 
 
 def _flint_number(n: int, route: NumberRoute) -> Outcome:
-    from flint import fmpz
-
     # GCD reads the divisor-lattice bottom through `divisor_sigma(0)` count and `divisor_sigma(1)` sum; LCM reads the lattice top
     # through the `euler_phi` totient — the genuine unary structure of a leaf integer, never the vacuous `z.gcd(z) == n`.
     z = fmpz(n)
@@ -657,9 +661,6 @@ def _evaluate(sym: object, expr: "Expr", free: tuple["Expr", ...], digits: int, 
 
 
 def _certified(scalar: "Expr", digits: int) -> Outcome:
-    import flint
-    from flint import arb
-
     # `flint.good` re-runs the thunk at escalating precision until the ball pins `ctx.dps` digits; the thunk re-renders through
     # sympy's `mpmath`-backed `evalf` so `sqrt(2)` lowers to a decimal `arb` parses, never the unparseable `str(sqrt(2))` spelling.
     # `workdps` restores the prior session `ctx.dps` on exit, never the leaking `ctx.dps = digits` global mutation.
@@ -671,12 +672,8 @@ def _certified(scalar: "Expr", digits: int) -> Outcome:
 def _lower(sym: object, expr: "Expr", free: tuple["Expr", ...], backend: LowerBackend) -> object:
     match backend:
         case LowerBackend.UFUNC:
-            from sympy.utilities.autowrap import ufuncify
-
             return ufuncify(free, expr)
         case LowerBackend.NATIVE:
-            from sympy.utilities.autowrap import autowrap
-
             return autowrap(expr, args=free)
         case _:
             return sym.lambdify(free, expr, modules=backend.value, cse=True)
@@ -686,8 +683,6 @@ def _emit(sym: object, expr: "Expr", target: CodeTarget, name: str) -> str:
     # `codegen` wraps a named, signature-bearing module where the language supports it; CXX renders bare via `cxxcode`.
     if target is CodeTarget.CXX:
         return _CODE_PRINTER[target](sym, expr)
-    from sympy.utilities.codegen import codegen
-
     language = "c99" if target is CodeTarget.C else target.value
     [(_, source), *_] = codegen((name, expr), language=language, header=False, empty=False)
     return source
@@ -705,8 +700,6 @@ def _cardinality(solution: object) -> int:
 
 
 def _as_fmpq(sym: object, cell: object) -> object:
-    from flint import fmpq
-
     # a `Float` or other numeric node coerces through `sym.Rational` first, so the FLINT exact ground carries no lossy float and no
     # `int(cell)` that TypeErrors on a non-integer; a symbolic cell has no rational form and faults in the fence.
     rational = cell if hasattr(cell, "q") else sym.Rational(cell)
@@ -751,8 +744,6 @@ def graduates(
 def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: ContentKey) -> SymbolicReceipt:
     # empty-pipeline gate lives inside the fence where `boundary` converts it — an `ops[-1]` read outside the thunk escapes the
     # rail as a bare `IndexError`.
-    import sympy
-
     if not ops:
         raise ValueError("symbolic derivation needs at least one terminal op")
     free = spec.symbols(sympy)
@@ -773,8 +764,6 @@ def _form_spelling(form: ExprForm) -> str:
         case tuple() as rows:
             return repr(rows)
         case _:
-            from sympy import srepr
-
             return srepr(form)
 
 

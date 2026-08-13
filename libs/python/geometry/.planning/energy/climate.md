@@ -2,7 +2,7 @@
 
 `Climate` owns the energy plane's weather substrate and its point-comfort tier — the plane's ONLY solar owner. `Climate.of` admits EPW weather by payload shape, and ONE polymorphic `query` answers every read that document supports: `series` collection algebra, `derive` projections, `solar` sun-geometry, `comfort` point-comfort with SolarCal MRT, the `index` scalar band, the `mrt` SolarCal series, and the spatial `comfort_map` readback — one `ClimateQuery` case in, one `ClimateResult` arm out, one `_dispatch` closing on `assert_never`. `ladybug-core` and `ladybug-comfort` own every weather, psychrometric, comfort, and index kernel; this page composes them into typed, railed, receipted evidence.
 
-Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane charter: `ladybug`/`ladybug_comfort` reach the interpreter through `LateBound` — the folder's ONE late-binding owner, resolved at the call seam so a module-top import never loads the AGPL band into a companion start — and evidence crosses the wire, never a link into a distributed host binary. Every query threads the `rasm.geometry.graduation` `evidence_run` weave under the owner's own `composition` key, the admitted document keys once over its canonical file-string bytes so re-ingestion dedupes in the persistence ledger, and comfort evidence graduates under `GeometrySubject.THERMAL_COMFORT` against caller ceilings.
+Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane charter: `ladybug`/`ladybug_comfort` reach the interpreter through `LateBound` — the folder's ONE late-binding owner, holding its module as a STRING and resolving at the call seam — or through a function-local import inside a boundary seam, never a module-scope binding of either form, because a static license audit reads the LEXICAL import graph and a module-scope statement (`lazy` included, the soft keyword being module-scope by design) couples every importer of this page to AGPL; confinement is the point, not deferral. Evidence crosses the wire, never a link into a distributed host binary. Every query threads the `rasm.geometry.graduation` `evidence_run` weave under the owner's own `composition` key, the admitted document keys once over its canonical file-string bytes so re-ingestion dedupes in the persistence ledger, and comfort evidence graduates under `GeometrySubject.THERMAL_COMFORT` against caller ceilings.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane chart
 - Entry: `Climate.of` admits `bytes | str | Path | Mapping` by payload shape — modality IS the shape, never a `source_kind=` knob. `query` is the one read surface over `ClimateQuery | Sequence[ClimateQuery]`; a batch accumulates through `traversed(ACCUMULATE)` so a refused member names itself beside its siblings. `comfort` routes the EPW solar fields through SolarCal to the `rad_temperature` MRT input internally; the `mrt` case is the explicit arm only for a caller feeding a non-EPW thermal model, and the `index` band's own MRT slot resolves through that same fold.
 - Auto: every fold returns `(result, receipt)` built inside the fold off facts it already holds, so the weave's conditional harvest emits without a caller hand-asserting a single count. Collection alignment is `compute_function_aligned`'s own precondition over the aligned operand list, so the index band never re-derives it; `Wea`/`DDY` projections serialize through their own `to_file_string`, reaching the recipe boundary as handler inputs, never a second reader; `comfort_map` rows consume the recipe products `energy/simulate`'s `matrix` readback surfaces, so a spatial map reads real addresses rather than a feed no producer emits.
 - Receipt: `ClimateReceipt.spec` is the evidence subject — the admitted weather key beside the query that read it — and `graduates` derives its `ContentKey` from it, so no caller supplies a key. Discomfort is the comfort fold's own measurement: a series, solar, or index read never computed it, so `graduates` OMITS the measure and the spine's `_breached` refuses `unmeasured:discomfort` rather than clearing a ceiling on a fabricated zero. The comfort fold records `rasm.geometry.comfort.discomfort` onto the charter at the producing site.
-- Packages: `ladybug-core` and `ladybug-comfort` per the table rows; the spatial `map.*` kernels are the `energy/simulate` readback surface, and `LateBound` is the seam every one of them crosses.
+- Packages: `ladybug-core` and `ladybug-comfort` per the table rows; the spatial `map.*` kernels are the `energy/simulate` readback surface, and a `LateBound` resolution or a boundary-seam function-local import is the seam every one of them crosses.
 - Growth: a new climate read is one `ClimateQuery` case, one `_dispatch` arm, and one `ClimateResult` arm; a new field is one `ClimateField` member; a new grain one `Grain` member, method name deriving; a new projection one `Derived` case beside its `DerivedDocument` arm, IP-units over `EPW.convert_to_ip` the named next; a new comfort model one `COMFORT` row; a new scalar index one `INDEX` row over its `IndexInput` roster; a new spatial map one `MAPS` row; a new band refusal is one `EnergyFault` case carrying its own coordinate tuple, minted at the page that raises it and read by every consumer off the tag. `Adaptive` is not weather-drivable — it builds `from_air_and_rad_temp` over model results, so its home is the `energy/simulate` readback, its `AdaptiveParameter` already serializable through this page's parameter discipline; urban-microclimate EPW morphing enters as one more `Derived` case with its own package admission.
 - Boundary: `SolarQuery` reads the WEATHER file's own sun and a captured scene descriptor carries angles a peer already solved — `energy/simulate` projects those angles straight onto a sky, since routing them back through `Sunpath` re-derives an ephemeris the descriptor settled and silently substitutes a second almanac's answer.
 - Boundary: no diagram furniture — artifacts owns the sun-path diagram and `Sunpath` gains no diagram consumer here; no radiance simulation (the recipe rail owns it), no HBJSON model semantics (`energy/model` owns them), no chart/legend composition (artifacts-plane material), and no re-derived solar vector algebra — `Sunpath` emits `ladybug_geometry` primitives and this owner projects them to arrays.
@@ -44,7 +44,7 @@ from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime reach is one LateBound resolution at the call seam
+if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; every runtime reach is a LateBound resolution or a boundary-seam function-local import
     from ladybug.datacollection import HourlyContinuousCollection
     from ladybug.ddy import DDY
     from ladybug.designday import DesignDay
@@ -226,7 +226,7 @@ class EnergyFault(Exception):
     # re-parses and forks the refusal vocabulary against the `BrepFault`/`QualityFault`/`RepairFault` mesh peers.
     tag: Literal[
         "empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target",
-        "district_defects", "authored_sun", "shading_fidelity",
+        "district_defects", "authored_sun", "shading_fidelity", "map_operands",
     ] = tag()
     empty_model: tuple[str, int] = case()  # (admission modality, check-row census) — a model with no rooms
     index_constant: tuple[str, str] = case()  # (index model, the demanded constant slot no source answers)
@@ -236,6 +236,7 @@ class EnergyFault(Exception):
     district_defects: tuple[int, tuple[tuple[str, int], ...]] = case()  # (defect rows, the per-code roster)
     authored_sun: tuple[str, str] = case()  # (recipe, the sited coordinate a manual-control sun never carries)
     shading_fidelity: tuple[str, float, float] = case()  # (refused bound, declared value, the ceiling it crossed)
+    map_operands: tuple[str, int, int] = case()  # (map kind, operands supplied, the slot roster they overflow)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -287,6 +288,11 @@ class IndexRow(Struct, frozen=True, gc=False):
 
 class MapRow(Struct, frozen=True, gc=False):
     kernel: LateBound
+    # the kernel's OWN parameter names the operands fill in order — series slot first where the row takes one. The
+    # call binds operands by KEYWORD because the shortwave kernel's lead (`location`) PRECEDES its operands, so a
+    # positional spill lands the series list on the lead slot and collides with the keyword-bound lead; slots the
+    # operands never fill fall to the kernel's own defaults.
+    slots: tuple[str, ...]
     bands: tuple[str, ...] = ()  # the kernel's own declared return bands; empty where each row is one caller sensor
 
 
@@ -455,7 +461,7 @@ class Climate(Struct, frozen=True):
         cls, source: "bytes | str | Path | Mapping[str, object]", *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[tuple[Self, ClimateReceipt]]":
         def admit() -> tuple[Self, ClimateReceipt]:
-            from ladybug.epw import EPW  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+            from ladybug.epw import EPW  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
             match source:
                 case bytes() as raw:
@@ -542,7 +548,7 @@ class Climate(Struct, frozen=True):
 
 
 def _windowed(collection: object, window: Option[Window]) -> object:
-    from ladybug.analysisperiod import AnalysisPeriod  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from ladybug.analysisperiod import AnalysisPeriod  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
     return window.map(lambda w: collection.filter_by_analysis_period(AnalysisPeriod(*w))).default_value(collection)
 
@@ -565,8 +571,8 @@ def _series(subject: SeriesSubject, collection: object) -> SeriesFact:
 
 
 def _derived(climate: Climate, kind: Derived) -> DerivedDocument:
-    from ladybug.ddy import DDY  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from ladybug.wea import Wea  # ruff:ignore[import-outside-top-level]
+    from ladybug.ddy import DDY  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from ladybug.wea import Wea  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     # EPW.to_wea/to_ddy take a file_path and WRITE files; the in-memory projections are the Wea radiation constructor
     # and DDY over the percentile-selected design days.
@@ -584,7 +590,7 @@ def _derived(climate: Climate, kind: Derived) -> DerivedDocument:
 
 
 def _solar(location: "Location", query: SolarQuery) -> SolarResult:
-    from ladybug.sunpath import Sunpath  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from ladybug.sunpath import Sunpath  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
     path = Sunpath.from_location(location)
     match query:
@@ -624,7 +630,7 @@ def _comfort(climate: Climate, spec: ComfortSpec) -> ComfortFact:
 def _mrt(climate: Climate, surfaces: object) -> object:
     # OutdoorSolarCal over the EPW's own solar fields; `from_epw` internalizes this path for the COMFORT rows, and the
     # WBGT index row reaches it through the same fold rather than a second SolarCal construction.
-    from ladybug_comfort.collection.solarcal import OutdoorSolarCal  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from ladybug_comfort.collection.solarcal import OutdoorSolarCal  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
     return OutdoorSolarCal(
         climate.location,
@@ -655,7 +661,7 @@ def _demanded[T](model: IndexModel, name: str) -> T:
 
 
 def _indexed(climate: Climate, spec: IndexSpec) -> object:
-    from ladybug.datacollection import HourlyContinuousCollection  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from ladybug.datacollection import HourlyContinuousCollection  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
     # `compute_function_aligned` admits a mixed operand list of collections and scalars, proves alignment itself, and
     # rebuilds the result under the row's own datatype and unit — so the index band re-derives no alignment check, no
@@ -674,7 +680,9 @@ def _floats(row: object) -> tuple[float, ...]:
 def _mapped(climate: Climate, spec: MapSpec) -> MapResult:
     row = MAPS[spec.kind]
     operands = ((list(spec.series),) if not spec.series.is_empty() else ()) + spec.artifacts
-    returned = row.kernel.resolve()(*operands, **row.kernel.bound(climate))
+    if len(operands) > len(row.slots):
+        raise EnergyFault(map_operands=(spec.kind.value, len(operands), len(row.slots)))
+    returned = row.kernel.resolve()(**dict(zip(row.slots, operands)), **row.kernel.bound(climate))
     return MapResult(kind=spec.kind, labels=row.bands, values=tuple(_floats(band) for band in returned))
 
 
@@ -683,10 +691,22 @@ def _mapped(climate: Climate, spec: MapSpec) -> MapResult:
 # spatial comfort-map kernels over the `energy/simulate` readback addresses; `leads` binds the owner argument each
 # kernel names — the location the shortwave row takes, the weather the longwave and air rows take.
 MAPS: Final[Map[MapKind, MapRow]] = Map.of_seq([
-    (MapKind.SHORTWAVE_MRT, MapRow(kernel=LateBound("ladybug_comfort.map.mrt", "shortwave_mrt_map", leads=("location",)))),
-    (MapKind.LONGWAVE_MRT, MapRow(kernel=LateBound("ladybug_comfort.map.mrt", "longwave_mrt_map", leads=("epw",)))),
-    (MapKind.TCP, MapRow(kernel=LateBound("ladybug_comfort.map.tcp", "tcp_total"), bands=("tcp", "hsp", "csp"))),
-    (MapKind.AIR, MapRow(kernel=LateBound("ladybug_comfort.map.air", "air_map", leads=("epw",)))),
+    (
+        MapKind.SHORTWAVE_MRT,
+        MapRow(
+            kernel=LateBound("ladybug_comfort.map.mrt", "shortwave_mrt_map", leads=("location",)),
+            slots=("longwave_data", "sun_up_hours", "indirect_ill", "direct_ill", "ref_ill", "contributions", "transmittance_contribs"),
+        ),
+    ),
+    (
+        MapKind.LONGWAVE_MRT,
+        MapRow(
+            kernel=LateBound("ladybug_comfort.map.mrt", "longwave_mrt_map", leads=("epw",)),
+            slots=("enclosure_info", "modifiers", "sql", "view_factors"),
+        ),
+    ),
+    (MapKind.TCP, MapRow(kernel=LateBound("ladybug_comfort.map.tcp", "tcp_total"), slots=("condition_csv", "schedule"), bands=("tcp", "hsp", "csp"))),
+    (MapKind.AIR, MapRow(kernel=LateBound("ladybug_comfort.map.air", "air_map", leads=("epw",)), slots=("enclosure_info", "sql"))),
 ])
 
 COMFORT: Final[Map[ComfortModel, ComfortRow]] = Map.of_seq([
@@ -832,5 +852,5 @@ INDEX: Final[Map[IndexModel, IndexRow]] = Map.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- MAP_OPERANDS-[OPEN]: does `ladybug_comfort.map.mrt.shortwave_mrt_map` accept a `sun_up_hours` file path beside a `longwave_data` list of live collections when the recipe products arrive as `energy/simulate` `matrix` addresses, and does `map.tcp.tcp_total` accept a `schedule` beyond its `condition_csv`; read the installed `ladybug_comfort/map/{mrt,tcp}.py` bodies and the `lbt-recipes` comfort-map recipe call sites, then pin `MapSpec.artifacts`/`MapSpec.series` against the proven split.
+(none)
 

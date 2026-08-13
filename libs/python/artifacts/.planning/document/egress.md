@@ -1179,8 +1179,8 @@ _LANE_GAPS: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_se
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [OXIDE_PERMS_ENTRY]-[BLOCKED]: which `pdf_oxide` release writes the `/Perms` entry its own `/R 6 /V 5` dictionary requires, re-admitting a permissive ENCRYPT lane; the crate's R≥5 construction arm hard-codes the field absent and `save_encrypted`/`to_bytes_encrypted` share that one path, so the emitted `/Encrypt` carries `/R 6 /V 5 /AESV3 /UE /OE` and no `/Perms` — `pikepdf.open(...).encryption` and `qpdf --show-encryption` both refuse the file, and `PdfDocument.extract_page_text` answers empty on the authenticated re-open's AES-CBC padding error; the gate lifts on a release whose emitted dictionary carries `/Perms`, never a re-probe of the same build.
+(none)

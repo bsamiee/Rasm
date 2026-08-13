@@ -83,14 +83,124 @@
             "scope": ["libs/csharp/**"]
         },
         {
+            "path": "libs/csharp/Rasm/RULINGS.md",
+            "description": "Rasm package decision registry: settled re-litigation guards for the kernel package",
+            "scope": ["libs/csharp/Rasm/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.AppHost/RULINGS.md",
+            "description": "Rasm.AppHost package decision registry: settled re-litigation guards for the app-host package",
+            "scope": ["libs/csharp/Rasm.AppHost/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.AppUi/RULINGS.md",
+            "description": "Rasm.AppUi package decision registry: settled re-litigation guards for the app-ui package",
+            "scope": ["libs/csharp/Rasm.AppUi/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Bim/RULINGS.md",
+            "description": "Rasm.Bim package decision registry: settled re-litigation guards for the bim package",
+            "scope": ["libs/csharp/Rasm.Bim/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Compute/RULINGS.md",
+            "description": "Rasm.Compute package decision registry: settled re-litigation guards for the compute package",
+            "scope": ["libs/csharp/Rasm.Compute/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Element/RULINGS.md",
+            "description": "Rasm.Element package decision registry: settled re-litigation guards for the element package",
+            "scope": ["libs/csharp/Rasm.Element/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Fabrication/RULINGS.md",
+            "description": "Rasm.Fabrication package decision registry: settled re-litigation guards for the fabrication package",
+            "scope": ["libs/csharp/Rasm.Fabrication/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Grasshopper/RULINGS.md",
+            "description": "Rasm.Grasshopper package decision registry: settled re-litigation guards for the grasshopper package",
+            "scope": ["libs/csharp/Rasm.Grasshopper/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Materials/RULINGS.md",
+            "description": "Rasm.Materials package decision registry: settled re-litigation guards for the materials package",
+            "scope": ["libs/csharp/Rasm.Materials/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Persistence/RULINGS.md",
+            "description": "Rasm.Persistence package decision registry: settled re-litigation guards for the persistence package",
+            "scope": ["libs/csharp/Rasm.Persistence/**"]
+        },
+        {
+            "path": "libs/csharp/Rasm.Rhino/RULINGS.md",
+            "description": "Rasm.Rhino package decision registry: settled re-litigation guards for the rhino host-boundary package",
+            "scope": ["libs/csharp/Rasm.Rhino/**"]
+        },
+        {
             "path": "libs/python/.planning/RULINGS.md",
             "description": "Python branch decision registry: settled re-litigation guards for the python corpus",
             "scope": ["libs/python/**"]
         },
         {
+            "path": "libs/python/artifacts/RULINGS.md",
+            "description": "Artifacts folder decision registry: settled re-litigation guards for the artifacts package",
+            "scope": ["libs/python/artifacts/**"]
+        },
+        {
+            "path": "libs/python/compute/RULINGS.md",
+            "description": "Compute folder decision registry: settled re-litigation guards for the compute package",
+            "scope": ["libs/python/compute/**"]
+        },
+        {
+            "path": "libs/python/data/RULINGS.md",
+            "description": "Data folder decision registry: settled re-litigation guards for the data package",
+            "scope": ["libs/python/data/**"]
+        },
+        {
+            "path": "libs/python/geometry/RULINGS.md",
+            "description": "Geometry folder decision registry: settled re-litigation guards for the geometry package",
+            "scope": ["libs/python/geometry/**"]
+        },
+        {
+            "path": "libs/python/runtime/RULINGS.md",
+            "description": "Runtime folder decision registry: settled re-litigation guards for the runtime package",
+            "scope": ["libs/python/runtime/**"]
+        },
+        {
             "path": "libs/typescript/.planning/RULINGS.md",
             "description": "TypeScript branch decision registry: settled re-litigation guards for the typescript corpus",
             "scope": ["libs/typescript/**"]
+        },
+        {
+            "path": "libs/typescript/core/RULINGS.md",
+            "description": "Core folder decision registry: settled re-litigation guards for the core package",
+            "scope": ["libs/typescript/core/**"]
+        },
+        {
+            "path": "libs/typescript/data/RULINGS.md",
+            "description": "Data folder decision registry: settled re-litigation guards for the typescript data package",
+            "scope": ["libs/typescript/data/**"]
+        },
+        {
+            "path": "libs/typescript/iac/RULINGS.md",
+            "description": "Iac folder decision registry: settled re-litigation guards for the iac package",
+            "scope": ["libs/typescript/iac/**"]
+        },
+        {
+            "path": "libs/typescript/runtime/RULINGS.md",
+            "description": "Runtime folder decision registry: settled re-litigation guards for the typescript runtime package",
+            "scope": ["libs/typescript/runtime/**"]
+        },
+        {
+            "path": "libs/typescript/security/RULINGS.md",
+            "description": "Security folder decision registry: settled re-litigation guards for the security package",
+            "scope": ["libs/typescript/security/**"]
+        },
+        {
+            "path": "libs/typescript/ui/RULINGS.md",
+            "description": "Ui folder decision registry: settled re-litigation guards for the ui package",
+            "scope": ["libs/typescript/ui/**"]
         },
         {
             "path": "tests/README.md",

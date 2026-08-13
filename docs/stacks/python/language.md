@@ -262,7 +262,7 @@ SHAPE = admitted(key="<key-a>", span={"lo": 0, "hi": 4}, tag="<ext-a>")
 - Law: a module-scope constant, table row, or policy value whose expression dereferences a `lazy`-imported name or its attribute reifies the proxy at import and silently defeats the deferral — a crash outright when the provider is install-extra-gated absent — so a provider-member correspondence rides name strings or an owned `StrEnum` mirroring the member names, resolved at the call seam (`Enum[name]`, `getattr`), or the row carries a call-time thunk; the dispatch body alone touches the live provider attribute.
 - Law: the deferred surface grows by one declaration — a new cold dependency is one more `lazy` line, a new mandatory re-export one more module-scope `lazy from` name, a new optional surface one more `EXTRAS` row — no consumer is edited, and a removed name breaks loudly at its first reference. A `__getattr__` body stays a pure idempotent resolver, its memoization riding import idempotency under the import lock; a genuinely computed value that must cache takes a `threading.Lock` double-check, never an unguarded `globals()[name] = ...` check-then-set that races under a free-threaded build.
 - Boundary: `if TYPE_CHECKING: from X import Y` is the narrower form for a name that must never load at runtime, while a `lazy from X import Y` used only in annotations already costs nothing under PEP 649/749 deferred evaluation, so the guard is reserved for the reference that must stay unimportable. A module whose import registers or runs a side effect — codec, dtype, driver, or plugin registration — is never `lazy`-deferred, since deferral moves the effect to an arbitrary first-use site and a worker thread under free-threading; force it eager through the runtime's `sys.set_lazy_imports_filter`, populate the registry by explicit entry-point discovery owned by `boundaries.md`, or cross one owned memoized registration seam — a single cached function whose body performs the registering import and which every consumer calls before first use — so the effect fires at a controlled point the page names. A proxy reifies on a first `LOAD_GLOBAL`/`LOAD_NAME`, attribute access, `getattr`, or `types.LazyImportType.resolve()` — `globals()`, `dir()`, `__dict__`, and `frame.f_globals` reads do not, so the `__dir__` union stays cost-free — while the reification mechanism, `sys.lazy_modules` membership, the `sys.set_lazy_imports` modes, and the `require-lazy`/`ban-lazy` policy belong to the runtime owner and the enforcement gate.
-- Exemption: the module `__getattr__` resolver is the platform-forced statement seam — the attribute protocol calls it and reads a raised `AttributeError` as the miss signal, so it cannot ride the `Result` rail; its `find_spec` presence guard, the `raise AttributeError` miss, and the `raise ImportError` install-hint on a known-but-absent optional dependency (where `hasattr` raises and `find_spec` probes without importing) are its only statements.
+- Exemption: the module `__getattr__` resolver is the platform-forced statement seam — the attribute protocol calls it and reads a raised `AttributeError` as the miss signal, so it cannot ride the `Result` rail; its `find_spec` presence guard, the `raise AttributeError` miss, and the `raise ImportError` install-hint on a known-but-absent optional dependency (where `hasattr` raises and `find_spec` probes without importing) are its only statements — the probe rides a TOP-LEVEL module name, since `find_spec` on a dotted name imports the parent package and pays the exact load the guard defers, and distribution presence is the capability unit for a package whose submodules ship unconditionally.
 
 ```python conceptual
 import threading
@@ -280,7 +280,7 @@ lazy from package.core import Shape, TABLE  # CASE B: mandatory owner symbols, i
 lazy from package.render import render
 
 
-type Extra = tuple[str, str | None, str]  # (module, attribute|None, install-extra); a None attribute publishes the module
+type Extra = tuple[str, str | None, str]  # (top-level module, attribute|None, install-extra); a None attribute publishes the module — a dotted module row re-arms the parent import the probe defers
 DISTRIBUTION = "package"
 
 EXTRAS: frozendict[str, Extra] = frozendict({
@@ -302,7 +302,7 @@ def __getattr__(name: str, /) -> object:
     if (entry := EXTRAS.get(name)) is None:
         raise AttributeError(name)  # CASE B: unknown name, attribute-protocol miss
     module, attribute, extra = entry
-    if find_spec(module) is None:  # non-importing presence probe; hasattr would raise, find_spec stays silent
+    if find_spec(module) is None:  # non-importing probe on a top-level name; a dotted name imports the parent package
         raise ImportError(f"{name!r} needs the {extra!r} extra: pip install {DISTRIBUTION}[{extra}]")
     resolved = import_module(module)  # import idempotency memoizes; the resolver stays pure
     return resolved if attribute is None else getattr(resolved, attribute)

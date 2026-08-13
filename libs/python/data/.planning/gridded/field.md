@@ -2,7 +2,7 @@
 
 The labelled and raw field-plane owner: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, `FieldReceipt` folds the content-keyed egress, `FieldContainer` is the read leg for the corpus-minted raw field container the C# codec emits, and `EnsembleCorpus` is the replicate-chunked ensemble container for python UQ campaigns. The CF plane and the raw-container plane stay two owners on one page because they share the receipt family and nothing else — the container is raw HDF5 with NO dimension scales by the corpus entry's own pick, so it never routes through `FieldEngine`. This is the labelled-field counterpart of the dense `gridded/store#STORE` chunk-grid — a distinct owner, never a second labelled-array store inside `store` — and the byte-range virtual-datacube concern lives whole on `gridded/virtual#VIRTUAL`.
 
-Import gating is tri-state: `xarray` is banned-module-level, so every call binds function-local under `# ruff:ignore[import-outside-top-level]`; `netcdf4` is an ungated Forge source build importing module-top, and `h5py` is ungated module-top for the raw-container plane; `flox` binds its lowering function-local because `flox.xarray` touches the banned `xarray`, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
+Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer through one module-scope `lazy import`/`lazy from` per fence, so the labelled plane declares itself once at the module boundary and costs nothing until a call reifies the proxy — the eager module-level form the manifest bans never appears, and an unearned function-local one is the same deleted form; `netcdf4` is an ungated Forge source build importing module-top, and `h5py` is ungated module-top for the raw-container plane; the vectorized lowering reifies behind the `_HAS_FLOX` floor gate alone, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
 
 ## [01]-[INDEX]
 
@@ -28,14 +28,14 @@ from msgspec import Struct
 from msgspec.structs import asdict
 from opentelemetry import trace
 
+lazy import xarray as xr
+
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import xarray as xr
 
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.field")
@@ -83,8 +83,6 @@ class FieldEngine(StrEnum):
                 return cls.NETCDF4
 
     def open(self, path: str) -> "Callable[[], xr.Dataset]":
-        import xarray as xr  # ruff:ignore[import-outside-top-level]
-
         match self:
             case FieldEngine.ZARR:
                 return lambda: xr.open_zarr(path, decode_cf=True)
@@ -152,12 +150,16 @@ from expression.collections import Map
 from msgspec import Struct
 from msgspec.structs import replace
 
+lazy import xarray as xr
+lazy from flox import groupby_scan
+lazy from flox.xarray import xarray_reduce
+lazy from xarray.groupers import TimeResampler
+
 from rasm.runtime.faults import RuntimeRail, boundary
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import xarray as xr
     from flox import Aggregation, ReindexStrategy, Scan
 
 
@@ -333,8 +335,6 @@ def _select(selection: FieldSelection, dataset: "xr.Dataset") -> "xr.Dataset":
 
 
 def _grouper(by: tuple[str, ...], dim: tuple[str, ...], policy: ReductionPolicy) -> "tuple[object, ...]":
-    from xarray.groupers import TimeResampler  # ruff:ignore[import-outside-top-level]
-
     return tuple(TimeResampler(policy.freq) if name == dim[0] and policy.freq else name for name in by)
 
 
@@ -342,8 +342,8 @@ def _reduce(
     dataset: "xr.Dataset", by: tuple[str, ...], dim: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]"
 ) -> "xr.Dataset":
     if policy.vectorizable:
-        from flox.xarray import xarray_reduce  # ruff:ignore[import-outside-top-level]
-
+        # `vectorizable` is the `_HAS_FLOX` floor gate: the lazy `xarray_reduce` proxy reifies only on the
+        # proved band, so a flox-absent install never touches it and lands on the grouper fallback instead.
         return xarray_reduce(dataset, *_grouper(by, dim, policy), dim=dim, **policy.kwargs())
     grouped = _FALLBACK_CALL[fallback[0]](dataset, fallback[1])
     return getattr(grouped, policy.base)(**policy.fallback_kwargs())
@@ -351,9 +351,6 @@ def _reduce(
 
 def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]") -> "xr.Dataset":
     if policy.vectorizable:
-        import xarray as xr  # ruff:ignore[import-outside-top-level]
-        from flox import groupby_scan  # ruff:ignore[import-outside-top-level]
-
         # `groupby_scan` is a raw-array kernel with no xarray-aware mirror, so `apply_ufunc` lifts it onto the labelled cube —
         # never `Dataset.map`, whose mapper must return a `DataArray` the bare-ndarray kernel does not.
         return xr.apply_ufunc(
@@ -384,6 +381,8 @@ from typing import TYPE_CHECKING, Literal
 from beartype import beartype
 from msgspec import Struct
 
+lazy import pyarrow as pa
+
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.metrics import Metrics
@@ -391,7 +390,6 @@ from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
-    import pyarrow as pa
     import xarray as xr
 
 
@@ -448,8 +446,6 @@ def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, en
 
 
 def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, tuple[str, ...], int, bytes]":
-    import pyarrow as pa  # ruff:ignore[import-outside-top-level]
-
     table = pa.Table.from_pandas(dataset.to_dataframe().reset_index())
     # `combine_chunks().to_batches()[0]` coalesces every chunk so the content key folds a chunk-boundary-stable byte span —
     # never a per-`to_batches()` digest whose partition drifts; an empty table keys off `b""` per the catalogue contract.
@@ -474,7 +470,7 @@ def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, pay
 - Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
 ```python signature
-from typing import TYPE_CHECKING, Final, Literal
+from typing import Final, Literal
 
 import h5py
 import numpy as np
@@ -482,12 +478,11 @@ from beartype import beartype
 from expression import Result
 from msgspec import Struct
 
+lazy import xarray as xr
+
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.roots import ResourceRef
-
-if TYPE_CHECKING:
-    import xarray as xr
 
 
 type Residence = Literal["exact", "quantized"]
@@ -547,8 +542,6 @@ class FieldContainer(Struct, frozen=True):
         # so h5netcdf names axes `phony_dim_N` under `phony_dims="sort"` — a coordinate roster is corpus-entry
         # growth re-valued at `[02.27]`, never a consumer workaround minted here.
         def lift() -> "xr.Dataset":
-            import xarray as xr  # ruff:ignore[import-outside-top-level]
-
             return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
 
         return boundary("container.labelled", lift)

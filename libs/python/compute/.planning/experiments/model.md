@@ -2,7 +2,7 @@
 
 Classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
 
-Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane; `h5py` imports module-top for the envelope container. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor. `[03]-[ENVELOPE]` seats the drift-envelope companion here because only this owner holds the training columns the bands fit from; its container layout is the C# ingest fence's law, hand-copied.
+Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx`, `onnxruntime`, and `skl2onnx` ride module-scope `lazy` binds, so the export stack loads on first dereference inside the worker; the `scikit-learn` names stay annotation-only under `TYPE_CHECKING`; `h5py` imports module-top for the envelope container. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor. `[03]-[ENVELOPE]` seats the drift-envelope companion here because only this owner holds the training columns the bands fit from; its container layout is the C# ingest fence's law, hand-copied.
 
 ## [01]-[INDEX]
 
@@ -37,6 +37,12 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import ResourceRef
 from rasm.runtime.workers import Kernel, KernelTrait
+
+# ONNX export stack defers: the converter, the graph checker, and the runtime session are heavy native loads no caller
+# pays until an export or validation arm first dereferences one inside the worker.
+lazy import onnx
+lazy import onnxruntime
+lazy from skl2onnx import get_latest_tested_opset_version, to_onnx
 
 if TYPE_CHECKING:
     from onnx import ModelProto
@@ -106,8 +112,6 @@ class ExportSource:
                 assert_never(unreachable)
 
     def convert(self, target_opset: int, gating: OperatorGate) -> "ModelProto":
-        from skl2onnx import to_onnx
-
         model, sample = self.fitted
         # `to_onnx(model, X)` infers `initial_types` from the trained schema; `zipmap` off keeps a
         # classifier's probability output a dense `np.ndarray` the parity `np.abs`-diff can consume.
@@ -180,8 +184,6 @@ class ValidationCheck:
     def run(self) -> ValidationEvidence:
         match self:
             case ValidationCheck(tag="structural", structural=model):
-                import onnx
-
                 try:
                     onnx.checker.check_model(model, full_check=True)
                     onnx.shape_inference.infer_shapes(model, check_type=True, strict_mode=True)
@@ -291,8 +293,6 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
 
     @beartype(conf=FAULT_CONF)
     def _load_and_run(self, path: UPath, source: ExportSource | None) -> ModelAssetManifest:
-        import onnx
-
         model = onnx.load(str(path))
         session = self._session(path)
         meta = session.get_modelmeta()
@@ -351,8 +351,6 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
         )
 
     def _session(self, path: UPath) -> "InferenceSession":
-        import onnxruntime
-
         options = onnxruntime.SessionOptions()
         options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         available = set(onnxruntime.get_available_providers())
@@ -361,8 +359,6 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
 
     @beartype(conf=FAULT_CONF)
     def _export(self, source: ExportSource, gating: OperatorGate) -> ModelAssetManifest:
-        from skl2onnx import get_latest_tested_opset_version
-
         graph = source.convert(get_latest_tested_opset_version(), gating)
         self.ref.path.write_bytes(graph.SerializeToString())
         return self._load_and_run(self.ref.path, source)
@@ -372,9 +368,9 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
 
 - Owner: `GraduationEnvelope` — the serving-population drift companion this owner fits at graduation and ships beside the ONNX artifact: `ReferenceBand` is the numeric-or-categorical band union, `fit` derives each feature's band from the training columns only this owner holds, and `write` emits the container `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` ingests — the consuming anchor whose layout this writer hand-copies as a deliberate non-import mirror per estate law, so a layout question resolves at that ingest fence and never re-derives here. The reverse JSON `EvidenceBundle` leg stays whole on `graduation/codegen#STUB_CODEGEN`, untouched.
 - Cases: layout is the ingest fence's law transcribed — one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering the C# parses `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the `edges` float64[k] and `mass` float64[k+1] datasets, categorical bands the vlen-string `categories` and float64 `mass` datasets.
-- Auto: `fit` mirrors every `Wellformed` gate BEFORE bytes land, so a container this writer emits never fails the peer's admission — finite strictly-increasing edges, mass length `edges + 1`, every mass strictly positive and summing to one within `1e-9`, non-blank unique features and categories, a non-zero evidence key. Numeric edges are interior training quantiles, so the k+1 mass vector covers BOTH outer bins the peer's half-open bisection addresses; `_edges` drops any edge bounding an empty bin until every bin holds mass, because duplicated quantiles over ties otherwise mint a zero-mass bin the peer's normalization gate refuses.
-- Entry: `GraduationEnvelope.fit(evidence_key, numeric, categorical)` folds the training columns into admitted bands or a typed refusal; `write(ref)` is create-only h5py, one call landing roster, attributes, and datasets whole and answering the container's byte extent; `write_async(ref)` is its awaitable twin.
 - Law: `write_async` is the ONE durable seat and the crossing's only movement evidence — one `REGULATORY` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes landed. It is an awaitable twin because this owner carries no weave and `write` is synchronous whole while recording suspends; without the line, a reference population leaves for the peer's admission gate and neither branch records that it moved. `REGULATORY` is earned rather than inherited: a drift envelope is the population a served model is graded against for as long as that model serves. The record rail BINDS, so a container the plane refused never reads as written.
+- Entry: `GraduationEnvelope.fit(evidence_key, numeric, categorical)` folds the training columns into admitted bands or a typed refusal; `write(ref)` is create-only h5py, one call landing roster, attributes, and datasets whole and answering the container's byte extent; `write_async(ref)` is its awaitable twin.
+- Auto: `fit` mirrors every `Wellformed` gate BEFORE bytes land, so a container this writer emits never fails the peer's admission — finite strictly-increasing edges, mass length `edges + 1`, every mass strictly positive and summing to one within `1e-9`, non-blank unique features and categories, a non-zero evidence key. Numeric edges are interior training quantiles, so the k+1 mass vector covers BOTH outer bins the peer's half-open bisection addresses; `_edges` drops any edge bounding an empty bin until every bin holds mass, because duplicated quantiles over ties otherwise mint a zero-mass bin the peer's normalization gate refuses.
 - Receipt: the envelope is a crossing artifact, not hub evidence — it graduates nothing itself; the `model_asset` axis crossing on `[02]-[ASSET]` stays the one graduation leg, and the envelope's container `ContentKey` pairs the artifact with that crossing's evidence key.
 - Growth: a new band case is one `ReferenceBand` case with its `kind` literal, landed at the ingest fence FIRST because the reader's `Switch` is the layout law; a new fit policy is one parameter on `fit`; a newly audited container column is one `_evidence` `Change` row; zero new surface.
 - Boundary: reference mass is fitted HERE and never at the peer — the C# comment pins that division; the statistic, thresholds, and sampling floors are `DriftPolicy` rows at the consumer, so no policy value crosses in the container; `h5py` composes under the compute-tier `.api/h5py.md` admission.

@@ -36,6 +36,10 @@ from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
+# cold scientific dependencies: the `lazy` binds defer the wavelet and scipy trees to the first route build or kernel body.
+lazy import pywt
+lazy import scipy.signal as sig
+
 if TYPE_CHECKING:
     # `ModuleType` types the boundary-imported `scipy.signal` handle the Welch projection takes.
     from types import ModuleType
@@ -242,12 +246,12 @@ class SignalOp:
 
 
 # one row per DecompMode: `_decompose` indexes the (forward, inverse, max-level) triple and runs one forward and one inverse body
-# rather than a mode ternary repeated at decomposition and reconstruction. `@cache` defers the import-banned pywt load to first call.
+# rather than a mode ternary repeated at decomposition and reconstruction. The table builds inside a `@cache`d function rather
+# than at module scope BECAUSE its cells dereference the lazy `pywt` proxy: a module-scope row would reify the tree at import and
+# defeat the deferral, while the cached builder reifies once at first call.
 # stationary forward trims via `trim_approx=True` so both axes return the same `[cAn, cDn, …, cD1]` list the shrink and inverse consume.
 @cache
 def _wavelet_routes() -> "Map[DecompMode, WaveletRoute]":
-    import pywt
-
     # both forward rows share the (x, wavelet, level) positional contract — `level=` is keyword
     # because `wavedec`/`swt` take `mode` at the third positional slot; both inverse rows share
     # their (coeffs, wavelet) contract so `waverec`/`iswt` pass through bare.
@@ -306,9 +310,6 @@ async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy, *, c
 
 
 def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalReceipt:
-    import pywt
-    import scipy.signal as sig
-
     xn = np.asarray(samples)
     nyquist = 0.5 * fs
     match op:
@@ -369,8 +370,6 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
 
 
 def _decompose(wavelet: str, level: int, mode: DecompMode, denoise: ThresholdMode, x: np.ndarray, key: ContentKey) -> SignalReceipt:
-    import pywt
-
     forward, inverse, max_level = _wavelet_routes()[mode]
     depth = level or max_level(x.size, pywt.Wavelet(wavelet))
     coeffs = forward(x, wavelet, depth)

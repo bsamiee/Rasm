@@ -13,15 +13,16 @@ One deterministic `msgspec` codec round-trips the tree, so a multi-PDF corpus is
 
 - Owner: `DocumentNode` — one `tag`-discriminated `Union` on `tag_field="kind"`, every variant a frozen `Struct` carrying a `NodeMeta` value object; a flat class with a `kind: str` field and an `if kind ==` cascade is the rejected non-total shape.
 - Cases: `TableNode` carries `spans` merged-cell quads plus `header_rows`/`footer_rows`/`header_cols` counts BOTH lowerings honor and the lens recovers — `header_cols` is the row-header axis a PDF/UA complex table associates through `scope` — and a `caption` run sequence, so a publication table and an AEC schedule both title their grid. `FormulaNode` keeps the LaTeX source tree-resident with an optional `mathml` island (the ISO 14289 accessible-math representation the HTML lowering prefers), so an equation is source-addressable rather than only a pre-rendered `FigureNode`; `AnnotTarget` closes the link family with one `Xref` whose `Citation` payload selects a detail-on-sheet or classification-section coordinate without empty-field combinations. `FieldNode.field` is the closed per-mode `FieldValue` family for text, checkbox, radio, combo, list, signature, and button payloads; common required/read-only policy stays on the node while mode-only data stays on its case. East-Asian ruby/warichu content authors as `StructureNode` composition — a `RUBY` parent over `RB`/`RT`/`RP` children each carrying `RunNode` content — so the role vocabulary needs no dedicated node variant. `NodeMeta` carries the full ISO 14289 struct-element attribute set: `lang`, `actual_text`, `expansion` (the `/E` abbreviation expansion), and `associated` content keys (the PDF 2.0 `/AF` associated-files edge the `A_3A` deliverable seals).
-- Entry: one shared deterministic `_ENCODER` serves the node digest, the corpus byte projection, and the public `encode` — never parallel identical instances; `decode` captures `msgspec.DecodeError` once as the closed `ModelFault` rail before the value enters the interior; `node_digest` content-addresses the tree through `ContentIdentity.key` (the bare-`ContentKey` mint — `ContentIdentity.of` returns the `RuntimeRail` and never feeds the digest fold); `json_schema` publishes the JSON Schema contract the `to_json` interchange consumer validates against.
+- Entry: one shared deterministic `_ENCODER` serves the node digest, the corpus byte projection, and the public `encode` — never parallel identical instances; `decode` captures `msgspec.DecodeError` once as the closed `ModelFault` rail before the value enters the interior; `node_digest` content-addresses the tree through `ContentIdentity.key` (the bare-`ContentKey` mint — `ContentIdentity.of` returns the `RuntimeRail` and never feeds the digest fold); `json_schema` publishes the JSON Schema contract the `to_json` interchange consumer validates against; `hardened_parse` is the axis's ONE untrusted-XML admission, homed here because every XML-touching document page imports this owner and this owner imports none of them, so the emission plane cannot hold a fold the substrate needs.
 - Auto: `node_digest` folds `_own_bytes` (the container's non-child fields) beside the child digests, so an identical sub-tree keys identically while a re-parametrized container re-keys rather than colliding on its unchanged children. `walk(node, prune=(TableNode,))` stops descent below any caller-named node type, so a lowering that owns a composite's interior never re-walks its cells as loose blocks. `alt_of` derives one `(AltText, AltStatus)` pair over the `FigureNode | FormulaNode` or-pattern, so the accessibility audit reads alt presence as one column predicate — and the Typst `_image` emitter writes `alt: none` for an un-authored figure, never a meaningless `alt: ""` that erases the `ABSENT` fact. `to_corpus(node, view)` is one view-keyed entrypoint whose `RECORD` projection exists because `pa.Table.from_pylist` rejects a `msgspec.Struct` — the producer owns the flat-record mapping so producer and consumer agree on the Arrow column shape. `_STRUCT_CATEGORY` is the one frozen behavior table keyed by `StructEltKind` carrying each role's `StructCategory` and `heading_level`, so the audit's nesting and heading-monotonicity checks fold one table row rather than a parallel `match` — it rides `frozendict`, never `Map`, because the first-wins inversion depends on declaration order and `Map` iterates key-sorted; `_STANDARD_FOR` derives from it by first-wins category inversion so the `document/tagged#ACCESS` `/RoleMap` foreign-to-standard lowering reads a derived row rather than a hand-kept parallel dict, `ForeignRole` is the one open arm over a `Meta`-constrained non-empty role, and `role_of`/`role_category`/`standard_for` are the model's one role-projection family the tagged owner consumes whole. `to_typst_source` escapes markup-context and string-context interpolations through one shared `maketrans` algebra, and a decorative `BlockKind.ARTIFACT` block lowers through `pdf.artifact[..]` so it is excluded from the tagged structure tree.
 - Receipt: owns the tree type and its digest, never a receipt fold — authoring receipts stay at `document/emit`, recovery receipts at `document/lens`.
 - Packages: `lxml.etree` defers under module-scope `lazy from`, so a Typst-only or corpus-only consumer never pays the libxml2 load; `msgspec` `UNSET` markers round-trip the wire-absent `NodeMeta` fields under `omit_defaults`.
 - Growth: a new document concept is one variant plus one arm in each lowering the total `match` forces; a new standard PDF/UA role is one `StructEltKind` member plus one `_STRUCT_CATEGORY` row — `_STANDARD_FOR` absorbs a new category for free; a new run decoration, direction, baseline, list dialect, field mode, citation kind, or link-target kind is one vocabulary member or payload case plus its total lowering arm.
-- Boundary: `to_json` is a real `msgspec.json` interchange serialization of the node tree a downstream consumer decodes — never a schema-shape blob no consumer reads; a Typst `label()`-anchored intra-compilation link is the rejected `Xref` form because the target sheet is a separate compilation the imposition assembly resolves; a `ClassCode` field on the interior tree is the rejected coupling that inverts the `specification`-to-`document` dependency. Recursion depth splits by provenance: `walk`/`node_digest` run depth-safe frontiers because they consume lens-recovered, potentially adversarial trees, while the `to_*` lowerings recurse natively — an authored document's structural nesting is data-bounded, and a lowering of a lens-recovered tree crosses `walk` first.
+- Boundary: `to_json` is a real `msgspec.json` interchange serialization of the node tree a downstream consumer decodes — never a schema-shape blob no consumer reads; a Typst `label()`-anchored intra-compilation link is the rejected `Xref` form because the target sheet is a separate compilation the imposition assembly resolves; a `ClassCode` field on the interior tree is the rejected coupling that inverts the `specification`-to-`document` dependency; a page spelling its own `etree.XMLParser` over foreign bytes is the deleted form, because a second posture is a hardening regression nothing re-audits, while the in-page `etree.Element` builders over SELF-generated fragments never route here at all. Recursion depth splits by provenance: `walk`/`node_digest` run depth-safe frontiers because they consume lens-recovered, potentially adversarial trees, while the `to_*` lowerings recurse natively — an authored document's structural nesting is data-bounded, and a lowering of a lens-recovered tree crosses `walk` first.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import re
 from collections.abc import Iterator
 from enum import StrEnum
 from functools import reduce
@@ -435,6 +436,7 @@ _JSON_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 _DOCUMENT_DECODER: Final = msgspec.msgpack.Decoder(DocumentNode)
 _NULL_KEY: Final = ContentKey(value=0, fmt="", byte_length=0)  # the blanked key leaf digest preimages carry in place of a live mint
 _CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})
+_XML_DECL: Final[re.Pattern[str]] = re.compile(r"\A\ufeff?\s*<\?xml[^>]*\?>")  # the str-payload prolog cut `hardened_parse` drops before UTF-8 encoding
 _TYPST_ESCAPE: Final[Map[TypstScope, dict[int, str]]] = Map.of_seq([
     (TypstScope.STRING, str.maketrans({"\\": "\\\\", '"': '\\"'})),
     (TypstScope.MARKUP, str.maketrans({c: f"\\{c}" for c in "\\[]#*_@$<>`"})),
@@ -573,6 +575,36 @@ _STANDARD_FOR: Final[frozendict[StructCategory, StructEltKind]] = frozendict(
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def hardened_parse(source: bytes | str, /, *, recover: bool = False) -> "_Element":
+    # THE untrusted-XML admission for the whole document axis: the MathML island below, the `document/emit#DOCUMENT`
+    # schema/stylesheet compiles, the `document/lens#LENS` XML_READ external-file read, and the `document/tagged#ACCESS`
+    # XMP packet all enter here, so the libxml2 posture is stated once and audited once. A `str` payload drops any XML
+    # declaration through `_XML_DECL`, then encodes: `fromstring` refuses a unicode source carrying an encoding
+    # declaration outright, and a declaration surviving the UTF-8 encode mislabels the bytes — libxml2 decodes the
+    # stream under the DECLARED charset, a hard `XMLSyntaxError` on a `UTF-16` label and silent mojibake on an
+    # `ISO-8859-1` one — so the prolog is cut whole and the declaration-free bytes parse as the UTF-8 they are, while
+    # a `bytes` payload passes untouched because its declaration is the byte stream's own truth. Every knob is SPELLED even
+    # where it repeats a libxml2 default, because a default is a moving target and this is the surface an audit reads:
+    # `resolve_entities=False` keeps entity references unexpanded (a billion-laughs bomb never inflates and an external
+    # entity never substitutes text), the DTD triple refuses to load, validate against, or default attributes from any
+    # doctype the packet names, `no_network=True` bars every related-file fetch, `decompress=False` denies a gzip
+    # bomb its expansion at the parser, and `huge_tree=False` keeps libxml2's own depth and text-length limits armed.
+    # Parser construction is per-call: an `XMLParser` carries the parse's error log and is not safe to share across the worker
+    # threads and processes these callers run on. `recover` is the caller's DATA choice, never a hardening one — a
+    # recovering read salvages a truncated foreign file and still admits under the identical security posture.
+    parser = etree.XMLParser(
+        attribute_defaults=False,
+        dtd_validation=False,
+        load_dtd=False,
+        no_network=True,
+        decompress=False,
+        recover=recover,
+        huge_tree=False,
+        resolve_entities=False,
+    )
+    return etree.fromstring(_XML_DECL.sub("", source, count=1).encode() if isinstance(source, str) else source, parser)
 
 
 def children(node: DocumentNode) -> tuple[DocumentNode, ...]:
@@ -1100,11 +1132,12 @@ def _element(node: DocumentNode) -> "_Element":
 
 
 def _mathml(payload: str) -> "_Element | None":
-    # MathML admission: entity/network-hardened parse, then the `_MATHML` whitelist scrub — a comment, PI, or
+    # MathML admission: the ONE `hardened_parse` fold, then the `_MATHML` whitelist scrub — a comment, PI, or
     # element outside the set drops with its subtree and script-capable attributes (on*, href, src) strip — so
     # only presentation MathML ever appends into the HTML tree; a refused island returns None for the TeX fallback.
-    parser = etree.XMLParser(resolve_entities=False, huge_tree=False, no_network=True)
-    parsed = catch(exception=etree.XMLSyntaxError)(etree.fromstring)(payload, parser).default_value(None)
+    # The island is untrusted whatever the tree's provenance: a `FormulaNode` reaching this lowering may have been
+    # recovered by the lens out of an adversarial PDF or decoded off the wire, so it never takes the builder path.
+    parsed = catch(exception=etree.XMLSyntaxError)(hardened_parse)(payload).default_value(None)
     if parsed is None or not isinstance(parsed.tag, str) or etree.QName(parsed).localname != "math":
         return None
     for element in tuple(parsed.iter()):  # Exemption: whitelist scrub mutates the parsed island at the lxml provider seam
@@ -1806,7 +1839,7 @@ def _find(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
 
 ## [04]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

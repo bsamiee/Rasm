@@ -15,7 +15,7 @@ Demand vocabulary is the open project's: functional units arrive as resolved `(a
 - Law: `method_config` spells `{"impact_categories": [...]}` — the provider's own config key, spelled once here — and `data_objs` mounts through `bd.get_multilca_data_objs(functional_units, method_config)`, so the mounted set derives from the SAME two inputs the solve reads and a hand-assembled datapackage list cannot drift from the demand it serves.
 - Law: the batch lowers to a self-describing score frame — `unit`/`category`/`amount` columns keyed by the batch `ContentKey` — through the folder's canonical Arrow fold at the caller's columnar seam; a per-cell `MaterialImpact` mint is the rejected form, because a sweep row is analytics evidence, not a material declaration, and the carrier stays the one EN 15804 matrix owner.
 - Receipt: one `SolveReceipt` per batch — unit count, category count, iterations, the batch key — under `domain="impact"`/`kind="batch"`; identity folds the sorted functional-unit and category rosters through the deterministic encoder, so an identical sweep dedupes and a widened one re-keys.
-- Packages: `bw2calc` (`MultiLCA(demands, method_config, data_objs, use_distributions)`, `.lci()`/`.lcia()`/`.scores`, `keep_first_iteration`), `bw2data` (`projects.set_current`, `get_multilca_data_objs`), `pyarrow` function-local per the module-level ban, runtime (`RuntimeRail`/`boundary`/`ContentIdentity`/`scoped`/`Metrics`/`on_thread`).
+- Packages: `bw2calc` (`MultiLCA(demands, method_config, data_objs, use_distributions)`, `.lci()`/`.lcia()`/`.scores`, `keep_first_iteration`), `bw2data` (`projects.set_current`, `get_multilca_data_objs`), `pyarrow` (the score-frame lowering) — every one bound at module scope through its own `lazy import`, so the compiled solver and Arrow loads fall on first use with no function-local import — runtime (`RuntimeRail`/`boundary`/`ContentIdentity`/`scoped`/`Metrics`/`on_thread`).
 - Growth: a new sweep axis is more rows in the two admitted rosters — zero surface; a distribution summary beyond the mean is one field on `SolveReceipt`; zero new solver.
 - Boundary: no matrix assembly (`impact/inventory#PACKAGES` custodies datapackages), no per-material carrier mint (the carrier's `brightway` arm owns it), no method authoring — categories name methods the project already holds, and an absent method surfaces as the provider's own raise railed at the fence.
 
@@ -26,6 +26,10 @@ from msgspec import Struct
 from msgspec import json as msgjson
 from opentelemetry import trace
 
+lazy import bw2calc as bc
+lazy import bw2data as bd
+lazy import pyarrow as pa
+
 from rasm.runtime.faults import RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
@@ -34,8 +38,6 @@ from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    import pyarrow as pa
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.impact.solve")
 _ENCODER: Final = msgjson.Encoder(order="deterministic")
@@ -77,10 +79,6 @@ class LcaBatch(Struct, frozen=True):
         # ONE factorization serves every (unit, category) cell; the blocking sparse solve rides the band hop and
         # the span is the embedded engine's whole observability surface.
         def run() -> "tuple[pa.Table, SolveReceipt]":
-            import bw2calc as bc  # ruff:ignore[import-outside-top-level] — banded boundary import
-            import bw2data as bd  # ruff:ignore[import-outside-top-level]
-            import pyarrow as pa  # ruff:ignore[import-outside-top-level]
-
             bd.projects.set_current(self.project)
             config = {"impact_categories": [tuple(category) for category in self.categories]}
             data_objs = bd.get_multilca_data_objs(functional_units=self.functional_units, method_config=config)
@@ -118,9 +116,12 @@ class LcaBatch(Struct, frozen=True):
 - Boundary: no solve, no carrier mint, no plotting — the analysis surface's chart members are artifacts-plane concerns this owner never touches.
 
 ```python signature
+import io
 from typing import Literal, assert_never
 
 from expression import case, tag, tagged_union
+
+lazy from bw2analyzer import ContributionAnalysis, print_recursive_calculation
 
 
 @tagged_union(frozen=True)
@@ -134,10 +135,6 @@ class Contribution:
         # (score, supply, name) triples on the carrier's ContributionRow shape; the recursive arm captures the
         # provider's own file_obj text seam and yields (0, 0, line) rows — indented text IS its evidence kind.
         def run() -> tuple[tuple[float, float, str], ...]:
-            import io  # ruff:ignore[import-outside-top-level]
-
-            from bw2analyzer import ContributionAnalysis, print_recursive_calculation  # ruff:ignore[import-outside-top-level]
-
             match self:
                 case Contribution(tag="processes", processes=limit):
                     mined = ContributionAnalysis().annotated_top_processes(lca, limit=limit)

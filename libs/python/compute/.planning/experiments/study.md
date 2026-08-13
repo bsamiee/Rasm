@@ -12,9 +12,9 @@ Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype g
 
 - Owner: `Study` — DOE sampling, global sensitivity, and surrogate fitting are cases on one owner; the benchmark concern is the live `MeasurementMode` discriminant folded into `Measured`, never a parallel benchmark owner; `RunHistory` rides the same spine for persistence and resume.
 - Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`; one seed policy crosses sampler, analyzer, content identity, receipt, and evidence. Classical coded designs — fractional-factorial by resolution, Box-Behnken, central-composite, folded Plackett-Burman — are sampling-only members whose `indices` return `{}` and whose `design` folds ride one `_coded` match through the shared `_unit`/`_box` map: coded levels normalize by the design's own extreme (a circumscribed CCD's axial overshoot lands on the bounds) and map LINEARLY onto each axis's `bounds`, the same box map the `factorial` grid takes, because a coded design is box-geometric and the marginal ppf's 0/1 tails are unbounded.
+- Law: the nearest async fold — `run` here, `RunHistory.resume` at the history owner — settles one `Resource.RECORD` `MeterFact` off the CLEARED receipt's own `meter` projection: the fresh-admission census `evaluated_cells` times response arity, surfaced by the study method, because that fold is the nearest async owner of a count the HOSTILE kernel produced and binds no plane for. Refused studies evaluated nothing and bill nothing, a zero fresh census charges nothing, and a wholly-cached resume lands no row. Series naming lives at the journal owner, so no metric row is minted beside the receipt fan.
 - Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry; the caller's composition `ScopeKey` threads onto the weave so an embedded composition's lifecycle facts key to it, defaulted so the root call shape stays scope-free.
 - Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic. `StudyReceipt.benched` projects the held wallclock onto the runtime bench fabric under the receipt's content-keyed subject — `BenchmarkReceipt.of` consumes the measurement the run already paid for, a SPEEDUP run recovers its serial baseline as the sibling `.serial` duration series, `RESULT`'s zero elapsed suppresses the contribution, and distinct objectives never merge into one method-only benchmark series.
-- Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the evaluation surface — design cells times response arity, off the CLEARED receipt, surfaced by the study method — because that fold is the nearest async owner of a count the HOSTILE kernel produced and binds no plane for. A refused study evaluated nothing and bills nothing. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
 - Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new classical coded design is one `StudyMethod` case and one `_coded` arm reaching the shared `_unit`/`_box` map; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
 
 ```python signature
@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 import msgspec
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
@@ -460,7 +460,8 @@ SURROGATE_CLASS: Final[Map[SurrogateKind, Callable[[], "BaseEstimator"]]] = Map.
 class StudyReceipt(Struct, frozen=True):
     method: str
     mode: MeasurementMode
-    design_cells: int  # evaluated design rows; the run is total (every row evaluates or rails)
+    design_cells: int  # whole-grid census in design rows; the run is total (every row evaluates or rails)
+    evaluated_cells: int  # rows THIS run admitted fresh — the non-cached census `meter` prices; a resume's cached prefix stays the original run's
     response_width: int  # per-cell output arity — a multi-output objective is a parameterized fact
     indices: dict[str, float]
     discrepancy: Option[float]  # qmc uniformity score for an all-unif qmc design, Nothing for SALib/factorial/non-unif
@@ -471,12 +472,17 @@ class StudyReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     @staticmethod
-    def graded(study: "Study", design: np.ndarray, measured: Measured, key: ContentKey, seed: int) -> "StudyReceipt":
+    def graded(
+        study: "Study", design: np.ndarray, measured: Measured, key: ContentKey, seed: int, *, evaluated: Option[int] = Nothing
+    ) -> "StudyReceipt":
+        # `evaluated` defaults to the whole grid — an unbroken run admits every row fresh; only history's resume
+        # grades a narrower fresh-admission census.
         rows = int(design.shape[0])
         return StudyReceipt(
             study.method.tag,
             study.mode,
             rows,
+            evaluated.default_value(rows),
             int(measured.responses.size // rows) if rows else 0,
             study.method.indices(study.axes, design, measured.responses, seed),
             study.method.discrepancy(study.axes, design),
@@ -494,11 +500,22 @@ class StudyReceipt(Struct, frozen=True):
             "method": self.method,
             "mode": self.mode.value,
             "design_cells": self.design_cells,
+            "evaluated_cells": self.evaluated_cells,
             "response_width": self.response_width,
             "seed": self.seed,
             "subject": self.subject,
             "content_key": self.content_key.hex,
         }
+
+    def meter(self) -> Option[MeterFact]:
+        # `Resource.RECORD` prices the FRESH-ADMISSION surface — every non-cached cell times its response arity — so
+        # wide multi-output objectives bill the work they did and a resume bills only the rows it evaluated, never
+        # re-billing the cached prefix the original run already charged. Zero quantity charges nothing: a wholly-cached
+        # resume lands no row. Series naming lives at the journal owner (`Series.TALLY`), so this charge mints no
+        # metric row beside the receipt fan, and the surface is the study method, the one axis a cost fold cuts a
+        # study estate on.
+        quantity = self.evaluated_cells * self.response_width
+        return Some(MeterFact(resource=Resource.RECORD, quantity=quantity, surface=self.method)) if quantity else Nothing
 
     def benched(self, subject: Option[str] = Nothing) -> tuple[BenchmarkReceipt, ...]:
         # bench projection from the held measurement: `BenchmarkReceipt.of` consumes the elapsed this run already
@@ -517,6 +534,7 @@ class StudyReceipt(Struct, frozen=True):
         facts: dict[str, object] = {
             "mode": self.mode.value,
             "design_cells": self.design_cells,
+            "evaluated_cells": self.evaluated_cells,
             "response_width": self.response_width,
             "seed": self.seed,
             "subject": self.subject,
@@ -529,15 +547,6 @@ class StudyReceipt(Struct, frozen=True):
             Receipt.of(EvidenceScope.STUDY.value, ("emitted", self.method, facts)),
             *(row for bench in self.benched() for row in bench.contribute()),
         )
-
-
-def _metered(method: str, receipt: StudyReceipt) -> MeterFact:
-    # `Resource.RECORD` prices the EVALUATION surface a study consumed — every design cell times its response arity,
-    # the same product the receipt's own census carries — so a wide multi-output objective bills the work it did
-    # rather than the row count a single-output run would show. The resource already names `Series.TALLY` at the
-    # journal owner, so this charge mints no metric row beside the receipt fan the contributor already emits, and
-    # the surface is the study method, the one axis a cost fold cuts a study estate on.
-    return MeterFact(resource=Resource.RECORD, quantity=receipt.design_cells * receipt.response_width, surface=method)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -571,11 +580,12 @@ class Study(Struct, frozen=True):
 
         facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes), "seed": seed}
         settled = await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts, composition=composition)
-        # this fold is the nearest async owner of the evaluation count — the kernel that produced it binds no plane
-        # — so the charge lands here, off the CLEARED receipt: a refused study evaluated nothing to bill.
+        # this fold is the nearest async owner of the fresh-admission count — the kernel that produced it binds no
+        # plane — so the charge lands here, off the CLEARED receipt's own `meter` projection: a refused study
+        # evaluated nothing to bill, and an empty charge records nothing.
         match settled:
             case Result(tag="ok", ok=receipt):
-                return (await Journal.record(_metered(self.method.tag, receipt), scope=composition)).map(lambda _landed: receipt)
+                return (await Journal.record(receipt.meter().to_list(), scope=composition)).map(lambda _landed: receipt)
             case refused:
                 return Error(refused.error)
 

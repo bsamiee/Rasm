@@ -18,7 +18,7 @@ pillow, scikit-image, and pyvips are host-native worker packages off the runtime
 - Cases: `Probe`/`Thumbnail`/`Convert`/`Crop` are engine-polymorphic; `Montage`/`Deframe` split by engine; `Composite`/`SmartCrop`/`Pyramid` are libvips-owned; `Geometry`/`Quantize`/`Children`/`Sequence`/`Contact` are pillow-owned; `Detect` delegates in-process; `Transform` carries an encoded operand; `Generate` carries only a source `Transform` and `TransformPolicy`. `Transform` rejects source rows, and `Generate` rejects operand rows before the worker crossing.
 - Entry: `Raster.emit` discriminates on `self.ops` being one `RasterOp` or a tuple — `_normalized` folds either into one `Block[RasterOp]` at the head, so arity is a value property, never a `batch` knob. Each member lowers to its own `ArtifactWork` carrying that member's `RasterFault` as its boundary fault and binding `self.lane` and `self.policy` into the work thunk, so one corrupt input faults its node while siblings complete under the plan's front drain — never a fail-fast batch that discards every sibling on the first bad payload.
 - Auto: `RasterOp.admitted(policy)` is the ONE pre-dispatch gate over both halves — the policy's codec range, its press-bundle refusal, and its ICC depth first, then the op's empty collections, extents, timing arity, indices, geometry factors, transform operands, policy compatibility, and source payload timing. `_emit` routes `Detect` in-process and crosses every other admitted op through the worker. `_worker_raster` total-dispatches under provision capture; each engine's arm reaches its guard through `_produced`. `_transformed` decodes image/reference/mask rows once through `img_as_ubyte`; `_generated` constructs the source-only `TransformInput` without bytes or decode.
-- Receipt: each op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` at the rail boundary — `ContentIdentity.key` mints the bare `ContentKey` over the produced bytes, `bytes_` takes `len(fact.data)`, and `fact.score` threads straight onto `Preview.scores` with no coerce; `Detect` reports zero dimensions with the resolved mime/class/container and native-`float` confidence, `Probe` reports header facts without transcoding, measured transforms report perceptual and geometric facts, and a quantitative acceptor's unquantized field reports its dtype, rank, and octet length as scalar evidence while the octets stay on `RasterFact.field`.
+- Receipt: each op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` at the rail boundary — `ContentIdentity.key` mints the bare `ContentKey` over the produced bytes, `bytes_` takes `len(fact.data)`, and `fact.score` threads straight onto `Preview.scores` with no coerce; `Detect` reports zero dimensions with the resolved mime/class/container and native-`float` confidence, `Probe` reports header facts without transcoding, measured transforms report perceptual and geometric facts, and a quantitative acceptor's unquantized field reports its dtype, rank, and octet length as scalar evidence while the octets stay on `RasterFact.field`. `_emit` awaits `Journal.record` over `receipt.evidence()` ONCE above both arms — the detect leg and the produced leg settle the same case, so one `OPERATIONAL` fact and its `STORAGE` charge cover whichever ran — seated at that awaitable fold and never inside `_worker_raster`, where nothing suspends and no journal custody is bound; the score band never enters the diff.
 - Growth: a new raster op is one `RasterOp` case, one `admitted` arm, and one `_worker_raster` arm; a new engine-polymorphic op one `EngineOps` field with a pillow and a libvips arm; a new sizing mode one `FitMode` case with its two branches; a new crop or pyramid form one `CropFocus`/`PyramidLayout` member the libvips call resolves by nickname; a new blend or compositing operator one `BlendMode`/`PorterDuff` row at `graphic/color/derive#DERIVE` plus one `_BLEND`/`_PORTER` lowering row here; a new geometric op one payload-correct `GeometryOp` case with one pillow arm; a new scikit-image transform one `Transform` member with a `TRANSFORMS`/`MEASURE_TRANSFORMS` row on the owning page; a new codec one `ConvertFormat` member with one `CODEC` row naming its ordered `CodecEmit` preference per engine and answering the `BandLaw` and `FrameLaw` columns — an engine whose every listed writer probes false carries the container nowhere and `_writer` faults `codec` for it; a new container band set one `BandLaw` member with its `_BANDS` entry; a new per-frame encoder key one `FrameLaw` rung carrying that key on every wider rung's cumulative `_CLOCK` tuple; a new engine one `RasterEngine` member with one `_ENGINE` bundle, one `_GUARD` row, and one writer column on every `CODEC` row that engine can write; a new encoder coordinate one `CodecPolicy` field every option builder already receives whole; a new fault cause one `RasterFault` case breaking every capture at type-check.
 - Boundary: `CODEC` writer columns carry libvips saver suffixes and pillow format names as literals because provider imports remain worker-local, and each literal is simultaneously the call spelling and its own capability-probe key; no column asserts that a build lacks an encoder, because the ordered preference falls through to the array writer whenever the native probe refuses. Every libvips saver suffix proves the build REGISTERED the operation and never that the operation's own encoder backend linked — `get_suffixes` offers `.heic` on a libheif carrying no HEVC encoder and `heifsave` then refuses, and `.avif` rides that same delegating saver — so the libvips probe is a memoized one-shot trial write and the missing backend falls through exactly as an unregistered suffix does. A trial write proves the REGISTERED band shape alone: `jxlsave` accepts the 1-band and 3-band trial and refuses a 2-band or 4-band image mid-write, so a container whose native saver covers less than its `BandLaw` admits lists the array writer FIRST and the native leg nowhere. Container DEPTH stops at 8 bits: `ConvertFormat` names display containers, `Frame` is `uint8` whole, an `IccTransform` past that depth refuses at admission, and the 16-bit, half, and float lanes of these same codec families are the deep-pixel texture plane's — a widened member here pushes an 8-bit intermediate onto a texture path and quantizes it silently. `BandLaw` states which MODES a container carries, never how alpha associates: association is a deep-pixel plane fact and a straight-versus-associated conversion at 8 bits quantizes catastrophically at low alpha, so this funnel declares admission and the texture plane owns the conversion. ICC reach stops at the built-in device profiles: a raw ICC blob destination, soft proofing, separations, and the TAC gate are `graphic/color/managed#MANAGED`'s press legs, which own the temp-file profile capsule this funnel never opens. Payload-bearing operations carry canonical bytes rather than `pyvips.Source`/`Target`; `Generate` carries no bytes because source identity derives from its typed operation and policy. Streaming intake belongs to the consumer that owns stream identity. Descriptive EXIF/IPTC/XMP tags stay `exchange/metadata#METADATA`'s; MIME classification stays `exchange/detect#DETECT`'s; transform acceptors stay on process/measure; runtime contract and worker faults stay `BoundaryFault` cases.
 
@@ -41,6 +41,7 @@ from msgspec import Struct, UnsetType
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -466,6 +467,14 @@ class Raster(Struct, frozen=True):
 
     @staticmethod
     async def _emit(op: RasterOp, lane: LanePolicy, policy: RasterPolicy, /) -> RuntimeRail[ArtifactReceipt]:
+        # ONE durable seat over BOTH arms: the detect leg and the produced leg settle the same `Preview` case, so a
+        # per-arm record is one fold written twice and the next arm would land without one. The seat is HERE and
+        # never inside `_worker_raster` — that kernel runs in a worker process where nothing suspends and no
+        # composition bound journal custody, so a record there folds to the unarmed no-op and sheds exactly the fact
+        # it claims to land. `OPERATIONAL` and the `STORAGE` charge derive from the case's own rows, and the score
+        # band never reaches the diff: its leaf set is the measurement half's own instrumentation, and an audit row
+        # whose width tracks a transform's fact vocabulary compares nothing across two runs.
+        settled: RuntimeRail[ArtifactReceipt]
         match op.admitted(policy):  # Result is a constructor-function rail: patterns match the tagged shape, never Ok/Error class heads
             case Result(tag="error", error=fault):
                 return Error(BoundaryFault(boundary=(f"raster.{op.tag}", f"{fault.tag}:{fault}")))
@@ -473,14 +482,21 @@ class Raster(Struct, frozen=True):
                 match valid:
                     case RasterOp(tag="detect", detect=(payload,)):
                         identity = await Detect(lane=lane, engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))
-                        return identity.map(lambda di: _detected(valid, policy, payload, di))
+                        settled = identity.map(lambda di: _detected(valid, policy, payload, di))
                     case _:
                         produced = await lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), valid, policy)
-                        return produced.bind(
+                        settled = produced.bind(
                             lambda res: res.map(lambda fact: _previewed(valid, policy, fact)).map_error(
                                 lambda fault: BoundaryFault(boundary=(f"raster.{valid.tag}", f"{fault.tag}:{fault}"))
                             )
                         )
+            case _ as unreachable:
+                assert_never(unreachable)
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
 
 def _normalized[T](values: T | Iterable[T], /) -> Block[T]:
@@ -972,11 +988,11 @@ def _detected(op: RasterOp, policy: RasterPolicy, payload: bytes, identity: "Det
 
 def _transformed(payload: bytes, kind: Transform, reference: bytes, mask: bytes, policy: TransformPolicy, /) -> Result[RasterFact, RasterFault]:
     # DECODE IS PILLOW'S, whichever engine the ARM belongs to. `skimage.io.imread` drags the whole `scikit-image`
-    # import in at the decode step, and that distribution is interpreter-gated off this floor by the folder's own
-    # ruling — so every pillow-family row here (`CHOPS_*`, `MATH_LINEAR`, `ENHANCE_*`, `LUT_3D`, `EFFECT_SPREAD`,
-    # and every sibling needing no skimage arm at all) faulted `provision` on the decode of a payload their own
-    # arm never needed skimage to touch. `Image.open` is the ungated reader this page already composes everywhere
-    # else, and `np.asarray` over the exif-transposed image is the same `(H, W, C)` uint8 `Frame` the arms admit.
+    # import in at the decode step, so every pillow-family row here (`CHOPS_*`, `MATH_LINEAR`, `ENHANCE_*`,
+    # `LUT_3D`, `EFFECT_SPREAD`, and every sibling needing no skimage arm at all) paid that distribution on the one
+    # step every row crosses, for a payload its own arm never needed skimage to touch. `Image.open` is the reader
+    # this page already composes everywhere else, and `np.asarray` over the exif-transposed image is the same
+    # `(H, W, C)` uint8 `Frame` the arms admit.
     table = TRANSFORMS | MEASURE_TRANSFORMS
     row = table[kind]
     try:
@@ -1665,7 +1681,7 @@ flowchart LR
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_ENERGY_SIMULATE]
 
-`Simulation` owns the simulation egress — where an admitted building model becomes engine input, a recipe run, and typed result frames. Three concerns, one owner, strict seams: `translate` is the OpenStudio translation pair — one in-process/subprocess concept, never parallel translators; `simulate` is the recipe BINDING — runtime owns execution, geometry owns which recipe runs with which typed inputs; `results` decodes `eplusout.sql` and the recipe's own product roster into SELF-DESCRIBING columnar frames crossing the data seam. `honeybee-openstudio`, the runtime recipe owner, and `ladybug`/`honeybee-energy` own every OSM/IDF object mapping, gbXML writer, luigi scheduler, and SQL schema parse.
+`Simulation` owns the simulation egress — where an admitted building model becomes engine input, a recipe run, and typed result frames. Three concerns, one owner, strict seams: `translate` is the OpenStudio translation pair — one in-process/subprocess concept, never parallel translators; `simulate` is the recipe BINDING — runtime owns execution, geometry owns which recipe runs with which typed inputs; `results` decodes `eplusout.sql` and the recipe's own product roster into SELF-DESCRIBING columnar frames crossing the data seam. `honeybee-openstudio`, the runtime recipe owner, and `ladybug`/`honeybee-energy` own every OSM/IDF object mapping, gbXML writer, luigi scheduler, and SQL schema parse. The AGPL-3.0 band those names carry rides the standing companion-lane charter, and its import site is a LICENSE fact rather than a cost one: a static audit reads the LEXICAL import graph, so any module-scope binding — `lazy` included, the soft keyword being module-scope by design — would mark every importer of this module AGPL-coupled. Each band name therefore stays inside its boundary seam under a terse `AGPL isolation` marker, while a permissively-licensed native takes the deferral dialect instead.
 
-Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype correspondence, `FRAME_COLUMNS` derives from it, and a frame is a DECLARED roster beside sealed arrays — so the physical crossing is the data admitting pair — `tabular/columnar` `arrow_columns(columns, table)` then the `tabular/interop` `arrow_bytes` fold — with the transpose living at the producer where the roster is authored and no hand-rolled admission around the entry the data owner declares by name. Run identity chains: the model's HBJSON `ContentKey` seeds the simulation spec, the runtime recipe key covers the handled inputs, and the frame key covers the crossing bytes — the `Rasm.Persistence` reuse ledger dedupes at every tier, and the artifacts chart/table suites consume the same frames downstream. AGPL posture unchanged: function-local boundary imports, document bytes across the wire; evidence graduates under `GeometrySubject.BUILDING_ENERGY`.
+Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype correspondence, `FRAME_COLUMNS` derives from it, and a frame is a DECLARED roster beside sealed arrays — so the physical crossing is the data admitting pair — `tabular/columnar` `arrow_columns(columns, table)` then the `tabular/interop` `arrow_bytes` fold — with the transpose living at the producer where the roster is authored and no hand-rolled admission around the entry the data owner declares by name. Run identity chains: the model's HBJSON `ContentKey` seeds the simulation spec, the runtime recipe key covers the handled inputs, and the frame key covers the crossing bytes — the `Rasm.Persistence` reuse ledger dedupes at every tier, and the artifacts chart/table suites consume the same frames downstream. AGPL posture unchanged: every band binding stays a function-local boundary import, because a license audit reads the LEXICAL import graph — a module-scope binding marks every importer of this module AGPL-coupled, and a `lazy` statement is module-scope by design, so the deferred dialect cannot serve this ban — while the function-local form confines that coupling to the seam function itself; document bytes across the wire; evidence graduates under `GeometrySubject.BUILDING_ENERGY`. Permissively licensed natives carry no such ban and bind module-scope `lazy` as everywhere else, `trimesh` the one on this page.
 
 ## [01]-[INDEX]
 
@@ -18,14 +18,14 @@ Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype cor
 - Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact. The weave runs on the PARENT floor around `lane.offload`, so the crossing carries a span, a cost band, and an evidence row; the kernel itself is bare and raises into the lane's own fence. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log; `RunSpec.recipe` selects which catalog row runs, so annual energy, daylight, and the three comfort-map workflows ride the one shape. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally. `results` is one polymorphic decode over `ResultQuery`, each case carrying its OWN source: the four EnergyPlus arms address a `.sql`, the `matrix` arm addresses a recipe product. `scene` is the captured-descriptor decode — one `SceneDescriptor` off the shared wire vocabulary in, one `SceneContext` of engine-ready values out. Sun angles project STRAIGHT onto the sky, never back through `Sunpath`: the producer solved them on the kernel almanac and a second ephemeris here answers a different number for the same instant. Shading decodes the GLB body the artifact seam already delivered into `ShadeMesh` rows over `Mesh3D`, which is the population `Model.shade_meshes` holds and `Model.shades` never counts — the two are disjoint, so a receipt reading `len(model.shades)` reports zero context on a fully contextualized model.
 - Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is the band's `EnergyFault.unknown_output` case carrying the missing names beside the census size, and a recipe output the product never resolved is `unresolved_output` at the `matrix` arm, one closed refusal family either way and never a guessed address; the CLI translate fall-through refuses its unserved target through the same family, so a consumer matches one tag rather than parsing three coordinate strings.
 - Receipt: `results` returns `(frame, receipt)` built inside the fold off the frame it just sealed, so no caller hand-asserts a row count or a frame key. `spec` is the evidence subject — the model key beside the recipe and the query — and `graduates` derives its own `ContentKey` from it. Total EUI is the measured graduation fact against the caller's compliance ceiling, and only the `eui` arm measures it: every other query OMITS the key so the spine reports `unmeasured:eui` and refuses honestly rather than crossing clean on a zero that reads as a zero-energy building. That same arm records the total onto the `rasm.geometry.energy.eui` charter distribution at the producing fold.
-- Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is schema only; `numpy` seals the frame columns and the data `arrow_columns` (columnar) / `arrow_bytes` (interop) pair is the one serialization, so no `pyarrow` symbol appears on this page at all.
+- Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is MIT schema only — outside the AGPL band, so it binds `lazy` at module scope like the MIT `trimesh` GLB reader the shading decode calls; `numpy` seals the frame columns and the data `arrow_columns` (columnar) / `arrow_bytes` (interop) pair is the one serialization, so no `pyarrow` symbol appears on this page at all.
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; a new workflow is one `RunSpec.recipe` value over the runtime catalog, zero page edits; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame whose table diverges from `FRAME_SCHEMA` is the deleted form — the C# decoder can neither attribute nor dedupe it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from functools import partial
 from importlib.util import find_spec
@@ -38,6 +38,14 @@ from expression import Error, Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from msgspec import json as msgjson
+
+# permissively-licensed natives take the deferral dialect the AGPL band cannot: one module-scope binding each,
+# reified at first use. `queenbee` is MIT schema-only — it never belonged to this page's AGPL band.
+lazy import trimesh
+lazy from queenbee.io.artifact_source import ProjectFolder
+lazy from queenbee.io.inputs.job import JobArgument, JobPathArgument
+lazy from queenbee.job.job import Job
+lazy from queenbee.recipe.recipe import RecipeInterface
 
 from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
@@ -59,12 +67,10 @@ from rasm.runtime.recipe import RECIPES, RecipeExecution, RecipeName, RecipeProd
 from rasm.runtime.shapes import SceneDescriptor, SceneSun, ScenePhotometry, SolarAngles, TessellationFidelity
 from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local or LateBound seam
+if TYPE_CHECKING:  # AGPL band ONLY: annotations resolve here, every runtime use riding a function-local or LateBound seam; the MIT `queenbee` names bind lazily at module scope instead
     from honeybee.shademesh import ShadeMesh
     from honeybee_radiance.lightsource.sky.cie import CIE
     from honeybee_radiance.lightsource.sky.climatebased import ClimateBased
-    from queenbee.job.job import Job
-    from queenbee.recipe.recipe import RecipeInterface
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -284,10 +290,10 @@ class Simulation(Struct, frozen=True):
 
     def sim_par(self, spec: SimPar) -> "RuntimeRail[dict[str, object]]":
         def fold() -> dict[str, object]:
-            from honeybee_energy.simulation.output import SimulationOutput  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-            from honeybee_energy.simulation.parameter import SimulationParameter  # ruff:ignore[import-outside-top-level]
-            from honeybee_energy.simulation.runperiod import RunPeriod  # ruff:ignore[import-outside-top-level]
-            from ladybug.dt import Date  # ruff:ignore[import-outside-top-level]
+            from honeybee_energy.simulation.output import SimulationOutput  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+            from honeybee_energy.simulation.parameter import SimulationParameter  # ruff:ignore[import-outside-top-level] — AGPL isolation
+            from honeybee_energy.simulation.runperiod import RunPeriod  # ruff:ignore[import-outside-top-level] — AGPL isolation
+            from ladybug.dt import Date  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
             output = SimulationOutput(reporting_frequency=spec.reporting_frequency)
             requests = (
@@ -418,8 +424,8 @@ def _derived_sun(sun: SceneSun, recipe: RecipeName) -> tuple[str, SolarAngles, O
 def _sky(angles: SolarAngles, source: SkySource) -> "CIE | ClimateBased":
     # both skies take azimuth EAST OF NORTH, which is the descriptor's own convention, so the projection passes the
     # pair through untouched and never re-solves it through `Sunpath` — a second almanac answers a second number.
-    from honeybee_radiance.lightsource.sky.cie import CIE  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from honeybee_radiance.lightsource.sky.climatebased import ClimateBased  # ruff:ignore[import-outside-top-level]
+    from honeybee_radiance.lightsource.sky.cie import CIE  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from honeybee_radiance.lightsource.sky.climatebased import ClimateBased  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     match source:
         case SkySource(tag="cie", cie=kind):
@@ -434,7 +440,7 @@ def _graded(fidelity: TessellationFidelity, triangles: int, units: str) -> None:
     # honeybee publishes its own per-unit tolerance floor, so the grade reads that rather than pinning a literal the
     # library moves out from under. The descriptor is metres and the model is in `units`, so the floor converts
     # before the comparison — grading a metre deflection against a foot tolerance passes ten times too coarse.
-    from honeybee.units import UNITS_TOLERANCES, conversion_factor_to_meters  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from honeybee.units import UNITS_TOLERANCES, conversion_factor_to_meters  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
 
     floor = UNITS_TOLERANCES[units] * conversion_factor_to_meters(units)
     if fidelity.deflection_m > floor:
@@ -447,10 +453,9 @@ def _shades(glb: bytes, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
     # walk the scene GRAPH and apply each node's resolved transform: a GLB meaning Y-up carries that rotation as a
     # node transform, and a round-trip through this reader is identity, so composing the graph lands the geometry
     # under either producer convention where a hand-applied axis swap doubles one of them.
-    import trimesh  # ruff:ignore[import-outside-top-level] — heavy native reader, function-local like every kernel seam
-    from honeybee.shademesh import ShadeMesh  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from ladybug_geometry.geometry3d.mesh import Mesh3D  # ruff:ignore[import-outside-top-level]
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level]
+    from honeybee.shademesh import ShadeMesh  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from ladybug_geometry.geometry3d.mesh import Mesh3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     scene = trimesh.load(io.BytesIO(glb), file_type="glb", force="scene")
     posed = tuple(
@@ -490,17 +495,28 @@ def _lighting(rows: tuple[ScenePhotometry, ...]) -> tuple[tuple[SceneLighting, .
     return ranked, len(live) - len(ranked), sum(1 for row in rows if row.web is not None and row.web.content_key)
 
 
-def _addresses(value: object) -> tuple[str, ...]:
-    # a recipe output resolves to one artifact address or a list of them (one per sensor grid); the roster reads both
-    # regimes without a per-recipe branch.
-    return tuple(str(item) for item in value) if isinstance(value, (list, tuple)) else (str(value),)
+def _product_rows(name: str, value: object) -> tuple[Row, ...]:
+    # a readback value arrives in one of the two shapes `output_value_by_name` produces: the joined artifact ADDRESS
+    # (an output declaring no handler — the simulation folder joined with the output's own `from.path`), or the
+    # LOADED per-grid matrix the output's declared grasshopper-alias handler returns (`read_*_from_folder`, one
+    # sub-list of sensor values per grid — the tcp/hsp/csp comfort metrics and the daylight metric family alike).
+    # An address row rides `_UNMEASURED`; a loaded matrix lands one row per grid per sensor with the grid on the key
+    # column, so a metric reaches the frame as measured values rather than a float-blob pseudo-address.
+    if isinstance(value, (str, Path)):
+        return ((name, "", "", str(value), 0, _UNMEASURED),)
+    grids = value if isinstance(value, Sequence) else (value,)
+    return tuple(
+        (name, "", "", f"grid:{at}", step, float(sensor))
+        for at, grid in enumerate(grids)
+        for step, sensor in enumerate(grid if isinstance(grid, Sequence) else (grid,))
+    )
 
 
 def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[float]]:
     # one total decode over the query union, each arm opening only the reader it needs and returning its rows beside
     # the receipt discriminant, the recipe it read, and the EUI the eui arm alone measures.
-    from honeybee_energy.result.eui import eui_from_sql  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from ladybug.sql import SQLiteResult  # ruff:ignore[import-outside-top-level]
+    from honeybee_energy.result.eui import eui_from_sql  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from ladybug.sql import SQLiteResult  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     match query:
         case ResultQuery(tag="collections", collections=(sql, names)):
@@ -545,11 +561,7 @@ def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[floa
             if missing:
                 # same refusal class as an unknown SQL output, so a comfort-map consumer matches one tag either way.
                 raise EnergyFault(unresolved_output=(recipe.value, missing))
-            rows = tuple(
-                (name, "", "", address, ordinal, _UNMEASURED)
-                for name in declared
-                for ordinal, address in enumerate(_addresses(product.outputs[name]))
-            )
+            rows = tuple(row for name in declared for row in _product_rows(name, product.outputs[name]))
             return rows, recipe.value, recipe.value, Nothing
         case _ as unreachable:
             assert_never(unreachable)
@@ -571,10 +583,6 @@ def _tabled(rows: tuple[Row, ...]) -> ResultFrame:
 
 def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -> "Job":
     # v1beta1 Jobs carry ONE inner argument list (one parametric run), artifact paths as ProjectFolder sources.
-    from queenbee.io.artifact_source import ProjectFolder  # ruff:ignore[import-outside-top-level] — AGPL band boundary import
-    from queenbee.io.inputs.job import JobArgument, JobPathArgument  # ruff:ignore[import-outside-top-level]
-    from queenbee.job.job import Job  # ruff:ignore[import-outside-top-level]
-
     run_arguments = [
         JobPathArgument(name="model", source=ProjectFolder(path=str(model))),
         JobPathArgument(name="epw", source=ProjectFolder(path=str(run.epw))),
@@ -592,7 +600,7 @@ def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) 
         return artifact
 
     def cli() -> Path:
-        from honeybee_energy.run import run_osw, to_openstudio_osw  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+        from honeybee_energy.run import run_osw, to_openstudio_osw  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
 
         if target not in (TranslateTarget.OSM, TranslateTarget.IDF):
             # the CLI leg serves OSM/IDF alone; the target and its constraint ride the case, converted by the lane's own fence.
@@ -612,5 +620,5 @@ def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) 
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- MATRIX_ADDRESS-[OPEN]: does `RecipeProduct.outputs` carry a comfort-map recipe's `tcp`/`condition` products as one folder address or as a per-sensor-grid list, and does the runtime `output_value_by_name` read return a path string or a loaded value; read the `lbt-recipes` comfort-map recipe `package.json` output contracts against the runtime `execution/recipe` readback fold, then pin `_addresses` against the proven shape.
+(none)
 

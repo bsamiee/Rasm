@@ -25,6 +25,7 @@ Its axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eag
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import io
 from collections.abc import Buffer, Callable, Iterable, Iterator
 from enum import StrEnum
 from typing import Any, Final
@@ -36,9 +37,11 @@ from beartype import beartype
 from expression.collections import Map
 from msgspec import Struct
 
-# the whole-table IPC fold and the DoeDataset build are the two pyarrow legs this page holds; the module-scope
-# `lazy` bind states that deferral as law where a function-local import carrying a suppression states it nowhere.
+# the whole-table IPC fold and the DoeDataset build are the two pyarrow legs this page holds, and the transport-band
+# codec pair is the one arro3 leg; the module-scope `lazy` bind states each deferral as law where a function-local
+# import carrying a suppression states it nowhere — the carrier hop dereferences neither.
 lazy import pyarrow as pa
+lazy from arro3.io import read_ipc_stream, write_ipc_stream
 
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -311,10 +314,6 @@ def wire_bytes(exporter: Any, codec: WireCodec = WireCodec.LZ4) -> RuntimeRail[b
     # transport-band ONLY: standard Arrow IPC body compression a pyarrow or C# Arrow reader opens directly;
     # never a key source — content identity stays the uncompressed `arrow_bytes` fold by the folder key law.
     def emit() -> bytes:
-        import io  # ruff:ignore[import-outside-top-level]
-
-        from arro3.io import write_ipc_stream  # ruff:ignore[import-outside-top-level]
-
         sink = io.BytesIO()
         write_ipc_stream(exporter, sink, compression=None if codec is WireCodec.NONE else codec.value)
         return sink.getvalue()
@@ -326,10 +325,6 @@ def wire_table(payload: bytes) -> RuntimeRail[Any]:
     # the inverse leg: decompression rides the IPC reader off the stream's own body-compression header, so one
     # entry serves every `WireCodec` member and the caller never re-states which codec the producer chose.
     def emit() -> Any:
-        import io  # ruff:ignore[import-outside-top-level]
-
-        from arro3.io import read_ipc_stream  # ruff:ignore[import-outside-top-level]
-
         return read_ipc_stream(io.BytesIO(payload)).read_all()
 
     return boundary("interop.wire.read", emit)

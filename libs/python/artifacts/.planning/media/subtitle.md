@@ -12,7 +12,7 @@
 
 - Owner: `Subtitle` discriminates modality over the closed `SubtitleOp` union, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `convert`/`retime`/`burn` trio. Each `SubtitleDialect.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume. `RetimeShift` and `RestyleStep` are per-mode unions, while `StyleConflict.KEEP`/`REPLACE` carries import behavior as a policy value instead of an `overwrite` boolean. `BurnStyle.faces` keys `(fontname, bold, italic)` to a file path and `fallback` closes an unmapped face.
 - Cases: the `Mux`-versus-`BurnIn` choice derives from `_SOFT_SUB` membership — the muxers whose in-process packet path is verified writable — and a muxer outside the table rails `MediaFault.unregistered` so the caller routes `BurnIn`, the hard-subtitle substitute for every container the packet path cannot reach and for the absent libass filter.
-- Entry: `Subtitle.of_whisper` stores the typed `WhisperPayload` in the `whisper` case; `_whisper` performs `pysubs2.load_from_whisper` inside the process worker, so malformed provider material rails through `_subtitle_fault`. Every worker maps runtime-contract violations through `_worker` to `MediaFault.contract`; `_crossed` maps the lane's outer `BoundaryFault` through `_lapsed` and flattens the worker `Result` after retry settles.
+- Entry: `Subtitle.of_whisper` stores the typed `WhisperPayload` in the `whisper` case; `_whisper` performs `pysubs2.load_from_whisper` inside the process worker, so malformed provider material rails through `_subtitle_fault`. Every worker maps runtime-contract violations through the `media/container#CONTAINER` `_worker` aspect to `MediaFault.contract`; `_crossed` maps the lane's outer `BoundaryFault` through `_lapsed` and flattens the worker `Result` after retry settles.
 - Auto: `parse_tags` decomposes each event into override-honoring styled runs (plaintext fallback for a tagless line), so an inline `\i`/`\b`/`\fn`/`\r` burns faithfully rather than flattening; `make_time` owns the frame→ms mapping; `_anchored` maps the ASS numpad `alignment` (column `(a-1) % 3`, row `(a-1) // 3`) plus margins onto the paint origin so a top-left `an7` title and a bottom-center `an2` caption both land where the document says; `_plane` memoizes the rendered run RGBA on the frozen `TextSpec` so identical text re-rasterizes zero times across a frame span; `_composite`'s numpy alpha fold is the burn floor.
 - Receipt: the text arms produce `SubtitleEvidence` directly; `Mux`/`BurnIn` compose `MediaEvidence` and merge the `{events, styles}` band. `SubtitleEvidence` keeps provider handles out of the receipt owner; `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law, so an identical op at an identical dialect is a planner cache hit — and lands the produced-bytes content address as the `address` band fact. `_canon` frames the burn-in preimage (text, dialect, profile, sorted faces, raw frame bytes) per the identity framing law; every other case encodes whole through `CANON`.
 - Packages: `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override grammar, the ms/frame codec, format autodetection, the shift/framerate retiming, and the style rename/import — so the owner wraps its ingest/egress and track edits, never re-implementing them; `av` owns the mux capsule and the raw-packet subtitle write. Both settled against the folder `.api`.
@@ -24,15 +24,13 @@ import io
 from collections.abc import Callable, Iterator
 from enum import StrEnum
 from fractions import Fraction
-from functools import lru_cache, wraps
+from functools import lru_cache
 from heapq import merge
 from math import isfinite
 from typing import TYPE_CHECKING, Literal, ReadOnly, TypedDict, assert_never
 
 import msgspec
 import numpy as np
-from beartype import beartype
-from beartype.roar import BeartypeCallHintViolation
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
@@ -51,7 +49,7 @@ lazy import av.error
 lazy import pysubs2
 lazy import pysubs2.exceptions
 lazy import pysubs2.formats.substation  # parse_tags lives at formats.substation (verified 1.8.1), not the retired pysubs2.substation
-lazy from rasm.artifacts.media.container import _encode_video, _media_fault, _probe
+lazy from rasm.artifacts.media.container import _encode_video, _media_fault, _probe, _worker  # the plane's ONE worker aspect, generic over its payload
 lazy from rasm.artifacts.media.filtergraph import TextSpec, _render_text  # the RAQM-gated styled-text -> RGBA plane owner
 
 if TYPE_CHECKING:
@@ -258,19 +256,6 @@ def _canon(op: SubtitleOp, /) -> tuple[bytes, ...]:
             return framed(b"burn_in", text.encode(), dialect.value.encode(), CANON.encode(profile), style, *(np.asarray(plane).tobytes() for plane in frames))
         case _:
             return framed(op.tag.encode(), CANON.encode(op))
-
-
-def _worker[**P](operation: Callable[P, Result[SubtitleProduct, MediaFault]], /) -> Callable[P, Result[SubtitleProduct, MediaFault]]:
-    guarded = beartype(operation)
-
-    @wraps(operation)
-    def call(*args: P.args, **kwargs: P.kwargs) -> Result[SubtitleProduct, MediaFault]:
-        try:
-            return guarded(*args, **kwargs)
-        except BeartypeCallHintViolation as violation:
-            return Error(MediaFault(contract=str(violation)))
-
-    return call
 
 
 def _subtitle_fault(op: str, exc: "pysubs2.exceptions.Pysubs2Error | KeyError | TypeError | ValueError | UnicodeError", /) -> MediaFault:
@@ -523,7 +508,7 @@ def _mux_subtitle(text: str, container: bytes, dialect: SubtitleDialect, /) -> R
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

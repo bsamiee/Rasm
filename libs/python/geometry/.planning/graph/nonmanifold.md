@@ -2,11 +2,11 @@
 
 Non-manifold topological modeling over the stateless `topologicpy` static-method namespace: construction from B-rep/OCCT/JSON/OBJ/IFC bytes, hierarchy decomposition, the non-manifold boolean kernel, cell adjacency, attribute attachment, geometric analysis, and `Graph.ByTopology` dual-graph extraction with the connectivity/centrality/spanning/path analytics the C# `IfcSemanticModel` spatial projection does not perform. Each case folds through one of the `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` data tables, never parallel arms; the `topology-graph` subject crosses HERE, and `network-graph` stays with the `features`/`algebra` siblings.
 
-`topologicpy` is an opt-in Forge-lane companion excluded from the default server build — its `AGPL-3.0-or-later` network-copyleft terms require an explicit accepting worker lane — so every `topologicpy` and `ifcopenshell` binding stays function-local behind the cached `_topo`/`_graph`/`_cluster`/`_dictionary` facade accessors, never a module-top import loading the AGPL band into every companion start; the owner and fences stay authored, runtime admission binding to the companion-lane provisioning charter. Reducer-return vocabulary imports downward from the tier-0 `graph/analytic` substrate, no page-local twin; `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_TOPOLOGY` — span, fence, and receipt harvest in one composition over the pure module-level `_dispatch`, both entries threading the caller's composition `ScopeKey` — and `bridged` ships that `_dispatch` `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with the op alone as crossing payload, because the TopologicPy/OCCT core holds process-global native state and imports under no isolated subinterpreter, so a thread or subinterpreter arm is the untruthful trait; the sibling wiring convention holds unchanged.
+`topologicpy` is an opt-in Forge-lane companion excluded from the default server build — its `AGPL-3.0-or-later` network-copyleft terms require an explicit accepting worker lane — so every `topologicpy` binding stays function-local behind the cached `_topo`/`_graph`/`_cluster`/`_dictionary` seam accessors: a license audit reads the LEXICAL import graph, and a module-scope binding — `lazy` included, the soft keyword being module-scope by design — would mark every importer of this module AGPL-coupled, so the deferral dialect the compiled bands ride cannot satisfy this ban. `ifcopenshell` carries no such term and binds as one module-scope `lazy import`, reifying on the first loader call; the owner and fences stay authored, runtime admission binding to the companion-lane provisioning charter. Reducer-return vocabulary imports downward from the tier-0 `graph/analytic` substrate, no page-local twin; `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_TOPOLOGY` — span, fence, and receipt harvest in one composition over the pure module-level `_dispatch`, both entries threading the caller's composition `ScopeKey` — and `bridged` ships that `_dispatch` `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with the op alone as crossing payload, because the TopologicPy/OCCT core holds process-global native state and imports under no isolated subinterpreter, so a thread or subinterpreter arm is the untruthful trait; the sibling wiring convention holds unchanged.
 
 ## [01]-[INDEX]
 
-- [02]-[TOPOLOGY]: `TopologyOp` union, its `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` tables over the cached AGPL facades, the held-board `graduates`/`frame` egress pair, and the `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[TOPOLOGY]: `TopologyOp` union, its `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` tables over the cached AGPL seam accessors, the held-board `graduates`/`frame` egress pair, and the `run`/`bridged` pair under one `ReceiptContributor`.
 
 ## [02]-[TOPOLOGY]
 
@@ -14,7 +14,7 @@ Non-manifold topological modeling over the stateless `topologicpy` static-method
 - Entry: `run` discriminates a single op or a batch, each returning through its own weave rail; `bridged` never collapses an offload fault into a synthetic degenerate result — a failure stays an `Error(BoundaryFault)` on the returned rail.
 - Auto: every static call returns an opaque `topologic_core` handle the next call consumes, so dispatch threads handles through the chain rather than mutating an object; the topologicpy centralities return vertex-ordered score lists — the Sequence arm of the substrate's one shape-discriminated `ranked` fold, shared with the networkx sibling's dict arm — while the structural analytics return handle collections carrying no vertex index, so their reducers publish a `Scalar` count rather than seating handles in an index-declared partition.
 - Receipt: only the dual-graph case graduates — `GeometrySubject.TOPOLOGY_GRAPH`, gating `empty_node_fraction` against the zero ceiling so a degenerate graph breaches rather than crossing clean; the non-graph ops emit the receipt only. `spec` is the JSON-bytes payload beside the op tag, and both egress ports fold it through the graduation spine's `evidence_key` mint, so `graduates()` and `frame()` key one evidence identically and neither takes a key from its caller. The result HOLDS its analytic board map rather than reducing it to census scalars at construction, so `frame` projects a centrality leaderboard or a spanning partition through the graduation `EvidenceFrame` port off the substrate's `tabled` columns — the same egress the features sibling carries. That split is what keeps the evidence honest: `TopologyCensus` carries STRUCTURAL counts alone, and the analytic facts derive off the measured map, so an analytic a one-node graph skipped or a narrowed `TopologyPolicy` excluded is ABSENT from the receipt rather than published as a zero its reducer never produced.
-- Packages: `topologicpy` and `ifcopenshell` bound ONLY through the cached facade accessors on the AGPL gate; the analytic vocabulary and the graduation spine import downward from their geometry owners.
+- Packages: `topologicpy` bound ONLY through the cached seam accessors, the AGPL license-isolation ban refusing every module-scope form including `lazy`; `ifcopenshell` binds as one module-scope `lazy import`, and every table row stays a call-time lambda so no cell dereferences a deferred name at import; the analytic vocabulary and the graduation spine import downward from their geometry owners.
 - Growth: a new intake format is one `SourceKind` row and one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row and one table entry; a new graph analytic is one `GraphAnalytic` row and one `GRAPH_ANALYTIC` reducer, reaching `frame` through the held board map with no projection edit; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
 - Boundary: `topologicpy` is admitted ONLY for the non-manifold cell/aperture analysis the C# `IfcSemanticModel` does not extract — the BIM space-graph (spatial hierarchy/adjacency) is projected in-process and never re-derived here; numerical/form-finding geometry is the `algebra` sibling's, mesh-feature projection the `features` sibling's, and raw mesh-file exchange stays at the data `MeshPayload` seam — `run` returns handle/JSON-bytes summaries and never writes a topology file.
 
@@ -30,6 +30,8 @@ import msgspec
 from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
+
+lazy import ifcopenshell
 
 from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_key, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, ranked
@@ -99,32 +101,34 @@ _GRAPH_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_node_fract
 # --- [BOUNDARIES] -------------------------------------------------------------------------
 
 
-# AGPL gate: one cached boundary import per topologicpy facade, so the module loads clean on the
-# default lane and the opt-in Forge lane pays the import once — never a module-top AGPL binding.
+# AGPL isolation: a license audit reads the LEXICAL import graph, so a module-scope binding — `lazy`
+# included, the soft keyword being module-scope by design — would mark every importer of this module
+# AGPL-coupled. Four cached seam functions confine that lexical coupling to the boundary, and `@cache`
+# pays the topologicpy load once per accepting lane instead of once per call.
 @cache
 def _topo() -> type:
-    from topologicpy.Topology import Topology  # ruff:ignore[import-outside-top-level]
+    from topologicpy.Topology import Topology  # ruff:ignore[import-outside-top-level] — AGPL isolation, see the gate above
 
     return Topology
 
 
 @cache
 def _graph() -> type:
-    from topologicpy.Graph import Graph  # ruff:ignore[import-outside-top-level]
+    from topologicpy.Graph import Graph  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     return Graph
 
 
 @cache
 def _cluster() -> type:
-    from topologicpy.Cluster import Cluster  # ruff:ignore[import-outside-top-level]
+    from topologicpy.Cluster import Cluster  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     return Cluster
 
 
 @cache
 def _dictionary() -> type:
-    from topologicpy.Dictionary import Dictionary  # ruff:ignore[import-outside-top-level]
+    from topologicpy.Dictionary import Dictionary  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     return Dictionary
 
@@ -249,8 +253,6 @@ def _ifc_cluster(source: bytes) -> Handle:
     # SPF bytes -> in-memory `ifcopenshell.file` -> per-product topology list folded to one non-manifold
     # `Cluster` handle: `ByIFCFile` takes the file OBJECT (not a path) and returns a list, so the
     # `Cluster.ByTopologies` fold collapses it to one `Handle`, shape-uniform with the sibling rows.
-    import ifcopenshell  # ruff:ignore[import-outside-top-level]  AGPL companion gate, the same in-memory loader mesh/daemon opens through
-
     return _cluster().ByTopologies(*_topo().ByIFCFile(ifcopenshell.file.from_string(source.decode("utf-8"))))
 
 
@@ -300,29 +302,28 @@ GRAPH_ANALYTIC: Final[Mapping[GraphAnalytic, Reducer]] = MappingProxyType({
 
 
 def _dispatch(op: TopologyOp) -> TopologyResult:
-    topo = _topo()
     match op:
         case TopologyOp(tag="construct", construct=(source, kind)):
             handle = _lift(source, kind)
-            return _result("construct", (topo.Analyze(handle),), _census("construct", handle, handles=1))
+            return _result("construct", (_topo().Analyze(handle),), _census("construct", handle, handles=1))
         case TopologyOp(tag="decompose", decompose=(source, kind)):
             # `None` on a bad kind folds to the degenerate empty result.
-            parts = tuple(topo.SubTopologies(_lift(source, SourceKind.BREP), subTopologyType=kind.value) or ())
-            return _result("decompose", tuple(topo.Analyze(p) for p in parts), _decompose_census("decompose", parts))
+            parts = tuple(_topo().SubTopologies(_lift(source, SourceKind.BREP), subTopologyType=kind.value) or ())
+            return _result("decompose", tuple(_topo().Analyze(p) for p in parts), _decompose_census("decompose", parts))
         case TopologyOp(tag="adjacency", adjacency=source):
             handle = _lift(source, SourceKind.BREP)
-            adj = tuple(a for c in topo.Cells(handle) for a in topo.AdjacentTopologies(c, handle))
-            return _result("adjacency", tuple(topo.Analyze(a) for a in adj), _census("adjacency", handle, handles=len(adj)))
+            adj = tuple(a for c in _topo().Cells(handle) for a in _topo().AdjacentTopologies(c, handle))
+            return _result("adjacency", tuple(_topo().Analyze(a) for a in adj), _census("adjacency", handle, handles=len(adj)))
         case TopologyOp(tag="boolean", boolean=(a, b, kind)):
             combined = _BOOLEAN[kind](_lift(a, SourceKind.BREP), _lift(b, SourceKind.BREP))
-            handles = (topo.Analyze(combined),) if combined is not None else ()
+            handles = (_topo().Analyze(combined),) if combined is not None else ()
             return _result("boolean", handles, _census("boolean", combined, handles=len(handles)), degenerate=combined is None)
         case TopologyOp(tag="analysis", analysis=(source, kind)):
             value = _ANALYSIS[kind](_lift(source, SourceKind.BREP))
-            return _result("analysis", (topo.Analyze(value),), _census("analysis", value, handles=1))
+            return _result("analysis", (_topo().Analyze(value),), _census("analysis", value, handles=1))
         case TopologyOp(tag="attribute", attribute=(source, keys, values)):
-            handle = topo.AddDictionary(_lift(source, SourceKind.BREP), _dictionary().ByKeysValues(list(keys), list(values)))
-            return _result("attribute", (topo.Analyze(handle),), _census("attribute", handle, handles=1))
+            handle = _topo().AddDictionary(_lift(source, SourceKind.BREP), _dictionary().ByKeysValues(list(keys), list(values)))
+            return _result("attribute", (_topo().Analyze(handle),), _census("attribute", handle, handles=1))
         case TopologyOp(tag="dual_graph", dual_graph=(source, policy)):
             graph = _graph().ByTopology(_lift(source, SourceKind.BREP))
             # the folded board map is BOUND, not consumed inline: the census reads its scalars and the result carries
@@ -358,14 +359,13 @@ def _census(op: OpTag, handle: Handle, *, handles: int) -> TopologyCensus:
     # a null boolean handle yields the zero census; `_decompose_census` owns the tuple arm — no runtime shape probe.
     if handle is None:
         return TopologyCensus(op=op, handles=handles)
-    topo = _topo()
     return TopologyCensus(
         op=op,
         handles=handles,
-        cells=len(topo.Cells(handle)),
-        faces=len(topo.Faces(handle)),
-        edges=len(topo.Edges(handle)),
-        vertices=len(topo.Vertices(handle)),
+        cells=len(_topo().Cells(handle)),
+        faces=len(_topo().Faces(handle)),
+        edges=len(_topo().Edges(handle)),
+        vertices=len(_topo().Vertices(handle)),
     )
 
 

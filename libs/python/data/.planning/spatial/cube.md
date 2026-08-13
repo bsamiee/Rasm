@@ -26,6 +26,8 @@ from expression import case, tag, tagged_union
 from msgspec import Struct
 from opentelemetry import trace
 
+lazy import geopandas as gpd
+
 from rasm.data.gridded.field import FieldReceipt
 from rasm.data.spatial.geospatial import VectorGeoClaim
 from rasm.runtime.faults import RuntimeRail, boundary, scoped
@@ -83,8 +85,6 @@ class ZoneCube(Struct, frozen=True):
     def _aligned(self, geometry: Any) -> Any:
         # every operand crosses the claim's OWN prelude on a one-row frame — the same reproject law every
         # vector operand crosses — so a mis-referenced predicate lands in the cube's frame, never raw.
-        import geopandas as gpd  # ruff:ignore[import-outside-top-level]
-
         return self.claim.reproject(gpd.GeoDataFrame(geometry=gpd.GeoSeries([geometry]))).geometry.iloc[0]
 
     def write(self, target: ResourceRef) -> "RuntimeRail[FieldReceipt]":

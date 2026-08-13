@@ -1,12 +1,12 @@
 # [PY_GEOMETRY_IFC_ANALYSIS]
 
-IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, `ifc5d.qto`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
+IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, `ifc5d.qto`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. The model's own map georeference decodes here beside them as the branch's ONE model CRS source, crossing as a `GeoreferenceFact` wire shape rather than an analysis row, because a coordinate frame carries no verdict to grade. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
 
 Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep, and the `SelectorMatch` it hands back carries the canonical `filter_string` every receipt keys its evidence on. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS` and carries no head decorator — `@beartype(conf=FAULT_CONF)` on `_dispatch` is the one innermost seam this capsule fences, as its two peers hold. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; the authored `.bcfzip` rides home as archive BYTES on the receipt and the durable write stays `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
 
 ## [01]-[INDEX]
 
-- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, the `run_async` twin recording the BCF arm's operational trail, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
+- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, the `run_async` twin recording the BCF arm's operational trail, kind-specific graduation evidence under `BIM_COMPLIANCE`, and the `GeoreferenceFact` decode crossing beside the dispatch as the model CRS seam.
 
 ## [02]-[ANALYSIS]
 
@@ -15,9 +15,10 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 - Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
 - Receipt: receipts carry the census, frames carry the rows. `contribute` emits one row per run — row count, subject count, archive extent where one exists, and the residual ledger — because a whole-model take-off is one fact key per element per quantity and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run; `frame` projects those rows as ONE columnar `EvidenceFrame` through the graduation port, columns off the first row's `facts` keys exactly as the sibling lifecycle rollup does. `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction beside its unquantified count, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates` and `frame` derive their own `ContentKey` from the receipt's `spec` — kind plus the validated query projection — through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce. `_distributed` records the `non-compliant` fraction as the `rasm.geometry.compliance.noncompliant` charter measure at the producing fold; the cluster-count and empty-fraction keys name no charter row and record nothing, a count or boolean gate earning no histogram.
 - Law: the BCF arm alone lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` keyed on the run's `spec`, its topic GUIDs the subject index — because that arm AUTHORS an archive the data seam persists while every other kind reads the model and produces a verdict nothing keeps. `run_async` is its seat, the awaitable twin this caller-floor owner mints over the band hop, since recording suspends and `_distributed` is a synchronous charter projection. No meter rides the leg: the archive crosses as receipt payload and the data seam charges the write it performs, so a byte count at both tiers bills one artifact twice.
-- Packages: `ifcopenshell`, `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier.
+- Law: `GeoreferenceFact` decodes at this band as the branch's ONE model CRS source, a dataset's own file CRS staying a data-owned origin beside it that this fact never overrides. The decode sits BESIDE the dispatch rather than inside it: it produces no `AnalysisRow`, grades no ceiling, graduates nothing, and records no charter measure — `BIM_COMPLIANCE` is the verdict class the IDS/clash/BCF arms own and a coordinate frame is not a verdict — so an `AnalysisKind` row would seat it in an algebra with nothing to say about it. The decoded fact IS the evidence: it crosses one-way to `python:data/spatial`'s geospatial plane as the `[SHAPE]: GeoreferenceFact` seam, whose eight-field roster this producer DECLARES and the data-side decoder mirrors arm-for-arm, so a second decode anywhere in the estate is the deleted form.
+- Packages: `ifcopenshell` (`util.element` the pset and quantity reads, `util.geolocation` the ONE georeference extraction seam whose `get_helmert_transformation_parameters` collapses `IfcMapConversion`, `IfcMapConversionScaled`, `IfcRigidOperation`, and the IFC2X3 ePSet fallback onto one nine-field transform, so no consumer branches on coordinate-operation subtype), `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; a newly decoded georeference axis is one `GeoreferenceFact` field landed at BOTH ends of the seam in the same pass, a producer-only field being a wire key the data decoder rejects; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -25,13 +26,26 @@ from collections.abc import Iterable
 from enum import StrEnum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypedDict, assert_never
+from typing import Final, Literal, NotRequired, TypedDict, assert_never
 
 from beartype import beartype
-from expression import Error, Ok, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import decode
+
+# Provider band, deferred at module scope: the manifest roster bans the EAGER form alone, and every dereference sits
+# inside a verb body, so no constant or table row reifies a proxy at import. The `ifcopenshell.util` members and the
+# `ifctester` reporters ride `lazy from`, binding each consumed name directly — sibling `lazy import <pkg>.<mod>`
+# lines reify independently off `sys.lazy_modules`; `open as open_ids` keeps the builtin unshadowed.
+lazy import ifc5d.qto
+lazy import ifcopenshell
+lazy from bcf.v3.bcfxml import BcfXml
+lazy from ifcclash.ifcclash import Clasher, ClashSet, ClashSettings, ClashSource
+lazy from ifcopenshell.util.element import get_psets
+lazy from ifcopenshell.util.geolocation import HelmertTransformation, get_crs, get_helmert_transformation_parameters, get_true_north
+lazy from ifctester.ids import open as open_ids
+lazy from ifctester.reporter import Json
 
 from rasm.geometry.graduation import (
     EVIDENCE_DOMAIN,
@@ -45,16 +59,10 @@ from rasm.geometry.graduation import (
 )
 from rasm.geometry.ifc.costing import RuleSet
 from rasm.geometry.ifc.selector import IfcSelector
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
-
-if TYPE_CHECKING:  # every runtime provider use is a function-local boundary import, so the module loads clean; the
-    # type-only names here are what make the `Clasher`/`ClashSet`/`BcfXml` string annotations below resolvable at all
-    import bcf.v3.bcfxml
-    import ifcopenshell
-    from ifcclash.ifcclash import Clasher, ClashSet
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
@@ -218,10 +226,29 @@ class AnalysisResult(Struct, frozen=True, gc=False):
         return EvidenceFrame.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), table)
 
 
+class GeoreferenceFact(Struct, frozen=True):
+    # ONE wire fact DECLARES the model's map georeference here, mirrored arm-for-arm by the data geospatial decoder:
+    # `crs` off the projected-CRS name, the six transform fields off the one `HelmertTransformation` — `scale`
+    # carrying the provider's `scale * factor` product, the lossless single-scale spelling of a uniform per-axis
+    # triple — and `true_north` off the context's own declaration. Transform fields are the similarity the data seam
+    # composes — the abscissa/ordinate pair is a DIRECTION its consumer normalizes, so an authoring tool's
+    # unnormalized magnitude crosses unedited rather than being pre-scaled into a second producer's job.
+    # `true_north` rides as DECLARED evidence and never enters that transform, the map conversion having already
+    # oriented the eastings axis.
+    crs: str
+    eastings: float
+    northings: float
+    orthogonal_height: float
+    x_axis_abscissa: float = 1.0
+    x_axis_ordinate: float = 0.0
+    scale: float = 1.0
+    true_north: float | None = None
+
+
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
 
-def _archived(document: "bcf.v3.bcfxml.BcfXml") -> bytes:
+def _archived(document: "BcfXml") -> bytes:
     # `BcfXml.save(filename)` writes the zip and returns None, so the authored archive rides home as bytes through one
     # scoped temp path — the sibling lifecycle owner's SPF `write`-then-read shape. Without this carry the document is
     # dropped at function exit and the `.bcfzip` the page promises the data seam never crosses at all.
@@ -262,6 +289,49 @@ def _evidence(result: AnalysisResult) -> "Block[Fact]":
     )
 
 
+def _georeferenced(helmert: "HelmertTransformation | None", crs: str, true_north: float | None) -> "RuntimeRail[Option[GeoreferenceFact]]":
+    # ABSENCE, never a fabricated identity: `get_helmert_transformation_parameters` answers `None` for a model
+    # carrying no coordinate operation at all, and every `auto_*` sibling folds that `None` into the identity
+    # transform — which reports site-local engineering coordinates AS map coordinates the instant the data seam's
+    # `reproject` prelude composes the fact. Typed absence crosses instead, and a refusal is equally the deleted
+    # form: a model that is merely un-georeferenced is not a malformed one, and its analysis rows still stand.
+    if helmert is None:
+        return Ok(Nothing)
+    # one refusal names EVERY fact the eight-field wire cannot carry. `IfcMapConversionScaled` publishes THREE
+    # per-axis factors against the wire's single `scale`; the provider's own algebra multiplies `scale * factor_*`
+    # on every axis — `xyz2enh`'s eastings/northings legs, the `z2e` height leg, and `local2global`'s diagonal
+    # alike — so a UNIFORM triple folds losslessly into the one wire scale as `scale * factor`, and only a
+    # non-uniform triple refuses BY NAME rather than crossing as a uniform similarity with two axes silently
+    # dropped — the [DISCARDED_DISCRIMINANT] scar exactly, and one no downstream `pyproj` call can detect. The
+    # factors decode straight off the coordinate operation's literal attributes, so uniformity is exact equality,
+    # never an epsilon a near-uniform triple would silently collapse through. A coordinate operation whose target
+    # CRS names nothing fills no `crs` a consumer resolves, so it refuses on the same roster rather than crossing
+    # as an empty sentinel.
+    factors = (helmert.factor_x, helmert.factor_y, helmert.factor_z)
+    unwirable = (
+        *((f"factors:{','.join(map(str, factors))}",) if len(set(factors)) > 1 else ()),
+        *(("crs:unnamed",) if not crs else ()),
+    )
+    return (
+        Error(BoundaryFault(boundary=("ifc.georeference", ";".join(unwirable))))
+        if unwirable
+        else Ok(
+            Some(
+                GeoreferenceFact(
+                    crs=crs,
+                    eastings=helmert.e,
+                    northings=helmert.n,
+                    orthogonal_height=helmert.h,
+                    x_axis_abscissa=helmert.xaa,
+                    x_axis_ordinate=helmert.xao,
+                    scale=helmert.scale * factors[0],
+                    true_north=true_north,
+                )
+            )
+        )
+    )
+
+
 class IfcAnalysis:
     @staticmethod
     def run(
@@ -291,6 +361,32 @@ class IfcAnalysis:
                 return (await Journal.record(_evidence(result), scope=composition)).map(lambda _landed: result)
             case refused:
                 return Error(refused.error)
+
+    @staticmethod
+    def georeference(model: "ifcopenshell.file") -> "RuntimeRail[Option[GeoreferenceFact]]":
+        # `georeference` is the branch's ONE model CRS source, and a SHORT PURE DECODE: `util.geolocation` is pure Python over the
+        # coordinate-operation entities, so this needs neither the native wrapper nor a band hop and stays
+        # caller-floor beside the dispatch. It grades nothing and graduates nothing — the decoded fact IS the
+        # evidence, crossing one-way to the data geospatial plane — so it takes no kind, no `spec`, and no weave.
+        # It IS reachable outside `run`, so the three provider reads ride the `boundary` fence and this projection
+        # returns the rail rather than raising past a caller no weave covered; every wire decision is the pure fold
+        # above, and `get_crs` is read for its `Name` alone, the one attribute a `pyproj` consumer resolves —
+        # it answers `None` outright for a model declaring no CRS, which folds onto the same named `crs:unnamed`
+        # refusal rather than surfacing as an attribute fault the fence can only classify blind. `get_true_north`
+        # is TOTAL — an undeclared `TrueNorth` answers `0`, its bare-except floor included — so declaredness reads
+        # off the same context roster the provider itself walks: a declared north converts to float, an undeclared
+        # one crosses as `None` onto the wire's own absence arm, never a fabricated due-north `0.0` a solar
+        # consumer would read as the model's declaration.
+        return boundary(
+            "ifc.georeference",
+            lambda: (
+                get_helmert_transformation_parameters(model),
+                str((get_crs(model) or {}).get("Name", "")),
+                float(get_true_north(model))
+                if any(context.TrueNorth for context in model.by_type("IfcGeometricRepresentationContext", include_subtypes=False))
+                else None,
+            ),
+        ).bind(lambda read: _georeferenced(*read))
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -325,8 +421,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _space(model: "ifcopenshell.file", table: str, spec: str) -> AnalysisResult:
-        import ifc5d.qto  # ruff:ignore[import-outside-top-level]
-
         # Program-table decode runs under the weave fence, so a malformed JSON table is a BoundaryFault classified at
         # the seam, never an inline try/except in domain logic. Measurement is the PACKAGE'S — `qto.quantify` folds the
         # shared `RuleSet` base-quantity table over the space set and the grade reads its `SPACE_AREA` cell off the
@@ -358,9 +452,7 @@ class IfcAnalysis:
 
     @staticmethod
     def _takeoff(element: "ifcopenshell.entity_instance", quantities: bool) -> AnalysisRow:
-        import ifcopenshell.util.element  # ruff:ignore[import-outside-top-level]
-
-        psets = ifcopenshell.util.element.get_psets(element, qtos_only=quantities)
+        psets = get_psets(element, qtos_only=quantities)
         merged = {f"{name}.{key}": value for name, body in psets.items() for key, value in body.items()}
         if quantities:
             return AnalysisRow.of_quantity(element.GlobalId, {k: float(v) for k, v in merged.items() if isinstance(v, int | float)})
@@ -368,10 +460,7 @@ class IfcAnalysis:
 
     @staticmethod
     def _validate(model: "ifcopenshell.file", spec_path: str, spec: str) -> AnalysisResult:
-        import ifctester.ids  # ruff:ignore[import-outside-top-level]
-        import ifctester.reporter  # ruff:ignore[import-outside-top-level]
-
-        document = ifctester.ids.open(spec_path)
+        document = open_ids(spec_path)
         document.validate(model)
         rows = tuple(
             AnalysisRow.of_compliance(
@@ -381,7 +470,7 @@ class IfcAnalysis:
             if row.status is not None
         )
         applicable = tuple(row.name for row in document.specifications if row.status is not None)
-        results = ifctester.reporter.Json(document).report()
+        results = Json(document).report()
         return AnalysisResult(AnalysisKind.IDS, spec, applicable, rows, checks_pass=float(results["percent_checks_pass"]))
 
     @staticmethod
@@ -408,8 +497,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _author(model: "ifcopenshell.file", sides: tuple[str, str], spec: str) -> "RuntimeRail[AnalysisResult]":
-        from bcf.v3.bcfxml import BcfXml  # ruff:ignore[import-outside-top-level]
-
         # this leg authors the archive, reads its topic GUIDs back, AND carries the archive bytes on the receipt, so the
         # durable `.bcfzip` write is the data seam's own step over a payload that actually crossed.
         def compose(run: "tuple[Clasher, tuple[ClashRow, ...], ClashSet]") -> AnalysisResult:
@@ -421,7 +508,7 @@ class IfcAnalysis:
         return IfcAnalysis._run_clash(model, sides).map(compose)
 
     @staticmethod
-    def _topic(document: "bcf.v3.bcfxml.BcfXml", clasher: "Clasher", clash_set: "ClashSet", collision: ClashRow) -> AnalysisRow:
+    def _topic(document: "BcfXml", clasher: "Clasher", clash_set: "ClashSet", collision: ClashRow) -> AnalysisRow:
         handler = document.add_topic(
             f"Clash {collision['a_global_id']} × {collision['b_global_id']}", f"penetration {collision['distance']:.4f}", "rasm", topic_type="Clash"
         )
@@ -431,8 +518,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _run_clash(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[tuple[Clasher, tuple[ClashRow, ...], ClashSet]]":
-        from ifcclash.ifcclash import Clasher, ClashSettings, ClashSet, ClashSource  # ruff:ignore[import-outside-top-level]
-
         def source(selector: str) -> ClashSource:
             # `file` is a required ClashSource key; the pre-loaded `ifc` model makes the empty path inert. Mode
             # 'e' consumes the validated `filter_string`, mode 'a'-all the whole-model default.

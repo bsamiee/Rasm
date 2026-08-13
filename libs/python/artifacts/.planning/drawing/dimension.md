@@ -12,14 +12,15 @@ Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native p
 
 - Owner: `Dimension` holds `ops`, the resolved `drawing/standard#STANDARD` `Standard`, the `DimTarget` value, and the `lane: LanePolicy` execution policy, discriminating over the closed `DimOp` whose every case carries ONLY its own geometry plus the `DimStyleFamily`/`DimTol` facet slots — never a per-dimension `LinearDim`/`RadialDim` class family, never a monolithic bag whose angular/radial fields are dead for most cases. `DimTol` is the closed dimensional-tolerance vocabulary (`Auto`/`Custom`/`Symmetric`/`Deviation`/`Limits`/`Basic`) every case's second facet carries, and `GdtFrame` — `GdtChar` characteristic, `GdtScope` toleranced element, `GdtZone` kind with its own second dimension, exact zone magnitude, `GdtModifier` material condition, `GdtZoneModifier` set, `GdtDatum` references each carrying its OWN material condition, and the `GdtSegment` composite lower row — is the geometric-tolerance sibling the `Fcf` case carries whole; together they are where the `Fabrication -> Drawing` tolerance wire admits. `DimTarget` keys the `_ENGINES` dual-lowering table (`DXF`/`SVG`/`PDF` sharing the `_native` arm through `_BACKENDS`, `LAYERED` the `_layered` arm), so a new egress is one row.
 - Cases: each dimensional `DimOp` case ends in the `(DimStyleFamily, DimTol)` facet pair and lowers onto its verified `ezdxf` builder (`add_linear_dim`/`add_aligned_dim`/`add_angular_dim_2l`/`_3p`/`_cra`/`add_radius_dim`/`add_diameter_dim`/`add_ordinate_x_dim`/`_y_dim`/`add_arc_dim_3p`/`_cra`/the self-rendering `add_multi_point_linear_dim` chain, `Baseline` a fold of `add_linear_dim` stepping by DIMDLI), matched by one total `match` in `_lower` — the `Angular3P`/`Arc3P` and `AngularCRA`/`ArcCRA` payload shapes coincide but each lowers onto a distinct builder. `OrdinateAxis` routes `add_ordinate_x_dim`/`_y_dim`. `Fcf` and `DatumFeature` lower onto `add_leader` plus the `TOLERANCE` entity whose `content` `_gdt_content` derives from the frame value.
-- Entry: `Dimension.over` normalizes `DimOp | Iterable[DimOp]` by a structural `match` at the head — never a `batch` knob. `emit` returns `ArtifactWork` beside the `layered()` `RuntimeRail[LayerPlan]` projection; both execution paths ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`, whose returned rail composes directly. `_native` seeds `Standard`, solves the offset stack, lowers every `DimOp`, and egresses through the target `DimBackend`; `_layered` decomposes each dimension into named rows over `ezdxf.math`, `drawsvg`, `ziafont`, and the `typography/math#MATH` `Formula` owner, with `aec=Some(_DIMS)` deriving ISO 13567 names downstream.
-- Auto: `_facets` projects each case's `(family, tol)` once through one total or-pattern; `over = dict(standard.dimstyle(family)) | _tol_over(tol)` scales the DIM-variables by the ISO 5455 factor so a `1:50` dimension draws its 2.5 mm text at paper scale with zero per-arm literal. Each `DimTol` mode lowers onto its native mechanism — `Symmetric` onto `dimtol`, `Deviation` onto an `MTextEditor.stack` stacked fraction, `Limits` onto `dimlim`, `Basic` onto a negative-`dimgap` boxed value — never a hand-formatted `± ` string, and the `LAYERED` tolerance layer typesets ALL FOUR through `_tol_latex`, so no admitted tolerance is silently absent on either arm. `_stack` threads one `kiwisolver.Solver`: a `required` anchor, `required` min-separation ≥ DIMDLI, and a custom `strength.create(0,1,0,4)` equal-gap band above plain `weak`; `Constraint.violated()` reads which soft gaps the solve sacrificed, and a dense chain that collapses the distribution falls back to deterministic fixed DIMDLI stepping. `LAYERED`'s `_construction` DECOMPOSES a curved dimension to the actual `ConstructionArc`/`ConstructionCircle` it MEASURES (`.flattening(_SAGITTA)`) and an ordinate to its axis dogleg; `_measurement` reads the true value per case — length, `R`/`⌀`, the angular degrees off the construction geometry, the `⌢` arc length — and `_terminator_anchors` places each mark where its case terminates with the tangent the mark aligns to. Text and tolerance runs are MEASURED via `getsize()`/`getyofst()` so the text floats above the dimension line and the tolerance clears the value, the annotation font falls to the bundled `ziafont` face when the profile names an `.shx` CAD font no sfnt reader parses, and `_PRECISION` pins the emitted `d`-floats so the content key stays deterministic.
+- Entry: `Dimension.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `DimOp | Iterable[DimOp]` by a structural `match` at the head — never a `batch` knob. `emit` returns `ArtifactWork` beside the `layered()` `RuntimeRail[LayerPlan]` projection; both execution paths ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`, whose returned rail composes directly. `_native` seeds `Standard`, solves the offset stack, lowers every `DimOp`, and egresses through the target `DimBackend`; `_layered` decomposes each dimension into named rows over `ezdxf.math`, `drawsvg`, `ziafont`, and the `typography/math#MATH` `Formula` owner, with `aec=Some(_DIMS)` deriving ISO 13567 names downstream.
+- Auto: `_facets` projects each case's `(family, tol)` once through one total or-pattern; `over = dict(standard.dimstyle(family)) | _tol_over(tol)` scales the DIM-variables by the ISO 5455 factor so a `1:50` dimension draws its 2.5 mm text at paper scale with zero per-arm literal. Each `DimTol` mode lowers onto its native mechanism — `Symmetric` onto `dimtol`, `Deviation` onto an `MTextEditor.stack` stacked fraction, `Limits` onto `dimlim`, `Basic` onto a negative-`dimgap` boxed value — never a hand-formatted `± ` string, and the `LAYERED` tolerance layer typesets ALL FOUR through `_tol_latex`, so no admitted tolerance is silently absent on either arm. `_stack` threads one `kiwisolver.Solver`: a `required` anchor, `required` min-separation ≥ DIMDLI, and a custom `strength.create(0,1,0,4)` equal-gap band above plain `weak`; `Constraint.violated()` reads which soft gaps the solve sacrificed, and a dense chain that collapses the distribution falls back to deterministic fixed DIMDLI stepping. `LAYERED`'s `_construction` DECOMPOSES a curved dimension to the actual `ConstructionArc`/`ConstructionCircle` it MEASURES (`.flattening(_SAGITTA)`) and an ordinate to its axis dogleg; `_measurement` reads the true value per case — length, `R`/`⌀`, the angular degrees off the construction geometry, the `⌢` arc length — `_terminator_anchors` places each mark where its case terminates with the tangent the mark aligns to, and `_terminator_kind` recovers the drawn end from the LOWERED DIM-variables against regime's one terminator row, so the layered arm marks exactly what the native arm renders. Text and tolerance runs are MEASURED via `getsize()`/`getyofst()` so the text floats above the dimension line and the tolerance clears the value, the annotation font falls to the bundled `ziafont` face when the profile names an `.shx` CAD font no sfnt reader parses, and `_PRECISION` pins the emitted `d`-floats so the content key stays deterministic.
+- Receipt: `_emit` awaits `Journal.record` over `receipt.evidence()` at that fold for whichever case the target minted — `ArtifactReceipt.Drawing` on the DXF/SVG/LAYERED arms, the reused `ArtifactReceipt.Pdf` on the PDF backend — both `OPERATIONAL` production trail charging `STORAGE` on their byte volume, and `evidence` is total over the roster so no arm here names a kind. Recording suspends, so the seat is the awaitable `_emit`, and `layered()` crosses for the layer tree alone.
 - Wire: `GdtFrame.decode` reads the producer's framed binary and refuses onto `Result` — magic before any length cell, so a foreign buffer refuses at byte 0; the zone kind alone discriminates the second dimension; a collection and an `Option` alike frame as a count then that many elements; and `sealed` refuses trailing bytes, since a decode reading less than the producer wrote is drift, never slack.
 - Wire: `GdtScope`, `GdtZone`, and `GdtZoneModifier` spell the producer key as their own value, so the enum constructor IS the `[WIRE_TOKEN]` ingest table; `GdtChar` and `GdtModifier` keep DXF gdt-font codes the `TOLERANCE` entity embeds and land through `_CHAR_INGEST` and `_MATERIAL_INGEST`.
 - Law: decimal presentation is THIS standard's DIMDEC and never a producer-side rounding — `_gdt_magnitude` falls to shortest-round-trip on a zone the drawing's own precision rounds away, since a drawn zero reads as perfect form.
 - Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one `GdtChar` member plus one `_GDT_GLYPH` and one `_CHAR_INGEST` row; a new zone kind, scope, or zone modifier is one enum member and its glyph row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
 - Boundary: no IFC, sheet-placement, or annotation-leader logic — `csharp:Rasm.Bim`, `composition/sheet#SHEET`, `drawing/annotate#ANNOTATE`. `ezdxf` owns the ISO 129-1 dimension entity, the `TOLERANCE` entity, and the render; `drawing/standard#STANDARD` the DIM-variable derivation and discipline pen; `graphic/vector/region#REGION` the landed `outline`/`boolean` the tapered-terminator premium composes; `ziafont` the ISO 3098 text outline; `typography/math#MATH` the tolerance math; `kiwisolver` the offset solve; `graphic/layer#LAYER` the layer vocabulary; `composition/sheet#SHEET` the placement; identity minting is the runtime's.
-- Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render, `bbox.extents`); `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default; `core/receipt#RECEIPT` `ArtifactReceipt.Drawing`/`Pdf`. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`LayerName` lowering onto the `ezdxf` tables.
+- Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default; `core/receipt#RECEIPT` `ArtifactReceipt.Drawing`/`Pdf`. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`extent`/`LayerName` lowering onto the `ezdxf` tables.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -34,21 +35,22 @@ from xml.etree.ElementTree import Element, fromstring, tostring
 import numpy as np
 from beartype import beartype
 from builtins import frozendict
-from expression import Nothing, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.msgpack import Encoder
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.drawing.regime import Discipline, LayerName, LayerSchema
-from rasm.artifacts.drawing.standard import DimStyleFamily, Standard
-from rasm.artifacts.graphic.layer import LayerContent, LayerIntent, LayerMeta, LayerNode, LayerPlan
+from rasm.artifacts.drawing.regime import INGRESS, Discipline, LayerName, LayerSchema, Terminator
+from rasm.artifacts.drawing.standard import DimStyleFamily, Standard, extent
+from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.typography.math import Formula, FormulaSpec, LatexSpec, seat
 
 # each proxy reifies on first render-arm use in the offloaded worker
@@ -56,7 +58,6 @@ lazy import drawsvg
 lazy import ezdxf
 lazy import kiwisolver
 lazy import ziafont
-lazy from ezdxf import bbox
 lazy from ezdxf import math as ezmath
 lazy from ezdxf.addons.drawing import Frontend, RenderContext
 lazy from ezdxf.addons.drawing import layout as dxflayout
@@ -81,7 +82,7 @@ type DimTag = Literal[
     "arc3p", "arccra", "chain", "baseline", "fcf", "datum_feature",
 ]
 type TolTag = Literal["auto", "custom", "symmetric", "deviation", "limits", "basic"]
-type MarkKind = Literal["arrow", "open", "oblique", "dot", "origin", "none", "datum"]
+type MarkKind = Terminator | Literal["datum"]  # the ISO 129-1 ends plus the ISO 5459 datum triangle, which terminates no dimension line
 type DimArm = Callable[["Dimension"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]  # the target-keyed lowering arm
 type GdtRow = tuple[str, float, "GdtModifier", "tuple[GdtZoneModifier, ...]", "tuple[GdtDatum, ...]"]  # one frame row
 
@@ -465,7 +466,7 @@ class Dimension(Struct, frozen=True):
     target: DimTarget = DimTarget.SVG
 
     @classmethod
-    @beartype
+    @beartype(conf=INGRESS)
     def over(
         cls, ops: DimOp | Iterable[DimOp], standard: Standard, /, *, lane: LanePolicy, target: DimTarget = DimTarget.SVG
     ) -> Self:
@@ -486,7 +487,16 @@ class Dimension(Struct, frozen=True):
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # offload rails the synchronous fold itself; the returned rail composes — never re-raised for a second boundary.
-        return (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
+        settled = (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
+        # one durable fact per produced dimension set, whichever case the target minted: a drawing and a PDF are both
+        # `OPERATIONAL` production trail whose byte volume charges `STORAGE`, and `evidence` is total over the roster
+        # so no arm here spells a kind. Recording suspends, so the seat is this awaitable fold — `layered()` crosses
+        # the lane a second time for the layer tree and records nothing.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         # Engine rows as one LayerPlan tree — substrate data the layered/sheet consumers compose, not the producer rail.
@@ -496,11 +506,6 @@ class Dimension(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def _row(name: str, source: bytes, z: int = 0, /) -> LayerNode:
-    # one engine row into the layer vocabulary — a Leaf over LayerMeta whose aec carries the DIMS LayerName so ISO 13567 naming derives downstream.
-    return LayerNode.Leaf(LayerMeta(name=name, intent=LayerIntent.ANNOTATION, z=z, aec=Some(_DIMS)), LayerContent.Fragment(source))
-
-
 def _facets(op: DimOp, /) -> tuple[DimStyleFamily, DimTol]:
     match op:  # every case's (family, tol) is its last two payload slots; one total projection
         case (
@@ -685,11 +690,6 @@ def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int]:
 
 def _page(width: float, height: float, /) -> "dxflayout.Page":
     return dxflayout.Page(max(width, 1.0), max(height, 1.0), dxflayout.Units.mm, margins=dxflayout.Margins.all(0.0))
-
-
-def _extent(msp: "Modelspace", /) -> tuple[float, float]:
-    box = bbox.extents(msp, fast=True)
-    return (float(box.size.x), float(box.size.y)) if box.has_data else (0.0, 0.0)
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -1067,21 +1067,14 @@ def _outline_font(standard: Standard, /) -> "ziafont.Font":
     return ziafont.Font(named if named is not None and named.endswith((".ttf", ".otf")) else None)
 
 
-def _terminator_kind(over: Override, /) -> MarkKind:
-    # ISO 129-1 terminator from the override's dimblk/dimtsz — a positive DIMTSZ is the oblique tick, else the arrow block.
+def _terminator_kind(over: Override, /) -> Terminator:
+    # the ISO 129-1 end recovered from the LOWERED variables, so the layered arm draws exactly what the native arm
+    # renders: a positive DIMTSZ is the oblique tick the dimension consumer takes instead of a block, and every other
+    # end matches the regime row whose block name the override carries — an absent DIMBLK IS the filled default.
     if float(over.get("dimtsz", 0.0)) > 0.0:
-        return "oblique"
-    match str(over.get("dimblk", "")):
-        case "OPEN":
-            return "open"
-        case "DOT":
-            return "dot"
-        case "ORIGIN":
-            return "origin"
-        case "NONE":
-            return "none"
-        case _:
-            return "arrow"
+        return Terminator.OBLIQUE_STROKE
+    block = str(over.get("dimblk", ""))
+    return next((end for end in Terminator if end.lowering.block == block), Terminator.FILLED_ARROW)
 
 
 def _terminator_anchors(op: DimOp, /) -> tuple[tuple[Point, Point], ...]:
@@ -1133,22 +1126,20 @@ def _mark(point: Point, tangent: Point, size: float, width: float, kind: MarkKin
     wing1 = (px - tangent[0] * size + normal[0] * size * 0.3, py - tangent[1] * size + normal[1] * size * 0.3)
     wing2 = (px - tangent[0] * size - normal[0] * size * 0.3, py - tangent[1] * size - normal[1] * size * 0.3)
     match kind:
-        case "oblique":  # the 45-degree architectural tick, stroked
+        case Terminator.OBLIQUE_STROKE:  # the 45-degree architectural tick, stroked
             lead = (tangent[0] + normal[0], tangent[1] + normal[1])
             return drawsvg.Line(
                 px - lead[0] * size * 0.5, py - lead[1] * size * 0.5, px + lead[0] * size * 0.5, py + lead[1] * size * 0.5, stroke=pen, stroke_width=width
             )
-        case "dot":
+        case Terminator.DOT:
             return drawsvg.Circle(px, py, size * 0.25, fill=pen)
-        case "origin":  # the ISO ordinate/chain origin indication — a small open circle
+        case Terminator.ORIGIN_INDICATION:  # the ISO ordinate/chain origin indication — a small open circle
             return drawsvg.Circle(px, py, size * 0.4, fill="none", stroke=pen, stroke_width=width)
-        case "open":
+        case Terminator.OPEN_ARROW:
             return _lines((wing1, point, wing2))
-        case "datum":  # the ISO 5459 filled datum triangle
+        case "datum" | Terminator.FILLED_ARROW:  # the ISO 5459 datum triangle and the filled arrowhead share one solid
             return _lines((point, wing1, wing2), close=True, fill=pen)
-        case "arrow":
-            return _lines((point, wing1, wing2), close=True, fill=pen)
-        case "none":
+        case Terminator.NONE:
             return drawsvg.Group()
         case _ as unreachable:
             assert_never(unreachable)
@@ -1244,7 +1235,7 @@ def _terminator_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int,
         over = dim.standard.dimstyle(_facets(op)[0])
         shift = offsets.try_find(index).default_value(0.0)
         size, width = float(over.get("dimasz", 2.5)), max(float(over.get("dimtxt", 2.5)) * 0.1, 0.13)
-        kind = "datum" if op.tag == "datum_feature" else _terminator_kind(over)
+        kind: MarkKind = "datum" if op.tag == "datum_feature" else _terminator_kind(over)
         step = float(over.get("dimdli", 8.0))
         marks = Block.of_seq(  # baseline anchors arrive in datum/point pairs per lane, so `rank // 2` is the lane ordinal
             _mark(_stack_shift(op, shift, point, lane=rank // 2, step=step), tangent, size, width, kind, pen)
@@ -1282,7 +1273,7 @@ def _tolerance_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int, 
             anchor = _stack_shift(op, shift, raw_anchor, lane=rank, step=float(over.get("dimdli", 8.0)))
             for expr in _tol_latex(tol).to_seq():
                 text_h = float(over.get("dimtxt", 2.5))
-                laid = Formula(spec=FormulaSpec(latex=LatexSpec(source=expr, size=text_h, display=False, color=pen))).laid()
+                laid = Formula(spec=FormulaSpec(latex=LatexSpec(source=expr, size=text_h, display=False, color=pen)), lane=dim.lane).laid()
                 match laid:
                     case Result(tag="ok", ok=frag):
                         sx, sy = seat(frag, anchor[0] + text_h * 2.0, anchor[1])
@@ -1401,7 +1392,8 @@ _BACKENDS: frozendict[DimTarget, DimBackend] = frozendict({
 
 def _native(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
     doc, msp, count = _lowered(dim)
-    width, height = _extent(msp)
+    # the lowered layout IS the whole drawing here, so the measured span stands alone and states no fallback hull.
+    width, height = extent(msp)
     backend = _BACKENDS[dim.target]
     data = backend.egress(doc, msp, width, height)
     receipt: ArtifactReceipt = (
@@ -1411,7 +1403,7 @@ def _native(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
         # content key already folds, while every native target here renders through the one ezdxf document.
         else ArtifactReceipt.Drawing(dim._key, "dimension", count, "ezdxf", round(width), round(height), len(data))
     )
-    return (_row(f"dimension.{dim.target.value}", data),), receipt
+    return (LayerNode.Annotation(f"dimension.{dim.target.value}", data, aec=Some(_DIMS)),), receipt
 
 
 def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
@@ -1432,7 +1424,7 @@ def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         ("dimension-text", _annotation_bytes(dim, pen, envelope, offsets)),
         ("dimension-tolerance", _tolerance_bytes(dim, pen, envelope, offsets)),
     )
-    layers = tuple(_row(name, source, z) for z, (name, source) in enumerate(rows))
+    layers = tuple(LayerNode.Annotation(name, source, aec=Some(_DIMS), z=z) for z, (name, source) in enumerate(rows))
     facts = ArtifactReceipt.Drawing(
         dim._key,
         "dimension",
@@ -1461,7 +1453,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

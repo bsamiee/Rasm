@@ -12,7 +12,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 
 - Owner: `TestIntent` — `Goodness` is the strictly narrower Anderson-Darling reference set because `scipy.stats.anderson` rejects any distribution outside its published set, so a reference the route raises on is unspellable on the AD intent — two bounded vocabularies for two admissible domains, never one over-wide enum; `Decision` owns both reject regimes as a policy value carrying its own `reject` algebra, so `criterion` is one typed yardstick per route, never a field overload where a p-value column smuggles `alpha` for the critical-value route.
 - Cases: the three `(statistic, pvalue)` routes share the one `_significance` body keyed by `_SIGNIFICANCE_CALLS` because their bodies differed only in the bound entrypoint and one keyword; `anderson` and `fit` read divergent result shapes and keep dedicated readers — only truly-identical bodies collapse to the table.
-- Seed: the report `ContentKey` resolves ahead of the route and IS the replay seed a drawing route takes, so one derivation over the sample bytes serves both the report identity and the reference draw. A second entropy source over those same bytes is the deleted form on both axes — it can fork from the identity it mirrors, and its own cost is quadratic in the sample where the bounded digest is flat.
+- Law: the report `ContentKey` resolves ahead of the route and IS the replay seed a drawing route takes, so one derivation over the sample bytes serves both the report identity and the reference draw. A second entropy source over those same bytes is the deleted form on both axes — it can fork from the identity it mirrors, and its own cost is quadratic in the sample where the bounded digest is flat.
 - Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy.
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
@@ -32,6 +32,13 @@ from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+
+# cold scientific dependency: the `lazy` bind defers the whole `scipy.stats` distribution tree to the first
+# route body that fires. No module-scope cell reifies the proxy at import: `_SIGNIFICANCE_CALLS` rows carry
+# entry NAMES inside call-time thunks and `_STAT_ROUTES` rows bind the LOCAL route bodies through
+# `StatRoute.run`, so only a route body's call-time read — the `getattr(stats, entry)` seam and the direct
+# `stats.<member>` calls — touches the live proxy.
+lazy from scipy import stats
 
 if TYPE_CHECKING:
     class TestResult(Protocol):
@@ -241,16 +248,12 @@ def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail
 def _significance(intent: TestIntent, _alpha: float, _sample: int, _key: ContentKey) -> Reading:
     # `_SIGNIFICANCE_CALLS[tag]` projects `(entry_name, kwargs)` off the intent and the gated `getattr(stats, entry_name)` binds
     # entrypoint inside the boundary; the named result's `.pvalue` is the SIGNIFICANCE criterion.
-    from scipy import stats
-
     entry, kwargs = _SIGNIFICANCE_CALLS[intent.tag](intent)
     result: TestResult = getattr(stats, entry)(*intent.samples, **kwargs)
     return Reading(float(result.statistic), float(result.pvalue))
 
 
 def _run_anderson(intent: TestIntent, alpha: float, _sample: int, _key: ContentKey) -> Reading:
-    from scipy import stats
-
     (x,) = intent.samples
     _, dist = intent.anderson
     result: AndersonResult = stats.anderson(x, dist=dist.value)
@@ -263,8 +266,6 @@ def _run_anderson(intent: TestIntent, alpha: float, _sample: int, _key: ContentK
 
 
 def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int, key: ContentKey) -> Reading:
-    from scipy import stats
-
     (x,) = intent.samples
     _, dist = intent.fit
     frozen = getattr(stats, dist.value)

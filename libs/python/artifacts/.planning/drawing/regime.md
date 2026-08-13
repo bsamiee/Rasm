@@ -2,7 +2,7 @@
 
 Closed AEC drafting vocabulary and BIND data form the s1 floor keyed by the drawing, composition, specification, and delivery planes. Each drafting code set is a closed `StrEnum` family: ISO 128-2 `LineType`, ISO 128-20 `LineWeight`, ISO 128-50 `HatchMaterial`, ISO 5455 `ScaleRatio`, AIA/ISO 13567/NCS `Discipline`/`Status`/`SheetType`, ISO 3098 `TextHeight`/`LetteringStyle`/`LetteringPosture`, and ISO 129-1 `Terminator`. `LayerName.compose` and `LayerName.parsed` are inverses over the AIA, ISO 13567, and NCS structures, including the complete ISO optional band and both NCS minor groups; `SheetId.compose` and `SheetId.parsed` own the NCS `"A-201"` form. `paper()` derives ISO 216 sizes from one seed, `ScaleRatio.factor` derives the printed ratio, and `LineWeight.group` returns `Nothing` where no valid two-width pair exists.
 
-No `ezdxf` lowering crosses this owner. `Standard` consumes the vocabulary rows for symbol-table mutation; `FaceMetrics` contributes cap-height evidence to `lettering`; `HatchFill` and `ColorModel` remain values whose geometry and conversion stay at their owning boundaries. Admission is concentrated in the `beartype`-refined factories and parsers, and every derivation is total over admitted values.
+No `ezdxf` lowering crosses this owner: `Terminator.lowering` publishes the line-end row — block name beside tick size — that every drawing consumer lowers for itself, and no member of this floor touches a host resource. `Standard` consumes the vocabulary rows for symbol-table mutation; `FaceMetrics` contributes cap-height evidence to `lettering`; `HatchFill` and `ColorModel` remain values whose geometry and conversion stay at their owning boundaries. Admission is concentrated in the `beartype`-refined factories and parsers, and every derivation is total over admitted values.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ No `ezdxf` lowering crosses this owner. `Standard` consumes the vocabulary rows 
 
 - Owner: one vocabulary-and-bind floor, zero lowering. Every family is closed at its published cardinality; every correspondence is one `Map` row set with a single edit site. A vocabulary member is a code, a bind row is the code's resolved value set, and the lowering that mutates a host resource lives with the host owner — never here.
 - Law: `LayerName` carries both NCS minor groups, the discipline modifier, and the ISO 13567 `agent`/`presentation`/`status` plus `sector`/`phase`/`projection`/`scale`/`work_package`/`user` optional band. `LayerSchema` selects one total `compose` arm, and `parsed` validates the same grammar before calling `LayerName.of`; no arm truncates, shifts, or accepts a partial optional slot. `SheetId.compose` and `SheetId.parsed` form the same inverse over the NCS `"A-201"` identifier.
-- Law: `HATCH_BIND` maps every `HatchMaterial` to one `HatchFill`; `PENS` carries each discipline's LCh coordinates and ISO 128 line row; `lettering()` combines type, posture, nominal height, and optional `FaceMetrics` into one `LetteringMetric`, including the inclined-lettering slant.
-- Entry: `LayerName.of`, `SheetId.of`, and `paper` carry `Annotated` refinements under `_ADMIT`. `expression.extra.result.catch` captures the one `ValueError` family raised by enum and refinement admission inside each parser, so malformed syntax and unknown codes stay distinct `NameFault` values.
+- Law: `HATCH_BIND` maps every `HatchMaterial` to one `HatchFill`; `PENS` carries each discipline's LCh coordinates and ISO 128 line row; `Terminator.lowering` carries the ONE `TerminatorRow` — block name beside oblique-tick size — every drawing consumer reads, so the DIMTSZ-versus-block choice is the consumer's and the correspondence itself has one edit site; `lettering()` combines type, posture, nominal height, and optional `FaceMetrics` into one `LetteringMetric`, including the inclined-lettering slant.
+- Entry: `LayerName.of`, `SheetId.of`, and `paper` carry `Annotated` refinements under `INGRESS`, the ONE drawing-plane ingress conf every producer head above this floor composes rather than re-declaring. `expression.extra.result.catch` captures the one `ValueError` family raised by enum and refinement admission inside each parser, so malformed syntax and unknown codes stay distinct `NameFault` values.
 - Auto: every derivation is arithmetic, never a parallel frozen table that can drift. `paper()` floor-halves the series seed per rank with the long-edge swap, so the sheet plane keeps no successor size table; `ScaleRatio.factor` divides the printed ratio; `LineWeight.group` derives the two-width pen pair two R10 steps down and returns `Option` — `W013`/`W018` yield `Nothing` because no thinner ISO member exists, so an invalid 1:1 pair is unrepresentable; `TextHeight.mm` reads the cascade.
 - Growth: A new vocabulary member lands with its owning row; a new layer-name field crosses the factory, parser, and projection on the same owner; a new schema adds one `LayerSchema` member and one arm to each inverse direction.
 - Boundary: no `ezdxf` or host-resource authoring (`drawing/standard#STANDARD`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no colour conversion (`graphic/color/derive#DERIVE` — pen rows carry coordinates, never a conversion arm); no font-binary read (`typography/font#FONT` — the fold consumes the `FaceMetrics` value); no theme selection (`graphic/style#STYLE`); no sheet placement, receipt, plan node, or rail beyond the codec `Result` — the substrate is total.
@@ -26,7 +26,7 @@ from typing import Annotated, Final, Literal, Self, assert_never
 
 from beartype import BeartypeConf, beartype
 from beartype.vale import Is
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Option, Result, Some
 from expression.collections import Map
 from expression.extra.result import catch
 from msgspec import Struct
@@ -220,6 +220,10 @@ class Terminator(StrEnum):  # ISO 129-1 line-end family — proportion geometry 
     ORIGIN_INDICATION = "origin_indication"  # small open circle — the ordinate/chain origin mark
     NONE = "none"
 
+    @property
+    def lowering(self) -> "TerminatorRow":
+        return _TERMINATOR[self]
+
 
 class LayerSchema(StrEnum):  # the published layer-name grammars the one LayerName owner projects
     AIA = "aia"
@@ -233,7 +237,11 @@ class PaperSeries(StrEnum):  # ISO 216 trim series — sizes derive by halving, 
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_ADMIT: Final[BeartypeConf] = BeartypeConf(violation_type=ValueError)  # refinement refusal the calling seam rails
+# The ONE drawing-plane ingress contract: a refinement or type violation refuses as `ValueError`, the member every
+# producer's own `_FAULTS` tuple already carries, so a malformed head argument rails at the calling seam instead of
+# throwing a beartype type into an interior that catches provider faults alone. Every drawing producer head composes
+# this conf; a second `BeartypeConf` anywhere below this floor forks the refusal class the boundary tuples admit.
+INGRESS: Final[BeartypeConf] = BeartypeConf(violation_type=ValueError)
 _AIA_NAME: Final[re.Pattern[str]] = re.compile(r"^(?P<d>[A-Z])-(?P<major>[A-Z0-9]{1,4})(?:-(?P<minor>[A-Z0-9]{1,4}))?-(?P<status>[A-Z])$")
 _NCS_NAME: Final[re.Pattern[str]] = re.compile(
     r"^(?P<d>[A-Z])(?P<modifier>[A-Z]?)-(?P<major>[A-Z0-9]{1,4})(?:-(?P<minor>[A-Z0-9]{1,4}))?"
@@ -277,6 +285,15 @@ class DisciplineStyle(Struct, frozen=True):
     model: ColorModel = ColorModel.LCHAB
 
 
+class TerminatorRow(Struct, frozen=True):
+    # the ONE ISO 129-1 line-end lowering every drawing consumer reads through `Terminator.lowering`: the arrow-block
+    # NAME the CAD vocabulary publishes for that end, beside the oblique-tick size the same end draws when a consumer
+    # carries a tick variable instead of a block. Both facts stand on every row and neither is a host resource — the
+    # choice between them belongs to the lowering consumer, and authoring the block itself is `drawing/standard`'s.
+    block: str  # ezdxf.ARROWS block name; "" is the closed-filled default arrowhead, which names no block
+    tick: float  # oblique-tick length (mm at 1:1); 0.0 where the end is an arrowhead rather than a stroke
+
+
 class LayerName(Struct, frozen=True):
     # the field superset; each schema projects its slice via compose() and admits back via parsed().
     discipline: Discipline
@@ -296,7 +313,7 @@ class LayerName(Struct, frozen=True):
     user: str = ""
 
     @classmethod
-    @beartype(conf=_ADMIT)
+    @beartype(conf=INGRESS)
     def of(
         cls,
         discipline: Discipline,
@@ -392,7 +409,7 @@ class SheetId(Struct, frozen=True):
     sequence: int = 1
 
     @classmethod
-    @beartype(conf=_ADMIT)
+    @beartype(conf=INGRESS)
     def of(cls, discipline: Discipline, sheet_type: SheetType, sequence: Sequence99 = 1) -> Self:
         return cls(discipline=discipline, sheet_type=sheet_type, sequence=sequence)
 
@@ -411,7 +428,7 @@ class SheetId(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-@beartype(conf=_ADMIT)
+@beartype(conf=INGRESS)
 def paper(series: PaperSeries, rank: PaperRank, /) -> tuple[float, float]:
     # ISO 216 derivation: floor-halve the portrait seed rank times — (width, height) trim mm.
     w, h = _PAPER_SEED[series]
@@ -500,6 +517,17 @@ STATUS_SCREEN: Final[Map[Status, float | None]] = Map.of_seq([
     (Status.RELOCATED, 0.5),
     (Status.NOT_IN_CONTRACT, 0.6),
 ])
+# ISO 129-1 line end -> its lowering row, read through `Terminator.lowering`. The oblique stroke carries BOTH a block
+# name and a tick size because the two spell one geometry through two host mechanisms: a tick variable draws the stroke
+# and supersedes any block, while a leader or annotation consumer holding no tick variable places the named block.
+_TERMINATOR: Final[Map[Terminator, TerminatorRow]] = Map.of_seq([
+    (Terminator.FILLED_ARROW, TerminatorRow(block="", tick=0.0)),
+    (Terminator.OPEN_ARROW, TerminatorRow(block="OPEN", tick=0.0)),
+    (Terminator.OBLIQUE_STROKE, TerminatorRow(block="OBLIQUE", tick=2.5)),
+    (Terminator.DOT, TerminatorRow(block="DOT", tick=0.0)),
+    (Terminator.ORIGIN_INDICATION, TerminatorRow(block="ORIGIN", tick=0.0)),
+    (Terminator.NONE, TerminatorRow(block="NONE", tick=0.0)),
+])
 # ISO 128-50 material -> pattern-plane fill; poché/grade resolved.
 HATCH_BIND: Final[Map[HatchMaterial, HatchFill]] = Map.of_seq([
     (HatchMaterial.STEEL, HatchFill(solid="lch(20% 0 0)")),
@@ -522,6 +550,7 @@ __all__ = [
     "Discipline",
     "DisciplineStyle",
     "HATCH_BIND",
+    "INGRESS",
     "HatchMaterial",
     "LayerName",
     "LayerSchema",
@@ -540,6 +569,7 @@ __all__ = [
     "SheetType",
     "Status",
     "Terminator",
+    "TerminatorRow",
     "TextHeight",
     "lettering",
     "paper",
@@ -548,7 +578,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

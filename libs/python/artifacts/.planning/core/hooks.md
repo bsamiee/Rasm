@@ -128,6 +128,7 @@ class TransmittalIssued(Struct, frozen=True, gc=False):
     pades_level: str
     validation_state: str
     record_state: str
+    gate_grade: str
     scope: str
 
 
@@ -210,7 +211,7 @@ __all__ = (
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

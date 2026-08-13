@@ -288,7 +288,7 @@ class BundleEvidence(Struct, frozen=True, gc=False):
         return BundleEvidence(algo, level, dict_id, frame_size, len(payloads), verified, sum(map(len, payloads)), len(blob))
 
     def receipt(self, key: ContentKey, /) -> ArtifactReceipt:
-        return ArtifactReceipt.Bundle(key, self.algo.value, self.level, self.dict_id, self.frame_size, self.entries, self.verified, self.ratio)
+        return ArtifactReceipt.Bundle(key, self.out_bytes, self.algo.value, self.level, self.dict_id, self.frame_size, self.entries, self.verified, self.ratio)
 
 
 class Bundle(Struct, frozen=True):
@@ -499,7 +499,7 @@ class PackWorker(Protocol):
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

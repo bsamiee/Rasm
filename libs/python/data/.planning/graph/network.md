@@ -29,7 +29,7 @@ from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.data.graph.graph import GraphReceipt, GraphResult, NodeId
+from rasm.data.graph.graph import GraphKind, GraphReceipt, GraphResult, NodeId
 from rasm.runtime.faults import RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 
@@ -99,8 +99,6 @@ class FlowNetwork(Struct, frozen=True):
             return boundary(f"network.analyze.{algo.tag}", lambda: _run_flow(self.graph, algo))
 
     def receipt(self, algo: FlowAlgorithm, result: GraphResult) -> GraphReceipt:
-        from rasm.data.graph.graph import GraphKind  # ruff:ignore[import-outside-top-level]
-
         return GraphReceipt(
             backend="networkx",
             kind=GraphKind(directed=True, multigraph=False),

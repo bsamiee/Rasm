@@ -20,7 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[CONTENT_KEY_PAYLOAD_FAMILY]-[QUEUED]: the identity substrate declares its admitted key-payload family so cross-package key construction verifies instead of inferring.
+- Capability: one declared payload contract on the content-identity owner — bare bytes, digest keys, and mixed tuples of both — every composing package reads as law.
+- Shape: `libs/python/runtime/.planning/evidence/identity.md` — `ContentIdentity.key` admitted-payload declaration, verified against the mixed `(ContentKey, bytes)` tuple the scan session key folds; where the probe rules the fold wrong instead, the correction lands at `libs/python/geometry/.planning/scan/registration.md` `keyed()`.
+- Unlocks: geometry scan identity preimages compose the substrate on a declared contract, retiring the review-round mixed-tuple assumption.
+- Anchors: `libs/python/runtime/.planning/evidence/identity.md`; `libs/python/geometry/.planning/scan/registration.md` `keyed()`; the msgspec canonical-encoding identity law at `docs/stacks/python`.
+- Route: read `ContentIdentity.key`'s declared signature and canonical encoding; probe the mixed-tuple fold against the msgspec encode path; land the declaration row or correct the registration fold in the same pass.
+- Atomic: one row per surface — the declaration row on the identity page, and the geometry `keyed()` fold correction only where the probe rules the fold wrong; a two-page ceiling.
 
 ## [02]-[CLOSED]
 

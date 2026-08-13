@@ -36,6 +36,10 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
+# cold modelling dependency: the `lazy` bind defers the cvxpy tree to the first sweep. `_BACKEND` rows carry a
+# `solver(cp)` thunk taking the module as its argument, so no module-scope cell reifies the proxy at import.
+lazy import cvxpy as cp
+
 # --- [TYPES] -------------------------------------------------------------------------------
 
 type ParamBind = tuple[Map[str, np.ndarray], ...]
@@ -339,8 +343,6 @@ def _fields(program: ConvexProgram) -> Fields:
 
 
 def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
-    import cvxpy as cp
-
     row = _BACKEND[program.policy.backend]
     if row.solver(cp) not in cp.installed_solvers() or program.tag not in row.cones:
         return _uncertified_sweep(program, None)  # missing backend and uncovered (backend, cone) pair refuse identically at admission

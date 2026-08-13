@@ -12,8 +12,8 @@ Container/codec spine of the media plane: the one `Media` owner over the closed-
 
 - Owner: `Media` discriminates modality over the closed `MediaOp` family, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `encode_video`/`encode_audio`/`remux` trio; `Media.lane` is the `runtime/execution/lanes#LANE` `LanePolicy` every worker crossing rides; `ContainerFormat` keyed inside `MediaProfile`, its `segmented` predicate branching the sink-open onto the runtime `runtime/transport/roots#STORE` `ObjectStoreLane` (`file://`, `s3://`, `gs://` — one code path over the branch's own `StoreBackend` roster), never a parallel per-container owner and never a second fsspec provider stack beside the branch's; `MediaProfile` folds every muxer/codec/rate/color/segment/metadata knob into its `streamed`/`voiced`/`colored` projections, and `MEZZANINE` holds its archival preservation-master rows; `MediaEvidence` the typed encode receipt one `measure` constructor folds over the muxed/manifest bytes; the `av.open` `OutputContainer`/`InputContainer` one mux/demux capsule per op, always a context manager so the trailer writes and the native handle releases.
 - Cases: `EncodeVideo(frames, profile)` the rgb24 (or DLPack device-tensor) sequence `scene/render#SCENE` hands across, segmented when `profile.segment` and keyed over the manifest bytes; `Mux(frames, samples, video, audio)` one interleave axis over two profiles, never a parallel A/V-combine surface; `EncodeAudio(samples, profile)` dispatched here, worked at `media/audio#MEDIA`; `Transcode(source, profile, nodes)` the read+write pair whose encoder stream mints on the first shaped frame so a scale/crop node's output geometry drives its config, the source's audio stream carried across as a packet copy over `add_stream_from_template` so a transcode never silently drops the soundtrack; `Remux(source, profile, bsf)` the quality-lossless container change, a packet copy over `add_stream_from_template` spanning EVERY source stream (video, audio, subtitles), never a re-decode — one total `match` recovers the modality from the discriminant. `media/filtergraph#FILTER` owns filter routing; this page composes its `wired` chain product, never re-implements a filter.
-- Entry: `Media.of` discriminates construction on input shape — a `MediaOp` passes through and a frame tuple becomes the `encode_video` case under the default profile — while non-default payloads construct the active `MediaOp` case directly, never through modality-named one-hop factories; `emit()` returns the `ArtifactWork` node; `_emit` is the `async_boundary` wrapper returning `RuntimeRail[ArtifactReceipt]`, the domain `MediaFault` folded into the boundary rail because `Work[ArtifactReceipt]` forbids an inner `Result`, the terminal receipt threading the PRE-RUN key; `_mux` is one total `match` handing each worker to `_crossed`, which awaits `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE), ...)`, folds the crossing's terminal `BoundaryFault` onto `MediaFault` through `_lapsed`, and flattens the worker's inner rail — no raise ever bridges the two rails; `_keyed` threads the node key into the receipt case and demotes the output's content address to the `address` band fact.
-- Auto: `_key` folds the op's canonical byte stream through the bare `ContentIdentity.key` under the default `CANONICAL_POLICY` — profile bytes via one deterministic msgpack encoder, frame/sample bytes raw, every chunk length-framed and the tuple count-framed through `scene/spec#SPEC`'s `framed`/`CANON` — this page is the media plane's one import site for that pair and every media sibling composes it from here under the source spelling, never a page-local encoder — so the PRE-RUN key is content-true over the input; codec admission is two probes, the build registry (`av.codecs_available`) before open and the muxer admission (`container.supported_codecs`) after, so a missing encoder and a codec the muxer refuses each rail `unregistered` rather than raising deep in the worker; `_hwaccel` probes `hwdevices_available()` (a callable, not a set) before minting the `HWAccel` context, with `HwPolicy` projecting the provider boolean; `_open_sink` is one axis keyed by `container.segmented` — a `BytesIO` blob (segment count 0) or the `io_open` segment set staged on a worker-local tree and put through the one runtime object-store lane, published segments-first manifest-last only after a clean mux and discarded whole on any failure path, its lane refusal riding `_Lapse` onto `MediaFault.worker` because a synchronous provider callback can return no rail — and both arms stamp `profile.metadata` onto `container.metadata`; frame ingest, the AVCOL color stamp, and `pts` stamping ride `_lift`/`_drive`; a `MEZZANINE` row with `Verification.BYTE_EXACT` decodes its own blob back and compares frame bytes, the `"roundtrip"` verdict landing on the facts band.
+- Entry: `Media.of` discriminates construction on input shape — a `MediaOp` passes through and a frame tuple becomes the `encode_video` case under the default profile — while non-default payloads construct the active `MediaOp` case directly, never through modality-named one-hop factories; `emit()` returns the `ArtifactWork` node; `_emit` is the `async_boundary` wrapper returning `RuntimeRail[ArtifactReceipt]`, the domain `MediaFault` folded into the boundary rail because `Work[ArtifactReceipt]` forbids an inner `Result`, the terminal receipt threading the PRE-RUN key; `_mux` is one total `match` handing each worker to `_crossed`, which awaits `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE), ...)`, folds the crossing's terminal `BoundaryFault` onto `MediaFault` through `_lapsed`, and flattens the worker's inner rail — no raise ever bridges the two rails; `_keyed` threads the node key into the receipt case and demotes the output's content address to the `address` band fact; `_worker` is the media plane's ONE rail-preserving aspect, generic over its success payload so `media/audio#MEDIA`, `media/synthesis#SYNTHESIS`, `media/timeline#TIMELINE`, `media/subtitle#SUBTITLE`, and `media/analysis#ANALYSIS` all decorate through this owner rather than a near-identical page-local copy.
+- Auto: `_key` folds the op's canonical byte stream through the bare `ContentIdentity.key` under the default `CANONICAL_POLICY` — profile bytes via one deterministic msgpack encoder, each frame/sample array as its `(shape, dtype)` header chunk beside its raw bytes so byte-identical buffers under permuted shapes or re-typed dtypes never share a key, every chunk length-framed and the tuple count-framed through `scene/spec#SPEC`'s `framed`/`CANON` — this page is the media plane's one import site for that pair and every media sibling composes it from here under the source spelling, never a page-local encoder — so the PRE-RUN key is content-true over the input; codec admission is two probes, the build registry (`av.codecs_available`) before open and the muxer admission (`container.supported_codecs`) after, so a missing encoder and a codec the muxer refuses each rail `unregistered` rather than raising deep in the worker; `_hwaccel` probes `hwdevices_available()` (a callable, not a set) before minting the `HWAccel` context, with `HwPolicy` projecting the provider boolean; `_open_sink` is one axis keyed by `container.segmented` — a `BytesIO` blob (segment count 0) or the `io_open` segment set staged on a worker-local tree and put through the one runtime object-store lane, published segments-first manifest-last only after a clean mux and discarded whole on any failure path, its lane refusal riding `_Lapse` onto `MediaFault.worker` because a synchronous provider callback can return no rail — and both arms stamp `profile.metadata` onto `container.metadata`; `_transcode` rails the `media/filtergraph#FILTER` builder's `ValueError` — a multi-source node inside a chain program, a non-positive declared count, a malformed weight row — as `invalid` beside its `ImportError`/`FFmpegError` arms, because a `FilterNode` program is caller data and never an engine fault; frame ingest, the AVCOL color stamp, and `pts` stamping ride `_lift`/`_drive`; a `MEZZANINE` row with `Verification.BYTE_EXACT` decodes its own blob back and compares frame bytes, the `"roundtrip"` verdict landing on the facts band.
 - Receipt: each op contributes `core/receipt#RECEIPT` `ArtifactReceipt.Media`, the eight-slot case `_keyed` mints under the PRE-RUN node key with the muxed/manifest content address on the `address` band fact, so the receipt owner imports no `MediaEvidence` value nor `av` handle — the flat-scalar-plus-`facts`-band shape forecloses the cycle; `MediaEvidence.facts` carries the `_deployment` libav/ffmpeg majors, encoding arms add their `ColorProfile`/format/rate policy, `_probe` measures every delivered video and audio stream, segmented output adds its segment count, and archival encode adds its round-trip verdict; `Remux` reports the copied stream codec and no unapplied encode policy. `media/audio#MEDIA`/`media/filtergraph#FILTER`/`media/timeline#TIMELINE` arms all fold onto this one case through the shared band, never a parallel receipt rail. `_emit` awaits `Journal.record` over `receipt.evidence()` for the `OPERATIONAL` fact and its `STORAGE` charge — seated at that awaitable fold and NEVER inside `_segment_sink`'s store crossing, which is a synchronous provider callback in a worker process where nothing suspends and no journal custody is bound, so a record there folds to the unarmed no-op and sheds exactly what it claims to land; the callback keeps `_Lapse` as its one escape and `MediaEvidence` carries the delivered bytes and segment count back out, so one fact names the whole publication whichever sink arm ran.
 - Growth: a new container is one `ContainerFormat` row (muxer name + `segmented` bit); a new codec one `MediaProfile.codec` string (a hardware encoder is a codec row, not a knob); a new HDR band one `ColorProfile` member plus one `_COLOR_CODES` row; a new encode or muxer knob one `options`/`container_options`/`SegmentSpec.options` entry; a new container tag one `metadata` entry; a new archival grade one `MEZZANINE` row; a new hardware device one `HwAccel.device_type` name; a new av fault leaf one `MediaFault` case plus one `_media_fault` arm; a new evidence fact one `_deployment` band key with zero receipt edit — every addition a row, field, case, or arm on one owner.
 
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from rasm.artifacts.media.audio import Master, Pcm
-    from rasm.artifacts.media.filtergraph import FilterNode
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -372,20 +371,21 @@ lazy import av
 lazy import av.error
 lazy import av.codec.hwaccel
 lazy from rasm.artifacts.media.audio import _encode_audio, _voiced
-lazy from rasm.artifacts.media.filtergraph import wired
+lazy from rasm.artifacts.media.filtergraph import FilterNode, wired  # FilterNode binds module-scope: `_worker`'s beartype resolves `_transcode`'s hint at call time, where a TYPE_CHECKING-stranded name NameErrors
 
 if TYPE_CHECKING:
     from rasm.artifacts.media.audio import Pcm
-    from rasm.artifacts.media.filtergraph import FilterNode
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _worker[**P](operation: Callable[P, Result[Produced, MediaFault]], /) -> Callable[P, Result[Produced, MediaFault]]:
+def _worker[**P, R](operation: Callable[P, Result[R, MediaFault]], /) -> Callable[P, Result[R, MediaFault]]:
+    # THE media plane's one worker aspect, generic over the success payload so `Produced`, `SubtitleProduct`, and
+    # `AnalysisProduct` arms all wear it — the `MediaFault` rail is the invariant, the payload the parameter.
     guarded = beartype(operation)
 
     @wraps(operation)
-    def call(*args: P.args, **kwargs: P.kwargs) -> Result[Produced, MediaFault]:
+    def call(*args: P.args, **kwargs: P.kwargs) -> Result[R, MediaFault]:
         try:
             return guarded(*args, **kwargs)
         except BeartypeCallHintViolation as violation:
@@ -397,17 +397,27 @@ def _worker[**P](operation: Callable[P, Result[Produced, MediaFault]], /) -> Cal
     return call
 
 
+def _arrayed(part: object, /) -> tuple[bytes, bytes]:
+    # every payload array contributes its (shape, dtype) header chunk beside its raw bytes: byte equality cannot
+    # recover the representation axes that change the encode — a (1, 2, 3) and a (2, 1, 3) buffer share one byte
+    # stream yet mux different frames — so permuted shapes and re-typed buffers never share a PRE-RUN key, and the
+    # `dtype.str` spelling carries endianness so a byte-swapped twin keys apart too.
+    array = np.asarray(part)
+    return CANON.encode((array.shape, array.dtype.str)), array.tobytes()
+
+
 def _canon(op: MediaOp) -> tuple[bytes, ...]:
-    # PRE-RUN identity preimage: op tag, deterministic-msgpack profile bytes, then the raw payload bytes; a
-    # FilterNode chunk rides its own `facet()` projection through the deterministic encoder, so equivalent graphs
-    # share one key and behaviorally distinct graphs never collide — a repr carries no identity here.
+    # PRE-RUN identity preimage: op tag, deterministic-msgpack profile bytes, then each payload array as its
+    # `_arrayed` header-plus-bytes pair; a FilterNode chunk rides its own `facet()` projection through the
+    # deterministic encoder, so equivalent graphs share one key and behaviorally distinct graphs never collide — a
+    # repr carries no identity here.
     match op:
         case MediaOp(tag="encode_video", encode_video=(frames, profile)):
-            return framed(b"encode_video", CANON.encode(profile), *(np.asarray(part).tobytes() for part in frames))
+            return framed(b"encode_video", CANON.encode(profile), *chain.from_iterable(map(_arrayed, frames)))
         case MediaOp(tag="encode_audio", encode_audio=(samples, profile)):
-            return framed(b"encode_audio", CANON.encode(profile), *(np.asarray(part).tobytes() for part in samples))
+            return framed(b"encode_audio", CANON.encode(profile), *chain.from_iterable(map(_arrayed, samples)))
         case MediaOp(tag="mux", mux=(frames, samples, video, audio)):
-            return framed(b"mux", CANON.encode(video), CANON.encode(audio), *(np.asarray(part).tobytes() for part in (*frames, *samples)))
+            return framed(b"mux", CANON.encode(video), CANON.encode(audio), *chain.from_iterable(map(_arrayed, (*frames, *samples))))
         case MediaOp(tag="transcode", transcode=(source, profile, nodes)):
             return framed(b"transcode", CANON.encode(profile), *(CANON.encode(node.facet()) for node in nodes), source)
         case MediaOp(tag="remux", remux=(source, profile, bsf)):
@@ -846,6 +856,10 @@ def _transcode(source: bytes, profile: MediaProfile, nodes: "tuple[FilterNode, .
         return Error(MediaFault(provision=str(exc)))
     except av.error.FFmpegError as exc:
         return Error(_media_fault("transcode", exc))
+    except ValueError as exc:  # `wired`'s program refusals — a multi-source node inside a chain, a non-positive
+        # declared `concat`/`amix` count, a malformed `amix` weight row — are reachable from a public `FilterNode`
+        # program, so they rail as CALLER data; av's own ValueError kinds route above.
+        return Error(MediaFault(invalid=str(exc)))
 
 
 @_worker
@@ -898,7 +912,7 @@ def _remux(source: bytes, profile: MediaProfile, bsf: str) -> Result[Produced, M
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

@@ -35,6 +35,10 @@ from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
+# cold scientific dependencies: the `lazy` binds defer both scipy trees to the first route build or kernel body.
+lazy import scipy.fft as fft
+lazy import scipy.signal as sig
+
 # --- [TYPES] ----------------------------------------------------------------------------
 
 if TYPE_CHECKING:
@@ -215,12 +219,12 @@ class TransformOp:
 # --- [TABLES] ---------------------------------------------------------------------------
 
 
-# one (forward, inverse, freq-grid) row per FourierBasis; `@cache` defers the import-banned scipy load to first call. Every 1-D
-# inverse accepts the original `n`, so the round trip reconstructs to the source length under any PadPolicy.
+# one (forward, inverse, freq-grid) row per FourierBasis. The table builds inside a `@cache`d function rather than at
+# module scope BECAUSE its cells dereference the lazy `fft` proxy: a module-scope row would reify the whole scipy tree at
+# import and defeat the deferral, while the cached builder reifies once at first call. Every 1-D inverse accepts the
+# original `n`, so the round trip reconstructs to the source length under any PadPolicy.
 @cache
 def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
-    import scipy.fft as fft
-
     return Map.of_seq([
         (FourierBasis.COMPLEX, (fft.fft, fft.ifft, fft.fftfreq)),
         (FourierBasis.REAL, (fft.rfft, fft.irfft, fft.rfftfreq)),
@@ -251,9 +255,6 @@ async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy, *
 
 
 def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey, workers: int) -> TransformReceipt:
-    import scipy.fft as fft
-    import scipy.signal as sig
-
     # `array_namespace` resolves the backend once and the Array-API-aware `scipy.fft` dispatches on the same `xp`. Admission already
     # rejected non-finite operands, so `xpx.nan_to_num` inside the bodies guards only the all-zero-band log/ratio degeneracy — the
     # Array-API sanitization owner, not a numpy-only `errstate` scope a jax/dask spine rejects.

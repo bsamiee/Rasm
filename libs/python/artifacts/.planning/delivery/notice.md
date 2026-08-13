@@ -82,10 +82,11 @@ _CLASSIFIED: Final[Map[str, Classification]] = Map.of_seq([
 
 # Grade reads the WEAKEST evidence state off one DESCENDING ladder: a failed proof degrades and an unproven one is
 # notable, while a state no row names contributes no grade at all rather than asserting one over evidence nobody
-# took. Neither the signature nor the record proof carries a branch of its own, and a third proof is one ladder row.
+# took. Three proofs feed it — signature, record, and the shipped quality-gate grade — each contributing its own
+# state spellings to the severity row that ranks them; a passing state and the ungated `""` name no row by law.
 _GRADE_LADDER: Final[Block[tuple[frozenset[str], Severity]]] = Block.of_seq([
-    (frozenset({"invalid"}), Severity.DEGRADED),
-    (frozenset({"unsigned", "unverified"}), Severity.NOTABLE),
+    (frozenset({"invalid", "unmeasured"}), Severity.DEGRADED),
+    (frozenset({"unsigned", "unverified", "advisory"}), Severity.NOTABLE),
 ])
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -141,7 +142,7 @@ class TransmittalNotice(Struct, frozen=True, gc=False):
                             partitionkey=Some(fact.transmittal_id),
                             sequence=Some(fact.revision_ordinal),
                             sequencetype=Some(Sequencing.INTEGER),
-                            severity=_graded(Block.of_seq([fact.validation_state, fact.record_state])),
+                            severity=_graded(Block.of_seq([fact.validation_state, fact.record_state, fact.gate_grade])),
                         ),
                     )
                 )
@@ -179,7 +180,7 @@ __all__ = ("TransmittalNotice",)
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

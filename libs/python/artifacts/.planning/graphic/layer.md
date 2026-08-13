@@ -13,7 +13,7 @@ Semantic layer structure enters every layered writer through one `LayerPlan`. `L
 ## [02]-[LAYER]
 
 - Owner: `LayerPlan` is the sole semantic tree. `roots` retain hierarchy, `LayerIntent` routes meaning independently of producer names, and `LayerComp` records audience view-states against full semantic paths.
-- Cases: `LayerNode.group` carries `LayerMeta` plus ordered children, including an empty child set; `LayerNode.leaf` carries the same metadata plus one `LayerContent`. `LayerContent.fragment`, `keyed`, and `entities` close serialized vector, work-graph, and CAD-handle payload timing without nullable fields.
+- Cases: `LayerNode.group` carries `LayerMeta` plus ordered children, including an empty child set; `LayerNode.leaf` carries the same metadata plus one `LayerContent`. `LayerContent.fragment`, `keyed`, and `entities` close serialized vector, work-graph, and CAD-handle payload timing without nullable fields. `LayerNode.Annotation` is the named leaf projection of that case for the annotation plane — one intent, aec, and paint-order policy every drawing producer composes rather than restating.
 - Law: `LayerState` carries independent editor axes, and `Amount` refines both fill and layer opacity to `[0, 1]`. Visibility, locking, print/export inclusion, clipping, isolation, and knockout survive round-trip as data each writer lowers.
 - Law: `LayerMeta.name` is the stable semantic path segment. `named` composes `LayerMeta.aec` through the selected regime grammar and returns `<missing-aec-name>` when an AEC projection lacks its required source value; no AEC schema silently emits an editorial spelling.
 - Law: `LayerPath` contains every stable editorial segment from root to node. View-state membership never keys on a leaf name alone, so equal names in distinct groups remain distinct.
@@ -145,6 +145,16 @@ class LayerNode:
     def Leaf(meta: LayerMeta, content: LayerContent, /) -> "LayerNode":
         return LayerNode(leaf=(meta, content))
 
+    @staticmethod
+    @beartype
+    def Annotation(name: LayerNameText, source: Fragment, /, *, aec: Option[LayerName] = Nothing, z: int = 0) -> "LayerNode":
+        # THE annotation-plane leaf every drawing producer emits, homed here because the projection is this owner's
+        # vocabulary and not each producer's: `ANNOTATION` intent, serialized fragment payload, `aec` carrying the
+        # regime `LayerName` only where the row owns one — an aec-less row names by its stable segment under an
+        # `EDITORIAL` plan, while an AEC regime refuses it typed as `<missing-aec-name>` at `named`, never a silent
+        # editorial spelling — and `z` carrying that producer's own bucket order, flat by default.
+        return LayerNode.Leaf(LayerMeta(name=name, intent=LayerIntent.ANNOTATION, z=z, aec=aec), LayerContent.Fragment(source))
+
     @property
     def meta(self) -> LayerMeta:
         match self:
@@ -267,7 +277,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

@@ -2,7 +2,7 @@
 
 `Timeline` is the non-linear-editing layer on top of the container/filtergraph spine — the owner over a closed `TimelineOp` family (`Trim`/`Concat`/`Segment`/`Xfade`/`Speed`/`Reverse` plus generated `Effect`) that assembles content-keyed clips into one deliverable. `Timeline` opens a container only inside its own packet workers and implements no filter of its own: re-encode arms compose the `media/container#CONTAINER` capsule primitives (`_decode_video`/`_decode_window`/`_encode_video`/`_mux_av`/`_transcode`, the segmented sink), while `Effect` carries an ordered `FilterNode` tuple whose existing closed vocabulary generates scale, crop, frame-rate, format, grade, denoise, sharpen, transpose, pad, deinterlace, text, and subtitle operations through one case. A multi-clip timeline is a DAG — each `Clip` carries its parent `ContentKey`, `Timeline.parents` projects them, and `emit()` wires that projection into `ArtifactWork.parents`, so the `core/plan#PLAN` `ArtifactPipeline` schedules the constituent clip producers as upstream nodes and elides an already-rendered clip on a warm replay.
 
-Two ops derive a lossless-versus-re-encode strategy from the clip streams, never a knob. `Concat` routes `_packet_concat` — every source stream cloned by template and every packet re-stamped onto a per-stream monotonic offset, bit-exact with no decode — when `_params` proves stream identity across the clips, else `_filter_concat` decodes, joins video frames and same-rate audio samples, and re-encodes; differing audio rates remain a typed `MediaFault.invalid`, never mistimed samples. `Trim` routes `_packet_trim` — a packet-copy window — when the in-point lands on a lead keyframe AND both boundaries seat on every cloned stream's own packet grid `_keyframes` reads off the packet stream, else `_filter_trim` re-encodes the `[in, out)` window zero-based with its audio sample-sliced. Every re-encode arm closes through one `_sealed` fold: frames plus optional audio blocks enter `_mux_av` when the source carries audio and `_encode_video` when it does not. `Xfade` blends the overlapping window through the filtergraph `wired` dissolve arm or the timeline-owned `_MASK` table and cross-fades audio by overlap-add. `MediaFault` carries every worker and provider cause; `_crossed` maps the lane's terminal `BoundaryFault` through `_lapsed` and flattens the worker rail without raising.
+Two ops derive a lossless-versus-re-encode strategy from the clip streams, never a knob. `Concat` routes `_packet_concat` — every source stream cloned by template and every packet re-stamped onto a per-stream monotonic offset, bit-exact with no decode — when `_params` proves stream identity across the clips, else `_filter_concat` decodes, joins video frames and same-rate audio samples, and re-encodes; differing audio rates remain a typed `MediaFault.invalid`, never mistimed samples. `Trim` routes `_packet_trim` — a packet-copy window — when the in-point lands on a lead keyframe AND both boundaries seat on every cloned stream's own packet grid `_keyframes` reads off the packet stream, else `_filter_trim` re-encodes the `[in, out)` window zero-based with its audio frame-sliced. Every audio fold — trim window, concat join, crossfade, retime pick, reversal — runs on the one `_lanes` (frames, channels) plane and re-interleaves through `_packed`, so a multichannel track times exactly as its mono degenerate case does. Every re-encode arm closes through one `_sealed` fold: frames plus optional audio blocks enter `_mux_av` when the source carries audio and `_encode_video` when it does not. `Xfade` blends the overlapping window through the `media/filtergraph#FILTER` `wired` dissolve arm — the one weight-plane owner for every transition — and cross-fades audio by overlap-add. `MediaFault` carries every worker and provider cause; `_crossed` maps the lane's terminal `BoundaryFault` through `_lapsed` and flattens the worker rail without raising.
 
 ## [01]-[INDEX]
 
@@ -10,17 +10,16 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 ## [02]-[TIMELINE]
 
-- Owner: `Timeline` discriminates modality over the closed `TimelineOp` union, each case carrying its own typed payload — never a shared erased bag, a per-op subclass, or a parallel `trim`/`concat`/`xfade` trio. `Clip` carries `data: bytes` and `key: ContentKey`, so a clip is a content-keyed node and an op's dependency is its clips' keys, never a path or a re-minted key. Strategy is never a field — packet-versus-filter choice derives from stream identity for `Concat` and keyframe alignment for `Trim`. `Effect` carries the ordered `FilterNode` program directly, so every single-input filtergraph member is one data value under the existing grammar rather than another timeline case. `Transition` is the closed transition vocabulary the `Xfade` payload carries. `MediaFault` remains the one fault rail across the media plane.
-- Cases: `Trim` re-encodes zero-based or packet-copies when the in-point seats tick-exact on a keyframe packet and the out-point on a packet boundary; an audio-only clip qualifies only on real packet boundaries, so a boundary-seated lossless audio trim or a param-equal audio concat packet-copies while the re-encode fallback stays video-bound and rails `MediaFault.invalid` on an audio-only source. `Segment` composes the spine's segmented encode. `Xfade` blends video through the filtergraph `wired` dissolve arm or a `_MASK` plane and audio through overlap-add. `Speed` retimes by index-pick and rate-resamples audio, while `Reverse` flips frame and sample order. `Effect` delegates the ordered `FilterNode` program to `_transcode`, so capability grows at the filtergraph vocabulary rather than through timeline case proliferation.
+- Owner: `Timeline` discriminates modality over the closed `TimelineOp` union, each case carrying its own typed payload — never a shared erased bag, a per-op subclass, or a parallel `trim`/`concat`/`xfade` trio. `Clip` carries `data: bytes` and `key: ContentKey`, so a clip is a content-keyed node and an op's dependency is its clips' keys, never a path or a re-minted key. Strategy is never a field — packet-versus-filter choice derives from stream identity for `Concat` and keyframe alignment for `Trim`. `Effect` carries the ordered `FilterNode` program directly, so every single-input filtergraph member is one data value under the existing grammar rather than another timeline case. `Transition` is the `media/filtergraph#FILTER` transition vocabulary the `Xfade` payload carries, composed from the blend owner rather than re-declared beside a second kernel. `_lanes`/`_packed` are the one interleaved-audio axis every timing fold reads, so channel count is arithmetic rather than an arm. `MediaFault` remains the one fault rail across the media plane.
+- Cases: `Trim` re-encodes zero-based or packet-copies when the in-point seats tick-exact on a keyframe packet and the out-point on a packet boundary; an audio-only clip qualifies only on real packet boundaries, so a boundary-seated lossless audio trim or a param-equal audio concat packet-copies while the re-encode fallback stays video-bound and rails `MediaFault.invalid` on an audio-only source. `Segment` composes the spine's segmented encode. `Xfade` blends video through the filtergraph `wired` dissolve arm and audio through frame-aligned overlap-add. `Speed` retimes by index-pick and rate-resamples audio, while `Reverse` flips frame order and audio-frame order — both picking on the `_lanes` plane, so no channel lane rotates against its siblings. `Effect` delegates the ordered `FilterNode` program to `_transcode`, so capability grows at the filtergraph vocabulary rather than through timeline case proliferation.
 - Entry: `Timeline.parents` is the pure projection of the op's clip `ContentKey`s and `emit()` passes it as `ArtifactWork.parents`, so the planner wires upstream producers without inspecting `TimelineOp` internals. `_canon` frames the pre-run preimage: each clip lowers to its raw bytes plus its key's published `hex` projection, and `_tail` carries the op's non-clip payload through the deterministic encoder — a `Clip` never encodes whole, because `ContentKey.value` is a u128 and the msgpack integer ceiling is u64. `_crossed` dispatches each worker through `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE, idempotent=...))` — idempotency derived structurally from the crossing's segmented-profile argument, never a per-arm convention — maps the outer `BoundaryFault` through `_lapsed`, and flattens the worker's `Result` without an exception bridge.
 - Auto: `_packet_concat` clones every source stream from the head clip's template and advances one offset per stream by its last `pts + duration` in that stream's own `time_base`, so the joined timeline stays monotonic across video and audio. `_sealed` is the one re-encode close every structural arm shares: `_mux_av` for `Some(Voice)` through the container-keyed `_VOICE_CODEC` policy and `_encode_video` for `Nothing`, with `_voice` preserving malformed-audio faults on `Result` rather than masking them as absence. Packet evidence composes `_probe`, so duration, frame count, and bit rate describe the delivered bytes rather than clip count or requested profile values.
 - Receipt: `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law — and demotes the assembled-bytes content address to the `address` band fact; each op adds its timeline facts to the shared `Media` band — `Trim` `{clips, trimmed_seconds, strategy}`, `Concat` `{clips, strategy}`, `Segment` `{clips, segments}`, `Xfade` `{clips, dissolve_frames, transition}`, `Speed` `{clips, factor}`, `Reverse` `{clips}`, and `Effect` `{filter_nodes}` — one `ArtifactReceipt.Media` case across the whole plane.
 - Packages: `av` supplies the demux/seek/re-stamp/mux capsule; the timeline's own workers open read/write containers only for the packet-copy arms, and every decode/encode rides the `media/container#CONTAINER` primitives. Members settled against the folder `.api`.
-- Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `Transition` member plus one `_MASK` row; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key with no receipt edit.
+- Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `media/filtergraph#FILTER` `Transition` member plus one `_WEIGHT` row, this page untouched; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key with no receipt edit.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from enum import StrEnum
 from typing import Literal, assert_never
 
 from builtins import frozendict
@@ -35,21 +34,11 @@ from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.container import HwAccel, MediaEvidence, MediaFault, MediaProfile, Produced, _lapsed
-from rasm.artifacts.media.filtergraph import FilterNode
+from rasm.artifacts.media.filtergraph import FilterNode, Transition
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type TimelineOpTag = Literal["trim", "concat", "segment", "xfade", "speed", "reverse", "effect"]
-
-# --- [CONSTANTS] --------------------------------------------------------------------------
-
-
-class Transition(StrEnum):
-    FADE = "fade"  # the filtergraph `wired` dissolve ramp
-    WIPE_LEFT = "wipe_left"  # _MASK spatial sweeps owned here
-    WIPE_RIGHT = "wipe_right"
-    IRIS = "iris"
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -238,25 +227,8 @@ if TYPE_CHECKING:
 
     from rasm.artifacts.media.audio import Pcm
     from rasm.artifacts.media.container import Frames
-    from rasm.artifacts.media.filtergraph import FilterNode
 
 # --- [CONSTANTS] --------------------------------------------------------------------------
-
-# progress t in [0,1] -> (h, w) float32 weight plane for the OVER frame; FADE routes the filtergraph ramp instead.
-_MASK: frozendict[Transition, "Callable[[float, int, int], NDArray[np.float32]]"] = frozendict({
-    Transition.WIPE_LEFT: lambda t, h, w: np.broadcast_to((np.arange(w) < t * w).astype(np.float32), (h, w)),
-    Transition.WIPE_RIGHT: lambda t, h, w: np.broadcast_to((np.arange(w) >= (1.0 - t) * w).astype(np.float32), (h, w)),
-    Transition.IRIS: lambda t, h, w: (
-        ((np.arange(h)[:, None] - h / 2) ** 2 + (np.arange(w)[None, :] - w / 2) ** 2) <= (t * np.hypot(h, w) / 2) ** 2
-    ).astype(np.float32),
-})
-
-# import-time coverage witness, the sibling of the `scene/spec#SPEC` `_COVERED` and `scene/export#EXPORT` `ROW`
-# gates: `_blended`'s spatial arm reads `_MASK[spatial]` through a catch-all, so an unruled `Transition` member is
-# otherwise a runtime `KeyError` mid-render rather than a load-time refusal. FADE is excluded BY CONSTRUCTION — it
-# routes the filtergraph dissolve ramp instead of a weight plane — so the gate names the carve rather than hiding it.
-if frozenset(_MASK) != frozenset(Transition) - {Transition.FADE}:
-    raise RuntimeError("_MASK does not cover the spatial transition vocabulary")
 
 _VOICE_CODEC: frozendict[ContainerFormat, str] = frozendict({
     ContainerFormat.MP4: "aac",
@@ -319,8 +291,19 @@ def _voice(clip: bytes, /) -> Result[Option[Voice], "MediaFault"]:
         return Error(_media_fault("audio_probe", exc))
 
 
-def _joined(blocks: "tuple[Pcm, ...]", /) -> "NDArray":
-    return np.concatenate([np.asarray(block) for block in blocks], axis=-1)
+def _lanes(blocks: "tuple[Pcm, ...]", layout: str, /) -> "NDArray":
+    # THE one time axis every audio fold on this page windows, slices, picks, and reverses on. A `Pcm` block is
+    # PACKED (1, frames*channels) interleaved, so a last-axis index counts SAMPLES, never frames: an unscaled
+    # window keeps a 1/channels fraction of the seconds it names, and an unscaled pick or reversal shuffles the
+    # channel lanes into each other. The (frames, channels) reshape makes every index a frame index, and mono is
+    # `nb_channels == 1` — the degenerate case of the same reshape, never a second arm.
+    return np.concatenate([np.asarray(block) for block in blocks], axis=-1).reshape(-1, av.AudioLayout(layout).nb_channels)
+
+
+def _packed(lanes: "NDArray", rate: int, layout: str, /) -> Voice:
+    # inverse of `_lanes`: re-interleave the frame plane into the one packed block the `_encode_audio` contract and
+    # every `_mux_av` shape gate admit, rate and layout carried across untouched.
+    return ((lanes.reshape(1, -1),), rate, layout)
 
 
 def _video(clip: bytes, accel: "HwAccel | None" = None, /) -> Result[tuple[int, "Frames"], "MediaFault"]:
@@ -336,18 +319,21 @@ def _video(clip: bytes, accel: "HwAccel | None" = None, /) -> Result[tuple[int, 
         return Error(_media_fault("decode_video", exc))
 
 
-def _pcm(clip: bytes, voice: Option[Voice], template: "Pcm", rate: int, layout: str, /) -> Result["Pcm", "MediaFault"]:
-    # total over the three-field Voice contract: rate then layout refuse before any block joins, absence stays silence.
+def _pcm(clip: bytes, voice: Option[Voice], template: "Pcm", rate: int, layout: str, /) -> Result["NDArray", "MediaFault"]:
+    # total over the three-field Voice contract, yielding the `_lanes` (frames, channels) plane: rate then layout
+    # refuse before any block joins, and absence stays silence minted at the timeline's own channel width — a
+    # packed-width fill would run every downstream frame index off by `channels`. `template` carries the producer
+    # dtype alone; the shape is the timeline's, never the absent source's.
     match voice:
         case Option(tag="some", some=(_, source_rate, _)) if source_rate != rate:
             return Error(MediaFault(invalid=f"audio rate {source_rate} does not match timeline rate {rate}"))
         case Option(tag="some", some=(_, _, source_layout)) if source_layout != layout:
             return Error(MediaFault(invalid=f"audio layout {source_layout} does not match timeline layout {layout}"))
         case Option(tag="some", some=(blocks, _, _)):
-            return Ok(_joined(blocks))
+            return Ok(_lanes(blocks, layout))
         case Option(tag="nothing"):
             duration = _probe(clip)[0]
-            return Ok(np.zeros((*template.shape[:-1], round(duration * rate)), dtype=template.dtype))
+            return Ok(np.zeros((round(duration * rate), av.AudioLayout(layout).nb_channels), dtype=template.dtype))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -417,7 +403,7 @@ def _windowed(stamps: tuple[float, ...], tick: float, start: float, stop: float,
     return opened and closed
 
 
-def _lead_codec(delivered: object, /) -> str:
+def _lead_codec(delivered: "av.container.InputContainer", /) -> str:
     lead = delivered.streams.best("video") or delivered.streams.best("audio")
     return lead.codec_context.name
 
@@ -457,7 +443,8 @@ def _filter_trim(clip: bytes, in_point: float, out_point: float, profile: "Media
     return _voice(clip).bind(
         lambda voice: _sealed(
             frames,
-            voice.map(lambda item: ((_joined(item[0])[..., int(in_point * item[1]) : int(out_point * item[1])],), item[1], item[2])),
+            # the window is FRAME-indexed on the `_lanes` plane, so `rate * seconds` selects the seconds it names
+            voice.map(lambda item: _packed(_lanes(item[0], item[2])[int(in_point * item[1]) : int(out_point * item[1])], item[1], item[2])),
             profile,
             facts,
         )
@@ -591,7 +578,9 @@ def _concatenated(
         return _sealed(frames, Nothing, profile, facts)
     template, rate, layout = present[0][0][0], present[0][1], present[0][2]
     return traverse(lambda pair: _pcm(pair[0], pair[1], template, rate, layout), Block.of_seq(zip(clips, voices, strict=True))).bind(
-        lambda tracks: _sealed(frames, Some(((np.concatenate(tuple(tracks), axis=-1),), rate, layout)), profile, facts)
+        # tracks concatenate along the FRAME axis of the lanes plane — a last-axis join would interleave clip N's
+        # channel 0 into clip N-1's final frame instead of appending time.
+        lambda tracks: _sealed(frames, Some(_packed(np.concatenate(tuple(tracks), axis=0), rate, layout)), profile, facts)
     )
 
 
@@ -624,10 +613,17 @@ def _segment(clip: bytes, cuts: tuple[float, ...], profile: "MediaProfile") -> R
 
 
 def _audio_xfade(under: "NDArray", over: "NDArray", window: int, /) -> "NDArray":
-    # overlap-add: the under tail fades out as the over head fades in over `window` samples.
-    ramp = np.linspace(1.0, 0.0, window, dtype=np.float64)
-    mixed = under[..., -window:] * ramp + over[..., :window] * (1.0 - ramp)
-    return np.concatenate([under[..., :-window], mixed.astype(under.dtype), over[..., window:]], axis=-1)
+    # overlap-add on the `_lanes` (frames, channels) plane, the audio twin of the filtergraph dissolve: `window`
+    # counts FRAMES, one ramp column broadcasts across every channel lane so the tracks stay phase-locked, progress
+    # runs the dissolve's own (i+1)/span so the audio hand-off lands on the step the video seam does — an
+    # endpoint-inclusive ramp would play the first overlap frame fully UNDER while the picture already shows OVER —
+    # and the span clamps to both tracks here — a request longer than either would wrap its negative tail slice.
+    span = max(0, min(window, len(under), len(over)))
+    if span == 0:
+        return np.concatenate([under, over], axis=0)
+    ramp = (np.arange(1, span + 1, dtype=np.float64) / span)[:, None]  # the OVER weight column
+    mixed = under[-span:] * (1.0 - ramp) + over[:span] * ramp
+    return np.concatenate([under[:-span], mixed.astype(under.dtype), over[span:]], axis=0)
 
 
 @_worker
@@ -661,54 +657,52 @@ def _blended(
         return Error(MediaFault(invalid=f"transition sources disagree on frame rate: {rate} vs {over_rate}"))
     if under_frames[0].shape != over_frames[0].shape:
         return Error(MediaFault(invalid=f"transition sources disagree on frame shape: {under_frames[0].shape} vs {over_frames[0].shape}"))
-    window = max(1, round(duration * rate))
-    match transition:
-        case Transition.FADE:
-            # filtergraph `wired` dissolve arm: the xfade node + the (under, over) pair discriminate the modality;
-            # the requested window clamps to the shorter source exactly as the spatial arm does, so video, audio,
-            # and the recorded fact all carry one effective overlap and xfade never outruns its inputs.
-            span = min(window, len(under_frames), len(over_frames))
-            joined = wired(FilterNode(xfade=(0.0, span / rate, transition.value)), (under_frames, over_frames), window=span)
-        case spatial:
-            span = min(window, len(under_frames), len(over_frames))
-            h, w = under_frames[0].shape[:2]
-            planes = (_MASK[spatial]((i + 1) / span, h, w)[..., None] for i in range(span))
-            blended = tuple(
-                (u.astype(np.float32) * (1.0 - mask) + o.astype(np.float32) * mask).astype(np.uint8)
-                for u, o, mask in zip(under_frames[-span:], over_frames[:span], planes, strict=True)
-            )
-            joined = (*under_frames[:-span], *blended, *over_frames[span:])
-    # `dissolve_frames` records the EFFECTIVE blended span — the spatial arm clamps the requested window to the
-    # shorter source, so the fact carries what actually blended, never the request.
-    facts = frozendict({"clips": 2.0, "dissolve_frames": float(span), "transition": transition.value})
-    # the audio window derives from the EFFECTIVE video overlap `span / rate`, never the requested duration —
-    # a clamped spatial span would otherwise crossfade audio longer than the frames that actually blended.
+    # EFFECTIVE overlap is the span EVERY lane can honor: the request bounds by both video extents AND both
+    # audio lane extents in seconds BEFORE any blend or fact mints, so video, audio, and `dissolve_frames` carry
+    # ONE shared overlap — a video-only clamp would dissolve frames the audio crossfade cannot cover and record a
+    # span the delivered product never shared.
     return _voice(under).map2(_voice(over), lambda a, b: (a, b)).bind(
-        lambda voices: _xfaded(joined, under, over, voices[0], voices[1], span / rate, profile, facts)
+        lambda voices: _xfaded(under, over, (under_frames, over_frames), rate, voices[0], voices[1], duration, transition, profile)
     )
 
 
 def _xfaded(
-    frames: "Frames",
     under: bytes,
     over: bytes,
+    video: tuple["Frames", "Frames"],
+    rate: int,
     under_voice: Option[Voice],
     over_voice: Option[Voice],
-    overlap: float,
+    duration: float,
+    transition: Transition,
     profile: "MediaProfile",
-    facts: frozendict[str, float | str],
     /,
 ) -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # `overlap` is the effective blended span in seconds; the sample window still clamps to the shorter voice below.
-    present = (*under_voice.to_list(), *over_voice.to_list())
-    if not present:
-        return _sealed(frames, Nothing, profile, facts)
-    template, rate, layout = present[0][0][0], present[0][1], present[0][2]
-    window = max(1, round(overlap * rate))
-    return _pcm(under, under_voice, template, rate, layout).map2(
-        _pcm(over, over_voice, template, rate, layout),
-        lambda left, right: Some(((_audio_xfade(left, right, min(window, left.shape[-1], right.shape[-1])),), rate, layout)),
-    ).bind(lambda voice: _sealed(frames, voice, profile, facts))
+    # ONE blend for the whole vocabulary: the filtergraph `wired` dissolve arm owns every weight plane, fade and
+    # spatial sweep alike, so this page carries no second numpy kernel and a new transition lands entirely there.
+    under_frames, over_frames = video
+
+    def _joined(shared: float, voice: Option[Voice], /) -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
+        # `dissolve_frames` records the EFFECTIVE blended span — the shared overlap every lane honored, never the
+        # request — and a share rounding to zero STAYS zero: the dissolve arm and `_audio_xfade` each degrade a zero
+        # window to their butt joint, so no forced one-frame blend fabricates an overlap the lanes never shared.
+        span = min(round(shared * rate), len(under_frames), len(over_frames))
+        joined = wired(FilterNode(xfade=transition), (under_frames, over_frames), window=span)
+        return _sealed(joined, voice, profile, frozendict({"clips": 2.0, "dissolve_frames": float(span), "transition": transition.value}))
+
+    if not (present := (*under_voice.to_list(), *over_voice.to_list())):
+        return _joined(min(duration, len(under_frames) / rate, len(over_frames) / rate), Nothing)
+    template, arate, layout = present[0][0][0], present[0][1], present[0][2]
+    # both media derive from ONE shared seconds bound — the audio window `round(shared * arate)` and the video span
+    # `round(shared * rate)` name the same interval, and `_audio_xfade`'s own clamp stays the declared lane bound.
+    return _pcm(under, under_voice, template, arate, layout).map2(
+        _pcm(over, over_voice, template, arate, layout), lambda left, right: (left, right)
+    ).bind(
+        lambda lanes: _joined(
+            (shared := min(duration, len(under_frames) / rate, len(over_frames) / rate, len(lanes[0]) / arate, len(lanes[1]) / arate)),
+            Some(_packed(_audio_xfade(lanes[0], lanes[1], round(shared * arate)), arate, layout)),
+        )
+    )
 
 
 @_worker
@@ -728,9 +722,11 @@ def _sped(
     picks = np.clip(np.round(np.arange(0, len(frames), factor)).astype(int), 0, len(frames) - 1)
 
     def retimed(item: Voice, /) -> Voice:
-        samples = _joined(item[0])
-        indices = np.clip(np.round(np.arange(0, samples.shape[-1], factor)).astype(int), 0, samples.shape[-1] - 1)
-        return (samples[..., indices],), item[1], item[2]
+        # the pick is FRAME-indexed on the lanes plane — a packed-axis pick drops a lone channel per step and
+        # re-interleaves the survivors into a rotating lane order.
+        lanes = _lanes(item[0], item[2])
+        indices = np.clip(np.round(np.arange(0, len(lanes), factor)).astype(int), 0, len(lanes) - 1)
+        return _packed(lanes[indices], item[1], item[2])
 
     return _sealed(tuple(frames[index] for index in picks), voice.map(retimed), profile, facts)
 
@@ -739,9 +735,11 @@ def _sped(
 def _reverse(clip: bytes, profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
     return _video(clip, profile.hwaccel).bind(
         lambda decoded: _voice(clip).bind(
+            # the flip is FRAME-wise on the lanes plane — a packed-axis reverse also reverses WITHIN each frame,
+            # swapping left and right for the whole track while the waveform reads correct.
             lambda voice: _sealed(
                 tuple(reversed(decoded[1])),
-                voice.map(lambda item: (((_joined(item[0])[..., ::-1]),), item[1], item[2])),
+                voice.map(lambda item: _packed(_lanes(item[0], item[2])[::-1], item[1], item[2])),
                 profile,
                 frozendict({"clips": 1.0}),
             )
@@ -751,7 +749,7 @@ def _reverse(clip: bytes, profile: "MediaProfile") -> Result[tuple[bytes, "Media
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

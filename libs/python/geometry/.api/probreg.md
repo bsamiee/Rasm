@@ -66,16 +66,16 @@ Every estimator shares `set_source(source)`, `set_callbacks(callbacks)`, and `re
 
 [ENTRYPOINT_SCOPE]: registration (`probreg.<module>.registration_*`)
 
-Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3d.geometry.PointCloud`, the transformation class chosen by the `tf_type_name` string; CPD, FilterReg, and GMMTree return `MstepResult`, GMMReg/SVR/BCPD a `Transformation`.
+Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3d.geometry.PointCloud`, the transformation class chosen by the `tf_type_name` string; CPD, FilterReg, and GMMTree return `MstepResult`, GMMReg/SVR/BCPD a `Transformation`. CPD and FilterReg share the EM controls `w`/`maxiter`/`tol`; FilterReg's `sigma2` seeds and `update_sigma2` re-estimates the mixture variance.
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :--------------------------------- | :------------- | :---------------------------------------------------------------------- |
-|  [01]   | `cpd.registration_cpd`             | CPD            | `tf_type_name` (rigid/affine/nonrigid/constrained); `w`,`maxiter`,`tol` |
-|  [02]   | `filterreg.registration_filterreg` | FilterReg      | `objective_type` pt2pt/pt2pl; `target_normals`,`sigma2`,`feature_fn`    |
-|  [03]   | `gmmtree.registration_gmmtree`     | GMMTree        | hierarchical GMM tree; `maxiter`,`tree_level`,`lambda_c`,`lambda_s`     |
-|  [04]   | `l2dist_regs.registration_gmmreg`  | GMMReg         | `tf_type_name` rigid/nonrigid L2-distance GMM                           |
-|  [05]   | `l2dist_regs.registration_svr`     | SVR            | `tf_type_name` rigid/nonrigid support-vector; inner/outer loops         |
-|  [06]   | `bcpd.registration_bcpd`           | BCPD           | combined rigid-plus-non-rigid Bayesian CPD; `w`,`maxiter`               |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :--------------------------------- | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `cpd.registration_cpd`             | CPD            | `tf_type_name` (rigid/affine/nonrigid/constrained)                  |
+|  [02]   | `filterreg.registration_filterreg` | FilterReg      | `objective_type` `pt2pt`/`pt2pl`; `feature_fn`,`target_normals`     |
+|  [03]   | `gmmtree.registration_gmmtree`     | GMMTree        | hierarchical GMM tree; `maxiter`,`tree_level`,`lambda_c`,`lambda_s` |
+|  [04]   | `l2dist_regs.registration_gmmreg`  | GMMReg         | `tf_type_name` rigid/nonrigid L2-distance GMM                       |
+|  [05]   | `l2dist_regs.registration_svr`     | SVR            | `tf_type_name` rigid/nonrigid support-vector; inner/outer loops     |
+|  [06]   | `bcpd.registration_bcpd`           | BCPD           | combined rigid-plus-non-rigid Bayesian CPD; `w`,`maxiter`           |
 
 [ENTRYPOINT_SCOPE]: result and warp accessors
 

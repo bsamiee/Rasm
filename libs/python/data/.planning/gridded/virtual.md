@@ -22,12 +22,17 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 ```python signature
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
+import numpy as np
 import virtualizarr as vz
 from beartype import beartype
 from expression import Ok, case, tag, tagged_union
 from icechunk import VirtualChunkSpec
 from msgspec import Struct, structs
+from obspec_utils.registry import ObjectStoreRegistry
 from opentelemetry import trace
+
+lazy import h5py
+lazy import xarray as xr
 
 from rasm.data.gridded.field import FieldReceipt
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
@@ -47,7 +52,6 @@ from virtualizarr.parsers import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    import xarray as xr
     from icechunk import Session
 
 
@@ -73,9 +77,6 @@ class CFDtype:
     ref: bool = case()
 
     def resolve(self) -> object:
-        import h5py  # ruff:ignore[import-outside-top-level]
-        import numpy as np  # ruff:ignore[import-outside-top-level]
-
         match self:
             case CFDtype(tag="plain", plain=name):
                 return name
@@ -94,8 +95,6 @@ class CFDtype:
 
     @staticmethod
     def inspect(dtype: object) -> "CFDtype":
-        import h5py  # ruff:ignore[import-outside-top-level]
-
         if (enum := h5py.check_enum_dtype(dtype)) is not None:
             return CFDtype(enum=(enum, "u1"))
         if (info := h5py.check_string_dtype(dtype)) is not None:
@@ -190,9 +189,7 @@ class ManifestWrite:
     native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
 
     def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> None:
-        from xarray import DataTree  # ruff:ignore[import-outside-top-level]
-
-        is_tree = isinstance(cube, DataTree)
+        is_tree = isinstance(cube, xr.DataTree)
         match self:
             # the `VirtualiZarrDataTreeAccessor` exposes no `to_kerchunk`, so a tree sink flattens
             # to one `Dataset` for the kerchunk reference document; only `to_icechunk` survives the
@@ -297,8 +294,6 @@ def _registry(sources: "Sequence[ResourceRef]", config: StoreConfig | None) -> o
     # open a second construction spelling whose reads carry neither, and a signed-catalog source would fail
     # unauthenticated. Per-source is the honest grain: one page-level provider credentialed a mixed manifest with
     # whichever token the first source needed.
-    from obspec_utils.registry import ObjectStoreRegistry  # ruff:ignore[import-outside-top-level]
-
     return ObjectStoreRegistry({_url(ref): store_handle(_url(ref), config=config, provider=ref.credentials) for ref in sources})
 
 
@@ -352,8 +347,6 @@ def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[FieldReceipt]":
 def _native_file(
     slabs: "Sequence[Slab]", shape: tuple[int, ...], dtype: CFDtype, target: ResourceRef, maxshape: MaxShape | None, fillvalue: object | None
 ) -> str:
-    import h5py  # ruff:ignore[import-outside-top-level]
-
     resolved = dtype.resolve()
     with (
         h5py.File(str(target.path), "w") as sink,
@@ -384,6 +377,8 @@ from expression.collections import Block, Map
 from icechunk import VirtualChunkSpec
 from msgspec import Struct
 
+lazy import xarray as xr
+
 from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, railed, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
@@ -396,7 +391,6 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Iterable
 
-    import xarray as xr
     from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, RepositoryConfig, Session, Storage
 
 
@@ -587,8 +581,6 @@ class VersionOp:
             case VersionOp(tag="reclaim", reclaim=reclaim):
                 return Ok(reclaim.run(repo))
             case VersionOp(tag="checkout", checkout=at):
-                import xarray as xr  # ruff:ignore[import-outside-top-level]
-
                 return Ok(xr.open_zarr(at.session(repo).store, consolidated=False))
             case unreachable:
                 assert_never(unreachable)

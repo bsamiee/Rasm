@@ -12,20 +12,21 @@ Machine-readable-mark vocabulary owns every creatable and readable identity the 
 
 - Owner: `Symbology` is the closed identity every plane surface keys on. `MarkClass` distinguishes segno QR, python-barcode linear, zxing matrix, and scan-only families; `TAXONOMY` is total over the vocabulary and drives both behavior directions.
 - Cases: `DecodeSource.Raster(payload)` carries encoded raster bytes; `DecodeSource.Pixels(frame, fmt)` requires explicit `PixelFormat`, so a raw frame never inherits an ambient RGB assumption.
-- Law: QR admission selects `QrPayload`, `MicroQrPayload`, or `QrSequencePayload`, so `eci` and `symbol_count` exist only on accepting factories; linear and matrix bands keep creator and renderer fields distinct. Encode selects the exact `TypeAdapter` from `Symbology`, making cross-family and cross-factory keys admission faults.
+- Law: QR admission selects `QrPayload`, `MicroQrPayload`, or `QrSequencePayload`, so `eci` and `symbol_count` exist only on accepting factories; linear and matrix bands keep creator and renderer fields distinct. Encode selects the exact `TypeAdapter` from `Symbology`, making cross-family and cross-factory keys admission faults. `symbol_count` is the one REQUIRED, range-bound band key on the sequence factory — the encode plane addresses one artifact identity per structured-append member, so the member count is a declared admission fact the plan reads before any solve, never a number the version/EC solve alone answers.
 - Law: `MarkFault` is the plane-wide rail vocabulary. `unscannable` identifies a carrier-less generated symbol; structured cases retain offending symbology, option locations, and source-shape evidence. No scan-only refusal exists, because every symbology this taxonomy carries has a generator — MEASURED, `Code 93`, `UPC-E`, `DataBar`, `DataBar Expanded`, `DataBar Limited`, and `DX Film Edge` all appear in `barcode_formats_list(BarcodeFormat.AllCreatable)` and write live through `write_barcode_to_svg`, so the six rows calling themselves uncreatable refused six formats the admitted writer produces.
-- Growth: a symbology adds one vocabulary member and one `TAXONOMY` row; a factory-specific option extends only its closed band; a fault, source modality, or channel layout adds one case or member to its existing owner.
+- Growth: a symbology adds one vocabulary member and one `TAXONOMY` row; a factory-specific option extends only its closed band, refined in place where the value bounds a downstream fold; a fault, source modality, or channel layout adds one case or member to its existing owner.
 - Boundary: no provider import crosses this page — segno/python-barcode/zxing enter only on behavior pages, and the carrier column stores provider display names as `str | None`. Encode owns `MarkOp` and `Content`; decode owns `DecodeScope.scan`; `graphic/raster/process#PROCESS` owns `RasterFact`.
 
 ```python signature
 # --- [TYPES] ----------------------------------------------------------------------------
 from enum import StrEnum
-from typing import Final, Literal, NotRequired, ReadOnly, TypedDict
+from typing import Annotated, Final, Literal, NotRequired, ReadOnly, Required, TypedDict
 
 import numpy as np
 from builtins import frozendict
 from expression import case, tag, tagged_union
 from numpy.typing import NDArray
+from pydantic import Field
 
 type Frame = NDArray[np.uint8]
 
@@ -150,13 +151,19 @@ class QrFullMake(TypedDict, closed=True):
 
 
 class QrSequenceMake(TypedDict, closed=True):
+    # `symbol_count` is REQUIRED and range-bound where every sibling key stays optional: segno refuses a span
+    # carrying neither `version` nor `symbol_count`, and the encode plane mints one node per ADDRESSED member
+    # BEFORE any solve runs, so the member count is a declared admission fact rather than a number only the
+    # version/EC solve could answer. MEASURED: the resolved span length equals the declared count exactly, and
+    # `version` composes beside it as an additional constraint. The 1..16 bound is structured append's own span —
+    # admitted here so an out-of-range count refuses at ingress rather than after the plan minted its nodes.
     error: NotRequired[ReadOnly[str]]
     version: NotRequired[ReadOnly[int | str]]
     mode: NotRequired[ReadOnly[str]]
     mask: NotRequired[ReadOnly[int]]
     encoding: NotRequired[ReadOnly[str]]
     boost_error: NotRequired[ReadOnly[bool]]
-    symbol_count: NotRequired[ReadOnly[int]]
+    symbol_count: Required[ReadOnly[Annotated[int, Field(ge=1, le=16)]]]
 
 
 class QrRender(TypedDict, closed=True):
@@ -188,7 +195,7 @@ class MicroQrPayload(TypedDict, closed=True):
 
 
 class QrSequencePayload(TypedDict, closed=True):
-    make: NotRequired[ReadOnly[QrSequenceMake]]
+    make: Required[ReadOnly[QrSequenceMake]]  # the band carrying the required `symbol_count` cannot itself be optional
     render: NotRequired[ReadOnly[QrRender]]
 
 
@@ -320,7 +327,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

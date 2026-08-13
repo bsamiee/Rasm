@@ -225,6 +225,9 @@ class DifferentialIntent:
 
 # Gated modules folded into one value object, behavior built ONCE per solve: every carrier method
 # reads self.dfx/eqx/jnp/jtu/jr rather than re-importing or threading a loose handle quadruple.
+# These imports stay function-local against the module-scope `lazy` dialect on the compute RULINGS [04] x64
+# ruling: the config seam must precede the first jax dereference, and the frozen carrier enforces that
+# structurally — every `self.` handle exists only after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class SolveEngine:
     dfx: object
@@ -235,14 +238,16 @@ class SolveEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import diffrax as dfx
-        import equinox as eqx
-        import jax
-        import jax.numpy as jnp
-        import jax.random as jr
-        import jax.tree_util as jtu
+        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
 
-        jax.config.update("jax_enable_x64", True)  # 1e-8 rtol/atol and stiff/adjoint solves assume float64
+        jax.config.update("jax_enable_x64", True)  # armed before any dependent import: 1e-8 rtol/atol and stiff/adjoint solves assume float64
+
+        import diffrax as dfx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax.random as jr  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax.tree_util as jtu  # ruff:ignore[import-outside-top-level] — x64 config seam
+
         return cls(dfx=dfx, eqx=eqx, jnp=jnp, jtu=jtu, jr=jr)
 
     # One residual norm, total over a structured y0 pytree where a bare jnp.linalg.norm assumes a

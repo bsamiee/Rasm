@@ -23,7 +23,7 @@ import re
 from collections.abc import Iterable
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Final, assert_never, overload
+from typing import Final, assert_never, overload
 
 from beartype import beartype
 from expression import case, tag, tagged_union
@@ -31,11 +31,10 @@ from expression.collections import Block
 from lark import Lark, Token, Transformer_NonRecursive, v_args
 from msgspec import Struct
 
+lazy import ifcopenshell.util.selector
+
 from rasm.runtime.faults import FAULT_CONF, Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.receipts import OPEN, Receipt, receipted
-
-if TYPE_CHECKING:
-    import ifcopenshell
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
@@ -304,8 +303,6 @@ class IfcSelector:
 
     @staticmethod
     def filter(model: "ifcopenshell.file", text: str) -> "RuntimeRail[SelectorMatch]":
-        import ifcopenshell.util.selector  # ruff:ignore[import-outside-top-level]
-
         # one parse serves both products: the engine consumes the re-serialized `filter_string` and the caller
         # receives that same validated query beside its match, so no consumer parses twice to name what it ran.
         return IfcSelector.parse(text).map(

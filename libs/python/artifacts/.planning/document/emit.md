@@ -11,12 +11,13 @@ Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker sp
 ## [02]-[DOCUMENT]
 
 - Entry: the key mints PRE-RUN over the canonical `(mode, node, spec)` input — `receipt.slot == node.key`, the produced output content-address riding the receipt FACTS, never the elision key. `bound(node, modes, **payload)` is the one-context-many-formats fan: one validated payload binds one `DocumentNode` context to N format nodes with per-mode keys and per-mode payload slices, so a re-issued package re-renders only changed formats — never a per-format vocabulary re-spelling `DocumentMode` and never a second scheduling rail. `world(title=)` is the one Typst `Compiler` mint — compile, query, and eval arms share it, so the tree lowers to Typst source exactly once per emission.
-- Auto: `_run_markup` carries each `RunNode`'s real weight/italic/colour/baseline/decoration with `<`/`&` escaped once before any tag — a plain `run.text` splice drops run fidelity, and the docx/pptx/odf office arms carry the same per-run fidelity into list items and slide runs rather than flattening to bare text; the `A_3A` weasyprint variant embeds its PDF/A-3 source files through `attachments`, never only naming them; each `PageNode` opens its own tagged sheet through `new_page_same_size`, so a multi-page UA document never overflows one buffered page, `FormulaNode` and footnote `NOTE` annotations land in the UA walk (`page.paragraph` over the `/Alt` equivalent, `page.footnote`), a spanned grid rides the `streaming_table(repeat_header=, max_rowspan=)` row surface, and the UA and slide walks prune below `TableNode` so cell content never doubles as loose paragraphs; the manuscript rows escape through the model owner's `_MD_ESCAPE`/`_LATEX_ESCAPE` maps so no active character breaks the source. A born-archival or born-tagged render self-verifies: `_conformance` re-opens the emitted bytes through the `pdf_oxide` oracle (`validate_pdf_a(level)`/`validate_pdf_ua()`) and folds `valid`/`errors` onto the fact — emit-side evidence of the claimed variant, never the sealed verdict `exchange/conformance#CONFORMANCE` owns. `_pypdfium2_raster` copies each borrowed `to_numpy` view into the `EmitFact.data` byte stream before closing its `PdfBitmap`, then closes the page and document leaf-first; `frame_shapes` preserves heterogeneous page boundaries without `np.stack` shape assumptions.
-- Receipt: `contribute` reads the threaded `EmitFact` off `self.fact` — never an in-process re-run of a worker-gated arm — and folds the case off the `Backend.kind` discriminant: emit mints only the `ArtifactReceipt.Pdf`/`.Office` arities the receipt owner declares; the typography-rail `Document` case is not its to mint. Rich per-arm evidence (render scale, outline count, embedded-face set, undeclared-variable set, validation verdict) rides the `EmitFact` carrier, never a widened receipt tuple.
-- Growth: a new document format is one `DocumentMode` row plus one `Backend` row binding its arm and band, one `_SCOPE` row naming its observable payload fields, plus a `_REQUIRED` row when it demands an input; a new mode-specific control is one `EmitSpec` field plus its `_SCOPE` membership; a new typed cell is one `CellValue` arm; a new interactive-field payload is one `FieldValue` case plus one `_ua_field` arm; a new archival profile is one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new evidence fact is one `EmitFact` field; a new admission cause is one `EmitFault` case.
+- Auto: `_run_markup` carries each `RunNode`'s real weight/italic/colour/baseline/decoration with `<`/`&` escaped once before any tag — a plain `run.text` splice drops run fidelity, and the docx/pptx/odf office arms carry the same per-run fidelity into list items and slide runs rather than flattening to bare text; the `A_3A` weasyprint variant embeds its PDF/A-3 source files through `attachments`, never only naming them; each `PageNode` opens its own tagged sheet through `new_page_same_size`, so a multi-page UA document never overflows one buffered page, `FormulaNode` and footnote `NOTE` annotations land in the UA walk (`page.paragraph` over the `/Alt` equivalent, `page.footnote`), a spanned grid rides the `streaming_table(repeat_header=, max_rowspan=)` row surface, and the UA and slide walks prune below `TableNode` so cell content never doubles as loose paragraphs; the manuscript rows escape through the model owner's `_MD_ESCAPE`/`_LATEX_ESCAPE` maps so no active character breaks the source. Born-archival and born-tagged renders self-verify: `_conformance` re-opens the emitted bytes through the `pdf_oxide` oracle (`validate_pdf_a(level)`/`validate_pdf_ua()`) and folds `valid`/`errors` onto the fact — emit-side evidence of the claimed variant, never the sealed verdict `exchange/conformance#CONFORMANCE` owns. `_pypdfium2_raster` copies each borrowed `to_numpy` view into the `EmitFact.data` byte stream before closing its `PdfBitmap`, then closes the page and document leaf-first; `frame_shapes` preserves heterogeneous page boundaries without `np.stack` shape assumptions.
+- Receipt: `contribute` reads the threaded `EmitFact` off `self.fact` — never an in-process re-run of a worker-gated arm — and folds the case off the `Backend.kind` discriminant: emit mints only the `ArtifactReceipt.Pdf`/`.Office` arities the receipt owner declares; the typography-rail `Document` case is not its to mint. Rich per-arm evidence (render scale, outline count, embedded-face set, undeclared-variable set, validation verdict) rides the `EmitFact` carrier, never a widened receipt tuple. `_emit` also awaits `Journal.record` over `receipt.evidence(*live._claim)` — the ONE durable seat for the three kinds this owner mints, because recording suspends and `contribute` cannot — and an archival or born-tagged render appends its declared variant beside the oracle's verdict positionally, since the shared `Pdf` case carries neither.
+- Growth: a new document format is one `DocumentMode` row with one `Backend` row binding its arm and band, one `_SCOPE` row naming its observable payload fields, and a `_REQUIRED` row when it demands an input; a new mode-specific control is one `EmitSpec` field with its `_SCOPE` membership; a new typed cell is one `CellValue` arm; a new interactive-field payload is one `FieldValue` case with one `_ua_field` arm; a new archival profile is one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new evidence fact is one `EmitFact` field; a new admission cause is one `EmitFault` case.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import codecs
 import io
 import re
 from collections.abc import Callable, Iterable, Iterator
@@ -37,6 +38,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -73,6 +75,7 @@ from rasm.artifacts.document.model import (
     TextField,
     Uri,
     field_text,
+    hardened_parse,
     node_digest,
     role_of,
     standard_for,
@@ -559,7 +562,42 @@ class DocumentPlan(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         crossed = await async_boundary(f"emit.{self.mode}", self._stepped)
-        return crossed.map(lambda live: _RECEIPT[BACKENDS[self.mode].kind](key, live.fact))
+        settled = crossed.map(lambda live: (live, _RECEIPT[BACKENDS[self.mode].kind](key, live.fact)))
+        match settled:
+            case Result(tag="ok", ok=(live, receipt)):
+                # `Journal.record` seats the durable evidence for every kind this owner mints — `pdf`, `office`, and
+                # `document` alike: recording SUSPENDS on the journal's bounded intake while `contribute` is a
+                # synchronous projection, so the one `evidence` builder is composed here and nowhere else, under
+                # whichever class the minted case's own `_RETENTION` row names. Re-run idempotency is the plan
+                # owner's, never a journal coordinate: `Admission(keyed=None)` elides a re-issued `(mode, node,
+                # spec)` at its content key before `_emit` runs again, the trait-row worker-death retry re-drives
+                # only the pure `_dispatched` hop upstream of this seat, and `Journal.record` REPLACES each fact's
+                # stamp at admission under the writer-owned stamp law — a caller-threaded stable coordinate is the
+                # journal's named rejected form, collapsing two genuine facts onto one content key, and the drain's
+                # own key already dedups a redelivered row.
+                return (await Journal.record(receipt.evidence(*live._claim))).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
+
+    @property
+    def _claim(self) -> tuple[Change, ...]:
+        # `_claim` carries the archival/accessibility CLAIM and this emitter's own verdict on it, which `Pdf(key,
+        # bytes, pages)` erases entirely — and a PDF/A or PDF/UA claim is precisely the fact an auditor disputes years later, so it
+        # rides positionally rather than widening a case three receipt kinds share. A claim arrives two ways and the
+        # guard reads BOTH: a spelled `variant`, and the born-tagged `PDF_UA` arm, whose `_SCOPE` row admits no
+        # `variant` at all yet whose builder validates against UA-1 — so a spec-only test would silently drop the
+        # one verdict most worth keeping. `/variant` therefore rides only where the spec named one, while `/tagged`
+        # states the UA claim the arm made. A render claiming neither contributes nothing, keeping a plain
+        # document's audit row exactly its declared facts rather than a row of vacuous passes.
+        fact, claimed = self.fact, self.spec.variant is not PdfVariant.NONE
+        if fact is None or not (claimed or fact.tagged):
+            return ()
+        return (
+            *((Assigned(path="/variant", next=self.spec.variant.value),) if claimed else ()),
+            Assigned(path="/tagged", next=str(fact.tagged)),
+            Assigned(path="/valid", next=str(fact.valid)),
+            Assigned(path="/errors", next=str(fact.errors)),
+        )
 
     @receipted(OPEN)
     async def _stepped(self, /) -> Self:
@@ -935,7 +973,7 @@ def _acroform_applied(data: bytes, fields: tuple[FieldNode, ...], /) -> bytes:
     if not fields:
         return data
     wanted = {node.name: node for node in fields}
-    with pikepdf.open(BytesIO(data)) as pdf:
+    with pikepdf.open(io.BytesIO(data)) as pdf:
         for ref in pdf.Root.get("/AcroForm", pikepdf.Dictionary()).get("/Fields", []):
             node = wanted.get(str(ref.get("/T", "")))
             if node is None:
@@ -949,7 +987,7 @@ def _acroform_applied(data: bytes, fields: tuple[FieldNode, ...], /) -> bytes:
                 ref.Ff = flags
             if node.tooltip:
                 ref.TU = pikepdf.String(node.tooltip)
-        sink = BytesIO()
+        sink = io.BytesIO()
         pdf.save(sink)
         return sink.getvalue()
 
@@ -969,7 +1007,7 @@ def _conformance(data: bytes, variant: PdfVariant, /) -> tuple[bool, int]:
 def _pdf_pages(data: bytes, /) -> int:
     # terminal page census for the provider arms whose render returns bare bytes (WeasyPrint, the pdf-oxide builder
     # chain, typst): every ReceiptKind.PDF fact carries a real count, so a zero-page receipt over a non-empty PDF is unmintable.
-    with pikepdf.open(BytesIO(data)) as pdf:
+    with pikepdf.open(io.BytesIO(data)) as pdf:
         return len(pdf.pages)
 
 
@@ -1538,24 +1576,41 @@ def _latex_emit(plan: DocumentPlan, /) -> EmitFact:
     return EmitFact(data=to_latex(plan.node).encode())
 
 
-def _hardened_parse(source: bytes) -> object:
-    return etree.parse(io.BytesIO(source), etree.XMLParser(resolve_entities=False, huge_tree=False, no_network=True))
-
-
-_DTD_EXTERNAL: Final[re.Pattern[bytes]] = re.compile(rb"<!ENTITY\s+%?\s*[^>]*?\b(?:SYSTEM|PUBLIC)\b")
+_DTD_EXTERNAL: Final[re.Pattern[str]] = re.compile(r"<!ENTITY\s+%?\s*[^>]*?\b(?:SYSTEM|PUBLIC)\b")
+# libxml2 sniffs an external subset's encoding before parsing, so the refusal scan must read the SAME text the
+# compiler will: the BOM'd UTF-32/16/8 marks and the BOM-less UTF-16 text-declaration patterns decode first-match
+# (32 ahead of its own 16-prefix), everything else parses as UTF-8 — a bytes-only scan reads past a UTF-16-spelled
+# `SYSTEM` that libxml2 honors.
+_DTD_CODECS: Final[tuple[tuple[bytes, str], ...]] = (
+    (codecs.BOM_UTF32_LE, "utf-32-le"),
+    (codecs.BOM_UTF32_BE, "utf-32-be"),
+    (codecs.BOM_UTF16_LE, "utf-16-le"),
+    (codecs.BOM_UTF16_BE, "utf-16-be"),
+    (codecs.BOM_UTF8, "utf-8-sig"),
+    (b"<\x00", "utf-16-le"),
+    (b"\x00<", "utf-16-be"),
+)
 
 
 def _hardened_dtd(source: bytes) -> object:
-    # etree.DTD accepts no parser controls, so external SYSTEM/PUBLIC entity ids are refused before construction.
-    if _DTD_EXTERNAL.search(source):
+    # `etree.DTD` is the one grammar kind `hardened_parse` cannot carry: it compiles its source through a
+    # construction accepting no parser, resolver, or network control at all (the catalog's validator row), so
+    # external ids refuse by inspection beforehand — and the inspection is complete over the declaration grammar:
+    # every ExternalID spells SYSTEM or PUBLIC literally inside an `<!ENTITY` opening, an indirect declaration
+    # nested in a parameter-entity literal still carries that spelling where `search` reaches it, and XML's
+    # space-padded parameter-entity expansion forecloses assembling either keyword from fragments. Decode failure
+    # refuses as the same `ValueError` class — bytes libxml2 could not read either.
+    if _DTD_EXTERNAL.search(source.decode(next((codec for mark, codec in _DTD_CODECS if source.startswith(mark)), "utf-8"))):
         raise ValueError("external entity reference in DTD source")
     return etree.DTD(io.BytesIO(source))
 
 
+# a caller-supplied schema or stylesheet is foreign bytes, so all three grammar compiles read the parsed element the
+# model owner's ONE hardened admission returns — never a per-row parser this page would have to re-audit.
 _VALIDATOR: Final[Map[SchemaKind, Callable[[bytes], object]]] = Map.of_seq([
-    (SchemaKind.XSD, lambda source: etree.XMLSchema(_hardened_parse(source))),
-    (SchemaKind.RELAXNG, lambda source: etree.RelaxNG(_hardened_parse(source))),
-    (SchemaKind.SCHEMATRON, lambda source: isoschematron.Schematron(_hardened_parse(source), store_report=True)),
+    (SchemaKind.XSD, lambda source: etree.XMLSchema(hardened_parse(source))),
+    (SchemaKind.RELAXNG, lambda source: etree.RelaxNG(hardened_parse(source))),
+    (SchemaKind.SCHEMATRON, lambda source: isoschematron.Schematron(hardened_parse(source), store_report=True)),
     (SchemaKind.DTD, _hardened_dtd),
 ])
 
@@ -1568,7 +1623,7 @@ def _lxml_emit(plan: DocumentPlan, /) -> EmitFact:
 
 def _lxml_transform(plan: DocumentPlan, /) -> EmitFact:
     access = etree.XSLTAccessControl(read_file=False, write_file=False, create_dir=False, read_network=False, write_network=False)
-    transform = etree.XSLT(_hardened_parse(plan.spec.stylesheet), access_control=access)
+    transform = etree.XSLT(hardened_parse(plan.spec.stylesheet), access_control=access)
     quoted = {key: etree.XSLT.strparam(value) for key, value in plan.spec.xslt_params.items()}
     return EmitFact(data=bytes(transform(to_lxml_tree(plan.node), **quoted)))
 
@@ -1636,7 +1691,7 @@ BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

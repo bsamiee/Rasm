@@ -2,7 +2,7 @@
 
 One material environmental-impact owner — the EPD/LCA normalization plane of `data`. Two external EPD declaration formats (`openepd`, `epdx`) and three life-cycle-assessment compute legs (the Brightway solver, the live openLCA engine, `premise`-shifted prospective backgrounds) fold into ONE `MaterialImpact` carrier: an EN 15804 indicator × life-cycle-stage matrix keyed by `ContentIdentity`, discriminated on the source payload shape, never a provider knob. This owner owns only the normalization to the common carrier, the identity, the receipt, and the tabular egress — `openepd`/`epdx` own EPD wire parsing, `bw2data` owns the project graph as system of record (filled by `impact/inventory#INVENTORY`), `bw2calc`/openLCA own the solver (`impact/solve#SOLVE` the batch arity), `impact/scenario#SCENARIO` drives the prospective background build the composition runs out of band, and `MaterialImpact` is never the system of record.
 
-Its self-describing eight-column frame crosses to the C# AEC domain as the seam `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. Its solver cluster is pure-python: its function-local imports are optional-provider lazy loading, never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — and every interpreter marker or pin lives in the root manifest alone. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
+Its self-describing eight-column frame crosses to the C# AEC domain as the seam `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. Its solver cluster is pure-python: every provider binds once at module scope through its own `lazy import`, so the deferral is optional-provider loading and never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — and every interpreter marker or pin lives in the root manifest alone. The lone exception is `openepd.model.factory`, whose import runs the `patch_pydantic` registration: a side-effect module is never `lazy`-deferred, so `_doctyped` binds it at the call seam that must fire the patch. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ Its self-describing eight-column frame crosses to the C# AEC domain as the seam 
 - Entry: `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan and hands back the whole `Interrogation` so a downstream report reuses the graded plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold with the carrier's `ContentKey`.
 - Auto: `premise` builds the future-year background LCI OUT OF BAND and computes no LCIA of its own, so the `premise_background` case names the written database, proves it registered in the open `bw2data` project, and scores it through the same Brightway solve arm — a scenario tuple with no registered background is a refusal, never a present-day score wearing a future year. Identity joins that tuple with the database's own `bd.databases.version`, so identical prospective builds dedupe in the reuse ledger while a rebuilt background re-keys; a demand×method sweep rides the `Block` arity with each solve content-keyed, never a second arm.
 - Receipt: source identity keys the receipt — declaration id+version, solve fingerprint, setup identity, scenario tuple — so re-ingestion or recompute of the same declaration dedupes in the `Rasm.Persistence` reuse ledger rather than recomputing; structured evidence on the one runtime rail, never product LCA state. `contribute` projects the one fixed-unit measure — the GWP A1A3 score — onto the runtime `Metrics.record` arm under `domain="impact"`, keyed by source; mixed-unit indicators stay receipt evidence, never a metric with an incoherent unit. `_one`'s normalize span is the solver's only trace surface — embedded LCA engines carry no scrape surface, the `query`-plane law applied here.
-- Packages: `bw2data` resolves the demand keys and answers the prospective-background registry, `bw2calc` solves, `bw2analyzer` mines the contribution rows, `olca-ipc` drives the live openLCA engine, and `openepd`/`epdx` parse the two declaration wires. `bw2io` LCI ingestion and `bw-processing` matrix-datapackage custody stand OUTSIDE this normalization fold — the demand keys arrive already resolved in the open project, which the `impact/inventory#INVENTORY` custodian fills — so this owner composes neither and claims no depth it does not reach; `pyarrow` binds function-local per the module-level ban.
+- Packages: `bw2data` resolves the demand keys and answers the prospective-background registry, `bw2calc` solves, `bw2analyzer` mines the contribution rows, `olca-ipc` drives the live openLCA engine, and `openepd`/`epdx` parse the two declaration wires. `bw2io` LCI ingestion and `bw-processing` matrix-datapackage custody stand OUTSIDE this normalization fold — the demand keys arrive already resolved in the open project, which the `impact/inventory#INVENTORY` custodian fills — so this owner composes neither and claims no depth it does not reach; `pyarrow` binds at module scope through `lazy import`, deferring the egress load to first lowering.
 - Growth: a new EPD format or compute engine is one `ImpactSource` case with its `_normalize` arm; a new indicator one `Indicator` member and its `INDICATOR_UNIT` row, with a provider correspondence row only where its field spelling drifts; a new stage one `Stage` row; a new egress shape one `_lower` arm. The batch and driver-mining depth live at their sibling owners — `impact/solve#SOLVE` the `MultiLCA` shared-factorization sweep, `impact/solve#CONTRIBUTION` the top-emissions and recursive-walk kinds beside this fold's own `annotated_top_processes` mining — and the prospective producer at `impact/scenario#SCENARIO`. Staged rows: the EC3 OMF search stream (`epds.find`) when a consumer names search; per-stage foreground/background splits beyond the aggregate `A1A3` when a consumer carries staged system boundaries.
 - Boundary: never a per-provider `EpdImpact`/`LcaImpact` carrier split, never a second normalization kernel, never a re-implemented solver or sparse-matrix assembly, and never a `NewDatabase(...).update()` build inside the fold — a licensed multi-hour sector transform is a composition step, not a normalization one. Deleted forms: a `premise_background` case whose scenario tuple keys an identity while the solve reads whatever background the project happens to hold; a frame missing its `source`/`declared_unit`/`content_key` columns — the C# decoder can neither attribute nor dedupe it.
 
@@ -31,6 +31,14 @@ from msgspec import Struct
 from msgspec import json as msgjson
 from opentelemetry import trace
 
+lazy import bw2calc as bc
+lazy import bw2data as bd
+lazy import epdx
+lazy import olca_ipc as ipc
+lazy import pyarrow as pa
+lazy from bw2analyzer import ContributionAnalysis
+lazy from epdx.pydantic import EPD
+
 from rasm.data.tabular.interop import arrow_bytes
 from rasm.data.tabular.contract import ContractClaim, FrameAdmission, QualityRule
 from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
@@ -43,8 +51,6 @@ from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import TransportResource
 
 if TYPE_CHECKING:
-    import pyarrow as pa
-    from epdx.pydantic import EPD as IlcdEpd
     from olca_schema import CalculationSetup
     from openepd.model.epd import Epd
     from openepd.model.generic_estimate import GenericEstimate
@@ -212,7 +218,7 @@ class OlcaSolve(Struct, frozen=True):
 class ImpactSource:
     tag: Literal["openepd", "ilcd_epd", "brightway", "openlca", "premise_background"] = tag()
     openepd: "tuple[Epd | IndustryEpd | GenericEstimate, str]" = case()  # (declaration, method label; "" = first available)
-    ilcd_epd: "IlcdEpd" = case()
+    ilcd_epd: "EPD" = case()
     brightway: LcaSolve = case()
     openlca: OlcaSolve = case()
     premise_background: PremiseSolve = case()
@@ -257,9 +263,6 @@ class MaterialImpact(Struct, frozen=True):
         # BaseException no Exception fence sees — so the kernel guards by qualname and re-raises
         # every other BaseException; the converted JSON lands the typed epdx model.
         def convert() -> ImpactSource:
-            import epdx  # ruff:ignore[import-outside-top-level] — banded boundary import
-            from epdx.pydantic import EPD  # ruff:ignore[import-outside-top-level]
-
             text = document.decode() if isinstance(document, bytes) else document
             try:
                 converted = epdx.convert_ilcd(text)
@@ -367,7 +370,7 @@ def _from_openepd(decl: "Epd | IndustryEpd | GenericEstimate", method: str) -> M
     return MaterialImpact(source="openepd", method=str(chosen), declared_unit=str(decl.declared_unit), cells=cells, content_key=key)
 
 
-def _from_epdx(epd: "IlcdEpd") -> MaterialImpact:
+def _from_epdx(epd: "EPD") -> MaterialImpact:
     # `epd.standard` names which subset an A1-vs-A2 declaration populates — the Optional walk skips the rest.
     cells = tuple(
         ImpactCell(indicator=ind, stage=stg, amount=val, unit=INDICATOR_UNIT[ind])
@@ -383,9 +386,6 @@ def _from_epdx(epd: "IlcdEpd") -> MaterialImpact:
 def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact:
     # staged bw2calc solve at mined depth: lci/lcia/score -> the aggregate A1A3 cell; Monte
     # Carlo one draw per next(lca); bw2analyzer contribution rows when the request carries depth.
-    import bw2calc as bc  # ruff:ignore[import-outside-top-level] — banded boundary import
-    import bw2data as bd  # ruff:ignore[import-outside-top-level]
-
     demand = dict(solve.demand)
     fu, data_objs, remapping = bd.prepare_lca_inputs(demand=demand, method=solve.method)
     lca = bc.LCA(demand=fu, data_objs=data_objs, remapping_dicts=remapping, use_distributions=solve.iterations > 0)
@@ -406,8 +406,6 @@ def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact
         spread = Some(Spread(kind="std", value=std, samples=len(samples)))
     rows: tuple[ContributionRow, ...] = ()
     if solve.contributions > 0:
-        from bw2analyzer import ContributionAnalysis  # ruff:ignore[import-outside-top-level] — banded boundary import
-
         rows = tuple(
             ContributionRow(score=score, supply=supply, activity=str(activity))
             for score, supply, activity in ContributionAnalysis().annotated_top_processes(lca, limit=solve.contributions)
@@ -422,8 +420,6 @@ def _from_prospective(shifted: PremiseSolve) -> MaterialImpact:
     # is the whole proof the leg is prospective, so an absent one refuses at admission rather than returning a
     # present-day score wearing a future year. Its own registry version joins the identity, so a rebuilt background
     # under the same scenario tuple re-keys instead of deduping onto the prior build's score in the reuse ledger.
-    import bw2data as bd  # ruff:ignore[import-outside-top-level] — banded boundary import
-
     if shifted.background not in bd.databases.list:
         raise ValueError(f"premise-background-absent:{shifted.background}")
     identity = _ENCODER.encode((shifted.scenario, shifted.background, bd.databases.version(shifted.background)))
@@ -432,8 +428,6 @@ def _from_prospective(shifted: PremiseSolve) -> MaterialImpact:
 
 def _from_olca(solve: OlcaSolve) -> MaterialImpact:
     # documented lifecycle: setup -> calculate -> wait_until_ready -> query -> dispose (finally).
-    import olca_ipc as ipc  # ruff:ignore[import-outside-top-level] — banded boundary import
-
     client = ipc.Client(solve.endpoint)
     result = client.calculate(solve.setup)
     try:
@@ -460,7 +454,7 @@ def _from_olca(solve: OlcaSolve) -> MaterialImpact:
 
 
 def _doctyped(body: bytes) -> "Epd | IndustryEpd | GenericEstimate":
-    from openepd.model.factory import RootDocumentFactory  # ruff:ignore[import-outside-top-level] — boundary import (patch_pydantic side effect rides it)
+    from openepd.model.factory import RootDocumentFactory  # ruff:ignore[import-outside-top-level] — call-seam side effect (patch_pydantic) bans the module-scope binding
 
     return RootDocumentFactory.from_dict(msgjson.decode(body))
 
@@ -468,8 +462,6 @@ def _doctyped(body: bytes) -> "Epd | IndustryEpd | GenericEstimate":
 def _lower(impact: MaterialImpact) -> "pa.Table":
     # eight-column SELF-DESCRIBING floor: a frame the C# Discipline.Environmental Assessment
     # decode attributes (source/method/declared_unit) and dedupes (content_key) with no side channel.
-    import pyarrow as pa  # ruff:ignore[import-outside-top-level] — module-level import banned; deferred at the egress edge
-
     key = impact.content_key.hex
     return pa.Table.from_pydict({
         "source": [impact.source] * len(impact.cells),

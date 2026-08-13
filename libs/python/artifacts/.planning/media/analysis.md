@@ -12,7 +12,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 
 - Owner: `Analysis` discriminates modality over the closed `AnalysisOp` family, each case carrying its typed payload (a source `blob` plus its op knobs), never a shared erased `params` bag, a per-measurement subclass, or a parallel `waveform`/`loudness`/`scenes` trio; `AnalysisArm` is the closed `NATIVE`/`SUBSTITUTE` route vocabulary — a `StrEnum`, token identity with no payload — whose `of` derivation routes native only when the op's `_NATIVE` row is non-empty AND present in the probe, so a limited wheel routes to the substitute, a full build to the native filter with the same evidence shape, and a substitute-only row can never route native; `AnalysisEvidence` the frozen carrier this page owns (the artifact `container` tag, the route `codec`, source `duration`, `byte_count`, `count`, and the measured `facts` band) projecting onto `ArtifactReceipt.Media` at `_keyed`; `MediaFault` the container cause vocabulary threaded unchanged.
 - Cases: `Waveform`/`Spectrogram` render native filter output or NumPy envelope/STFT images while both routes derive the same peak/RMS or centroid facts from normalized PCM. `Loudness` returns exact R128 facts from `loudnorm.stats` or explicitly named unweighted fallback facts. `Silence`/`BlackDetect` fold threshold flags through `_flag_spans`; `SceneDetect` uses native `select` or normalized mean-absolute frame delta; `Thumbnail` uses native `thumbnail` or variance picks and refuses an empty video before `_sheet`. `Metrics(blob, selected)` generates any subset of peak/RMS/crest/DC/zero-crossing/centroid/rolloff/bandwidth/flatness/dynamic-range facts from one `AudioMetric` vocabulary and one FFT correspondence.
-- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `CANON` and `ContentIdentity.key` and `_keyed` threads it as the receipt slot with the product address on the `address` band fact; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. `_worker` maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time.
+- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `CANON` and `ContentIdentity.key` and `_keyed` threads it as the receipt slot with the product address on the `address` band fact; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. The `media/container#CONTAINER` `_worker` aspect maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time, and every native graph drains through the `media/filtergraph#FILTER` `_drained` kernel rather than a page-local pull loop.
 - Auto: the route is `AnalysisArm.of(op.tag, media_filters())`, so a producer never passes a `use_native` flag, a new native dependency is one `_NATIVE` row, and a substitute-only op is the empty row read as data; a `Waveform`/`Spectrogram`/`Thumbnail` produces a PNG and a `Loudness`/`Silence`/`BlackDetect`/`SceneDetect` a `msgspec.json` facts blob, both keyed and both carrying the measured band.
 - Receipt: each analysis contributes one `ArtifactReceipt.Media` whose slot threads the PRE-RUN node key — the `core/receipt#RECEIPT` elision law — with the produced-bytes content address on the `address` band fact. Route identity rides `codec`, numeric output rides `facts`, and `AnalysisEvidence` keeps provider handles out of the receipt owner. Exact R128 facts exist only on the native route; substitute fact names expose their weaker measurement.
 - Growth: a structurally distinct measurement is one `AnalysisOp` case, `_NATIVE` row, admission arm, and `_analyzed` arm; another audio scalar is one `AudioMetric` member plus one `measured` row; a native dependency is one requirement-set edit; a substitute replaces one route body behind the same `AnalysisArm` value.
@@ -20,9 +20,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
-from collections.abc import Callable, Iterator
 from enum import StrEnum
-from functools import wraps
 from heapq import nlargest
 from itertools import groupby, islice
 from math import isfinite
@@ -31,10 +29,8 @@ from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import msgspec
 import numpy as np
-from beartype import beartype
-from beartype.roar import BeartypeCallHintViolation
 from builtins import frozendict
-from expression import Error, Ok, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from msgspec import Struct
 from numpy.lib.stride_tricks import sliding_window_view
 
@@ -52,8 +48,8 @@ lazy import av.error
 lazy import av.filter
 lazy import av.filter.loudnorm  # stats(loudnorm_args, stream) -> JSON bytes, the two-pass R128 measurement
 lazy from rasm.artifacts.media.audio import _decode_audio
-lazy from rasm.artifacts.media.container import _media_fault
-lazy from rasm.artifacts.media.filtergraph import media_filters  # av.filter.filters_available canonicalized as the capability probe
+lazy from rasm.artifacts.media.container import _media_fault, _worker  # the plane's ONE worker aspect, generic over its payload
+lazy from rasm.artifacts.media.filtergraph import _drained, media_filters  # the one libavfilter drain kernel; av.filter.filters_available as the capability probe
 lazy from rasm.artifacts.graphic.raster.process import _save_array  # array -> PNG RasterFact; .data is the encoded bytes
 
 if TYPE_CHECKING:
@@ -239,13 +235,17 @@ def _source_seconds(reader: object, /) -> float:
     return float(reader.duration / av.time_base) if reader.duration is not None else 0.0
 
 
-def _audio_image(reader: object, graph: object, /) -> "NDArray[np.uint8]":
-    # audio->image native arm: push each decoded AudioFrame into a showwavespic/showspectrumpic graph, flush,
-    # and pull the single rendered image VideoFrame back as an rgba array (no metadata read, the frame IS the image).
-    for frame in reader.decode(audio=0):
+def _audio_image(reader: object, graph: object, /) -> "Option[NDArray[np.uint8]]":
+    # audio->image native arm: push each decoded AudioFrame into a showwavespic/showspectrumpic graph, flush, and
+    # drain the rendered image VideoFrame through the one `_drained` kernel — a page-local `graph.pull()` leaks the
+    # drain sentinel into `_analyze`'s FFmpegError capture as a codec fault. A pic filter emits its single image at
+    # flush (no metadata read, the frame IS the image), so the drained tail's last frame carries it and an empty
+    # drain is structural absence the caller rails, never a sentinel.
+    for frame in reader.decode(audio=0):  # Exemption: imperative graph drive over one owned filter handle
         graph.push(frame)
     graph.push(None)
-    return graph.pull().to_ndarray(format="rgba")
+    rendered = tuple(_drained(graph))
+    return Some(rendered[-1].to_ndarray(format="rgba")) if rendered else Nothing
 
 
 def _mono(decoded: "tuple[tuple[Pcm, ...], int, str]", /) -> "NDArray[np.float64]":
@@ -305,16 +305,6 @@ def _flag_spans(flags: "NDArray[np.bool_]", step: float, min_seconds: float, /) 
     return tuple((lo * step, hi * step) for lo, hi in runs if (hi - lo) * step >= min_seconds)
 
 
-def _pull_frames(graph: object, /) -> Iterator[object]:
-    while True:  # each emitted frame is one graph output; the sink drains until EAGAIN/EOF
-        try:
-            yield graph.pull()
-        except av.error.BlockingIOError, av.error.EOFError:
-            # the av leaves, never the builtins they subclass: a bare `BlockingIOError` also swallows a genuine
-            # non-blocking OSError from an unrelated handle and reads the drain as complete.
-            return
-
-
 def _scenes_native(reader: object, threshold: float, /) -> tuple[float, ...]:
     graph = av.filter.Graph()
     src = graph.add_buffer(template=reader.streams.video[0])
@@ -323,9 +313,9 @@ def _scenes_native(reader: object, threshold: float, /) -> tuple[float, ...]:
     cuts: list[float] = []
     for frame in reader.decode(video=0):  # Exemption: imperative graph drive over one owned filter handle
         graph.push(frame)
-        cuts.extend(float(cut.pts * cut.time_base) if cut.pts is not None else 0.0 for cut in _pull_frames(graph))
+        cuts.extend(float(cut.pts * cut.time_base) if cut.pts is not None else 0.0 for cut in _drained(graph))
     graph.push(None)
-    cuts.extend(float(cut.pts * cut.time_base) if cut.pts is not None else 0.0 for cut in _pull_frames(graph))
+    cuts.extend(float(cut.pts * cut.time_base) if cut.pts is not None else 0.0 for cut in _drained(graph))
     return tuple(cuts)
 
 
@@ -440,19 +430,6 @@ def _metrics(decoded: "tuple[tuple[Pcm, ...], int, str]", selected: tuple[AudioM
     return payload, AnalysisEvidence.measure("json", AnalysisArm.SUBSTITUTE, mono.size / rate, payload, len(facts), facts)
 
 
-def _worker[**P](operation: Callable[P, Result[AnalysisProduct, MediaFault]], /) -> Callable[P, Result[AnalysisProduct, MediaFault]]:
-    guarded = beartype(operation)
-
-    @wraps(operation)
-    def call(*args: P.args, **kwargs: P.kwargs) -> Result[AnalysisProduct, MediaFault]:
-        try:
-            return guarded(*args, **kwargs)
-        except BeartypeCallHintViolation as violation:
-            return Error(MediaFault(contract=str(violation)))
-
-    return call
-
-
 def _admitted(op: AnalysisOp, /) -> Result[AnalysisOp, MediaFault]:
     # every knob proves BOTH edges — the declared ceilings above are the upper bounds — and every metrics
     # member proves `AudioMetric` membership here, so `_metrics` dispatch is total and never raises `KeyError`.
@@ -524,8 +501,9 @@ def _rendered(kind: AnalysisTag, blob: bytes, size: tuple[int, int], arm: Analys
                 src = graph.add_abuffer(template=stream)
                 graph.link_nodes(src, graph.add(node, f"s={size[0]}x{size[1]}"), graph.add("buffersink"))
                 graph.configure()
-                rgba = _audio_image(reader, graph)
-                return _decode_audio(blob).map(lambda decoded: _rendered_product(kind, rgba, decoded, arm, duration))
+                return _audio_image(reader, graph).to_result_with(lambda: MediaFault(invalid=f"{kind} filter produced no image frame")).bind(
+                    lambda rgba: _decode_audio(blob).map(lambda decoded: _rendered_product(kind, rgba, decoded, arm, duration))
+                )
             case AnalysisArm.SUBSTITUTE:
                 return _decode_audio(blob).map(lambda decoded: _rendered_substitute(kind, decoded, arm, duration, size))
             case _ as unreachable:
@@ -650,9 +628,9 @@ def _thumbnail(blob: bytes, count: int, arm: AnalysisArm, /) -> Result[AnalysisP
                 picked: list["NDArray[np.uint8]"] = []
                 for frame in reader.decode(video=0):  # Exemption: imperative graph drive over one owned filter handle
                     graph.push(frame)
-                    picked.extend(pulled.to_ndarray(format="rgb24") for pulled in _pull_frames(graph))
+                    picked.extend(pulled.to_ndarray(format="rgb24") for pulled in _drained(graph))
                 graph.push(None)
-                picked.extend(pulled.to_ndarray(format="rgb24") for pulled in _pull_frames(graph))
+                picked.extend(pulled.to_ndarray(format="rgb24") for pulled in _drained(graph))
             case AnalysisArm.SUBSTITUTE:
                 ranked = nlargest(
                     count,
@@ -680,7 +658,7 @@ def _thumbnail(blob: bytes, count: int, arm: AnalysisArm, /) -> Result[AnalysisP
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

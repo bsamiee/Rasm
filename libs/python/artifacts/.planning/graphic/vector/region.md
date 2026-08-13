@@ -573,8 +573,6 @@ class RegionResult:
     raster: bytes = case()
 
 
-
-
 def _contracted(operation: Callable[[RegionOp], Result[RegionResult, RegionFault]], /) -> Callable[[RegionOp], Result[RegionResult, RegionFault]]:
     guarded = beartype(conf=FAULT_CONF)(operation)
 
@@ -713,7 +711,7 @@ flowchart LR
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

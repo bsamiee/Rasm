@@ -12,9 +12,10 @@ AEC schedule vocabulary lives in `frozendict` template rows with domain-scale co
 
 - Owner: `Schedule` holds the closed `ScheduleContent`, `Palette`, `LanePolicy`, `TableFormat`, and `Theme`. Mode-specific `Standard` and authored rows live only inside their cases. `TablePlan` owns the styled-table builder; `Schedule` owns AEC template-to-`TableOp` lowering. `ScheduleTemplate` carries the ordered columns, spanners, sorting, data color, totals, BOQ rollup, and column footnotes. `LegendEntry` carries authored code, meaning, and optional swatch.
 - Cases: `tabular(frame, kind)` owns settled tabular data, `regime_legend(kind)` owns line or hatch enumeration, `discipline_legend(standard)` owns discipline enumeration and its color standard, and `authored_legend(kind, entries)` owns nonempty authored rows. `_lower` matches all cases. `ScheduleKind.QUANTITY` rolls element rows to classification/description/material/unit/rate groups, sums measures and cost, and preserves differing rates as distinct BOQ rows. `ScheduleKind.REVISION` folds the sheet set's `composition/sheet#SHEET` `Revision` rows into the issue-ordered set-wide log. Derived line, hatch, and discipline legends enumerate their owning regime vocabularies; authored symbol, abbreviation, keynote, material-finish, and general-note legends consume admitted entries.
-- Entry: `Schedule.of` is the one `@beartype(conf=_INGRESS)` ingress over tabular, regime-legend, discipline-legend, and authored-legend payload shapes. `folded()` lands the ONE render on `product` and `_emit`/`built` project receipt and bytes from that landed fact — `TablePlan.build()` executes once per product, never once per projection; `built` reads only the landed successor and refuses typed when unfolded, so a bytes+evidence consumer cannot fork two renders.
+- Entry: `Schedule.of` is the one ingress over tabular, regime-legend, discipline-legend, and authored-legend payload shapes, admitting under the folder's `INGRESS` conf so a malformed kind or frame refuses as the `ValueError` the `_FAULTS` boundary already admits. `folded()` lands the ONE render on `product` and `_emit`/`built` project receipt and bytes from that landed fact — `TablePlan.build()` executes once per product, never once per projection; `built` reads only the landed successor and refuses typed when unfolded, so a bytes+evidence consumer cannot fork two renders.
 - Auto: `_schedule_ops` derives labels, formats, alignment, spanners, colors, totals, footnotes, and notes from `_TEMPLATE`, filtered to present columns. `_schedule_frame` requires the template key, selects owned columns, rolls quantity rows by the full price discriminant, and sorts the result. `pl.col(*present_totals).sum()` fills one grand-total row across present measures. `_derived_legend_rows` and `_discipline_legend_rows` enumerate owned vocabularies, while authored rows lower directly and `drawsvg` builds structured swatches. `_key` includes the kind's canonical `_TEMPLATE` row, frame schema and row hashes, mode payload, palette, format, and theme; mode-dead values never perturb identity.
-- Packages: `visualization/table#TABLE` owns styled rendering and the `build` bytes seam; `beartype(conf=_INGRESS)` guards `Schedule.of`; `polars` owns selection, sorting, aggregation, and row hashing; `PolarsError`, `ValueError`, `KeyError`, `NotImplementedError`, and `OSError` form the narrowed engine catch; drawing regime and standard owners supply ISO codes and colors; `hex_ramp` supplies palettes; `HatchFill` supplies fill cases; `drawsvg` supplies structured swatches. `Schedule` imports neither `ezdxf` nor `great-tables`.
+- Packages: `visualization/table#TABLE` owns styled rendering and the `build` bytes seam; `beartype` guards `Schedule.of` under `drawing/regime#REGIME` `INGRESS`; `polars` owns selection, sorting, aggregation, and row hashing; `PolarsError`, `ValueError`, `KeyError`, `NotImplementedError`, and `OSError` form the narrowed engine catch; drawing regime and standard owners supply ISO codes and colors; `hex_ramp` supplies palettes; `HatchFill` supplies fill cases; `drawsvg` supplies structured swatches. `Schedule` imports neither `ezdxf` nor `great-tables`.
+- Receipt: `_render` mints `core/receipt#RECEIPT` `ArtifactReceipt.Schedule` off the one build, and `_emit` awaits `Journal.record` over `receipt.evidence()` at that fold — a published schedule is production trail, so the fact is `OPERATIONAL` and its byte volume charges `STORAGE`. Recording suspends, so the seat is the awaitable `_emit`; `built` reads the SAME landed render for its bytes consumer and records nothing beside it.
 - Growth: a new schedule type adds one `ScheduleKind` member and `_TEMPLATE` row; columns, spanners, totals, rollup keys, sorting, footnotes, notes, and colors remain template data. A new regime-derived legend adds one `LegendKind`, `_REGIME_LEGENDS` value, title, and total vocabulary arm; discipline remains the `Standard`-carrying case. A new authored legend adds one kind and title. A new fill regime adds one `HatchFill` case and `_hatch_swatch` arm.
 - Boundary: no sheet placement (`composition/sheet#SHEET`), no drawing-symbol geometry (`drawing/symbol#SYMBOL`), no IFC authoring (`csharp:Rasm.Bim` owns the QTO/schedule rows). `visualization/table#TABLE` owns the render, `drawing/regime#REGIME` and `drawing/standard#STANDARD` the ISO legend codes and pens, `graphic/color/derive#DERIVE` the palette, `polars` the frame shaping, `drawsvg` the swatch primitives, `composition/compose#COMPOSE` the placement, `specification/classify#CODE` the keynote classification codes; identity minting is the runtime's.
 
@@ -27,19 +28,20 @@ from enum import StrEnum
 from typing import Final, Literal, Self, assert_never
 
 import polars as pl
-from beartype import BeartypeConf, beartype
+from beartype import beartype
 from polars.exceptions import PolarsError
-from expression import Error, Nothing, Ok, Option, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
 from msgspec import Struct, msgpack, structs
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.drawing.regime import Discipline, HATCH_BIND, HatchMaterial, LayerName, LineType
+from rasm.artifacts.drawing.regime import Discipline, HATCH_BIND, HatchMaterial, INGRESS, LayerName, LineType
 from rasm.artifacts.drawing.standard import Standard
 from rasm.artifacts.graphic.vector.pattern import HatchFill, Motif
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
@@ -99,9 +101,6 @@ _DERIVED_LEGENDS: frozenset[LegendKind] = _REGIME_LEGENDS | {LegendKind.DISCIPLI
 # NotImplementedError, a table-miss KeyError, the gated-PDF OSError — so a non-engine raise crosses as a defect, never the Exception catch-all.
 _FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, KeyError, NotImplementedError, OSError)
 _CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
-# Ingress contract — a malformed ScheduleKind/frame refused at the constructors' seam; violation_type
-# redirects the refusal to the async_boundary catch, never a raw throw into the interior.
-_INGRESS: BeartypeConf = BeartypeConf(violation_type=ValueError)
 # AEC schedule publication identity — bordered grid, all-caps headers, ISO-drafting †/‡ footnote marks,
 # not the numeric default a legend reads as a callout.
 _AEC_THEME: Theme = Theme(
@@ -223,7 +222,7 @@ class Schedule(Struct, frozen=True):
                 return
 
     @classmethod
-    @beartype(conf=_INGRESS)
+    @beartype(conf=INGRESS)
     def of(
         cls,
         source: tuple[pl.DataFrame, ScheduleKind] | LegendKind | Standard | tuple[LegendKind, Iterable[LegendEntry]],
@@ -286,7 +285,16 @@ class Schedule(Struct, frozen=True):
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # Receipt half of the ONE render fact: the landed product when `folded()` ran, else the one scheduled
         # render — re-runs dedup at the pipeline's keyed admission, so the work executes once per content key.
-        return Ok(self.product[1]) if self.product is not None else (await self._crossed()).map(lambda pair: pair[1])
+        settled = Ok(self.product[1]) if self.product is not None else (await self._crossed()).map(lambda pair: pair[1])
+        # a published schedule or legend is production trail, so the fact is `OPERATIONAL` over the row and column
+        # cardinality, format, and byte volume the receipt declares, the volume charging `STORAGE`. Recording
+        # suspends, so the seat is this awaitable fold and never `contribute`; `built` hands the SAME landed render
+        # to a bytes consumer and records nothing, one render owing one durable fact however it is read.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     async def built(self) -> RuntimeRail[bytes]:
         # Bytes half of the SAME render fact — the flat table handoff composition/compose#COMPOSE places. `built`
@@ -1062,7 +1070,7 @@ __all__ = ["ColumnSpec", "LegendEntry", "LegendKind", "Schedule", "ScheduleConte
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->

@@ -16,7 +16,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Entry: `analyze` absorbs a lone `GraphAlgorithm` or a `Block` over one `match` at the head — the arity is the value's shape, the `Disposition` selects the batch output shape through the `@overload` ladder and is inert for a lone algorithm, so the input shape and the disposition together carry the output type. A non-node-keyed result case carries no per-node row, so `frame` names the case as non-node-keyed rather than minting a degenerate frame; `write` routes the `_EGRESS` codec directly on the source backend, never through the analysis-coercion path.
 - Auto: the bare-name rustworkx members dispatch on graph subtype, so the owner never names the `graph_*`/`digraph_*` typed forms; the dense matrices stay `npt.NDArray[np.float64]` so they fold straight into the tensor carriers.
 - Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state. `contribute` projects node/edge counts onto the runtime `Metrics.record` arm under `domain="graph"` keyed by algorithm, and `_one` opens the kernel span — the no-scrape analysis engine's whole observability surface, the runtime fence marking the span on a failed leg.
-- Packages: `pyarrow` binds function-local, so the codec-only graph path never loads Arrow.
+- Packages: `pyarrow` and the GPL `igraph` each bind one module-scope `lazy import`, so the codec-only graph path never loads Arrow and a run that never reaches the community split never links the igraph C core — `_frame` and `_ig_from` are their only dereference sites.
 - Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
 
@@ -37,6 +37,9 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
+lazy import igraph
+lazy import pyarrow as pa
+
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, scoped, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
@@ -46,9 +49,7 @@ from rasm.runtime.transport.shapes import OrganizationWire
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import igraph
     import numpy.typing as npt
-    import pyarrow as pa
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -58,8 +59,8 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.graph")
 type NodeId = int
 type RxGraph = rx.PyGraph | rx.PyDiGraph
 type NxGraph = nx.Graph | nx.DiGraph
-# GPL igraph members are TYPE_CHECKING-only, so the alias is checker-facing while the runtime
-# carrier slot on `GraphPayload` stays the honest `Any` wire floor.
+# the GPL igraph name binds `lazy`, so this alias resolves for a checker without linking the C
+# core, while the runtime carrier slot on `GraphPayload` stays the honest `Any` wire floor.
 type AnyGraph = "RxGraph | NxGraph | igraph.Graph"
 type GraphBackend = Literal["rustworkx", "networkx", "igraph"]
 type ScoreMap = tuple[tuple[NodeId, float], ...]
@@ -317,9 +318,11 @@ def _wire(graph: "AnyGraph", backend: GraphBackend) -> bytes:
 
 
 def _is_ig(graph: object) -> bool:
-    # STRUCTURAL GPL confinement: the probe reads `sys.modules` and never imports — an igraph
-    # source can only exist in-process if the caller already linked the GPL core, so a run that
-    # never sees one never loads igraph; module-top `import igraph` is the deleted form.
+    # STRUCTURAL GPL confinement: the probe reads `sys.modules` and never dereferences the
+    # module-scope `lazy` name — an igraph source can only exist in-process if the caller already
+    # linked the GPL core, so a run that never sees one never loads igraph. A module-top eager
+    # `import igraph` is the deleted form, and an `isinstance(graph, igraph.Graph)` written here
+    # is the same defect wearing the lazy dialect: it reifies the proxy on EVERY shape recovery.
     ig = sys.modules.get("igraph")
     return ig is not None and isinstance(graph, ig.Graph)
 
@@ -338,10 +341,8 @@ def _shape(graph: "AnyGraph") -> "tuple[GraphBackend, GraphKind, int, int, bytes
 
 
 def _frame(result: GraphResult) -> "pa.Table":  # ruff:ignore[too-many-return-statements]
-    # `pyarrow` is module-level-import-banned; the deferred import rides the same boundary the
-    # columnar/interop owners bind `pl`/`read_excel` under.
-    import pyarrow as pa  # ruff:ignore[import-outside-top-level]
-
+    # `pyarrow` binds module-scope `lazy`, so this fold is its first dereference and the
+    # codec-only path never pays the Arrow load.
     match result:
         case GraphResult(tag="scores", scores=rows):
             return pa.Table.from_pydict({"node": [n for n, _ in rows], "value": [v for _, v in rows]})
@@ -496,8 +497,9 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
 
 # --- [IGRAPH_COMMUNITY] -----------------------------------------------------------------
 
-# community rows call methods ON the passed C-core graph, so the table itself links no GPL
-# symbol — the one import site is `_ig_from`, reached only from the `_run_rx` community arm.
+# community rows call methods ON the passed C-core graph, so no row dereferences the `lazy`
+# igraph name and the table itself links no GPL symbol — the one dereference site is `_ig_from`,
+# reached only from the `_run_rx` community arm.
 IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.VertexClustering]]]" = Map.of_seq([
     ("leiden", lambda g, a: g.community_leiden(objective_function=a.leiden[2], resolution=a.leiden[0], weights=_IG_WEIGHT, n_iterations=a.leiden[3])),
     ("louvain", lambda g, a: g.community_multilevel(resolution=a.louvain[0], weights=_IG_WEIGHT)),
@@ -506,8 +508,9 @@ IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.Ve
 
 
 def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Graph":
-    # ONE GPL import site, function-local by law — the community split is the only leg that
-    # links the igraph C core, so the confinement is structural rather than prose. The leg builds
+    # ONE GPL dereference site by law — this leg is the only one that touches the module-scope
+    # `lazy igraph` name, so it alone reifies the proxy and links the C core, and the confinement
+    # is structural rather than prose. The leg builds
     # C-core graph builds from the rustworkx edge list (`_as_rx` already coerced any networkx/igraph
     # source to rustworkx, so the edge list is always rx integer indices). `Graph.TupleList`'s
     # default `vertex_name_attr="name"` stores each rx endpoint index in the `name` vertex
@@ -516,8 +519,6 @@ def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Gra
     # per endpoint, so an ISOLATED rx node carries no edge and would vanish from the partition;
     # `add_vertices` re-admits the edgeless rx indices as `name`-carrying singleton
     # vertices so the community partition stays TOTAL over the node set.
-    import igraph  # ruff:ignore[import-outside-top-level]
-
     # `weighted_edge_list` carries each edge PAYLOAD, which the branch selector lowers to the float igraph reads
     # back off `_IG_WEIGHT` — `weights=True` is what makes `TupleList` write that attribute from the third slot.
     # Building off a bare `edge_list()` discards that payload, so every weighted community run silently partitions a

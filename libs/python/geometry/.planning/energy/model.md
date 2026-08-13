@@ -2,7 +2,7 @@
 
 `BuildingModel` owns HBJSON building-energy-model admission — the one place a building model becomes simulation-ready. `BuildingModel.of` discriminates two modalities under one `check_all` census: wire-arrival HBJSON decode, and the COMPUTED BIM-to-BEM derivation lifting `IfcSpace` solids into an adjacency-solved, fenestrated honeybee model. `assigned` folds one `EnergySpec` over any host set through the `.properties.energy` extension spine, so the model and district tiers share one assignment body. `honeybee-core`/`honeybee-energy`/`ladybug-geometry` own every adjacency solver, aperture generator, HBJSON parser, and validation rule; this page composes them into one admitted, validated, energy-assigned, content-keyed model graduating under `GeometrySubject.BUILDING_ENERGY`.
 
-Honeybee's AGPL-3.0 band rides the standing companion-lane charter — the `energy/climate` `LateBound` owner for every row-resolved standards loader, function-local imports at the two boundary kernels, evidence as document bytes. Wire form IS the cross-language contract: the C# `Rasm.Bim` Energy exchange and `Rasm.Compute` simulation are peers meeting at content-keyed HBJSON document bytes over ONE derivation, never two keys over one document and never a mirrored shape. BIM-to-BEM is the modality only this folder can own — `ifcopenshell` binds as a direct package consume, never an `ifc/`-plane page import, and only space solids cross.
+Honeybee's AGPL-3.0 band rides the standing companion-lane charter — the `energy/climate` `LateBound` owner for every row-resolved standards loader, function-local imports at the two boundary kernels, evidence as document bytes. Those imports stay inside their seam functions because a static license audit reads the LEXICAL import graph: a module-scope binding — `lazy` included, the soft keyword being module-scope by design — couples every importer of this page to AGPL, so confinement is what the form buys and deferral is beside the point. Wire form IS the cross-language contract: the C# `Rasm.Bim` Energy exchange and `Rasm.Compute` simulation are peers meeting at content-keyed HBJSON document bytes over ONE derivation, never two keys over one document and never a mirrored shape. BIM-to-BEM is the modality only this folder can own — `ifcopenshell` carries no copyleft coupling to confine, so the compiled IFC band binds as ONE module-scope `lazy import` both kernels dereference at first use, a direct package consume and never an `ifc/`-plane page import, and only space solids cross.
 
 ## [01]-[INDEX]
 
@@ -32,6 +32,12 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
 
+# the compiled IFC band defers as a module-scope proxy: no copyleft coupling to confine, unlike the honeybee and
+# ladybug names every boundary kernel below imports function-local, and the worker's own copy of this module defers
+# identically, so the HOSTILE crossing pays the native load once inside the process that runs the sweep.
+lazy import ifcopenshell
+lazy import ifcopenshell.geom
+
 from rasm.geometry.energy.climate import EnergyFault, LateBound
 from rasm.geometry.graduation import (
     EvidenceScope,
@@ -51,7 +57,7 @@ from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local or LateBound seam
+if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; every runtime use is a function-local or LateBound seam
     from honeybee.model import Model
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -79,7 +85,11 @@ RESOLVERS: Final[Map[StandardsKind, LateBound]] = Map.of_seq([
     (StandardsKind.WINDOW_CONSTRUCTION, LateBound("honeybee_energy.lib.constructions", "window_construction_by_identifier")),
 ])
 
-_ENCODER: Final = msgjson.Encoder(order="deterministic")  # canonical HBJSON bytes — the one wire derivation the content key folds
+# canonical HBJSON bytes — the one wire derivation the content key folds, under the PRODUCER-BYTES law the C# peer
+# legislates at its `EnergyDoc`: the key covers exactly the octets the minting end serialized and travels WITH them,
+# the peer re-hashes RECEIVED bytes, and a re-serialization mints a NEW document key — the `HoneybeeSchema` render
+# and this encoder lawfully never byte-match, so neither end ever re-derives the other's key from a re-encode.
+_ENCODER: Final = msgjson.Encoder(order="deterministic")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -278,9 +288,9 @@ def resolved(kind: StandardsKind, identifier: str) -> object:
 def assigned(hosts: Iterable[object], spec: EnergySpec) -> int:
     # host-agnostic assignment fold: any object carrying `.identifier` and `.properties.energy` — a honeybee `Room` or
     # a dragonfly `Room2D` — so the model and district tiers share one body and a new `EnergySpec` slot is one edit.
-    import honeybee_energy  # ruff:ignore[unused-import, import-outside-top-level] — the _extend_honeybee side effect registers .properties.energy
-    from honeybee_energy.hvac import HVAC_TYPES_DICT  # ruff:ignore[import-outside-top-level]
-    from honeybee_energy.shw import SHWSystem  # ruff:ignore[import-outside-top-level] — the SHW template mint; no lib registry exists
+    import honeybee_energy  # ruff:ignore[unused-import, import-outside-top-level] — REGISTRATION seam, a second ban beside the band's: the import exists FOR `_extend_honeybee`, which registers `.properties.energy`, and has no dereference site at all, so a deferred binding would sit as an unreified proxy and the effect would never fire
+    from honeybee_energy.hvac import HVAC_TYPES_DICT  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee_energy.shw import SHWSystem  # ruff:ignore[import-outside-top-level] — AGPL isolation; the SHW template mint, no lib registry exists
 
     program = spec.program.map(lambda ident: resolved(StandardsKind.PROGRAM, ident)).to_optional()
     constructions = spec.construction_set.map(lambda ident: resolved(StandardsKind.CONSTRUCTION_SET, ident)).to_optional()
@@ -313,7 +323,7 @@ def _keyed(document: bytes) -> ContentKey:
 
 
 def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
-    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
 
     match payload:
         case bytes() as raw:
@@ -331,8 +341,6 @@ def _census(source: ModelSource) -> int:
         case ModelSource(tag="hbjson", hbjson=payload):
             return len(_decoded(payload).rooms)
         case ModelSource(tag="bim", bim=(spf, _policy)):
-            import ifcopenshell  # ruff:ignore[import-outside-top-level] — companion-lane native import
-
             return len(ifcopenshell.file.from_string(spf.decode()).by_type("IfcSpace"))
         case _ as unreachable:
             assert_never(unreachable)
@@ -340,16 +348,15 @@ def _census(source: ModelSource) -> int:
 
 def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "Model":
     # BIM-to-BEM: IfcSpace solids -> Face3D triangles -> Polyface3D -> Room -> adjacency -> apertures.
-    # module-level HOSTILE kernel: ships REFERENCE onto the warm process pool; the live ifcopenshell.file stays
+    # module-level HOSTILE kernel: ships REFERENCE onto the warm process pool, so the worker resolves this module by
+    # name and its own `ifcopenshell` proxy reifies at the first touch here; the live ifcopenshell.file stays
     # worker-local, and the trailing tap is the lane conduit's pickled proxy every space beat writes through.
-    import ifcopenshell  # ruff:ignore[import-outside-top-level] — companion-lane worker import
-    import ifcopenshell.geom  # ruff:ignore[import-outside-top-level]
-    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL boundary import
-    from honeybee.orientation import angles_from_num_orient, orient_index  # ruff:ignore[import-outside-top-level]
-    from honeybee.room import Room  # ruff:ignore[import-outside-top-level]
-    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level]
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level]
-    from ladybug_geometry.geometry3d.polyface import Polyface3D  # ruff:ignore[import-outside-top-level]
+    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from honeybee.orientation import angles_from_num_orient, orient_index  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee.room import Room  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from ladybug_geometry.geometry3d.polyface import Polyface3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
     ifc = ifcopenshell.file.from_string(spf.decode())
     settings = ifcopenshell.geom.settings()
@@ -390,5 +397,5 @@ def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- WIRE_PARITY-[OPEN]: does the C# `Rasm.Bim` HBJSON content key fold the SAME octets this page keys — `honeybee.Model.to_dict(included_prop=("energy",))` under `msgspec` deterministic encoding — given the C# end derives from `Model.ToJson()` and honeybee-schema's own serializer, or do the two serializers differ in key order, float spelling, or omitted-default handling; compare the installed `honeybee.model.Model.to_dict` output against a `honeybee-schema` `Model.ToJson()` render of the same document, then pin ONE byte source on both pages or seat a canonical re-encode at the crossing.
+(none)
 

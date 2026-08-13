@@ -12,15 +12,15 @@ One validated-numerics owner producing certified enclosures over a layered floor
 
 - Owner: `IntervalNumerics` — every certified operation is one `IntervalOp` tag over one `_dispatch` fold, never a parallel rigorous-arithmetic surface or a per-tag evaluator family; `_dispatch` returns the honest `Yield` union its arms produce, and `IntervalReceipt.of` folds that union total, so no phantom output type parameter rides the carrier.
 - Cases: `Refine` carries the real extension so the refined half stays certified by the floor that produced it, never re-rounded through an identity placeholder, and a `Roots`-isolated enclosure feeds straight back as a refine target; `Certify` only narrows — a failed containment refutes the certificate and a refuted Arb enclosure stays first-class evidence of the failed claim.
-- Ladder: the rung name and the importable module are two columns, not one — the Arb rung is reached through the `flint` module, so probing the rung's own spelling answers absent on every host, silently degrades every `Evaluate`/`Refine` to the mpmath rung, and leaves the receipt reporting a rung the ladder never ran. `FloorRow.module` is the sole probe target and the unconditional numpy floor earns its row by that same presence read, never by a per-rung short-circuit; the direct-`flint` root isolator is a distinct need (the arb root isolator specifically, not the ladder's tightest rung) and stays outside the fold.
+- Law: the rung name and the importable module are two columns, not one — the Arb rung is reached through the `flint` module, so probing the rung's own spelling answers absent on every host, silently degrades every `Evaluate`/`Refine` to the mpmath rung, and leaves the receipt reporting a rung the ladder never ran. `FloorRow.module` is the sole probe target and the unconditional numpy floor earns its row by that same presence read, never by a per-rung short-circuit; the direct-`flint` root isolator is a distinct need (the arb root isolator specifically, not the ladder's tightest rung) and stays outside the fold. `certified` over an empty root set holds by vacuous truth, which is sound on the receipt rail and worthless as outward proof — so `vacuous` is a governed ceiling bar beside `refuted` and `width`, and an isolation that enclosed nothing is a ceiling REJECTION rather than a crossing whose `{refuted: 0.0, width: 0.0}` ledger clears every other bar.
 - Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count; an empty isolation is a vacuous certified row rather than a missing receipt, its rung read off the ladder's resolved row and its emptiness carried as the receipt's own `vacuous` predicate. `span_facts`, the receipt facts, and the graduation ledger all read that one projection, so the OTLP attribute set, the emitted evidence, and the admission bar never fork.
-- Vacuity: `certified` over an empty root set holds by vacuous truth, which is sound on the receipt rail and worthless as outward proof — so `vacuous` is a governed ceiling bar beside `refuted` and `width`, and an isolation that enclosed nothing is a ceiling REJECTION rather than a crossing whose `{refuted: 0.0, width: 0.0}` ledger clears every other bar.
 - Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_buffer` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new admission bar is one `_CEILING` row and one `span_facts` slot the ledger already reads; a new relational op is one `Interval` method.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
+from importlib.util import find_spec
 from typing import Annotated, Final, Literal, Protocol, Self, assert_never, runtime_checkable
 
 import numpy as np
@@ -34,6 +34,11 @@ from rasm.compute.solvers.receipt import graduate
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+
+# certified rungs defer: `flint` (the Arb backend) and `mpmath` are heavy native extensions the ladder selects at most
+# one of per host, so neither load lands until a resolved row's evaluator or the root isolator first dereferences it.
+lazy import flint
+lazy import mpmath
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -280,12 +285,10 @@ class IntervalOp:
 class FloorRow(Struct, frozen=True):
     floor: Floor
     evaluate: Callable[[Expr, Interval, int], Enclosure]
-    module: str  # the importable distribution module the row's evaluator imports — the ONE name the presence probe reads
+    module: str  # the importable distribution module the row's evaluator reaches — the ONE name the presence probe reads
 
 
 def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
-    import flint
-
     ball = flint.arb(box.mid, box.rad)
     # `flint.good` drives precision up adaptively, capped at `maxprec` so a non-convergent extension halts rather than looping;
     # seeding through `prec=` keeps working precision call-local instead of leaking a session `ctx.prec` mutation across evaluators.
@@ -295,8 +298,6 @@ def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
 
 
 def _mpmath_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
-    import mpmath
-
     # `workprec` restores on exit so the `iv`-context evaluation never leaks a session `prec` mutation; `iv.mpf([lo, hi])` lifts the
     # box to the inclusion-monotone interval whose `.a`/`.b` endpoints read back as the certified band.
     with mpmath.workprec(precision):
@@ -324,8 +325,6 @@ _FLOOR_LADDER: Map[Floor, FloorRow] = Map.of_seq([
 
 
 def _importable(row: FloorRow) -> bool:
-    from importlib.util import find_spec
-
     # row's own module column is the probe target, so the ladder fold reads availability without importing the heavy
     # extension and without a per-rung short-circuit: the unconditional numpy floor is admitted by its own presence.
     return find_spec(row.module) is not None
@@ -351,8 +350,6 @@ def _bisect(enclosure: Enclosure, expr: Expr, target: Target, target_width: Widt
 
 
 def _roots(poly: Poly, box: Interval, precision: int) -> tuple[Enclosure, ...]:
-    import flint
-
     # membership is `box.overlaps` over the certified ball interval, not a midpoint-only `contains`, so a root straddling the box
     # boundary is retained; `ctx.workprec` block-scopes the precision (`real_roots` is not `flint.good`-driven) and restores on exit.
     with flint.ctx.workprec(precision):

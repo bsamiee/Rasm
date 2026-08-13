@@ -13,7 +13,7 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 - Owner: `Access` — `_ARM` maps each op to its single `AccessFact`-returning arm with zero `match` sprawl, the closed `StrEnum` membership total over the table by construction; each close's audit value carries every clause input and its `failures` derive through one clause table under the shared `_failed` fold, so a decoded content-addressed audit re-derives its own verdict; `pikepdf` owns the qpdf object model and the XMP context, `pdf_oxide` the independent oracle under its deterministic-close capsule, and the model owns the tree algebra this page only reads.
 - Cases: TAG writes the catalog requirements ISO 14289 mandates beyond the tree (`/Lang`, `/DisplayDocTitle`, XMP `pdfuaid:part` + `dc:title`) and re-emits under `Pdf.save(deterministic_id=True)` while a scoped lock pins and restores `settings.set_decimal_precision`; AUDIT includes per-page `has_text_layer`, `has_xfa`, exact MCID-to-`/ParentTree` binding, and per-owner table/list regularity, so one valid structure never masks a malformed sibling; `ua_part=2` adds `UA2_VERSION` and `UA2_NAMESPACES`; the WTPDF declaration pair closes the well-tagged interchange claim — a declared accessibility conformance holds only under a part-2 audit whose UA oracle, PDF 2.0 version, and structure namespaces all pass (`validate_pdf_ua` carries no part argument, so part-2 specificity stays local evidence), a declared reuse conformance under local structure plus PDF 2.0 evidence because no reuse oracle exists, and each `pdfd:conformsTo` level admits its erratum-canonical and as-published URI spellings; ARCHIVE folds converter self-report and `validate_pdf_a` into `ArchiveAudit`; PREFLIGHT turns the declared claim, `/OutputIntents`, and per-page `TrimBox`/`ArtBox` geometry into a clause verdict.
 - Auto: `_audit` walks the UNTRUSTED `/StructTreeRoot` `/K` spine through the depth-safe `Block` frontier — never native recursion an adversarial nesting depth overflows — and TAG authors through the same discipline, a pre-order frontier whose per-parent child lists assemble the `/K` arrays after the sweep, because a lens-recovered source tree carries the same adversarial depth; every `pikepdf`-touching clause predicate resolves to a plain value BEFORE the handle frees, and metadata reads through the read-only `open_metadata(set_pikepdf_as_editor=False, update_docinfo=False)` form that never mutates the bytes it audits; the `pdfd:declarations` bag defeats the pikepdf mapping view, so the WTPDF `conformsTo` URIs read off the raw `/Metadata` stream's element tree in all three RDF spellings — element text, shorthand attribute, `rdf:resource` reference; the `/ParentTree` IS a PDF number-tree, owned by the modeled `pikepdf.NumberTree.new(pdf)` mapping-view, never a hand-assembled flat `Nums` array; `pikepdf` exposes no high-level `StructTreeRoot` helper, so the raw `Object`-model spike is the real surface and a phantom `pdf.add_structure_tree()` convenience is the rejected form.
-- Receipt: the two producing ops share `ArtifactReceipt.Egress` (structure-element count riding `outline_depth`, figure count riding `overlays` — the finishing-facts convention `document/egress#FINISH` fixes) and the two validating ops share `ArtifactReceipt.Pdf`, never a new receipt case; the `StructureAudit`/`PreflightAudit`/`ArchiveAudit` values are content-addressed by their op keys, and the composition root decodes them to thread each `conformant` verdict onward.
+- Receipt: the two producing ops share `ArtifactReceipt.Egress` (structure-element count riding `outline_depth`, figure count riding `overlays` — the finishing-facts convention `document/egress#FINISH` fixes) and the two validating ops share `ArtifactReceipt.Pdf`, never a new receipt case; the `StructureAudit`/`PreflightAudit`/`ArchiveAudit` values are content-addressed by their op keys, and the composition root decodes them to thread each `conformant` verdict onward. `_emit` also awaits `Journal.record` over `receipt.evidence(*done._verdict)` — the ONE awaitable seat for both minted kinds, since recording suspends and `contribute` is a synchronous projection — and the refuted clause names ride positionally because the shared cases carry counts alone.
 - Growth: a new access op is one `AccessRequest` case, one `AccessOp` row, and one `_ARM` entry; a new conformance clause is one `UaCheck`/`PreflightCheck`/`ArchiveCheck` member plus one predicate row in its `_UA_CLAUSES`/`_PREFLIGHT_CLAUSES`/`_ARCHIVE_CLAUSES` table (a clause needing fresh evidence also lands its audit field); a new standard PDF/UA role is one model `StructEltKind` member; a new nesting rule is one `_NESTING` row; a new archival or print level is one `Literal` member.
 - Boundary: born-PDF/A authoring stays at `document/emit#DOCUMENT` — ARCHIVE upgrades an ALREADY-emitted PDF in place; `pdf_oxide.DocumentBuilder.tagged_pdf_ua1()` is the from-scratch born-tagged author reserved for emit, never a second structure author over an existing PDF here; signing stays at `exchange/conformance#CONFORMANCE`, security finishing at `document/egress#FINISH`, OCG authoring at `export/layered#LAYERED`.
 
@@ -29,8 +29,6 @@ from threading import Lock
 from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
 import msgspec
-from defusedxml import DefusedXmlException
-from defusedxml.ElementTree import ParseError, fromstring
 from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
@@ -50,18 +48,21 @@ from rasm.artifacts.document.model import (
     StructureNode,
     alt_of,
     children,
+    hardened_parse,
     role_category,
     role_of,
     standard_for,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 lazy import pikepdf
 lazy import pdf_oxide
+lazy from lxml import etree  # the XMP-packet fault type alone; the parse itself is the model owner's hardened fold
 lazy from pikepdf import Array, Dictionary, Name, NumberTree, String
 
 if TYPE_CHECKING:
@@ -351,7 +352,35 @@ class Access(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        return (await async_boundary(f"access.{self.op}", self._authored)).map(lambda done: done._receipt(key))
+        settled = (await async_boundary(f"access.{self.op}", self._authored)).map(lambda done: (done, done._receipt(key)))
+        match settled:
+            case Result(tag="ok", ok=(done, receipt)):
+                # a conformance close is a claim a regulator or a client disputes years later, so the durable fact
+                # lands at the ONE awaitable seat — recording suspends and `contribute` cannot — under whichever
+                # class the minted case's own `_RETENTION` row names, REGULATORY on the produced `egress` halves.
+                return (await Journal.record(receipt.evidence(*done._verdict))).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
+
+    @property
+    def _verdict(self) -> tuple[Change, ...]:
+        # the receipt collapses each close to counts, so WHICH clause refuted rides positionally: an auditor reading
+        # a PDF/UA, PDF/X, or PDF/A verdict back needs the failed clause by name, and widening the `Egress`/`Pdf`
+        # cases three ops share to carry three clause vocabularies is the deleted form. TAG produces bytes under no
+        # verdict of its own, so it states its op and no phantom empty failure list; a passing close states the same,
+        # which is why the op entry always rides — an audit row of pure absence cannot distinguish clean from unrun.
+        # bare `_` wildcards, never named throwaways: an or-pattern must bind ONE name set across alternatives of
+        # three different arities, so the audit value is the only binding and all three closes fold to one arm.
+        match self.fact:
+            case (
+                AccessFact(tag="audit", audit=(_, _, audit))
+                | AccessFact(tag="preflight", preflight=(_, _, audit))
+                | AccessFact(tag="archive", archive=(_, _, _, _, audit))
+            ):
+                failures = audit.failures
+            case _:
+                failures = ()
+        return (Assigned(path="/op", next=self.op.value), *(Assigned(path=f"/failed/{check.value}", next="true") for check in failures))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         assert self.fact is not None
@@ -730,8 +759,11 @@ def _declared(packet: bytes, /) -> frozenset[str]:
     # whitespace), so the conformsTo URIs read off the raw `/Metadata` packet's element tree — all three RDF spellings: child element
     # text, shorthand attribute, and the `rdf:resource` URI reference — and a malformed packet declares nothing rather than failing the audit.
     try:
-        root = fromstring(packet)  # defused parse: the /Metadata packet is document-controlled bytes, so entity and DTD tricks refuse
-    except (ParseError, DefusedXmlException):
+        # the /Metadata packet is document-controlled bytes, so it admits through the model owner's ONE hardened
+        # fold — the same libxml2 posture the emit and lens XML rails read — and a malformed packet raises the
+        # provider's own `XMLSyntaxError` rather than a second parser family's fault vocabulary.
+        root = hardened_parse(packet)
+    except etree.XMLSyntaxError:
         return frozenset()
     elements = ((node.text or "") for node in root.iter(_PDFD_CONFORMS))
     references = (node.attrib.get(_RDF_RESOURCE, "") for node in root.iter(_PDFD_CONFORMS))
@@ -930,7 +962,7 @@ _ARM: Final[Map[AccessOp, Arm]] = Map.of_seq([
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

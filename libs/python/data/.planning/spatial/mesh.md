@@ -567,9 +567,10 @@ class PointCloud(Struct, frozen=True):
 
 
 def _laz_backend() -> laspy.LazBackend:
-    from laspy import LazBackend  # ruff:ignore[import-outside-top-level]
-
-    backend = next((b for b in (LazBackend.LazrsParallel, LazBackend.Lazrs, LazBackend.Laszip) if b.is_available()), None)
+    # backend probe rides the module-scope `laspy` binding: `is_available()` answers whether the lazrs or
+    # laszip native band landed on this lane, so the roster order IS the preference and no second import exists.
+    backends = (laspy.LazBackend.LazrsParallel, laspy.LazBackend.Lazrs, laspy.LazBackend.Laszip)
+    backend = next((b for b in backends if b.is_available()), None)
     if backend is None:
         raise laspy.LaspyException("compressed LAZ/COPC requires lazrs or laszip on the worker lane")
     return backend

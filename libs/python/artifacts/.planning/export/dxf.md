@@ -14,8 +14,8 @@
 - Cases: `New` validates `DxfDocument.issue`, authors through `ezdxf.new`, composes optional `Standard.seed`, folds builders, and audits before egress. `Read` ingests conforming ASCII or binary DXF. `Recover` salvages damaged input and preserves auditor error/fix counts. `Render` selects SVG, PDF, PNG, EPS, PS, JSON, or GeoJSON backends. `Query` composes EQL and optional spatial selection through `Importer`. `Transform` applies `Matrix44` through `transform.inplace` or `transform.copies`. `Diagram` lowers each glyph to `DxfEntity` cases — silhouette rings and bulge arcs as lwpolylines, edges as width-carrying polylines or fit-point splines, each terminator ONE shared cap-block INSERT rotated onto its segment, areas as hatched snappable boundaries, fragments through the svgelements flatten — every label editable placement-aligned source text on the drawio-arm precedent, a dashed glyph riding its minted linetype row, mathematical typesetting staying the draw plane's `Formula` seam. `Bridge` crosses SVG through `apply_region(RegionOp.Serialize(...))`, GeoJSON through `GeoProxy`, and glyph outlines through `text2path`.
 - Auto: `_composed(op) -> Result[DxfComposed, RegionFault]` is the total fold the lane runs. `_build_entity` lowers each admitted `DxfEntity`; `_table_entry` lowers each `TableEntry`; `_evidence` reads shared CAD facts once, and each arm derives `DxfComposed` through `msgspec.structs.replace`. `_glyph_entities` folds the seven diagram marks into the same closed drawable vocabulary and `_diagram_document` re-enters `_authored`, so one construction fold serves authoring and diagram lowering with zero new ezdxf surface; the glyph plane is SVG y-down while DXF model space is y-up, so the lowering mirrors y and negates angles at that one seam. `Drawing` is pure Python and GC-safe. `_serialize` owns text, binary, and base64 egress; render backends own their native handles.
 - Output: `DxfComposed` carries serialized `data`, `kind`, `dxfversion`, `units`, `counts`, `layers`, `blocks`, `errors`, `fixes`, and `extent`. Auditor counts become non-zero only for salvaged input. `DxfUnits` mirrors `ezdxf.units.InsertUnits`, so `DxfUnits(doc.units)` is total over conforming foreign documents.
-- Receipt: `_emit` maps the fold's rail onto ONE `ArtifactReceipt.Cad` case through the receipt owner's named flat-scalar mint — the `dxfversion`, units, `artifact` format (from `composed.kind`), byte count, layer/block roster counts, `Auditor` error+fix counts, and the `Counter(dxftype)` census — threading the PRE-RUN key; a failed production rides the `BoundaryFault` rail the lane boundary minted, never a zero-byte placeholder and never a second synchronous entry re-running the fold.
-- Packages: `ezdxf` owns read/write/recover/audit, builders, ACIS decode/export, hatch and multileader construction, xrefs, paths, math, rendering, queries, selection, GeoJSON, text paths, and import. `matplotlib.figure.Figure` owns EPS/PS egress. `apply_region(RegionOp.Serialize(...))` frames SVG. `Standard.seed` authors ISO tables. `visualization/diagram/glyphset` supplies the mark vocabulary and its shared lowering derivations (`DiagramGlyph.mark`, `Port.seat`, `AreaMark.centroid`, `ER_CAPS`, `ENTITY_BAND`). `numpy` carries `(N,3)` vertices. `expression` and `msgspec` own unions, rails, wires, and evidence derivation.
+- Receipt: `_emit` maps the fold's rail onto ONE `ArtifactReceipt.Cad` case through the receipt owner's named flat-scalar mint — the `dxfversion`, units, `artifact` format (from `composed.kind`), byte count, layer/block roster counts, `Auditor` error+fix counts, and the `Counter(dxftype)` census — threading the PRE-RUN key; a failed production rides the `BoundaryFault` rail the lane boundary minted, never a zero-byte placeholder and never a second synchronous entry re-running the fold. `_emit` then awaits `Journal.record` over `receipt.evidence()` — a delivered CAD exchange file is `OPERATIONAL` production evidence whose byte volume charges `STORAGE` and whose diff carries the whole declared ledger down to the `Auditor` error/fix pair, the entity census staying on the band where no audit row tracks its width; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
+- Packages: `ezdxf` owns read/write/recover/audit, builders, ACIS decode/export, hatch and multileader construction, xrefs, paths, math, rendering, queries, selection, GeoJSON, text paths, and import. `matplotlib.figure.Figure` owns EPS/PS egress. `apply_region(RegionOp.Serialize(...))` frames SVG. `Standard.seed` authors ISO tables. `visualization/diagram/glyphset` supplies the mark vocabulary and its shared lowering derivations (`DiagramGlyph.mark`, `Port.seat`, `AreaMark.centroid`, `ER_CAPS`, `ENTITY_BAND`). `numpy` carries `(N,3)` vertices. `expression` and `msgspec` own unions, rails, wires, and evidence derivation. Runtime supplies `identity.ContentIdentity.key`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`, `faults.RuntimeRail`/`BoundaryFault`, and `journal.Journal` the durable writer.
 - Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check) plus its `_ENTITY_FLOOR` row when it postdates R12; a new hatch fill is one `DxfFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `DxfRenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new diagram mark lowering is one `_glyph_entities` arm plus its `_GLYPH_TEXT` default-size row; a new node silhouette is one `_SILHOUETTE` row the import-time coverage gate proves reachable; a new terminator lowering is one `_cap_block` arm; a new label placement is one `TextAlign` member; a new receipt scalar is one `Cad` slot; a new admission invariant is one `DxfFault` case plus one `_checked` guard.
 - Boundary: `ezdxf` owns tag construction, affine/B-spline/OCS math, ACIS SAT/SAB decoding, rendering, querying, salvage, and DXF↔GeoJSON conversion. `DxfAttribs` replaces per-entity setters; `doc.query`/`select` replace lookup-method families; `recover.readfile` owns damaged input. `Standard.seed` owns ISO symbol-table derivation. `visualization/diagram/layout#LAYOUT` owns diagram coordinates and routes, `visualization/diagram/draw#DRAW` owns the SVG/.drawio egress, and the glyph vocabulary is `visualization/diagram/glyphset#GLYPHSET`'s — the `Diagram` arm owns only the entity lowering and the y-mirror seam. `graphic/vector/region#REGION` frames SVG, composition owns PDF assembly, typography owns shaping, and the geospatial owner owns CRS semantics.
 
@@ -39,6 +39,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagg
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
@@ -1759,7 +1760,7 @@ class Dxf(Struct, frozen=True):
         # one lane crossing, one rail: the thread offload converts a provider raise to `BoundaryFault`, `.map`
         # threads the PRE-RUN key onto the receipt (receipt.slot == node.key) — no second boundary, no raise-bridge.
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.RELEASING), self.op)
-        return crossed.bind(
+        settled = crossed.bind(
             lambda inner: inner.map(
                 lambda composed: ArtifactReceipt.Cad(
                     self._key,
@@ -1775,6 +1776,17 @@ class Dxf(Struct, frozen=True):
                 )
             ).map_error(lambda fault: BoundaryFault(boundary=("dxf.region", fault.tag)))
         )
+        # Delivered CAD exchange files are the production trail a downstream consumer re-opens, so this fold lands
+        # `OPERATIONAL` durable evidence whose diff carries the whole declared ledger — dxfversion, units, the
+        # artifact format, layer and block rosters, and the `Auditor` error/fix pair the governed `errors` ceiling
+        # already bars — beside its `STORAGE` byte charge, while the entity census rides the band and never the
+        # audit row. Recording suspends where the synchronous `contribute` cannot, so this awaitable fold is the
+        # seat and its rail binds into the emit's own verdict.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -1821,7 +1833,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

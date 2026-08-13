@@ -2,7 +2,7 @@
 
 `Standard` lowers the drafting regime onto an `ezdxf.Drawing` so every producer consumes one seeded resource vocabulary. `Standard.of(scale, font)` admits the profile once; its projections seed symbol tables, derive graphics and dimension overrides, lower hatch fills through a typed `Result`, resolve legend and pen colors, and anchor paper scale. Consumers run this synchronous builder inside their offload seam.
 
-Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discipline`, `Status`, `LayerName`, `LineType`, `LineWeight`, `HatchMaterial`, `ScaleRatio`, `TextHeight`, `Terminator`) beside the repeating-fill geometry from `graphic/vector/pattern#PATTERN`; this page adds only what is DXF-native — the discipline→ACI pen correspondence, the poché/grade fill codes, the ISO 129-1 DIM-variable derivation, and the terminator arrow-block rows. `export/dxf#DXF` composes `seed` for its document mint (never a second table writer), `dimension` composes `dimstyle`, `annotate` composes the seeded `"ISO-3098-MLEADER"` style by name, and `drawing/schedule#SCHEDULE` composes `swatch` for its legend cells — the stable cross-page anchors.
+Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discipline`, `Status`, `LayerName`, `LineType`, `LineWeight`, `HatchMaterial`, `ScaleRatio`, `TextHeight`, `Terminator`) beside the repeating-fill geometry from `graphic/vector/pattern#PATTERN`; this page adds only what is DXF-native — the discipline→ACI pen correspondence, the poché/grade fill codes, and the ISO 129-1 DIM-variable derivation over regime's own `Terminator.lowering` row. `export/dxf#DXF` composes `seed` for its document mint (never a second table writer), `dimension` composes `dimstyle` and `extent`, `annotate` composes the seeded `"ISO-3098-MLEADER"` style by name and `extent` for its measured span, `detail` composes `extent` over its placed block store, and `drawing/schedule#SCHEDULE` composes `swatch` for its legend cells — the stable cross-page anchors.
 
 ## [01]-[INDEX]
 
@@ -11,9 +11,9 @@ Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discip
 ## [02]-[STANDARD]
 
 - Owner: `Standard` is a frozen `Struct` over a base `ScaleRatio` and optional textstyle font; `ezdxf` owns `Drawing`, symbol-table entries, `Hatch` fill setters, `colors`, `units`, `GfxAttribs`, and `ARROWS` blocks.
-- Entry: `seed` authors ISO resources under `doc.units = MM` and mints `"ISO-3098-MLEADER"`; `graphics` projects one `GfxAttribs` bundle with `STATUS_SCREEN` transparency; `dimstyle` derives ISO 129-1 variables under the ISO 5455 factor; `hatch` lowers `HATCH_BIND` through `lowered(PatternOp.Dxf(...))` and preserves `PatternFault`; `swatch` projects the entity-free legend twin; `rgb` resolves ACI sRGB; `paper_factor` composes model-to-millimetre conversion.
-- Packages: `ezdxf` owns every DXF resource — a layer authors both the ACI `color` and the resolved `true_color` (`rgb2int(aci2rgb(aci))`), a terminator maps to a verified `ezdxf.ARROWS` block name (`OPEN`/`DOT`/`ORIGIN`/`NONE`) or an oblique-tick `DIMTSZ`, and the paper anchor reads `units.conversion_factor`; the `_ACI` discipline pens and `_FILL` fill codes are DXF resource-code assignments at this lowering tier, distinct from and never a second copy of regime's LCh color truth.
-- Growth: a new seeded resource kind is one `seed` authoring block; a new DIM-variable one `override()` key; a new pen axis one `GfxAttribs` field; a new discipline's DXF pen one `_ACI` row; a new fill code one `_FILL` row; a new legend fact one `SwatchSpec` field; a new dimension family one `DimStyleFamily` member plus one `_DIMSTYLE` row; a new vocabulary member lands in regime and lowers here with zero new surface.
+- Entry: `seed` authors ISO resources under `doc.units = MM` and mints `"ISO-3098-MLEADER"`; `graphics` projects one `GfxAttribs` bundle with `STATUS_SCREEN` transparency; `dimstyle` derives ISO 129-1 variables under the ISO 5455 factor; `hatch` lowers `HATCH_BIND` through `lowered(PatternOp.Dxf(...))` and preserves `PatternFault`; `swatch` projects the entity-free legend twin; `rgb` resolves ACI sRGB; `paper_factor` composes model-to-millimetre conversion; `extent` measures a lowered layout's true span for every producer that authors one.
+- Packages: `ezdxf` owns every DXF resource — a layer authors both the ACI `color` and the resolved `true_color` (`rgb2int(aci2rgb(aci))`), the paper anchor and `extent`'s millimetre projection both read `units.conversion_factor` off the document's declared units, and `bbox.extents` measures the authored layout; the `_ACI` discipline pens and `_FILL` fill codes are DXF resource-code assignments at this lowering tier, distinct from and never a second copy of regime's LCh color truth, while the `ezdxf.ARROWS` block name and its oblique-tick alternative arrive as regime's one `TerminatorRow` and this page picks the `DIMTSZ` arm alone.
+- Growth: a new seeded resource kind is one `seed` authoring block; a new DIM-variable one `override()` key; a new pen axis one `GfxAttribs` field; a new discipline's DXF pen one `_ACI` row; a new fill code one `_FILL` row; a new legend fact one `SwatchSpec` field; a new dimension family one `DimStyleFamily` member with one `_DIMSTYLE` row; a new vocabulary member lands in regime and lowers here with zero new surface.
 - Boundary: no vocabulary, codec, bind row, or derivation (`drawing/regime#REGIME`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no `add_*` render (`dimension`/`annotate`/`symbol`); no color-model conversion beyond the ACI→sRGB resolve (`graphic/color/derive#DERIVE` owns model algebra over regime's LCh values); no sheet placement (`composition/sheet#SHEET`); no receipt, plan node, async, or offload (the consuming producer owns the seam); no IFC (`csharp:Rasm.Bim`).
 
 ```python signature
@@ -39,6 +39,7 @@ from rasm.artifacts.drawing.regime import (
 )
 from rasm.artifacts.graphic.vector.pattern import HatchFill, PatternFault, PatternOp, PatternResult, lowered
 
+lazy from ezdxf import bbox
 lazy from ezdxf import colors as _colors
 lazy from ezdxf import units as _units
 lazy from ezdxf.gfxattribs import GfxAttribs
@@ -46,10 +47,12 @@ lazy from ezdxf.gfxattribs import GfxAttribs
 if TYPE_CHECKING:
     from ezdxf.document import Drawing
     from ezdxf.entities import Hatch
+    from ezdxf.layouts import Modelspace
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type DimVar = str | int | float  # the DXF dimstyle-variable value domain — dimpost/dimtxsty/dimblk are strings beside the numeric variables
+type Box = tuple[float, float, float, float]  # a producer's own point-hull span (lo x, lo y, hi x, hi y), the extent fallback
 
 
 class DimStyleFamily(StrEnum):  # ISO 129-1 dimension-style families
@@ -80,7 +83,7 @@ class DimStyleFamilyRow(Struct, frozen=True):
 
     def override(self, scale: ScaleRatio, text: Option[TextHeight] = Nothing) -> "frozendict[str, DimVar]":
         s = scale.factor
-        blk, tick = _TERMINATOR[self.terminator]
+        end = self.terminator.lowering
         factor, suffix, linear_unit = _DIM_UNIT[self.unit]
         base: dict[str, DimVar] = {
             "dimtxt": text.default_value(self.height).mm / s,
@@ -90,7 +93,7 @@ class DimStyleFamilyRow(Struct, frozen=True):
             "dimgap": self.gap / s,
             "dimdli": self.baseline / s,
             "dimcen": self.arrow_size / (2.0 * s),
-            "dimtsz": tick / s,
+            "dimtsz": end.tick / s,
             "dimtad": 1,
             "dimjust": 0,
             "dimtih": 0,
@@ -114,13 +117,19 @@ class DimStyleFamilyRow(Struct, frozen=True):
             "dimscale": 1.0,
             "dimtxsty": "ISO-3098",
             "dimtol": 0,
+            # this consumer's half of the regime row: a positive DIMTSZ draws the oblique tick and supersedes DIMBLK
+            # outright, so the tick arm writes the CLEARED name; every other end writes its block, the closed-filled
+            # arrow's "" being that cleared name itself (`ezdxf.ARROWS.closed_filled`). Every row states DIMBLK
+            # because `seed` re-asserts the override onto existing styles — an omitted key would let a persisted
+            # block survive a zeroed DIMTSZ and render a stale terminator under a standard family name.
+            "dimblk": "" if end.tick else end.block,
         }
-        return frozendict({**base, **({"dimblk": blk} if blk else {})})
+        return frozendict(base)
 
 
 class SwatchSpec(Struct, frozen=True):
-    # the entity-free legend projection — the resolved fill beside its DXF poché/grade sRGB; a schedule
-    # legend or keyplan key draws this value without ever holding a live Drawing.
+    # `SwatchSpec` is the entity-free legend projection — the resolved fill beside its DXF poché/grade sRGB; a
+    # schedule legend or keyplan key draws this value without ever holding a live Drawing.
     fill: HatchFill
     poche: Option[tuple[int, int, int]] = Nothing
     grade: Option[tuple[int, int, int]] = Nothing
@@ -177,7 +186,7 @@ class Standard(Struct, frozen=True):
         return doc
 
     def graphics(self, layer: LayerName) -> GfxAttribs:
-        # the one uniform bundle every add_* entity carries as dxfattribs=.
+        # `graphics` projects the one uniform bundle every add_* entity carries as dxfattribs=.
         pen = layer.pen
         return GfxAttribs(
             layer=layer.compose(),
@@ -227,7 +236,7 @@ class Standard(Struct, frozen=True):
                 assert_never(unreachable)
 
     def swatch(self, material: HatchMaterial) -> SwatchSpec:
-        # the entity-free legend twin of hatch(): one resolved value per material, drawn by schedule/keyplan legends.
+        # `swatch` is hatch()'s entity-free legend twin: one resolved value per material, drawn by schedule/keyplan legends.
         codes = _FILL.try_find(material)
         return SwatchSpec(
             fill=HATCH_BIND[material],
@@ -243,6 +252,28 @@ class Standard(Struct, frozen=True):
         # paper mm per model unit: ISO 5455 factor over the model->mm conversion.
         unit = model_units.default_value(_units.MM)
         return self.scale.factor * _units.conversion_factor(unit, _units.MM)
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+def extent(msp: "Modelspace", fallback: Option[Box] = Nothing, /) -> tuple[float, float]:
+    # `bbox.extents` measures the ONE span every DXF-authoring producer reports, walking the LIVE layout so placed
+    # block references, hatches, and wipeouts all count where a producer's own defining-point hull sees none of
+    # them; the exact `fast=False` walk flattens every Bézier curve where the fast control-point box overshoots the
+    # rendered span — an authoritative dimension never carries a fast-mode overshoot, and the pin holds the exact
+    # arm against a speed-minded drift. MODEL-SPACE MILLIMETRES is the unit contract on both arms: the span converts
+    # once through the document's own declared `units` (`seed` pins MM so the factor is 1.0, a foreign document's
+    # declaration converts rather than leaking its drawing units, and a unitless `0` reads as the seeded MM regime),
+    # while the caller's fallback hull — stated in that same layout's drawing units — rides the identical factor,
+    # and paper conversion stays `Standard.paper_factor`'s at the consumer. An empty layout has no measured span at
+    # all, so the fallback rides in and a caller holding none reports zero rather than a fabricated size; rounding
+    # stays at the receipt seam.
+    factor = _units.conversion_factor(msp.doc.units, _units.MM) if msp.doc.units else 1.0
+    box = bbox.extents(msp, fast=False)
+    return (
+        (float(box.size.x) * factor, float(box.size.y) * factor)
+        if box.has_data
+        else fallback.map(lambda span: ((span[2] - span[0]) * factor, (span[3] - span[1]) * factor)).default_value((0.0, 0.0))
+    )
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -285,29 +316,22 @@ _DIM_UNIT: Final[Map[DimUnit, tuple[float, str, int]]] = Map.of_seq([
     (DimUnit.METRE, (0.001, " m", 2)),
     (DimUnit.DEGREE, (1.0, "°", 2)),
 ])
-# ISO 129-1 termination -> (verified ezdxf.ARROWS block name, tick factor); empty block + tick>0 = oblique tick.
-_TERMINATOR: Final[Map[Terminator, tuple[str, float]]] = Map.of_seq([
-    (Terminator.FILLED_ARROW, ("", 0.0)),
-    (Terminator.OPEN_ARROW, ("OPEN", 0.0)),
-    (Terminator.OBLIQUE_STROKE, ("", 2.5)),
-    (Terminator.DOT, ("DOT", 0.0)),
-    (Terminator.ORIGIN_INDICATION, ("ORIGIN", 0.0)),
-    (Terminator.NONE, ("NONE", 0.0)),
-])
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
+    "Box",
     "DimStyleFamily",
     "DimUnit",
     "DimVar",
     "Standard",
     "SwatchSpec",
+    "extent",
 ]
 ```
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

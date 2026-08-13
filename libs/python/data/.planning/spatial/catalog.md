@@ -15,7 +15,7 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 - Owner: `StacCatalog` — the one cloud-native discovery owner, a `Client.open`-bound STAC API root carrying one `Signing`. `Signing` holds TWO orthogonal axes on one value: `scheme` names the href-REWRITE dispatch (a `SchemeRow` read by name) and `credentials` the obstore-native provider the asset-BYTE reads bind — Planetary Computer does both, NASA Earthdata mints storage credentials and rewrites nothing, a public catalog does neither, so neither axis is a member of the other's vocabulary and no fake scheme row stands in for a credential-only catalog. `StacQuery` is the tagged-union search axis folded by `match`/`case` onto the single keyword-only `Client.search`; a new search modality is one case, never a `search_bbox`/`search_intersects`/`search_cql2` method family. `Surface` is the discovery-method discriminant carrying its own frozen `SurfaceRow` `(method, cap, accepts, materialize)`: the `accepts` keyword-admission set is the boundary that keeps the union total across surfaces — an `ids`/`intersects`/`collections` row a `FreeText` union folds in never reaches `collection_search`, which rejects it — and the `materialize` policy owns the structural divergence between the two iterators, since the `ITEM` row signs the `ItemSearch` and reads `matched()` while a `CollectionSearch` carries no Azure hrefs and no `sign`/`matched` member, yielding zero hrefs and no expiry. `Signing` encodes the request boundary as one frozen `SchemeRow` (`NONE`/`PLANETARY_COMPUTER`) whose `open_kwargs`/`sign`/`patch_url` callables are read by name, never a positional triple, parallel `match` statements, or a forwarded bare callable.
 - Cases: `StacQuery` rows — `Bbox`, `Intersects` (a GeoJSON-geometry dict the server intersects server-side, no shapely at the boundary), `Datetime` (an RFC-3339 interval), `Ids`, `Collection`, `Cql2Filter` (a CQL2-JSON predicate the STAC API evaluates server-side), `Cql2Query` (the legacy `query` extension), `Order` (server-side sort with field projection), and `FreeText` (whose presence flips `Surface` from `ITEM` to `COLLECTION`, routing to `Client.collection_search`). Each carries a `params()` projection contributing exactly its own keyword arguments, so an n-axis query unions the per-case keyword dicts rather than forking a method per axis; because `collection_search` shares the `bbox`/`datetime`/`query`/`filter`/`filter_lang`/`sortby`/`fields` axis with `search`, the shared rows union onto either surface unchanged, the surface alone differing.
 - Entry: `StacCatalog.discover` computes the pure plan — reduces the query tuple's `params()` into one keyword set and recovers `Surface.of_queries` and its `.row` — then drives the whole blocking `pystac_client` sequence (`Client.open`, `row.call`, `row.materialize`) through one `guarded(RetryClass.HTTP, on_thread, ...)` envelope, the `THREAD_BAND`-bounded hop, so the synchronous I/O never stalls the event loop and the transient `429`/`5xx`/timeout set retries under a `Retry-After`-honouring backoff as one logical discovery. `row.call` reads the method, cap, and `accepts` keyword filter off the `SurfaceRow` so a cross-surface param never reaches a method that rejects it, and `row.materialize` returns the full shaped `(collection, item_ids, matched, href_count, expiry, url)` outcome — the `ITEM` row's one `planetary_computer.sign(ItemSearch)` dispatch both materializes the page and rewrites every Azure blob href in a single pass, reports `matched()` and the resolved-GET `url_with_parameters()`, and reads each item's `msft:expiry`; the `COLLECTION` row materializes without signing, yielding a zero href count, no expiry, and a `None` url. Results flatten through `.bind(self._shape(surface))`, which folds the railed `ContentIdentity.of` over the item-id set through `.map` into one `StacDiscovery` rather than stuffing a `RuntimeRail[ContentKey]` into the `content_key` field.
-- Auto: the `params` fold is the union law — a bbox+datetime+cloud-cover+order query is one `search`, never four; `Surface.of_queries` flips to `collection_search` exactly when a `FreeText` case is present, the one boolean-free routing read, never a `search_by_<axis>` family. `ItemSearch` is lazy so `matched()` reads the API total without materializing every page, and `sign` over the lazy handle is the one canonical materialize-plus-sign — never the deprecated `get_all_items`, never a `next`-link follow loop, never a materialize-then-re-sign two-pass. `min(msft:expiry)` over the signed items reports the token-validity horizon as EVIDENCE alone: the bound credential provider owns refresh inside the store handle, so a fan-out outliving that window re-signs transparently rather than failing mid-read against a horizon this owner could only report and never renew. `pystac-client`/`pystac`/`planetary-computer` and both `obstore.auth` providers import function-local per the boundary-scope import policy; the runtime rails ride module-level.
+- Auto: the `params` fold is the union law — a bbox+datetime+cloud-cover+order query is one `search`, never four; `Surface.of_queries` flips to `collection_search` exactly when a `FreeText` case is present, the one boolean-free routing read, never a `search_by_<axis>` family. `ItemSearch` is lazy so `matched()` reads the API total without materializing every page, and `sign` over the lazy handle is the one canonical materialize-plus-sign — never the deprecated `get_all_items`, never a `next`-link follow loop, never a materialize-then-re-sign two-pass. `min(msft:expiry)` over the signed items reports the token-validity horizon as EVIDENCE alone: the bound credential provider owns refresh inside the store handle, so a fan-out outliving that window re-signs transparently rather than failing mid-read against a horizon this owner could only report and never renew. `pystac-client`/`pystac`/`planetary-computer` and both `obstore.auth` providers declare once at module scope under `lazy import`/`lazy from` and reify on first use, so the signing band costs nothing until a discovery runs; every `_SCHEME` cell reads the provider inside a call-time thunk, because a module-scope cell holding a live attribute reifies the proxy at import and re-opens the eager band the manifest bans. The runtime rails ride eager module-level.
 - Receipt: one `StacDiscovery` carries the signed `ItemCollection`, the matched item-id tuple and `matched()` count, the href count, the `msft:expiry` horizon, the resolved `url`, and the `ContentKey`; `contribute()` yields one emitted-phase `Receipt.of("catalog", ...)` spelling the `domain`/`kind`/`key` lifted columns beside the `rasm.catalog.items` measure it records, the counts native scalars, never a parallel result-versus-receipt pair.
 - Packages: `pystac-client` (the keyword-only `Client.search`/`collection_search`, `ItemSearch.{item_collection,matched,url_with_parameters}` the `ITEM` row reads, `CollectionSearch.collection_list` the `COLLECTION` row reads), `pystac` (`ItemCollection`/`Item`/`Asset`, the `msft:expiry` token horizon), `planetary-computer` (`sign` the `singledispatch` over the lazy `ItemSearch`, `sign_inplace` the `modifier=` callable, `set_subscription_key`), `obstore` (`auth.planetary_computer.PlanetaryComputerAsyncCredentialProvider` and `auth.earthdata.NasaEarthdataAsyncCredentialProvider`, the two providers that own token refresh inside the store rather than beside it), runtime (`RuntimeRail`/`ContentIdentity`/`ContentKey`/`Receipt`/`Metrics`/`Provider`/`RetryClass`/`guarded`/`on_thread`).
 - Law: the subscription key is composition-bound on BOTH halves — the byte-read half rides each `Signing`'s own obstore provider, and the href-rewrite half rides the one process slot `planetary_computer.sign` reads behind the `_bind_subscription` compare-and-refuse latch, so two same-process apps with divergent keys collide at the factory as a typed `subscription-key-collision` refusal instead of the second app silently re-signing the first's hrefs; the factory therefore answers the rail, exactly like every admission that can refuse.
@@ -26,8 +26,7 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 import threading
 from collections.abc import Callable
 from enum import StrEnum
-from functools import cache, reduce
-from types import ModuleType
+from functools import reduce
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 from expression import Error, Ok, case, tag, tagged_union
@@ -35,6 +34,14 @@ from expression.collections import Map
 from msgspec import Struct, field
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+
+# the signing providers declare at the module boundary and reify on first use: every `_SCHEME` cell below holds a
+# call-time thunk over `planetary_computer`, never a live attribute, because a row dereferencing one at module
+# scope would reify the proxy at import and pay the whole signing band for an unsigned catalogue read.
+lazy import planetary_computer
+lazy from obstore.auth.earthdata import NasaEarthdataAsyncCredentialProvider
+lazy from obstore.auth.planetary_computer import PlanetaryComputerAsyncCredentialProvider
+lazy from pystac_client import Client
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
@@ -64,14 +71,6 @@ type OpenKwargs = dict[str, object]
 type Materialized = tuple["ItemCollection | list[Collection]", tuple[str, ...], int, int, str | None, str | None]
 
 
-# boundary-scoped `planetary_computer` handle, imported once per process and read by every `SchemeRow` callable.
-@cache
-def _pc() -> ModuleType:
-    import planetary_computer  # ruff:ignore[import-outside-top-level]
-
-    return planetary_computer
-
-
 _PC_LOCK: Final = threading.Lock()
 _PC_BOUND: list[str] = []
 
@@ -84,7 +83,7 @@ def _bind_subscription(key: str) -> "RuntimeRail[None]":
     with _PC_LOCK:
         match _PC_BOUND:
             case []:
-                _pc().set_subscription_key(key)
+                planetary_computer.set_subscription_key(key)
                 _PC_BOUND.append(key)
                 return Ok(None)
             case [bound] if bound == key:
@@ -120,23 +119,19 @@ _SCHEME: Final[Map[SignScheme, SchemeRow]] = Map.of_seq([
     (
         SignScheme.PLANETARY_COMPUTER,
         SchemeRow(
-            open_kwargs=lambda headers, timeout: {"headers": headers, "timeout": timeout, "modifier": _pc().sign_inplace},
-            sign=lambda search: _pc().sign(search),
-            patch_url=lambda: _pc().sign,
+            open_kwargs=lambda headers, timeout: {"headers": headers, "timeout": timeout, "modifier": planetary_computer.sign_inplace},
+            sign=lambda search: planetary_computer.sign(search),
+            patch_url=lambda: planetary_computer.sign,
         ),
     ),
 ])
 
 
 def _pc_credentials(subscription_key: str | None) -> Provider:
-    from obstore.auth.planetary_computer import PlanetaryComputerAsyncCredentialProvider  # ruff:ignore[import-outside-top-level]
-
     return PlanetaryComputerAsyncCredentialProvider(subscription_key=subscription_key)
 
 
 def _earthdata_credentials(credentials_url: str, auth: "tuple[str, str] | str | None") -> Provider:
-    from obstore.auth.earthdata import NasaEarthdataAsyncCredentialProvider  # ruff:ignore[import-outside-top-level]
-
     return NasaEarthdataAsyncCredentialProvider(credentials_url, auth=auth)
 
 
@@ -375,8 +370,6 @@ class StacCatalog(Struct, frozen=True):
             ).bind(self._shape(surface))
 
     def _discover(self, row: SurfaceRow, params: SearchParams, max_items: int | None, limit: int | None) -> Materialized:
-        from pystac_client import Client  # ruff:ignore[import-outside-top-level]
-
         client = Client.open(self.endpoint, **self.signing.open_kwargs())
         return row.materialize(row.call(client, max_items, limit, params), self.signing)
 
@@ -405,13 +398,14 @@ class StacCatalog(Struct, frozen=True):
 - Owner: the `stac_table` encoder — the discovered `pystac.ItemCollection` to a `stac-geoparquet` columnar Arrow `RecordBatchReader`, the one carrier `tabular/columnar#SCAN` and `tabular/query#QUERY` consume. `StacGeoClaim` is re-homed here as the STAC-NDJSON interchange claim binding this module's `stac_table*` entrypoints directly, folding a `StacIngest` axis into one `StacResult` over the shared `columnar` `QueryReceipt`, its `apply_remote` leg riding the runtime HTTP envelope for a remote NDJSON source.
 - Cases: `TableSource` — `Items` parses an in-memory `pystac.Item` iterable, `Ndjson` parses a STAC-NDJSON file, both landing on the one `RecordBatchReader`. `TableSink` — `Parquet` (versioned GeoParquet), `NdjsonOut`, `DeltaLake`. Its schema axis is the `ACCEPTED_SCHEMA_OPTIONS` literal: `"FullFile"` scans every batch for the widest schema (the discovery default, correctness over a heterogeneous multi-collection result), `"FirstBatch"` infers from the first batch (the lower-latency direct-write path) — a parameter row, not a parallel parse. Sink rows split by whether an Arrow table is in hand: `stac_table_egress` owns the table-in writes, `stac_table_direct` owns the one-call source-to-disk fast-paths that never materialize an intermediate reader; the `DeltaLake` sink lives only on `stac_table_direct` because `parse_stac_ndjson_to_delta_lake` reads an NDJSON file, not an Arrow table, so its `table`-in arm on `stac_table_egress` is a typed reject.
 - Entry: `stac_table` folds `TableSource` into the reader; `stac_table_egress` folds the table-in `TableSink` rows to a path, its `delta_lake` arm a typed reject; `stac_table_direct` folds the `(TableSource, TableSink)` pair over the catalogued one-call paths with a `case _, _` typed reject for a pair with no one-call surface; `stac_table_rehydrate` runs `stac_table_to_items` and rebuilds the model with `pystac.Item.from_dict`. Each write arm returns the already-railed `ContentIdentity.of` directly so the `boundary(...).bind(lambda rail: rail)` self-flatten threads the identity fault through the single carrier rather than swallowing it in an `Ok`.
-- Auto: the item table crosses as a zero-copy `RecordBatchReader`; `parse_stac_items_to_arrow` accepts the `pystac.Item` iterable directly, no NDJSON round-trip; `to_parquet` stamps the GeoParquet schema version so a downstream reader resolves the column layout without a side channel; `stac_table_direct` collapses parse-and-write for the discovery-to-disk path. `stac-geoparquet`/`pystac` import function-local; the `geopandas`-backed trio is a fallback never called — the `arrow.*` namespace is the canonical carrier.
+- Auto: the item table crosses as a zero-copy `RecordBatchReader`; `parse_stac_items_to_arrow` accepts the `pystac.Item` iterable directly, no NDJSON round-trip; `to_parquet` stamps the GeoParquet schema version so a downstream reader resolves the column layout without a side channel; `stac_table_direct` collapses parse-and-write for the discovery-to-disk path. `stac-geoparquet`/`pystac` declare as module-scope `lazy` lines and reify at the first parse; the `geopandas`-backed trio is a fallback never called — the `arrow.*` namespace is the canonical carrier.
 - Receipt: the shared `tabular/columnar` `QueryReceipt` keyed by `ContentIdentity`, never a parallel table-receipt rail.
 - Packages: `stac-geoparquet` (`arrow.parse_stac_items_to_arrow`/`parse_stac_ndjson_to_arrow`/`parse_stac_items_to_parquet`/`parse_stac_ndjson_to_parquet`/`to_parquet`/`stac_table_to_items`/`stac_table_to_ndjson`/`parse_stac_ndjson_to_delta_lake`, the `ACCEPTED_SCHEMA_OPTIONS`/`SUPPORTED_PARQUET_SCHEMA_VERSIONS`/`DEFAULT_*` schema axis), `pystac` (`Item.from_dict`), `pyarrow` (the `RecordBatchReader`/`Table` carrier), runtime (`ContentIdentity`/`RuntimeRail`/`boundary`/`guarded`/`on_thread`).
 - Growth: a new schema mode is one `ACCEPTED_SCHEMA_OPTIONS` row; a new source is one `TableSource` case; a new sink is one `TableSink` case with its `stac_table_egress` or `stac_table_direct` arm; a new one-call fast-path is one `(source, sink)` arm; zero new surface.
 - Boundary: composes the `tabular/columnar`/`tabular/query`/`tabular/egress` owners, never a second table engine or writer; no durable catalog store. A hand-built STAC-to-Arrow schema, a hand-rolled parquet writer, a materialize-then-write two-hop where `stac_table_direct` writes straight to disk, a `delta_lake` arm on `stac_table_egress` that silently drops the table argument, and the geopandas trio where the zero-copy Arrow path applies are rejected.
 
 ```python signature
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import pyarrow as pa
@@ -419,6 +413,20 @@ from expression import Error, case, tag, tagged_union
 from msgspec import Struct
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+
+lazy import pystac
+lazy from stac_geoparquet.arrow import (
+    DEFAULT_JSON_CHUNK_SIZE,
+    DEFAULT_PARQUET_SCHEMA_VERSION,
+    parse_stac_items_to_arrow,
+    parse_stac_items_to_parquet,
+    parse_stac_ndjson_to_arrow,
+    parse_stac_ndjson_to_delta_lake,
+    parse_stac_ndjson_to_parquet,
+    stac_table_to_items,
+    stac_table_to_ndjson,
+    to_parquet,
+)
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary
@@ -469,12 +477,6 @@ class TableSink:
 
 def stac_table(source: TableSource, *, schema: SchemaInference = "FullFile") -> "RuntimeRail[pa.RecordBatchReader]":
     def _parse() -> "pa.RecordBatchReader":
-        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
-            DEFAULT_JSON_CHUNK_SIZE,
-            parse_stac_items_to_arrow,
-            parse_stac_ndjson_to_arrow,
-        )
-
         match source:
             case TableSource(tag="items", items=items):
                 return parse_stac_items_to_arrow(items, chunk_size=DEFAULT_JSON_CHUNK_SIZE, schema=schema)
@@ -488,14 +490,6 @@ def stac_table(source: TableSource, *, schema: SchemaInference = "FullFile") -> 
 
 def stac_table_egress(table: "pa.RecordBatchReader | pa.Table", sink: TableSink) -> "RuntimeRail[ContentKey]":
     def _write() -> "RuntimeRail[ContentKey]":
-        from pathlib import Path  # ruff:ignore[import-outside-top-level]
-
-        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
-            DEFAULT_PARQUET_SCHEMA_VERSION,
-            stac_table_to_ndjson,
-            to_parquet,
-        )
-
         match sink:
             case TableSink(tag="parquet", parquet=(output_path, schema_version)):
                 to_parquet(table, output_path, schema_version=schema_version or DEFAULT_PARQUET_SCHEMA_VERSION)
@@ -513,16 +507,6 @@ def stac_table_egress(table: "pa.RecordBatchReader | pa.Table", sink: TableSink)
 
 def stac_table_direct(source: TableSource, sink: TableSink, *, schema: SchemaInference = "FirstBatch") -> "RuntimeRail[ContentKey]":
     def _fuse() -> "RuntimeRail[ContentKey]":
-        from pathlib import Path  # ruff:ignore[import-outside-top-level]
-
-        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
-            DEFAULT_JSON_CHUNK_SIZE,
-            DEFAULT_PARQUET_SCHEMA_VERSION,
-            parse_stac_items_to_parquet,
-            parse_stac_ndjson_to_delta_lake,
-            parse_stac_ndjson_to_parquet,
-        )
-
         match source, sink:
             case TableSource(tag="items", items=items), TableSink(tag="parquet", parquet=(output_path, schema_version)):
                 parse_stac_items_to_parquet(
@@ -560,9 +544,6 @@ def stac_table_direct(source: TableSource, sink: TableSink, *, schema: SchemaInf
 
 def stac_table_rehydrate(table: "pa.Table") -> "RuntimeRail[tuple[object, ...]]":
     def _rehydrate() -> "tuple[object, ...]":
-        import pystac  # ruff:ignore[import-outside-top-level]
-        from stac_geoparquet.arrow import stac_table_to_items  # ruff:ignore[import-outside-top-level]
-
         return tuple(pystac.Item.from_dict(record) for record in stac_table_to_items(table))
 
     return boundary("stac.rehydrate", _rehydrate)
@@ -664,6 +645,9 @@ from expression import Error, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, structs
 
+lazy import odc.stac
+lazy from pystac import MediaType
+
 from rasm.data.gridded.virtual import FieldVirtual, ManifestWrite, VirtualReceipt, VirtualReference, VersionOp
 from rasm.data.spatial.geospatial import RasterGeoClaim, Resampling
 from rasm.data.tabular.egress import EgressReceipt, ObjectEgress
@@ -698,8 +682,8 @@ def _window_band() -> CapacityLimiter:
 
 
 def _raster_hrefs(collection: object) -> "Iterator[tuple[object, str]]":
-    from pystac import MediaType  # ruff:ignore[import-outside-top-level]
-
+    # the media-type gate builds at CALL time — a module-scope `raster` set would dereference the lazy
+    # `MediaType` proxy at import and pay the whole pystac band for a fold no caller has run yet.
     raster = {MediaType.COG, MediaType.GEOTIFF}
     return ((asset, asset.href) for item in collection for asset in item.assets.values() if asset.media_type in raster)
 
@@ -809,8 +793,6 @@ class AssetFold(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _coverage(self, groupby: str, resampling: Resampling, chunks: "dict[str, int] | None") -> "RuntimeRail[StacDiscovery]":
-        import odc.stac  # ruff:ignore[import-outside-top-level]
-
         bundle = self._claim(next(iter(self.discovery.collection)), resampling)
         cube = odc.stac.load(
             list(self.discovery.collection),

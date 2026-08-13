@@ -22,7 +22,7 @@ This page mints the python-produced document: `AssetSetManifest`, the ingest and
 - Law: `MipPolicy.ROUGHNESS_VARIANCE` is a TWO-OPERAND fold and the roster's own policy for five roughness roles, so the paired normal channel is a staged operand and a plan edge, not a lookup. Sets carrying no normal map degrade that role to `BOX` — the declared quality floor — rather than failing a complete set on a channel its author never wrote.
 - Law: a set-level admission proves what no single plane can: every map agrees on extent within a tile, the power-of-two demand when `pot` is set, one normal convention across both normal channels, no `pq`/`hlg` transfer on any channel plane, a `heightScale` present exactly when a `height` map is, no role appearing both standalone and inside a pack, and AT MOST ONE `<variant>` axis across the whole set.
 - Law: `pq` and `hlg` REFUSE on a channel plane. `plane#PLANE` admits them because an environment capture is display-referred; a bake target is scene-referred and a display-referred bake forks the shading value from the stored value. That refusal lands here, at the set, because the plane cannot know which product it belongs to — and it reads `MapSpec.space`, the spec's own DECLARED stored transfer, because the role tables carry `linear`, `srgb`, and `raw` alone and a refusal testing only their projection can never fire.
-- Law: `tiled` is a PROVED property or false, and this page publishes the EVIDENCE without minting the verdict. The flag still enters from classification or from a caller declaration carrying its own provenance; `tile_score` measures the seam agreement over the roles that carry it — worst axis, worst lag, each seam step judged against the plane's own ordinary interior step rather than an absolute scale — and the number rides the receipt beside the flag, ABSENT where no seam-bearing role reached the probe, because a bare zero there is the worst point on the scale a consumer thresholds and would libel every set carrying neither base colour nor height. What this page will NOT do is threshold it: separating a seam-coherent plane from a cut one needs a cut-off calibrated against the estate's real texture families, a constant asserted ahead of that calibration is the unearned guarantee the flag's own ruling forecloses, and the frozen wire carries the flag to every consumer that would then skip its own check. The measurement is honest, the verdict stays the caller's, and the calibration is a `[04]` research row.
+- Law: `tiled` is a PROVED property or false, and this page publishes the EVIDENCE without minting the verdict. `TiledClaim` seats the claim — the classifier's verdict or a caller declaration naming its authority — a sourced case the type demands before the wire's bool reads true, its source published on the receipt band as the one fact the manifest cannot restate; `tile_score` measures the seam agreement over the roles that carry it — worst axis, worst lag, each seam step judged against the plane's own ordinary interior step rather than an absolute scale — and the number rides the receipt beside the flag, ABSENT where no seam-bearing role reached the probe, because a bare zero there is the worst point on the scale a consumer thresholds and would libel every set carrying neither base colour nor height. What this page will NOT do is threshold it, and that refusal is SETTLED rather than deferred: a labelled calibration across the organic, hard-edged, gradient, and noise families measured the two populations overlapping WHOLE under this exact probe, and the hard-edged family fails in both directions at once. A genuinely tiled plane whose cells have flat interiors offers no ordinary interior step to divide by, so its ratio collapses toward the cut end; a cut periodic plane whose period misses every probe lag reads its seam as no worse than its interior and scores at the tiled end. No single constant separates populations that interleave, so `tiled` stays declaration-sourced permanently — classification or a caller declaration carrying its own provenance — and `tile_score` publishes as EVIDENCE a consumer thresholds against the family knowledge this producer does not hold. The frozen wire carries the flag to every consumer that would otherwise skip its own check, so the measurement is honest and the verdict stays the caller's.
 - Law: an ATLAS is a PLANE-level sharing fact — N sets referencing one blob by content address — never a set-level merge behind one key. Two materials sharing one packed sheet each carry their own manifest and their own key, and the shared plane appears in both under the same digest; merging them into one set forks every consumer that binds one material.
 - Entry: `TextureSet.emit` ADMITS then schedules — it returns `Result`, so an inadmissible spec refuses before a single node burns rather than after the whole fan drains — and `TextureSet.assembled` folds. Arity is a value property of `SetSpec.maps`, never a `batch` knob; a one-slot set and a forty-slot set take the same call and differ only in the node count the plan receives.
 - Auto: `SetSpec.admitted` runs every set-level gate before a single node is scheduled, so the worker interior is total over admitted requests and no arm re-proves an extent. `MapSpec.admitted` proves the storage triple against the SAME `plane#PLANE` row the encode runs through — the slot's component count against `DeepCodecRow.widths`, the depth against `depths`, the transfer against `spaces` under the depth-conditional resolution — so a per-container arm restating one row's shape law never exists here.
@@ -197,6 +197,35 @@ class MapSpec(Struct, frozen=True):
                 return Ok(self)
 
 
+@tagged_union(frozen=True)
+class TiledClaim:
+    # `TiledClaim` makes the set-level `tiled` law STRUCTURAL: a true claim exists only WITH its source, so the
+    # sourceless assert the bare boolean admitted — a manifest publishing a seam-coherence guarantee no producer
+    # holds — is unspellable at construction. `classified` is the ingest classifier's own verdict riding the
+    # `of_classification` bridge; `declared` carries the asserting authority — an ingest root, vendor manifest,
+    # or author id — because a declaration without its provenance is the bare flag wearing a case. The frozen
+    # wire keeps its bool, projected once at assembly, so no wire spelling moves.
+    tag: Literal["untiled", "classified", "declared"] = tag()
+    untiled: None = case()
+    classified: None = case()
+    declared: str = case()
+
+    @property
+    def wired(self, /) -> bool:
+        # projects the frozen wire's ONE boolean: only a SOURCED claim ever reads true
+        return self.tag != "untiled"
+
+    @property
+    def provenance(self, /) -> str:
+        # spells the receipt-band source — a declaration rides with its own authority, so a consumer weighing a
+        # classifier verdict against a vendor assert reads which one backed the wire's bool
+        match self:
+            case TiledClaim(tag="declared", declared=authority):
+                return f"declared:{authority}"
+            case claimed:
+                return claimed.tag
+
+
 class SetSpec(Struct, frozen=True):
     # `maps` carries EVERY slot — channel, environment product, and pack alike — because a pack IS a slot with its
     # own `slot_law` row, its own egress leaf, and its own produced bytes. A parallel `packs` field made the pack a
@@ -209,10 +238,12 @@ class SetSpec(Struct, frozen=True):
     convention: Option[NormalConvention] = Nothing  # the INGEST source convention; the bytes are always `gl`
     alpha: AlphaMode = AlphaMode.NONE
     height_scale: float = 0.0  # the millimetre span the [0, 1] height plane normalizes against
-    tiled: bool = False
-    # ^ a PROVED property or false. It enters from classification, from a caller declaration carrying its own
-    # provenance, or from `tiled(planes)` measuring it here — and a manifest asserting it on none of the three
-    # publishes a seam-coherence guarantee no producer holds, to every consumer that then skips its own check.
+    tiled: TiledClaim = TiledClaim(untiled=None)
+    # ^ a PROVED property or `untiled`, and DECLARATION-SOURCED permanently: the claim carries its OWN source —
+    # classifier verdict, or caller declaration naming its authority — never the seam measure below, whose two
+    # populations a labelled calibration proved inseparable. Replacing the bare boolean kills the sourceless
+    # assert it admitted: a manifest publishing a seam-coherence guarantee no producer holds, to every consumer
+    # that then skips its own check.
     tile_score: Option[float] = Nothing
     # ^ the MEASURED edge agreement behind the flag, ABSENT where no seam-bearing role reached the probe. A `0.0`
     # default is the worst point on the scale a consumer thresholds, so a set carrying neither base colour nor
@@ -238,7 +269,7 @@ class SetSpec(Struct, frozen=True):
         /,
         *,
         height_scale: float = 0.0,
-        tiled: bool = False,
+        tiled: TiledClaim = TiledClaim(untiled=None),
         license_class: LicenseClass = LicenseClass.PERMISSIVE,
         overrides: frozendict[MapSlot, MapSpec] = frozendict(),
     ) -> Result["SetSpec", TextureFault]:
@@ -429,8 +460,10 @@ class MapError:
                     "nrmse": score.nrmse,
                     "data_range": score.data_range,
                     "fidelity_metric": score.metric.value,
-                    # the perceptual number rides ONLY where the leg took it; an absent key is absence, where a
-                    # zero would read as the flawless colour match a lossy base-colour encode never produces
+                    # the structural and perceptual numbers ride ONLY where their legs took them; an absent key is
+                    # absence, where a fixed value would read as the flawless match a lossy encode never produces —
+                    # `0.0` for the colour difference, `1.0` for the structural agreement, each the perfect reading
+                    **score.ssim.map(lambda value: frozendict({"ssim": value})).default_value(frozendict()),
                     **score.delta_e.map(lambda value: frozendict({"delta_e": value})).default_value(frozendict()),
                 })
             case _ as unreachable:
@@ -1265,11 +1298,13 @@ def _periodicity(plane: DeepPlane, /) -> float:
 def tile_score(planes: frozendict[MapSlot, DeepPlane], /) -> Option[float]:
     # The MEASURED seam agreement, published as EVIDENCE and never converted into a claim here. The settled law is
     # that `tiled` states a PROVED property or stays false, and the proof this producer can honestly offer is the
-    # number, not a verdict: separating a seam-coherent plane from a cut one needs a threshold calibrated against
-    # the estate's real texture families, and a constant asserted ahead of that calibration would publish exactly
-    # the unearned guarantee the flag's own ruling exists to foreclose. So the score rides the receipt beside the
-    # caller's or the classifier's flag, a consumer thresholds it against its own tolerance, and the calibration is
-    # a research row rather than a literal. Reads the roles carrying the seam and takes the worst — one bad channel
+    # number, not a verdict: a labelled calibration over the organic, hard-edged, gradient, and noise families
+    # proved NO threshold exists. A tiled plane whose cells have flat interiors offers no ordinary interior step to
+    # divide by and collapses toward the cut end, while a cut periodic plane whose period misses every lag below
+    # reads its seam as no worse than its interior and lands at the tiled end — the populations interleave, so any
+    # constant here would publish exactly the unearned guarantee the flag's own ruling exists to foreclose. So the
+    # score rides the receipt beside the caller's or the classifier's flag and a consumer thresholds it against
+    # family knowledge this producer does not hold. Reads the roles carrying the seam and takes the worst — one bad channel
     # is a visible seam whatever the others read — and synthesizes nothing: this measures what arrived.
     # A set carrying NEITHER seam-bearing role has no measurement, and absence is the answer: a bare `0.0` there is
     # the WORST point on the very scale a consumer thresholds, so a normal-and-roughness set with no base colour and
@@ -1614,7 +1649,7 @@ def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> tuple[Content
         alpha_mode=spec.alpha.value,
         udim=spec.udim.value,
         udim_tiles=list(spec.udim_tiles),
-        tiled=spec.tiled,
+        tiled=spec.tiled.wired,  # the frozen wire keeps its bool; a true only ever projects from a SOURCED claim
         # Both wire lists are one entry stream SPLIT by slot kind, never two production paths: a pack node
         # produced its bytes exactly as a channel node did, so its triples, container, and mip depth are the
         # ones its own receipt bands published rather than constants naming files no node ever wrote.
@@ -1646,7 +1681,7 @@ def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> tuple[Content
     # NO set-level tool census exists: `tool`/`tool_version` are PER-MAP facts on `[05.2]` — a set legitimately
     # spans several producing tools, and a "+"-joined set-level composite was a spelling off every roster a
     # consumer could resolve.
-    return (key, manifest, _set_receipt(key, manifest, spec.tile_score, spec.companion))
+    return (key, manifest, _set_receipt(key, manifest, spec.tile_score, spec.companion, spec.tiled))
 
 
 def _admitted_ibl(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> Result[SetSpec, TextureFault]:
@@ -1749,7 +1784,7 @@ def _entries(receipts: tuple[ArtifactReceipt, ...], /) -> Result[tuple[MapEntry,
             return Error(TextureFault(role="<receipt-band-carries-no-role>"))
 
 
-def _set_receipt(key: ContentKey, manifest: AssetSetManifest, spec_score: Option[float], companion: CompanionPolicy, /) -> ArtifactReceipt:
+def _set_receipt(key: ContentKey, manifest: AssetSetManifest, spec_score: Option[float], companion: CompanionPolicy, claim: TiledClaim, /) -> ArtifactReceipt:
     # ONE set-level receipt beside the per-map ones. `bytes_` measures the MANIFEST DOCUMENT this fold delivers and
     # nothing else: every plane byte already entered `rasm.artifact.byte_volume` through its own node receipt, so a
     # container re-sum here inflates the governed distribution by the fan width. The plane total rides the band.
@@ -1778,6 +1813,10 @@ def _set_receipt(key: ContentKey, manifest: AssetSetManifest, spec_score: Option
             "unresolved": float(len(manifest.unresolved)),
             "udim_tiles": float(len(manifest.udim_tiles)),
             "tiled": float(manifest.tiled),
+            # names the claim's SOURCE beside the wire's bool — the one fact the manifest cannot restate, exactly
+            # as the companion declaration is: a classifier verdict and a vendor declaration project the same true,
+            # and a consumer weighs them differently; the key is ABSENT on an untiled set, where no source claims
+            **({"tiled_source": claim.provenance} if claim.wired else {}),
             # the MEASURED seam agreement beside the declared flag, so a consumer thresholds the number against its
             # own tolerance rather than trusting a boolean this producer cannot honestly calibrate. The key is
             # ABSENT where no seam-bearing role reached the probe, exactly as the fidelity keys are: a zero here is
@@ -1911,8 +1950,8 @@ flowchart LR
 
 ## [04]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [TILE_SCORE_CUTOFF]-[OPEN]: which `tile_score` value separates a seam-coherent plane from a cut one across the estate's real texture families — the measure is sound and its extremes are unambiguous (a non-wrapping gradient collapses toward zero, a plane built by tiling scores near one), but a hard-edged periodic pattern whose period aligns with a probe lag reads the same as its cut sibling because both populations approach zero difference, so a single constant would misjudge that family; calibrate over a labelled corpus spanning organic, hard-edged, gradient, and noise textures, and land the cut-off as a policy row here plus the boolean fill on `tiled` only once the separation holds across all four.
+(none)

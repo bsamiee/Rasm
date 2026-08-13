@@ -2,7 +2,7 @@
 
 Capability-detection filter-routing core of the media plane: the one closed `FilterNode` family over the verified `libavfilter` vocabulary, the ONE `wired` entrypoint — its FilterNode variant and source arity selecting the chain, multi-source, or dissolve arm — that routes each logical media operation to its native filter when the linked FFmpeg build exposes it AND wires cleanly in-process, else to a verified in-process substitute, and the `AudioGraph` capsule `media/audio#MEDIA` composes for every mastering and mixing chain. `av.filter.filters_available` is the single routing source of truth, read once per build, never a hardcoded assumption a filter exists. This page owns no container open and no encode; it is the reference impl `media/container#CONTAINER` `Transcode` composes for its in-line chain, `media/timeline#TIMELINE` for `Xfade`/`Concat`, and `media/audio#MEDIA` for `Amix` and the mastering sink, contributing the filter-node count onto the composing producer's receipt rather than a receipt of its own — routing substrate exactly as `visualization/diagram/glyphset#GLYPHSET` and `drawing/standard#STANDARD` mint none.
 
-Substitute arms are the live path where a build lacks a filter or the filter cannot preserve the admitted payload: text burn-in renders through `pillow` `ImageDraw`+`ImageFont(Layout.RAQM)` to an RGBA plane composited by `Image.Image.alpha_composite`, while native `drawtext` admits only its structurally representable subset; subtitle burn is composite-ALWAYS — the native `subtitles`/`ass` filters read a FILENAME, not the in-memory event tuple, so the arm renders one plane per event text and gates each by the pulled frame's own presentation time — color grade derives `curves`+`hue` args from the eq knobs (native `eq`), and denoise routes to `nlmeans` (native `hqdn3d`). Wiring is equally load-bearing: single-input filters chain through `Graph.link_nodes`, but multi-input filters (`overlay`/`concat`/`amix`/`acrossfade`/`blend`) wire through `FilterContext.link_to(target, out_pad, in_pad)` because the `link_nodes` sequential form raises `ArgumentError 22` at `configure()` for every multi-input pad, and `xfade` fails `configure()` in-process under both forms so its only arm is the numpy `_cross_dissolve` over the overlapping frames. An audio graph closes on an explicit `abuffersink` node the `Graph.configure()` `auto_buffer` default omits (the `EINVAL` fix); source arity rides the case payload, never a `Filter(name).inputs` pad probe — a dynamic-input filter (`amix`) reports an empty static pad tuple. Every dynamic value entering a native filter string crosses `_escaped`, so no text can splice new options into the filter grammar. `FilterFault` reuses the `media/container#CONTAINER` `MediaFault` vocabulary — a filter absent from both the native registry and every substitute rails `MediaFault.unregistered`, never a `FilterNotFoundError` raised deep in the worker.
+Substitute arms are the live path where a build lacks a filter or the filter cannot preserve the admitted payload: text burn-in renders through `pillow` `ImageDraw`+`ImageFont(Layout.RAQM)` to an RGBA plane composited by `Image.Image.alpha_composite`, while native `drawtext` admits only its structurally representable subset; subtitle burn is composite-ALWAYS — the native `subtitles`/`ass` filters read a FILENAME, not the in-memory event tuple, so the arm renders one plane per event text and gates each by the pulled frame's own presentation time — color grade derives `curves`+`hue` args from the eq knobs (native `eq`), and denoise routes to `nlmeans` (native `hqdn3d`). Wiring is equally load-bearing: single-input filters chain through `Graph.link_nodes`, but multi-input filters (`overlay`/`concat`/`amix`/`acrossfade`/`blend`) wire through `FilterContext.link_to(target, out_pad, in_pad)` because the `link_nodes` sequential form raises `ArgumentError 22` at `configure()` for every multi-input pad, and `xfade` fails `configure()` in-process under both forms so its only arm is the numpy `_cross_dissolve` — one weight-plane fold over the overlapping frames, its per-step OVER plane read off the `_WEIGHT` row the node's `Transition` selects, the flat fade ramp and the spatial sweeps alike. Every drain on the plane runs through the one `_drained` kernel, whose `av.error.BlockingIOError`/`av.error.EOFError` pair is the only spelling that neither leaks into an enclosing `FFmpegError` capture nor swallows an unrelated handle's builtin raise. An audio graph closes on an explicit `abuffersink` node the `Graph.configure()` `auto_buffer` default omits (the `EINVAL` fix); source arity rides the case payload, never a `Filter(name).inputs` pad probe — a dynamic-input filter (`amix`) reports an empty static pad tuple. Every dynamic value entering a native filter string crosses `_escaped`, so no text can splice new options into the filter grammar. `FilterFault` reuses the `media/container#CONTAINER` `MediaFault` vocabulary — a filter absent from both the native registry and every substitute rails `MediaFault.unregistered`, never a `FilterNotFoundError` raised deep in the worker.
 
 ## [01]-[INDEX]
 
@@ -10,12 +10,12 @@ Substitute arms are the live path where a build lacks a filter or the filter can
 
 ## [02]-[FILTER]
 
-- Owner: `FilterNode` the one closed `expression.tagged_union` over every logical media operation, never a per-filter class nor a stringly `(name, args)` tuple the caller hand-assembles — each case carries the typed knobs its filter reads and `_FILTER` carries its native name, substitute names, and route in one `FilterRow`, so a new operation is one case plus one policy row plus one `_wire` arm; `SubstituteKind` the closed routing vocabulary (`NATIVE_LINEAR`/`SUBSTITUTE_LINEAR`/`NATIVE_MULTI`/`COMPOSITE`/`DISSOLVE`) each row carries, so the builder reads routing off data rather than an `if` ladder; `WiredGraph` the frozen video build product carrying the ORDERED `stages` (each one configured native sub-graph or one Pillow composite pass at its own program position), the `driven` per-frame stage walk the container driver composes, and the `node_count` fact; `AudioGraphSpec` the closed mastering/mixing construction policy and `AudioGraph.of` its single capsule entry, with `frames` discriminating a linear frame iterator from an N-source iterator tuple and owning push/drain/flush; `FilterFault` the reused `media/container#CONTAINER` `MediaFault` vocabulary; `media_filters()` the `frozenset(av.filter.filters_available)` probe read once per build.
-- Cases: the single-input transcode-chain ops `Scale`/`Crop`/`Fps`/`Format`/`Sharpen`/`Transpose`/`Pad`/`Deinterlace`/`Speed` (always-native: `scale`/`crop`/`fps`/`format`/`unsharp`/`transpose`/`pad`/`yadif`/`setpts`), `ColorGrade` (native `eq`, substitute the derived `curves`+`hue`), and `Denoise` (native `hqdn3d`, substitute `nlmeans`); the composite ops `TextBurn` (native `drawtext` only when its payload is representable, otherwise Pillow `alpha_composite`) and `SubtitleBurn` (composite-always: per-event planes gated by `frame.time`); the multi-source clip ops `Xfade` (the numpy `_cross_dissolve` only, since native `xfade` does not configure in-process), `Overlay` (native `overlay` via `link_to`, the second video source placed at `(x, y)` — watermark and picture-in-picture), `Concat` (native `concat` via `link_to`, or the timeline packet-concat), `Amix` (native `amix` via `link_to`), and `Acrossfade` (native `acrossfade` via `link_to`, the audio leg of a timeline transition) — one total `match` recovers the modality. `Scale`..`SubtitleBurn` ride `wired`'s chain arm, `Overlay`/`Concat`/`Amix`/`Acrossfade` its exact-arity multi-source arm, `Xfade` its dissolve arm — ONE entrypoint whose FilterNode variant and source arity discriminate the modality, never a builder-name suffix or a knob.
-- Entry: `wired(program, source)` the ONE filter-build entrypoint every composer calls, its FilterNode variant and source arity selecting the arm — a node tuple + one template runs the single-source transcode chain `media/container#CONTAINER` `_transcode` composes (probe once, fold each contiguous native/substitute run through `_wire` into its own configured `link_nodes` sub-graph, land each `COMPOSITE` Pillow pass as its own stage at its program position, return the staged `WiredGraph` whose `driven` walk the driver folds per frame); one multi-source node + its source tuple builds the `link_to` explicit-pad graph `media/timeline#TIMELINE` composes — the arity proven EXACT before any buffer mints (two for `overlay`/`acrossfade`, the declared count for `concat`/`amix`; an underfill or surplus refuses), one `add_buffer`/`add_abuffer` per source onto the arity-correct sink; the `xfade` node + an (under, over) frame pair alpha-blends the overlapping `window` frames, clamped to both clips' extents. `AudioGraph.of(spec).frames(streams)` stays the one audio capsule `media/audio#MEDIA` composes, its input shape selecting linear mastering or N-source mixing while the driver owns the push/drain protocol and flushes each exhausted source immediately. Every arm runs inside the composing process-lane worker, never on the event loop, and rails a registry miss through the worker's `av.error.FFmpegError` capture onto `MediaFault.unregistered`.
+- Owner: `FilterNode` the one closed `expression.tagged_union` over every logical media operation, never a per-filter class nor a stringly `(name, args)` tuple the caller hand-assembles — each case carries the typed knobs its filter reads and `_FILTER` carries its native name, substitute names, and route in one `FilterRow`, so a new operation is one case plus one policy row plus one `_wire` arm; `SubstituteKind` the closed routing vocabulary (`NATIVE_LINEAR`/`SUBSTITUTE_LINEAR`/`NATIVE_MULTI`/`COMPOSITE`/`DISSOLVE`) each row carries, so the builder reads routing off data rather than an `if` ladder; `Transition` the closed overlap-blend vocabulary keyed into `_WEIGHT`, one weight-plane row per member, so the whole media plane blends through this one owner and `media/timeline#TIMELINE` carries no second kernel; `_drained` the one libavfilter pull protocol every graph, stage, and analysis sink composes; `WiredGraph` the frozen video build product carrying the ORDERED `stages` (each one configured native sub-graph or one Pillow composite pass at its own program position), the `driven` per-frame stage walk the container driver composes, and the `node_count` fact; `AudioGraphSpec` the closed mastering/mixing construction policy and `AudioGraph.of` its single capsule entry, with `frames` discriminating a linear frame iterator from an N-source iterator tuple and owning push/drain/flush; `FilterFault` the reused `media/container#CONTAINER` `MediaFault` vocabulary; `media_filters()` the `frozenset(av.filter.filters_available)` probe read once per build.
+- Cases: the single-input transcode-chain ops `Scale`/`Crop`/`Fps`/`Format`/`Sharpen`/`Transpose`/`Pad`/`Deinterlace`/`Speed` (always-native: `scale`/`crop`/`fps`/`format`/`unsharp`/`transpose`/`pad`/`yadif`/`setpts`), `ColorGrade` (native `eq`, substitute the derived `curves`+`hue`), and `Denoise` (native `hqdn3d`, substitute `nlmeans`); the composite ops `TextBurn` (native `drawtext` only when its payload is representable, otherwise Pillow `alpha_composite`) and `SubtitleBurn` (composite-always: per-event planes gated by `frame.time`); the multi-source clip ops `Xfade` (the numpy `_cross_dissolve` only, since native `xfade` does not configure in-process, its payload exactly the `Transition` whose `_WEIGHT` row the blend reads), `Overlay` (native `overlay` via `link_to`, the second video source placed at `(x, y)` — watermark and picture-in-picture), `Concat` (native `concat` via `link_to`, or the timeline packet-concat), `Amix` (native `amix` via `link_to`), and `Acrossfade` (native `acrossfade` via `link_to`, the audio leg of a timeline transition) — one total `match` recovers the modality. `Scale`..`SubtitleBurn` ride `wired`'s chain arm, `Overlay`/`Concat`/`Amix`/`Acrossfade` its exact-arity multi-source arm, `Xfade` its dissolve arm — ONE entrypoint whose FilterNode variant and source arity discriminate the modality, never a builder-name suffix or a knob.
+- Entry: `wired(program, source)` the ONE filter-build entrypoint every composer calls, its FilterNode variant and source arity selecting the arm — a node tuple + one template runs the single-source transcode chain `media/container#CONTAINER` `_transcode` composes (probe once, fold each contiguous native/substitute run through `_wire` into its own configured `link_nodes` sub-graph, land each `COMPOSITE` Pillow pass as its own stage at its program position, return the staged `WiredGraph` whose `driven` walk the driver folds per frame); one multi-source node + its source tuple builds the `link_to` explicit-pad graph `media/timeline#TIMELINE` composes — the arity proven EXACT before any buffer mints (two for `overlay`/`acrossfade`, the declared count for `concat`/`amix`; an underfill or surplus refuses), one `add_buffer`/`add_abuffer` per source onto the arity-correct sink; the `xfade` node + an (under, over) frame pair blends the overlapping `window` frames under the node's own `Transition` weight row, clamped to both clips' extents. `AudioGraph.of(spec).frames(streams)` stays the one audio capsule `media/audio#MEDIA` composes, its input shape selecting linear mastering or N-source mixing while the driver owns the push/drain protocol and flushes each exhausted source immediately. Every arm runs inside the composing process-lane worker, never on the event loop, and rails a registry miss through the worker's `av.error.FFmpegError` capture onto `MediaFault.unregistered`.
 - Auto: `_wire` reads `_FILTER[node.tag]` and appends the resolved arm — a `SUBSTITUTE_LINEAR` op the row's substitutes, a `COMPOSITE` op the pass `_composited` dispatches per case: `text_burn` the RGBA plane rendered through `_render_text` once, `subtitle_burn` the `_timed` pass whose per-event planes render once and composite only inside their `[start, end)` window; `_render_text` selects `ImageFont.Layout.RAQM` when `features.check("raqm")` confirms the HarfBuzz build else `Layout.BASIC`; `_grade_args` samples the eq luma transfer at the control points and formats the `curves` string paired with `hue=s=`, routing a CAM16/gamut-safe grade to `graphic/color/derive#DERIVE` rather than re-deriving color math here; `_escaped` backslash-escapes the filter-grammar metacharacters on every dynamic native-arg value.
 - Receipt: this page mints NO `ArtifactReceipt` case of its own — it is routing substrate exactly as `visualization/diagram/glyphset#GLYPHSET` and `drawing/standard#STANDARD` mint none; `WiredGraph.node_count`/`AudioGraph.node_count` are the filter-node facts the composing producer folds onto its `core/receipt#RECEIPT` `ArtifactReceipt.Media` `facts` band (`{"filter_nodes": N}`), so the routing evidence rides the one shared media receipt beside the container's HDR/segment facts and the audio's LUFS facts. `Transcode`'s receipt carries `{"filter_nodes": ...}`, the `Xfade` receipt `{"dissolve_frames": window}`, and the `Amix` receipt `{"mix_inputs": count}` — three facts on one band.
-- Growth: a new logical filter operation is one `FilterNode` case plus one `facet` alternative plus one `_FILTER` row plus one `_wire` arm; a new substitute for an existing op extends that row's `substitutes`; a new multi-source clip op is one case plus one `_link_clips` arm plus its `_arity` row; a new mastering/mixing shape is one `AudioGraphSpec` case plus one `AudioGraph.of` arm, never a second graph owner; a filter that gains in-process wiring changes one row from `DISSOLVE` to `NATIVE_MULTI` while retaining the substitute; a new build-capability gate is one probe read — every addition a case, row, or arm, never a hardcoded assumption.
+- Growth: a new logical filter operation is one `FilterNode` case plus one `facet` alternative plus one `_FILTER` row plus one `_wire` arm; a new substitute for an existing op extends that row's `substitutes`; a new overlap transition is one `Transition` member plus one `_WEIGHT` row with no blend-kernel edit; a new multi-source clip op is one case plus one `_link_clips` arm plus its `_arity` row; a new mastering/mixing shape is one `AudioGraphSpec` case plus one `AudioGraph.of` arm, never a second graph owner; a filter that gains in-process wiring changes one row from `DISSOLVE` to `NATIVE_MULTI` while retaining the substitute; a new build-capability gate is one probe read — every addition a case, row, or arm, never a hardcoded assumption.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -26,13 +26,13 @@ from itertools import zip_longest
 from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import numpy as np
-from beartype import beartype
 from builtins import frozendict
 from expression import case, tag, tagged_union
 from msgspec import Struct
 from numpy.typing import NDArray
 
 lazy import av
+lazy import av.error  # explicit: `_drained` and the registry gate name its leaves, never av's parent-package re-export
 lazy import av.filter
 lazy from PIL import Image, ImageDraw, ImageFont, features  # the drawtext substitute; module-scope (a lazy stmt inside a function is a SyntaxError)
 
@@ -56,6 +56,13 @@ class SubstituteKind(StrEnum):
     NATIVE_MULTI = "native_multi"  # multi-input native filter via per-context link_to (concat/amix/acrossfade)
     COMPOSITE = "composite"  # Pillow alpha-composite pass (drawtext substitute, time-gated subtitle burn-in)
     DISSOLVE = "dissolve"  # native xfade refuses in-process configure -> numpy cross-dissolve
+
+
+class Transition(StrEnum):
+    FADE = "fade"
+    WIPE_LEFT = "wipe_left"
+    WIPE_RIGHT = "wipe_right"
+    IRIS = "iris"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -107,14 +114,28 @@ _FILTER: frozendict[FilterNodeTag, FilterRow] = frozendict({
     "acrossfade": FilterRow("acrossfade", SubstituteKind.NATIVE_MULTI),
 })
 
+# progress t in [0,1] -> the (h, w) float32 weight plane the OVER frame carries at that step. FADE's plane is
+# spatially CONSTANT, so the temporal ramp is a ROW of the same table the spatial sweeps ride and the dissolve arm
+# carries exactly one blend kernel for the whole vocabulary.
+_WEIGHT: frozendict[Transition, "Callable[[float, int, int], NDArray[np.float32]]"] = frozendict({
+    Transition.FADE: lambda t, h, w: np.full((h, w), t, dtype=np.float32),
+    Transition.WIPE_LEFT: lambda t, h, w: np.broadcast_to((np.arange(w) < t * w).astype(np.float32), (h, w)),
+    Transition.WIPE_RIGHT: lambda t, h, w: np.broadcast_to((np.arange(w) >= (1.0 - t) * w).astype(np.float32), (h, w)),
+    Transition.IRIS: lambda t, h, w: (
+        ((np.arange(h)[:, None] - h / 2) ** 2 + (np.arange(w)[None, :] - w / 2) ** 2) <= (t * np.hypot(h, w) / 2) ** 2
+    ).astype(np.float32),
+})
+
 # one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
 # form. Pair one: `_wire` and `_build_graph` index `_FILTER` by tag, so an unruled `FilterNodeTag` is a runtime
 # `KeyError` mid-build inside a worker. Pair two runs the INVERSE — every declared `SubstituteKind` is SELECTED by
 # some row, so a routing member no row uses is a phantom the vocabulary refuses at import rather than a dead arm
-# `_build_graph` carries forever.
+# `_build_graph` carries forever. Pair three: `_cross_dissolve` indexes `_WEIGHT` by the node's own `Transition`,
+# so an unruled member is a runtime `KeyError` mid-blend inside a worker.
 _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
     (frozenset(_FILTER), frozenset(get_args(FilterNodeTag))),
     (frozenset(row.route for row in _FILTER.values()), frozenset(SubstituteKind)),
+    (frozenset(_WEIGHT), frozenset(Transition)),
 )
 if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("filter tables do not cover their vocabularies")
@@ -136,7 +157,10 @@ class FilterNode:
     speed: float = case()  # setpts PTS/factor — >1 speeds up, <1 slows down; the audio leg is a Stage.atempo
     text_burn: "TextSpec" = case()
     subtitle_burn: tuple[tuple[SubtitleEvent, ...], str] = case()  # (events, style)
-    xfade: tuple[float, float, str] = case()  # (offset, duration, transition)
+    # offset and duration carry NO arm here: the caller derives the overlap in FRAMES and hands it to `wired` as
+    # `window`, so a seconds slot beside it would be a second authority for one span and fork the content key on a
+    # value the blend never reads.
+    xfade: Transition = case()
     overlay: tuple[int, int] = case()  # (x, y) top-left placement of the second video source — watermark/picture-in-picture
     concat: int = case()  # input count
     amix: tuple[int, tuple[float, ...]] = case()  # (count, weights)
@@ -245,9 +269,9 @@ class AudioGraph:
         # push/drain per frame, then the None flush drains a loudnorm/alimiter lookahead tail before EOF.
         for frame in frames:
             self.sources[0].push(frame)
-            yield from self._pulled()
+            yield from _drained(self.graph)
         self.sources[0].push(None)
-        yield from self._pulled()
+        yield from _drained(self.graph)
 
     def _mixed(self, streams: "tuple[Iterator[object], ...]", /) -> "Iterator[object]":
         ended = object()
@@ -260,18 +284,11 @@ class AudioGraph:
                         closed.add(index)
                 else:
                     tap.push(frame)
-            yield from self._pulled()
+            yield from _drained(self.graph)
         for index, tap in enumerate(self.sources):
             if index not in closed:
                 tap.push(None)
-        yield from self._pulled()
-
-    def _pulled(self) -> "Iterator[object]":
-        while True:  # libavfilter pull protocol: drain until EAGAIN (needs input) or EOF (flushed)
-            try:
-                yield self.graph.pull()
-            except av.error.BlockingIOError, av.error.EOFError:
-                return
+        yield from _drained(self.graph)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -279,6 +296,19 @@ class AudioGraph:
 
 def media_filters() -> frozenset[str]:
     return frozenset(av.filter.filters_available)  # the routing probe, read once per build
+
+
+def _drained(sink: object, /) -> "Iterator[object]":
+    # THE libavfilter pull protocol, one owner for every drain on the media plane. Both `Graph.pull` and
+    # `FilterContext.pull` raise `av.error.BlockingIOError` (errno 35) for needs-more-input and
+    # `av.error.EOFError` (errno 541478725) once a `None` push has flushed the tail — each subclassing BOTH
+    # `av.error.FFmpegError` and its builtin twin, so a wider catch on either side reads a leaked sentinel as a
+    # codec fault or swallows an unrelated handle's non-blocking OSError as a completed drain.
+    while True:
+        try:
+            yield sink.pull()
+        except (av.error.BlockingIOError, av.error.EOFError):
+            return
 
 
 def _escaped(value: str, /) -> str:
@@ -361,17 +391,22 @@ def _composited(node: FilterNode, width: int, height: int, /) -> "Callable[[obje
             raise ValueError(f"composited: {other.tag} carries no composite arm")  # a programming defect, never railed as input
 
 
-def _cross_dissolve(under: tuple[NDArray[np.uint8], ...], over: tuple[NDArray[np.uint8], ...], window: int, /) -> tuple[NDArray[np.uint8], ...]:
-    # `wired` xfade arm over rgb24 frames (native `xfade` fails in-process `configure()`): the overlap clamps to
-    # both clips' extents, under[-span:] fades out as over[:span] fades in, and a zero overlap degrades to a butt joint.
+def _cross_dissolve(
+    under: tuple[NDArray[np.uint8], ...], over: tuple[NDArray[np.uint8], ...], window: int, transition: Transition, /
+) -> tuple[NDArray[np.uint8], ...]:
+    # THE overlap-blend owner for every transition (native `xfade` fails in-process `configure()`): the span clamps
+    # to both clips' extents, each step's OVER weight plane comes off the node's own `_WEIGHT` row, and a zero
+    # overlap degrades to a butt joint. Progress runs (i+1)/span so the last blended step is fully OVER and hands
+    # cleanly to the untouched `over` tail — a 0-based ramp leaves the seam one step short of the source it abuts.
     span = max(0, min(window, len(under), len(over)))
     if span == 0:
         return (*under, *over)
-    ramp = np.linspace(1.0, 0.0, span, dtype=np.float32)
-    tail, head = under[-span:], over[:span]
+    weight = _WEIGHT[transition]
+    height, width = under[0].shape[:2]
+    planes = (weight((index + 1) / span, height, width)[..., None] for index in range(span))
     blended = tuple(
-        (a.astype(np.float32) * w + b.astype(np.float32) * (1.0 - w)).astype(np.uint8)
-        for a, b, w in zip(tail, head, ramp[:, None, None], strict=True)
+        (tail.astype(np.float32) * (1.0 - plane) + head.astype(np.float32) * plane).astype(np.uint8)
+        for tail, head, plane in zip(under[-span:], over[:span], planes, strict=True)
     )
     return (*under[:-span], *blended, *over[span:])
 
@@ -502,17 +537,10 @@ def _wire(node: FilterNode, available: frozenset[str], /) -> tuple[tuple[str, st
             assert_never(unreachable)
 
 
-@beartype
-def _staged_pull(segment: object, frame: "object | None") -> tuple[object, ...]:
-    # push-one-pull-all per native stage; a None push flushes the stage tail, and the EAGAIN/EOF stop conditions
-    # end the pull inside the worker capture rather than leaking a provider raise.
+def _staged_pull(segment: object, frame: "object | None", /) -> tuple[object, ...]:
+    # push-one-drain-all per native stage; a None push flushes that stage's tail through the one `_drained` kernel.
     segment.push(frame)
-    pulled: list[object] = []
-    while True:
-        try:
-            pulled.append(segment.pull())
-        except av.error.BlockingIOError, av.error.EOFError:
-            return tuple(pulled)
+    return tuple(_drained(segment))
 
 
 def _build_graph(nodes: tuple[FilterNode, ...], template: object, /) -> WiredGraph:
@@ -587,8 +615,8 @@ def wired(
     # an (under, over) frame pair runs the numpy dissolve whose frame `window` the caller derives from
     # rate * duration (the one payload the node cannot carry, since only the caller knows the frame rate).
     match program, source:
-        case FilterNode(tag="xfade"), (tuple() as under, tuple() as over):
-            return _cross_dissolve(under, over, window)
+        case FilterNode(tag="xfade", xfade=transition), (tuple() as under, tuple() as over):
+            return _cross_dissolve(under, over, window, transition)
         case FilterNode() as clip, tuple() as sources:
             return _link_clips(clip, sources)
         case tuple() as nodes, template:
@@ -599,7 +627,7 @@ def wired(
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

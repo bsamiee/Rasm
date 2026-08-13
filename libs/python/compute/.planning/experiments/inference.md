@@ -12,9 +12,9 @@ Three polymorphic surfaces carry every variation: `Distribution` over the `pymc`
 
 - Owner: `Inference` — `InferenceSpec` is the frozen request; `InferenceReceipt.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff#GRADUATION` admission rail, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
 - Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
+- Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the sample population — draws times chains off the `SamplerPlan`, surfaced by the sampler engine — because that fold is the nearest async owner of a count the offloaded kernel produced and binds no plane for. The charge lands off the cleared arm alone, since a run refused at admission drew nothing, and the plan carries the two factors separately where the receipt fuses them into one `draws` column. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
 - Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
 - Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar. Predictive fit is one `_score` fold with two rows behind the `loo_cells` pointwise budget — the full PSIS-LOO matrix within it, the `loo_subsample` difference estimator above it with one `update_subsample` refinement while the sub-sampling SE dominates; `ELPDData.kind` stays `"loo"` on BOTH rows, so the receipt discriminates on the typed `subsample_obs`/`subsample_se` pair (`None` spells the full fold), and the subsampled `pareto_k` keeps full length with NaN at unsampled rows, read nan-aware.
-- Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the sample population — draws times chains off the `SamplerPlan`, surfaced by the sampler engine — because that fold is the nearest async owner of a count the offloaded kernel produced and binds no plane for. The charge lands off the cleared arm alone, since a run refused at admission drew nothing, and the plan carries the two factors separately where the receipt fuses them into one `draws` column. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
 - Growth: a new distribution is one `Distribution` case and one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field and one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field; a new predictive-scoring row is one `_score` arm behind its `SamplerPlan` policy field.
 
 ```python signature
@@ -36,6 +36,11 @@ from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
+
+# posterior stack defers: `pymc` drags the pytensor compile chain and `arviz` the xarray/pandas diagnostic stack, so
+# neither load falls until a declare, draw, fit, or scoring arm first dereferences it inside the worker.
+lazy import arviz
+lazy import pymc
 
 if TYPE_CHECKING:
     from xarray import DataTree
@@ -65,8 +70,6 @@ class Distribution:
         # `mu is None` keeps the case a latent prior; a supplied `mu` is the unconstrained real-valued latent node the likelihood
         # mean reads off, so the bounded/positive-support GLM cases route it through the canonical inverse-link (`invlogit` for a
         # `[0, 1]` rate, `exp` for a positive rate) rather than feeding a real node into a support that rejects it.
-        import pymc
-
         match self:
             case Distribution(tag="normal", normal=(m, s)):
                 return pymc.Normal(name, mu=m if mu is None else mu, sigma=s, observed=observed)
@@ -135,8 +138,6 @@ class SamplerBackend:
     def draw(self, /, *, draws: int, tune: int, chains: int, seed: int) -> DataTree:
         # `step` binds the context-bound NUTS/Metropolis method; `nuts_sampler`+`nuts_sampler_kwargs` name the accelerated engine
         # and its lever (nutpie `backend`, numpyro `chain_method`).
-        import pymc
-
         match self:
             case SamplerBackend(tag="pymc_native", pymc_native=kind):
                 step = pymc.NUTS() if kind == "nuts" else pymc.Metropolis()
@@ -351,9 +352,6 @@ class Inference:
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _fit(spec: InferenceSpec) -> InferenceReceipt:
-        import arviz
-        import pymc
-
         plan, names = spec.plan, [lat.name for lat in spec.latents]
         with pymc.Model() as model:
             nodes = {lat.name: lat.prior.declare(lat.name) for lat in spec.latents}
@@ -410,8 +408,6 @@ def _score(trace: "DataTree", plan: SamplerPlan, n_obs: int) -> object:
     # `loo_cells`, the difference-estimator subsample above it, refined ONCE by `update_subsample` while the
     # sub-sampling half of the SE dominates. Both rows return one `ELPDData`; the refinement seed is the plan
     # seed at a declared ordinal offset, never a re-draw of the original subsample.
-    import arviz
-
     if n_obs * plan.draws * plan.chains <= plan.loo_cells:
         return arviz.loo(trace, var_name="observation", pointwise=True)
     scored = arviz.loo_subsample(trace, observations=min(plan.loo_obs, n_obs), var_name="observation", seed=plan.seed)

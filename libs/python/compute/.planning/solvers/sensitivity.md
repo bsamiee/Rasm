@@ -37,6 +37,10 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait, Wire
 
+# cold finite-difference dependency: the `lazy` bind defers `findiff` to the floor body, which needs no jaxlib
+# backend. The jax family is NOT here — it rides the `DiffEngine` carrier behind its x64 config seam.
+lazy from findiff import coefficients
+
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -189,7 +193,9 @@ class Differentiation:
 
 # Gated jax/equinox modules built ONCE per solve, so the import and float64 promotion fire once. `gated()`
 # runs `jax_enable_x64` — a reverse-mode adjoint through a `lineax`/`optimistix`/`diffrax` solve assumes float64;
-# x32 silently degrades it. `flatten` owns the array/pytree product-read fork: `_leaf` reads one product (the
+# x32 silently degrades it. That silent degradation is why these imports stay function-local against the module-scope
+# `lazy` dialect (compute RULINGS [04]): the config seam must precede the first jax dereference, and the frozen carrier
+# enforces the ordering structurally rather than by convention. `flatten` owns the array/pytree product-read fork: `_leaf` reads one product (the
 # inexact-array `tree_leaves` partition for a pytree, a bare `np.asarray` for an array), wrapped by the
 # tuple-`argnums` block fold concatenating the per-argument product tuple by the receipt's index set.
 @dataclass(frozen=True, slots=True)
@@ -199,10 +205,12 @@ class DiffEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import equinox as eqx
-        import jax
+        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
 
-        jax.config.update("jax_enable_x64", True)
+        jax.config.update("jax_enable_x64", True)  # armed before any dependent import
+
+        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
+
         return cls(jax=jax, eqx=eqx)
 
     # A bare `int` argnums yields one product `_leaf` reads; a `tuple[int, ...]` yields the per-argument tuple
@@ -424,8 +432,6 @@ def _read_array_jvp(out_tangent: tuple[object, object]) -> tuple[float | None, o
 # directly — never an `acc` capped to 2, never a fixed three-point stencil. The receipt records the realized
 # order off the `center` `accuracy` entry (an odd `acc` the central scheme rounds to even reaches it truthfully).
 def _finite_difference(fn: ArrayFn, x: object, step: float, acc: int) -> DiffReceipt:
-    from findiff import coefficients
-
     point = np.asarray(x)
     center = coefficients(deriv=1, acc=acc)["center"]
     weights, offsets = np.asarray(center["coefficients"]), np.asarray(center["offsets"])

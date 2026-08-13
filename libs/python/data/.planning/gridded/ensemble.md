@@ -29,6 +29,8 @@ from enum import StrEnum
 from msgspec import Struct
 from opentelemetry import trace
 
+lazy import xarray as xr
+
 from rasm.data.gridded.field import FieldReceipt
 from rasm.runtime.faults import RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity
@@ -36,8 +38,6 @@ from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import xarray as xr
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.ensemble")
 
@@ -75,8 +75,6 @@ class ScenarioTree(Struct, frozen=True):
     @classmethod
     def of(cls, kind: ScenarioKind, cubes: "dict[str, xr.Dataset]") -> "RuntimeRail[ScenarioTree]":
         def build() -> "ScenarioTree":
-            import xarray as xr  # ruff:ignore[import-outside-top-level]
-
             tree = xr.DataTree.from_dict({f"/{kind.value}/{name}": cube for name, cube in cubes.items()})
             return cls(tree=tree, kind=kind, scenarios=tuple(sorted(cubes)))
 
@@ -89,8 +87,6 @@ class ScenarioTree(Struct, frozen=True):
             return boundary(f"ensemble.{op.tag}", lambda: self._apply(op))
 
     def _apply(self, op: TreeOp) -> TreeResult:
-        import xarray as xr  # ruff:ignore[import-outside-top-level]
-
         match op:
             case TreeOp(tag="mapped", mapped=step):
                 # group nodes carry EMPTY datasets — the guard maps leaves alone and passes structure through.
@@ -115,8 +111,6 @@ class ScenarioTree(Struct, frozen=True):
     def _stacked(self) -> Any:
         # ONE concat over the minted `scenario` dimension: leaf identity rides as a named coordinate, so the
         # collapsed cube selects scenarios by name and a positional index never stands in for provenance.
-        import xarray as xr  # ruff:ignore[import-outside-top-level]
-
         return xr.concat([node.dataset for node in self.tree.leaves], dim=pd.Index(self.scenarios, name="scenario"))
 
     def write(self, target: ResourceRef) -> "RuntimeRail[FieldReceipt]":

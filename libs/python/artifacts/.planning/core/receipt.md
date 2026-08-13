@@ -163,7 +163,7 @@ class ArtifactReceipt:
     preview: tuple[ContentKey, int, int, int, frozendict[str, float | str]] = case()
     color: tuple[ContentKey, str, str, float, int, int, frozendict[str, float | str]] = case()
     texture: tuple[ContentKey, str, int, int, int, int, int, int, str, frozendict[str, float | str]] = case()
-    bundle: tuple[ContentKey, str, int, int, int, int, int, float] = case()
+    bundle: tuple[ContentKey, int, str, int, int, int, int, int, float] = case()
     introspection: tuple[ContentKey, int, int, int, int] = case()
     egress: tuple[ContentKey, int, int, int, int, int] = case()
     verdict: tuple[ContentKey, ConformanceVerdict] = case()
@@ -248,8 +248,8 @@ class ArtifactReceipt:
         return cls(texture=(key, kind, width, height, maps, bytes_, mips, texels, tool, facts))
 
     @classmethod
-    def Bundle(cls, key: ContentKey, algo: str, level: int, dict_id: int, frame_size: int, entries: int, verified: int, ratio: float, /) -> Self:
-        return cls(bundle=(key, algo, level, dict_id, frame_size, entries, verified, ratio))
+    def Bundle(cls, key: ContentKey, bytes_: int, algo: str, level: int, dict_id: int, frame_size: int, entries: int, verified: int, ratio: float, /) -> Self:
+        return cls(bundle=(key, bytes_, algo, level, dict_id, frame_size, entries, verified, ratio))
 
     @classmethod
     def Introspection(cls, key: ContentKey, nodes: int, text_len: int, images: int, hits: int, /) -> Self:
@@ -604,7 +604,7 @@ __all__ = ("ArtifactKind", "ArtifactReceipt", "ConformanceVerdict")
 
 ## [04]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

@@ -12,7 +12,7 @@ Each point set admits through `numerics/array#PAYLOAD` for the finite gate and t
 
 - Owner: `SpatialQuery` — one owner discriminated by the geometric question, never a `Neighbours`/`Hull`/`Triangulate` method family. `Align` is a paired correspondence fit — `source` and `target` carry the same row count, `procrustes` raising `ValueError` on a mismatch, the fault converting on the `boundary` fence. `AlphaShape` folds its boundary locally because no `scipy.spatial` alpha-shape primitive exists; `_circumradius` stays private to that kernel, never a module-level sibling of the dispatch.
 - Output: `SpatialEvidence` parameterizes the result per case, and the `Complex` `cardinality` is the primitive count its `kind` string discriminates — hull facets, Delaunay simplices, Voronoi ridges, halfspace vertices, distance pairs — so a distance summary never wears a `simplices` label and four outcome vocabularies never smuggle through two overloaded columns. Adding a query writes only its geometry body returning a `SpatialEvidence`; `assert_never` closes the dispatch.
-- Packages: `scipy.spatial`, `numpy`, `expression`, and `msgspec` per the fence imports; each kernel binds `import scipy.spatial as sp` once at its head so `resolve` stays a pure tag-dispatch, and `optimize.linprog` enters only for the halfspace Chebyshev-centre interior point.
+- Packages: `scipy.spatial`, `numpy`, `expression`, and `msgspec` per the fence imports; `scipy.spatial` and `optimize.linprog` bind once each as module-scope `lazy` names that defer both trees to the first kernel body, so `resolve` stays a pure tag-dispatch and `linprog` costs nothing until the halfspace Chebyshev-centre interior point asks for it.
 - Growth: a new spatial query is one `SpatialQuery` case with one `resolve` arm and one `identity_buffer` arm; a new evidence shape is one `SpatialEvidence` case with its `facts()` arm — the receipt carries the evidence whole and needs no edit; a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` row.
 
 ```python signature
@@ -33,6 +33,12 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
+
+# cold scientific dependencies: the `lazy` binds defer both scipy trees to the first route body. `_proximity` keeps its
+# `try`/`except ImportError` because the proxy reifies AT the `sp.cKDTree` dereference inside the try, so an absent
+# scipy still falls to `NEIGHBOUR_FLOOR` exactly as it did under the function-local form.
+lazy import scipy.spatial as sp
+lazy from scipy.optimize import linprog
 
 if TYPE_CHECKING:
     # declared here so the `KdReduction` signature names the real carrier rather than degrading to a bare `object`.
@@ -291,8 +297,6 @@ def _proximity(tag: Tag, pts: np.ndarray, qs: np.ndarray, scale: float, reduce: 
     # one symmetric fold for both KD-tree proximity routes: run the scipy reduction, or fall to this tag's floor row when the
     # package is absent — both terminate in `Proximity`, so the body carries no per-tag ternary.
     try:
-        import scipy.spatial as sp
-
         return reduce(sp.cKDTree(pts))
     except ImportError:
         return NEIGHBOUR_FLOOR[tag](pts, qs, scale)
@@ -323,21 +327,15 @@ def _floor_radius(pts: np.ndarray, qs: np.ndarray, r: float) -> SpatialEvidence:
 
 
 def _pairs(pts: np.ndarray, r: float) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     return SpatialEvidence.Proximity(len(sp.cKDTree(pts).query_pairs(r)), 0.0, r)
 
 
 def _hull(pts: np.ndarray) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     hull = sp.ConvexHull(pts)
     return SpatialEvidence.Complex("hull", int(hull.simplices.shape[0]), float(hull.volume))
 
 
 def _triangulate(pts: np.ndarray) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     # Delaunay carries no `.volume` the way ConvexHull does, so `measure` reads the triangulated point cardinality — a real fact,
     # never a simplex-count echo.
     tri = sp.Delaunay(pts)
@@ -345,16 +343,12 @@ def _triangulate(pts: np.ndarray) -> SpatialEvidence:
 
 
 def _distances(left: np.ndarray, right: np.ndarray | None, metric: Metric) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     # self-distance reduces the condensed `pdist` vector directly, never a dense squareform materialized only to mean over it.
     pairwise = sp.distance.pdist(left, metric=metric.value) if right is None else sp.distance.cdist(left, right, metric=metric.value)
     return SpatialEvidence.Complex(f"distance-{metric.value}", int(pairwise.size), float(np.mean(pairwise)))
 
 
 def _tessellate(points: np.ndarray, kind: Tessellation, radius: float) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     match kind:
         case Tessellation.VORONOI:
             vor = sp.Voronoi(points)
@@ -373,8 +367,6 @@ def _tessellate(points: np.ndarray, kind: Tessellation, radius: float) -> Spatia
 
 
 def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
-    from scipy.optimize import linprog
-
     a, b = halfspaces[:, :-1], halfspaces[:, -1]
     norms = np.linalg.norm(a, axis=1, keepdims=True)
     result = linprog(np.concatenate([np.zeros(a.shape[1]), [-1.0]]), A_ub=np.hstack([a, norms]), b_ub=-b, bounds=(None, None))
@@ -382,8 +374,6 @@ def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
 
 
 def _align(source: np.ndarray, target: np.ndarray) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     # `align_vectors` returns the rotation and the root-sum-square deviation; the per-vector RMSD
     # is rssd / sqrt(n), so the evidence reports a sample-independent fit error, not a raw sum.
     _, rssd = sp.transform.Rotation.align_vectors(target, source)
@@ -392,8 +382,6 @@ def _align(source: np.ndarray, target: np.ndarray) -> SpatialEvidence:
 
 
 def _alpha_shape(points: np.ndarray, alpha: float) -> SpatialEvidence:
-    import scipy.spatial as sp
-
     tri = sp.Delaunay(points)
     radii = np.asarray([_circumradius(simplex) for simplex in points[tri.simplices]])
     retained = tri.simplices[kept := radii < alpha]

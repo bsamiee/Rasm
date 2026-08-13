@@ -12,7 +12,7 @@ Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers
 
 - Owner: `DiagramDraw` owns one total `DrawTarget` and `DiagramGlyph` dispatch. Glyphset's `DiagramGlyph.mark` projection exposes each named payload without ordinal coupling. SVG groups require one `LayerIntent` per layer name; conflicting classes reject through `DrawFault.layer_intent`. `.drawio` admission proves node identity, parent identity, edge endpoints, and named port seats before `File`/`Page` mutation, then stages objects before parenting and edges. `_CAPS` derives shared SVG definitions, `_DRAWIO_CAP` carries target token plus fill semantics for every `EndCap`, and `_rendered` traps provider refusals once as `DrawFault.provider`.
 - Cases: SVG lowers every `DiagramGlyph` case through `_shape`, `_marker`, `_CAPS`, `_paint`, and `_caption`; `TextRun` selects face, size, ink, bold, and oblique policy, while mathematical text composes `Formula.laid()` and re-spells `MathFault` through `DrawFault.typeset`. `.drawio` retains editable labels, node shapes, entity header bands, ports, parents, marker rotation, edge routes, and terminal fill. `AreaMark` and `FragmentMark` reject through `DrawFault.unrepresentable` because drawpyo owns no faithful arbitrary-ring or path object.
-- Entry: `DiagramDraw.emit` returns ONE `ArtifactWork` per rendered kind (suite construction is `core/issue#ISSUE`'s `Diagrams` arm, which constructs `DiagramDraw(glyphs=..., palette=...)` per assigned layout); `_key` is `ContentIdentity.key` over the `_seed` length-framed canonical chunks — `(tag, payload)` glyph rows, palette octets, frame/target/font bundle — minted PRE-RUN so keyed admission probes the warm seed and `receipt.slot == node.key`; `_emit` renders once through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` (the kernel touches the isolate-unsafe `ziafont`/`numpy` C-extensions the subinterpreter cannot load, so the thread arm is its one placement) and mints the receipt; `layered()` projects the SVG arm's `graphic/layer#LAYER` `LayerPlan`, each root's intent from the `_INTENT` class. `_render_svg` serializes EACH named `Group` to its OWN `<svg>`; the `.drawio` kernel serializes `File.xml` into a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates `get_by_id` rows, and re-emits).
+- Entry: `DiagramDraw.emit` returns ONE `ArtifactWork` per rendered kind (suite construction is `core/issue#ISSUE`'s `Diagrams` arm, which constructs `DiagramDraw(glyphs=..., palette=...)` per assigned layout); `_key` is `ContentIdentity.key` over the `_seed` length-framed canonical chunks — `(tag, payload)` glyph rows, palette octets, frame/target/font bundle — minted PRE-RUN so keyed admission probes the warm seed and `receipt.slot == node.key`; `_emit` renders once through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` (the kernel touches the isolate-unsafe `ziafont`/`numpy` C-extensions the subinterpreter cannot load, so the thread arm is its one placement), mints the receipt, and awaits `Journal.record` over `receipt.evidence()` for the `OPERATIONAL` fact and its `STORAGE` charge — seated at that awaitable fold and never inside the worker kernel, where nothing suspends and no journal custody is bound; `layered()` projects the SVG arm's `graphic/layer#LAYER` `LayerPlan`, each root's intent from the `_INTENT` class. `_render_svg` serializes EACH named `Group` to its OWN `<svg>`; the `.drawio` kernel serializes `File.xml` into a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates `get_by_id` rows, and re-emits).
 - Growth: a new mark element is one `DiagramGlyph` case plus one `_lower` arm plus one `_INTENT` row; a new node silhouette one `NodeShape` row plus one `_shape` arm plus one `_DRAWIO_STYLE` row; a new marker one `MarkerKind`/`_marker` pair plus one `_DRAWIO_MARKER` row; a new crow's-foot terminal one glyphset `ER_CAPS` row; a new generic terminal one `EndCap` row plus one `_cap_glyph` arm plus one `_DRAWIO_CAP` row; a new style axis one `GlyphStyle` field; a new named layer a new `GlyphStyle.layer` value the `_groups` partition already buckets; a new egress arm one `DrawTarget` row plus one `DrawArtifact` case plus one `_render_*` arm; a new route regime one glyphset `EdgeRoute` member plus one `_DRAWIO_ROUTE` row. A print/PDF-X plane requiring non-scaling outlined strokes composes `graphic/vector/region#REGION` `RegionOp.Outline`/`RegionOp.Boolean` one hop through the vector owner, never a draw-owned `pathops` import; a CAD-native diagram deliverable is `export/dxf#DXF`'s `Diagram` arm consuming the same positioned glyph sequence under the `drawing/regime#REGIME` pen vocabulary, never a draw-local ezdxf arm shipping vendor-default linework.
 - Boundary: pre-run canonical input owns node identity, and rendering never fingerprints a second byte stream. Layout supplies coordinates and routes; `hex_ramp` supplies color; SVG labels outline to paths, while `.drawio` labels remain editable source text. Typed refusal replaces every silent payload drop.
 
@@ -55,6 +55,7 @@ from rasm.artifacts.visualization.diagram.glyphset import (
 )
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -194,8 +195,18 @@ class DiagramDraw(Struct, frozen=True):
         return ContentIdentity.key(f"diagram-{self.target}", IdentitySource(parts=self._seed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        # The durable seat is this awaitable fold and never `_rendered`: that kernel crosses the lane into a worker
+        # where nothing suspends and no journal custody is bound, so a record there folds to the unarmed no-op. A
+        # drawn diagram is `OPERATIONAL` under the case's own retention row, its diff naming the target kind, the
+        # node and edge cardinality a later layout compares against, and the engine that lowered it, with the byte
+        # volume charging `STORAGE`. `layered()` records nothing — its receipt is a projection artefact the plan
+        # discards, and a durable fact minted off a value no node published is evidence of an artifact that is not.
         crossed = await self.lane.offload(Kernel.of(partial(self._rendered, key), KernelTrait.RELEASING))
-        return crossed.bind(lambda inner: inner.map(lambda pair: pair[1]).map_error(self._fault))
+        match crossed.bind(lambda inner: inner.map(lambda pair: pair[1]).map_error(self._fault)):
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         # named diagram layers as one LayerPlan tree the exporters compose; SVG-arm projection. This is no plan node,
@@ -757,7 +768,7 @@ __all__ = [
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

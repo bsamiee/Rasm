@@ -302,6 +302,7 @@ _TOOL_PATHS: Final[frozendict[str, str]] = frozendict(ToolSettings().paths)
 # roster's own, distinct from whatever constant a spawning folder holds for the executable it launches — one is the
 # provision key, the other the command spelling, and conflating them makes every consumer a candidate owner of both.
 KTX_TOOL: Final[str] = "ktx"
+EXIFTOOL_TOOL: Final[str] = "exiftool"
 
 # THE estate tool-provision roster: one row per external binary any folder spawns, keyed by the id a `floor` names.
 # It seats HERE rather than at a producer folder because every stratum reaches this tier and none reaches a peer's —
@@ -310,8 +311,12 @@ KTX_TOOL: Final[str] = "ktx"
 # provisioned for one tool and not another with no owner able to say so. One probe body serves every tool a bare PATH
 # lookup answers and a tool needing more grows its own; the probe asserts PRESENCE and returns the resolved path,
 # because a version string proves nothing about the binary behind it and the resolved store path is the identity a
-# verdict anchors to. Provisioning put `ktx` on the bare PATH beside `ktx2check`/`toktx`.
-TOOLS: Final[Map[str, ToolRow]] = Map.of_seq([(KTX_TOOL, ToolRow(binary=KTX_TOOL, probe=which))])
+# verdict anchors to. Provisioning put `ktx` on the bare PATH beside `ktx2check`/`toktx`, and `exiftool` rides the
+# same bare PATH — its spawning driver takes the resolved path at construction, so the roster stays the one answer.
+TOOLS: Final[Map[str, ToolRow]] = Map.of_seq([
+    (KTX_TOOL, ToolRow(binary=KTX_TOOL, probe=which)),
+    (EXIFTOOL_TOOL, ToolRow(binary=EXIFTOOL_TOOL, probe=which)),
+])
 
 
 def resolved(name: str, /) -> Option[str]:

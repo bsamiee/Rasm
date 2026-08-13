@@ -6,25 +6,26 @@ Reproducible-report composition binds data and visual outputs into one `document
 
 ## [01]-[INDEX]
 
-- [02]-[REPORT]: the one composition axis over the section/template/notebook/reflow/author kinds, dispatched by the `COMPOSE_ARMS` coroutine-row table into one `DocumentNode` interior.
+- [02]-[REPORT]: one composition axis over the section/template/notebook/reflow/author kinds, dispatched by the `COMPOSE_ARMS` coroutine-row table into one `DocumentNode` interior.
 
 ## [02]-[REPORT]
 
 - Owner: `ReportPlan` — `SectionBlock` is the closed body-unit union interleaving prose, lists, figures, AND data tables IN one ordered flow, never a `Section.figures` trail parallel to the block flow; `TableData` lowers REAL cell text to a `TableNode` the audit's `THead`/`TR` nesting check reads, never a `FigureRef` pre-render flattening cells to an image; `NotebookEngine.client_kwargs` and `ExportPolicy.exporter_kwargs` project their full trait sets to constructor kwargs, so a new bounded-safety or export-shaping trait is one field with zero call-site edit.
 - Cases: the `TEMPLATE` arm renders strict-undefined — a missing section key is a `jinja2.UndefinedError` fault, never a silent blank — under the trusted/sandboxed/native `Environment` policy built at boundary scope, the sandbox arm winning first so an untrusted source can never reach the native engine; the `FunctionLoader` callable provider is deleted because a callable is no serializable spec value; the `NOTEBOOK` export round-trip target is deleted because it returns a `NotebookNode` the `jupytext.writes` archive already owns; `ReportSource.AUTO` defers to `jupytext.reads(fmt=None)` content detection.
 - Entry: the key mints PRE-RUN over the canonical `(kind, spec)` input with `receipt.slot == node.key`; grouped composition is `core/issue`'s construction, never a module batch driver here — `matrix` mints the per-cell plans and stops.
-- Auto: `parameterize_notebook` threads `kernel_name` through `papermill.parameterize`; `nbconvert.get_exporter` resolves enabled and plugin exporters at admission; `(output, resources)` partitions on output type, so text becomes a `BlockKind.CODE` leaf while bytes remain a content-addressed `FigureNode` asset; `resources['outputs']` display figures splice through `_notebook_figures`; every non-reflow `media_box` derives from `_PAPER[spec.paper]`.
-- Receipt: `contribute` reads the threaded `ReportFact` case without re-running an arm; `REFLOW` and `AUTHOR` mint page-bearing `ArtifactReceipt.Pdf`, while `NOTEBOOK` addresses its rendered body and `jupytext` archive separately.
+- Auto: `parameterize_notebook` threads `kernel_name` through `papermill.parameterize`; `nbconvert.get_exporter` resolves enabled and plugin exporters at admission; `(output, resources)` partitions on output type, so text becomes a `BlockKind.CODE` leaf while bytes remain a content-addressed `FigureNode` asset; `resources['outputs']` display figures splice through `_notebook_figures`; every non-reflow `media_box` derives from `_PAPER[spec.paper]`; REFLOW's `positionfn` sweep projects each placed element to a `Placement` row of native scalars and `_deposits` folds that stream to what a recovery reads back — heading nodes carrying their text, one link node per link occurrence — fragment boxes unioning only over a stable element id, never a bare (href, text) agreement fusing two same-target links — and a link-bearing heading nesting its link node as a child so neither fact drops — so the emitted `StructureNode` DOCUMENT root carries one `PageNode` per laid-out page (each keyed over its own deposit rows, a deposit-less page riding empty) exactly as the `document/lens#LENS` STORY and LINK arms recover off the rendered bytes page-for-page, and an id-bearing element MuPDF reports without any text deposits nothing rather than an empty node.
+- Receipt: `contribute` reads the threaded `ReportFact` case without re-running an arm; `REFLOW` and `AUTHOR` mint page-bearing `ArtifactReceipt.Pdf`, while `NOTEBOOK` addresses its rendered body and `jupytext` archive separately through the one `_archive` derivation both the durable seat and the synchronous port read. `_emit` awaits `Journal.record` over `receipt.evidence()` — the awaitable seat, since `contribute` cannot suspend — and a NOTEBOOK plan writes BOTH artifacts' ledgers in that one call, because an archive whose bytes are charged and whose fact never lands is a hole in the metering.
 - Packages: providers defer through module-scope `lazy` imports; `traitlets.config.Config` carries `ExportPolicy`; the runtime process lane isolates `REFLOW`, and the thread lane isolates GIL-releasing `AUTHOR` and blocking nbconvert renders.
-- Growth: a new report kind is one `ReportKind` row plus one `COMPOSE_ARMS` row and optional `_REQUIRED` row; a new section-body unit is one `SectionBlock` case plus one `_block_node` arm; exporter growth arrives through the nbconvert registry; a new result modality is one `ReportFact` case; a parameter study is one `matrix` grid with its `matrix_comparison` cross-cell section.
+- Growth: a new report kind is one `ReportKind` row with one `COMPOSE_ARMS` row and optional `_REQUIRED` row; a new section-body unit is one `SectionBlock` case with one `_block_node` arm; exporter growth arrives through the nbconvert registry; a new result modality is one `ReportFact` case; a new recoverable reflow deposit is one `Placement` field MuPDF already reports with its `_placed_node` arm; a parameter study is one `matrix` grid with its `matrix_comparison` cross-cell section.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Iterator
 from enum import StrEnum
 from functools import partial
-from typing import Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
+from itertools import groupby
+from typing import Annotated, Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -34,11 +35,13 @@ import msgspec
 from msgspec import UNSET, Struct, field, structs
 from msgspec.json import Encoder
 from msgspec.structs import asdict
-from pydantic import TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
+    AnnotationNode,
+    AnnotKind,
     BlockKind,
     BlockNode,
     DocumentNode,
@@ -49,11 +52,16 @@ from rasm.artifacts.document.model import (
     PageNode,
     RunNode,
     SectionNode,
+    StandardRole,
+    StructEltKind,
+    StructureNode,
     TableNode,
+    Uri,
     encode,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import OPEN, Receipt, receipted
@@ -327,6 +335,20 @@ class FigureRef(Struct, frozen=True):
     intrinsic: tuple[float, float] | None = None
 
 
+class Placement(Struct, frozen=True, gc=False):
+    # ONE placed element as the `Story` position callback reports it, projected to native scalars because the
+    # callback fires inside the HOSTILE worker and a MuPDF position object crosses no process seam. What the stream
+    # actually reports bounds what the sheet can deposit, and it reports LESS than the layout draws: a position
+    # fires for a heading, for an anchor, and for an id-bearing element, and never for an anonymous paragraph — and
+    # `text` is filled for a HEADING alone, so an id-bearing paragraph arrives as a box with no content in it.
+    page: int  # 0-based, matching the lens `PageNode.meta.page` the STORY inverse assigns
+    heading: int  # 1..6 for an <h1>..<h6>, 0 for every other element — the `SectionNode.level` discriminant
+    anchor: str  # the element's HTML id; `add_header_ids=True` synthesizes one per header on the STABILIZED layout alone, so a DIRECT heading's is empty
+    href: str  # the anchor target `Story.add_pdf_links` resolves — the `AnnotationNode` discriminant
+    text: str  # the heading's own text; empty on every other kind, which is why only a heading deposits content
+    rect: Rect
+
+
 class TableData(Struct, frozen=True):
     # a row-major grid of cell texts plus the `TableNode` band/span/caption metadata.
     rows: tuple[tuple[str, ...], ...] = ()
@@ -451,7 +473,7 @@ class ReportPayload(TypedDict, closed=True):
     export_policy: NotRequired[ReadOnly[ExportPolicy]]
     paper: NotRequired[ReadOnly[ReflowPaper]]
     user_css: NotRequired[ReadOnly[str]]
-    em: NotRequired[ReadOnly[float]]
+    em: NotRequired[ReadOnly[Annotated[float, Field(gt=0, allow_inf_nan=False)]]]  # the story's base font size becomes every recovered `RunNode.size`, which the model bounds positive
     layout: NotRequired[ReadOnly[ReflowLayout]]
     author_source: NotRequired[ReadOnly[AuthorSource]]
     title: NotRequired[ReadOnly[str]]
@@ -507,20 +529,87 @@ _ALLOWED: Final[Map[ReportKind, frozenset[str]]] = Map.of_seq([
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _meta(role: str, label: str, path: tuple[int, ...], classification: str = "", /) -> NodeMeta:
+def _meta(role: str, label: str, path: tuple[int, ...], classification: str = "", /, *, bounds: Rect | None = None) -> NodeMeta:
     # key by structural PATH joined to the label, so identical-heading siblings under distinct parents never collapse;
-    # an empty classification rides `UNSET` so an unclassified node's digest stays omit-defaults-stable.
+    # an empty classification rides `UNSET` so an unclassified node's digest stays omit-defaults-stable. `bounds` is
+    # GEOMETRIC evidence and never an identity input — only a laid-out node (the reflow placement sweep) knows its
+    # rectangle, and an authored one leaves it absent rather than inventing a box the composition never computed.
     trail = "-".join(map(str, path)) or "root"
     return NodeMeta(
         key=ContentIdentity.key(f"report-{role}-{trail}", label.encode()),
         role=role,
         page=path[0] if path else 0,
+        bounds=bounds,
         classification=classification or UNSET,
     )
 
 
-def _runs(role: str, path: tuple[int, ...], *lines: str) -> tuple[RunNode, ...]:
-    return tuple(RunNode(meta=_meta(f"{role}-run", line, path), text=line, font_key="body", size=11.0) for line in lines if line)
+def _runs(role: str, path: tuple[int, ...], *lines: str, size: float = 11.0, bounds: Rect | None = None) -> tuple[RunNode, ...]:
+    # `size` is the composition's body point size by default and the story's own `em` on the reflow path, because a
+    # laid-out run's size is a MEASURED fact there; `RunNode.size` is `PositiveFloat`, which `em` admits bounded to.
+    return tuple(
+        RunNode(meta=_meta(f"{role}-run", line, path, bounds=bounds), text=line, font_key="body", size=size) for line in lines if line
+    )
+
+
+def _deposits(stream: tuple[Placement, ...], /) -> Iterator[Placement]:
+    # `_deposits` folds the raw position stream to the placements that DEPOSIT something a recovery reads back, and
+    # two stream facts drive the whole fold. First, MuPDF reports one entry position per element per layout rect, so
+    # STABLE element identity alone is the union axis: placements sharing an authored or `add_header_ids`-synthesized
+    # id union their fragment boxes into the one element that id spells, while an anonymous placement — empty
+    # `anchor`, keyed apart by its own stream ordinal — deposits per occurrence, because two same-page links on one
+    # href are distinct links only an identity could merge, and a bare (href, text) coalesce fuses them into one box
+    # spanning both — a link the `document/lens#LENS` LINK arm never finds in the rendered bytes it recovers
+    # page-for-page. Second, an id-bearing paragraph or image reports a box and an id and NO text, and no recovery
+    # arm reads a contentless node, so it is dropped rather than deposited empty — a node the inverse never visits is
+    # decoration, and the sheet's real content still rides the emitted bytes.
+    keyed = groupby(
+        enumerate(stream),
+        key=lambda slot: (slot[1].page, slot[1].anchor or f"\x00{slot[0]}", slot[1].href, slot[1].heading, slot[1].text),
+    )
+    for _key, group in keyed:
+        run = tuple(placed for _ordinal, placed in group)
+        head = run[0]
+        if head.heading or head.href:
+            boxes = tuple(placed.rect for placed in run)
+            yield structs.replace(
+                head, rect=(min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+            )
+
+
+def _placed_node(ordinal: int, placed: Placement, em: float, /) -> DocumentNode:
+    # ONE deposit, ONE node, discriminated by what MuPDF reported rather than by any caller knob: a heading rank
+    # authors a `SectionNode` carrying its recovered text, and a rank-less survivor is the anchor a link
+    # `AnnotationNode` carries — the two shapes the STORY and LINK recovery arms rebuild off these same bytes.
+    # Deposits carrying BOTH facts — an href reported on a heading element — drop neither: the heading arm nests
+    # its link node as the one child, so the section keeps its rank and the LINK arm still recovers the target.
+    # `size` is the story's base `em` because the position stream reports no per-element size at all: the rendered
+    # heading's CSS-resolved size is MuPDF-internal, and the lens reads the REAL per-span size back off the output.
+    # Id and href join the text in the key preimage, so two identically-worded headings never collapse.
+    path, label = (placed.page, ordinal), f"{placed.anchor}\x1f{placed.href}\x1f{placed.text}"
+    linked = (
+        (
+            AnnotationNode(
+                meta=_meta("reflow-link", label, path, bounds=placed.rect),
+                annot=AnnotKind.LINK,
+                target=placed.rect,
+                contents=placed.text,
+                link=Uri(href=placed.href),
+            ),
+        )
+        if placed.href  # `Uri.href` admits one-plus characters, so the link node mints only on a real target
+        else ()
+    )
+    match placed:
+        case Placement(heading=level) if level:
+            return SectionNode(
+                meta=_meta("reflow-heading", label, path, bounds=placed.rect),
+                level=level,
+                heading=_runs("reflow-heading", path, placed.text, size=em, bounds=placed.rect),
+                children=linked,
+            )
+        case _:
+            return linked[0]  # `_deposits` admits a rank-less deposit only with an href, so the link node is always minted here
 
 
 def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
@@ -763,22 +852,52 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
 
 async def _reflow_arm(plan: "ReportPlan") -> "ReportFact":
     # AGPL pymupdf.Story sweep is CPU-bound native work isolated on the runtime process lane through the bound `lane`.
+    # Each sheet DEPOSITS the structure its inverse recovers, page boundaries included: the `document/lens#LENS` STORY
+    # inverse rebuilds one `PageNode` per laid-out page, so the deposit tree is a `StructureNode` DOCUMENT root over
+    # exactly `count` pages — a deposit-less page rides as an empty `PageNode` rather than vanishing — and each page
+    # keys over its OWN deposit rows while the root keys the whole rendered bytes, so two reflows differing on one
+    # page re-key that page alone.
     spec = plan.spec
     crossed = await plan.lane.offload(Kernel.of(_reflow, KernelTrait.HOSTILE), spec.source, spec.user_css, spec.em, spec.paper.value, spec.layout)
-    pdf, count, box = crossed.default_with(lambda fault: _report_raise(fault))
-    key = ContentIdentity.key(f"report-{plan.kind.value}", pdf)
-    page = PageNode(meta=NodeMeta(key=key, role="reflow", page=0), media_box=box)
-    return ReportFact(pdf=(page, pdf, count))
+    pdf, count, box, placed = crossed.default_with(lambda fault: _report_raise(fault))
+    # deposits arrive already page-then-flow ordered, so the enumeration ordinal is a monotone identity slot
+    # joined to each placement's own page — every child keys apart with no second pass.
+    deposits = tuple(enumerate(_deposits(placed)))
+    pages = tuple(
+        PageNode(
+            meta=NodeMeta(
+                key=ContentIdentity.key(
+                    f"report-{plan.kind.value}-page-{index}",
+                    _KEY_ENCODER.encode(tuple(item for _ordinal, item in deposits if item.page == index)),
+                ),
+                role="reflow-page",
+                page=index,
+                bounds=box,
+            ),
+            media_box=box,
+            children=tuple(_placed_node(ordinal, item, spec.em) for ordinal, item in deposits if item.page == index),
+        )
+        for index in range(count)
+    )
+    root = StructureNode(
+        meta=NodeMeta(key=ContentIdentity.key(f"report-{plan.kind.value}", pdf), role="reflow", page=0, bounds=box),
+        role=StandardRole(elt=StructEltKind.DOCUMENT),
+        children=pages,
+    )
+    return ReportFact(pdf=(root, pdf, count))
 
 
-def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayout) -> tuple[bytes, int, Rect]:
+def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayout) -> tuple[bytes, int, Rect, tuple[Placement, ...]]:
     # one `Story.write`/`write_stabilized` entry lays the whole HTML; `positionfn` collects placed positions and
     # `add_pdf_links` injects live links from them (a no-op when the HTML has no `<a>`), so the returned bytes are the
-    # link-enriched reflowed PDF the receipt keys.
+    # link-enriched reflowed PDF the receipt keys. The SAME callback projects each placement to native scalars: the
+    # raw position is a MuPDF object bound to this worker process, so evidence leaves as data and the node authoring
+    # happens back on the arm — the folder's standing rule that no durable construction seats in a worker callback.
     rect = pymupdf.paper_rect(paper)
     buffer = io.BytesIO()
     writer = pymupdf.DocumentWriter(buffer)
     positions: list[object] = []
+    placed: list[Placement] = []
     pages = 0
 
     def rectfn(rect_number: int, filled: object, /) -> tuple[object, object, None]:
@@ -791,6 +910,22 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
 
     def positionfn(position: object, /) -> None:
         positions.append(position)
+        # `open_close` is a bit pair — 1 on entry, 2 on exit, 3 for an atomic element reporting both at once — and the
+        # ENTRY bit selects the event carrying the element's text and its place in flow, so testing the bit
+        # rather than the value keeps atomic elements while the exit-only event (which reports empty text over the
+        # same box) never doubles a child. `rectfn` answers a mediabox for EVERY rect, so `page_num` counts from 1
+        # across the whole sweep and lands 0-based here. Shaping stays on the arm: this callback only collects.
+        if position.open_close & 1:
+            placed.append(
+                Placement(
+                    page=position.page_num - 1,
+                    heading=position.heading,
+                    anchor=position.id or "",
+                    href=position.href or "",
+                    text=position.text or "",
+                    rect=tuple(position.rect),
+                )
+            )
 
     try:
         match layout:
@@ -813,7 +948,7 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
                 assert_never(unreachable)
     finally:
         writer.close()
-    return pymupdf.Story.add_pdf_links(buffer, positions).tobytes(), pages, tuple(rect)
+    return pymupdf.Story.add_pdf_links(buffer, positions).tobytes(), pages, tuple(rect), tuple(placed)
 
 
 async def _author_arm(plan: "ReportPlan") -> "ReportFact":
@@ -900,7 +1035,34 @@ class ReportPlan(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        return (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: done._receipt(key))
+        settled = (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: (done, done._receipt(key)))
+        match settled:
+            case Result(tag="ok", ok=(done, receipt)):
+                # `Journal.record` seats the durable evidence for both kinds this owner mints, `report` and the
+                # REFLOW/AUTHOR `pdf`: recording suspends and `contribute` is synchronous, so the shared `evidence`
+                # builder is composed here alone. One NOTEBOOK plan produces TWO addressed artifacts, so BOTH ledgers
+                # ride the one write — the archive's
+                # bytes are a real storage charge, and a second artifact whose durable fact never lands is a gap the
+                # metering cannot see. Every kind here retains OPERATIONAL, and the declared facts are the whole
+                # evidence, so no positional diff is appended.
+                facts = receipt.evidence()
+                archive = done._archive
+                return (await Journal.record(facts if archive is None else facts.append(archive.evidence()))).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
+
+    @property
+    def _archive(self) -> ArtifactReceipt | None:
+        # `_archive` derives the NOTEBOOK plan's SECOND addressed artifact — the `jupytext` source archive beside the
+        # rendered body — ONCE here, so the durable seat and the synchronous port can never address it two ways.
+        match self.fact:
+            case ReportFact(
+                tag="notebook",
+                notebook=(_node, _body, archive, _figures, _export, _exporter, _extension, _resources, _source, _timed, _widgets),
+            ):
+                return ArtifactReceipt.Report(ContentIdentity.key("report-notebook-archive", archive), len(archive))
+            case _:
+                return None
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         assert self.fact is not None
@@ -923,14 +1085,8 @@ class ReportPlan(Struct, frozen=True):
         if self.fact is None:  # rides the stepped owner the fold returned, never a re-run
             return
         yield from self._receipt(self._key).contribute()
-        match self.fact:
-            case ReportFact(
-                tag="notebook",
-                notebook=(_node, _body, archive, _figures, _export, _exporter, _extension, _resources, _source, _timed, _widgets),
-            ):
-                yield from ArtifactReceipt.Report(ContentIdentity.key("report-notebook-archive", archive), len(archive)).contribute()
-            case _:
-                return
+        if (archive := self._archive) is not None:
+            yield from archive.contribute()
 
     @classmethod
     def of(cls, kind: ReportKind, /, *, lane: LanePolicy, **raw: Unpack[ReportPayload]) -> Result[Self, ReportFault]:
@@ -999,7 +1155,7 @@ def _report_raise(fault: object) -> Never:
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 

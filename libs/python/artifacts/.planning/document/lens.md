@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_LENS]
 
-Recover-TO half of the bidirectional `document` seam: `DocumentLens` recovers a `DocumentNode` tree back OUT of an emitted PDF, a scanned raster, or an office/structured-text payload — one owner discriminating recovery operation over the closed `LensOp`, routed by the one `_ROUTES` `Route` table whose rows carry the arm, the default provider, AND the admissible provider set, never a `get_text`/`get_words` verb family. Production and extraction are inverses over the one node algebra, so a `document/emit#DOCUMENT` emission and a `DocumentLens` recovery round-trip through `DocumentNode` with `document/model#DELTA` defined once. Beyond content recovery the op family carries the prepress/forensic examination plane — per-glyph geometry, computed layout metrics, document/page classification, OCG layer and separation-ink census, page-label trees, and FDF/XFDF form-data export — the incoming-file triage a delivery plane accepting consultant files runs before it accepts.
+Recover-TO half of the bidirectional `document` seam: `DocumentLens` recovers a `DocumentNode` tree back OUT of an emitted PDF, a scanned raster, or an office/structured-text payload — one owner discriminating recovery operation over the closed `LensOp`, routed by the one `_ROUTES` `Route` table whose rows carry the arm, the default provider, AND the admissible provider set, never a `get_text`/`get_words` verb family. Production and extraction are inverses over the one node algebra, so a `document/emit#DOCUMENT` emission and a `DocumentLens` recovery round-trip through `DocumentNode` with `document/model#DELTA` defined once. Beyond content recovery the op family carries the prepress/forensic examination plane — per-glyph geometry, computed layout metrics, document/page classification, ruled-table extraction quality, OCG layer and separation-ink census, page-label trees, and FDF/XFDF form-data export — the incoming-file triage a delivery plane accepting consultant files runs before it accepts.
 
 Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-core engine carrying reading-order XY-cut recovery, region crop, in-process OCR, and `FormField`-flag AcroForm recovery — the commercial-safe path where the AGPL `pymupdf` arms are barred on a closed-distributed pipeline, `pymupdf` retained for the permissive/internal lane. Each provider carries its own runtime `band`: the native and pure-Python readers resolve in-process on the core, and only the process-isolated companions (`ocrmypdf`, `python-calamine`, `lxml`) cross as `KernelTrait.HOSTILE` kernels onto the warm process pool; every reader arm is a `@beartype` boundary narrowing the recovered provider shapes to the model-legal `DocumentNode` before crossing back. `LensSpec` admits exactly once at `.of` under the per-op `_REQUIRED` precondition and the `Route.providers` admission — an op/provider pair outside the row refuses as `LensFault.provider`, so no reader arm can fall through to an engine the caller never named; the `@receipted(OPEN)` weave drains the stepped owner and `contribute` mints the `core/receipt#RECEIPT` `ArtifactReceipt.Introspection` case.
 
@@ -11,11 +11,11 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 ## [02]-[LENS]
 
 - Owner: `DocumentLens` — the ops dispatch a provider VALUE rather than reconstructing the engine choice, the band recovered once from `provider.band`, the offload crossed through the owner's own `lane: LanePolicy` instance (`self.lane.offload`, the runtime-owned bound — never a class-qualified call nor a folder-minted limiter). One polymorphic `_node` constructor mints every node variant over a `NodeMeta` whose content key joins the structural `path` — the `tuple[int, ...]` of child ordinals from the recovery root, the node's structural uid — to the content payload, so identical-content siblings under one parent never collapse onto one slot and a content change at a fixed path re-keys without stealing a sibling's identity; `bounds` stays geometric evidence on the meta, never an identity substitute. Per-kind material admits through the closed `NodeSlot` `TypedDict`, honoring each variant's real field contract — never a per-kind sibling-factory family.
-- Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — reads `FormField.flags` as the raw AcroForm `/Ff` bitmask so `_text_mode` selects `TextMode.PASSWORD` ahead of `TextMode.MULTILINE` on a field setting both bits (a `None` there means the field dict omits `/Ff`, never a cleared bit), and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ runs the hardened parser (`resolve_entities=False`, `no_network=True`, `huge_tree=False`) and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
+- Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; TABLE_AUDIT runs the SAME `_table_settings` band through `debug_tablefinder` and mints one `TableAudit` per page off the pipeline's own intermediates — an unruled page reports its stray edge count and a zero crossing ratio where a bare `find_tables` result reports nothing a threshold could read, and `TableAudit.read` is the inverse `delivery/gate#GATE` recovers typed scalars through so no consumer re-parses a rendered field string; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — reads `FormField.flags` as the raw AcroForm `/Ff` bitmask so `_text_mode` selects `TextMode.PASSWORD` ahead of `TextMode.MULTILINE` on a field setting both bits (a `None` there means the field dict omits `/Ff`, never a cleared bit), and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ admits through the `document/model#NODE` `hardened_parse` fold — the axis's one stated libxml2 posture — and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
 - Auto: every recursive foreign source — the pikepdf `/K` spine, the pdfplumber structure branches, the lxml element tree, a YAML/TOML value graph — rebuilds post-order through the one `_grown` expand/combine marker frontier on an immutable `Block` stack, so adversarial nesting depth never overflows the interpreter frame limit and every rebuilt node receives its structural path from the same frontier; the flattening walks (pypdf outline, ODT containers) run small explicit stacks under the same depth law.
 - Entry: the key mints PRE-RUN over `(op, payload, provider, scoped spec)` ONCE at `of` and rides the owner as `key` — the spec preimage narrowed by `_minted` to the op's `Route.observed` roster so an unobserved knob edit never forks an op's key, and never the recovered tree, whose digest stays a `document/model#NODE` `node_digest` projection downstream consumers derive on demand. Carrying the mint rather than re-deriving it keeps `receipt.slot == node.key` structural across both the async rail and the synchronous `contribute` port, and spares the whole-payload re-encode and the second `content.derive` span a property read costs. A GATED row crosses onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` bindings there, so the worker lane carries no second dispatch.
-- Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute.
-- Growth: a new recovery op is one `LensOp` member, one `Route` row (arm, default, providers, observed), and one `_REQUIRED` row when it needs material; a new provider for an existing op is one member in the row's `providers` set with its arm branch; a new provider knob is one `LensSpec` field, one `LensPayload` row, and its op's `observed` entry; a richer recovered field is one `NodeSlot` key honored by `_node`; a new AcroForm mode is one `_FIELD_BUILDERS` row.
+- Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute; `_emit` awaits `Journal.record` over `receipt.evidence()` — the awaitable seat the durable plane demands, since `contribute` cannot suspend — and appends no positional diff, because those counts already ARE the recovery's whole evidence.
+- Growth: a new recovery op is one `LensOp` member, one `Route` row (arm, default, providers, observed), and one `_REQUIRED` row when it needs material; a new provider for an existing op is one member in the row's `providers` set with its arm branch; a new provider knob is one `LensSpec` field, one `LensPayload` row, and its op's `observed` entry; a richer recovered field is one `NodeSlot` key honored by `_node`; a new AcroForm mode is one `_FIELD_BUILDERS` row; a new table-quality measure is one `TableAudit` field, whose projection and inverse both derive from the roster.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -72,11 +72,16 @@ from rasm.artifacts.document.model import (
     TextDecoration,
     TextDirection,
     TextField,
+    TextMode,
     Uri,
+    children,
+    field_text,
+    hardened_parse,
     walk,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import OPEN, Receipt, receipted
@@ -112,6 +117,7 @@ class LensOp(StrEnum):
     EXTRACT_TEXT = "extract-text"
     EXTRACT_IMAGES = "extract-images"
     TABLE = "table"
+    TABLE_AUDIT = "table-audit"  # ruled-table extraction QA off the `debug_tablefinder` intermediates — the `delivery/gate#GATE` threshold source
     WORDS = "words"
     CHARS = "chars"  # per-glyph forensic geometry: pdf_oxide TextChar rows carrying font metrics and the marked-content MCID
     REGION = "region"
@@ -262,6 +268,72 @@ class LensSpec(Struct, frozen=True, omit_defaults=True):
     ink_depth: InkDepth = InkDepth.DIRECT  # INKS selects its catalogued reader through the behavior-bearing policy value
 
 
+class TableAudit(Struct, frozen=True, gc=False):
+    # ONE page's ruled-table extraction quality, read off the `debug_tablefinder` pipeline's OWN intermediates
+    # (`edges -> intersections -> cells -> tables`) rather than off the tables that survived it — which is the whole
+    # point of a gate: a page whose rulings never cross reports its stray edge count and a zero crossing ratio, where
+    # a `find_tables` result reports nothing at all and a threshold on it cannot tell an unruled page from a clean
+    # one. Every field is a count the finder computed or a ratio over two of them; nothing here is estimated, and no
+    # slot names a quality judgment — the bar belongs to `delivery/gate#GATE`, this value only measures.
+    page: int
+    tables: int  # contiguous cell groups the finder resolved into grids
+    cells: int  # rectangles the intersection lattice closed — always >= the cells any one table claims
+    intersections: int  # resolved edge-crossing vertices, the lattice the cells derive from
+    horizontals: int  # detected `orientation == "h"` ruling edges under the requested strategy
+    verticals: int  # detected `orientation == "v"` ruling edges
+    ruled: float  # ruling-line coverage: the share of detected edges reaching at least one intersection
+    filled: float  # the share of extracted table cells carrying text — a closed grid holding no text is a false positive
+
+    @classmethod
+    def of(cls, page: object, index: int, settings: Mapping[str, object], /) -> Self:
+        # `debug_tablefinder` hands back the `TableFinder` itself, so this reads the same pipeline `find_tables`
+        # runs and adds no second detection pass. Edge identity is the `(x0, top, x1, bottom)` box pdfplumber's own
+        # intersection resolver compares on, spelled from the documented edge-dict keys so no private helper crosses.
+        finder = page.debug_tablefinder(dict(settings))
+        edges = finder.edges
+        crossing = {_edge_box(edge) for vertex in finder.intersections.values() for edge in (*vertex["v"], *vertex["h"])}
+        slots = tuple(cell for table in finder.tables for row in table.extract() for cell in row)
+        return cls(
+            page=index,
+            tables=len(finder.tables),
+            cells=len(finder.cells),
+            intersections=len(finder.intersections),
+            horizontals=sum(edge["orientation"] == "h" for edge in edges),
+            verticals=sum(edge["orientation"] == "v" for edge in edges),
+            # both ratios divide by a count that is legitimately zero on an unruled or table-free page, and an
+            # empty-denominator 0.0 is the honest reading: no edge crossed, no cell filled.
+            ruled=sum(_edge_box(edge) in crossing for edge in edges) / len(edges) if edges else 0.0,
+            filled=sum(bool(cell and cell.strip()) for cell in slots) / len(slots) if slots else 0.0,
+        )
+
+    def node(self, path: Trail, /) -> DocumentNode:
+        # the field roster IS the projection: every scalar lands as one `FieldNode` under the page's structure node,
+        # so a new audit measure is one field on this owner and zero edits anywhere else. `read` below walks the same
+        # roster, which is why the forward and inverse of this one correspondence cannot drift apart.
+        rows = tuple((spec.name, getattr(self, spec.name)) for spec in structs.fields(TableAudit))
+        return _node(
+            NodeKind.STRUCTURE,
+            "table-audit",
+            self.page,
+            repr(rows).encode(),
+            path=path,
+            elt=StructEltKind.SECT,
+            children=tuple(
+                _node(NodeKind.FIELD, name, self.page, str(value).encode(), path=(*path, slot), name=name, field=TextField(value=str(value)))
+                for slot, (name, value) in enumerate(rows)
+            ),
+        )
+
+    @classmethod
+    def read(cls, node: DocumentNode, /) -> Self:
+        # the inverse a gate reads: one recovered structure node back to typed scalars, decoded against this roster's
+        # own annotations so an int stays an int and a ratio a float — a threshold comparing the rendered string
+        # "0.0" against its bar is exactly the defect a projection without an inverse leaves at every call site.
+        return msgspec.convert(
+            {child.name: field_text(child.field) for child in children(node) if isinstance(child, FieldNode)}, cls, strict=False
+        )
+
+
 class Route(Struct, frozen=True):
     # one row is the whole per-op policy: the arm, the default engine, the admissible provider set, and the spec fields the
     # arm observes — `of` refuses a provider outside `providers`, so an arm's branch set is total over its admitted engines
@@ -301,7 +373,15 @@ class DocumentLens(Struct, frozen=True):
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
         railed = await async_boundary(f"lens.{self.op.value}", self._recovered)
-        return railed.map(lambda stepped: stepped._receipt(key))
+        match railed.map(lambda stepped: stepped._receipt(key)):
+            case Result(tag="ok", ok=receipt):
+                # the `introspection` kind's ONE durable seat: recording suspends on the journal's bounded intake and
+                # the synchronous `contribute` port cannot, so the shared `evidence` builder is composed here. The
+                # four `Introspection` counts ARE the whole recovery evidence — no finer diff exists to append, and
+                # an empty change tuple is the honest statement of that rather than an invented positional entry.
+                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         flat = tuple(child for node in self.recovered for child in walk(node))
@@ -1007,9 +1087,18 @@ def _labels_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
         )
 
 
-@beartype
-def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    settings: dict[str, object] = {
+def _edge_box(edge: Mapping[str, object]) -> Bounds:
+    # the edge identity pdfplumber's own intersection resolver compares on, off the documented edge-dict geometry keys.
+    return (edge["x0"], edge["top"], edge["x1"], edge["bottom"])
+
+
+def _table_settings(spec: LensSpec, provider: LensProvider, /) -> dict[str, object]:
+    # ONE ruled-table settings projection for the whole family — extraction and audit alike — keyed by the engine
+    # VALUE rather than duplicated per arm: the tolerance band both readers share, plus the explicit-line rows
+    # pdfplumber alone names (`pymupdf.find_tables` spells those `vertical_lines`/`horizontal_lines` and rejects
+    # these keys). An empty explicit tuple stays absent, because an empty list starves the `explicit` strategy of
+    # every edge where omission lets the strategy fall back to the page's own derived lines.
+    band: dict[str, object] = {
         "vertical_strategy": spec.vertical,
         "horizontal_strategy": spec.horizontal,
         "snap_tolerance": spec.snap_tolerance,
@@ -1018,6 +1107,29 @@ def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
         "intersection_tolerance": spec.intersection_tolerance,
         "text_tolerance": spec.text_tolerance,
     }
+    if provider is LensProvider.MUPDF:
+        return band
+    return band | {
+        key: list(value)
+        for key, value in (("explicit_vertical_lines", spec.explicit_vertical), ("explicit_horizontal_lines", spec.explicit_horizontal))
+        if value
+    }
+
+
+@beartype
+def _table_audit_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
+    # table-extraction QA as an examination projection: the audit runs the SAME settings the TABLE arm would, so a
+    # gate measures the extraction a caller is about to trust rather than a differently-tuned one. One `TableAudit`
+    # per page, projected through its own roster-derived node fold — the page ordinal is the whole path, matching
+    # every other per-page examination arm.
+    settings = _table_settings(spec, provider)
+    with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
+        return tuple(TableAudit.of(page, index, settings).node((index,)) for index, page in enumerate(document.pages))
+
+
+@beartype
+def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
+    settings = _table_settings(spec, provider)
     if provider is LensProvider.PDFOXIDE:
         # native Rust table grid: each row dict carries `rows[].cells[].text` + `is_header`; the `(x, y, w, h)` bbox converts once.
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
@@ -1042,16 +1154,11 @@ def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
                     page.find_tables(**settings).tables
                 )  # `Table.header` is always a truthy `TableHeader`; `.external` is the real discriminant — an above-body synthesized header is NOT in `extract()` rows (0), an in-grid header row is (1)
             )
-    plumber = settings | {
-        key: list(value)
-        for key, value in (("explicit_vertical_lines", spec.explicit_vertical), ("explicit_horizontal_lines", spec.explicit_horizontal))
-        if value
-    }
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _table_node(table.extract(), tuple(table.bbox), index, (index, ordinal), spans=_plumber_spans(table))
             for index, page in enumerate(document.pages)
-            for ordinal, table in enumerate(page.find_tables(table_settings=plumber))
+            for ordinal, table in enumerate(page.find_tables(table_settings=settings))
         )
 
 
@@ -1635,8 +1742,9 @@ def _value_built(seed: object, path: Trail, grown: tuple[DocumentNode, ...], pag
 
 @beartype
 def _xml_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    parser = etree.XMLParser(recover=spec.recover, resolve_entities=False, no_network=True, huge_tree=False)
-    return (_grown(etree.fromstring(payload, parser=parser), _xml_kids, _xml_built),)
+    # an external XML file is the most foreign payload this owner reads, so it admits through the model owner's ONE
+    # hardened fold; `recover` stays the caller's salvage choice over a truncated source and moves no security knob.
+    return (_grown(hardened_parse(payload, recover=spec.recover), _xml_kids, _xml_built),)
 
 
 def _xml_kids(element: object) -> tuple[object, ...]:
@@ -1742,6 +1850,7 @@ _ROUTES: Final[Map[LensOp, Route]] = Map.of_seq([
     (LensOp.EXTRACT_TEXT, Route(_text_arm, LensProvider.PDFOXIDE, frozenset({LensProvider.PDFOXIDE, LensProvider.MUPDF, LensProvider.PYPDF}), ("mode", "reading_order", "flags"))),
     (LensOp.EXTRACT_IMAGES, Route(_images_arm, LensProvider.PYPDF, frozenset({LensProvider.PYPDF}))),
     (LensOp.TABLE, Route(_table_arm, LensProvider.PLUMBER, frozenset({LensProvider.PDFOXIDE, LensProvider.MUPDF, LensProvider.PLUMBER}), ("vertical", "horizontal", "snap_tolerance", "join_tolerance", "edge_min_length", "intersection_tolerance", "text_tolerance", "explicit_vertical", "explicit_horizontal", "repair"))),
+    (LensOp.TABLE_AUDIT, Route(_table_audit_arm, LensProvider.PLUMBER, frozenset({LensProvider.PLUMBER}), ("vertical", "horizontal", "snap_tolerance", "join_tolerance", "edge_min_length", "intersection_tolerance", "text_tolerance", "explicit_vertical", "explicit_horizontal", "repair"))),
     (LensOp.WORDS, Route(_words_arm, LensProvider.PDFOXIDE, frozenset({LensProvider.PDFOXIDE, LensProvider.PLUMBER}), ("include_artifacts", "profile", "x_tolerance", "y_tolerance", "use_text_flow", "split_at_punctuation", "extra_attrs", "repair"))),
     (LensOp.CHARS, Route(_chars_arm, LensProvider.PDFOXIDE, frozenset({LensProvider.PDFOXIDE}))),
     (LensOp.REGION, Route(_region_arm, LensProvider.PDFOXIDE, frozenset({LensProvider.PDFOXIDE, LensProvider.PLUMBER}), ("bbox", "repair"))),
@@ -1774,7 +1883,7 @@ _ROUTES: Final[Map[LensOp, Route]] = Map.of_seq([
 
 ## [03]-[RESEARCH]
 
-<!-- source-only: research row template:
+<!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
