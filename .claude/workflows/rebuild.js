@@ -765,13 +765,25 @@ const codexPrompt = (label, task, schema, o) => {
         delegate +
         ' --cwd ' +
         ROOT_DIR +
-        ' --sandbox ' +
-        sandbox +
         flagsOf(o) +
         (authored ? '' : ' --out ' + report) +
-        '; the harness re-invokes you when the delegate exits — Read ' +
+        // codex.sh owns no --sandbox flag: sandbox rides the `--` passthrough to codex exec — the script's one
+        // extension point — and `--` lands LAST because the script hands everything after it to the delegate verbatim.
+        ' -- --sandbox ' +
+        sandbox +
+        // HOLD, never yield: a workflow wrapper gets NO re-invocation when its background child exits (probe-measured: a
+        // yielded wrapper stayed dead past its delegate's receipt), so the wrapper holds in blocking foreground rounds —
+        // the delegate-codex skill's [WRAPPER] law verbatim.
+        '; then HOLD to the receipt in blocking FOREGROUND Bash rounds, one call per round at the tool ceiling (timeout: 600000): ' +
+        'S=0; until [ -f ' +
         delegate +
-        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        '/receipt.json ]; do sleep 5; S=$((S+5)); [ $S -ge 570 ] && break; done; [ -f ' +
+        delegate +
+        '/receipt.json ] && cat ' +
+        delegate +
+        '/receipt.json || echo PENDING — PENDING is a delegate still producing: run the IDENTICAL call again, as many rounds as ' +
+        'the work takes; a launch alone yields no product and no notification, ending your turn before the receipt exists ' +
+        'ORPHANS the delegate, and the hold is your whole job. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the delegate, then land the receipt" and ' +
         're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
