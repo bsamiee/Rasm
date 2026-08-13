@@ -101,7 +101,7 @@
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
 - `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/MANIFEST.md` is the one federation index, pin authority, and fixture registry.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
-- Observability backends stand per DEPLOYMENT, never per estate — an app root supplies `StackSpec.observe.*`, the iac `Lgtm`/`Dev` rows realize the stack, and `StackOutputs.otlp` publishes the one endpoint its workloads read; a libs card holding the corpus open for container placement re-litigates the platform/product split.
+- Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
 
 ## [05]-[PROCESS]
 

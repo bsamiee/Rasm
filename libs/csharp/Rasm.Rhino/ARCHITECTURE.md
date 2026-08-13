@@ -187,7 +187,7 @@ config:
 ---
 flowchart LR
     accTitle: Rasm.Rhino kernel-boundary seams
-    accDescr: Rasm.Rhino host sub-domain owners consuming frozen-name value contracts down from the Rasm kernel, one boundary rail per consuming sub-domain.
+    accDescr: Rasm.Rhino host sub-domain owners consuming frozen-name value contracts down from the Rasm kernel, one boundary rail per consuming sub-domain plus the Display geometry wire and content-key rails.
     subgraph rhino[RASM.RHINO]
         Document[Document substrate]
         Commands[Command lifecycle]
@@ -220,6 +220,9 @@ flowchart LR
     Rasm e13@-->|"[BOUNDARY]: Context"| Blocks
     Rasm e15@-->|"[BOUNDARY]: ModelUnit + ContentHash + Dimension + UnitInterval + PerceptualColor + EpsilonPolicy"| Exchange
     Rasm e16@-->|"[BOUNDARY]: Lease"| Plugin
+    Rasm e19@-->|"[WIRE]: EncodedGeometry"| Display
+    Rasm e20@-->|"[WIRE]: MeshSpace"| Display
+    Rasm e21@-->|"[CONTENT_KEY]: GeometryHash"| Display
     Document e17@-->|"[WIRE]: OrganizationWire"| PyData
     Document e18@-->|"[WIRE]: OrganizationWire"| TsData
 ```

@@ -62,6 +62,7 @@
 - `RecoveryObjective` declares ONCE at `Rasm.AppHost` and `Rasm.Persistence` imports it — a port shape earns its seat by RE-SHAPING, never by name.
 - Declaring a recovery target and grading one split owners — `RecoveryWindow.Gauged` is the one gauge, a `Meets*` twin blind to the unmeasured half.
 - Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
+- Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never upgrades.
 
 ## [03]-[COLLAPSE]
 
@@ -73,6 +74,7 @@
 - Mounted sets fold over any number of meters through one `InstrumentSet.Of` — a root re-folding pre-bound pairs positionally re-mints the derivation.
 - `InstrumentSet.Tags` materializes dimension keys at the write entry — a folder re-spelling that fold copies the one materialization.
 - `RasterPolicy`, `VisualCodec`, and `RasterCodec` stay plural per stratum — a shared owner forces a cross-stratum reference.
+- Rhino `FilePdf` publish and AppUi PDFsharp/MigraDoc vector-PDF stay plural per stratum — a shared owner forces the S1-to-S4 cross-reference.
 - `SolarPosition` is the kernel's ONE ephemeris almanac — every consumer projects the ANGLES into its own frame, a local Meeus fold being deleted.
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the seam — an absent lane is a missing descriptor, never an empty buffer.

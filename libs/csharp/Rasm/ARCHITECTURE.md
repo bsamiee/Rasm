@@ -156,13 +156,15 @@ config:
 ---
 flowchart LR
     accTitle: Kernel content-key and compute-plane seams
-    accDescr: Kernel owners federating content keys and handing compute, measure, and signal shapes, causal-frame ports, and encoded wires to same-branch and cross-runtime peers.
+    accDescr: Kernel owners federating content keys and handing compute, measure, and signal shapes, causal-frame ports, encoded wires, and drawing and atlas projections to same-branch and cross-runtime peers.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
         Spatial[Spatial fields]
         Meshing[Mesh lattice]
+        Parametric[Parametric producers]
         Processing[Processing rail]
+        Solving[Solving owners]
         Drawing[Drawing producers]
         Analysis[Analysis entry]
     end
@@ -205,12 +207,20 @@ flowchart LR
     Domain e34@-->|"[SHAPE]: BenchClaim"| Bim
     Numerics e35@-->|"[SHAPE]: CellLattice"| Element
     Numerics e36@-->|"[SHAPE]: RgbProfile + CellLattice"| Bim
-    Numerics e37@-->|"[SHAPE]: RgbProfile"| Materials
+    Numerics e37@-->|"[SHAPE]: RgbProfile + CellLattice"| Materials
     Numerics e25@-->|"[SHAPE]: SunPosition"| Compute
     Numerics e26@-->|"[SHAPE]: SunPosition"| AppUi
     Numerics e27@-->|"[SHAPE]: SunPosition"| Materials
     Numerics e28@-->|"[SHAPE]: SpectralArena"| Materials
     Numerics e29@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Compute
+    Drawing e38@-->|"[PROJECTION]: DrawingProjection + HatchResult"| AppUi
+    Parametric e39@-->|"[BOUNDARY]: SpringShape"| AppUi
+    Spatial e40@-->|"[WIRE]: SpatialIndex"| AppUi
+    Solving e41@-->|"[WIRE]: Lm.Minimize + DualModel"| Materials
+    Drawing e42@-->|"[SHAPE]: ChannelDtype"| Materials
+    Processing e43@-->|"[PROJECTION]: ChartAtlas"| Materials
+    Parametric e44@-->|"[WIRE]: PatternPlan + InstanceStream"| Materials
+    Drawing e45@-->|"[SHAPE]: ChannelDtype"| Bim
 ```
 
 ```mermaid
@@ -260,12 +270,15 @@ config:
 ---
 flowchart LR
     accTitle: Kernel host-UI boundary seams
-    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts to the Rhino and Grasshopper host packages, every rail one-way down from the kernel.
+    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts, geometry wires, content keys, and the causal-frame port to the Rhino and Grasshopper host packages, every rail one-way down from the kernel.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
+        Spatial[Spatial fields]
+        Meshing[Mesh lattice]
         Parametric[Parametric producers]
         Processing[Processing rail]
+        Drawing[Drawing producers]
         Analysis[Analysis entry]
     end
     Rhino([Rasm.Rhino])
@@ -280,6 +293,13 @@ flowchart LR
     Analysis e13@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
     Domain e14@-->|"[BOUNDARY]: ModelUnit"| Rhino
     Numerics e15@-->|"[BOUNDARY]: VectorFrame"| Rhino
+    Drawing e18@-->|"[BOUNDARY]: ViewPose"| Rhino
+    Drawing e19@-->|"[WIRE]: EncodedGeometry"| Rhino
+    Meshing e20@-->|"[WIRE]: MeshSpace"| Rhino
+    Spatial e21@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
+    Parametric e22@-->|"[BOUNDARY]: MonotonicStamp"| Grasshopper
+    Parametric e23@-->|"[BOUNDARY]: SpringShape"| Grasshopper
+    Domain e24@-->|"[PORT]: Op + Lease + HookPoint + InstrumentSpec"| Grasshopper
 ```
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. Second hashers and non-zero seeds are the named cross-folder drift.

@@ -95,7 +95,7 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 |  [07]   | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree           |
 |  [08]   | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation         |
 |  [09]   | `Parameters`                                                | state     | expose the component's pin roster  |
-|  [10]   | `Threading`                                                 | state     | select component processing policy |
+|  [10]   | `Threading`                                                 | state     | select `Grasshopper2.Components.ThreadingState` processing policy |
 |  [11]   | `SupportsVariableParameters`                                | gate      | expose variable-pin capability     |
 |  [12]   | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change        |
 |  [13]   | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo             |
@@ -205,8 +205,8 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 |  [08]   | `ConnectionParameter.DoCollect`          | `bool`                               | collect connected source ids     |
 |  [09]   | `IntegerParameter.IsIndex`               | `bool`                               | index posture                    |
 |  [10]   | `IntegerParameter.Indexing`              | `IndexModifier`                      | wrap policy                      |
-|  [11]   | `IntegerParameter.Hint`                  | `UiInteger`                          | integer UI hint                  |
-|  [12]   | `NumberParameter.Hint`                   | `UiNumber`                           | slider domain and precision hint |
+|  [11]   | `IntegerParameter.Hint`                  | `UiInteger`                          | `Grasshopper2.UI` integer hint   |
+|  [12]   | `NumberParameter.Hint`                   | `UiNumber`                           | `Grasshopper2.UI` slider domain and precision hint |
 |  [13]   | `NumericParameter.ExoticFilter`          | `NumericFilter`                      | admitted exotic numeric families |
 |  [14]   | `CurveParameter.NormaliseDomains`        | `NormalisationMethod`                | curve domain rule                |
 |  [15]   | `CurveParameter.FlipCurves`              | `bool`                               | curve sense flip                 |

@@ -18,7 +18,7 @@ Every alignment travels down the one kernel seam. Every measured surface mints t
 - [07]-[SETTINGS](.planning/Persistence/settings.md): `Settings.Commit` carries the settings tree through pure reads, typed writes, and guards.
 - [08]-[APPSETTINGS](.planning/Persistence/appsettings.md): `AppSettings.Commit` drives every application preference family through typed state.
 - [09]-[USERDATA](.planning/Persistence/userdata.md): `ArchiveIo` frames attached custody; `TypedUserData` seals the participation template.
-- [10]-[USERTEXT](.planning/Persistence/usertext.md): `Texts.Commit` owns document and per-object user strings with prior-value receipts.
+- [10]-[USERTEXT](.planning/Persistence/usertext.md): `UserTexts.Commit` owns document and per-object user strings with prior-value receipts.
 - [11]-[PRESETS](.planning/Persistence/presets.md): `Presets.Commit` runs cplane, position, and layer-state presets under one mask vocabulary.
 - [12]-[SNAPSHOTS](.planning/Persistence/snapshots.md): `Snapshots.Commit` scripts snapshot state; `SnapshotParticipant` adapts the plugin seam.
 

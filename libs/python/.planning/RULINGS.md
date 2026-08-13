@@ -8,7 +8,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 
 - `python_version` markers gate a REPRODUCED break alone — a gate-every-native sweep reverses resolution `forge-scientific-env` builds at the floor.
 - Overlay residency grows at `Parametric_Forge`, never a repo admission — venv path order shadows it, so the `.pth` tail overrides no manifest row.
-- A floor-unreachable distribution (no wheel, no buildable sdist, no overlay or nix route) never rides an open hold — where an installable peer re-owns its arms it RETIRES whole, and where it is the sole capability its rows state the typed degrade permanently.
+- Floor-unreachable distributions never hold open — a peer re-owning the arms retires the row; a sole capability states its PERMANENT typed degrade.
 
 ## [02]-[SHAPE]
 

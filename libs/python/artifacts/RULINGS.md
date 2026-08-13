@@ -11,9 +11,9 @@
 - Source-build repairs land at PACKAGE scope — `opencolorio` kills its Metal helper via `[tool.uv.extra-build-variables]`, never a wrapper knob.
 - Spawned `ktx` holds the KTX2 encode floor and `pyktx` takes the leg a presence probe picks — one provisioned binary makes python and C# bytes agree.
 - `pyvips` admits BARE as a source API-mode build, `no-binary-package` pinning the sdist — API mode compiles the deep lanes the wheel excludes.
-- `pikepdf` alone authors PDF encryption on BOTH license footings — `pdf_oxide`'s R≥5 seal omits the `/Perms` its dictionary requires, a catalog fact, so ENCRYPT carries no permissive alternate.
-- `psd-tools` is the ONE native PSD/PSB owner, authoring and re-proving its own bytes — an uninstallable second writer retired whole, and none re-enters.
-- Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — Basis/ASTC block encode is an 8-bit-store package fact on both toolchain legs, never an estate ceiling.
+- `pikepdf` alone authors PDF encryption on BOTH license footings — `pdf_oxide`'s R≥5 seal omits the `/Perms` its own dictionary requires.
+- `psd-tools` is the ONE native PSD/PSB owner, authoring and re-proving its own bytes — every second writer is floor-uninstallable, so none re-enters.
+- Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — block encode takes an 8-bit store on BOTH toolchain legs.
 
 ## [02]-[SHAPE]
 
@@ -47,7 +47,7 @@
 - Announcement boundaries read sensitivity off the ISO 19650 confidentiality header, unspelled reading INTERNAL — unclassified is not publishable.
 - Packed PCM times on the FRAME axis — every window, pick, and reversal reshapes to `(frames, channels)`, since a last-axis index rotates the lanes.
 - libavfilter drains catch the `av.error` LEAVES — each subclasses `FFmpegError`, so an outer capture reads a leaked drain sentinel as a codec fault.
-- Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence, and a hand-rolled box or tag-table walk never enters.
+- Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence.
 
 ## [03]-[COLLAPSE]
 

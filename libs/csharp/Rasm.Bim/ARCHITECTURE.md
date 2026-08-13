@@ -162,6 +162,8 @@ flowchart LR
     Semantics -->|"[SHAPE]: TextureRoster"| Materials
     Materials -->|"[SHAPE]: DetailSchema"| Semantics
     Rasm -->|"[SHAPE]: GeometryMeasures"| Semantics
+    Rasm -->|"[SHAPE]: CellLattice"| Semantics
+    Rasm -->|"[SHAPE]: ChannelDtype"| Semantics
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Exchange <-->|"[TESSELLATION]: TessellationOutcome"| Compute
     Review <-->|"[TRANSPORT]: IdsVerdict"| Compute

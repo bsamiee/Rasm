@@ -144,12 +144,13 @@ config:
 ---
 flowchart LR
     accTitle: AppUi AEC-domain, render-source, and storage seams
-    accDescr: AppUi render, chart, collaboration, and diagnostics owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
+    accDescr: AppUi render, chart, collaboration, theme, and diagnostics owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
     subgraph appui[RASM.APPUI]
         Render[Render plane]
         Charts[Chart planes]
         Collab[Collab plane]
         Document[Document plane]
+        Theme[Theme vocabulary]
         Diagnostics[Diagnostics]
     end
     Compute{{Rasm.Compute}}
@@ -164,6 +165,9 @@ flowchart LR
     Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
     Rasm -->|"[SHAPE]: SunPosition"| Render
+    Rasm -->|"[PROJECTION]: DrawingProjection + HatchResult"| Render
+    Rasm -->|"[WIRE]: SpatialIndex"| Render
+    Rasm -->|"[BOUNDARY]: SpringShape"| Theme
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
     Bim -->|"[RECEIPT]: ScheduleNetwork"| Charts

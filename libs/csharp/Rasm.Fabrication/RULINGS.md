@@ -25,6 +25,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - `GdtFrameWire` publishes frame-box facts ALONE — datum targets and basic dimensions need a view transform the tolerance seam has no view to apply.
 - `IToleranceEncoder` stays OPEN with one landed implementation per egress — a five-arm closed union crosses four arms no drawing consumer decodes.
 - Datum labels admit the ISO 5459 class alone — `I`, `O`, and `Q` read as digits, and a class the producer widens alone crosses as a consumer refusal.
+- Serial inverse runs TWO LM funnels — `Lm.Minimize` carries no bound column for a HARD joint-travel box, so MathNet iterates the `Dual<T>` chain.
 
 ## [03]-[COLLAPSE]
 

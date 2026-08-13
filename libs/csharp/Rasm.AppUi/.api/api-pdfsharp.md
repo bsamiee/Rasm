@@ -243,7 +243,7 @@
 - Within-lib: signing composes at the boundary — `IDigitalSigner` (or the ready `PdfSharpDefaultSigner`) receives key material from the AppHost secrets lease under acquire/renew/zeroize, never AppUi-held key bytes; MigraDoc reports post-process through `.PdfDocument` for `DigitalSignatureHandler.ForDocument` and `SetEncryptionToV5`.
 
 [LOCAL_ADMISSION]:
-- PDFsharp and MigraDoc are the branch's sole vector-PDF and flow-report owners: precise sheet layout draws directly with `XGraphics`, multi-page flow reports author a MigraDoc `Document`, and the drafting sheet-PDF and Diagnostics report-PDF both compose this pair.
+- PDFsharp and MigraDoc are the host-neutral stratum's vector-PDF and flow-report owners: precise sheet layout draws directly with `XGraphics`, multi-page flow reports author a MigraDoc `Document`, and the drafting sheet-PDF and Diagnostics report-PDF both compose this pair.
 
 [RAIL_LAW]:
 - Package: `PDFsharp` + `PDFsharp-MigraDoc`

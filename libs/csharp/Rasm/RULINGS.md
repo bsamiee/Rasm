@@ -23,6 +23,7 @@ Every reopen predicate rides the license gate.
 - Packed-upper layout is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - Packed-upper index arithmetic mirrors across `SymmetricMatrix`, `SampleMoment`, and `Lm` — the formula moves only as one all-owner edit.
 - `Analysis/relations` owns host-native intersection, `Meshing/intersect` the predicate-exact tier — the consumer's tolerance source decides.
+- Host `Annotation/hatch` owns hatch-table custody and placement, `Drawing/hatch` the exact fill synthesis — the consumer's output target decides.
 - Every kernel draw threads `Deterministic` — `Solving/fit`'s MLESAC sampler included, so no kernel page mints a `System.Random`.
 - `Domain/stats` is the kernel's one covariance and extremum mint — a re-mint beside a consumer forks the algebra into drifting copies.
 - Every mutable geometry store composes the `Meshing/edit` arena law — a `with`-record store re-pays full copies and forks hash-eligibility.
@@ -48,6 +49,7 @@ Every reopen predicate rides the license gate.
 - `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 - `TenantContext.Key` is the one tenancy-discriminant read — a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
 - `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares coordinates.
+- `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 
 ## [03]-[COLLAPSE]
 

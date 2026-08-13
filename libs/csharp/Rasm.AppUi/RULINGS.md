@@ -39,7 +39,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Platform-capability gates read the capability PROPERTIES and the activation preconditions — the no-op provider is `internal` and unspellable.
 - Meter delegate arity mirrors the declared `Dimensions`, its slot an `Option` pair — wider invites an untagged write, narrower blocks a breakdown.
 - Capability admission folds every TOTAL gating plane through one predicate — `DegradationLevel` retains all at `Full`, so tenancy adds its own.
-- Pose interpolation partitions by TYPE DOMAIN — `TrackInterp` owns the AppUi stratum, `[NOT]` kernel `MotionInterpolation`, which stays interior.
+- `TrackInterp` slerps poses by REACHABILITY — Rhino-typed `MotionInterpolation` cannot cross the host-free shell; a host-neutral rotor retires it.
 - `Render/capture` owns the `NativeAssetFact` TYPE and `Shell/hosts` `NativeAssets.Identity` is its SOLE producer — a re-probe port is a twin.
 - Popup, flyout, and tooltip motion has ONE owner in `MotionEasing` — the shipped Semi popup style stays unmounted, its durations untokened.
 - Semi slot re-emission writes the SEMANTIC brush layer alone — the hue scale binds in through `{StaticResource}`, so a scale write re-tints nothing.

@@ -117,6 +117,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Build manifests name only what their compiled closure carries; an estate-unrealized namespace homes at the fence consuming it.
 - Trigger: That row hard-fails the one consumer that cannot drop it while every sibling carries a removal row reading as deliberate configuration.
 - Boundary: Injection spans every kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
+- Boundary: Spec-fence preludes fall under it — a `using` of a namespace no fence declares propagates by template copy and reads as settled law.
 
 [PACKAGE_LIMIT_AS_LAW]:
 - Law: Specifications and domains own their semantics while admitted packages accelerate them; a narrower package surface states a package fact.
