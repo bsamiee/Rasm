@@ -28,14 +28,16 @@ import { KeyValueStore } from "@effect/platform"
 import { Digest } from "@rasm/ts/core"
 import { Array, DateTime, Effect, Layer, Schema } from "effect"
 
-const _bands = ["glb", "bvh", "frame", "draft"] as const
+const _bands = ["glb", "bvh", "frame", "draft", "media"] as const
 
-// one row per band: identity posture, reproducibility, and eviction order — every band decision reads off this table
+// one row per band: identity posture, reproducibility, and eviction order — every band decision reads off this table;
+// media is speculative prefetch (view/media#SOURCE_PLANE consumes it), so it evicts ahead of every rendered product
 const _BANDS = {
   glb: { keyed: true, remintable: true, rank: 2 },
   bvh: { keyed: false, remintable: true, rank: 1 },
   frame: { keyed: true, remintable: true, rank: 3 },
   draft: { keyed: false, remintable: false, rank: 0 },
+  media: { keyed: true, remintable: true, rank: 4 },
 } as const
 
 const _LEDGER = "ledger"

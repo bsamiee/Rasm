@@ -118,7 +118,7 @@ flowchart LR
     Artifacts e17@-->|"[WIRE]: AssetSetManifest"| Core
 ```
 
-Each contract family decodes once through the core interchange codec registry: `core` edges freeze the wire spelling verbatim from the owning endpoint file, `ui` edges name the landing decoded there, and the one `data` edge names a contract both ends mint, so nothing decodes at it. Schema drift is a graded boot verdict at that gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TypeScript consumes the GLB tessellation rail through that contract; Python `artifacts` sends `AssetSetManifest` through the neutral corpus into core, with no direct package or runtime import.
+Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, `ui` edges name the landing decoded there, and the one `data` edge names a contract both ends mint, so neither end decodes. Schema drift grades as a boot verdict there: an additive change admits decode, a breaking change refuses as typed evidence, never a runtime decode failure. TypeScript consumes the GLB tessellation rail there; Python `artifacts` sends `AssetSetManifest` into core through the neutral corpus, never a direct package or runtime import.
 
 Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
@@ -216,6 +216,8 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 |  [17]   | columnar query end    | `data/lane/olap` Flight SQL rows                    | one row on the one Flight plane                           |
 |  [18]   | reliability indicator | `core/observe/slo` `Reliability` families           | one indicator, burn, severity, or panel row               |
 |  [19]   | asset transform       | `data/object/asset` `TRANSFORM_ROWS` roster         | one engine-plane row; the fanout spine stays one          |
+|  [20]   | embed block kind      | `ui/view/content` `Content.Block` roster            | one block row registered at the composition root          |
+|  [21]   | anchor space          | `ui/view/presence` `Anchor.Space` rows              | one space row exported by the owning surface              |
 
 ## [06]-[BOUNDARIES]
 

@@ -173,12 +173,28 @@ catalog:
   class-variance-authority: 0.7.1
   clsx: 2.1.1
   tailwindcss: 4.3.3
+  '@tailwindcss/typography': 0.5.20
   tailwindcss-react-aria-components: 2.2.0
   tailwind-merge: 3.6.0
   tw-animate-css: 1.4.0
   colorjs.io: 0.7.1
   isomorphic-dompurify: 3.22.0
   tus-js-client: 4.3.1
+  react-resizable-panels: 4.12.2
+  '@xyflow/react': 12.11.3
+  elkjs: 0.12.0 # EPL-2.0; consumed only via elkjs/lib/elk-api + workerFactory — the bare entry pulls 1.5MB CJS into the main chunk
+  prosemirror-model: 1.25.11
+  prosemirror-state: 1.4.4
+  prosemirror-view: 1.42.2
+  prosemirror-transform: 1.12.0
+  prosemirror-commands: 1.7.2
+  prosemirror-keymap: 1.2.3
+  prosemirror-history: 1.5.0
+  prosemirror-inputrules: 1.5.1
+  prosemirror-schema-list: 1.5.1
+  prosemirror-gapcursor: 1.4.1
+  prosemirror-dropcursor: 1.8.3
+  prosemirror-collab: 1.3.1
   motion: 13.1.0
   d3: 7.9.0
   uplot: 1.6.32

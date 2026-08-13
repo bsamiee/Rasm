@@ -5,7 +5,7 @@
 ## [01]-[ROUTER]
 
 - [01]-[SYSTEM](.planning/system/): Component floor — token authority dual-sunk to CSS and viewer linear space; motion, atom, hook, and vital owners.
-- [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, chart, export, each one owner where variation is rows.
+- [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — one owner per plane, variation carried as rows.
 - [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency, the environment dome, and the `GlobalId` selection plane.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -37,6 +37,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@floating-ui/react`
 - `motion`
 - `@use-gesture/react`
+- `react-resizable-panels` — solves the N-panel constraint behind shell panes; `Group`/`Panel`/`Separator` carry the window-splitter pattern.
 
 [STYLE_TOKENS]:
 - `tailwindcss`
@@ -48,11 +49,12 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `colorjs.io`
 - `lucide-react`
 - `isomorphic-dompurify`
+- `@tailwindcss/typography` — prose element modifiers and the `--tw-prose-*` variable surface; `view/content` owns the token bridge.
 
 [DATA_SURFACES]:
 - `@tanstack/react-table`
 - `@tanstack/react-virtual`
-- `@tanstack/store` — the table's own state vocabulary; `view/table`'s `Grid.edge` mints the adapter atom over the effect-atom fold.
+- `@tanstack/store` — carries the table's own state vocabulary; `view/table`'s `Grid.edge` mints the adapter atom over the effect-atom fold.
 - `apache-arrow`
 - `@perspective-dev/client`
 - `@perspective-dev/viewer`
@@ -67,6 +69,24 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@visx/scale`
 - `@visx/shape`
 - `tus-js-client`
+
+[CONTENT_EDITOR]:
+- `prosemirror-model` — schema, nodes, and marks as data; `view/content`'s roster derives the `Schema` from one row table.
+- `prosemirror-state`
+- `prosemirror-view` — hosts the imperative editor DOM outside React's reconciler behind a scoped acquisition.
+- `prosemirror-transform`
+- `prosemirror-commands`
+- `prosemirror-keymap`
+- `prosemirror-history`
+- `prosemirror-inputrules`
+- `prosemirror-schema-list`
+- `prosemirror-gapcursor`
+- `prosemirror-dropcursor`
+- `prosemirror-collab` — JSON steps on the estate's own wire; the sequencer authority is a port the composition root satisfies.
+
+[CANVAS]:
+- `@xyflow/react` — controlled node-flow engine; `view/canvas`'s `Canvas.useEdge` binds the controlled props over the one graph cell.
+- `elkjs` — layout solve as worker data through `elkjs/lib/elk-api`; the bare entry bundles the full CJS payload.
 
 [TELEMETRY]:
 - `web-vitals` — admitted for its DOM performance-global augmentation alone; `runtime` composes the capture functions and holds the catalogue.

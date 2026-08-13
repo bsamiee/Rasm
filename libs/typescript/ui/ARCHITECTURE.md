@@ -16,12 +16,18 @@ ui/
 │   │   ├── vital.ts      # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
 │   │   ├── intl.ts       # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts  # Headless spine: the one styled recipe and the sanitize gate
-│   └── view/             # View plane composing the system owners into five dense surfaces
-│       ├── form.ts       # Schema-driven forms: one kernel Schema owning wire decode and live field validity
+│   └── view/             # View plane composing the system owners into dense surfaces
+│       ├── form.ts       # Schema-driven forms: one kernel Schema owning wire decode, live field validity, wizard, ceremony
 │       ├── table.ts      # Data grid: models, virtual windows, and grid semantics under one TableState atom
 │       ├── overlay.ts    # Overlay owner: anchoring, sheets, and the command palette over one presence cohort
 │       ├── chart.ts      # Analytic charts: declarations, streams, and pivots over one Arrow plane
-│       └── export.ts     # Export plane: one serializer matrix, content-minted parcels, one egress port
+│       ├── export.ts     # Export plane: one serializer matrix, content-minted parcels, one egress port
+│       ├── shell.ts      # Application chrome as data: region roster, navigation vocabulary, scaffold grammar
+│       ├── status.ts     # Feedback family: Result-derived postures, lease windows, skeleton wrapper, gauges
+│       ├── content.ts    # Prose plane and document editor: one block roster deriving schema, codec, DOM, wire
+│       ├── media.ts      # Byte-borne presentation: image, avatar, transport, and gallery as policy rows
+│       ├── canvas.ts     # Interactive canvas: node/flow edge adapter, worker layout proposals, temporal bands
+│       └── presence.ts   # Collaborative faces: anchor spaces, roster faces, live cursors, comment threads
 └── viewer/
     └── src/              # Spatial tier, a second Nx project
         ├── scene.ts      # Content-keyed GLB residency and environment dome behind the GlbViewport port
@@ -37,6 +43,10 @@ ui/
 - S0 `system` — recipes, interaction, atom, hook, vital, and content-keyed residency form the capability floor.
 - S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`; `table` folds `TableState` on the one store.
 - S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
+- S1 `shell`, `status`, and `media` compose the floor whole — recipes, seal-keyed atoms, cache bands.
+- S1 `content` hosts the editor behind one scoped acquisition.
+- S1 `canvas` mirrors its engine through the edge adapter on the one store.
+- S1 `presence` assembles sibling anchor spaces as composition VALUES, never imports.
 - S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
 - S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
 - S2 `probe` renders its claim board through `view/chart` series; `panel` folds receipts on the store.
@@ -58,7 +68,7 @@ flowchart TB
         Board["panel · probe · review"]
     end
     subgraph S1["S1 VIEW"]
-        View["form · table · overlay · chart · export"]
+        View["form · table · overlay · chart · export · shell · status · content · media · canvas · presence"]
     end
     subgraph S0["S0 SYSTEM"]
         Token["token · primitive"]
@@ -111,6 +121,8 @@ flowchart LR
     AppUi([Rasm.AppUi])
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
+    Core e18@-->|"[SHAPE]: Transition.Config/Actor"| View
+    Core e19@-->|"[SHAPE]: Presence.State/Op/Lease"| View
     Core e12@-->|"[SHAPE]: Residency.Ledger"| Viewer
     Core e16@-->|"[SHAPE]: Wire.ModelDiff/Wire.BcfTopic/Wire.BcfViewpoint/Wire.ControlIntent/Wire.LayoutProgram/Wire.CommandGate/Wire.EvidenceTimeline/Wire.GeoFeature/Wire.PbrGroups"| Viewer
     Runtime e2@-->|"[PORT]: Atom.subscribable"| System
@@ -154,7 +166,7 @@ flowchart LR
     Render e6@-->|"present: frame + evidence"| Surface
 ```
 
-`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart, export — each a single owner where variation is rows (columns, commands, field kinds, chart regimes, serializer cells), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
+`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart, export, shell, status, content, media, canvas, presence — each a single owner where variation is rows (columns, commands, field kinds, chart regimes, serializer cells, regions, postures, block kinds, media classes, node kinds, anchor spaces), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
 
 Every state fact binds through the one atom bridge, so a component projects and never runs an effect or mirrors domain state. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Color is one OKLCH artifact — gamut-fit and contrast-gated at decode — feeding the CSS plane and the viewer's linear render space as one object, and visualization data crosses zero-copy on one Arrow bus. Per-owner wiring lives on the owning implementation pages.
 

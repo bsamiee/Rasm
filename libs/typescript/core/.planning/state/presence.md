@@ -1,11 +1,11 @@
 # [CORE_PRESENCE]
 
-The actor-presence CRDT: the wire-carried op family — `Join` carrying the typed profile and device, `Beat` heartbeats sampling connection quality, `Move` carrying the ephemeral-axes patch (cursor, selection, view, focus, input) as data so every collaborative axis rides ONE op, `Leave` departures — merged per actor into one `Merge.struct` product whose every row is a proven instance: the durable stamps (`joined`/`last`/`gone`) plus one stamped-LWW `Worn` row per axis, and the ephemeral-axis roster is ONE `_AXES` schema-row anchor from which the `Move` patch fields, the product rows, and the op lift all derive — presence converges across feeds and replicas like any lattice and a new axis is one anchor row, never three synchronized edits and never an op case. Status is a read-time verdict over a caller-supplied horizon so liveness policy is a value and the fold never reads an ambient clock. A serving edge decodes client frames INTO this family and forwards rosters; the fold below is the only presence authority, one more `fold#PLAN_CONTRACT` plan row every altitude runs unchanged — the browser roster is the fold's in-memory handle, the ordered roster board is the fractional-index lane, and no second presence table exists anywhere. The module is `core/src/state/presence.ts`; a new ephemeral axis is one `_AXES` row, a new roster read is one projection member.
+`Presence` owns the actor-presence CRDT: the wire-carried op family — `Join` carrying the typed profile and device, `Beat` heartbeats sampling connection quality, `Move` carrying the ephemeral-axes patch (cursor, caret, selection, view, focus, input) as data so every collaborative axis rides ONE op, `Leave` departures — merged per actor into one `Merge.struct` product whose every row is a proven instance: the durable stamps (`joined`/`last`/`gone`) and one stamped-LWW `Worn` row per axis, and the ephemeral-axis roster is ONE `_AXES` schema-row anchor from which the `Move` patch fields, the product rows, and the op lift all derive — presence converges across feeds and replicas like any lattice and a new axis is one anchor row, never three synchronized edits and never an op case. Status is a read-time verdict over a caller-supplied horizon so liveness policy is a value and the fold never reads an ambient clock. Caret carries an editor's EPHEMERAL text selection in the surface's own document coordinates — durable anchors are consumer data, so core stays app-blind to every document model behind the two integers. Serving edges decode client frames INTO this family and forward rosters; the fold below is the only presence authority, one more `fold#PLAN_CONTRACT` plan row every altitude runs unchanged — the browser roster is the fold's in-memory handle, the ordered roster board is the fractional-index lane, and no second presence table exists. `core/src/state/presence.ts` holds the module, and a new roster read is one projection member.
 
 ## [01]-[INDEX]
 
-- [02]-[OP_FAMILY]: the brands, the axis vocabularies, and the wire-carried op union; `Presence.Op`.
-- [03]-[STATE_PRODUCT]: the per-actor axis product instance and the op lift; `Presence.state`, `Presence.plan`.
+- [02]-[OP_FAMILY]: brands, axis vocabularies, and the wire-carried op union; `Presence.Op`.
+- [03]-[STATE_PRODUCT]: per-actor axis product instance and the op lift; `Presence.state`, `Presence.plan`.
 - [04]-[ROSTER_READS]: lease policy, status verdicts, roster and surface projections; `Presence.status/roster/crowd`, `Presence.Lease`.
 
 ## [02]-[OP_FAMILY]
@@ -46,6 +46,14 @@ const _Point3 = Schema.TaggedStruct("Scene", {
   z: Schema.Number.pipe(Schema.finite()),
 })
 const _Point = Schema.Union(_Point2, _Point3)
+
+// document positions in the surface's own coordinate space; anchor and head are independent, so a backward
+// selection is two integers, never a normalized pair a consumer re-derives direction from
+const _Caret = Schema.Struct({
+  surface: _Surface,
+  anchor: Schema.Int.pipe(Schema.nonNegative()),
+  head: Schema.Int.pipe(Schema.nonNegative()),
+})
 
 const _View2 = Schema.TaggedStruct("Sheet", {
   surface: _Surface,
@@ -112,6 +120,7 @@ const _Beat = Schema.TaggedStruct("Beat", {
 
 const _AXES = {
   cursor: _Point,
+  caret: _Caret,
   selection: Schema.HashSet(Digest.Key.content),
   view: _View,
   focus: _Surface,
@@ -148,6 +157,7 @@ const _pointCell = (point: Presence.Point): Fold.Cell =>
   point._tag === "Sheet"
     ? Fold.cell([point._tag, point.surface, point.x, point.y])
     : Fold.cell([point._tag, point.surface, point.x, point.y, point.z])
+const _caretCell = (caret: Presence.Caret): Fold.Cell => Fold.cell([caret.surface, caret.anchor, caret.head])
 const _vectorCell = (vector: Schema.Schema.Type<typeof _Vector3>): Fold.Cell => Fold.cell([vector.x, vector.y, vector.z])
 const _orientationCell = (orientation: Schema.Schema.Type<typeof _Orientation>): Fold.Cell =>
   Fold.cell([orientation.x, orientation.y, orientation.z, orientation.w])
@@ -186,6 +196,7 @@ const _opCell: (op: Presence.Op) => Fold.Cell = _OpCase.$match({
     op.at.physical,
     op.at.logical,
     _optional(op.cursor, _pointCell),
+    _optional(op.caret, _caretCell),
     _optional(op.selection, (selection) =>
       Fold.cell(["selection", ...Array.sort(Array.fromIterable(selection), Order.string)])),
     _optional(op.view, _viewCell),
@@ -211,6 +222,7 @@ declare namespace Presence {
   type Input = (typeof _INPUTS)[number]
   type Profile = Schema.Schema.Type<typeof _Profile>
   type Point = Schema.Schema.Type<typeof _Point>
+  type Caret = Schema.Schema.Type<typeof _Caret>
   type Pose = Schema.Schema.Type<typeof _Pose>
   type View = Schema.Schema.Type<typeof _View>
   type Worn<A> = { readonly value: A; readonly at: Clock.Hlc; readonly tie: string }
@@ -344,10 +356,16 @@ const _status = (state: Presence.State, horizon: Clock.Hlc, lease: Presence.Leas
     onNone: () => _idled(state, horizon, lease),
   })
 
+// sighting precedence is engagement strength: a pointer position, then a text caret, then bare focus — every
+// surface-carrying axis sights, so an actor typing without a pointer still counts toward the surface's crowd
 const _sighted = (state: Presence.State): Option.Option<Presence.Surface> =>
   Option.orElse(
     Option.map(state.cursor, (worn) => worn.value.surface),
-    () => Option.map(state.focus, (worn) => worn.value),
+    () =>
+      Option.orElse(
+        Option.map(state.caret, (worn) => worn.value.surface),
+        () => Option.map(state.focus, (worn) => worn.value),
+      ),
   )
 
 const Presence: Presence.Shape = {

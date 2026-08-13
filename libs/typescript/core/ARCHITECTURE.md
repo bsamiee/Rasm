@@ -197,6 +197,8 @@ flowchart LR
         Tap[Hook rail]
         Carrier[Propagation carrier]
         Event[Message envelope]
+        Transition[Statechart machine]
+        Presence[Actor presence]
     end
     Runtime{{runtime}}
     Data[(data)]
@@ -235,6 +237,8 @@ flowchart LR
     Iac e28@-->|"[PROJECTION]: Board.Query.Target"| Board
     Event e30@-->|"[EVENT]: Event.Fact"| Data
     Event e31@-->|"[EVENT]: Event.Fact"| Runtime
+    Transition e33@-->|"[SHAPE]: Transition.Config/Actor"| Ui
+    Presence e34@-->|"[SHAPE]: Presence.State/Op/Lease"| Ui
 ```
 
 ## [04]-[INTERNAL]

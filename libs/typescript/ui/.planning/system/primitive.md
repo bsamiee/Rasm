@@ -1,11 +1,11 @@
 # [UI_PRIMITIVE]
 
-Primitive owns the headless component spine: react-aria-components instances ONE render-props + context + slot pattern across every family, and this module states how the folder rides it — the `styled` recipe factory fusing a `cva` variant table with RAC's render-state through `composeRenderProps` and the one `cn` rail, the roster law (which library owns which primitive class, radix included), the toast queue + live-region announce rows, the failure envelope (`react-error-boundary` folding the atom's squashed tagged `E`), the one sanitize gate every HTML-bearing string passes before a DOM sink, and the `Clipboard` capability port the browser composition satisfies. Styling is state-as-data: RAC emits `data-*` attributes, the `tailwindcss-react-aria-components` variants read them, and a `className` function survives only where a variant cannot express the state. Module: `ui/src/system/primitive.ts`.
+Primitive owns the headless component spine: react-aria-components instances ONE render-props + context + slot pattern across every family, and this module rides it through the `styled` recipe factory, the roster law assigning each primitive class its owning library, the announce, failure, and sanitize rails, and the clipboard capability port. Styling is state-as-data: RAC emits `data-*` attributes, the `tailwindcss-react-aria-components` variants read them, and a `className` function survives only where a variant cannot express the state. Module: `ui/src/system/primitive.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[STYLED_SPINE]: `Primitive.styled` — the cva × composeRenderProps × cn recipe factory; `Primitive`.
-- [03]-[ROSTER_LAW]: one table assigns each component family its owner and states the slot/context composition rules; —.
+- [03]-[ROSTER_LAW]: one table assigns each component family its owner, the slot/context composition rules, and the landmark and overflow-grant laws; `Primitive`.
 - [04]-[TOAST_ANNOUNCE]: Primitive owns the toast queue and the imperative live-region rail; `Primitive`.
 - [05]-[FAILURE_ENVELOPE]: Primitive folds the error-boundary row — Suspense + boundary as the whole async-failure rail; `Primitive`.
 - [06]-[SANITIZE_GATE]: Primitive gates every HTML string through DOMPurify before any `dangerouslySetInnerHTML` sink; `Primitive`.
@@ -20,6 +20,8 @@ Primitive owns the headless component spine: react-aria-components instances ONE
 - Law: a tone axis DERIVES from `system/token#TONE_VOCABULARY`'s roster and names only the generated slot utilities — a recipe enumerating three tones freezes the vocabulary at whichever subset its author needed, and a raw hue, hex, or unslotted color class in a recipe is the palette fork the token authority exists to hold.
 - Law: prop types lift, never restate — a styled row's props are `ComponentPropsWithRef<typeof Target> & VariantProps<typeof recipe>`; a hand-authored prop interface beside a wrapped component marks the extractor family unused.
 - Law: element override is `render` on the aria spine and `Slot`/`asChild` on the non-aria plane — a RAC component swaps its DOM element through the `render` prop; a radix-based atom polymorphs through `createSlot(ownerName)`; the two mechanisms never stack on one node.
+- Law: the skip link is the shell's FIRST focusable — `_skip` styles the visually-hidden-until-focused anchor, and `view/shell#SCAFFOLD` renders it ahead of every region and owns the main-region id its href names; a shell without it strands keyboard users behind the whole chrome, and a second skip target per document is the named defect.
+- Law: recipes never disable forced-colors adjustment — `forced-color-adjust-none` is admitted only where a semantic color IS the information (a tone dot, a diff ink), and that recipe row declares a system-color fallback beside it, so Windows High Contrast keeps the signal without keeping the palette.
 - Growth: a new styled atom is one recipe row and one wrapped component; a new visual axis is one variant row in the recipe — never a second class-composition mechanism.
 
 ```typescript signature
@@ -51,6 +53,12 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
   defaultVariants: { tone: "neutral", size: "md" },
   compoundVariants: [{ tone: "danger", size: "sm", class: "font-medium" }],
 })
+
+// sr-only until keyboard focus lifts it into the flow at the top-start corner, ranked on the token z ladder so it
+// clears every mounted surface; activation jumps the whole chrome to the scaffold's one main region
+const _skip = cva(
+  "sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-4 focus-visible:top-4 focus-visible:z-toast focus-visible:rounded-md focus-visible:bg-accent-solid focus-visible:px-3 focus-visible:py-2 focus-visible:text-accent-on focus-visible:outline-none focus-visible:ring-2",
+)
 ```
 
 ## [03]-[ROSTER_LAW]
@@ -64,7 +72,35 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
 - Law: controlled props bind to atoms — `selectedKeys`/`value`/`isOpen`/`sortDescriptor`/`expandedKeys` read `useAtomValue` and write `useAtomSet`; RAC runs controlled wherever the app owns the state, and `useListData`/`useAsyncList` survive only for RAC-native ephemeral collections no atom owns.
 - Law: interaction-local state stays in the widget — react-stately holds the open overlay, the focused key, uncommitted segments; domain truth lives in the atom; the seam is the controlled-prop pair and never a mirror.
 - Law: date/time and color interiors stay foreign at the seam — `DateValue` segments and RAC's color state are widget-interior currency; a committed value crosses to the domain as the owning kernel scalar (`DateTime.Utc` through `system/intl`'s epoch seam, `Theme.Color` through its decode) at the controlled-prop boundary, never stored foreign.
+- Law: landmarks are structural, never decorative — one `<main>` per document at the scaffold's content region, and nav, aside, header, and footer land as native elements where `view/shell#SCAFFOLD` places them; a div wearing a landmark role where the native element exists is the named defect, and the banner-tier status landmark is `view/status#POSTURE_FOLD`'s labelled section, never a second grammar here.
+- Law: a scroll container EARNS `role="region"` + `tabIndex={0}` by measured overflow — `Primitive.useOverflow` grants the pair only while content overflows its box and only under a label, so a fitting container exposes no phantom tab stop and an unlabelled overflowing one receives no grant at all.
 - Boundary: field/validation composition is `view/form`'s; grid modeling is `view/table`'s; palette, anchors, and sheets are `view/overlay`'s; discrete interaction hooks are `system/act`'s; locale infra (`I18nProvider`, `useFilter`) is `system/intl`'s.
+
+```typescript signature
+import { useEffect, useState } from "react"
+import type { RefObject } from "react"
+
+declare namespace Overflow {
+  type Grant = { readonly role: "region" | undefined; readonly tabIndex: 0 | undefined }
+}
+
+// ResizeObserver measures the grant on every box or content change, never assuming it, and an overflowing container
+// without an accessible name receives NO grant, so the unlabelled tab stop is unrepresentable
+const _useOverflow = (target: RefObject<HTMLElement | null>, labelled: boolean): Overflow.Grant => {
+  const [overflows, setOverflows] = useState(false)
+  useEffect(() => {
+    // BOUNDARY ADAPTER: ResizeObserver is the platform's measure seam; registration and release bracket on the effect
+    const node = target.current
+    if (node === null) return undefined
+    const observer = new ResizeObserver(() => {
+      setOverflows(node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [target])
+  return overflows && labelled ? { role: "region", tabIndex: 0 } : { role: undefined, tabIndex: undefined }
+}
+```
 
 ## [04]-[TOAST_ANNOUNCE]
 
@@ -73,9 +109,9 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
 - Owner: the announce rail — `announce(message, assertiveness?, timeout?)` from `@react-aria/live-announcer`: `"assertive"` interrupts (faults, blocking status), `"polite"` waits (progress, counts); one global visually-hidden region, `destroyAnnouncer()` on host teardown; a bespoke `aria-live` div or a second announcer region is the named defect, and an element-scoped SR-only label takes the radix `VisuallyHidden` instead.
 - Owner: `Primitive.notify(note)` — the ONE enqueue: it reads the note's derived urgency row and adds to the queue under that row's dismissal window, so no call site passes a timeout, decides politeness, or spells an urgency literal; `Primitive.toasts` stays the queue value the region renders and `close` the imperative retraction.
 - Packages: `react-aria-components` (the prefixed toast roster and `UNSTABLE_ToastQueue`); `@react-aria/live-announcer` (`announce`, `destroyAnnouncer`); `@radix-ui/react-visually-hidden` (`VisuallyHidden` — the element-scoped SR-only label; the aria spine re-exports a same-named component, so the import path is what distinguishes the non-aria plane's usage from a part RAC owns).
-- Law: a toast NOTE is the whole notification concept, never a caption — `key` identifies it for retraction and dedup, `tone` keys the token roster, `message` is a `system/intl` catalog key resolved at render so toasts localize like every other string, and `action` carries the repair affordance as an `Option` of a label key and the effect it runs, so a fault-to-toast fold offers the fix instead of only naming the break.
+- Law: a toast NOTE is the whole notification concept, never a caption — `key` identifies it for retraction and dedup, `tone` keys the token roster, `message` is a `system/intl` catalog key resolved at render so toasts localize like every other string, and `action` carries the repair affordance as an `Option` of a label key and the effect it runs, so a fault-to-toast fold carries the fix instead of only naming the break.
 - Law: urgency DERIVES from tone through two closed tables, never from a call-site flag — `_SEVERITY` ranks every roster tone into the `quiet`/`spoken`/`blocking` axis and `_URGENCY` gives each rank its politeness and its dismissal window, so a new tone lands with its rail behavior already decided and a per-site `timeout` number cannot exist. `blocking` carries no window at all: a note the user must act on is retracted by its action or its key, never by a timer.
-- Law: politeness is PER NOTE and lands as the content element's role — the toast hook hard-codes `role="alert"` with `aria-atomic` on every note's `contentProps` and offers no knob at any tier, while the region itself carries only `role="region"` and its label, so the rank realizes by overriding that ONE attribute: `quiet` renders its content under `role="status"` (implicitly polite) and every louder rank keeps the shipped `role="alert"`. One region stays mounted for the whole session; a second region selected by rank, or a bespoke live div beside it, is the double-speak defect the no-second-announcer law already forbids.
+- Law: politeness is PER NOTE and lands as the content element's role — the toast hook hard-codes `role="alert"` with `aria-atomic` on every note's `contentProps` and exposes no knob at any tier, while the region itself carries only `role="region"` and its label, so the rank realizes by overriding that ONE attribute: `quiet` renders its content under `role="status"` (implicitly polite) and every louder rank keeps the shipped `role="alert"`. One region stays mounted for the whole session; a second region selected by rank, or a bespoke live div beside it, is the double-speak defect the no-second-announcer law already forbids.
 - Law: the politeness axis is exactly the two live roles the platform grants — a rank asking for silence is unrealizable, because a note mounted in the region announces by construction; modelling politeness as an optional value spells an arm the DOM cannot render, so the quiet rank buys its restraint from `status` deferring to the user's current utterance rather than from a suppression that does not exist.
 - Law: visual toast and SR announcement are one act — the note's rendered content IS its announcement, so `notify` NEVER calls the announce rail; a separate `announce` per toast double-speaks, and the standalone rail serves the non-toast messages ([04]'s second owner) alone.
 - Boundary: which flows toast is app policy; the `Result`-failure path routes through the boundary row below, not through toasts, unless the failure is non-blocking evidence; an action's effect is the app's, run at the app's own runtime.
@@ -191,7 +227,8 @@ const _sanitize = (dirty: string, config?: Config): string => DOMPurify.sanitize
 declare namespace Primitive {
   type Shape = {
     readonly styled: typeof _styled
-    readonly recipes: { readonly button: typeof _button }
+    readonly recipes: { readonly button: typeof _button; readonly skip: typeof _skip }
+    readonly useOverflow: typeof _useOverflow
     readonly toasts: typeof _toasts
     readonly notify: typeof _notify
     readonly announce: typeof _announce
@@ -205,7 +242,8 @@ declare namespace Primitive {
 
 const Primitive: Primitive.Shape = {
   styled: _styled,
-  recipes: { button: _button },
+  recipes: { button: _button, skip: _skip },
+  useOverflow: _useOverflow,
   toasts: _toasts,
   notify: _notify,
   announce: _announce,

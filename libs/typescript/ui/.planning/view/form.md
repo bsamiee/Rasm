@@ -1,6 +1,6 @@
 # [UI_FORM]
 
-Form owns Schema-driven input, submission, and resumable upload. One kernel `Schema` projects through `standardSchemaV1`; live and server faults share field-path rows. RAC fields bind schema rows, Form's observed submit trip awaits the store, and large byte payloads ride one tus session. No parallel validator or field store exists. Module: `ui/src/view/form.ts`.
+Form owns Schema-driven input, submission, resumable upload, the multi-step wizard, and the auth ceremony faces. One kernel `Schema` projects through `standardSchemaV1`; live and server faults share field-path rows. RAC fields bind schema rows, Form's observed submit trip awaits the store, and large byte payloads ride one tus session. `Wizard` binds the stage graph as one core `Transition` spec through the atom bridge, and `Ceremony` renders the runtime session plane's phases while security owns every ceremony's logic. Module: `ui/src/view/form.ts`.
 
 ## [01]-[INDEX]
 
@@ -9,6 +9,8 @@ Form owns Schema-driven input, submission, and resumable upload. One kernel `Sch
 - [04]-[SUBMIT_TRIP]: Form awaits the store on submit — pending state, reset, refusal reconciliation; `Form`.
 - [05]-[DRAFT_CURSORS]: field-grain re-render over one draft atom; —.
 - [06]-[UPLOAD_LANE]: Form drives one resumable tus session — resume proof, progress taps, typed refusal; `Form`.
+- [07]-[WIZARD]: `Wizard` derives the multi-step stage graph as one core `Transition` spec, with its cursor folds and stepper face; `Wizard`.
+- [08]-[CEREMONY]: `Ceremony` renders the auth faces — session phases, departure and landing invocation, passkey legs; `Ceremony`.
 
 ## [02]-[SCHEMA_BINDING]
 
@@ -43,7 +45,11 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 ## [03]-[FIELD_ROSTER]
 
 [FIELD_ROSTER]:
-- Law: a field kind is one RAC field row bound to its schema field — `TextField`/`NumberField` for scalars, `SearchField` for query drafts, `Checkbox`/`Switch`/`RadioGroup` for toggles and choices, `Slider` for bounded magnitudes, `Select`/`ComboBox` for vocabularies (option matching through `system/intl`'s `useFilter`), `DateField`/`TimeField`/`DatePicker`/`DateRangePicker` for temporal input, `ColorField`/`ColorPicker` for color input, `TokenField`/`TokenInput`/`Token` for an expression the user writes as prose and reads back as chips; every row styles through `system/primitive` recipes and the `invalid:`/`required:`/`disabled:` variants.
+- Law: Form binds each field kind to one RAC field row over its schema field — `TextField`/`NumberField` for scalars, `SearchField` for query drafts, `Checkbox`/`Switch`/`RadioGroup` for toggles and choices, `Slider` for bounded magnitudes, `Select`/`ComboBox` for vocabularies (option matching through `system/intl`'s `useFilter`), `DateField`/`TimeField`/`DatePicker`/`DateRangePicker` for temporal input, `Calendar`/`RangeCalendar` standing alone where the selection IS the surface, `ColorField`/`ColorPicker` for color input, `TagGroup`/`TagList`/`Tag` for a committed multi-value vocabulary, `TokenField`/`TokenInput`/`Token` for an expression the user writes as prose and reads back as chips, `FileTrigger`/`DropZone` for byte intake, and the document field for prose the content plane compiles; every row styles through `system/primitive` recipes and the `invalid:`/`required:`/`disabled:` variants. Every RAC input member stacks above or declines with its reason on this card, so the roster is CLOSED against the admitted input surface and a missing row is a census defect, never an open question.
+- Law: a tag field commits a branded array — `TagGroup` renders and removes, the committed value decodes through the owning field Schema (a `Schema.Array` of the vocabulary brand), and reordering rides `useDragAndDrop` per `system/primitive#ROSTER_LAW`; the chip recipe is the token field's, so an expression chip and a vocabulary chip read one visual grammar.
+- Law: a standalone calendar is still a COMMIT seam — `Calendar`/`RangeCalendar` outside a picker popover carry the same controlled-prop boundary, the same `DateValue` → `DateTime.Utc` epoch crossing, and the same draft-atom write as their fielded siblings; standing alone changes the chrome, never the seam.
+- Law: bytes never enter the draft — `FileTrigger` opens the platform picker and `DropZone` admits drops through the `isFileDropItem` refinement (text and directory items decline at the seam; `isTextDropItem` stays the collection-reorder refinement `system/primitive` names); the admitted `File` hands straight to `[06]`'s upload lane and the DRAFT field holds only the returned receipt identity, so an abandoned session restores a reference, never a stranded blob.
+- Law: the document field is the two-owner grammar at document grain — live editing is the mounted `EditorView`'s own state (`view/content#EDITOR_HOST`), and the committed value crosses ONCE through `Content.field(compiled)` — the same compiled codec that decodes the wire — at the controlled boundary, mirroring the `TokenField` split exactly: interior currency stays widget-interior, one codec owns the crossing, and a parallel document parser at either end is the named defect.
 - Law: a token field has TWO grammar owners and they never trade jobs — the subclassed value owns LIVE segmentation and the `Schema` codec owns the COMMITTED decode. `TokenFieldValue` is an immutable persistent sequence whose every mutator answers a new instance of its own type, carrying its caret `Position`, its range replacement and boundary search, and its undo history with the coalescing window, so a grammar is a `tokenize` override on the value — presentation-state grain, the same grain a motion value holds, outside the atom entirely — and the state hook stays the thin `{ value, setValue, isComposing, setComposing }` cell it ships as. Only what the field COMMITS crosses to the domain, decoded by the one Schema that decodes the wire payload, so a saved filter round-trips through a single codec and a parallel parser at either end is the named defect.
 - Law: the subclass seam is two overrides or none — `tokenize` states the grammar and `createFieldValue` keeps the type, so an override of the first without the second widens every edit back to the base value and the grammar is lost on the first keystroke.
 - Law: foreign field interiors commit as kernel scalars — a date row's `DateValue` crosses to the domain as `DateTime.Utc` through `system/intl`'s epoch seam at the controlled-prop boundary; a color row's committed value decodes through `Theme.Color`; the draft atom never stores a widget-interior currency.
@@ -180,9 +186,9 @@ const _submit = (
 [DRAFT_CURSORS]:
 - Law: a large form draft is one `AtomRef` root, each field a cursor — `AtomRef.make(seed)` mints the draft, `useAtomRefProp(ref, key)` derives the per-field child so an edited field re-renders alone, and `useAtomRefPropValue(ref, key)` is the read-only projection for summary rows; a per-field atom family for one draft, or a whole-draft subscription per field, restates the cursor law (`system/atom#SELECTOR_RAIL` owns the cursor primitive).
 - Law: a search-driving draft field defers — the field's committed value feeds heavy consumers (a filtered collection) through `useDeferredValue(value)` so typing stays responsive while the derived view lags one beat; `Atom.debounce` shapes the store-side rate, `useDeferredValue` shapes the render-side lag, and the two compose without a hand-rolled timer.
-- Law: draft persistence is one `Atom.kvs` row over the draft schema — an abandoned session restores the decoded draft or the default, never a raw JSON parse.
+- Law: draft persistence is one `Atom.kvs` row under the `migrated` seal posture — the key derives through `system/atom#STORE_ROOT`'s one mint member on a STABLE grain (a draft is precious: a schema bump upcasts it through its chain rather than vanishing it to the default), and an abandoned session restores the decoded draft or the default, never a raw JSON parse; a hand-spelled key literal beside the mint is the named defect.
 - Law: dirty-navigation guarding reads the draft — the route guard's dirty predicate is a derived atom comparing draft to committed (`Equal.equals`), consumed by the browser navigation plane through the atom bridge; a `beforeunload` listener beside it is the named defect.
-- Boundary: a multi-step wizard whose stage graph answers requests and survives remounts is a `Machine` actor bound through `system/atom#LIVE_BRIDGE` — the draft cursors ride inside each stage, and the stage machine never mirrors field state.
+- Boundary: the multi-step stage graph is `[07]`'s `Transition` spec bound through `system/atom#LIVE_BRIDGE` — the draft cursors ride inside each stage, and the stage machine never mirrors field state.
 
 ```typescript signature
 import { AtomRef, useAtomRefProp, useAtomRefPropValue } from "@effect-atom/atom-react"
@@ -301,13 +307,160 @@ const Form: Form.Shape = {
   submit: _submit,
   upload: _upload,
 }
+```
+
+## [07]-[WIZARD]
+
+[WIZARD]:
+- Owner: `Wizard` — the multi-step stage graph as one core `Transition` spec the builder derives from data: `Wizard.spec(options)` maps each stage onto an atomic node (with one final node), and generates the row set from the policy — a guarded advance row per stage (`when` reads the consumer's `valid` predicate over the extended state), an INTERNAL fallback row on the same signal emitting the `step-invalid` verdict (document order is the determinism law, so the guarded row fires first and the fallback answers exactly the refused press), a `skip` row guarded by `skippable`, an unguarded `back` row, and — only under `linear: false` — one seek row per OTHER stage (a self-seek row exits and re-enters the standing stage, re-running its entry program over live draft state), the seek vocabulary deriving from the stage roster itself so an unknown TARGET is unspellable at the type plane. Linearity is therefore enforced IN the machine: a linear wizard generates no seek row, so a spelled jump lands UNROUTED — the actor answers no transition — and a disabled-button veneer over an unguarded machine is the named defect.
+- Cases: the cursor is a FOLD over the actor's config, never a second cell — `Wizard.cursor(stages, config)` reads the active atomic node's rank, and `Wizard.standing(cursor, rank)` derives the tri-state (`completed` below, `current` at, `incomplete` above), so step chrome renders off one derivation and no per-step completion flag exists to drift.
+- Law: refusal is a rendered verdict, never a silent no-op — the fallback row's `step-invalid` verdict arrives on the actor's fact stream (`facts` carries the macrostep's `emit` program), and the consuming face folds it into the SAME error sink `[02]`'s validation failures feed; the next-trigger stays enabled, because a clickable refusal that explains beats a disabled button that cannot.
+- Law: the actor binds through the one bridge and survives remounts — `Atom.subscribable(actor.state)` is the whole machine→view seam (`system/atom#LIVE_BRIDGE`), `actor.freeze` snapshots the configuration and `compiled.restore(frozen)` resumes it, so a reloaded session reopens on the stage it left; stage draft state is `[05]`'s cursors riding inside each stage, and the machine's extended state carries only what guards read.
+- Law: the face is recipe rows over the derivation — the step list renders `standing` as `data-standing` the recipe's variants read, the action grid is three fixed columns (`prev | skip | next-or-submit`) so button placement never shifts as arms appear, `skip` is a first-class sibling rendered only where `skippable` holds, and a hidden stage keeps its mount through the `<Activity mode>` row `system/act#DOCUMENT_RAIL` owns.
+- Packages: `@rasm/ts/core` (`Transition` — `spec`/`Node`/`Row`/`Config`/`Actor`, the `when` guard column, the emit program); `@effect-atom/atom-react` (`Atom.subscribable`); `effect` (`Array`, `Option`, `Schema`); `class-variance-authority` (the step recipe).
+- Boundary: stage CONTENT is ordinary form rows — schema binding, cursors, and the submit trip compose unchanged inside each stage; the final stage's submit is `[04]`'s trip, so the wizard adds navigation and never a second commit path; watchdog deadlines and invoked activities are `Transition`'s own `watches`/`invokes` rows when a wizard earns them.
+- Growth: a new stage is one roster entry (its rows arrive generated); a new navigation arm is one row kind in the builder; a new face posture is one recipe variant; a stage graph past the builder's family — parallel regions, history re-entry — authors its `Transition` spec directly, since the builder instantiates the linear family and never ceilings the machine — never a bespoke stepper state, a completion set, or a second machine binding.
+
+```typescript signature
+import { Transition } from "@rasm/ts/core"
+import { cva } from "class-variance-authority"
+import { Array, Option, Schema } from "effect"
+
+declare namespace Wizard {
+  type Node<Stage extends string> = Stage | "done" // the builder's one final node; a stage spelled "done" duplicates it and Transition.spec refuses at compile
+  type Signal<Stage extends string> = "next" | "back" | "skip" | `seek.${Stage}` // seek derives from the stage roster: an unknown TARGET is unspellable; a linear wizard leaves every seek unrouted instead
+  type Verdict = "step-invalid"
+  type Standing = "completed" | "current" | "incomplete"
+  type Options<Stage extends string, X> = {
+    readonly name: string
+    readonly stages: Array.NonEmptyReadonlyArray<Stage>
+    readonly extended: Schema.Schema<X>
+    readonly seed: X
+    readonly valid: (stage: Stage) => (extended: X) => boolean
+    readonly skippable: (stage: Stage) => (extended: X) => boolean
+    readonly linear: boolean // true generates NO seek rows: a jump has no row to ride, so the machine refuses by absence
+  }
+}
+
+// `_rows` generates the policy: guarded advance, then the same-signal internal fallback emitting the refusal
+const _rows = <const Stage extends string, X>(
+  options: Wizard.Options<Stage, X>,
+): ReadonlyArray<Transition.Row<Wizard.Node<Stage>, Wizard.Signal<Stage>, Wizard.Verdict, X>> =>
+  Array.flatMap(options.stages, (stage, rank) => {
+    const target = Option.getOrElse<Wizard.Node<Stage>>(Array.get(options.stages, rank + 1), () => "done")
+    return [
+      { source: stage, on: "next" as const, when: options.valid(stage), to: [target] as const },
+      { source: stage, on: "next" as const, internal: true, emit: ["step-invalid" as const] },
+      { source: stage, on: "skip" as const, when: options.skippable(stage), to: [target] as const },
+      ...Option.match(Array.get(options.stages, rank - 1), {
+        onNone: () => [],
+        onSome: (prior) => [{ source: stage, on: "back" as const, to: [prior] as const }],
+      }),
+      ...(options.linear
+        ? []
+        : Array.filterMap(options.stages, (seek) =>
+          // a self-seek row would exit and re-enter the standing stage, re-running its entry program over live drafts
+          seek === stage
+            ? Option.none()
+            : Option.some({ source: stage, on: `seek.${seek}` as const, to: [seek] as const }))),
+    ]
+  })
+
+const _cursor = <Stage extends string>(
+  stages: ReadonlyArray<Stage>,
+  config: Transition.Config<Wizard.Node<Stage>, unknown>,
+): number =>
+  Array.findFirstIndex(stages, (stage) => Array.contains(config.active, stage)).pipe(Option.getOrElse(() => stages.length))
+
+const _standing = (cursor: number, rank: number): Wizard.Standing =>
+  rank < cursor ? "completed" : rank === cursor ? "current" : "incomplete"
+
+declare const _spec: <const Stage extends string, X>(
+  options: Wizard.Options<Stage, X>,
+) => ReturnType<typeof Transition.spec<Wizard.Node<Stage>, Wizard.Signal<Stage>, Wizard.Verdict, X>>
+
+const _step = cva("flex items-center gap-2 text-sm", {
+  variants: {
+    standing: {
+      completed: "text-neutral-text",
+      current: "font-medium text-accent-text",
+      incomplete: "text-neutral-border",
+    },
+  },
+  defaultVariants: { standing: "incomplete" },
+})
+
+declare namespace Wizard {
+  type Shape = {
+    readonly spec: typeof _spec
+    readonly rows: typeof _rows
+    readonly cursor: typeof _cursor
+    readonly standing: typeof _standing
+    readonly step: typeof _step
+  }
+}
+
+const Wizard: Wizard.Shape = {
+  spec: _spec,
+  rows: _rows,
+  cursor: _cursor,
+  standing: _standing,
+  step: _step,
+}
+```
+
+## [08]-[CEREMONY]
+
+[CEREMONY]:
+- Owner: `Ceremony` — the auth faces rendering the runtime session plane: `_PHASES` maps every `SessionStatus` tag onto its tone and motion posture (total by `satisfies`, so a new phase breaks here rather than rendering untinted), the sign-in and sign-out affordances invoke `Vault.depart(plan)` and the app's clear leg, the landing route's face folds `Vault.land(url, exchange)`'s outcome into `[02]`'s error shape, and the whole ceremony form is `[04]`'s submit trip over `[02]`'s schema binding — rows, never new machinery.
+- Law: security owns every ceremony's LOGIC and this page owns its FACE — `security/authn` models issuers, sessions, and the passkey ceremony; the runtime route plane holds the session cell, continuity, and CSRF; these faces render `Vault.status` phases through the atom bridge and hold zero token bytes, zero cookie reads, and zero ceremony state of their own.
+- Law: the passkey legs are two POSTs through the app's contract binding — the face requests the ceremony options and posts the credential response through `AtomHttpApi`/`AtomRpc` mutation rows (`system/atom#REMOTE_BINDING`), while `security/authn/webauthn`'s browser subpath owns the `navigator.credentials` invocation BETWEEN them; a fetch beside the binding or a credentials call in this folder is the named defect.
+- Law: a phase is rendered evidence, never a guess — `Authenticating` renders its hold posture (the boot probe or a refresh is in flight and the cell settles it), `Expired` renders the re-entry affordance with the danger tone, and no face branches on a token's presence because the browser never holds one.
+- Law: the phase vocabulary TRANSCRIBES — ui imports core alone, so the four `SessionStatus` tags spell here field-for-field as a deliberate non-import mirror (the cache `Budget` and vital grade precedent), the subscribed session cell arrives through the atom bridge as data, and `Vault.depart`/`Vault.land` are invoked through the app-composed binding, never an imported member; a tag landing on either end sweeps the other in the same change.
+- Packages: `system/token` (`Theme.Tone`); `system/act` (`Motion.holds`); `effect` (`Option`); the runtime session plane arrives composed — no runtime import exists in this folder.
+- Boundary: which identity providers exist, the exchange leg `land` receives, and the post-sign-out destination are app composition; the login/signup FIELD content is ordinary `[03]` rows; OAuth's full-page departure means this face renders a leaving state and never sequences after it.
+- Growth: a new phase presentation is one `_PHASES` row; a new ceremony kind (a second factor's prompt, a recovery flow) is a form composed of landed rows — never a ceremony engine, a token cell, or a session mirror in this folder.
+
+```typescript signature
+import { Option } from "effect"
+import type { Motion } from "../system/act.ts"
+import type { Theme } from "../system/token.ts"
+
+// `_phases` mirrors the runtime session plane's tag vocabulary field-for-field as a deliberate non-import: ui imports
+// core alone, and the subscribed cell's own tag is the value this roster discriminates
+const _phases = ["Anonymous", "Authenticating", "Authenticated", "Expired"] as const
+
+declare namespace Ceremony {
+  type Phase = (typeof _phases)[number]
+  type Posture = { readonly tone: Theme.Tone; readonly hold: Option.Option<Motion.Hold> }
+}
+
+// total over the session vocabulary: a new phase breaks here rather than defaulting into neutral chrome
+const _PHASES = {
+  Anonymous: { tone: "neutral", hold: Option.none() },
+  Authenticating: { tone: "accent", hold: Option.some("spin" as const) },
+  Authenticated: { tone: "success", hold: Option.none() },
+  Expired: { tone: "danger", hold: Option.none() },
+} as const satisfies Record<Ceremony.Phase, Ceremony.Posture>
+
+declare namespace Ceremony {
+  type Shape = {
+    readonly phases: typeof _phases
+    readonly postures: typeof _PHASES
+  }
+}
+
+const Ceremony: Ceremony.Shape = {
+  phases: _phases,
+  postures: _PHASES,
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Form, UploadFault }
+export { Ceremony, Form, UploadFault, Wizard }
 ```
 
-## [07]-[RESEARCH]
+## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

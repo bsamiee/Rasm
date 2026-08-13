@@ -4,9 +4,9 @@ Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one t
 
 ## [01]-[INDEX]
 
-- [02]-[POINT_REGISTRY]: the open point seam, the contribution law, the initial point census; `Hook`.
-- [03]-[RAIL_CHANNELS]: the per-app registry mint — modality channels, replay windows, adopted sources; `Hook`.
-- [04]-[FACT_PUBLISH]: the one polymorphic publish and the veto-arbiter fold; `Hook`.
+- [02]-[POINT_REGISTRY]: `Points` opens the contribution seam — per-plane row law and the initial point census; `Hook`.
+- [03]-[RAIL_CHANNELS]: `Hook.registry` mints per-app channels — modality policy, replay windows, adopted sources; `Hook`.
+- [04]-[FACT_PUBLISH]: `Hook.publish` folds one polymorphic publish over the veto arbiters; `Hook`.
 - [05]-[TAP_ISOLATION]: scoped taps, the subscriber-fault channel, the telemetry-as-tap bridge law; `Hook`.
 
 ## [02]-[POINT_REGISTRY]
@@ -18,9 +18,9 @@ Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one t
 - Law: a span deliberately named for its point rides the carve with it, which is what makes a hook fact and its span correlate by name.
 - Law: a metric name never rides this rail — a series resolves against `Convention._domain` and the vocabulary owner names its instrument row.
 - Law: payload types cross strata type-only — a viewer plane contributes `Selection.Op` or a residency fact into `Points` through an erased augmentation without a value import upward; the runtime row arrives by registration at the composition root, never through a value edge into this floor module.
-- Law: the census rows adopt the owners' standing facts — `rasm.ui.mark.op` carries mark's applied `Selection.Op` stream, `rasm.ui.scene.residency` carries the graft fold's arrival-and-refusal lanes, `rasm.ui.form.submit` consults veto arbiters before the mutation write, `rasm.ui.panel.egress` observes the control-sink egress records, `rasm.ui.overlay.present` observes overlay presentation and reason-keyed dismissal, `rasm.ui.vital.row` replays the vital plane's evidence rows.
+- Law: the census rows adopt the owners' standing facts — `rasm.ui.mark.op` carries mark's applied `Selection.Op` stream, `rasm.ui.scene.residency` carries the graft fold's arrival-and-refusal lanes, `rasm.ui.form.submit` consults veto arbiters before the mutation write, `rasm.ui.panel.egress` observes the control-sink egress records, `rasm.ui.overlay.present` observes overlay presentation and reason-keyed dismissal, `rasm.ui.vital.row` replays the vital plane's evidence rows, `rasm.ui.content.commit` observes each commit trip's settled stage, and `rasm.ui.canvas.solve` observes every layout proposal's applied-or-superseded admission.
 - Law: a replay point carries evidence in both directions — `rasm.ui.vital.row` is the one browser-evidence window, so the app bridge republishes the runtime plane's graded vital rows onto it while `system/vital` and `viewer/probe` publish local rows, and a board mounted mid-session reads one retained source without this package importing a peer.
-- Boundary: contribution mechanics are the registry merge seam — type-plane only; which facts an owner mints stays the owner's law (`viewer/mark`, `viewer/scene`, `view/form`, `viewer/panel`, `view/overlay`, `system/vital`), and this page owns only the rail they meet on.
+- Boundary: contribution mechanics are the registry merge seam — type-plane only; which facts an owner mints stays the owner's law (`viewer/mark`, `viewer/scene`, `view/form`, `viewer/panel`, `view/overlay`, `system/vital`, `view/content`, `view/canvas`), and this page owns only the rail they meet on.
 
 | [INDEX] | [POINT]                   | [OWNER_FACT]                                                           | [MODALITY] | [DEPTH] |
 | :-----: | :------------------------ | :--------------------------------------------------------------------- | :--------- | :------ |
@@ -30,8 +30,10 @@ Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one t
 |  [04]   | `rasm.ui.panel.egress`    | control egress records (`viewer/panel`)                                | `observe`  | 32      |
 |  [05]   | `rasm.ui.overlay.present` | overlay present and dismiss-with-reason (`view/overlay`)               | `observe`  | 16      |
 |  [06]   | `rasm.ui.vital.row`       | browser evidence rows (`system/vital`, `viewer/probe`, the app bridge) | `replay`   | 128     |
+|  [07]   | `rasm.ui.content.commit`  | commit settlement by bounded stage (`view/content`)                    | `observe`  | 16      |
+|  [08]   | `rasm.ui.canvas.solve`    | layout-solve admission accounting (`view/canvas`)                      | `observe`  | 32      |
 
-```typescript
+```typescript signature
 interface Points {
 }
 
@@ -52,12 +54,12 @@ declare namespace Hook {
 [RAIL_CHANNELS]:
 - Owner: `Hook.registry(rows)` — the per-app mint: one scoped construction builds a channel per contributed point from its runtime row (`modality`, `depth`, optional adopted `source`, and a veto-row `consult` predicate), the fault channel beside them, and the veto gate cells; the registry dies with the composition scope, so channels, pumps, and taps release together and a second app mints its own value.
 - Packages: `effect` (`Chunk`, `Effect`, `HashMap`, `Option`, `PubSub`, `Ref`, `Stream`); `@rasm/ts/core` (`Tap`).
-- Law: modality selects the channel policy — `observe` and `veto` rows mint `PubSub.bounded(depth)`, while `replay` rows mint `PubSub.sliding({ capacity: depth, replay: depth })` so a late subscriber (a history capture, a probe board mounted mid-session) receives the retained window before live delivery; depth is the row's policy value, never a per-tap knob. A veto row's `consult` predicate selects the pre-commit payloads arbiters may refuse, so settled facts on the same point always fan.
+- Law: modality selects the channel policy — `observe` and `veto` rows mint `PubSub.bounded(depth)`, while `replay` rows mint `PubSub.sliding({ capacity: depth, replay: depth })` so a late subscriber (a history capture, a probe board mounted mid-session) receives the retained window before live delivery; depth is the row's policy value, never a per-tap knob. `consult` on a veto row selects the pre-commit payloads arbiters refuse against, so settled facts on the same point always fan.
 - Law: an owner that already publishes is adopted, never re-published — a row carrying `source` gets one scoped pump fiber draining the owner's stream into the row channel, so mark's retained `Selection.echoes` and scene's settled residency fact queue keep their single publish path and the registry is one more consumer under the owners' own laws.
 - Law: the runtime rows record is annotation-governed — `Hook.Rows` demands one runtime row per contributed point, so a plane that contributes a type row and forgets its composition row breaks the app root loudly at the registry mint.
 - Boundary: registration placement is the composition root's — this module exports the mint and never calls it; per-app scoping is the direct consequence of the mint living inside the app scope.
 
-```typescript
+```typescript signature
 import { Tap } from "@rasm/ts/core"
 import { Chunk, Effect, HashMap, Option, PubSub, Ref, Schema, type Scope, Stream } from "effect"
 
@@ -121,7 +123,7 @@ const _registry = (rows: Hook.Rows): Effect.Effect<Hook.Registry, never, Scope.S
 - Law: publishers fold veto evidence into their own fault rail; the registry carries no parallel refusal channel.
 - Law: row depth bounds delivery, replay replaces the oldest retained fact, and transport booleans never substitute for veto evidence.
 
-```typescript
+```typescript signature
 const _publishRaw = (registry: Hook.Registry, point: Hook.Point, payload: unknown): Effect.Effect<Option.Option<Tap.Veto>> =>
   Effect.gen(function* () {
     const consulted = Option.match(HashMap.get(registry.consults, point), { onNone: () => false, onSome: (select) => select(payload) })
@@ -173,7 +175,7 @@ const _veto = <P extends Hook.VetoPoint>(
 - Law: replay taps read history from the rail — a history capture or a probe board attaching mid-session receives the replay window before live facts, so evidence and undo lanes share one source of truth with live consumers and no owner replays state on demand.
 - Boundary: the atom bridge (`system/atom#LIVE_BRIDGE`) binds any row a component must render — `Stream.fromPubSub` through `Atom.pull`, or an app-held `Subscribable` — and the component never subscribes a channel directly.
 
-```typescript
+```typescript signature
 const _observed = <P extends Hook.Point, E>(
   registry: Hook.Registry,
   point: P,

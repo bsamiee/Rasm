@@ -19,6 +19,7 @@ Act seats five motion planes on one owner so motion authority never fractures: `
 - Law: third-party drag surfaces keep their own physics — `vaul` sheets drag through vaul (`view/overlay`), RAC collections drag through `useDragAndDrop` (`system/primitive`'s roster); layering `useDrag` or motion's `Reorder.Group` over either is the double-bind defect, and `Reorder` binds only a drag-ordered list RAC models no widget for.
 - Law: composition on one element is `mergeProps` — a draggable that is also keyboard-operable spreads the react-aria bundle and the gesture `bind()` through one `mergeProps` fold; handler chains, ids, and aria attributes merge, and declaration-order spreading is rejected.
 - Law: one surface, one motion owner — a RAC overlay animating through a `Motion` class row never also mounts `AnimatePresence` around the same element; a surface graduates from class rows to the physical plane when it needs physics, interruption, values, or layout, never both on one property.
+- Law: no gesture-only capability ships — every pointer affordance carries a keyboard-reachable twin through `[03]`'s merged bundle, and a continuous surface earns its keyboard-displacement row before it lands, so the growth row `[04]` names for the keyboard-displacement drag is an obligation a canvas discharges, never an option it considers.
 - Boundary: which widget owns which state is `system/primitive`'s spine; the camera atoms a gesture writes are the viewer projection plane's.
 
 ## [03]-[DISCRETE_ROWS]

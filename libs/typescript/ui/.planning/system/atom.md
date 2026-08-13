@@ -1,6 +1,6 @@
 # [UI_ATOM]
 
-`@effect-atom` makes the ONE_FOLD_ONE_BINDING law code as the single state binding of the folder, and this module owns the whole bridge — one `Store.make` standing the app's Layer graph behind the atom registry with a shared `MemoMap`, one registry policy row, the persisted-atom rows (`Atom.kvs`/`Atom.searchParam` with kernel `Schema` codecs), the `Hydration` SSR handoff pair, the `AtomHttpApi`/`AtomRpc` contract-binding rows with the typed `reactivityKeys` invalidation graph, the derivation plane (selectors, `family`, `debounce`, refresh triggers, the `AtomRef` fine-grained cursor, the live `Subscribable`/`SubscriptionRef` bridge — `Machine` actors included — paged `pull`, stream egress), the write-modality and async-fold laws every view row obeys, and the `History` undo/redo command fold. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. Module: `ui/src/system/atom.ts`.
+`@effect-atom` codes the ONE_FOLD_ONE_BINDING law as the folder's single state binding, and this module owns the whole bridge — the runtime root standing the app's Layer graph behind one atom registry, and every plane above it: persistence, SSR handoff, contract binding, derivation, write modality, undo/redo. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. Module: `ui/src/system/atom.ts`.
 
 ## [01]-[INDEX]
 
@@ -19,11 +19,13 @@
 - Entry: `Store.make` is the one runtime mint; a per-atom `Layer` provision, a second registry outside test isolation, or a module-level `Atom.runtime` call beside it is the named defect.
 - Law: one `RegistryProvider` at the app root supplies the store; scoped per-instance state covers component-local cells — a global atom keyed by component id never exists.
 - Law: persistence is Schema-coded and the package surface IS the row, no wrapper — `Atom.kvs({ runtime, key, schema, defaultValue })` backs an atom by the platform `KeyValueStore` and `Atom.searchParam(name, { schema })` links one to a URL search param, each with the owning kernel schema (a brand, a `Schema.Literal` vocabulary) as the only codec, so `localStorage`/IndexedDB is never touched raw and a malformed stored value re-decodes to the default instead of poisoning the store.
+- Law: every persisted grain declares its SEAL posture, a closed pair — `versioned` carries a DECLARED ordinal segment in its key, so a schema bump mints a fresh key and the superseded value reads as absence falling to the default (the layout/workspace class, where yesterday's bytes re-decoding CLEANLY into today's schema while meaning something else is the silent mis-restore the ordinal forecloses; `Atom.kvs`'s malformed-to-default arm is the landing mechanism, so the posture buys semantic-drift safety on top of the decode guard, never beside it) — while `migrated` holds its key stable and walks the stored value through an upcast chain at decode (the draft/document class, where user state is precious and vanishing to a default is the defect; the chain derives from the owning roster's version steps, never a hand-kept ladder).
+- Law: the persisted key mints ONCE — `Store.key({ domain, grain, seal })` derives `rasm.ui.<domain>.<grain>` with `.v<N>` appended on the versioned posture, the ordinal DECLARED at the owning grain and never a schema hash, since a derived hash re-keys user state on an annotation edit that changed no semantics; a hand-spelled key beside the mint is the two-producer drift `UNREAD_KEY_ROW` names, so the landed grains — the chart workspace token, the theme kind, the locale, the form draft — re-key through this member and no page spells the format again.
 - Law: URL write SHAPING is a combinator on the persisted atom, never a routing-package hook tier — `runtime:browser/route` owns the typed query codec through `nuqs/server` and refuses `throttle`/`debounce`/`LimitUrlUpdates` at that seam because `createSerializer` ignores them, deferring the rate question to the hook tier it names a `ui` surface; that tier is `Atom.debounce` composed on the `Atom.searchParam` node, so how fast a hot control writes the URL is one combinator on the owning atom and this folder imports no query hook, no adapter, and no second URL-state binding. Placing `useQueryState` beside the store mints the second binding `ONE_FOLD_ONE_BINDING` forecloses, and a hand `URLSearchParams` write is the same defect wearing the platform's name.
 - Law: SSR handoff is a real member pair — `Store.dehydrate(registry)` emits the `DehydratedAtom` state the server serializes, `HydrationBoundary` rehydrates it before children read, `Atom.serializable(self, { schema })` marks the atoms that cross with the kernel schema as codec, and a client refetch of server-computed data is the named defect.
 - Law: the observe weave terminates here — `Store.make`'s `layer` is the ONE seam where an app's telemetry bridge rows (tracer, metric registry, log exporter) enter, so every `rasm.ui.<domain>.<verb>`-named rail behind a runtime atom exports the moment the app composes the bridge; owners state `Effect.withSpan`/`Effect.annotateLogs`/`Metric` rows at their own rails, span names share the `system/hook` rail vocabulary so a hook fact and its span correlate by name, and this folder imports zero collectors and mints zero exporters — removing the bridge layer removes every emission with zero owner edits.
 - Boundary: the `ManagedRuntime` and boot seam are the browser composition root's — this module never calls a `run*` method; the shared `memoMap` argument is how the app hands both runtimes one acquisition map at composition, with `Atom.defaultMemoMap` as the shared floor when the app supplies none.
-- Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call with its owning schema — the `KeyValueStore` Layer swap is app composition.
+- Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call with its owning schema and one `Store.key` grain naming its seal posture — the `KeyValueStore` Layer swap is app composition.
 
 ```typescript signature
 import { Atom, Hydration } from "@effect-atom/atom-react"
@@ -39,17 +41,30 @@ declare namespace Store {
     readonly layer: Layer.Layer<R, E>
     readonly memoMap?: Layer.MemoMap
   }
+  type Seal = { readonly posture: "versioned"; readonly version: number } | { readonly posture: "migrated" }
+  type Segment<S extends string> = S extends `${string}.${string}` ? never : S // a dotted segment would mint extra key levels no reader parses
+  type Grain<D extends string, G extends string> = { readonly domain: Store.Segment<D>; readonly grain: Store.Segment<G>; readonly seal: Store.Seal }
+  type Key = `rasm.ui.${string}.${string}` | `rasm.ui.${string}.${string}.v${number}`
   type Shape = Types.Simplify<{
     readonly policy: typeof _policy
     readonly make: <R, E>(options: Store.Options<R, E>) => Atom.AtomRuntime<R, E>
+    readonly key: <D extends string, G extends string>(row: Store.Grain<D, G>) => Store.Key
     readonly dehydrate: typeof Hydration.dehydrate
     readonly hydrate: typeof Hydration.hydrate
   }>
 }
 
+// each owning grain DECLARES its ordinal, counted from 1 — a schema-derived hash re-keys user state on an annotation
+// edit, and v0 names no prior generation to supersede
+const _key = <D extends string, G extends string>(row: Store.Grain<D, G>): Store.Key =>
+  row.seal.posture === "versioned"
+    ? `rasm.ui.${row.domain}.${row.grain}.v${row.seal.version}`
+    : `rasm.ui.${row.domain}.${row.grain}`
+
 const Store: Store.Shape = {
   policy: _policy,
   make: (options) => Atom.context({ memoMap: options.memoMap ?? Atom.defaultMemoMap })(options.layer),
+  key: _key,
   dehydrate: Hydration.dehydrate,
   hydrate: Hydration.hydrate,
 }
