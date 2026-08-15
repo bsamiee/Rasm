@@ -63,6 +63,7 @@
 - Declaring a recovery target and grading one split owners — `RecoveryWindow.Gauged` is the one gauge, a `Meets*` twin blind to the unmeasured half.
 - Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never upgrades.
+- Corpus proto descriptors keep ONE spelling — owner pages carry the header-only fence, union mirror, and frozen-number ledger; a full mirror forks.
 
 ## [03]-[COLLAPSE]
 

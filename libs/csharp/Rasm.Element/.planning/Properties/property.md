@@ -350,8 +350,8 @@ public sealed partial record ValueBag<V>(string SetName, [property: UnorderedEqu
 
 ## [04]-[DETAIL_SCHEMA]
 
-- Owner: `DetailSchema` the ONE neutral schema mechanism over the `ValueBag<V>` aliases — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — and the canonical `PropertyName` vocabulary both bag families key on; `PropertyCategory` the owner-blessed producer scope every package mints its own row names through; `StructuralRows` the cross-package restraint, load, and topology vocabulary a Bim projector stamps onto a `Generic` edge and a Compute runner reads back, with `QuantityRows`, `EnvelopeRows`, and `BoundaryRows` its siblings over the baked base-quantity takeoff, the building-envelope `Pset` rows, and the space-boundary edge payload. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail with the masonry work-size tolerance and cmu profile-subtype rows; `DetailSchema.Product` owns panel board/deck/membrane product geometry with the IGU build rows; `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows; `DetailSchema.Appearance` owns the appearance node's own bag — `TextureSet` the baked-set content address and `DoubleSided` the render-sidedness bit — the RULINGS-landed escape hatch that keeps the frozen `AppearanceSummary` preimage from widening.
-- Entry: `PropertyCategory.<scope>.Row(name)` mints a producer-scoped row name, `PropertyCategory.Seam` carrying the empty prefix so the schema's own statics keep the bare names an IFC round-trip froze; `StructuralRows.Translation`/`Rotation`/`Warping` project the restraint families and `Dofs` reads the whole degree-of-freedom roster, `Force`/`Moment`/`PlanarForce`/`Start`/`End` the applied-load component families and `DeltaT` the `Gradients`-keyed thermal family; `QuantityRows.SurfaceArea`/`Volume` project the ordered net-over-gross takeoff chains a reader folds first-hit-wins; `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `DetailSchema.Takeoff` the canonical type-quantity schema; `DetailSchema.Appearance` the canonical appearance-bag schema its `TextureSet`/`DoubleSided` rows key on; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag` and `schema.Quantities(source = default)` its `QuantityBag` counterpart, the omitted source deriving `PropertySource.Catalogue`; `schema.Joint(selected, key)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set, railed because the token crosses the `Of` admission.
+- Owner: `DetailSchema` the ONE neutral schema mechanism over the `ValueBag<V>` aliases — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — and the canonical `PropertyName` vocabulary both bag families key on; `PropertyCategory` the owner-blessed producer scope every package mints its own row names through; `StructuralRows` the cross-package restraint, load, and topology vocabulary a Bim projector stamps onto a `Generic` edge and a Compute runner reads back, with `QuantityRows`, `EnvelopeRows`, `BoundaryRows`, `DocumentRows`, and `PortRows` its siblings over the baked base-quantity takeoff, the building-envelope `Pset` rows, the space-boundary edge payload, the document/approval `Generic`-edge vocabulary, and the distribution-port flow attributes. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail with the masonry work-size tolerance, cmu profile-subtype, and concrete/post-tensioning/fireproofing/cladding trade rows; `DetailSchema.Product` owns panel board/deck/membrane product geometry with the IGU build rows and the curtain-wall, precast, insulation, membrane, pipework, ductwork, and electrical-containment trade rows; `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows; `DetailSchema.Appearance` owns the appearance node's own bag — `TextureSet` the baked-set content address and `DoubleSided` the render-sidedness bit — the RULINGS-landed escape hatch that keeps the frozen `AppearanceSummary` preimage from widening.
+- Entry: `PropertyCategory.<scope>.Row(name)` mints a producer-scoped row name, `PropertyCategory.Seam` carrying the empty prefix so the schema's own statics keep the bare names an IFC round-trip froze; `StructuralRows.Translation`/`Rotation`/`Warping` project the restraint families and `Dofs` reads the whole degree-of-freedom roster, `Force`/`Moment`/`PlanarForce`/`Start`/`End` the applied-load component families and `DeltaT` the `Gradients`-keyed thermal family; `QuantityRows.SurfaceArea`/`FloorArea`/`FootprintArea`/`CrossSection`/`Volume`/`Weight` project the ordered net-over-gross takeoff chains a reader folds first-hit-wins; `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `DetailSchema.Takeoff` the canonical type-quantity schema; `DetailSchema.Appearance` the canonical appearance-bag schema its `TextureSet`/`DoubleSided` rows key on; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag` and `schema.Quantities(source = default)` its `QuantityBag` counterpart, the omitted source deriving `PropertySource.Catalogue`; `schema.Joint(selected, key)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set, railed because the token crosses the `Of` admission.
 - Auto: `Bag` and `Quantities` pin `SetName` and `InheritanceMode` from the schema and stamp the resolved source rank, so neither author nor reader hand-spells the set-name string, re-stamps precedence, or drops source rank; `Joint(selected)` constructs the typed `PropertyValue.Enumerated` over `Text`-wrapped tokens (the selected token against the schema's closed `JointTypes` allowed-set) so the `Properties/property#PROPERTY_VALUE` `Of` admission holds.
 - Receipt: the conforming `PropertyBag` lands on the seam `ElementGraph` as a `Graph/element#NODE_MODEL` `Node.PropertySet` and the conforming `QuantityBag` as a `Node.QuantitySet`, each bound by one `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge, the `Bake` fold merging them into `element.Properties` and `element.Quantities` — a takeoff bound to a Type reaches every occurrence through that same type-bag merge, so no occurrence re-mints it; both bags mint through `NodeId.Content` over `Node.ToCanonicalBytes` (id excluded) so two structurally-identical bags dedup to one node, never a second `(GeometryKey, DetailKey)` hasher.
 - Packages: LanguageExt.Core (`Seq`/`Map` + the `Prelude` constructors), Thinktecture.Runtime.Extensions (the `PropertyName` `Create` factory + the `InheritanceMode` statics), `Properties/quantity#MEASURE_VALUE` (both `MeasureValue.OfSi` mints — the typed identity and the dimension-anonymous fallback the bag law elects between), and the seam `PropertyBag`/`PropertyValue`/`PropertyName`/`InheritanceMode` owners this cluster composes.
@@ -441,6 +441,13 @@ public static class StructuralRows {
  public static readonly PropertyName ShearLinkYield = PropertyName.Create("ShearLinkYield");
  public static readonly PropertyName ShearLinkCeiling = PropertyName.Create("ShearLinkCeiling");
 
+ // Buckling rows carry the EC9 member-stability pair a Materials aluminium capacity screen STAMPS and the Compute
+ // en1999 axial-compression cell READS — the §6.3.1.2 Table 6.6 imperfection factor α and plateau limit λ̄0 the
+ // alloy's BucklingClass letter selects, each a dimensionless Number; the same non-referencing-peer custody the
+ // ShearLink triple holds, absence meaning no aluminium capacity screen published a curve for the member.
+ public static readonly PropertyName BucklingAlpha = PropertyName.Create("BucklingAlpha");
+ public static readonly PropertyName BucklingPlateau = PropertyName.Create("BucklingPlateau");
+
  // ONE mint per row family: the key roster is the whole discriminant and Axes is its canonical default, so a
  // coordinate family reads Family(stem) and a family keyed on its own action shape hands its roster in.
  private static Map<string, PropertyName> Family(string stem, Option<Seq<string>> keys = default) =>
@@ -453,14 +460,37 @@ public static class StructuralRows {
 // Seam empty prefix. The ordered CHAINS are row data too: net-over-gross is one preference every discipline reads
 // rather than four re-spellings of the same fallback that drift apart on the first added row.
 public static class QuantityRows {
- public static readonly PropertyName Area = PropertyName.Create("Area");
- public static readonly PropertyName NetArea = PropertyName.Create("NetArea");
- public static readonly PropertyName NetSideArea = PropertyName.Create("NetSideArea");
- public static readonly PropertyName GrossSideArea = PropertyName.Create("GrossSideArea");
- public static readonly PropertyName NetFloorArea = PropertyName.Create("NetFloorArea");
- public static readonly PropertyName NetVolume = PropertyName.Create("NetVolume");
- public static readonly PropertyName GrossVolume = PropertyName.Create("GrossVolume");
+ // Base-quantity SPINE, grouped by dimension family (lengths, areas, volumes, weights): the bare IFC Qto spellings
+ // every element family shares, so a beam's Length and a wall's Length are one row.
+ public static readonly PropertyName Length = PropertyName.Create("Length");
  public static readonly PropertyName Width = PropertyName.Create("Width");
+ public static readonly PropertyName Height = PropertyName.Create("Height");
+ public static readonly PropertyName Depth = PropertyName.Create("Depth");
+ public static readonly PropertyName Perimeter = PropertyName.Create("Perimeter");
+ public static readonly PropertyName Area = PropertyName.Create("Area");
+ public static readonly PropertyName GrossArea = PropertyName.Create("GrossArea");
+ public static readonly PropertyName NetArea = PropertyName.Create("NetArea");
+ public static readonly PropertyName GrossSideArea = PropertyName.Create("GrossSideArea");
+ public static readonly PropertyName NetSideArea = PropertyName.Create("NetSideArea");
+ public static readonly PropertyName GrossFloorArea = PropertyName.Create("GrossFloorArea");
+ public static readonly PropertyName NetFloorArea = PropertyName.Create("NetFloorArea");
+ public static readonly PropertyName GrossFootprintArea = PropertyName.Create("GrossFootprintArea");
+ public static readonly PropertyName NetFootprintArea = PropertyName.Create("NetFootprintArea");
+ // CrossSectionArea and its Net/Gross duct/pipe siblings key the MEMBER takeoff QuantitySet; the DetailSchema rebar
+ // CrossSectionArea realization row shares the IFC spelling on a DIFFERENT wire family (a Realization PropertyBag),
+ // so the two statics are two custody anchors, never one fact twinned.
+ public static readonly PropertyName CrossSectionArea = PropertyName.Create("CrossSectionArea");
+ public static readonly PropertyName NetCrossSectionArea = PropertyName.Create("NetCrossSectionArea");
+ public static readonly PropertyName GrossCrossSectionArea = PropertyName.Create("GrossCrossSectionArea");
+ // OuterSurfaceArea is the linear member's coating/fire-protection envelope; the Gross/Net surface pair the
+ // profile-member sets carry beside it.
+ public static readonly PropertyName OuterSurfaceArea = PropertyName.Create("OuterSurfaceArea");
+ public static readonly PropertyName GrossSurfaceArea = PropertyName.Create("GrossSurfaceArea");
+ public static readonly PropertyName NetSurfaceArea = PropertyName.Create("NetSurfaceArea");
+ public static readonly PropertyName GrossVolume = PropertyName.Create("GrossVolume");
+ public static readonly PropertyName NetVolume = PropertyName.Create("NetVolume");
+ public static readonly PropertyName GrossWeight = PropertyName.Create("GrossWeight");
+ public static readonly PropertyName NetWeight = PropertyName.Create("NetWeight");
  public static readonly PropertyName GlazingArea = PropertyName.Create("GlazingArea");
  public static readonly PropertyName GlazingPerimeter = PropertyName.Create("GlazingPerimeter");
 
@@ -469,10 +499,39 @@ public static class QuantityRows {
  public static readonly PropertyName NestWasteArea = PropertyName.Create("NestWasteArea");
 
  // Bag set names the projector stamps: a set-scoped read narrows to one bag, an unscoped one scans every bound bag.
- public const string SpaceBaseQuantities = "Qto_SpaceBaseQuantities";
+ // ONE mint owns the Qto_<Stem>BaseQuantities derivation; CurtainWall is the roster's one Base-less spelling and
+ // states its own literal rather than bending the mint.
+ private static string Qto(string stem) => $"Qto_{stem}BaseQuantities";
+ public static readonly string BeamBaseQuantities = Qto("Beam");
+ public static readonly string ColumnBaseQuantities = Qto("Column");
+ public static readonly string MemberBaseQuantities = Qto("Member");
+ public static readonly string PlateBaseQuantities = Qto("Plate");
+ public static readonly string SlabBaseQuantities = Qto("Slab");
+ public static readonly string WallBaseQuantities = Qto("Wall");
+ public static readonly string RoofBaseQuantities = Qto("Roof");
+ public static readonly string CoveringBaseQuantities = Qto("Covering");
+ public static readonly string DoorBaseQuantities = Qto("Door");
+ public static readonly string WindowBaseQuantities = Qto("Window");
+ public static readonly string StairFlightBaseQuantities = Qto("StairFlight");
+ public static readonly string RampFlightBaseQuantities = Qto("RampFlight");
+ public static readonly string RailingBaseQuantities = Qto("Railing");
+ public static readonly string FootingBaseQuantities = Qto("Footing");
+ public static readonly string PileBaseQuantities = Qto("Pile");
+ public static readonly string DuctSegmentBaseQuantities = Qto("DuctSegment");
+ public static readonly string PipeSegmentBaseQuantities = Qto("PipeSegment");
+ public static readonly string CableSegmentBaseQuantities = Qto("CableSegment");
+ public static readonly string CableCarrierSegmentBaseQuantities = Qto("CableCarrierSegment");
+ public static readonly string SpaceBaseQuantities = Qto("Space");
+ public static readonly string BuildingStoreyBaseQuantities = Qto("BuildingStorey");
+ public static readonly string CurtainWallQuantities = "Qto_CurtainWallQuantities";
 
- public static readonly Seq<PropertyName> SurfaceArea = Seq(NetSideArea, NetArea, GrossSideArea);
+ // One chain per quantity family, net before gross, folded first-hit-wins.
+ public static readonly Seq<PropertyName> SurfaceArea = Seq(NetSideArea, NetArea, NetSurfaceArea, GrossSideArea, GrossArea, GrossSurfaceArea);
+ public static readonly Seq<PropertyName> FloorArea = Seq(NetFloorArea, GrossFloorArea);
+ public static readonly Seq<PropertyName> FootprintArea = Seq(NetFootprintArea, GrossFootprintArea);
+ public static readonly Seq<PropertyName> CrossSection = Seq(NetCrossSectionArea, CrossSectionArea, GrossCrossSectionArea);
  public static readonly Seq<PropertyName> Volume = Seq(NetVolume, GrossVolume);
+ public static readonly Seq<PropertyName> Weight = Seq(NetWeight, GrossWeight);
 }
 
 // EnvelopeRows carries the element PropertySet rows a building-envelope physics or energy runner reads and a Bim
@@ -487,12 +546,43 @@ public static class EnvelopeRows {
  public const string SpaceCommon = "Pset_SpaceCommon";
 }
 
-// BoundaryRows carries the space-boundary edge payload a Bim projector stamps onto the neutral Generic edge and the
-// energy, acoustic, and circulation runners read back — Host discriminating an OPENING from an opaque base surface,
-// Level the 1st/2nd boundary generation an export declares (a blank reading 1st-equivalent).
+// BoundaryRows carries the FULL 1st/2nd-level space-boundary vocabulary as owned payload rows on the neutral Generic
+// edge, under ONE custody: Element declares, the Bim projector stamps, and the energy, acoustic, and circulation
+// runners — the python energy peer included — read back. Host discriminates an OPENING from an opaque base surface;
+// Level the 1st/2nd boundary generation an export declares (a blank reading 1st-equivalent); PhysicalOrVirtual the
+// IFC physical-or-virtual flag (a VIRTUAL boundary is a space-split plane no construction backs, which an energy
+// zoning merges across); InternalOrExternal the internal/external flag the envelope selection filters on;
+// CorrespondingBoundary the paired 2nd-level boundary reference closing the two-sided surface pair an energy model
+// zones across.
 public static class BoundaryRows {
  public static readonly PropertyName Host = PropertyName.Create("Host");
  public static readonly PropertyName Level = PropertyName.Create("BoundaryLevel");
+ public static readonly PropertyName PhysicalOrVirtual = PropertyName.Create("PhysicalOrVirtual");
+ public static readonly PropertyName InternalOrExternal = PropertyName.Create("InternalOrExternal");
+ public static readonly PropertyName CorrespondingBoundary = PropertyName.Create("CorrespondingBoundary");
+}
+
+// DocumentRows carries the document/approval facts that ride UNTYPED Generic edges (the document, approval, and
+// library association passthroughs) as owned row names — the BoundaryRows custody: Element declares, the Bim
+// projector stamps onto the Generic edge's attribute map, and the Persistence and Fabrication schedule consumers
+// read back. A typed Node.Document case stays un-minted: the row vocabulary is the seam's whole obligation until a
+// dual consumer proves a node shape.
+public static class DocumentRows {
+ public static readonly PropertyName DocumentName = PropertyName.Create("DocumentName");
+ public static readonly PropertyName DocumentKind = PropertyName.Create("DocumentKind");
+ public static readonly PropertyName DocumentReference = PropertyName.Create("DocumentReference");
+ public static readonly PropertyName ApprovalStatus = PropertyName.Create("ApprovalStatus");
+ public static readonly PropertyName ApprovalAuthority = PropertyName.Create("ApprovalAuthority");
+}
+
+// PortRows carries the IfcDistributionPort entity-attribute pair riding the synthesized Import bag on the port
+// node — the BoundaryRows custody: Element declares, the Bim ingest stamps, and the Bim systems trace reads back
+// (an unsurfaced FlowDirection reads NOTDEFINED and degrades the directed trace to undirected reachability). The
+// stamping and reading pages are non-referencing peers minting through two call sites, which is exactly the
+// fork-on-first-rename this custody deletes; the bare spellings are the IFC attribute names a round-trip froze.
+public static class PortRows {
+ public static readonly PropertyName FlowDirection = PropertyName.Create("FlowDirection");
+ public static readonly PropertyName SystemType = PropertyName.Create("SystemType");
 }
 
 // DetailSchema declares the ONE NEUTRAL detail schema over PropertyBag — authored by the Materials Component
@@ -540,6 +630,61 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName FastenerForm = PropertyName.Create("FastenerForm");
  public static readonly PropertyName ConnectorPlate = PropertyName.Create("ConnectorPlate");
  public static readonly PropertyName EvaluationReport = PropertyName.Create("EvaluationReport");
+ // NESTED complex-row keys: WeldPrep, StudGrade, ConnectorPlate, BendSchedule, and FastenerForm above are
+ // Complex-valued rows, and the keys INSIDE each Complex map are seam vocabulary under the same single-owner law
+ // as their parents — the Materials component arms author them, the Fabrication schedule folds read them by name,
+ // and a call-site PropertyName.Create mint would fork the key space, so every nested key is declared here.
+ // WeldPrep nested keys: the weld identity and electrode, the as-deposited profile every geometry carries, and the
+ // groove-only prep block with its root opening.
+ public static readonly PropertyName WeldType = PropertyName.Create("WeldType");
+ public static readonly PropertyName Electrode = PropertyName.Create("Electrode");
+ public static readonly PropertyName Specification = PropertyName.Create("Specification");
+ public static readonly PropertyName Face = PropertyName.Create("Face");
+ public static readonly PropertyName RootTreatment = PropertyName.Create("RootTreatment");
+ public static readonly PropertyName Reinforcement = PropertyName.Create("Reinforcement");
+ public static readonly PropertyName ToeRadius = PropertyName.Create("ToeRadius");
+ public static readonly PropertyName RootFace = PropertyName.Create("RootFace");
+ public static readonly PropertyName Groove = PropertyName.Create("Groove");
+ public static readonly PropertyName Penetration = PropertyName.Create("Penetration");
+ public static readonly PropertyName Backing = PropertyName.Create("Backing");
+ public static readonly PropertyName Process = PropertyName.Create("Process");
+ public static readonly PropertyName RootOpening = PropertyName.Create("RootOpening");
+ // StudGrade nested keys: the grade token and its published strength pair.
+ public static readonly PropertyName Grade = PropertyName.Create("Grade");
+ public static readonly PropertyName YieldStrength = PropertyName.Create("YieldStrength");
+ public static readonly PropertyName UltimateStrength = PropertyName.Create("UltimateStrength");
+ // ConnectorPlate nested keys: the stamped-plate stock geometry the shop's cut sheet reads.
+ public static readonly PropertyName SheetThickness = PropertyName.Create("SheetThickness");
+ public static readonly PropertyName BendRadius = PropertyName.Create("BendRadius");
+ public static readonly PropertyName HoleDiameter = PropertyName.Create("HoleDiameter");
+ public static readonly PropertyName HolePitch = PropertyName.Create("HolePitch");
+ public static readonly PropertyName HoleCount = PropertyName.Create("HoleCount");
+ public static readonly PropertyName DevelopedWidth = PropertyName.Create("DevelopedWidth");
+ // BendSchedule nested keys: the placement's bend angle beside the ACI inside-bend diameter, the floored hook
+ // extension, and the EN mandrel diameter — the bend block a bar-bending schedule is bought with.
+ public static readonly PropertyName BendAngle = PropertyName.Create("BendAngle");
+ public static readonly PropertyName InsideBendDiameter = PropertyName.Create("InsideBendDiameter");
+ public static readonly PropertyName HookExtension = PropertyName.Create("HookExtension");
+ public static readonly PropertyName MandrelDiameter = PropertyName.Create("MandrelDiameter");
+ // FastenerForm nested keys: the ISO 68-1 thread algebra (flank angle, pitch, the minor/pitch/root diameters,
+ // runout, the threaded/unthreaded shank split) and the ISO 4014/4032/7089 hex envelope the shop cuts and turns
+ // from, the bearing/fillet diameters declared only where the product standard publishes them.
+ public static readonly PropertyName FlankAngle = PropertyName.Create("FlankAngle");
+ public static readonly PropertyName Pitch = PropertyName.Create("Pitch");
+ public static readonly PropertyName MinorDiameter = PropertyName.Create("MinorDiameter");
+ public static readonly PropertyName PitchDiameter = PropertyName.Create("PitchDiameter");
+ public static readonly PropertyName RootDiameter = PropertyName.Create("RootDiameter");
+ public static readonly PropertyName AcrossCorners = PropertyName.Create("AcrossCorners");
+ public static readonly PropertyName ThreadRunout = PropertyName.Create("ThreadRunout");
+ public static readonly PropertyName ThreadLength = PropertyName.Create("ThreadLength");
+ public static readonly PropertyName UnthreadedShank = PropertyName.Create("UnthreadedShank");
+ public static readonly PropertyName HeadHeight = PropertyName.Create("HeadHeight");
+ public static readonly PropertyName NutHeight = PropertyName.Create("NutHeight");
+ public static readonly PropertyName WasherInner = PropertyName.Create("WasherInner");
+ public static readonly PropertyName WasherOuter = PropertyName.Create("WasherOuter");
+ public static readonly PropertyName WasherThickness = PropertyName.Create("WasherThickness");
+ public static readonly PropertyName BearingDiameter = PropertyName.Create("BearingDiameter");
+ public static readonly PropertyName FilletDiameter = PropertyName.Create("FilletDiameter");
  // PANEL product rows carry what the Component panel arm authors and a sheathing generator round-trips: EdgeProfile
  // names the board-edge token, PanelThickness/BoardLength the board build, FieldSpacing/EdgeSpacing the fastener
  // station pitches, RibDepth/RibPitch/DeckForm the steel-deck corrugation, MembraneSeam the membrane lap, and
@@ -582,6 +727,32 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName EdgeSeal = PropertyName.Create("EdgeSeal");
  public static readonly PropertyName MuntinGrid = PropertyName.Create("MuntinGrid");
  public static readonly PropertyName FireResistanceEi = PropertyName.Create("FireResistanceEi");
+ // IGU nested keys, the same single-owner law as the shop-deliverable nested keys above: PaneBuild per-pane rows
+ // (glass token, thickness, the two face coatings, the laminate interlayer pair), CavityBuild per-cavity rows
+ // (gas fill with fraction and balance, the vacuum residual pressure and pillar lattice, the shared width), the
+ // EN 1279-2 EdgeSeal block, and the MuntinGrid bar grid.
+ public static readonly PropertyName Glass = PropertyName.Create("Glass");
+ public static readonly PropertyName Thickness = PropertyName.Create("Thickness");
+ public static readonly PropertyName CoatingOutboard = PropertyName.Create("CoatingOutboard");
+ public static readonly PropertyName CoatingInboard = PropertyName.Create("CoatingInboard");
+ public static readonly PropertyName Interlayer = PropertyName.Create("Interlayer");
+ public static readonly PropertyName InterlayerThickness = PropertyName.Create("InterlayerThickness");
+ public static readonly PropertyName Gas = PropertyName.Create("Gas");
+ public static readonly PropertyName FillFraction = PropertyName.Create("FillFraction");
+ public static readonly PropertyName Balance = PropertyName.Create("Balance");
+ public static readonly PropertyName Width = PropertyName.Create("Width");
+ public static readonly PropertyName ResidualPressure = PropertyName.Create("ResidualPressure");
+ public static readonly PropertyName PillarRadius = PropertyName.Create("PillarRadius");
+ public static readonly PropertyName PillarPitch = PropertyName.Create("PillarPitch");
+ public static readonly PropertyName Primary = PropertyName.Create("Primary");
+ public static readonly PropertyName Secondary = PropertyName.Create("Secondary");
+ public static readonly PropertyName Desiccant = PropertyName.Create("Desiccant");
+ public static readonly PropertyName CorneredKeys = PropertyName.Create("CorneredKeys");
+ public static readonly PropertyName Style = PropertyName.Create("Style");
+ public static readonly PropertyName HorizontalBars = PropertyName.Create("HorizontalBars");
+ public static readonly PropertyName VerticalBars = PropertyName.Create("VerticalBars");
+ public static readonly PropertyName BarWidth = PropertyName.Create("BarWidth");
+ public static readonly PropertyName BarDepth = PropertyName.Create("BarDepth");
  // Takeoff rows carry the per-running-metre quantities a projector mints ONCE off the resolved section and the
  // substance density: MassPerLength the kg/m linear mass a tonnage and cost join reads, SurfaceAreaPerLength the
  // m2/m coating and fire-protection area, VolumePerLength the m3/m material volume. Their sole producer names each
@@ -590,11 +761,77 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName MassPerLength = PropertyName.Create("MassPerLength");
  public static readonly PropertyName SurfaceAreaPerLength = PropertyName.Create("SurfaceAreaPerLength");
  public static readonly PropertyName VolumePerLength = PropertyName.Create("VolumePerLength");
+ // CONCRETE realization rows: ConcreteCover the EN 1992-1-1 nominal durability cover c_nom (the SectionProperties
+ // AxisDistance stays the fire cover-to-reinforcement-centroid — a different fact), MixDesignation the mix identity
+ // token ("C30/37"), ExposureClass the EN 206 exposure token ("XC4/XD1"), CastMethod the placement token
+ // (cast-in-place/shotcrete/tremie).
+ public static readonly PropertyName ConcreteCover = PropertyName.Create("ConcreteCover");
+ public static readonly PropertyName MixDesignation = PropertyName.Create("MixDesignation");
+ public static readonly PropertyName ExposureClass = PropertyName.Create("ExposureClass");
+ public static readonly PropertyName CastMethod = PropertyName.Create("CastMethod");
+ // PRECAST product rows (precast runs DetailLane.Product): LiftingInsert the cast-in lifting-insert token the rigging schedule reads,
+ // BearingLength the seat length the erection check reads, JointGrout the joint-grout specification token.
+ public static readonly PropertyName LiftingInsert = PropertyName.Create("LiftingInsert");
+ public static readonly PropertyName BearingLength = PropertyName.Create("BearingLength");
+ public static readonly PropertyName JointGrout = PropertyName.Create("JointGrout");
+ // POST-TENSIONING realization rows: AnchorageType the live/dead-end anchorage token, DuctDiameter the tendon-duct
+ // diameter (a tendon assembly carries the strand's own NominalDiameter BESIDE its duct, so the pair is two rows),
+ // TendonProfile the drape-profile token.
+ public static readonly PropertyName AnchorageType = PropertyName.Create("AnchorageType");
+ public static readonly PropertyName DuctDiameter = PropertyName.Create("DuctDiameter");
+ public static readonly PropertyName TendonProfile = PropertyName.Create("TendonProfile");
+ // CURTAIN-WALL/ALUMINUM product rows: MullionProfile the framing-profile token, ThermalBreak the isolator class,
+ // GlazingPocket the pocket depth the IGU seat check reads.
+ public static readonly PropertyName MullionProfile = PropertyName.Create("MullionProfile");
+ public static readonly PropertyName ThermalBreak = PropertyName.Create("ThermalBreak");
+ public static readonly PropertyName GlazingPocket = PropertyName.Create("GlazingPocket");
+ // INSULATION product row: InstallMethod the placement-mode token (friction-fit/adhered/blown/sprayed) —
+ // FasteningMethod stays the mechanical panel fastening; the board's R-value rides the existing ThermalResistance
+ // and its facing the existing FacerClass, never RValue/FacingClass twins.
+ public static readonly PropertyName InstallMethod = PropertyName.Create("InstallMethod");
+ // MEMBRANE/BARRIER product rows: PermRating the vapour-permeance rating, BarrierClass the air/vapour barrier class
+ // token; the seam lap stays the existing MembraneSeam, never a SeamMethod twin.
+ public static readonly PropertyName PermRating = PropertyName.Create("PermRating");
+ public static readonly PropertyName BarrierClass = PropertyName.Create("BarrierClass");
+ // PIPEWORK product rows: PipeSchedule the wall-schedule token, PressureClass the pressure classification BOTH
+ // fluid-segment trades share (PN/class for pipe, the duct pressure class for ductwork — one fact, one row),
+ // NominalBore the DN bore; the joint modality rides the existing JointType over the widened Realization allowed-set.
+ public static readonly PropertyName PipeSchedule = PropertyName.Create("PipeSchedule");
+ public static readonly PropertyName PressureClass = PropertyName.Create("PressureClass");
+ public static readonly PropertyName NominalBore = PropertyName.Create("NominalBore");
+ // DUCTWORK product rows: DuctGauge the sheet-gauge token, SealClass the duct seal class, LinerClass the liner
+ // class; the duct pressure classification rides PressureClass above.
+ public static readonly PropertyName DuctGauge = PropertyName.Create("DuctGauge");
+ public static readonly PropertyName SealClass = PropertyName.Create("SealClass");
+ public static readonly PropertyName LinerClass = PropertyName.Create("LinerClass");
+ // ELECTRICAL/CONDUIT/CABLE product rows: TradeSize the conduit trade size, ConductorSize the AWG/mm² conductor
+ // size, InsulationClass the conductor insulation temperature class, TrayLoadClass the cable-tray load class,
+ // AmpacityBasis the installation-method basis an ampacity table keys on — COMPONENT facts by law (the substance
+ // constants live on MaterialPropertySet.Electrical; ampacity never becomes a substance column).
+ public static readonly PropertyName TradeSize = PropertyName.Create("TradeSize");
+ public static readonly PropertyName ConductorSize = PropertyName.Create("ConductorSize");
+ public static readonly PropertyName InsulationClass = PropertyName.Create("InsulationClass");
+ public static readonly PropertyName TrayLoadClass = PropertyName.Create("TrayLoadClass");
+ public static readonly PropertyName AmpacityBasis = PropertyName.Create("AmpacityBasis");
+ // FIREPROOFING realization rows: FireproofingThickness the applied SFRM/intumescent thickness, RatingMinutes the
+ // applied-SYSTEM tested R-criterion minutes the thickness buys (FireResistanceEi stays the glazing EI row and the
+ // substance R/E/I stays the typed Fire property case — three criteria-distinct facts, three owners), and
+ // DensityClass the SFRM density class token.
+ public static readonly PropertyName FireproofingThickness = PropertyName.Create("FireproofingThickness");
+ public static readonly PropertyName RatingMinutes = PropertyName.Create("RatingMinutes");
+ public static readonly PropertyName DensityClass = PropertyName.Create("DensityClass");
+ // CLADDING realization rows: AnchorType the embedded/tied anchor system (a stone panel carries a kerf ANCHOR and
+ // stainless FASTENERS on one bag, so FastenerType stays the discrete fastener), JointWidth the open-joint width the
+ // rain-screen check reads; a cladding panel's thickness rides the existing PanelThickness.
+ public static readonly PropertyName AnchorType = PropertyName.Create("AnchorType");
+ public static readonly PropertyName JointWidth = PropertyName.Create("JointWidth");
 
  // Realization: OccurrenceWins — a re-imported occurrence value wins the type default; the JointType allowed-set
- // closes the realizing modalities. Product: TypeDrivenOverride — product form is type-driven, no joint set.
+ // closes the realizing modalities across the structural AND fluid-segment trades (the trailing five tokens are the
+ // pipework/ductwork joint modalities — one token per modality, the set's own growth arm). Product:
+ // TypeDrivenOverride — product form is type-driven, no joint set.
  public static readonly DetailSchema Realization =
-  new("Realization", InheritanceMode.OccurrenceWins, Seq("Bolted", "Welded", "Bonded", "Bearing", "Cast"));
+  new("Realization", InheritanceMode.OccurrenceWins, Seq("Bolted", "Welded", "Bonded", "Bearing", "Cast", "Threaded", "Grooved", "Fused", "Compression", "Brazed"));
 
  public static readonly DetailSchema Product =
   new("Product", InheritanceMode.TypeDrivenOverride, Seq<string>());
@@ -650,7 +887,7 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
 - [PRODUCT_DETAIL_SCHEMA]: `DetailSchema.Product` owns the panel, deck, and membrane product-form rows with the IGU build inputs the seed-time EN 673/EN 410/mass-law receipts compute from, under `TypeDrivenOverride` and no joint allowed-set.
 - [TYPE_TAKEOFF_SCHEMA]: `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows (`MassPerLength`/`SurfaceAreaPerLength`/`VolumePerLength`) over the `QuantityBag` alias under `TypeDrivenOverride` inheritance — the IFC `QTO_TYPEDRIVENOVERRIDE` rule, so one Type-bound bag drives every occurrence through the `Bake` type-bag merge and a per-occurrence takeoff mint is the deleted form. Deriving a row stays the producing projector's obligation.
 - [APPEARANCE_BAG_ESCAPE]: `DetailSchema.Appearance` carries the field-valued appearance facts the frozen `AppearanceSummary` refuses as columns, under `TypeDrivenOverride` on the appearance node's own `Associate` edge. `DoubleSided` stays off the summary: summary values answer how a painted face reflects while this one answers WHICH faces the material paints, so folding it into that frozen preimage re-keys every stored `Node.Appearance` on a fact no BSDF reads.
-- [ROW_NAME_CUSTODY]: every bag and edge row name resolves to an owner-declared static — `StructuralRows` the cross-package structural vocabulary, `QuantityRows`/`EnvelopeRows`/`BoundaryRows` the takeoff-quantity, building-envelope `Pset`, and space-boundary-edge vocabularies, `PropertyCategory` each producer's own — because non-referencing writer and reader peers fork a duplicated literal on the first rename.
+- [ROW_NAME_CUSTODY]: every bag and edge row name resolves to an owner-declared static — `StructuralRows` the cross-package structural vocabulary, `QuantityRows`/`EnvelopeRows`/`BoundaryRows`/`DocumentRows`/`PortRows` the takeoff-quantity, building-envelope `Pset`, space-boundary-edge, document/approval-edge, and distribution-port vocabularies, `PropertyCategory` each producer's own — because non-referencing writer and reader peers fork a duplicated literal on the first rename.
 - [OPEN_PROPERTY_KEY]: `PropertyName` stays an OPEN key at `[02]` for an ingested foreign `Pset` name, so authored rows need custody rather than a closed vocabulary.
 - [WIRE_FAMILY_PROVISION]: provision follows the WIRE FAMILY, not the row — the restraint set is the whole `Dofs` roster with the one positional `Frame` list, and the applied-load set the `Force`/`Moment`/`PlanarForce`/`Start`/`End` axis families beside the `DeltaT` gradient family — so a component family only its producer writes still declares here, and a reader keys one roster rather than resolving each component against a different custody tier.
 - [TAKEOFF_QUANTITY_IDENTITY]: `MeasureValue` carries its `QuantityType` identity on a `ValueBag` row exactly where EVERY producer of that row can name the identity truthfully, and takes the dimension-anonymous `MeasureValue.OfSi(Dimension, double)` mint only where a name is unspellable. Deleted form: a unit-bearing measure forking the key on a display token no identity carries.

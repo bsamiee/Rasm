@@ -26,7 +26,7 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
 using Rasm.Bim.Projection;   // Separations composes the Projection/relations#RELATION_ALGEBRA IfcRelKind.SpaceBoundary
-                             // wire-name row and the Projection/semantic#SEMANTIC_PROJECTOR BoundaryLevel attr key.
+                             // wire-name row beside the seam-declared BoundaryRows.Level attr key.
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
 using Rasm.Element.Properties;
@@ -157,11 +157,11 @@ public sealed class SpatialStructure {
                 .Fold(Map<NodeId, NodeId>(), static (map, edge) => map.AddOrUpdate(edge.Target, edge.Source)))
             : Fail<Error, Map<NodeId, NodeId>>(new BimFault.ModelRejected(key, $"spatial-parent-ambiguous:{string.Join(',', ambiguous.Map(static id => id.Value))}"));
         // The separator incidence index, folded in THIS pass: separator -> the distinct spaces bounded through it,
-        // read off the Generic("IfcRelSpaceBoundary") edges at the SemanticProjector.BoundaryLevel "2nd" discriminant.
+        // read off the Generic("IfcRelSpaceBoundary") edges at the BoundaryRows.Level "2nd" discriminant.
         Map<NodeId, Seq<NodeId>> boundaries = toSeq(graph.Edges)
             .Choose(static e => e is Relationship.Generic g
                     && string.Equals(g.WireName, IfcRelKind.SpaceBoundary.Key, StringComparison.Ordinal)
-                    && g.Attributes.Find(SemanticProjector.BoundaryLevel).Exists(static v => v is PropertyValue.Text { Value: "2nd" })
+                    && g.Attributes.Find(BoundaryRows.Level).Exists(static v => v is PropertyValue.Text { Value: "2nd" })
                 ? Some((Space: g.Relating, Separator: g.Related))
                 : Option<(NodeId Space, NodeId Separator)>.None)
             .Fold(Map<NodeId, Seq<NodeId>>(), static (map, bound) => map.AddOrUpdate(

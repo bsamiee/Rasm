@@ -210,16 +210,23 @@ public static class EnergyResults {
             }));
     }
 
-    // SmartEnum key IS the property name, so no second name table exists; the instant lands as a typed Temporal
-    // stamp, never a formatted string the calendar cannot compare.
+    // The run-identity pair every results bag carries beside its quantity rows, each minted ONCE through the
+    // owner-blessed empty-prefix PropertyCategory.Seam.Row (the Properties/property#DETAIL_SCHEMA custody law) —
+    // ArtifactRow keys the run's content address so a review joins a bag back to its artifact, SimulatedAt the
+    // run instant as a typed Temporal stamp, never a formatted string the calendar cannot compare.
+    static readonly PropertyName ArtifactRow = PropertyCategory.Seam.Row("EnergyArtifact");
+    static readonly PropertyName SimulatedAt = PropertyCategory.Seam.Row("SimulatedAt");
+
+    // SmartEnum key IS the property name — the quantity roster is the single name authority, its key routed
+    // through the same Seam.Row mint — so no second name table exists.
     static Node.PropertySet Author(ArtifactKey run, Instant at, Seq<EnergyResult> rows, double tolerance) {
         PropertyBag bag = new(SetName,
             rows.Fold(
                 Map<PropertyName, PropertyValue>(
-                    (PropertyName.Create("EnergyArtifact"), new PropertyValue.Text(run.Value)),
-                    (PropertyName.Create("SimulatedAt"), new PropertyValue.Temporal(new TemporalValue.Stamp(at)))),
+                    (ArtifactRow, new PropertyValue.Text(run.Value)),
+                    (SimulatedAt, new PropertyValue.Temporal(new TemporalValue.Stamp(at)))),
                 static (values, row) => values.AddOrUpdate(
-                    PropertyName.Create(row.Quantity.Key), new PropertyValue.Measure(row.Value))),
+                    PropertyCategory.Seam.Row(row.Quantity.Key), new PropertyValue.Measure(row.Value))),
             InheritanceMode.OccurrenceWins, PropertySource.Derived);
         Node.PropertySet probe = new(NodeId.Content([]), bag);
         return probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };

@@ -20,6 +20,14 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Connector.cs       # Connector family
 │   ├── Joint.cs           # Joint family over the weld, adhesive, and stud connection record
 │   ├── Panel.cs           # Panel family over sheet-goods built elements
+│   ├── Concrete.cs        # Cast-in-place concrete family over the grade and role axes with the exposure-driven cover regime
+│   ├── Precast.cs         # Precast product family over the two-sourced hollowcore and double-tee ladders
+│   ├── Aluminum.cs        # Aluminum family over the EN 1999 alloy bands and the authored die roster
+│   ├── Insulation.cs      # Insulation family over the non-board batt, roll, loose-fill, and spray forms
+│   ├── Finishes.cs        # Finish and fireproofing families split by lane law
+│   ├── Pipework.cs        # Pipework family over the published pressure-pipe system rosters
+│   ├── Ductwork.cs        # Ductwork family over the SMACNA pressure-class and gauge schedules
+│   ├── Electrical.cs      # Electrical family over the conductor rosters and ampacity rating rows
 │   └── Capacity.cs        # One section-capacity resolution and check rail
 ├── Appearance/            # Measured appearance engine — node graph, BSDF lobe family, and the material wire
 │   ├── Bsdf.cs            # Closed BSDF lobe family and the microfacet kernel
@@ -181,6 +189,7 @@ flowchart LR
     Rasm e23@-->|"[PROJECTION]: ChartAtlas"| Raster
     Rasm e24@-->|"[WIRE]: Lm.Minimize + DualModel"| Appearance
     Rasm e25@-->|"[WIRE]: PatternPlan + InstanceStream"| Component
+    Rasm e26@-->|"[SHAPE]: MaterialSymmetry"| Component
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
     Appearance e11@-->|"[WIRE]: StageRequest"| Compute
@@ -225,6 +234,9 @@ flowchart LR
 |  [19]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
 |  [20]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
 |  [21]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
+|  [22]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |
+|  [23]   | new fatigue detail category         | `Component/capacity.md`     | one `EnFatigueCategory` or `AiscFatigueCategory` ladder rung      |
+|  [24]   | new trade size or system            | the owning trade seed page  | one roster row or one system policy row, never a stocked sweep    |
 
 ## [05]-[BOUNDARIES]
 

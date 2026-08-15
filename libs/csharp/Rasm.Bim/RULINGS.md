@@ -33,6 +33,9 @@
 - Reading the kernel `RgbProfile.Srgb` transfer is no host crossing — the delegate spells no `Unicolour` type, and none reaches a signature here.
 - Format capability answers through ONE `Admitted(format, direction, key)` gate every entry composes — a capability column flips only WITH its arm.
 - Diagnostic detail tokens are ROWS on the one `Detail` roster carrying leg and `BimFault` arm — a subject appends through the roster's composers.
+- Graph→OSM/gbXML/IDF egress rides `Lower` HBJSON → peer wire → `Translate` — no HBJSON ingest feeds the translator matrix, so no direct arm.
+- Classifier rows demand per-segment-HONEST discrimination — composed, floor-relative, and point-absence signatures wait on kernel evidence.
+- SAF import AUTHORS GeometryGym entities and re-enters the ONE `SemanticProjector` — a SAF-side seam projector is the deleted standalone form.
 
 ## [03]-[COLLAPSE]
 

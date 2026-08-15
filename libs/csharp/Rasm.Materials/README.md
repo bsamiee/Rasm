@@ -18,40 +18,48 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [09]-[CONNECTOR](.planning/Component/connector.md): Framing-connector family over the manufacturer catalogue and directional resistance algebra.
 - [10]-[JOINT](.planning/Component/joint.md): Joint family over the weld, adhesive, and stud connection record.
 - [11]-[PANEL](.planning/Component/panel.md): Panel family over sheet-goods built elements.
-- [12]-[CAPACITY](.planning/Component/capacity.md): One section-capacity resolution and check rail.
+- [12]-[CONCRETE](.planning/Component/concrete.md): Cast-in-place concrete family over the grade and role axes with the exposure-driven cover regime.
+- [13]-[PRECAST](.planning/Component/precast.md): Precast product family over the two-sourced hollowcore and double-tee ladders.
+- [14]-[ALUMINUM](.planning/Component/aluminum.md): Aluminum family over the EN 1999 alloy bands and the authored die roster.
+- [15]-[INSULATION](.planning/Component/insulation.md): Insulation family over the non-board batt, roll, loose-fill, and spray forms.
+- [16]-[FINISHES](.planning/Component/finishes.md): Finish and fireproofing families split by lane law.
+- [17]-[PIPEWORK](.planning/Component/pipework.md): Pipework family over the published pressure-pipe system rosters.
+- [18]-[DUCTWORK](.planning/Component/ductwork.md): Ductwork family over the SMACNA pressure-class and gauge schedules.
+- [19]-[ELECTRICAL](.planning/Component/electrical.md): Electrical family over the conductor rosters and ampacity rating rows.
+- [20]-[CAPACITY](.planning/Component/capacity.md): One section-capacity resolution and check rail.
 
 [APPEARANCE]:
-- [13]-[BSDF](.planning/Appearance/bsdf.md): Closed BSDF lobe family and the microfacet kernel.
-- [14]-[GRAPH](.planning/Appearance/graph.md): Material node-DAG program, its batched plane evaluator, and the material-library table.
-- [15]-[SURFACE](.planning/Appearance/surface.md): OpenPBR color-science lowering and the layered slab stack.
-- [16]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union and its wrap-exact lattice period.
-- [17]-[PHOTOMETRIC](.planning/Appearance/photometric.md): Light-unit admission fold and the in-folder UnitsNet boundary.
-- [18]-[WEATHERING](.planning/Appearance/weathering.md): Aging fold over the closed weathering-effect union.
-- [19]-[ACQUISITION](.planning/Appearance/acquisition.md): Capture-import fold over the closed capture-source union and the acquired plane set.
-- [20]-[FINISH](.planning/Appearance/finish.md): Kubelka-Munk pigment-reflectance finish engine.
-- [21]-[INTERCHANGE](.planning/Appearance/interchange.md): Appearance wire family, texture egress, and the MaterialX .mtlx projection.
-- [22]-[ENVIRONMENT](.planning/Appearance/environment.md): Sky synthesis, environment-map admission, IBL prefilter, and the environment-light row.
-- [23]-[NEURAL](.planning/Appearance/neural.md): Photo-to-PBR model registry and the inference stage plan.
+- [21]-[BSDF](.planning/Appearance/bsdf.md): Closed BSDF lobe family and the microfacet kernel.
+- [22]-[GRAPH](.planning/Appearance/graph.md): Material node-DAG program, its batched plane evaluator, and the material-library table.
+- [23]-[SURFACE](.planning/Appearance/surface.md): OpenPBR color-science lowering and the layered slab stack.
+- [24]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union and its wrap-exact lattice period.
+- [25]-[PHOTOMETRIC](.planning/Appearance/photometric.md): Light-unit admission fold and the in-folder UnitsNet boundary.
+- [26]-[WEATHERING](.planning/Appearance/weathering.md): Aging fold over the closed weathering-effect union.
+- [27]-[ACQUISITION](.planning/Appearance/acquisition.md): Capture-import fold over the closed capture-source union and the acquired plane set.
+- [28]-[FINISH](.planning/Appearance/finish.md): Kubelka-Munk pigment-reflectance finish engine.
+- [29]-[INTERCHANGE](.planning/Appearance/interchange.md): Appearance wire family, texture egress, and the MaterialX .mtlx projection.
+- [30]-[ENVIRONMENT](.planning/Appearance/environment.md): Sky synthesis, environment-map admission, IBL prefilter, and the environment-light row.
+- [31]-[NEURAL](.planning/Appearance/neural.md): Photo-to-PBR model registry and the inference stage plan.
 
 [RASTER]:
-- [24]-[PLANE](.planning/Raster/plane.md): Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge.
-- [25]-[CODEC](.planning/Raster/codec.md): Container roster, the band-2460 raster fault, and the KTX gate over its CLI floor.
-- [26]-[FILTER](.planning/Raster/filter.md): Plane-transform algebra, the stage scheduler, and the height-field correspondence.
-- [27]-[TILE](.planning/Raster/tile.md): Set-coherent tiling synthesizer and the deterministic tileability gate.
-- [28]-[SET](.planning/Raster/set.md): Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind.
-- [29]-[PRESS](.planning/Raster/press.md): Bake engine over the batched plane evaluator and its content-identity veto.
-- [30]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its golden vectors.
+- [32]-[PLANE](.planning/Raster/plane.md): Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge.
+- [33]-[CODEC](.planning/Raster/codec.md): Container roster, the band-2460 raster fault, and the KTX gate over its CLI floor.
+- [34]-[FILTER](.planning/Raster/filter.md): Plane-transform algebra, the stage scheduler, and the height-field correspondence.
+- [35]-[TILE](.planning/Raster/tile.md): Set-coherent tiling synthesizer and the deterministic tileability gate.
+- [36]-[SET](.planning/Raster/set.md): Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind.
+- [37]-[PRESS](.planning/Raster/press.md): Bake engine over the batched plane evaluator and its content-identity veto.
+- [38]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its golden vectors.
 
 [PROPERTIES]:
-- [31]-[PROPERTIES](.planning/Properties/properties.md): Intrinsic mechanical, thermal, acoustic, and fire measurements.
-- [32]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
-- [33]-[ASSESSMENT](.planning/Properties/assessment.md): Dated assessment records and the assessed-over-published resolution law.
+- [39]-[PROPERTIES](.planning/Properties/properties.md): Intrinsic mechanical, thermal, acoustic, and fire measurements.
+- [40]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
+- [41]-[ASSESSMENT](.planning/Properties/assessment.md): Dated assessment records and the assessed-over-published resolution law.
 
 [PROJECTION]:
-- [34]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
-- [35]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
-- [36]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
-- [37]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
+- [42]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
+- [43]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
+- [44]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
+- [45]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
 ## [02]-[DOMAIN_PACKAGES]
 

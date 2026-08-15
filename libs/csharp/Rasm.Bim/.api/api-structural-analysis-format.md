@@ -15,17 +15,13 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: codec services and configuration (`SAF.DataAccess.Contracts`)
+[PUBLIC_TYPE_SCOPE]: codec services (`SAF.DataAccess.Contracts`)
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]          | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------ | :--------------------- | :------------------------------------------------ |
-|  [01]   | `IExcelImportService`                                   | XLSX → model codec     | `ExcelModel Import(Stream[, Version])`            |
-|  [02]   | `IExcelExportService`                                   | model → XLSX codec     | `ExcelExportResult Export(Stream, ExcelModel, …)` |
-|  [03]   | `IExcelValidator`                                       | pre-codec validator    | `ValidateForImport`/`ValidateForExport`           |
-|  [04]   | `IExcelObjectConfigurator`                              | fluent mapping builder | object→worksheet column configuration             |
-|  [05]   | `IExcelObjectConfiguration`                             | resolved mapping       | per-object property/header configuration          |
-|  [06]   | `IExcelEnumToStringMapper` / `IExcelStringToEnumMapper` | enum codec             | SAF cell-text ↔ enum mapping                      |
-|  [07]   | `IExcelWorksheetReader` / `IExcelWorksheetWriter`       | sheet I/O              | per-worksheet read/write seam                     |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [CAPABILITY]                                      |
+| :-----: | :-------------------- | :------------------ | :------------------------------------------------ |
+|  [01]   | `IExcelImportService` | XLSX → model codec  | `ExcelModel Import(Stream[, Version])`            |
+|  [02]   | `IExcelExportService` | model → XLSX codec  | `ExcelExportResult Export(Stream, ExcelModel, …)` |
+|  [03]   | `IExcelValidator`     | pre-codec validator | `ValidateForImport`/`ValidateForExport`           |
 
 [PUBLIC_TYPE_SCOPE]: model root, base contracts, and receipts (`SAF.DataAccess.Models`)
 
@@ -50,7 +46,7 @@
 | :-----: | :------------------------------------------------------ | :------------------- | :------------------------------------------------- |
 |  [01]   | `ExcelStructuralPointConnection`                        | node (`sealed`)      | `Length? X`/`Y`/`Z`                                |
 |  [02]   | `ExcelStructuralCurveMember`                            | 1D beam/column       | `CrossSection`, `Nodes`/`Segments`, eccentricities |
-|  [03]   | `ExcelStructuralSurfaceMember`                          | 2D slab/wall         | `Material`, `Thickness`, `Nodes`, `EdgeShapes`     |
+|  [03]   | `ExcelStructuralSurfaceMember`                          | 2D plate/wall        | `Material`, `Thickness`, `Nodes`, `EdgeShapes`     |
 |  [04]   | `ExcelStructuralPointSupport`                           | nodal support        | DOF constraint + stiffness, `BoundaryCondition`    |
 |  [05]   | `ExcelStructuralEdgeConnection`                         | line boundary        | edge support + connection                          |
 |  [06]   | `ExcelStructuralSurfaceConnection`                      | area boundary        | surface support + connection                       |
@@ -59,9 +55,11 @@
 |  [09]   | `ExcelRelConnects*`                                     | connection relations | member-connection edges                            |
 |  [10]   | `ExcelStructuralStorey` / `ExcelStructuralProxyElement` | level/proxy          | storey grouping + opaque proxy element             |
 
-- [02]-[CURVE_MEMBER]: `CrossSection`, `ExcelFlexibleEnum<ExcelMember1DType> Type`, `Nodes`, `Segments`, `Length`, eccentricities (`Length`), `Angle`.
-- [03]-[SURFACE_MEMBER]: `Material`, `ExcelFlexibleEnum<ExcelMember2DType> Type`, `ExcelMemberThickness Thickness`, `Nodes`, `EdgeShapes`.
-- [04]-[POINT_SUPPORT]: `ExcelConstraintType? TranslationX`/`Y`/`ZType` + `ForcePerLength? …Stiffness`, rotational (`RotationalStiffness?`), `BoundaryCondition`.
+- [02]-[CURVE_MEMBER]: `CrossSection`, `ExcelFlexibleEnum<ExcelMember1DType> Type`, `Nodes`, `Segments`, `Length`, eccentricities (`Length`), `Angle`, `ExcelCurveBehaviour? Behaviour`; `NodeStartName`/`NodeEndName` are GET-ONLY derivations over `Nodes` (`First()`/`Last()`), never settable cells.
+- [03]-[SURFACE_MEMBER]: `Material`, `ExcelFlexibleEnum<ExcelMember2DType> Type`, `ExcelMemberThickness Thickness` (`ThicknessFirst`/`Second`/`Third` `Length?` + point refs), `Nodes`, `EdgeShapes`.
+- [04]-[POINT_SUPPORT]: `ExcelConstraintType? TranslationX`/`Y`/`ZType` + `ForcePerLength? …Stiffness`, rotational (`RotationalStiffness?`), `ExcelBoundaryNodeCondition? Type` (the Fixed/Hinged/Sliding/Custom summary cell), `ExcelStructuralPointSupportType? BoundaryCondition` (`InNode`/`OnBeam`), `Node`/`Member` name refs, `object PositionX`.
+- [07]-[LINE_AREA_BOUNDARY]: `ExcelStructuralCurveConnection` springs are `Pressure?` (translation) + `RotationalStiffnessPerLength?` (rotation) — one exponent below the point pair; `ExcelStructuralSurfaceConnection` carries the `IExcelHasSubsoil` columns (`SpecificWeight? SubsoilC1X`/`C1Y`/`Stiffness`, `ForcePerLength? SubsoilC2X`/`C2Y`) and `Member2D`.
+- [09]-[MEMBER_RELEASE]: `ExcelRelConnectsStructuralMember` carries `Member`, `ExcelPosition? Position` (`Begin`/`End`/`Both`), and the same `ForcePerLength?`/`RotationalStiffness?` constraint pair the point support holds.
 
 [PUBLIC_TYPE_SCOPE]: load model (`SAF.DataAccess.Models.Loads`)
 
@@ -78,8 +76,8 @@
 
 - [01]-[LOAD_CASE]: `ExcelActionType? ActionType`, `ExcelLoadCaseType? LoadType`, `LoadGroup`, `Duration`.
 - [02]-[LOAD_COMBINATION]: `Category`, `ExcelLoadCaseCombinationStandard? NationalStandard`, `double?[] LoadFactors`/`LoadMultipliers`, `string[] LoadCases`.
-- [04]-[POINT_ACTION]: `: ExcelStructuralPointLoadBase<Force,…>` + `ExcelLoadDirectionVector<Force>`.
-- [07]-[CURVE_ACTION]: `ExcelFlexibleEnum<ExcelActionLoadType> Type`, `ForcePerLength? Value`/`Value1`/`Value2`, `ExcelLoadDirectionVector<ForcePerLength>`.
+- [04]-[POINT_ACTION]: `: ExcelStructuralPointLoadBase<Force, ExcelActionDirection>` + `ExcelLoadDirectionVector<Force> DirectionVector`; the base holds `TValue? Value`, `TDirection? Direction`, `ReferenceNode`/`ReferenceMember`, `LoadCase`, `CoordinateSystem`, `CoordinateDefinition`, `Origin`, and the `object PositionX` cell — `ExcelStructuralPointMoment` is the `<Torque, ExcelMomentDirection>` closure of the same base.
+- [07]-[CURVE_ACTION]: `ExcelFlexibleEnum<ExcelActionLoadType> Type`, `ExcelCurveDistribution? Distribution`, `ForcePerLength? Value`/`Value1`/`Value2`, `ExcelLoadDirectionVector<ForcePerLength> DirectionVector`/`DirectionVector2`, `Member`/`LoadCase` refs, `ExcelLocation? Location`, `ExcelCoordinateDefinition?`/`ExcelOrigin?`, and `object StartPoint`/`EndPoint` span cells; `ExcelStructuralCurveMoment` mirrors it with `TorquePerLength? Value1`/`Value2` under `ExcelMomentDirection? Direction`, and `ExcelStructuralCurveActionThermal` carries `Temperature? DeltaT` + the `TempL`/`R`/`T`/`B` fiber cells.
 
 [PUBLIC_TYPE_SCOPE]: libraries, results, and value subtypes
 
@@ -108,7 +106,7 @@
 |  [05]   | `ExcelLoadCaseCombinationCategory`               | limit-state category | ULS/SLS/accidental/national-standard categories               |
 |  [06]   | `ExcelLoadCaseCombinationStandard`               | combination clause   | the EN/IBC combination-clause members                         |
 |  [07]   | `ExcelMaterialType`                              | material family      | `Concrete`/`Steel`/`Timber`/`Aluminium`/`Masonry`/`Other`     |
-|  [08]   | `ExcelMember1DType` / `ExcelMember2DType`        | member role          | `Beam`/`Column`/`Rafter`/… (1D), slab/wall/plate (2D)         |
+|  [08]   | `ExcelMember1DType` / `ExcelMember2DType`        | member role          | 1D `Beam`/`Column`/…; 2D `Plate`/`Wall`/`Shell`/`Other`       |
 |  [09]   | `ExcelConstraintType`                            | support DOF nature   | free/rigid/flexible per translational/rotational DOF          |
 |  [10]   | `ExcelValidationMessageSeverity`                 | validation severity  | `Error`/`Warning`/`Info` (`ExcelValidationResult.Severity`)   |
 |  [11]   | `ExcelDuration`                                  | load-duration class  | `Long`/`Medium`/`Short`/`Instantaneous` (timber)              |
@@ -117,9 +115,17 @@
 |  [14]   | `ExcelPointForceAction`                          | force discriminant   | point-load-vs-derived-action discriminant                     |
 |  [15]   | `ExcelCurveForceAction`                          | force discriminant   | curve-load-vs-derived-action discriminant                     |
 |  [16]   | `ExcelSurfaceForceAction`                        | force discriminant   | surface-load-vs-derived-action discriminant                   |
+|  [17]   | `ExcelBoundaryNodeCondition`                     | support summary      | `Fixed`/`Hinged`/`Sliding`/`Custom` — the support `Type` cell |
+|  [18]   | `ExcelStructuralPointSupportType`                | support seat         | `InNode`/`OnBeam` — the point-support `BoundaryCondition`     |
+|  [19]   | `ExcelPosition`                                  | member-end seat      | `Begin`/`End`/`Both` — the release relation's `Position`      |
+|  [20]   | `ExcelCurveBehaviour`                            | 1D FE behaviour      | `Standard`/`AxialForceOnly`/`CompressionOnly`/`TensionOnly`   |
+|  [21]   | `ExcelCurveDistribution`/`ExcelMomentDirection`  | line-load shape+axis | `Uniform`/`Trapezoidal`; `Mx`/`My`/`Mz`                       |
+|  [22]   | `ExcelLocation` / `ExcelOrigin`                  | span reference       | `Length`/`Projection`; `FromStart`/`FromEnd`                  |
+|  [23]   | `ExcelCoordinateDefinition`                      | position mode        | `Relative`/`Absolute` — the `object` position cells' frame    |
 
 - [05]-[LIMIT_STATE]: `UltimateLimitState`/`ServiceabilityLimitState`/`AccidentalLimitState`/`AccordingNationalStandard`.
-- [06]-[COMBINATION_STANDARD]: `EnUlsSetB`/`EnUlsSetC`/`EnAccidental1`/`2`/`EnSeismic`/`EnSlsCharacteristic`/`Frequent`/`QuasiPermanent`/`Ibc*`.
+- [06]-[COMBINATION_STANDARD]: `EnUlsSetB`/`EnUlsSetC`/`EnAccidental1`/`2`/`EnSeismic`/`EnSlsCharacteristic`/`EnSlsFrequent`/`EnSlsQuasiPermanent`/`Ibc*`.
+- [09]-[CONSTRAINT_KINDS]: `Free`/`Rigid`/`Flexible` and the directional/non-linear tail `CompressionOnly`/`TensionOnly`/`NonLinear`/`FlexibleCompressionOnly`/`FlexibleTensionOnly` — the tail is what the IFC authoring leg LINEARIZES counted into the residue, no GG select carrying it.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -147,18 +153,21 @@
 |  [06]   | `UnitsNetExtensions.CreateUnit<TUnit>(this double)`         | static   | lift a SAF cell scalar to a typed `UnitsNet` quantity |
 |  [07]   | `ExcelFlexibleEnum<T>` ctor `(T)`/`(string)`, `→ T`/`T?`    | ctor     | known SAF enum value OR arbitrary "other" cell text   |
 
+- `ExcelModel.OriginalVersion` is `get; set;` and the ctor never assigns it — the IMPORT service alone stamps the source workbook's version, so a graph-authored export model holds `null` there and its caller coalesces onto the target version (the `Model/structural#STRUCTURAL_PROJECTION` `Saf` export leg's stated law).
+- Position/span cells cross as bare `object` (`PositionX`, `StartPoint`/`EndPoint`, `DeltaX`) — a boxed `double`, not a quantity struct — so a consumer writes the scalar and reads it back with an `as double?` pattern, never a `Length` mint.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- codec services: `IExcelImportService` (XLSX → `ExcelModel`), `IExcelExportService` (`ExcelModel` → XLSX → `ExcelExportResult`), `IExcelValidator` (`ValidateForImport`/`ValidateForExport`); the SAF SDK resolves these through its `SAF.Infrastructure.Bootstrapping.IBootstrapper` container, the `SAF.DataAccess.Implementation`/`.Excel` impls are wiring, and `IExcelDocumentReader`/`IExcelDocumentWriter` are the low-level per-document I/O seam beneath `IExcelWorksheetReader`/`Writer`
+- codec services: `IExcelImportService` (XLSX → `ExcelModel`), `IExcelExportService` (`ExcelModel` → XLSX → `ExcelExportResult`), `IExcelValidator` (`ValidateForImport`/`ValidateForExport`); the SAF SDK resolves these through its `SAF.Infrastructure.Bootstrapping.IBootstrapper` container, the `SAF.DataAccess.Implementation`/`.Excel` impls are wiring, and the object configurator/configuration pair, the enum↔string mappers, the worksheet reader/writer, and the document reader/writer beneath them are INTERNAL codec plumbing — the three service contracts are the whole public reach
 - model shape: `ExcelModel` is a FLAT `IReadOnlyList<IExcelModuleObject>` bag; every object derives `ExcelObjectBase: IExcelObject` (`Name`, `Guid Id`, `ObjectIdentifier`), a consumer discriminates by concrete type, and the wire-row metadata (`RowNumber`, `ObjectGrouping`, `ObjectName`) keys the spreadsheet position
 - quantities: every dimensioned field is a `UnitsNet` struct — `Length` (coordinates, eccentricities), `Angle` (rotations), `Force`/`ForcePerLength`/`Pressure` (loads), `Density`/`Pressure`/`CoefficientOfThermalExpansion` (materials), `Area`/`AreaMomentOfInertia`/`WarpingMomentOfInertia`/`Volume` (section properties), `RotationalStiffness`/`ForcePerLength` (support springs)
 - open enums: `ExcelFlexibleEnum<T> where T: struct, Enum` wraps a known enum value OR an arbitrary `string` (`IsOther`), so a non-standard member or action type round-trips without data loss
 
 [STACKING]:
-- `UnitsNet`(`libs/csharp/.api/api-unitsnet.md`): SAF and the Bim `QuantitySet` share the quantity rail — `UnitsNetExtensions.CreateUnit<TUnit>` lifts a SAF cell scalar to a typed quantity, ingest coerces to SI-base through `ToUnit(UnitSystem.SI)`, and the bound `Length`/`Pressure`/`Force` typed-struct surface is the SAF field-type set
+- `UnitsNet`(`libs/csharp/.api/api-unitsnet.md`): SAF and the Bim `QuantitySet` share the quantity rail — `UnitsNetExtensions.CreateUnit<TUnit>` lifts a SAF cell scalar to a typed quantity, every exchanged magnitude mints FROM an already-SI seam value through the quantity's own `From*` factory and reads back through its typed SI accessor (`Meters`/`Newtons`/`Pascals`/`NewtonsPerMeter`/`NewtonMetersPerRadian`/`Kelvins`), so neither `ToUnit(UnitSystem.SI)` nor `QuantityTypeConverter` is reached on the SAF lane, and the bound `Length`/`Pressure`/`Force` typed-struct surface is the SAF field-type set
 - `VividOrange.Loads`(`.api/api-vividorange-loads`): the SAF load model is QUANTITY-ISOMORPHIC — `ExcelStructuralPointAction: ExcelStructuralPointLoadBase<Force,…>` ↔ `PointForce`, `ExcelStructuralCurveAction` (`ForcePerLength`) ↔ `LineForce`, `ExcelStructuralSurfaceAction` ↔ `AreaForce`, `ExcelStructuralPointMoment` ↔ `PointMoment`, `ExcelStructuralPointSupportDeformation` ↔ `PointDisplacement`; the round-trip is a per-component `UnitsNet` map, never a scalar reinterpretation
-- `VividOrange.Cases`(`.api/api-vividorange-cases`): `ExcelStructuralLoadCombination.NationalStandard` is `ExcelLoadCaseCombinationStandard` whose members (`EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSlsCharacteristic`/`Frequent`/`QuasiPermanent`) are the exact image of `ENCombinationFactory.CreateStrGeoSetB`/`SetC`/`CreateAccidental`/`CreateSeismic`/`CreateCharacteristic`/`CreateFrequent`/`CreateQuasiPermanent`; `ExcelActionType` = `ActionClass`, `ExcelLoadCaseCombinationCategory` = the ULS/SLS limit-state split, so a Eurocode combination set exports with the clause preserved
+- `VividOrange.Cases`(`.api/api-vividorange-cases`): `ExcelStructuralLoadCombination.NationalStandard` is `ExcelLoadCaseCombinationStandard` whose members (`EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSlsCharacteristic`/`EnSlsFrequent`/`EnSlsQuasiPermanent`) are the exact image of `ENCombinationFactory.CreateStrGeoSetB`/`SetC`/`CreateAccidental`/`CreateSeismic`/`CreateCharacteristic`/`CreateFrequent`/`CreateQuasiPermanent`; `ExcelActionType` = `ActionClass`, `ExcelLoadCaseCombinationCategory` = the ULS/SLS limit-state split, so a Eurocode combination set exports with the clause preserved
 - `VividOrange.Countries`(`.api/api-vividorange-countries`): `ExcelNationalCode` (`EC_DIN_EN`/`EC_NF_EN`/…) is the SAF design-code axis a model's `ICountry` + `NationalAnnex` map onto at the XLSX boundary
 - `GeometryGymIFC_Core`(`.api/api-geometrygym-ifc`): SAF and the IFC structural-analysis entity graph are the two wires that MEET at the seam structural payloads — IFC the in-memory semantic authority, SAF the spreadsheet exchange; both lower onto the `Model/structural#STRUCTURAL_PROJECTION` neutral `Generic` edge/bag attrs over the seam `ElementGraph`, never two parallel structural models
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-json.md`): the SAF `Excel*` enums are boundary vocabulary the projector lowers onto neutral `PropertyValue.Enumerated` rows over the schema's own allowed-set, never a type re-exported across the seam
@@ -166,13 +175,13 @@
 
 [LOCAL_ADMISSION]:
 - SAF is the XLSX EXCHANGE wire over the `Model/structural#STRUCTURAL_PROJECTION` seam payloads and never the canonical model — the seam `ElementGraph` is the in-memory authority and `ExcelModel` round-trips those payloads to and from `.xlsx` through the `StructuralProjection.Saf` entry, whose `SafOp` value carries the direction
-- the lowering folds `ExcelModel.Objects` by concrete type onto the SAME neutral payloads the IFC ingest lands: the member classes onto member `Object` nodes with their definition bags, the connection and support classes onto connection nodes with the six-DOF restraint rows, the load-case/combination/group classes onto the `LoadGroupType`/`ActionType`/`Case` bag rows, and the `ExcelRelConnects*` onto the structural `Generic` edges
+- `ExcelModel.Objects` folds by concrete type onto the SAME neutral payloads the IFC ingest lands: the member classes onto member `Object` nodes with their definition bags, the connection and support classes onto connection nodes with the six-DOF restraint rows, the load-case/combination/group classes onto the `LoadGroupType`/`ActionType`/`Case` bag rows, and the `ExcelRelConnects*` onto the structural `Generic` edges
 - `ExcelConstraintType` maps onto the one row per degree of freedom whose `PropertyValue` case carries fixity or spring, never a parallel stiffness roster beside the fixity row
-- a SAF read/write fault, an unmapped object type, or a validation `Error` lowers onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`ModelRejected` reading `ExcelValidationResult.Severity`; never an exception across the fold
-- `ExcelModel.SystemOfUnits` (`Metric`/`Imperial`) and `OriginalVersion` are decode context — every SAF quantity coerces to SI-base on ingest so the seam graph is unit-normalized regardless of the workbook regime
+- SAF read/write faults, unmapped object types, and validation `Error` verdicts lower onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`ModelRejected` reading `ExcelValidationResult.Severity`; never an exception across the fold
+- `ExcelModel.SystemOfUnits` (`Metric`/`Imperial`) and `OriginalVersion` are decode context — every SAF quantity crosses as its own typed SI accessor read, never a `ToUnit` coercion, so the seam graph is unit-normalized regardless of the workbook regime
 
 [RAIL_LAW]:
 - Package: `StructuralAnalysisFormat`
 - Owns: the SAF XLSX structural-analysis exchange codec and the SAF object model (`netstandard2.0`, Apache-2.0)
-- Accept: SAF as the exchange wire over the `Model/structural` seam payloads; the flat `ExcelModel.Objects` bag folded by concrete type; quantities normalized to SI-base on ingest; export outcomes read off `ExcelExportResult`
+- Accept: SAF as the exchange wire over the `Model/structural` seam payloads; the flat `ExcelModel.Objects` bag folded by concrete type; quantities minted from and read back as SI through the typed accessors; export outcomes read off `ExcelExportResult`
 - Reject: SAF as a canonical structural model (the authority is the seam `ElementGraph`), a per-element-type SAF collection mirror, a quantity round-trip that reinterprets a scalar instead of mapping the `UnitsNet` unit, and exception-driven codec control flow

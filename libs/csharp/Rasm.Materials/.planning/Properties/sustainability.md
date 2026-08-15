@@ -2,7 +2,7 @@
 
 THE SUSTAINABILITY-AND-UNIT-COST SOURCE. This owner holds the estate's lifecycle data: one `SustainabilityCatalogue` keying cradle-to-grave impact, unit-cost basis, and BIM classification per `MaterialId` in exact roster parity with its engineering sibling, and one `Lower` lowering that turns a published row into the seam's `Environmental` and `Cost` cases. A material is a FULL LIFECYCLE OBJECT — embodied carbon and cost basis ride as cases over one `MaterialId` and the BIM classification leaves as the `Classification` egress, never an `EcoMaterial`/`CostMaterial`/`ClassifiedMaterial` surface. The boundary is exact: the whole-building takeoff and cost rollup are `Rasm.Compute`'s, this page holding the per-material SOURCE alone. Impact values are TRANSCRIBED and unit costs are ESTIMATED, and the two never wear one provenance.
 
-The lifecycle family is seam-owned: `Environmental` carries a `MeasurementBasis` declared unit plus the FULL EN 15804+A2 `(ImpactCategory × LifecycleStage)` matrix stored row-major flat — the cradle-to-gate GWP a DERIVED read of the `(GwpTotal, A1A3)` cell, never a double-stored headline scalar — the recycled and end-of-life fractions, EPD provenance riding the case `Evidence` as `PropertyEvidence.Declaration`, and the intrinsic `IndicatorAt`/`WholeLife`/`Gwp`/`StageAt`/`WholeLifeGwp` folds; `Cost` carries the supply, install, and lifecycle per-unit columns over the seam `Currency` and `MeasurementBasis`. Classification is NOT a case but the seam's generic `Classification` `[ComplexValueObject]` the `Projection/component#COMPONENT_SUBGRAPH` `Capture` threads onto the bound element's `Object` node, which `Rasm.Bim` re-emits onto `IfcRelAssociatesClassification`. This page COMPOSES the shared `Published<T>` ingress carrier `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` DECLARES, over its `IUncertainty<double>` arm; `Lower` embeds the carbon-only per-module vector into the full matrix through the seam `Environmental.CarbonMatrix` builder and passes it through the `OfEnvironmental` band gate, never a `MeasureValue`/`QuantityRow` mint, CO2e and currency being DOMAIN BASES rather than SI dimensions. The per-material set so projected IS the `Environmental`/`Cost` analysis input `Rasm.Compute` reads off the `Material` node. Every lowering fault rails the seam `ElementFault.ValueRejected` (band 2500); the page re-mints NO seam type, mints NO `MaterialFault`, and admits NO `UnitsNet` quantity.
+The lifecycle family is seam-owned: `Environmental` carries a `MeasurementBasis` declared unit and the FULL EN 15804+A2 `(ImpactCategory × LifecycleStage)` matrix stored row-major flat — the cradle-to-gate GWP a DERIVED read of the `(GwpTotal, A1A3)` cell, never a double-stored headline scalar — the recycled and end-of-life fractions, EPD provenance riding the case `Evidence` as `PropertyEvidence.Declaration`, and the intrinsic `IndicatorAt`/`WholeLife`/`Gwp`/`StageAt`/`WholeLifeGwp` folds; `Cost` carries the supply, install, and lifecycle per-unit columns over the seam `Currency` and `MeasurementBasis`. Classification is NOT a case but the seam's generic `Classification` `[ComplexValueObject]` the `Projection/component#COMPONENT_SUBGRAPH` `Capture` threads onto the bound element's `Object` node, which `Rasm.Bim` re-emits onto `IfcRelAssociatesClassification`. This page COMPOSES the shared `Published<T>` ingress carrier `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` DECLARES, over its `IUncertainty<double>` arm; `Lower` embeds the carbon-only per-module vector into the full matrix through the seam `Environmental.CarbonMatrix` builder and passes it through the `OfEnvironmental` band gate, never a `MeasureValue`/`QuantityRow` mint, CO2e and currency being DOMAIN BASES rather than SI dimensions. The per-material set so projected IS the `Environmental`/`Cost` analysis input `Rasm.Compute` reads off the `Material` node. Every lowering fault rails the seam `ElementFault.ValueRejected` (band 2500); the page re-mints NO seam type, mints NO `MaterialFault`, and admits NO `UnitsNet` quantity.
 
 ## [01]-[INDEX]
 
@@ -11,13 +11,13 @@ The lifecycle family is seam-owned: `Environmental` carries a `MeasurementBasis`
 ## [02]-[SUSTAINABILITY_PROPERTY]
 
 - Owner: `SustainabilityRow` the published-data ingress record over the shared `Published<double>` carrier (declared by `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`, composed here); `EcoProfile` the shared industry-average anchor a family of grades references; `CostDatum` the currency/basis cost group; `SustainabilityCatalogue` the registered-row database; `Lower` the row→seam-case lowering; `Classification` the Object-node egress.
-- Cases: one `SustainabilityRow` shape — the environmental columns (the per-EN-15978-module `StageGwp` carbon vector as raw centrals, or the full thirteen-indicator `Matrix` where a producer publishes one, plus the recycled and end-of-life fractions), optional cost (supply/install/lifecycle over a currency and measurement basis), and optional classification (system + code); `Lower` produces a `Seq<MaterialPropertySet>` of the seam `Environmental`/`Cost` cases, each over a `MaterialId`, never a property subtype. The classification `(system, code)` is NOT lowered to a property case — it leaves through the `Classification` egress.
+- Cases: one `SustainabilityRow` shape — the environmental columns (the per-EN-15978-module `StageGwp` carbon vector as raw centrals, or the full thirteen-indicator `Matrix` where a producer publishes one, with the recycled and end-of-life fractions), optional cost (supply/install/lifecycle over a currency and measurement basis), and optional classification (system + code); `Lower` produces a `Seq<MaterialPropertySet>` of the seam `Environmental`/`Cost` cases, each over a `MaterialId`, never a property subtype. The classification `(system, code)` is NOT lowered to a property case — it leaves through the `Classification` egress.
 - Law: PROVENANCE IS PER COLUMN. The impact vectors are TRANSCRIBED producer declarations and carry `PropertyEvidence.Declaration` with the EPD's own identity and expiry; the unit-cost triples are AUTHORED planning estimates and carry the `estimate` evidence class naming their basis, so a cost report can never cite a standard for a figure no standard publishes and a takeoff reading the seam evidence tells the two apart without a second column. `Ökobaudat` is the settled acquisition route for the pending product declarations: it is the one source clearing full-matrix coverage and licence together — EN 15804+A2 with all thirteen indicators enforced at admission, `ND` marked explicitly, bulk XML and CSV, and a licence granting free redistribution of unmodified data under attribution. A carbon-first registry whose non-GWP fields are advisory cannot fill the `Matrix` column, and a licence forbidding storage forbids a catalogue outright, which is what a catalogue is. Admitted values carry VERBATIM per that licence, `ND` models as ABSENCE and never as zero, and a generic dataset admits discriminated by its own subtype.
 - Law: FULL_ROSTER PARITY IS DERIVED, NEVER ASSERTED. The two catalogues are hand-maintained tables over one substance vocabulary, so their symmetric difference is computed at type init and a non-empty one throws with the divergent ids named. Both directions count: an engineering id with no lifecycle row makes `Lookup` answer an empty set for a material the estate believes it prices, and a lifecycle row for no substance prices a material nothing can build. There is no caller to rail a curation defect onto, so it breaks loudly at first touch exactly as the vendor factories break at their own derivation boundary.
 - Entry: `public static Fin<Seq<MaterialPropertySet>> Lower(SustainabilityRow row, Op key)` — refuses a row declaring BOTH the carbon vector and a full matrix, GUARDS a carbon vector to the seam `LifecycleStage.Count` arity (a wrong-length vector rails at the lowering edge rather than being silently short-written by the seam `CarbonMatrix`), parses the native `EnvironmentalBasis` through `MeasurementBasis.Parse`, embeds a carbon-only vector into the full `(ImpactCategory × LifecycleStage)` matrix or passes a full declaration straight through, and lands it via `OfEnvironmental` at that basis; the optional cost parses its independent currency and basis tokens applicatively then binds `OfCost`. The two groups are INDEPENDENT and ACCUMULATE, so a bad `declared_unit` and a bad currency fault together in one `ManyErrors`. `Lookup(id, key)` reads the memoized lowered catalogue and returns `Fin.Succ(empty)` for an unregistered id — lifecycle data is declared-or-absent, the asymmetric dual of the REQUIRED engineering `Lookup`. `Classification(id, key)` resolves the row's pair through the edition-unspecified `Classification.Of` and rides the `MaterialBinding` to the bound element's Object node.
 - Packages: Rasm.Element (project — `MaterialPropertySet.OfEnvironmental`/`OfCost`, the seam-owned `Environmental.CarbonMatrix` builder + `MatrixArity`, `LifecycleStage`/`ImpactCategory` the EN 15804+A2 matrix bands, `Currency`/`MeasurementBasis`, `PropertyEvidence`/`PropertyEvidence.Declaration`, the generic `Classification` + `Classification.Of`, `ElementFault.ValueRejected`, `MaterialId`), Rasm.Materials.Properties (project-local — the shared `Published<T>` carrier + `Published.Of` and the engineering roster the parity census reads, SAME namespace so no import), Rasm (project — `Op`), NodaTime (`LocalDate` the EPD validity expiry), LanguageExt.Core (`Fin`/`Seq`/`Option`), BCL inbox (`FrozenDictionary`, `Lazy<T>`, `ImmutableArray<T>`, the `double[]` ingress vector). NO `UnitsNet` (CO2e and currency are domain bases, not SI dimensions), NO `QuantityRow` (a `StageGwp` or cost magnitude is basis-relative, not a dimensioned quantity), NO `MaterialFault` (every fault is the seam `ElementFault`).
-- Growth: a new EN 15804+A2 indicator is one seam `ImpactCategory` row and a new EN 15978 module one seam `LifecycleStage` row; a FULL-matrix declaration is the `Matrix` column `Lower` passes straight to `OfEnvironmental` with `CarbonMatrix` bypassed; a new currency, classification system, or declared basis is one opaque token the row supplies. A new known material is one `Rows` entry naming its `EcoProfile` anchor plus its own cost triple and classification pair. The ANCHOR is the growth axis that matters at scale: an eco-profile prices MASS PER DECLARED UNIT and therefore serves a whole family of grades, so a corrected industry figure is one anchor edit rather than a twenty-three-row sweep whose one missed row is a silent divergence, and `EcoProfile.At` is the ONE parameterized re-anchor for a family whose A1-A3 scales with a per-row quantity — a concrete class with its cement content, a grade whose EPD names a specific producer — while every downstream module holds.
-- Boundary: `SustainabilityRow` is the published-DATA ingress, NOT a parallel domain union — the seam `Environmental`/`Cost` are the one typed carriers and `Lower` the `BOUNDARY_ADMISSION`, so the row stays `internal` and `Lookup` answering the ADMITTED set is the whole public surface. Each `StageGwp` module is a raw kgCO2e-per-basis-unit magnitude declared at the row's OWN `EnvironmentalBasis`: a per-kg steel EPD stays `PerKg`, a per-m² membrane `PerM2`, never force-normalized to a curated `PerM3`, and `Rasm.Compute` `AggregateEnvironmental` scales each ply by the basis-matching element quantity through the SAME basis-aware `DeclaredQuantity` derivation the cost fold uses. A negative module is VALID biogenic-sequestration or avoided-burden carbon — the timber A1-A3 credit, the metal D credit — and the seam guards FINITE alone on matrix cells; the fractions pass raw under the seam's one `[0,1]` gate, re-minting a `UnitInterval` here diverging from the one admission owner. The seam `Environmental` case is the FULL impact MATRIX and owns its own intrinsic folds, so the cradle-to-gate `Gwp` is a DERIVED `(GwpTotal, A1A3)` read and the cradle-to-grave total the `WholeLifeGwp` fold — a headline scalar column would double-store what the matrix already carries, exactly as a row-level `Epd`/`ValidUntilYear` pair would double-store the `Declaration` evidence. The lowered cases land on the seam `Material` node the projector authors and `Rasm.Bim` reads `Pset_EnvironmentalImpactValues`/`Pset_ConstructionCosts`/`IfcClassificationReference` off that graph — no Materials wire carrier, and the multi-ply rollups are `Rasm.Compute`'s.
+- Growth: a new EN 15804+A2 indicator is one seam `ImpactCategory` row and a new EN 15978 module one seam `LifecycleStage` row; a FULL-matrix declaration is the `Matrix` column `Lower` passes straight to `OfEnvironmental` with `CarbonMatrix` bypassed; a new currency, classification system, or declared basis is one opaque token the row supplies. A new known material is one `Rows` entry naming its `EcoProfile` anchor with its own cost triple and classification pair. The ANCHOR is the growth axis that matters at scale: an eco-profile prices MASS PER DECLARED UNIT and therefore serves a whole family of grades, so a corrected industry figure is one anchor edit rather than a twenty-three-row sweep whose one missed row is a silent divergence, and `EcoProfile.At` is the ONE parameterized re-anchor for a family whose A1-A3 scales with a per-row quantity — a concrete class with its cement content, a grade whose EPD names a specific producer — while every downstream module holds.
+- Boundary: `SustainabilityRow` is the published-DATA ingress, NOT a parallel domain union — the seam `Environmental`/`Cost` are the one typed carriers and `Lower` the `BOUNDARY_ADMISSION`, so the row stays `internal` and `Lookup` answering the ADMITTED set is the whole public surface. Each `StageGwp` module is a raw kgCO2e-per-basis-unit magnitude declared at the row's OWN `EnvironmentalBasis`: a per-kg steel EPD stays `PerKg`, a per-m² membrane `PerM2`, never force-normalized to a curated `PerM3`, and `Rasm.Compute` `AggregateEnvironmental` scales each ply by the basis-matching element quantity through the SAME basis-aware `DeclaredQuantity` derivation the cost fold uses. A negative module is VALID biogenic-sequestration or avoided-burden carbon — the timber A1-A3 credit, the metal D credit — and the seam guards FINITE alone on matrix cells; the fractions pass raw under the seam's one `[0,1]` gate, re-minting a `UnitInterval` here diverging from the one admission owner. The seam `Environmental` case is the FULL impact MATRIX and owns its own intrinsic folds, so the cradle-to-gate `Gwp` is a DERIVED `(GwpTotal, A1A3)` read and the cradle-to-grave total the `WholeLifeGwp` fold — a headline scalar column double-stores what the matrix already carries, exactly as a row-level `Epd`/`ValidUntilYear` pair double-stores the `Declaration` evidence. The lowered cases land on the seam `Material` node the projector authors and `Rasm.Bim` reads `Pset_EnvironmentalImpactValues`/`Pset_ConstructionCosts`/`IfcClassificationReference` off that graph — no Materials wire carrier, and the multi-ply rollups are `Rasm.Compute`'s.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -179,7 +179,22 @@ public static class SustainabilityCatalogue {
     static readonly EcoProfile ReadyMixBase      = new([0.0, 2.1, 12.7, -12.8, 13.1, -9.1], "ICE-v3-EC3-ReadyMix", 2028, 0.00, 0.90);
     static readonly EcoProfile ConcreteBlock     = new([94.8, 5.0, 2.0, 0.0, 19.7, -14.7], "Belgard-ConcreteBlock", 2029, 0.10, 0.95);
     static readonly EcoProfile EuroFloatGlass    = new([0.983, 0.050, 0.030, 0.0, 0.038, -0.256], "EUROFLOAT-AGC", 2029, 0.37, 1.00);
-    static readonly EcoProfile StructuralPolymer = new([4.20, 0.060, 0.050, 0.0, 2.60, -0.40], "Generic-StructuralPolymer", 2029, 0.00, 0.00);
+    static readonly EcoProfile Stalatube304      = new([1.61, 0.108, 0.050, 0.0, 0.022, -0.183], "Stalatube-1.4301-1.4307", 2028, 0.75, 1.00);
+    static readonly EcoProfile Stalatube316      = new([1.83, 0.077, 0.050, 0.0, 0.022, -0.181], "Stalatube-1.4404", 2028, 0.75, 1.00);
+    // The product-campaign anchors, every downstream module captured at its dataset UUID with C sub-modules summed
+    // into the C band per the iron.ductile idiom and validity as each dataset prints it. The HDG-coil C/D land at
+    // the EPD's own S4 European-average end-of-life scenario (88 % recycling / 11 % reuse / 1 % loss — the S3
+    // landfill C4 sitting at exactly 100× the S4 cell proves the scenario map), and its zero-recycled floor stands
+    // VALIDATED rather than provisional: the BOF coil route declares only ~4-6 % post-consumer input on the sister
+    // ArcelorMittal HDG declaration. HdgSheet is the thyssenkrupp cold-rolled HDG sheet average the g33/g50 gauge
+    // rows key; Fastener the registry's galvanized-screws fastener-product generic the whole fastener estate keys;
+    // CopperTube the HME Copper Germany producer EPD carrying the recycled-share At re-anchor axis its row names.
+    static readonly EcoProfile PvcPipe    = new([2.76, 0.0, 0.0, 0.0, 2.258, -0.596], "OBD-SewerPipe-PVC-d3f0a22a", 2026, 0.00, 0.00);
+    static readonly EcoProfile HdgCoil    = new([2.30, 0.0, 0.0, 0.0, 0.0243, -1.602], "IBU-HDG-Coil-0899b471", 2030, 0.00, 0.99);
+    static readonly EcoProfile HdgSheet   = new([2.52, 0.0, 0.0, 0.0, 0.0316, -1.767], "OBD-HDG-ColdRolledSheet-d1e98488", 2029, 0.00, 0.90);
+    static readonly EcoProfile Fastener   = new([3.46, 0.0, 0.0, 0.0, 0.0050, -1.369], "OBD-GalvanizedScrews-889e2819", 2026, 0.00, 0.90);
+    static readonly EcoProfile Strand     = new([2.91, 0.0, 0.0, 0.0, 0.0054, -1.496], "OBD-DrawnWire-Strand-231073e3", 2028, 0.00, 0.90);
+    static readonly EcoProfile CopperTube = new([2.25, 0.0, 0.0, 0.0, 0.0333, -0.629], "OBD-CopperTubes-HME-afb0f967", 2029, 0.00, 0.95);
 
     // Lowers a published row into the seam Environmental/Cost cases: the arity guard FIRST (a wrong-length
     // vector rails HERE, never silently short-written by the seam CarbonMatrix Math.Min — admission-once is
@@ -221,7 +236,8 @@ public static class SustainabilityCatalogue {
               .Apply(static (environmental, cost) => Seq(environmental) + cost).As()
               .ToFin();
 
-    // The curated reference catalogue covers the SAME structural-and-envelope domain the engineering
+    // The curated reference catalogue covers the SAME full-building domain — structure, envelope, MEP piping,
+    // finishes, fireproofing — the engineering
     // Properties/properties#MATERIAL_PROPERTY_CATALOGUE rosters, keyed by the SAME canonical MaterialId in
     // EXACT parity (FULL_ROSTER — a registered grade resolves a mechanical/thermal/fire row AND this lifecycle
     // row), each row storing the EPD AS PUBLISHED at its native declared_unit — NO curation normalization to a
@@ -245,8 +261,11 @@ public static class SustainabilityCatalogue {
     // The roster grows by ROW; a material with no declared EPD omits a row and Lookup returns the empty lifecycle
     // set, never a fault. Cost columns are USD unit-rate ESTIMATES at the matching basis and carry the estimate
     // evidence class that says so; Uniclass 2015 Pr_ codes are the BIM classification the Classification egress
-    // lifts. An `R1 PENDING` note marks a row still pricing a FAMILY placeholder rather than its own product
-    // declaration — each closes against a specific dataset with no row edit beyond its anchor.
+    // lifts — every landed code reads verbatim off the NBS taxonomy tables, and a row whose code is still
+    // unverified carries None, declared absence over a guessed code. An `R1 PENDING` note marks a row still
+    // pricing a FAMILY placeholder rather than its own product declaration — each closes against a specific
+    // dataset with no row edit beyond its anchor, and a checked negative (no such dataset exists in the settled
+    // acquisition route) is stated on the row so no later pass re-runs the search.
     internal static readonly FrozenDictionary<MaterialId, SustainabilityRow> Rows = new (MaterialId Id, SustainabilityRow Row)[] {
         // --- carbon structural steel (EN 10025; per-kg; WorldSteel Europe sections eco-profile shared S235..S690 — GWP tracks mass not grade; EAF recycled, negative D avoided-burden)
         (MaterialId.Of("steel.s235"),   new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
@@ -261,42 +280,52 @@ public static class SustainabilityCatalogue {
         (MaterialId.Of("metal.steel"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         // generic cast/ductile-iron (properties.md metal.iron — EN-GJS-400 casting baseline the joint/weld family keys): Furnes NEPD-9786-9710 ductile cast-iron EPD per-tonne -> per-kg, 100% remeltable
         (MaterialId.Of("metal.iron"),   new("per-kg", new[] { 0.213, 0.057, 0.058, 0.0, 0.054, -0.036 }, "Furnes-DuctileCastIron", 2030, 0.85, 0.95, Some(("USD", "per-kg", 1.20, 0.60, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        // --- pipe-grade irons (properties.md iron.cast/iron.ductile beside the metal.iron generic; per-kg). Cast: the
+        //     Ökobaudat SML soil-pipe generic; ductile: the EADIPS/FGR industry EPD mirrored as OBD aa089b30 — its heavy
+        //     C2 transport module (542 kg/t) transcribes verbatim into the C band, never smoothed. Both ride the
+        //     metal-family recovery posture the Furnes row carries.
+        (MaterialId.Of("iron.cast"),    new("per-kg", new[] { 0.621, 0.0, 0.0, 0.0, 0.0, 0.0 }, "OBD-SML-CastIron-7c18fec9", 2028, 0.85, 0.95, Some(("USD", "per-kg", 2.60, 1.40, 0.15)), Some(("uniclass-2015", "Pr_65_52_63")))),
+        (MaterialId.Of("iron.ductile"), new("per-kg", new[] { 1.39, 0.0, 0.0, 0.0, 0.557, 0.000138 }, "EADIPS-FGR-DuctileIron-aa089b30", 2029, 0.85, 0.95, Some(("USD", "per-kg", 2.20, 1.20, 0.15)), Some(("uniclass-2015", "Pr_65_52_63")))),
         // --- AISC structural steel (properties.md steel.a36/a992/a572 — the Component/steel SteelGrade substances; per-kg; North-American EAF hot-rolled sections industry average, ~93% recycled)
         (MaterialId.Of("steel.a36"),    new("per-kg", AiscHotRolled, Some(("USD", "per-kg", 0.90, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         (MaterialId.Of("steel.a992"),   new("per-kg", AiscHotRolled, Some(("USD", "per-kg", 1.00, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         (MaterialId.Of("steel.a572"),   new("per-kg", AiscHotRolled, Some(("USD", "per-kg", 1.00, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         // --- cold-formed sheet + fasteners (properties.md steel.g33/g50 + steel.fastener-* — the connector Gauge /
-        //     fastener Grade SubstanceId rows; FULL_ROSTER parity). Carbon-steel products, GWP tracks mass not grade.
-        //     R1 PENDING a cold-formed-coil / high-strength-fastener producer EPD: these carry the generic WorldSteel
-        //     carbon-steel vector as the grade-agnostic placeholder (the metal.steel treatment), never a fabricated
-        //     product-specific value — a real cold-formed/galvanized-sheet or fastener EPD supersedes on admission.
-        (MaterialId.Of("steel.g33"),           new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.g50"),           new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-4_6"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-4_8"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-5_6"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-5_8"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-6_8"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-8_8"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-10_9"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-12_9"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-gr2"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-gr5"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-gr8"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-a325"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.fastener-a490"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        // --- hollow-section, pipe, and sheet steels (properties.md steel.a500/a53/a653 — the Component/steel SteelGrade
-        //     substances the GradeOf policy selects; per-kg). A500/A53 are North-American EAF hot-formed products and
-        //     share the AISC sections profile; A653 galvanized sheet takes the generic WorldSteel carbon vector under
-        //     the same R1 gate the cold-formed g33/g50 rows carry, since no galvanized-coil producer EPD is admitted.
+        //     fastener Grade SubstanceId rows; FULL_ROSTER parity). Both R1s are CLOSED per product form: the gauge
+        //     rows take the thyssenkrupp cold-rolled hot-dip-galvanized sheet average — the coil the framing gauge
+        //     is rolled from — and the fastener estate the registry's galvanized-screws fastener-product generic;
+        //     a bolt-class producer EPD supersedes on admission.
+        (MaterialId.Of("steel.g33"),           new("per-kg", HdgSheet, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.g50"),           new("per-kg", HdgSheet, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-4_6"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-4_8"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-5_6"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-5_8"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-6_8"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-8_8"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-10_9"), new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-12_9"), new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-gr2"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-gr5"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-gr8"),  new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-a325"), new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.fastener-a490"), new("per-kg", Fastener, Some(("USD", "per-kg", 0.95, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        // --- hollow-section, pipe, and sheet steels (properties.md steel.a500/a53/a653/galvanized — the Component/steel
+        //     SteelGrade substances the GradeOf policy selects, plus the duct-grade galvanized sheet; per-kg). A500/A53
+        //     are North-American EAF hot-formed products and share the AISC sections profile; A653 sheet and the
+        //     duct-grade steel.galvanized take the admitted IBU hot-dip-galvanized-coil industry EPD, its S4
+        //     European-average C/D captured at the dataset UUID and its zero-recycled floor validated against the
+        //     BOF-route sister declarations.
         (MaterialId.Of("steel.a500"), new("per-kg", AiscHotRolled, Some(("USD", "per-kg", 1.35, 0.60, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         (MaterialId.Of("steel.a53"),  new("per-kg", AiscHotRolled, Some(("USD", "per-kg", 1.30, 0.60, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
-        (MaterialId.Of("steel.a653"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 1.10, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.a653"), new("per-kg", HdgCoil, Some(("USD", "per-kg", 1.10, 0.55, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
+        (MaterialId.Of("steel.galvanized"), new("per-kg", HdgCoil, Some(("USD", "per-kg", 1.40, 0.80, 0.10)), Some(("uniclass-2015", "Pr_20_85_08_11")))),
         // --- weld filler metal (properties.md steel.e60..steel.e110 — the Component/joint ElectrodeClass substances;
         //     per-kg). R1 PENDING an AWS consumable-producer EPD: the deposited metal is carbon or low-alloy steel, so
-        //     these carry the grade-agnostic WorldSteel carbon vector as the placeholder the fastener rows already
-        //     take, never a fabricated consumable-specific figure. No classification: a filler metal is a consumable,
-        //     not a Uniclass product an IfcRelAssociatesClassification would carry.
+        //     these carry the grade-agnostic WorldSteel carbon vector as the family placeholder, never a fabricated
+        //     consumable-specific figure — the registry holds no welding-consumable dataset (checked). No
+        //     classification: a filler metal is a consumable, not a Uniclass product an
+        //     IfcRelAssociatesClassification would carry.
         (MaterialId.Of("steel.e60"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 3.20, 0.00, 0.00)), None)),
         (MaterialId.Of("steel.e70"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 3.40, 0.00, 0.00)), None)),
         (MaterialId.Of("steel.e80"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 4.60, 0.00, 0.00)), None)),
@@ -309,36 +338,37 @@ public static class SustainabilityCatalogue {
         //     keys, so the stud and the stainless family price one eco-profile.
         (MaterialId.Of("steel.sd1"),   new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 2.40, 0.85, 0.05)), None)),
         (MaterialId.Of("steel.sd2"),   new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 2.30, 0.85, 0.05)), None)),
-        (MaterialId.Of("steel.sd3"),   new("per-kg", new[] { 1.61, 0.108, 0.050, 0.0, 0.022, -0.183 }, "Stalatube-1.4301-1.4307", 2028, 0.75, 1.00, Some(("USD", "per-kg", 6.80, 0.85, 0.05)), None)),
+        (MaterialId.Of("steel.sd3"),   new("per-kg", Stalatube304, Some(("USD", "per-kg", 6.80, 0.85, 0.05)), None)),
         (MaterialId.Of("steel.aws-a"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 2.30, 0.85, 0.05)), None)),
         (MaterialId.Of("steel.aws-b"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 2.40, 0.85, 0.05)), None)),
         // --- plain-shank fastener stock (properties.md steel.fastener-nail/-dowel/-rivet — the Component/fastener
-        //     StockRow.Plain substances; per-kg). Same R1 gate and same WorldSteel placeholder as the threaded
-        //     fastener-* rows above, so the whole fastener estate prices one carbon vector until a product EPD lands.
-        (MaterialId.Of("steel.fastener-nail"),  new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 1.80, 0.00, 0.00)), None)),
-        (MaterialId.Of("steel.fastener-dowel"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 1.60, 0.00, 0.00)), None)),
-        (MaterialId.Of("steel.fastener-rivet"), new("per-kg", WorldSteelSection, Some(("USD", "per-kg", 2.20, 0.00, 0.00)), None)),
+        //     StockRow.Plain substances; per-kg). Closed with the threaded rows: the whole fastener estate prices
+        //     the one galvanized-screws fastener-product generic — wire-drawn and formed like the stock it prices —
+        //     and a nail or rivet producer EPD supersedes on admission.
+        (MaterialId.Of("steel.fastener-nail"),  new("per-kg", Fastener, Some(("USD", "per-kg", 1.80, 0.00, 0.00)), None)),
+        (MaterialId.Of("steel.fastener-dowel"), new("per-kg", Fastener, Some(("USD", "per-kg", 1.60, 0.00, 0.00)), None)),
+        (MaterialId.Of("steel.fastener-rivet"), new("per-kg", Fastener, Some(("USD", "per-kg", 2.20, 0.00, 0.00)), None)),
         // --- prestressing strand (properties.md steel.strand-1725/-1860/y1860s7 — the Component/reinforcement
-        //     StrandRow substances; per-kg). R1 PENDING a seven-wire-strand producer EPD: drawn strand is an EAF
-        //     long-product line, so the three rows share the ArcelorMittal EAF profile the rebar family carries and
-        //     the rebar Uniclass code, never a fabricated strand-specific figure. Cold-drawing adds real process
-        //     energy the shared vector under-prices; the R1 row states that.
-        (MaterialId.Of("steel.strand-1725"), new("per-kg", ArcelorRebar, Some(("USD", "per-kg", 1.90, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
-        (MaterialId.Of("steel.strand-1860"), new("per-kg", ArcelorRebar, Some(("USD", "per-kg", 1.95, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
-        (MaterialId.Of("steel.y1860s7"),     new("per-kg", ArcelorRebar, Some(("USD", "per-kg", 2.05, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
+        //     StrandRow substances; per-kg). CLOSED on the drawn-wire prestressing-strand industry average: its
+        //     2.91 A1-A3 against the rebar family's 0.82 IS the cold-drawing process energy the retired shared
+        //     vector under-priced by 3.5×, and the downstream modules ride the same dataset UUID.
+        (MaterialId.Of("steel.strand-1725"), new("per-kg", Strand, Some(("USD", "per-kg", 1.90, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
+        (MaterialId.Of("steel.strand-1860"), new("per-kg", Strand, Some(("USD", "per-kg", 1.95, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
+        (MaterialId.Of("steel.y1860s7"),     new("per-kg", Strand, Some(("USD", "per-kg", 2.05, 0.55, 0.06)), Some(("uniclass-2015", "Pr_20_29_72")))),
         // --- structural adhesives and sealant (properties.md adhesive.epoxy/methacrylate/polyurethane +
-        //     sealant.silicone-structural — the Component/joint AdhesiveClass substances; per-kg). R1 PENDING a
-        //     structural-adhesive producer EPD: the four share the generic thermoset-polymer vector (fossil-feedstock
-        //     A1-A3, incineration-dominated C, no recycling credit), never a fabricated chemistry-specific figure.
-        (MaterialId.Of("adhesive.epoxy"),              new("per-kg", StructuralPolymer, Some(("USD", "per-kg", 18.0, 2.50, 0.00)), None)),
-        (MaterialId.Of("adhesive.methacrylate"),       new("per-kg", StructuralPolymer, Some(("USD", "per-kg", 22.0, 2.50, 0.00)), None)),
-        (MaterialId.Of("adhesive.polyurethane"),       new("per-kg", StructuralPolymer, Some(("USD", "per-kg", 14.0, 2.50, 0.00)), None)),
-        (MaterialId.Of("sealant.silicone-structural"), new("per-kg", StructuralPolymer, Some(("USD", "per-kg", 26.0, 3.50, 0.40)), None)),
+        //     sealant.silicone-structural — the Component/joint AdhesiveClass substances; per-kg). CLOSED per
+        //     chemistry: each row prices its OWN resin family off the registry's reactive-resin generics and the
+        //     silicone sealing compound — fossil A1-A3, incineration-dominated C, a small energy-recovery D — and
+        //     the shared thermoset placeholder retires from the joint estate.
+        (MaterialId.Of("adhesive.epoxy"),              new("per-kg", new[] { 8.04, 0.0, 0.0, 0.0, 1.710, -0.496 }, "OBD-ReactiveResin-Epoxy-5916a356", 2026, 0.00, 0.00, Some(("USD", "per-kg", 18.0, 2.50, 0.00)), None)),
+        (MaterialId.Of("adhesive.methacrylate"),       new("per-kg", new[] { 4.87, 0.0, 0.0, 0.0, 1.975, -0.617 }, "OBD-ReactiveResin-MMA-374ca550", 2026, 0.00, 0.00, Some(("USD", "per-kg", 22.0, 2.50, 0.00)), None)),
+        (MaterialId.Of("adhesive.polyurethane"),       new("per-kg", new[] { 4.70, 0.0, 0.0, 0.0, 1.468, -0.406 }, "OBD-ReactiveResin-PU-e23fcf3f", 2026, 0.00, 0.00, Some(("USD", "per-kg", 14.0, 2.50, 0.00)), None)),
+        (MaterialId.Of("sealant.silicone-structural"), new("per-kg", new[] { 9.55, 0.0, 0.0, 0.0, 1.521, -0.474 }, "OBD-SiliconeSealing-c5a154b1", 2026, 0.00, 0.00, Some(("USD", "per-kg", 26.0, 3.50, 0.40)), None)),
         // --- stainless steel (EN 10088; per-kg; Stalatube/Outokumpu/Aperam EPDs; austenitic 1.4301..1.4571, duplex 1.4462; ~100% effective recycling)
-        (MaterialId.Of("steel.1.4301"), new("per-kg", new[] { 1.61, 0.108, 0.050, 0.0, 0.022, -0.183 }, "Stalatube-1.4301-1.4307", 2028, 0.75, 1.00, Some(("USD", "per-kg", 3.20, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
-        (MaterialId.Of("steel.1.4307"), new("per-kg", new[] { 1.61, 0.108, 0.050, 0.0, 0.022, -0.183 }, "Stalatube-1.4301-1.4307", 2028, 0.75, 1.00, Some(("USD", "per-kg", 3.20, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
-        (MaterialId.Of("steel.1.4401"), new("per-kg", new[] { 1.83, 0.077, 0.050, 0.0, 0.022, -0.181 }, "Stalatube-1.4404", 2028, 0.75, 1.00, Some(("USD", "per-kg", 3.80, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
-        (MaterialId.Of("steel.1.4404"), new("per-kg", new[] { 1.83, 0.077, 0.050, 0.0, 0.022, -0.181 }, "Stalatube-1.4404", 2028, 0.75, 1.00, Some(("USD", "per-kg", 3.80, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
+        (MaterialId.Of("steel.1.4301"), new("per-kg", Stalatube304, Some(("USD", "per-kg", 3.20, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
+        (MaterialId.Of("steel.1.4307"), new("per-kg", Stalatube304, Some(("USD", "per-kg", 3.20, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
+        (MaterialId.Of("steel.1.4401"), new("per-kg", Stalatube316, Some(("USD", "per-kg", 3.80, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
+        (MaterialId.Of("steel.1.4404"), new("per-kg", Stalatube316, Some(("USD", "per-kg", 3.80, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
         (MaterialId.Of("steel.1.4571"), new("per-kg", new[] { 1.83, 0.080, 0.050, 0.0, 0.046, -0.114 }, "Outokumpu-Austenitic", 2028, 0.75, 1.00, Some(("USD", "per-kg", 4.60, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
         (MaterialId.Of("steel.1.4462"), new("per-kg", new[] { 3.18, 0.096, 0.050, 0.0, 0.046, -0.114 }, "Outokumpu-Duplex-2205", 2028, 0.75, 1.00, Some(("USD", "per-kg", 4.20, 0.65, 0.12)), Some(("uniclass-2015", "Pr_20_85_08_83")))),
         // --- reinforcing steel (EN 10080; per-kg; ArcelorMittal/CARES EAF rebar shared across the six-grade EnRebarGrade set — ductility class drives properties.md not mass-GWP)
@@ -418,11 +448,22 @@ public static class SustainabilityCatalogue {
         (MaterialId.Of("timber.gl30c"), new("per-m3", HasslacherGlulam, Some(("USD", "per-m3", 920.0, 255.0, 48.0)), Some(("uniclass-2015", "Pr_20_85_08_33")))),
         (MaterialId.Of("timber.gl32h"), new("per-m3", HasslacherGlulam, Some(("USD", "per-m3", 1000.0, 260.0, 50.0)), Some(("uniclass-2015", "Pr_20_85_08_33")))),
         (MaterialId.Of("timber.gl32c"), new("per-m3", HasslacherGlulam, Some(("USD", "per-m3", 960.0, 260.0, 50.0)), Some(("uniclass-2015", "Pr_20_85_08_33")))),
-        // --- wrought aluminium (EN 1999/EN 573; per-kg; European profile/extrusion EPD; energy-intensive primary, ~95% effective recycling, large negative D; GWP tracks mass not alloy)
+        // --- wrought aluminium (EN 1999/EN 573; per-kg; European profile/extrusion EPD; energy-intensive primary, ~95% effective recycling, large negative D; GWP tracks mass not alloy —
+        //     the 1350 conductor rod rides the family profile vector on exactly that mass-tracking law)
         (MaterialId.Of("aluminium.6082t6"), new("per-kg", new[] { 5.73, 0.050, 0.068, 0.0, 0.051, -3.09 }, "EU-Al-Profile-6082", 2027, 0.50, 0.95, Some(("USD", "per-kg", 3.40, 0.90, 0.20)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
         (MaterialId.Of("aluminium.6061t6"), new("per-kg", new[] { 5.73, 0.050, 0.068, 0.0, 0.051, -3.09 }, "EU-Al-Profile-6061", 2027, 0.50, 0.95, Some(("USD", "per-kg", 3.40, 0.90, 0.20)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
+        (MaterialId.Of("aluminium.1350"),   new("per-kg", new[] { 5.73, 0.050, 0.068, 0.0, 0.051, -3.09 }, "EU-Al-Rod-1350",     2027, 0.50, 0.95, Some(("USD", "per-kg", 3.40, 0.90, 0.20)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
         (MaterialId.Of("aluminium.6063t5"), new("per-kg", new[] { 5.50, 0.050, 0.050, 0.0, 0.033, -1.70 }, "Pandolfo-Al-6063", 2027, 0.50, 0.95, Some(("USD", "per-kg", 3.20, 0.90, 0.20)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
+        (MaterialId.Of("aluminium.6063t6"), new("per-kg", new[] { 5.50, 0.050, 0.050, 0.0, 0.033, -1.70 }, "Pandolfo-Al-6063", 2027, 0.50, 0.95, Some(("USD", "per-kg", 3.20, 0.90, 0.20)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
         (MaterialId.Of("aluminium.5083"),   new("per-kg", new[] { 8.50, 0.050, 0.050, 0.0, 0.050, -4.50 }, "EU-Al-Plate-5083", 2027, 0.35, 0.95, Some(("USD", "per-kg", 4.10, 0.95, 0.22)), Some(("uniclass-2015", "Pr_20_85_08_02")))),
+        // --- copper tube (properties.md copper.c12200; per-kg). GWP IS NOT A SCALAR for copper — it tracks
+        //     SECONDARY-COPPER SHARE: verified producer declarations span Cupori 0.526 (100 % secondary) to Mueller
+        //     EPD-20250372 8.70 (primary route), a ×16 spread no blended scalar any producer declared can replace.
+        //     The row seeds the Ökobaudat-admitted HME Copper Germany tube EPD — the one copper-pipe PRODUCTION
+        //     dataset the registry holds, its C/D split captured — and the recycled-share axis IS the CopperTube
+        //     EcoProfile.At re-anchor: a project declaring its tube's secondary share re-anchors A1-A3 between the
+        //     two named endpoints while every downstream module holds. Recovery rides the metal-family posture.
+        (MaterialId.Of("copper.c12200"), new("per-kg", CopperTube, Some(("USD", "per-kg", 11.0, 4.00, 0.30)), Some(("uniclass-2015", "Pr_65_52_63")))),
         // --- masonry units (EN 771; per-m3; Wienerberger/Xella EPD; fired clay kiln carbon, calcium-silicate/AAC carbonation B1 credit)
         (MaterialId.Of("masonry.clay"),  new("per-m3", new[] { 320.0, 25.6, 2.6, 0.0, 25.6, -16.4 }, "Wienerberger-ClayBrick", 2030, 0.00, 0.90, Some(("USD", "per-m3", 280.0, 220.0, 15.0)), Some(("uniclass-2015", "Pr_20_93_52_15")))),
         (MaterialId.Of("masonry.calciumsilicate"), new("per-m3", new[] { 221.0, 13.6, 6.05, -94.5, 49.16, -7.98 }, "Xella-Silka-CS", 2031, 0.00, 0.90, Some(("USD", "per-m3", 240.0, 200.0, 14.0)), Some(("uniclass-2015", "Pr_20_93_52_12")))),
@@ -458,7 +499,55 @@ public static class SustainabilityCatalogue {
         // --- roofing membranes (per-m2; alwitra/MRPI single-ply EPD; declared per coverage area)
         (MaterialId.Of("membrane.epdm"), new("per-m2", new[] { 5.98, 0.0467, 0.487, 0.0, 5.781, -4.56 }, "alwitra-EVALASTIC-EPDM", 2029, 0.00, 0.00, Some(("USD", "per-m2", 14.0, 9.0, 1.5)), Some(("uniclass-2015", "Pr_25_57_25")))),
         (MaterialId.Of("membrane.pvc"),  new("per-m2", new[] { 6.50, 0.050, 0.400, 0.0, 5.50, -1.00 }, "MRPI-Flagon-PVC", 2029, 0.00, 0.00, Some(("USD", "per-m2", 12.0, 9.0, 1.5)), Some(("uniclass-2015", "Pr_25_57_25")))),
-        (MaterialId.Of("membrane.tpo"),  new("per-m2", new[] { 5.80, 0.050, 0.400, 0.0, 5.50, -1.00 }, "SinglePly-TPO-EU", 2029, 0.00, 0.00, Some(("USD", "per-m2", 11.0, 9.0, 1.5)), Some(("uniclass-2015", "Pr_25_57_25")))),
+        // membrane.tpo (ASTM D6878 sheet) — Ökobaudat holds no FPO/TPO production dataset, so the row transcribes
+        // the Elevate UltraPly EPD-770 2025 edition verbatim at the 60-mil sheet (the Wellford EPD-885 4.12 bounds
+        // the [3.69, 4.12] band): A4 declared, C1/C3 DECLARED zero with C2+C4 summed into the C band, and module D
+        // not declared — the A5 cell is attachment-system-specific (0.11 mechanical to 1.26 adhered) and stays
+        // absent as a system fact the membrane substance cannot own.
+        (MaterialId.Of("membrane.tpo"),  new("per-m2", new[] { 3.69, 0.16, 0.0, 0.0, 0.018, 0.0 }, "Elevate-UltraPly-TPO-EPD770", 2030, 0.00, 0.00, Some(("USD", "per-m2", 11.0, 9.0, 1.5)), Some(("uniclass-2015", "Pr_25_57_25")))),
+        // --- construction barrier sheets (the Component/panel barrier-membrane SubstanceIds), each CLOSED on its
+        //     own product dataset at the EPD's declared per-m2 unit. membrane.wrap takes the IBU DuPont Tyvek
+        //     Monolayer-60 product EPD verbatim — A4/A5 declared, C4 the landfill cell, no D published;
+        //     membrane.pe the registry's PE damp-insulation film generic (0,2 kg/m2); membrane.sbs the OBD_2024_II
+        //     refresh of the thinkstep PYE PV 200 S5 generic (5,21 kg/m2) superseding the retired 2022-validity
+        //     20.20.010 capture, C2+C4 summed into the C band, no D published.
+        (MaterialId.Of("membrane.wrap"), new("per-m2", new[] { 0.281, 0.0060, 0.0018, 0.0, 0.182, 0.0 }, "IBU-Tyvek-Monolayer60-b38b2ec7", 2026, 0.00, 0.00, Some(("USD", "per-m2", 1.50, 1.00, 0.10)), Some(("uniclass-2015", "Pr_25_57_10")))),
+        (MaterialId.Of("membrane.pe"),   new("per-m2", new[] { 0.450, 0.0, 0.0, 0.0, 0.556, -0.245 }, "OBD-DampInsulationPE-6869f7c1", 2026, 0.00, 0.00, Some(("USD", "per-m2", 0.60, 0.80, 0.05)), Some(("uniclass-2015", "Pr_25_57_51")))),
+        (MaterialId.Of("membrane.sbs"),  new("per-m2", new[] { 5.796, 0.0, 0.0, 0.0, 0.209, 0.0 }, "OBD-BitumenPYE-PV200S5-c984526a", 2026, 0.00, 0.00, Some(("USD", "per-m2", 7.00, 10.0, 1.0)), Some(("uniclass-2015", "Pr_25_57_08")))),
+        // --- pipe polymers (properties.md pipe.*; per-kg; Ökobaudat OBD_2024_II generics, C/D captured at each
+        //     dataset UUID). PVC the sewer-pipe generic; PEX the drinking-water generic with its own C/D now on the
+        //     row; HDPE its OWN sewer-pipe PE-HD generic. CPVC alone keeps the PVC family vector: the registry
+        //     holds no CPVC dataset and Lubrizol publishes ERM LCA environmental product REPORTS, not ISO 14025
+        //     declarations — the checked negative — so a real CPVC EPD supersedes on admission.
+        (MaterialId.Of("pipe.pvc"),  new("per-kg", PvcPipe, Some(("USD", "per-kg", 2.20, 1.50, 0.10)), Some(("uniclass-2015", "Pr_65_52_63")))),
+        (MaterialId.Of("pipe.cpvc"), new("per-kg", PvcPipe, Some(("USD", "per-kg", 3.50, 1.80, 0.10)), Some(("uniclass-2015", "Pr_65_52_63")))),
+        (MaterialId.Of("pipe.pex"),  new("per-kg", new[] { 2.93, 0.0, 0.0, 0.0, 3.769, -1.398 }, "OBD-PEX-DrinkingWater-eb2f1734", 2026, 0.00, 0.00, Some(("USD", "per-kg", 4.00, 1.80, 0.10)), Some(("uniclass-2015", "Pr_65_52_63")))),
+        (MaterialId.Of("pipe.hdpe"), new("per-kg", new[] { 2.32, 0.0, 0.0, 0.0, 3.455, -1.524 }, "OBD-SewerPipe-PEHD-db7d83d8", 2026, 0.00, 0.00, Some(("USD", "per-kg", 2.50, 1.50, 0.10)), Some(("uniclass-2015", "Pr_65_52_63")))),
+        // --- finishes (per-m2 as declared; Ökobaudat OBD_2024_II; downstream modules captured at each dataset
+        //     UUID). Ceramic: the glazed-stoneware generic (the Confindustria sector EPD runs leaner at 11.03/m² —
+        //     kiln fuel drives the spread). Carpet: the PA6 tile generic (Shaw EcoWorx 4.25 bounds a ×4
+        //     recycled-PA6 spread). Ceiling: two same-class mineral-tile EPDs diverge ×5 — Zentia 15.84 seeds as
+        //     the conservative bound with Knauf AMF 3.21 the counter-point; a SPECIFIED product's own declaration
+        //     overrides through the assessment Declared modality, never a roster edit. Resilient CLOSES on the
+        //     registry's PVC floor-covering generic (3,3 kg/m2; the linoleum rows are a different chemistry and
+        //     never substitute).
+        (MaterialId.Of("ceramic.tile"),       new("per-m2", new[] { 19.55, 0.0, 0.0, 0.0, 0.254, -0.029 }, "OBD-Stoneware-Glazed-5618689c", 2026, 0.00, 0.90, Some(("USD", "per-m2", 35.0, 60.0, 2.0)), Some(("uniclass-2015", "Pr_35_93_96")))),
+        (MaterialId.Of("flooring.resilient"), new("per-m2", new[] { 8.185, 0.0, 0.0, 0.0, 8.127, -1.805 }, "OBD-PVCFloor-fde18fdc", 2026, 0.00, 0.00, Some(("USD", "per-m2", 30.0, 15.0, 2.0)), Some(("uniclass-2015", "Pr_35_57_71")))),
+        (MaterialId.Of("flooring.carpet"),    new("per-m2", new[] { 16.04, 0.0, 0.0, 0.0, 7.364, -1.965 }, "OBD-CarpetTile-PA6-2fbd1f22", 2026, 0.00, 0.00, Some(("USD", "per-m2", 28.0, 8.0, 3.0)), Some(("uniclass-2015", "Pr_35_57_11")))),
+        (MaterialId.Of("ceiling.mineral"),    new("per-m2", new[] { 15.84, 0.0, 0.0, 0.0, 1.098, 0.0 }, "Zentia-Bioguard-ANF-1d522341", 2029, 0.00, 0.00, Some(("USD", "per-m2", 12.0, 10.0, 2.0)), Some(("uniclass-2015", "Pr_35_93_13")))),
+        // coating.paint — the FinishKind.Paint architectural coating film (the Component/finishes substance;
+        //     per-kg). CLOSED on the registry's dispersion-paint generic — the one architectural-coating
+        //     production dataset, its A5 application module and C/D captured verbatim. Cost prices the APPLIED
+        //     system per coated area, where the painting trade quotes.
+        (MaterialId.Of("coating.paint"),      new("per-kg", new[] { 2.154, 0.0, 0.0116, 0.0, 0.0209, -0.004 }, "OBD-DispersionPaint-8c5e949d", 2026, 0.00, 0.00, Some(("USD", "per-m2", 3.00, 12.0, 1.5)), None)),
+        // --- fireproofing (per-kg). SFRM: Ökobaudat holds no SFRM dataset; two North-American EPDs carry the row and
+        //     DENSITY CLASS RIDES THE VALUE (Monokote 0.21 standard-density rising to 0.62 high; CAFCO 0.36-0.42
+        //     across plants) — the standard-density substance seeds the CAFCO conservative bound with the
+        //     [0.21, 0.42] band on record. Intumescent CLOSES on the Rudolf Hensel HENSOTHERM 410/421/461/471 KS
+        //     family EPD (EPD-RHG-20240229-IAA3-EN, per-kg at the row's own 1400 kg/m³ film density) — C1-C4
+        //     summed into the C band, D the declared recycling credit.
+        (MaterialId.Of("fireproofing.sfrm"),        new("per-kg", new[] { 0.42, 0.0, 0.0, 0.0, 0.0, 0.0 }, "Isolatek-CAFCO300-SmartEPD", 2029, 0.00, 0.00, Some(("USD", "per-kg", 1.20, 2.00, 0.10)), None)),
+        (MaterialId.Of("fireproofing.intumescent"), new("per-kg", new[] { 2.16, 0.0, 0.0, 0.0, 1.304, -0.293 }, "IBU-Hensotherm-410KS-RHG20240229", 2029, 0.00, 0.00, Some(("USD", "per-kg", 8.00, 4.00, 0.20)), None)),
     }.ToFrozenDictionary(static r => r.Id, static r => r.Row);   // seam MaterialId generated equality (ordinal-ignore-case) keys the table
 
     // The LOWERED catalogue, frozen at first access. Lowering parses two tokens and builds a full

@@ -70,6 +70,8 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [34]   | `LinearDensity`           | `KilogramPerMeter`             | mass per unit length      |
 |  [35]   | `VolumePerLength`         | `CubicMeterPerMeter`           | volume per unit length    |
 |  [36]   | `RelativeHumidity`        | `Percent`                      | moisture ratio            |
+|  [37]   | `ElectricResistivity`     | `OhmMeter`                     | volume resistivity        |
+|  [38]   | `ElectricField`           | `VoltPerMeter`                 | electric field strength   |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and registration
 

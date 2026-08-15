@@ -10,11 +10,11 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` fold, the thread-form
 ## [02]-[FASTENER_FAMILY]
 
 - Owner: `FastenerSeed` owns the `ComponentFamily.Fastener` row fold and the capacity producer; `Threads` and `Grades` own the standards tables; `FastenerKind` owns the complete IFC entity/token binding and the realization token every kind reads distinctly; `BoltCategory`, `FayingSurface`, `ThreadSeries`, and `HeadForm` own policy; `Fastening` owns the design values; `FastenerSelection` owns the inverse sizing scan; `FastenerAssembly` owns installed-bolt state; `FastenerDetail` owns the realization bag.
-- Cases: kind {`bolt` · `nut` · `nail` · `screw` · `anchor` · `dowel` · `rivet` · `coupler`} × stock form {threaded hardware over a `ThreadRow`/`GradeRow` pair · plain shank over its published designation, diameter, length, tensile strength, standard, and material pair}; the joint category is a `FastenerAssembly` decision, never a type-row column.
+- Cases: kind {`bolt` · `nut` · `nail` · `screw` · `anchor` · `dowel` · `rivet` · `coupler` · `kerf` · `pin`} × stock form {threaded hardware over a `ThreadRow`/`GradeRow` pair · plain shank over its published designation, diameter, length, tensile strength, standard, and material pair}; the joint category is a `FastenerAssembly` decision, never a type-row column; the stone-cladding pair carries the `AnchorRole` body/restraint axis that drives the seam `AnchorType` stamp.
 - Entry: `FastenerSeed.Rows(context)` traverses the typed `Stocked` selection, dispatches `StockRow.Admit`, and feeds the one `StockFacts` projection into `Component.Of`; `FastenerSeed.Capacity` dispatches the `FastenerPlacement` the connection carries into the matching `CapacityReceipt`; `Fastening` owns the EN 1993-1-8 §3.6 resistances, the ISO 4014 length algebra, and the EC5 §8.5 dowel-type check.
 - Packages: Rasm.Numerics (`Dimension` aliased `Count` — the `[03]` discrete grip-ply/shear-plane columns), Rasm.Domain (`Op`/`Context`/`AcceptValidated`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, `PropertyName`, `PropertyValue`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Circle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`, and the sibling `TimberGrade`/`TimberPartialFactor`/`ServiceClass`/`LoadDuration` the EC5 join reads), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]` for the policy vocabularies, `[UseDelegateFromConstructor]` for the shear-plane and bolt-position columns, `[ComplexValueObject]` for the admitted design sets), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`.As()`/`guard`/`Option`/`ToFin`), BCL (`ImmutableArray`, `FrozenDictionary`). No bolt-grade producer exists among admitted packages (`VividOrange.Materials` `EnSteelGrade` is EN member-grade data, no ISO 898-1/SAE/ASTM bolt classes), so the rows are PUBLISHED here under per-column provenance.
-- Growth: a new threaded combination is one `StockRow.Threaded`; a new plain-shank product one `StockRow.Plain`; a new kind one `FastenerKind` row plus its appropriate stock case; a new thread one `Threads` entry carrying its own diameter and pitch; a new property class one `Grades` factory call; a new connection category one `BoltCategory` row; a new head geometry one `HeadForm` row; a new bolt-group position one `BoltPosition` row.
-- Boundary: every fastener uses `SectionProfile.Circle` and the seed-built realization bag. Thread semantics and `GradeRow` material data exist only on `StockRow.Threaded`; `StockRow.Plain` carries its own published diameter, length, tensile strength, standard, and independent substance/appearance pair. `Fastening.TimberDowelShearKn` takes the SCALARS EC5 §8.5 consumes — shank diameter, fastener ultimate strength, and the load-to-grain angle — so the plain dowel, nail, and rivet rows the clause is written for reach it through `StockFacts.UltimateMpa`, never a threaded currency a plain product does not carry. IFC tokens remain portable egress hints validated by `Rasm.Bim`.
+- Growth: a new threaded combination is one `StockRow.Threaded`; a new plain-shank product one `StockRow.Plain`; a new kind one `FastenerKind` row with its appropriate stock case; a new thread one `Threads` entry carrying its own diameter and pitch; a new property class one `Grades` factory call; a new connection category one `BoltCategory` row; a new head geometry one `HeadForm` row; a new bolt-group position one `BoltPosition` row.
+- Boundary: every fastener uses `SectionProfile.Circle` and the seed-built realization bag. Thread semantics and `GradeRow` material data exist only on `StockRow.Threaded`; `StockRow.Plain` carries its own published diameter, length, tensile strength, standard, and independent substance/appearance pair. `Fastening.TimberDowelShearKn` takes the SCALARS EC5 §8.5 consumes — shank diameter, fastener ultimate strength, and the load-to-grain angle — so the plain dowel, nail, and rivet rows the clause is written for reach it through `StockFacts.UltimateMpa`, never a threaded currency a plain product does not carry. IFC tokens remain portable egress hints validated by `Rasm.Bim`. The stone-cladding `kerf`/`pin` kinds are CLOSED VOCABULARY without stock: no captured source prints kerf-bar or restraint-pin section dimensions to the two-source bar, so their `StockRow` entries are typed-absent — the kinds, the `AnchorRole` axis, and the `AnchorType` stamp stand ready and a proven product lands as one `StockRow.Plain` row in a stainless substance the Properties catalogue already prices.
 - Boundary: this page emits EN 1993-1-8 design resistances and EN 1995-1-1 design resistances and NOTHING ELSE. `GradeRow.EurocodeAlphaV` is `Some` only for the seven property classes EN 1993-1-8 Table 3.1 tabulates, so a SAE, ASTM, 9.8, or 12.9 grade RAILS out of the Eurocode resistances rather than borrowing an α_v the code never published for it — the AISC 360 §J3 resistances those grades design under are a `capacity#SECTION_CAPACITY` `DesignBasis` row and its own arm, never a silent reuse of this one. The published mechanical band, the preload, and the stock identity stay total over every grade, because those are each body's own specification data.
 
 ```csharp signature
@@ -41,7 +41,13 @@ namespace Rasm.Materials.Component;
 // USERDEFINED is the schema's own catch-all, the wire token alone leaves a nut indistinguishable from any other
 // owner-labelled accessory, so DetailToken is the row's SEPARATE realization identity and the bag stamps THAT: a nut
 // reads "NUT" on a shop document while the IFC enumeration still receives the only member it admits. The form flags
-// drive the length split; anchor/dowel/rivet/coupler are arms HERE — ComponentFamily stays closed at ten.
+// drive the length split; anchor/dowel/rivet/coupler are arms HERE — ComponentFamily stays closed. The STONE-CLADDING
+// anchor pair rides the same axis under the Role column: the kerf bar is the BODY anchor carrying panel gravity in
+// the panel edge (an unlisted accessory — IfcDiscreteAccessory USERDEFINED, the nut posture), the restraint pin the
+// LATERAL-only dowel into the back face (the schema's own DOWEL member); a role-carrying kind stamps the seam
+// DetailSchema.AnchorType row beside FastenerType, so a cladding bag names its anchor system.
+public enum AnchorRole : byte { None = 0, Body = 1, Restraint = 2 }
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerKind {
@@ -53,11 +59,14 @@ public sealed partial class FastenerKind {
     public static readonly FastenerKind Dowel   = new("dowel",   ifcEntity: "IfcMechanicalFastener", ifcPredefinedType: "DOWEL",       detailToken: "DOWEL",   threaded: false, headed: false);
     public static readonly FastenerKind Rivet   = new("rivet",   ifcEntity: "IfcMechanicalFastener", ifcPredefinedType: "RIVET",       detailToken: "RIVET",   threaded: false, headed: true);
     public static readonly FastenerKind Coupler = new("coupler", ifcEntity: "IfcMechanicalFastener", ifcPredefinedType: "COUPLER",     detailToken: "COUPLER", threaded: true,  headed: false);
+    public static readonly FastenerKind Kerf    = new("kerf",    ifcEntity: "IfcDiscreteAccessory",  ifcPredefinedType: "USERDEFINED", detailToken: "KERF-ANCHOR",    threaded: false, headed: false, role: AnchorRole.Body);
+    public static readonly FastenerKind Pin     = new("pin",     ifcEntity: "IfcMechanicalFastener", ifcPredefinedType: "DOWEL",       detailToken: "RESTRAINT-PIN",  threaded: false, headed: false, role: AnchorRole.Restraint);
     public string IfcEntity { get; }
     public string IfcPredefinedType { get; }
     public string DetailToken { get; }   // the realization identity — distinct per kind where the IFC enumeration collapses to USERDEFINED
     public bool Threaded { get; }        // a dowel/rivet has no thread — ThreadLengthMm resolves 0, the body is all shank
     public bool Headed { get; }          // a headless threaded part (nut/coupler) threads through its whole length
+    public AnchorRole Role { get; }      // Body/Restraint on the stone-cladding pair alone — drives the AnchorType stamp, None elsewhere
 }
 
 // The pitch family. Metric and unified threads share ONE 60° form, so the series carries only what genuinely differs:
@@ -260,7 +269,8 @@ public static class Threads {
     public static readonly ImmutableArray<ThreadRow> Rows = [M6, M8, M10, M12, M16, M20, M24, M30, M36, In0250, In0375, In0500, In0625, In0750, In0875, In1000, In1500];
 }
 
-// 19 grade rows: 9 ISO 898-1:2013 property classes, 6 SAE J429 grades, 4 ASTM F3125 grades. Each body mints through
+// 22 grade rows: 9 ISO 898-1:2013 property classes, 6 SAE J429 grades, 4 ASTM F3125 grades, 3 ASTM F1554
+// anchor-rod grades. Each body mints through
 // its own factory, because each PRINTS its data differently and the difference is the derivation: an ISO class
 // DESIGNATES its nominal strengths (the leading number is Rm,nom/100 and the trailing number the yield ratio in
 // tenths), so the class key IS the nominal pair and only Table 3's separately printed minimums are arguments; a US
@@ -277,6 +287,8 @@ public static class Grades {
     static readonly SizeBand SaeCapRange = new(0.25 * ThreadRow.InchToMm, 1.0 * ThreadRow.InchToMm);
     static readonly SizeBand F3125Range = new(0.5 * ThreadRow.InchToMm, 1.5 * ThreadRow.InchToMm);
     static readonly SizeBand TwistOffRange = new(0.5 * ThreadRow.InchToMm, 1.25 * ThreadRow.InchToMm);
+    static readonly SizeBand F1554Range = new(0.5 * ThreadRow.InchToMm, 4.0 * ThreadRow.InchToMm);       // grades 36/55 — the spec reaches 1/4 in, but the mechanical tables both sources print start at 1/2, so the fringe stays outside the band
+    static readonly SizeBand F1554HighRange = new(0.5 * ThreadRow.InchToMm, 3.0 * ThreadRow.InchToMm);   // grade 105 stops at 3 in
 
     // An ISO class row: the designation carries the nominals, Table 3 carries the minimums, EN 1993-1-8 Table 3.1
     // carries the α_v where it tabulates the class at all.
@@ -315,9 +327,18 @@ public static class Grades {
     public static readonly GradeRow F1852 = Us("f1852", Astm, TwistOffRange, None, 120.0,  92.0, true);
     public static readonly GradeRow A490  = Us("a490",  Astm, F3125Range,   None, 150.0, 130.0, true);
     public static readonly GradeRow F2280 = Us("f2280", Astm, TwistOffRange, None, 150.0, 130.0, true);
+    // ASTM F1554 cast-in anchor rods — the baseplate rod the Anchor kind stocks, three yield-designated grades
+    // (36/55/105 ksi against 58–80/75–95/125–150 tensile ranges; the range MINIMUM is the design ultimate, the
+    // ceiling a mill acceptance bound and never a column). No F1554 proof-load stress crosses the two-source bar,
+    // so the proof cell is absent and the preload ceiling falls to yield; none is preloadable — an anchor rod is
+    // never a slip-critical bolt. Grade 55's S1 weldability supplement is an ordering fact, not a column.
+    public static readonly GradeRow F155436  = Us("f1554-36",  Astm, F1554Range,     None,  58.0,  36.0, false);
+    public static readonly GradeRow F155455  = Us("f1554-55",  Astm, F1554Range,     None,  75.0,  55.0, false);
+    public static readonly GradeRow F1554105 = Us("f1554-105", Astm, F1554HighRange, None, 125.0, 105.0, false);
     public static readonly ImmutableArray<GradeRow> Rows = [
         G46, G48, G56, G58, G68, G88, G98, G109, G129,
-        Gr1, Gr2, Gr5, Gr52, Gr8, Gr82, A325, F1852, A490, F2280];
+        Gr1, Gr2, Gr5, Gr52, Gr8, Gr82, A325, F1852, A490, F2280,
+        F155436, F155455, F1554105];
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -425,8 +446,11 @@ public static class FastenerDetail {
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, facts.DiameterMm * 1e-3)
         from length in ComponentDetail.Measured(DetailSchema.NominalLength, Dimension.LengthDim, facts.LengthMm * 1e-3)
         from form in thread.Match(Some: t => FormRow(kind, t, facts.LengthMm).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        // A role-carrying cladding kind stamps the seam AnchorType row beside FastenerType — the anchor SYSTEM a
+        // stone bag names (kerf body, restraint pin), derived off the kind row, never a per-seed literal.
         select ComponentDetail.RealizationRows([
             ComponentDetail.Token(DetailSchema.FastenerType, kind.DetailToken),
+            .. kind.Role == AnchorRole.None ? Seq<(PropertyName, PropertyValue)>() : Seq(ComponentDetail.Token(DetailSchema.AnchorType, kind.DetailToken)),
             ComponentDetail.Sourced(source),
             diameter,
             length,
@@ -443,32 +467,32 @@ public static class FastenerDetail {
         from threaded in Si(Fastening.ThreadLengthMm(kind, thread, lengthMm))
         from shank in Si(Fastening.UnthreadedShankMm(kind, thread, lengthMm))
         select (DetailSchema.FastenerForm, (PropertyValue)new PropertyValue.Complex("fastener-form", Map(
-            (PropertyName.Create("FlankAngle"), (PropertyValue)new PropertyValue.Text($"{ThreadRow.FlankAngleDeg:R}")),
-            (PropertyName.Create("Pitch"), pitch),
-            (PropertyName.Create("MinorDiameter"), minor),
-            (PropertyName.Create("PitchDiameter"), pitchDiameter),
-            (PropertyName.Create("RootDiameter"), root),
-            (PropertyName.Create("AcrossCorners"), corners),
-            (PropertyName.Create("ThreadRunout"), runout),
-            (PropertyName.Create("ThreadLength"), threaded),
-            (PropertyName.Create("UnthreadedShank"), shank))
+            (DetailSchema.FlankAngle, (PropertyValue)new PropertyValue.Text($"{ThreadRow.FlankAngleDeg:R}")),
+            (DetailSchema.Pitch, pitch),
+            (DetailSchema.MinorDiameter, minor),
+            (DetailSchema.PitchDiameter, pitchDiameter),
+            (DetailSchema.RootDiameter, root),
+            (DetailSchema.AcrossCorners, corners),
+            (DetailSchema.ThreadRunout, runout),
+            (DetailSchema.ThreadLength, threaded),
+            (DetailSchema.UnthreadedShank, shank))
             + thread.Hardware.Map(HexEnvelope).IfNone(Map<PropertyName, PropertyValue>())));
 
     // The columns every hex product declares ride the map unconditionally; the two only the ISO product dimensions are
     // OMITTED where absent rather than written as a zero, so a UNC bag content-keys on the envelope its standards
     // actually publish and a reader never mistakes a missing dimension for a measured one.
     static Map<PropertyName, PropertyValue> HexEnvelope(HexHardware hex) => Map(
-        (PropertyName.Create("HeadHeight"), (PropertyValue)new PropertyValue.Text($"{hex.HeadHeightMm:R}")),
-        (PropertyName.Create("NutHeight"), new PropertyValue.Text($"{hex.NutHeightMm:R}")),
-        (PropertyName.Create("WasherInner"), new PropertyValue.Text($"{hex.WasherInnerMm:R}")),
-        (PropertyName.Create("WasherOuter"), new PropertyValue.Text($"{hex.WasherOuterMm:R}")),
-        (PropertyName.Create("WasherThickness"), new PropertyValue.Text($"{hex.WasherThicknessMm:R}")))
-        + Declared("BearingDiameter", hex.BearingDiameterMm)
-        + Declared("FilletDiameter", hex.FilletDiameterMm);
+        (DetailSchema.HeadHeight, (PropertyValue)new PropertyValue.Text($"{hex.HeadHeightMm:R}")),
+        (DetailSchema.NutHeight, new PropertyValue.Text($"{hex.NutHeightMm:R}")),
+        (DetailSchema.WasherInner, new PropertyValue.Text($"{hex.WasherInnerMm:R}")),
+        (DetailSchema.WasherOuter, new PropertyValue.Text($"{hex.WasherOuterMm:R}")),
+        (DetailSchema.WasherThickness, new PropertyValue.Text($"{hex.WasherThicknessMm:R}")))
+        + Declared(DetailSchema.BearingDiameter, hex.BearingDiameterMm)
+        + Declared(DetailSchema.FilletDiameter, hex.FilletDiameterMm);
 
-    static Map<PropertyName, PropertyValue> Declared(string name, Option<double> mm) =>
+    static Map<PropertyName, PropertyValue> Declared(PropertyName name, Option<double> mm) =>
         mm.Match(
-            Some: value => Map((PropertyName.Create(name), (PropertyValue)new PropertyValue.Text($"{value:R}"))),
+            Some: value => Map((name, (PropertyValue)new PropertyValue.Text($"{value:R}"))),
             None: static () => Map<PropertyName, PropertyValue>());
 
     static Fin<PropertyValue> Si(double mm) =>
@@ -558,6 +582,9 @@ public static class FastenerSeed {
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.M16,    Grades.G88,  200.0),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.M20,    Grades.G88,  250.0),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.In0750, Grades.A325, 304.8),
+        new StockRow.Threaded(FastenerKind.Anchor,  Threads.In0750, Grades.F155436,  304.8),
+        new StockRow.Threaded(FastenerKind.Anchor,  Threads.In1000, Grades.F155455,  457.2),
+        new StockRow.Threaded(FastenerKind.Anchor,  Threads.In1500, Grades.F1554105, 609.6),
         new StockRow.Plain(FastenerKind.Nail,  "8d-common",   3.33, 63.5,  690.0, new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
         new StockRow.Plain(FastenerKind.Nail,  "10d-common",  3.76, 76.2,  690.0, new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
         new StockRow.Plain(FastenerKind.Dowel, "dowel-20",   20.0, 100.0, 400.0, new ComponentStandard("eu", 0.0, ComponentAuthority.En),   MaterialId.Of("steel.fastener-dowel"), MaterialId.Of("metal.steel")),

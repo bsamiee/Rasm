@@ -448,7 +448,7 @@ message SectionPropertiesWire {
   double monosymmetry_factor = 20;
 }
 
-// Eleven engineering-property arms, evidence on the envelope (the base-class column) — each arm mirrors
+// Twelve engineering-property arms, evidence on the envelope (the base-class column) — each arm mirrors
 // its Composition/material case columns 1:1; smart-enum columns cross as key tokens.
 message MaterialPropertySetWire {
   PropertyEvidenceWire evidence = 1;
@@ -464,6 +464,7 @@ message MaterialPropertySetWire {
     HygrothermalWire hygrothermal = 10;
     DurabilityWire durability = 11;
     OpticalWire optical = 12;
+    ElectricalWire electrical = 13;
   }
 }
 
@@ -473,6 +474,8 @@ message PropertyEvidenceWire {
   optional string valid_until = 3;
 }
 
+// The factor-vs-°C temperature-reduction curves (EN 1993-1-2 kE,θ/ky,θ, EN 1992-1-2 kc(θ)) ride beside the 20 °C
+// scalars; a source declaring no curve crosses ABSENT, never a fabricated one-point table.
 message MechanicalWire {
   MeasureValueWire density = 1;
   MeasureValueWire youngs_modulus = 2;
@@ -480,6 +483,8 @@ message MechanicalWire {
   MeasureValueWire ultimate_strength = 4;
   double poissons_ratio = 5;
   double thermal_expansion_per_k = 6;
+  optional SampledCurveWire youngs_reduction = 7;
+  optional SampledCurveWire yield_reduction = 8;
 }
 
 message OrthotropicWire {
@@ -490,13 +495,16 @@ message OrthotropicWire {
   MeasureValueWire strength1_parallel = 5;
   MeasureValueWire strength2_perpendicular = 6;
   double thermal_expansion_per_k = 7;
+  optional SampledCurveWire modulus_reduction = 8; // the EN 1995-1-2 kθ pair scaling both principal directions
+  optional SampledCurveWire strength_reduction = 9;
 }
 
 message ThermalWire {
   MeasureValueWire conductivity = 1;
   MeasureValueWire specific_heat = 2;
-  MeasureValueWire u_value = 3;
+  optional MeasureValueWire u_value = 3; // product-declared transmittance; a substance crosses ABSENT — the assembly fold owns U
   double vapour_resistance_factor = 4;
+  optional SampledCurveWire conductivity_curve = 5; // λ(θ) fire/transient evidence beside the steady-state ISO 6946 scalar
 }
 
 message AcousticWire {
@@ -508,7 +516,7 @@ message AcousticWire {
 }
 
 message FireWire {
-  string reaction = 1; // FireRating key
+  optional string reaction = 1; // FireRating key; a tested-system resistance-only record crosses ABSENT
   string smoke = 2; // SmokeClass key
   string droplets = 3; // DropletClass key
   FireResistanceWire resistance = 4;
@@ -525,8 +533,10 @@ message FireResistanceWire {
 message EnvironmentalWire {
   string basis = 1; // MeasurementBasis key
   repeated double impacts = 2;
-  double recycled_content = 3;
-  double end_of_life_recovery = 4;
+  // The two EN 15804 scenario resource fractions many declarations omit: absence crosses UNSET, never a zero a
+  // peer reads as a declared fraction.
+  optional double recycled_content = 3;
+  optional double end_of_life_recovery = 4;
 }
 
 message CostWire {
@@ -578,6 +588,16 @@ message OpticalWire {
   double thermal_ir_transmittance = 7;
   double thermal_ir_emissivity_front = 8;
   double thermal_ir_emissivity_back = 9;
+}
+
+// The IEC 60364 / NEC substance constants: both measured columns cross SI-native (Ω·m and V/m ARE the SI bases the
+// seam mints on), and the two optional columns ride explicit presence — a non-magnetic or unmeasured substance
+// crosses ABSENT, never a unity or zero a peer reads as a declared ratio.
+message ElectricalWire {
+  MeasureValueWire resistivity = 1;
+  double relative_permittivity = 2;
+  optional MeasureValueWire dielectric_strength = 3;
+  optional double magnetic_permeability_relative = 4;
 }
 
 // --- [ASSESSMENT_WIRE] -------------------------------------------------------------------

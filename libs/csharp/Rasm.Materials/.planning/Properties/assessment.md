@@ -285,7 +285,6 @@ public static class DeclarationWire {
                 : ElementFault.ValueRejected(key, $"<declaration-unit-unmapped:{root.GetProperty("declared_unit").GetString()}>")
             from issued in Date(root, "issued", key)
             from validUntil in Date(root, "valid_until", key)
-            let source = root.GetProperty("source")
             let banded = Banded(root.GetProperty("indicators"))
             select (AssessmentRecord)new AssessmentRecord.Declared(
                 MaterialId.Of(root.GetProperty("material_key").GetString() ?? ""),

@@ -76,3 +76,4 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Grpc.Tools` — build-only proto codegen; never a runtime surface.
 - `Riok.Mapperly` — source-generated seam↔wire case transcription.
 - `Generator.Equals` — structural equality and member diff feeding the 3-way merge.
+- `Microsoft.Extensions.Compliance.Abstractions` — `rasm.element` taxonomy over the wire's classified columns; contract-only, no redactor resolves.

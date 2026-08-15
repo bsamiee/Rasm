@@ -55,7 +55,6 @@ using NodaTime;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
-using Rasm.Element.Wire;
 using Rasm.Persistence.Element;                    // ElementJson.Options — the ONE codec STJ converter graph
 using System.IO.Hashing;
 using Thinktecture;

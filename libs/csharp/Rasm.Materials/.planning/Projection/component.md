@@ -141,11 +141,13 @@ public abstract partial record ProjectionSpec {
         Option<Classification> StandardClassification,   // the facts-resolved standard reference the Type Object's Classifications set carries — Type-seed-excluded, so the stamp never re-keys NodeId.RootedType
         bool ThinWalled,
         Seq<OccurrenceBinding> Occurrences) : ProjectionSpec {
-        // The RC shear-link triple the capacity screen published (capacity#SECTION_CAPACITY ShearLinkRows — railed
-        // and SI at its mint, so it arrives settled DATA here) — init-defaulted EMPTY enrichment, so every
-        // link-less spec construction binds unchanged and only the composition that resolved an RcElastic supplies
-        // the rows.
-        public Seq<(PropertyName Row, PropertyValue Value)> ShearLink { get; init; }
+        // The capacity-published member rows the resolved SectionCapacity egresses for the forward Compute member
+        // check — the RC shear-link triple (capacity#SECTION_CAPACITY RcElastic.ShearLinkRows, railed and SI at its
+        // mint) or the aluminium Table 6.6 buckling pair (AluminumMember.BucklingRows, dimensionless code
+        // constants), ONE carrier because every row is Element StructuralRows-keyed and rides one derived
+        // Realization bag — init-defaulted EMPTY enrichment, so a spec whose section published no member rows
+        // binds unchanged and only the composition that resolved a publishing capacity supplies them.
+        public Seq<(PropertyName Row, PropertyValue Value)> CapacityRows { get; init; }
     }
 }
 
@@ -223,8 +225,8 @@ public sealed class ComponentProjector : IElementProjection {
             from detail in DetailBag(c, tolerance, ctx.Key)
             from takeoff in TypeTakeoff(baked.Section, spec.Properties, tolerance)
             from textures in TextureBag(spec.TextureSet, spec.ThinWalled, tolerance, ctx.Key)
-            let shear = ShearLinkBag(spec.ShearLink, tolerance)
-            let seeded = SeedType(type, material, appearance, Seq(detail, takeoff, textures, shear))
+            let capacity = CapacityBag(spec.CapacityRows, tolerance)
+            let seeded = SeedType(type, material, appearance, Seq(detail, takeoff, textures, capacity))
             from bound in AuthorOccurrences(spec.Occurrences, type.Id, material.Id, ctx, seeded)
             select bound;
     }
@@ -265,12 +267,13 @@ public sealed class ComponentProjector : IElementProjection {
                     .Fold(DetailSchema.Appearance.Bag(PropertySource.Derived),
                         static (bag, row) => row.Value.Match(Some: value => bag.With(row.Row, value), None: () => bag))), tolerance));
 
-    // --- [SHEAR_LINK_BAG]
+    // --- [CAPACITY_BAG]
     // The FOURTH bag term, exactly the peer shape the TextureBag comment legislates: it mints the node, authors no
-    // edge, and the binding folds carry it through the same Assign/PropertyDefinition shape. The triple rides a
-    // DERIVED Realization bag under the Element StructuralRows names — the Compute member check reads it off the
-    // inherited bag — and an empty triple mints nothing, the producer's own whole-or-nothing absence.
-    static Option<Node> ShearLinkBag(Seq<(PropertyName Row, PropertyValue Value)> rows, double tolerance) =>
+    // edge, and the binding folds carry it through the same Assign/PropertyDefinition shape. The capacity-published
+    // rows — the RC shear-link triple or the aluminium buckling pair — ride ONE derived Realization bag under the
+    // Element StructuralRows names the Compute member check reads off the inherited bag, and an empty set mints
+    // nothing, the producer's own whole-or-nothing absence.
+    static Option<Node> CapacityBag(Seq<(PropertyName Row, PropertyValue Value)> rows, double tolerance) =>
         rows.IsEmpty
             ? Option<Node>.None
             : Some(Mint(new Node.PropertySet(Unkeyed,

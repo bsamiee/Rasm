@@ -642,7 +642,7 @@ public sealed partial class SemanticProjector {
     static Fin<(string Owner, IfcPhysicalQuantity Quantity)> RaiseMember(
         DatabaseIfc target, Map<string, GroupIdentity> groups, PropertyName name, MeasureValue measure, UnitScale scale, Op key) =>
         from owner in Fin.Succ(OwnerOf(groups, name))
-        from quantity in RaiseQuantity(target, owner.Length == 0 ? name : PropertyName.Create(Leaf(name.Value)), measure, scale, key)
+        from quantity in RaiseQuantity(target, owner.Length == 0 ? name : PropertyCategory.Seam.Row(Leaf(name.Value)), measure, scale, key)
         select (Owner: owner, Quantity: quantity);
 
     // The owning group of a value key: the LONGEST Groups prefix the dotted key sits under, "" for an ungrouped row —
@@ -881,18 +881,17 @@ public sealed partial class SemanticProjector {
     // PropertyValue.Integer carrying the per-parent-continuous child index — an ordinal is a count, never a
     // physical Measure) — the [AMENDMENTS] carrier that makes ComposeKind.Nest's ordered-children promise
     // representable without touching the frozen 5-kind edge algebra.
-    internal static readonly PropertyName NestOrdinal = PropertyName.Create("ordinal");
+    internal static readonly PropertyName NestOrdinal = PropertyCategory.Seam.Row("ordinal");
 
-    // The space-boundary level attr the ingress stamps ("" base-undeclared / "1st" / "2nd") — the egress
-    // refined-construct discriminant and the Rasm.Compute filter key, declared ONCE here like NestOrdinal so the two
-    // projector halves never drift.
-    internal static readonly PropertyName BoundaryLevel = PropertyName.Create("BoundaryLevel");
+    // The space-boundary level attr the ingress stamps ("" base-undeclared / "1st" / "2nd") is the Rasm.Element
+    // BoundaryRows.Level static — the seam declarer's ONE cross-package symbol the egress refined-construct
+    // discriminates on and the Rasm.Compute filter keys — so no projector-half declaration exists to drift.
 
     // The connection-interface attr a space-boundary Generic edge carries: the UInt128 content key of its
     // IfcConnectionGeometry STEP fragment in the profiles store. An element connect carries the same key on the TYPED
     // seam Connect.Interface slot instead — the boundary keeps an attr because the seam ConnectKind medium vocabulary
     // is closed at element/path/port — so both ends of the interface round-trip read one store through two carriers.
-    internal static readonly PropertyName InterfaceKey = PropertyName.Create("InterfaceKey");
+    internal static readonly PropertyName InterfaceKey = PropertyCategory.Seam.Row("InterfaceKey");
 
     // The attr-refined subtype constructs: the three-valued BoundaryLevel attr names the exact IfcRelSpaceBoundary
     // subtype and the Model/structural-owned StructuralProjection.Eccentricity row the eccentric structural-member
@@ -900,7 +899,7 @@ public sealed partial class SemanticProjector {
     // constructs its own Key.
     static Option<string> Refined(IfcRelKind kind, Relationship edge) => (kind, edge) switch {
         var (k, e) when k == IfcRelKind.SpaceBoundary && e is Relationship.Generic g =>
-            g.Attributes.Find(BoundaryLevel).Bind(static v => v switch {
+            g.Attributes.Find(BoundaryRows.Level).Bind(static v => v switch {
                 PropertyValue.Text { Value: "2nd" } => Some("IfcRelSpaceBoundary2ndLevel"),
                 PropertyValue.Text { Value: "1st" } => Some("IfcRelSpaceBoundary1stLevel"),
                 _                                   => Option<string>.None,
@@ -1130,8 +1129,8 @@ public sealed partial class SemanticProjector {
                 && graph.Nodes.Find(definition).Case is Node.PropertySet { Bag: var bag }
                 && bag.SetName == ProjectAttributeSet
                 && authored.Find(subject).Case is IfcContext context) {
-                bag.Values.Find(PropertyName.Create("Phase")).IfSome(v => { if (v is PropertyValue.Text t) { context.Phase = t.Value; } });
-                bag.Values.Find(PropertyName.Create("LongName")).IfSome(v => { if (v is PropertyValue.Text t) { context.LongName = t.Value; } });
+                bag.Values.Find(Phase).IfSome(v => { if (v is PropertyValue.Text t) { context.Phase = t.Value; } });
+                bag.Values.Find(LongName).IfSome(v => { if (v is PropertyValue.Text t) { context.LongName = t.Value; } });
             }
         });
 

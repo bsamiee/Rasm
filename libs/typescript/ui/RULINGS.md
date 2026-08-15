@@ -6,22 +6,22 @@
 
 - `react`/`react-dom` HOLD on the canary channel — `useEffectEvent` and `<ViewTransition>` are canary-only members a stable bump silently drops.
 - Key chords spell `Control` or `Mod` — react-aria's parser holds no `ctrl` token, so `Ctrl` parses as a KEY and drops the modifier silently.
-- `prosemirror-*` is the ONE editor engine — its schema is DATA one roster derives four artifacts from, and collab ships JSON Steps on the estate's own wire.
-- `lexical` rejected — collab reaches only through a second yjs CRDT beside core's algebra, and its class roster carries no grammar to derive a codec from.
+- `prosemirror-*` is the ONE editor engine — its schema is DATA a roster derives every artifact from, and collab ships JSON Steps on the estate wire.
+- `lexical` rejected — collab reaches only through a second yjs CRDT beside core's algebra, and its class roster carries no codec-derivable grammar.
 - `@tiptap/*` rejected on the license gate — comments, snapshots, tracked changes, and document conversion are payment-gated behind a token registry.
 - `platejs`/`slate` rejected — Slate carries no schema, so the document grammar lands estate-authored with zero engine enforcement.
 - `@milkdown/kit` rejected — ProseMirror behind a markdown-opinionated forwarding layer, so admitting it admits the engine behind a forwarder.
 - `remirror` rejected — dormant, with no publish in over a year on a surface whose engine moves weekly.
 - `prosemirror-schema-basic`/`prosemirror-example-setup` never land — a hardcoded node roster is seed data for the roster owner, never a dependency.
 - `yjs`/`y-prosemirror` never land — core owns merge, causality, and presence, and a second CRDT engine forks the one algebra.
-- `@xyflow/react` admitted — controlled nodes, edges, and viewport with pure change folds; its interior zustand seals per provider, never consumer-imported.
-- `elkjs` admitted for compound nesting, ports, and routed edges as data — only via `elkjs/lib/elk-api` with a worker; the bare entry bundles the CJS payload.
+- `@xyflow/react` admitted — controlled nodes, edges, viewport via pure change folds; interior zustand seals per provider, never consumer-imported.
+- `elkjs` admitted for compound nesting, ports, and routed edges as data — `elkjs/lib/elk-api` with a worker only; the bare entry bundles CJS.
 - `@dagrejs/dagre` rejected — a ports-less, polyline-only subset of what `elk.layered` already answers.
 - `tldraw` rejected — proprietary license with key enforcement and usage telemetry.
 - `excalidraw` rejected — an application carrying its own document model, never an engine.
-- Every timeline package rejects — `vis-timeline` peer-locks legacy moment and `dhtmlx-gantt` PRO-gates critical path; the timeline composes visx/d3 scales.
-- `embla-carousel` rejected — stable ships zero accessibility and its a11y plugin never left RC; scroll-snap composes the carousel; reopen at GA on loop wrap.
-- `media-chrome` rejected on lifecycle — converged into Video.js v10, the successor pre-GA; platform elements and RAC gauges compose the chrome; reopen at GA.
+- Every timeline package rejects — `vis-timeline` peer-locks legacy moment, `dhtmlx-gantt` PRO-gates critical path; timelines compose visx/d3 scales.
+- `embla-carousel` rejected — stable ships zero a11y and its plugin never left RC; scroll-snap composes the carousel; reopen at GA on loop wrap.
+- `media-chrome` rejected — converged into the pre-GA Video.js successor; platform elements and RAC gauges compose the chrome; reopen at GA.
 - `allotment` rejected — zero aria and zero keyboard handling in the shipped dist; a pointer-only splitter cannot ship.
 - `react-resizable-panels` admitted — the N-panel constraint solver and the complete window-splitter pattern earn it over a `useMove` handroll.
 - `@tailwindcss/typography` admitted — the prose plane's element-modifier and CSS-variable surface; the estate owns only the token bridge.
@@ -59,9 +59,9 @@
 - `Texture.premultiplyAlpha` binds DOM sources alone — ArrayBufferView uploads ignore it, so associated payloads ride `Material.premultipliedAlpha`.
 - Splat order is consumer-owned per view — the producer wire carries no ordering key, so back-to-front is a camera-epoch fold and never decode order.
 - Renderer-bound capability travels on the acquisition record alone — a codec bundle captured at construction survives the swap that disposed it.
-- Canvas keeps React Flow's own recognizers — the graph mirrors through one adapter atom; a second recognizer over its d3-zoom is the double-bind defect.
-- Persisted grain keys derive through ONE mint as `rasm.ui.<domain>.<grain>.v<N>` — the ordinal is DECLARED, never a schema hash, so no annotation edit re-keys.
-- Editor quarantine is a STORED-doc decode posture alone — live collab refuses on the pinned generation; a quarantine atom shifts shared position arithmetic.
+- Canvas keeps React Flow's own recognizers — the graph mirrors through one adapter atom; a second recognizer over its d3-zoom double-binds.
+- Persisted grain keys share ONE mint, `rasm.ui.<domain>.<grain>.v<N>` — `v<N>` is a DECLARED ordinal, never a schema hash, so no edit re-keys.
+- Editor quarantine is a STORED-doc decode posture alone — live collab refuses on the pinned generation; quarantine atoms shift shared position math.
 
 ## [03]-[COLLAPSE]
 

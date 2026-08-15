@@ -24,7 +24,7 @@ Fitted primitives are HOST-NEUTRAL — `Node.Object` references ALL geometry by 
 - Receipt: `GraphDelta` is the projector's whole contribution, the merge the seam `Assemble` folds with sibling deltas onto a `Genesis` seed; the `ReconstructionPrimitive` row and its `PrimitiveForm` payload are the typed fit evidence, the `Pset_Reconstruction` bag the per-element review record a `Persistence`/`Compute` `ByProperty` read selects below-floor elements on, and the deterministic `ExternalId` joins a re-reconstructed element to its prior pass and its as-designed counterpart across the federation diff — no generic `IFitResult` abstraction, the union arms stay typed per primitive family.
 - Packages: `Rasm.Element` (the seam `Node`/`NodeId`/`GraphDelta`/`Relationship`/`Classification`/`PredefinedType`/`PropertyBag`/`PropertyValue`/`MeasureValue`/`Dimension`/`RepresentationContentHash`/`AxisCurve`/`SchemaSpan`, the `Projection/address#CANONICAL_WRITER` `CanonicalWriter`, the `IElementProjection`/`ProjectionContext` contract, and the seam-owned host-neutral `Graph/element#NODE_MODEL` `Vector3` coordinate with its `Dot`/`Unit`/`UnitX`/`UnitZ` algebra the orientation classifier folds — the seam owns the analytical `Vector3` the way it owns `Dimension`, and no kernel `Vector3` exists), `Rasm` (the `GeometryHandle` registration handle and the `Domain.ContentHash` seed-zero `XxHash128`, consumed by reference; the kernel `Rasm.Numerics` coordinate is the RhinoCommon `Vector3d` this host-neutral projection never touches), GeometryGymIFC_Core (`ParserIfc.HashGlobalID` the deterministic GlobalId codec), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject]`), LanguageExt.Core (`Fin`/`Seq`/`Map`/`Option`).
 - Growth: a new fitted primitive is one `PrimitiveForm` arm carrying its analytic parameters, one `PrimitiveAnalytic` arm on the single per-shape dispatch, one `PrimitiveShape` row, and one `ElementClassifier` entry — the fold and classifier resolve it with no new operation; a new classification rule is one `ElementClassifier` row keyed on `(PrimitiveShape, IfcDomain, FitOrientation)` and a new scale floor one `SizeBand` value on the rows that carry it; a repeated identical fit shares ONE `GeometryHash` so the content-keyed blob store dedups the geometry with no parallel type-instance; a new confidence dimension is one `Pset_Reconstruction` row; a new discipline bias is one `BiasOf` arm with the `ElementClassifier` rows it resolves to (a bias arm with no matching rows steers a segment into an empty domain and faults `recon-shape-miss`), a shape-independent site class one `Pin` row, a non-constructible class one `Excluded` row — `AsprsBias` is the one growth surface for all three; never a per-shape `Node.Object` subtype or a second receipt model.
-- Boundary: reconstruction is the LAST fold to a seam `Node.Object`, never a geometry kernel — kernel cloud-ICP registration, plane/cylinder segmentation, and exact-arithmetic arrangement are consumed by reference, never re-minted here; both lineage keys compose the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` through the seam `CanonicalWriter`, never the upper-stratum `Rasm.Compute` interchange owner (a `Rasm.Bim`→`Rasm.Compute` reference inverts the strata DAG) or a second hasher; ALL fitted geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`), so the seam `Node.Object` carries no inline coordinate field, no RhinoCommon `Brep`/`Mesh`, and no stored `GeometryHandle` — host-neutral by construction; lineage is TWO axes with two names and two consumers — `CaptureLineage` addresses the source bytes and is what the `SourceCloud` row publishes and a re-fetch resolves, `ReconstructionKey` identifies one fit run under its own parameters and is what the `ReconstructionRun` row publishes and the deterministic `ExternalId` hashes from; one value type over both key spaces let the advertised re-fetch join cite a key carrying fit parameters in its preimage, which no store can answer; the rooted `NodeId` is the NEUTRAL kernel-minted id and the IFC `GlobalId` is the node's `ExternalId`, a deterministic mint giving re-run dedup without making the GUID the node identity; a reconstructed element is a `Node.Object` on the same generic `Classification`/`PredefinedType` axes an IFC-ingested element carries, so `Model/query` and `Review/validation` read it with no second selection surface; fit evidence rides the typed `Pset_Reconstruction` `PropertyValue` bag the seam property store owns; an unmapped shape faults `BimFault.UnmappedClass` and an unregistered segment `BimFault.CapabilityMiss`, so an unclassifiable scan never silently produces a half-built model, distinct from the KNOWN-non-constructible ASPRS classes the `BiasOf` policy excludes by explicit filter before authoring — a deliberate policy row, never a dropped fault.
+- Boundary: reconstruction is the LAST fold to a seam `Node.Object`, never a geometry kernel — kernel cloud-ICP registration, plane/cylinder segmentation, and exact-arithmetic arrangement are consumed by reference, never re-minted here; both lineage keys compose the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` through the seam `CanonicalWriter`, never the upper-stratum `Rasm.Compute` interchange owner (a `Rasm.Bim`→`Rasm.Compute` reference inverts the strata DAG) or a second hasher; ALL fitted geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`), so the seam `Node.Object` carries no inline coordinate field, no RhinoCommon `Brep`/`Mesh`, and no stored `GeometryHandle` — host-neutral by construction; lineage is TWO axes with two names and two consumers — `CaptureLineage` addresses the source bytes and is what the `SourceCloud` row publishes and a re-fetch resolves, `ReconstructionKey` identifies one fit run under its own parameters and is what the `ReconstructionRun` row publishes and the deterministic `ExternalId` hashes from; one value type over both key spaces let the advertised re-fetch join cite a key carrying fit parameters in its preimage, which no store can answer; the rooted `NodeId` is the NEUTRAL kernel-minted id and the IFC `GlobalId` is the node's `ExternalId`, a deterministic mint giving re-run dedup without making the GUID the node identity; a reconstructed element is a `Node.Object` on the same generic `Classification`/`PredefinedType` axes an IFC-ingested element carries, so `Model/query` and `Review/validation` read it with no second selection surface; fit evidence rides the typed `Pset_Reconstruction` `PropertyValue` bag the seam property store owns; an unmapped shape faults `BimFault.UnmappedClass` and an unregistered segment `BimFault.CapabilityMiss`, so an unclassifiable scan never silently produces a half-built model, distinct from the KNOWN-non-constructible ASPRS classes the `BiasOf` policy excludes by explicit filter before authoring — a deliberate policy row, never a dropped fault; the classifier's honest reach ends at per-segment single-primitive evidence, and four adjudicated NEGATIVES hold instead of fabricated rows — a Controls instrument publishes no primitive signature (a sensor, actuator, or controller is a fitting-scale blob any small fixture matches, and no ASPRS class biases a segment into Controls, so a Controls-disciplined context resolves through the fallback lanes), a stair is a repeated-tread COMPOSITION no single fit expresses and the kernel publishes no repetition signature, a railing's discriminant is guard height above a walking surface no per-segment fit datum carries (absolute Z is published, the floor it stands off is not), and a door or window is a point-ABSENCE void whose hole topology the single-ring `BoundaryPolygon` does not carry — each lane re-opens only when the kernel mints the evidence it needs (a composed repetition signature, a floor-relative datum, a hole-bearing ring), never through a row whose key cannot honestly discriminate it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -297,13 +297,22 @@ public readonly record struct ReconstructionPrimitive(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // Reconstruction owns its bag row names here. Three consumers spell them — this fold authors the bag, the
-// Planning/progress review read selects on them, and a federation diff joins on them — so the token is a STATIC
-// on the cluster that owns the bag rather than a literal re-typed at each read, where a rename at one end reads
-// downstream as an absent row rather than as a break.
+// Planning/progress review read selects on them, and a federation diff joins on them — so every row is ONE
+// PropertyName static minted through the owner-blessed empty-prefix PropertyCategory.Seam.Row (the
+// Properties/property#DETAIL_SCHEMA custody law) rather than a literal re-typed at each read, where a rename at
+// one end reads downstream as an absent row rather than as a break.
 public static class ReconstructionRows {
     public const string Set = "Pset_Reconstruction";
-    public const string NeedsReview = "NeedsReview";
-    public const string SourceCloud = "SourceCloud";
+    public static readonly PropertyName FitConfidence = PropertyCategory.Seam.Row("FitConfidence");
+    public static readonly PropertyName Residual = PropertyCategory.Seam.Row("Residual");
+    public static readonly PropertyName Inliers = PropertyCategory.Seam.Row("Inliers");
+    public static readonly PropertyName Total = PropertyCategory.Seam.Row("Total");
+    public static readonly PropertyName AsprsClass = PropertyCategory.Seam.Row("AsprsClass");
+    public static readonly PropertyName NeedsReview = PropertyCategory.Seam.Row("NeedsReview");
+    public static readonly PropertyName PrimitiveShape = PropertyCategory.Seam.Row("PrimitiveShape");
+    public static readonly PropertyName SourceSegment = PropertyCategory.Seam.Row("SourceSegment");
+    public static readonly PropertyName SourceCloud = PropertyCategory.Seam.Row("SourceCloud");
+    public static readonly PropertyName ReconstructionRun = PropertyCategory.Seam.Row("ReconstructionRun");
 }
 
 public static class ElementClassifier {
@@ -315,8 +324,14 @@ public static class ElementClassifier {
     // Architecture key they never discriminated on, so a segment biased into any other domain missed a wall, a
     // slab, a column, and a beam that were never domain-specific at all. Predefined tokens are members of the
     // Model/elements#IFC_CLASS valid sets, admitted at the egress gate, and the shape-independent site classes ride the
-    // BiasOf Pin tier rather than table rows. A row whose Ifc4x3 infrastructure/geotechnical class the older
-    // target schema cannot carry faults class-out-of-schema at AdmitPredefined (not recon-shape-miss).
+    // BiasOf Pin tier rather than table rows. The Plumbing lane is discipline-reached (no ASPRS class biases into
+    // it) and swept-family ONLY, because there the shape itself is the pipe evidence — a cylinder is a rigid
+    // straight run, a torus arc an elbow, a cone a diameter transition, a fitting-scale sphere a fitting body
+    // whose leaf token no shape picks — while a plumbing-disciplined plane or freeform rides the fallback lanes: a
+    // wall near pipework is still a wall, and a blob is still the proxy, never a sanitary fixture the fit cannot
+    // discriminate. A row whose newer-schema class (the Ifc4 plumbing occurrences, the Ifc4x3 infrastructure/
+    // geotechnical rows) the older target schema cannot carry faults class-out-of-schema at AdmitPredefined
+    // (not recon-shape-miss).
     static readonly Map<(PrimitiveShape Shape, Option<IfcDomain> Domain, FitOrientation Orientation), (IfcClass Class, string Predefined, SizeBand Band)> Table =
         Map(
             ((PrimitiveShape.Plane,    None,                          FitOrientation.Vertical),   (IfcClass.Wall,                "STANDARD",         SizeBand.Surface)),
@@ -328,15 +343,19 @@ public static class ElementClassifier {
             ((PrimitiveShape.Plane,    Some(IfcDomain.Electrical),     FitOrientation.Any),       (IfcClass.CableCarrierSegment, "CABLETRAYSEGMENT", SizeBand.Fitting)),
             ((PrimitiveShape.Sphere,   None,                          FitOrientation.Any),        (IfcClass.BuildingElementProxy, "ELEMENT",         SizeBand.Fitting)),
             ((PrimitiveShape.Sphere,   Some(IfcDomain.HvacFire),       FitOrientation.Any),       (IfcClass.FlowTerminal,        "NOTDEFINED",       SizeBand.Fitting)),
+            ((PrimitiveShape.Sphere,   Some(IfcDomain.Plumbing),       FitOrientation.Any),       (IfcClass.PipeFitting,         "NOTDEFINED",       SizeBand.Fitting)),
             ((PrimitiveShape.Cylinder, None,                          FitOrientation.Vertical),   (IfcClass.Column,              "COLUMN",           SizeBand.Member)),
             ((PrimitiveShape.Cylinder, None,                          FitOrientation.Horizontal), (IfcClass.Beam,                "BEAM",             SizeBand.Member)),
             ((PrimitiveShape.Cylinder, Some(IfcDomain.Structural),     FitOrientation.Vertical),  (IfcClass.Pile,                "BORED",            SizeBand.Member)),
             ((PrimitiveShape.Cylinder, Some(IfcDomain.Geotechnical),   FitOrientation.Vertical),  (IfcClass.Borehole,            "NOTDEFINED",       SizeBand.Member)),
             ((PrimitiveShape.Cylinder, Some(IfcDomain.Electrical),     FitOrientation.Any),       (IfcClass.CableSegment,        "CONDUCTORSEGMENT", SizeBand.Fitting)),
             ((PrimitiveShape.Cylinder, Some(IfcDomain.HvacFire),       FitOrientation.Any),       (IfcClass.FlowSegment,         "NOTDEFINED",       SizeBand.Fitting)),
+            ((PrimitiveShape.Cylinder, Some(IfcDomain.Plumbing),       FitOrientation.Any),       (IfcClass.PipeSegment,         "RIGIDSEGMENT",     SizeBand.Fitting)),
             ((PrimitiveShape.Cone,     None,                          FitOrientation.Any),        (IfcClass.Roof,                "FREEFORM",         SizeBand.Surface)),
             ((PrimitiveShape.Cone,     Some(IfcDomain.HvacFire),       FitOrientation.Any),       (IfcClass.FlowFitting,         "NOTDEFINED",       SizeBand.Fitting)),
+            ((PrimitiveShape.Cone,     Some(IfcDomain.Plumbing),       FitOrientation.Any),       (IfcClass.PipeFitting,         "TRANSITION",       SizeBand.Fitting)),
             ((PrimitiveShape.Torus,    Some(IfcDomain.HvacFire),       FitOrientation.Any),       (IfcClass.FlowFitting,         "NOTDEFINED",       SizeBand.Fitting)),
+            ((PrimitiveShape.Torus,    Some(IfcDomain.Plumbing),       FitOrientation.Any),       (IfcClass.PipeFitting,         "BEND",             SizeBand.Fitting)),
             ((PrimitiveShape.Freeform, None,                          FitOrientation.Any),        (IfcClass.BuildingElementProxy, "ELEMENT",         SizeBand.Fitting)),
             ((PrimitiveShape.Freeform, Some(IfcDomain.Geotechnical),   FitOrientation.Any),       (IfcClass.GeotechnicalStratum, "SOLID",            SizeBand.Surface)),
             ((PrimitiveShape.Freeform, Some(IfcDomain.Infrastructure), FitOrientation.Any),       (IfcClass.Course,              "PAVEMENT",         SizeBand.Surface)),
@@ -433,16 +452,16 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
         from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total)
         from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass)
         let bag = new PropertyBag(ReconstructionRows.Set, Map<PropertyName, PropertyValue>(
-            (PropertyName.Create("FitConfidence"),  new PropertyValue.Measure(confidence)),
-            (PropertyName.Create("Residual"),       new PropertyValue.Measure(residual)),
-            (PropertyName.Create("Inliers"),        new PropertyValue.Measure(inliers)),
-            (PropertyName.Create("Total"),          new PropertyValue.Measure(total)),
-            (PropertyName.Create("AsprsClass"),     new PropertyValue.Measure(asprs)),
-            (PropertyName.Create(ReconstructionRows.NeedsReview), new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
-            (PropertyName.Create("PrimitiveShape"), new PropertyValue.Enumerated(Seq(primitive.Analytic.Shape.Key), PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
-            (PropertyName.Create("SourceSegment"),  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
-            (PropertyName.Create(ReconstructionRows.SourceCloud), new PropertyValue.Text(segment.Capture.Value.ToString("X32", CultureInfo.InvariantCulture))),
-            (PropertyName.Create("ReconstructionRun"), new PropertyValue.Text(primitive.Key.Value.ToString("X32", CultureInfo.InvariantCulture)))),
+            (ReconstructionRows.FitConfidence,  new PropertyValue.Measure(confidence)),
+            (ReconstructionRows.Residual,       new PropertyValue.Measure(residual)),
+            (ReconstructionRows.Inliers,        new PropertyValue.Measure(inliers)),
+            (ReconstructionRows.Total,          new PropertyValue.Measure(total)),
+            (ReconstructionRows.AsprsClass,     new PropertyValue.Measure(asprs)),
+            (ReconstructionRows.NeedsReview,    new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
+            (ReconstructionRows.PrimitiveShape, new PropertyValue.Enumerated(Seq(primitive.Analytic.Shape.Key), PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
+            (ReconstructionRows.SourceSegment,  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
+            (ReconstructionRows.SourceCloud,    new PropertyValue.Text(segment.Capture.Value.ToString("X32", CultureInfo.InvariantCulture))),
+            (ReconstructionRows.ReconstructionRun, new PropertyValue.Text(primitive.Key.Value.ToString("X32", CultureInfo.InvariantCulture)))),
             InheritanceMode.OccurrenceWins, PropertySource.Derived)
         let probe = new Node.PropertySet(NodeId.Content([]), bag)
         select probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };

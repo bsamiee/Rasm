@@ -1,6 +1,6 @@
 # [COMPUTE_STRUCTURAL]
 
-Rasm.Compute structural-analysis runner owns the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly, folds member axes, the M7-resolved `SectionProperties`, the seam `Mechanical` strengths, and the projected structural edges into one `FrameModel` idealization, solves it over the owned frame spine, recovers the per-combination `MemberResponse` extremes, checks each member through the `(DesignCode, LimitState)` capacity table — every structural family carrying both its US and its Eurocode route — and returns the governing utilization as one `AssessmentResult` fact stream.
+Rasm.Compute structural-analysis runner owns the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly, folds member axes, the M7-resolved `SectionProperties`, the seam `Mechanical` strengths, and the projected structural edges into one `FrameModel` idealization, solves it over the owned frame spine, recovers the per-combination `MemberResponse` extremes, checks each member through the `(DesignCode, LimitState)` capacity table — one key set shared with the section-altitude `DesignBasis` roster — and returns the governing utilization as one `AssessmentResult` fact stream.
 
 Frame assembly enters the shared `SolveLane`: `SolvePolicy.CanonicalStatic` selects `FactorKind.Spd` through `SparseOps.Factor`, and the seismic route runs `SolvePolicy.CanonicalModalCondensed`, condensing the frame's inertia-free rotational rows out of the pencil onto the lane's dense generalized `Evd`. Buckling, lateral-torsional buckling, and deflection read the member's unbraced length, end-fixity-derived effective-length factor, and FE displacement extremes.
 
@@ -166,7 +166,7 @@ public sealed record StructuralPolicy(ElementClass Formulation, double Deflectio
 public sealed record StructuralMember(
     NodeId Id, AxisCurve Axis, SectionProperties Section, MaterialPropertySet.Mechanical Strength,
     Option<MaterialPropertySet.Orthotropic> Directional, MaterialFamily Family, Seq<MemberLoad> Loads, Seq<MemberSupport> Supports,
-    Option<RcShearLink> ShearLink = default) {
+    Option<RcShearLink> ShearLink = default, Option<BucklingCurve> Buckling = default) {
     public double Length => Vector3.Distance(Axis.Start, Axis.End);
 
     // K from the end-fixity the supports declare: both ends rotationally fixed -> 0.5, one fixed -> 0.7, a single
@@ -265,11 +265,15 @@ public static partial class StructuralAnalysis {
                 // link-less (or yield-less) section the producer declared, and the en1992 shear cells then take
                 // their linkless V_Rd,c arm honestly instead of a dead truss pairing.
                 let shearLink  = graph.ShearLinkOf(id)
+                // Seam-published EC9 buckling pair off the same inherited derived bag — absence is a member no
+                // aluminium capacity screen stamped, and the en1999 axial-compression cell then governs loud
+                // rather than reducing by a guessed curve.
+                let buckling   = graph.BucklingOf(id)
                 let family     = MaterialFamily.Classify(strength, directional)
                 let selfWeight = new MemberLoad.Uniform(StructuralCase.Dead,
                     new Vector3(0d, 0d, -(section.Area.Si * strength.Density.Si * StandardGravity)))
                 select members.Add(new StructuralMember(
-                    id, axis, section, strength, directional, family, graph.LoadsOf(id).Add(selfWeight), graph.SupportsOf(id), shearLink))))
+                    id, axis, section, strength, directional, family, graph.LoadsOf(id).Add(selfWeight), graph.SupportsOf(id), shearLink, buckling))))
             .Bind(members => DeriveAbsent(members, inputs.Site))
             .Map(members => new FrameModel(members, inputs.Combinations, inputs.Policy, graph.Header.Tolerance));
 
@@ -330,12 +334,25 @@ public static class StructuralReads {
         from ceiling in MeasuredRow(graph, member, StructuralRows.ShearLinkCeiling)
         select new RcShearLink(area, fywd, ceiling);
 
+    // Materials aluminium screen publishes the EC9 Table 6.6 pair BOTH rows or NONE (AluminumMember.BucklingRows,
+    // the ShearLinkOf wire shape) — dimensionless Number rows on the same inherited derived Realization bag, so
+    // the en1999 axial-compression χ reduces by the alloy's own published curve, never a guessed class letter.
+    public static Option<BucklingCurve> BucklingOf(this ElementGraph graph, NodeId member) =>
+        from alpha in NumberRow(graph, member, StructuralRows.BucklingAlpha)
+        from plateau in NumberRow(graph, member, StructuralRows.BucklingPlateau)
+        select new BucklingCurve(alpha, plateau);
+
     static Option<double> MeasuredRow(ElementGraph graph, NodeId owner, PropertyName row) =>
+        BagRow(graph, owner, row).Bind(static value => value is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None);
+
+    static Option<double> NumberRow(ElementGraph graph, NodeId owner, PropertyName row) =>
+        BagRow(graph, owner, row).Bind(static value => value is PropertyValue.Number n ? Some(n.Value) : Option<double>.None);
+
+    static Option<PropertyValue> BagRow(ElementGraph graph, NodeId owner, PropertyName row) =>
         toSeq(graph.EdgesAt(owner))
             .Filter(e => e.Kind == RelationshipKind.Assign && e.Relating == owner)
             .Choose(e => graph.Find(e.Related))
             .Choose(node => node is Node.PropertySet set ? set.Bag.Find(row) : Option<PropertyValue>.None)
-            .Choose(value => value is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None)
             .Head;
 
     // One MemberSupport per structural-connection edge the member relates — one DofRestraint per degree of freedom
@@ -749,12 +766,12 @@ public static partial class StructuralAnalysis {
 ## [04]-[DESIGN_CHECK]
 
 - Owner: `MaterialFamily` the constitutive family; `SafetyFormat` the ASD/LRFD/limit-state axis; `DesignCode` `[SmartEnum<string>]` the standard rows carrying the `MaterialFamily`, the `SafetyFormat`, the resistance/partial factors, and the interaction delegate; `LimitState` `[SmartEnum<string>]` the check rows carrying the demand-component selector and the `Applies(MaterialFamily)` predicate; `CapacityContext` the section+isotropic-strength+optional-orthotropic-stiffness+geometry+code bundle every capacity reads (its `ShearModulusSi` reading the realized seam `Orthotropic.ShearModulus` when the member carries the directional case, the derived isotropic `Mechanical` shear otherwise); the `Capacities` `(DesignCode, LimitState)` frozen table of REAL delegates; `MemberCapacity` the four sense-aware interaction operands and `MemberCheck` the per-check carrier whose optional utilization distinguishes a resolved ratio from an unserved `(code, state)` pair; `CheckFacts` the one fact-and-governing projection both routes fold; `StructuralAnalysis.Run` the governing-utilization entry, overloaded on the request case.
-- Cases: `DesignCode` rows `aisc360`/`en1993`/`en1994`/`en1992`/`nds`/`en1995`/`aci318`/`tms402`/`en1996`/`aisi-s100` — every structural family carries BOTH its US and its Eurocode row (steel `aisc360`+`en1993` with the composite `en1994`, concrete `aci318`+`en1992`, timber `nds`+`en1995`, masonry `tms402`+`en1996`), so a member is assessable under either jurisdiction through the SAME table, never a US-only or EN-only family; the key SET is the `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` `DesignBasis` roster spelled identically, so a section-altitude verdict and this member-altitude one name one jurisdiction; `LimitState` rows `axial-tension`/`axial-compression`/`flexure-major`/`flexure-minor`/`shear-major`/`shear-minor`/`combined`/`deflection` (shear split per axis so the major-axis demand `|Vy|` checks against `AvY` and the minor-axis `|Vz|` against `AvZ`, never one shear area for both) — the capacity is a `(code, state)` cell in the frozen table, each cell the GOVERNING formula for THAT code's material model (AISC E3 `Fcr`, EN 1993 `χ` buckling curve, AISC F2 `Mn` with `Lp`/`Lr` LTB, EN 1993 `χLT`, ACI/EN plain-concrete `Mcr`/`φPn`, NDS `CP`/`CL` adjusted reference values, EN 1995 `k_c`/`k_crit` over the `E0,05` 5%-fractile modulus, TMS slenderness-reduced `Fa`, AISI gross-section bound), the per-cell slenderness/compactness branches the rule count; lateral-torsional buckling is FOLDED into the flexure-major `Mn`/`Mₕ` (one capacity, never a duplicate state); an absent cell yields the `NotApplicable` verdict and NO ratio, so an unserved pair never publishes a `0.0`-utilization pass.
+- Cases: `DesignCode` rows `aisc360`/`en1993`/`en1993-1-4`/`en1994`/`en1992`/`nds`/`en1995`/`aci318`/`tms402`/`en1996`/`aisi-s100`/`en1999`/`sdpws` — every hand-rolled structural family carries BOTH its US and its Eurocode row (steel `aisc360`+`en1993` with the composite `en1994` and the stainless `en1993-1-4`, concrete `aci318`+`en1992`, timber `nds`+`en1995`, masonry `tms402`+`en1996`), aluminium the EN-only `en1999` row until a US aluminium pack proves, and `sdpws` the cell-less wire-mirror row (§Boundary), so a member is assessable under either jurisdiction through the SAME table and an EN-only family is lawful only where no US pack has landed; the key SET is the `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` `DesignBasis` roster spelled identically, so a section-altitude verdict and this member-altitude one name one jurisdiction; `LimitState` rows `axial-tension`/`axial-compression`/`flexure-major`/`flexure-minor`/`shear-major`/`shear-minor`/`combined`/`deflection` (shear split per axis so the major-axis demand `|Vy|` checks against `AvY` and the minor-axis `|Vz|` against `AvZ`, never one shear area for both) — the capacity is a `(code, state)` cell in the frozen table, each cell the GOVERNING formula for THAT code's material model (AISC E3 `Fcr`, EN 1993 `χ` buckling curve, AISC F2 `Mn` with `Lp`/`Lr` LTB, EN 1993 `χLT`, the EN 1993-1-4 stainless `χ`/`χLT` over the code's own welded-open curve, the EN 1999 class-3 elastic floor with the §6.3.2.2 `χLT` and the §6.3.1.2 `χ` over the seam-crossed Table 6.6 pair, ACI/EN plain-concrete `Mcr`/`φPn`, NDS `CP`/`CL` adjusted reference values, EN 1995 `k_c`/`k_crit` over the `E0,05` 5%-fractile modulus, TMS slenderness-reduced `Fa`, AISI gross-section bound), the per-cell slenderness/compactness branches the rule count; lateral-torsional buckling is FOLDED into the flexure-major `Mn`/`Mₕ` (one capacity, never a duplicate state); an absent cell yields the `NotApplicable` verdict and NO ratio, so an unserved pair never publishes a `0.0`-utilization pass.
 - Entry: `public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, IClock clock)` — `Project` reads the idealization off `FrameInputs`, `Solve` recovers the signed `MemberResponse` extremes, `Check` folds each member through every applicable `LimitState` computing `utilization = demand / capacity` (the `Combined` arm the code interaction over both signed corners, the `Deflection` arm the FE deflection against `StructuralPolicy.DeflectionLimitRatio × span`), and `CheckFacts` yields the fact stream (`max-utilization`, `governing-member`, `governing-limit-state`, per-check ratios, per-unserved-pair `not-applicable` verdicts) with the governing ratio the spine DERIVES the verdict from. `AssessmentRequest.Seismic` dispatches the `[05]` response-spectrum chain as the SIBLING OVERLOAD through the spine's own case `Switch`, never an `Option` gate inside this arm.
-- Auto: the column capacity reads the `EffectiveLengthFactor × UnbracedLength / RadiusOfGyrationMinor` slenderness (AISC `Fcr`, EN `χ`); the flexure-major capacity reads `Lb` against `Lp` and the elastic LTB moment (EN `χLT`); the deflection check reads `MemberResponse.MaxDeflection`; the combined axial+flexure interaction folds each signed corner per the `DesignCode.Interaction` delegate (AISC 360 H1.1 and EN 1993-1-1 §6.3.3 for steel, the EN 1995-1-1 §6.3.2(3) squared-axial + linear-bending form with the `k_m = 0.7` minor-axis factor for timber, the linear sum for the rest), `Combined` applying to steel/cold-formed/timber.
+- Auto: the column capacity reads the `EffectiveLengthFactor × UnbracedLength / RadiusOfGyrationMinor` slenderness (AISC `Fcr`, EN `χ`); the flexure-major capacity reads `Lb` against `Lp` and the elastic LTB moment (EN `χLT`); the deflection check reads `MemberResponse.MaxDeflection`; the combined axial+flexure interaction folds each signed corner per the `DesignCode.Interaction` delegate (AISC 360 H1.1 and EN 1993-1-1 §6.3.3 for steel, the EN 1995-1-1 §6.3.2(3) squared-axial + linear-bending form with the `k_m = 0.7` minor-axis factor for timber, the EN 1999-1-1 §6.3.3 conservative 0.8-exponent sum for aluminium, the linear sum for the rest), `Combined` applying to steel/cold-formed/timber/aluminium.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, PureHDF (`H5File`, `H5Dataset<T>` — the shared demands/modal artifact), Generator.Equals (`[Equatable]`+`[PrecisionEquality]` — the MemberCheck variant diff), Rasm.Element (project — `SectionProperties`, `MaterialPropertySet` (the isotropic `Mechanical` AND the realized directional `Orthotropic` case), `NodeId`, `Provenance`, the `graph.PropertiesOf(member).Orthotropic` ergonomic read), NodaTime (`Instant`), BCL inbox (`FrozenDictionary`).
 - Growth: a new design code is one `DesignCode` row with its `(code, state)` cells in the table, its key taken from the `Rasm.Materials` `DesignBasis` roster whenever the section-altitude owner already names that jurisdiction; a new limit state is one `LimitState` row with its column of cells; a new material family is one `MaterialFamily` row with its codes' cells — the check fold re-reads the table, never a new check method per code and never a parallel verdict family beside `MemberCheck`.
-- Boundary: the DESIGN-BASIS VOCABULARY is shared with `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` as one KEY SET carried by two typed rows — that owner's `DesignBasis` and `SafetyFormat` against this page's `DesignCode` and `SafetyFormat` — because the branch strata forbid a reference in either direction and the `[WIRE]: SectionCapacity` seam carries portable scalars keyed by section. Both owners spell the keys identically — `aisc360`/`aisi-s100`/`en1992`/`en1993`/`en1994`/`en1995`/`en1996`/`tms402`/`nds`/`aci318`/`sdpws` all carry BOTH typed rows (the `sdpws` member row is cell-less by design: wood-structural-panel lateral capacity is section-altitude, so every member-altitude pair reports `NotApplicable` while the key still resolves) — and the carve is that owner's section-and-load-path-only glazing and connection rows alone, so a basis a section verdict names resolves a code row here through the standing `DesignCode.For` lookup and neither side re-spells a jurisdiction. Altitudes stay split, each carrying what its own inputs support: the section-altitude owner holds the published strength tables a geometric seam cannot carry — the RC rebar interaction, the AISI effective width, the EN 1994 composite couple, the EN 1996 `f_xk`/`f_vk0` rows — and the closed `GoverningAction`/`Utilisation` verdict vocabulary; this page holds the slenderness, unbraced-length, and deflection facts a cross-section cannot decide, and its `MemberCheck` carriers report the `(code, state)` cells the seam DOES support, an unserved pair reporting `NotApplicable` rather than a fabricated resistance. `MemberCapacity` is this page's own member-altitude interaction operand carrier and is NOT the seam's `SectionCapacity` union — one name for two shapes across a declared seam is the collision that rename retires.
+- Boundary: the DESIGN-BASIS VOCABULARY is shared with `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` as one KEY SET carried by two typed rows — that owner's `DesignBasis` and `SafetyFormat` against this page's `DesignCode` and `SafetyFormat` — because the branch strata forbid a reference in either direction and the `[WIRE]: SectionCapacity` seam carries portable scalars keyed by section. Both owners spell the keys identically — `aisc360`/`aisi-s100`/`en1992`/`en1993`/`en1993-1-4`/`en1994`/`en1995`/`en1996`/`en1999`/`tms402`/`nds`/`aci318`/`sdpws` all carry BOTH typed rows (the `sdpws` member row alone is cell-less by design: wood-structural-panel lateral capacity is section-altitude, so every member-altitude pair reports `NotApplicable` while the key still resolves; the `en1999` axial-compression cell reads the §6.3.1.2 χ off the alloy's Table 6.6 α/λ̄0 pair the Materials `AluminumMember` receipt publishes through `BucklingRows` and the `BucklingOf` member-row read recovers — the `ShearLinkOf` wire, one authority end to end, an unstamped member governing loud on zero capacity rather than reducing by a copied guess) — and the carve is that owner's section-and-load-path-only glazing, connection, anchorage, and fatigue rows alone, so a basis a section verdict names resolves a code row here through the standing `DesignCode.For` lookup and neither side re-spells a jurisdiction. Altitudes stay split, each carrying what its own inputs support: the section-altitude owner holds the published strength tables a geometric seam cannot carry — the RC rebar interaction, the AISI effective width, the EN 1994 composite couple, the EN 1996 `f_xk`/`f_vk0` rows — and the closed `GoverningAction`/`Utilisation` verdict vocabulary; this page holds the slenderness, unbraced-length, and deflection facts a cross-section cannot decide, and its `MemberCheck` carriers report the `(code, state)` cells the seam DOES support, an unserved pair reporting `NotApplicable` rather than a fabricated resistance. `MemberCapacity` is this page's own member-altitude interaction operand carrier and is NOT the seam's `SectionCapacity` union — one name for two shapes across a declared seam is the collision that rename retires.
 - Boundary: the design codes are hand-rolled (no .NET package owns the AISC, Eurocode, NDS, ACI, TMS, or AISI design rules), realized as a `(DesignCode, LimitState)` data table of capacity delegates — the canonical `POLICY_VALUES`/`DERIVED_LOGIC` collapse, never a switch ladder and never one family's formulas applied to every material. Timber's EN 1995 route is the Eurocode parallel to the US `nds` route the way `en1993` parallels `aisc360` and `en1992` parallels `aci318` — its design strength is `f_k / γ_M` over the same seam reference strength the `nds` cells read (the `k_mod` service/duration modifier is applied upstream by the `Rasm.Materials` `TimberDesign` owner onto the graph-baked reference, never re-derived here), the `§6.3.2` `k_c` column buckling and `§6.3.3` `k_crit` LTB reading the `E0,05` 5%-fractile modulus the seam mean `YoungsModulus` does not carry directly, and the `§6.1.7` `k_cr` crack factor on shear. Timber's independent shear modulus the EC5 `§6.3.3` LTB reads is the realized seam `MaterialPropertySet.Orthotropic` case (`Composition/material#MATERIAL_PROPERTY`, same `Discipline.Structural`, discriminated by case TYPE), read off the graph as the optional `graph.PropertiesOf(member).Orthotropic` and threaded onto `CapacityContext.ShearModulusSi`, so the LTB `M꜀ᵣ` reads timber's directional `Orthotropic.ShearModulus` when the member carries the case and the derived isotropic `Mechanical.ShearModulus` otherwise — the `Component/timber#TIMBER_FAMILY` contract closed here, never a deferred isotropic approximation. Capacity reads the M7-resolved seam `SectionProperties`, the seam isotropic `Mechanical` strength, and the optional seam `Orthotropic`, so a check never re-derives section geometry, re-resolves a profile, or approximates timber's directional shear; the authoritative family is `DesignCode.Family`, the member's `Classify`-derived family validated against it so a steel code on a concrete member rails `AssessmentInputMissing` rather than computing nonsense; `Classify` reads the seam's realized `Orthotropic` case as the directional declaration it is and falls back to the constitutive modulus band, which resolves only the bands the seam leaves ambiguous — a member the band lands outside its code's family is a typed mismatch, never an admissibility predicate widened until the band's imprecision stops showing. Reinforced-concrete N-M-M capacity is not derivable from the geometric seam section (which carries no rebar) — the concrete cells are the plain-section bound, the reinforced interaction the `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` RC owner's concern, so the `VividOrange` `IForceMomentInteraction` surface is not composed here; cold-formed AISI capacity is the gross-section bound, the effective-width reduction the `Component/steel` `ColdFormedDetail`'s concern. Utilization is `demand/capacity` and the verdict derives downstream from the governing ratio so a member's pass/fail and its reported ratio share one source; applicability is TWO scoped questions the shape keeps apart — `LimitState.Applies` the family-scoped one and cell presence the code-scoped one — so an unserved `(code, state)` pair reports `NotApplicable` and contributes no ratio, never a real demand divided by an infinite capacity into a Satisfied pass; a member whose family no `DesignCode` row serves rails `AssessmentInputMissing`, never a silent skip.
 
 ```csharp signature
@@ -767,12 +784,14 @@ public sealed partial class MaterialFamily {
     public static readonly MaterialFamily Timber          = new("timber");
     public static readonly MaterialFamily Masonry         = new("masonry");
     public static readonly MaterialFamily ColdFormedSteel = new("cold-formed-steel");
+    public static readonly MaterialFamily Aluminum        = new("aluminum");
 
     // Classify reads the SEAM's own evidence before any heuristic: a member carrying the realized Orthotropic case is
     // directional BY DECLARATION (the seam's timber home — an isotropic material never mints that case), so the family
     // is decided by the case TYPE the graph carries. The constitutive modulus band is the residual for an isotropic
     // member the seam declares nothing further about, and it stays a BAND — steel and cold-formed share the
-    // high-modulus one, so DesignCode.Family remains the authoritative family and disambiguates them at Check.
+    // high-modulus one and aluminium (E ≈ 70 GPa) sits inside the concrete one, so DesignCode.Family remains the
+    // authoritative family and disambiguates them at Check.
     public static MaterialFamily Classify(MaterialPropertySet.Mechanical m, Option<MaterialPropertySet.Orthotropic> directional) =>
         directional.IsSome ? Timber
         : m.YoungsModulus.Si > 150e9 ? Steel
@@ -780,13 +799,16 @@ public sealed partial class MaterialFamily {
         : m.YoungsModulus.Si > 5e9 ? Timber
         : Masonry;
 
-    // Admits maps a design family onto the bands its members can land in, and the ONLY band collision the seam cannot
-    // resolve is steel-versus-cold-formed: both classify Steel at 150 GPa, and DesignCode.Family decides which. Every
-    // other family answers for its own band — a masonry member whose modulus (Em = 700..900·f'm) lands in the Timber
-    // or Concrete band is a typed material-code mismatch the caller fixes by declaring the material, never a TMS check
-    // run against a timber classification because the predicate was relaxed to hide the band's own imprecision.
+    // Admits maps a design family onto the bands its members can land in, and the band collisions the seam cannot
+    // resolve are steel-versus-cold-formed (both classify Steel past 150 GPa) and aluminium-inside-the-concrete-band
+    // (E ≈ 70 GPa lands in the 20-150 GPa window) — DesignCode.Family decides each. Every other family answers for
+    // its own band — a masonry member whose modulus (Em = 700..900·f'm) lands in the Timber or Concrete band is a
+    // typed material-code mismatch the caller fixes by declaring the material, never a TMS check run against a
+    // timber classification because the predicate was relaxed to hide the band's own imprecision.
     public bool Admits(MaterialFamily classified) =>
-        this == classified || ((this == Steel || this == ColdFormedSteel) && classified == Steel);
+        this == classified
+        || ((this == Steel || this == ColdFormedSteel) && classified == Steel)
+        || (this == Aluminum && classified == Concrete);
 }
 
 [SmartEnum<string>]
@@ -807,8 +829,18 @@ public sealed partial class DesignCode {
     // section carries. Its cells are the BARE-STEEL bound for the same reason the concrete cells are the plain
     // bound: the slab, the studs, and the §6.7.3.2 plastic couple are the Rasm.Materials Component/steel owner's.
     public static readonly DesignCode En1994   = new("en1994",    MaterialFamily.Steel,           SafetyFormat.LimitState, 1.00, En1993Interaction);
+    // EN 1993-1-4 stainless is the basis-row law's member mirror: the key the Rasm.Materials SteelMember stainless
+    // receipt names, the stainless γM0 = γM1 = 1.10 pair folded to the row's one GammaM, the EC3 linear interaction
+    // form. Its cells carry the code's OWN curves — stainless differs from carbon steel in curve, never in form:
+    // flexural α/λ̄0 run 0.49/0.40 (cold-formed open and hollow), 0.49/0.20 (welded open, major), 0.76/0.20 (welded
+    // open, minor); LTB αLT runs 0.34 (cold-formed/hollow) and 0.76 (welded open) over the λ̄0,LT = 0.40 plateau.
+    // The seam cannot see the fabrication route, so the cells fold the conservative welded-open pair — the Ec5Kc
+    // β_c seam-blind posture — and the route-specific credit stays the Rasm.Materials steel owner's jurisdiction
+    // column beside its reduced ε = √(235/fy · E/210000) and 200 GPa design modulus, which price classification
+    // rules no cell at this anatomy reads.
+    public static readonly DesignCode En1993Stainless = new("en1993-1-4", MaterialFamily.Steel,   SafetyFormat.LimitState, 1.10, En1993Interaction);
     public static readonly DesignCode En1992   = new("en1992",    MaterialFamily.Concrete,        SafetyFormat.LimitState, 1.50, LinearInteraction);
-    public static readonly DesignCode Nds      = new("nds",       MaterialFamily.Timber,          SafetyFormat.Asd,        1.00, LinearInteraction);
+    public static readonly DesignCode Nds      = new("nds",       MaterialFamily.Timber,          SafetyFormat.Asd,        1.00, NdsInteraction);
     public static readonly DesignCode En1995   = new("en1995",    MaterialFamily.Timber,          SafetyFormat.LimitState, 1.25, En1995Interaction);
     public static readonly DesignCode Aci318   = new("aci318",    MaterialFamily.Concrete,        SafetyFormat.Lrfd,       1.00, LinearInteraction);
     public static readonly DesignCode Tms402   = new("tms402",    MaterialFamily.Masonry,         SafetyFormat.LimitState, 1.00, LinearInteraction);
@@ -816,6 +848,16 @@ public sealed partial class DesignCode {
     // reference and matches the Rasm.Materials DesignBasis.En1996 row this key mirrors.
     public static readonly DesignCode En1996   = new("en1996",    MaterialFamily.Masonry,         SafetyFormat.LimitState, 2.00, LinearInteraction);
     public static readonly DesignCode AisiS100 = new("aisi-s100", MaterialFamily.ColdFormedSteel, SafetyFormat.Lrfd,       1.00, AiscH11);
+    // EN 1999-1-1 aluminium: the key-set mirror of the Materials DesignBasis.En1999 row the AluminumMember receipt
+    // names — γM1 = 1.10 the EC9 factor covering cross-section and instability alike, the §6.3.3 conservative
+    // 0.8-exponent sum the code's own interaction. Its cells are the class-3 elastic floor the receipt states
+    // (Wel·fo/γM1 — the plastic credit unclaimed, not unproven) with the §6.3.2.2 class-3/4 LTB curve (αLT = 0.20,
+    // λ̄0,LT = 0.40 — section-class-keyed, alloy-blind). Axial compression reads the §6.3.1.2 χ over the alloy's
+    // OWN Table 6.6 α/λ̄0 pair — per-die data the seam Mechanical does not carry, published by the Materials
+    // receipt as BucklingRows and seam-crossed as member rows the BucklingOf read recovers (the ShearLinkOf wire),
+    // one authority end to end; an unstamped member governs loud on zero capacity — a carbon-steel or
+    // guessed-class χ on aluminium stays the refused fabrication.
+    public static readonly DesignCode En1999   = new("en1999",    MaterialFamily.Aluminum,        SafetyFormat.LimitState, 1.10, Ec9Interaction);
     // Key-set mirror of the Materials sdpws basis — wood-structural-panel lateral capacity is SECTION-altitude
     // (the Materials LateralPanel case owns it), so this row carries NO (code, state) cells and every member-altitude
     // pair reports NotApplicable; the row exists so a basis a lateral verdict names resolves here without re-spelling.
@@ -825,31 +867,64 @@ public sealed partial class DesignCode {
     public SafetyFormat Format { get; }
     public double GammaM { get; }
 
+    // The kernel takes the CapacityContext beside the operands because a code's own interaction may amplify a
+    // bending term by the member's Euler capacity (the NDS §3.9.2 P-Δ divisors) — slenderness data no
+    // MemberCapacity operand carries; a kernel with no context need reads the underscore.
     [UseDelegateFromConstructor]
-    public partial double Interaction(SectionDemand demand, MemberCapacity capacity);
+    public partial double Interaction(SectionDemand demand, MemberCapacity capacity, CapacityContext context);
 
     public static Fin<DesignCode> For(AssessmentRoute route) =>
         TryGet(route.Key, out DesignCode code)
             ? Fin.Succ(code)
             : Fin.Fail<DesignCode>(new ComputeFault.AssessmentInputMissing($"<no-design-code:{route.Key}>"));
 
-    static double AiscH11(SectionDemand d, MemberCapacity c) {
+    static double AiscH11(SectionDemand d, MemberCapacity c, CapacityContext _) {
         double axial = c.AxialRatio(d.N);
         double bending = Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps) + Math.Abs(d.Mz) / Math.Max(c.FlexureMinor, Eps);
         return axial >= 0.2 ? axial + 8.0 / 9.0 * bending : axial / 2.0 + bending;
     }
-    static double En1993Interaction(SectionDemand d, MemberCapacity c) =>
+    static double En1993Interaction(SectionDemand d, MemberCapacity c, CapacityContext _) =>
         c.AxialRatio(d.N) + Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps) + Math.Abs(d.Mz) / Math.Max(c.FlexureMinor, Eps);
     // EN 1995-1-1 §6.3.2(3) combined bending + axial compression: the axial term is SQUARED (σ_c0/(k_c·f_c0))², the
     // bending terms linear with the k_m = 0.7 minor-axis stress-redistribution factor (§6.1.6, rectangular section) —
     // distinct from the steel/concrete linear forms, so timber owns its own interaction (the k_c column-buckling is
-    // already folded into c.AxialCompression by the en1995 axial-compression cell). FlexureMinor is +inf for timber
-    // (no minor cell), so its term is 0 and a pure in-plane check degrades to (N/Nc)² + My/Mmaj.
-    static double En1995Interaction(SectionDemand d, MemberCapacity c) {
+    // already folded into c.AxialCompression by the en1995 axial-compression cell). The minor operand is the REAL
+    // en1995 flexure-minor cell (f_m over Welz — one reference strength both axes on the rectangular seam section,
+    // no k_crit about the minor axis), so the k_m term folds a real ratio.
+    static double En1995Interaction(SectionDemand d, MemberCapacity c, CapacityContext _) {
         double axial = c.AxialRatio(d.N);
         return axial * axial + Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps) + 0.7 * Math.Abs(d.Mz) / Math.Max(c.FlexureMinor, Eps);
     }
-    static double LinearInteraction(SectionDemand d, MemberCapacity c) =>
+    // NDS 2018 §3.9 in the AWC M3.9-1 capacity-ratio spelling, sense-discriminated on the axial corner: tension
+    // pairs linearly (Eq. 3.9-1's form over both bending ratios), compression takes the Eq. 3.9-3 beam-column
+    // shape — the axial term SQUARED, each bending term P-Δ-amplified by its own Euler divisor (1 − P/PE1 on the
+    // strong axis; 1 − P/PE2 − (M1/ME)² on the weak, the strong-axis-bending-vs-lateral-buckling nesting) with
+    // PE = FcE·A off FcE = 0.822·E/(le/d)² per axis and ME = FbE·S off FbE = 1.20·E/RB² — the SAME constants the
+    // NdsCp/NdsCl stability kernels read, one modulus basis across the standalone cells and the interaction. A
+    // non-positive weak-axis divisor IS an overstress (the AWC-documented trap: the negative denominator flips the
+    // term's sign and certifies the overstress as a pass), so it floors at Eps and governs loud.
+    static double NdsInteraction(SectionDemand d, MemberCapacity c, CapacityContext x) {
+        double bendMajor = Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps);
+        double bendMinor = Math.Abs(d.Mz) / Math.Max(c.FlexureMinor, Eps);
+        double axial = c.AxialRatio(d.N);
+        if (d.N >= 0.0) { return axial + bendMajor + bendMinor; }
+        double e = x.Strength.YoungsModulus.Si, le = x.EffectiveLengthFactor * x.UnbracedLength, p = -d.N;
+        double slender1 = le / Math.Max(x.Section.Depth.Si, Eps), slender2 = le / Math.Max(x.Section.Width.Si, Eps);
+        double pe1 = 0.822 * e / Math.Max(slender1 * slender1, Eps) * x.Section.Area.Si;
+        double pe2 = 0.822 * e / Math.Max(slender2 * slender2, Eps) * x.Section.Area.Si;
+        double rb2 = x.UnbracedLength * x.Section.Depth.Si / Math.Max(x.Section.Width.Si * x.Section.Width.Si, Eps);
+        double me  = 1.20 * e / Math.Max(rb2, Eps) * x.Section.Wely.Si;
+        return axial * axial
+            + bendMajor / Math.Max(1.0 - p / Math.Max(pe1, Eps), Eps)
+            + bendMinor / Math.Max(1.0 - p / Math.Max(pe2, Eps) - Math.Pow(Math.Abs(d.My) / Math.Max(me, Eps), 2.0), Eps);
+    }
+    // EN 1999-1-1 §6.3.3: every exponent conservatively 0.8 — a ratio below unity RISES under a 0.8 power, so the
+    // sum is SEVERER than linear and the conservative-exponent form is the code's own floor, never a linear repaint.
+    static double Ec9Interaction(SectionDemand d, MemberCapacity c, CapacityContext _) =>
+        Math.Pow(c.AxialRatio(d.N), 0.8)
+        + Math.Pow(Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps), 0.8)
+        + Math.Pow(Math.Abs(d.Mz) / Math.Max(c.FlexureMinor, Eps), 0.8);
+    static double LinearInteraction(SectionDemand d, MemberCapacity c, CapacityContext _) =>
         c.AxialRatio(d.N) + Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps);
 }
 
@@ -863,10 +938,10 @@ public sealed partial class LimitState {
     public static readonly LimitState AxialTension     = new("axial-tension",     static r => Math.Max(r.Max.N, 0.0),                        static f => f != MaterialFamily.Concrete && f != MaterialFamily.Masonry);
     public static readonly LimitState AxialCompression = new("axial-compression", static r => Math.Max(-r.Min.N, 0.0),                       static _ => true);
     public static readonly LimitState FlexureMajor     = new("flexure-major",     static r => r.Span(static d => d.My),                      static _ => true);
-    public static readonly LimitState FlexureMinor     = new("flexure-minor",     static r => r.Span(static d => d.Mz),                      static f => f == MaterialFamily.Steel || f == MaterialFamily.ColdFormedSteel);
+    public static readonly LimitState FlexureMinor     = new("flexure-minor",     static r => r.Span(static d => d.Mz),                      static f => f == MaterialFamily.Steel || f == MaterialFamily.ColdFormedSteel || f == MaterialFamily.Aluminum);
     public static readonly LimitState ShearMajor       = new("shear-major",       static r => r.Span(static d => d.Vy),                      static _ => true);
     public static readonly LimitState ShearMinor       = new("shear-minor",       static r => r.Span(static d => d.Vz),                      static _ => true);
-    public static readonly LimitState Combined         = new("combined",          static _ => 0.0,                                           static f => f == MaterialFamily.Steel || f == MaterialFamily.ColdFormedSteel || f == MaterialFamily.Timber);
+    public static readonly LimitState Combined         = new("combined",          static _ => 0.0,                                           static f => f == MaterialFamily.Steel || f == MaterialFamily.ColdFormedSteel || f == MaterialFamily.Timber || f == MaterialFamily.Aluminum);
     public static readonly LimitState Deflection       = new("deflection",        static _ => 0.0,                                           static _ => true);
 
     [UseDelegateFromConstructor]
@@ -887,13 +962,19 @@ public sealed partial class LimitState {
 // check by design: the stirrup SPACING is member-scope, not section data.
 public readonly record struct RcShearLink(double AswSi, double FywdSi, double VrdMaxSi);
 
+// Seam-baked EC9 member-stability pair: the §6.3.1.2 Table 6.6 imperfection factor α and plateau limit λ̄0 the
+// Materials AluminumMember receipt publishes per BucklingClass letter and BucklingOf reads back — the curve
+// constants the en1999 axial-compression χ reduces by, dimensionless data off the member's own bag.
+public readonly record struct BucklingCurve(double Alpha, double LambdaZero);
+
 public readonly record struct CapacityContext(
     SectionProperties Section, MaterialPropertySet.Mechanical Strength, Option<MaterialPropertySet.Orthotropic> Directional,
     MaterialFamily Family, DesignCode Code, double Length, double UnbracedLength, double EffectiveLengthFactor,
-    Option<RcShearLink> ShearLink = default, double StirrupSpacing = 0.0, double CotTheta = 2.5) {
+    Option<RcShearLink> ShearLink = default, double StirrupSpacing = 0.0, double CotTheta = 2.5,
+    Option<BucklingCurve> Buckling = default) {
     public static CapacityContext Of(StructuralMember m, DesignCode code, StructuralPolicy policy) =>
         new(m.Section, m.Strength, m.Directional, m.Family, code, m.Length, m.Length, m.EffectiveLengthFactor,
-            m.ShearLink, policy.StirrupSpacing, policy.CotTheta);
+            m.ShearLink, policy.StirrupSpacing, policy.CotTheta, m.Buckling);
     public double Slenderness => EffectiveLengthFactor * UnbracedLength / Math.Max(Section.RadiusOfGyrationMinor.Si, StructuralAnalysis.Eps);
     // §6.3.3 LTB shear-stiffness reads the realized seam Orthotropic case's independent in-plane G (timber's
     // G ≈ E0/16) when a directional material carries it, the isotropic Mechanical derived G = E/(2(1+ν)) otherwise —
@@ -902,8 +983,9 @@ public readonly record struct CapacityContext(
     public double ShearModulusSi => Directional.Map(static o => o.ShearModulus.Si).IfNone(() => Strength.ShearModulus.Si);
 }
 
-// Four interaction operands feed DesignCode.Interaction; each is an axis capacity or +inf when its cell is absent,
-// so the ratio is 0 and the absent action does not constrain the interaction. Naming is MEMBER altitude on purpose:
+// Four interaction operands feed DesignCode.Interaction — constructed ONLY when the code serves all four cells
+// (the Check fold's Combined gate), so no operand is ever an absence-masking +inf and an unserved axis lands the
+// NotApplicable fact instead of a silently-dropped term. Naming is MEMBER altitude on purpose:
 // SectionCapacity is the Rasm.Materials Component/capacity#SECTION_CAPACITY union the [WIRE]: SectionCapacity seam
 // carries, and one name for two shapes across a declared seam is the collision this altitude word retires.
 public readonly record struct MemberCapacity(double AxialTension, double AxialCompression, double FlexureMajor, double FlexureMinor) {
@@ -934,7 +1016,9 @@ public static partial class StructuralAnalysis {
     // governing formula for that code's material model in SI base units (Pa stress, m^2 area, m^3 modulus, m^4
     // inertia -> N / N*m). Absent (code, state) pairs are not-applicable. Steel buckling/LTB read the context
     // slenderness; concrete cells are the PLAIN-section bound (rebar is the Rasm.Materials RC owner's input); AISI
-    // cells are the GROSS bound (effective width is the Rasm.Materials cold-formed owner's input).
+    // cells are the GROSS bound (effective width is the Rasm.Materials cold-formed owner's input); aluminium cells
+    // are the CLASS-3 elastic floor (the plastic credit is the Rasm.Materials aluminium owner's column; the
+    // alloy-keyed compression χ reduces HERE over the seam-crossed Table 6.6 pair that owner publishes).
     static readonly FrozenDictionary<(string Code, string State), Func<CapacityContext, double>> Capacities = Seed();
 
     static FrozenDictionary<(string, string), Func<CapacityContext, double>> Seed() =>
@@ -948,8 +1032,8 @@ public static partial class StructuralAnalysis {
             (("aisc360", "shear-minor"),       static c => 1.00 * 0.60 * c.Strength.YieldStrength.Si * c.Section.AvZ.Si),
             // --- EN 1993-1-1 (steel, limit-state, gammaM=1.0) -------------------------------
             (("en1993", "axial-tension"),      static c => c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
-            (("en1993", "axial-compression"),  static c => EnChi(EnLambdaBar(c), 0.34) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
-            (("en1993", "flexure-major"),      static c => EnChiLt(c) * c.Section.Wply.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1993", "axial-compression"),  static c => EnChi(EnLambdaBar(c), 0.34, 0.20) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1993", "flexure-major"),      static c => EnChiLt(c, 0.49, 0.20, c.Section.Wply.Si) * c.Section.Wply.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
             (("en1993", "flexure-minor"),      static c => c.Section.Wplz.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
             (("en1993", "shear-major"),        static c => c.Section.AvY.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
             (("en1993", "shear-minor"),        static c => c.Section.AvZ.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
@@ -960,11 +1044,24 @@ public static partial class StructuralAnalysis {
             // resistances the composite couple can only exceed — the same standing bound the aci318/en1992 plain
             // cells and the aisi-s100 gross cells already state, never a fabricated slab.
             (("en1994", "axial-tension"),      static c => c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
-            (("en1994", "axial-compression"),  static c => EnChi(EnLambdaBar(c), 0.34) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
-            (("en1994", "flexure-major"),      static c => EnChiLt(c) * c.Section.Wply.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1994", "axial-compression"),  static c => EnChi(EnLambdaBar(c), 0.34, 0.20) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1994", "flexure-major"),      static c => EnChiLt(c, 0.49, 0.20, c.Section.Wply.Si) * c.Section.Wply.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
             (("en1994", "flexure-minor"),      static c => c.Section.Wplz.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
             (("en1994", "shear-major"),        static c => c.Section.AvY.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
             (("en1994", "shear-minor"),        static c => c.Section.AvZ.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
+            // --- EN 1993-1-4 (stainless steel, limit-state, gammaM=1.10) — carbon anatomy, stainless curves -----
+            // The code's own buckling curves differ from carbon steel in constants, never in form (flexural:
+            // 0.49/0.40 cold-formed open and hollow, 0.49/0.20 welded open major, 0.76/0.20 welded open minor;
+            // LTB: αLT 0.34 cold-formed/hollow, 0.76 welded open, plateau λ̄0,LT = 0.40). The seam cannot see the
+            // fabrication route, so both stability cells fold the conservative welded-open pair — the Ec5Kc β_c
+            // seam-blind posture — and the route-specific credit stays the Rasm.Materials steel owner's
+            // jurisdiction column beside its reduced ε and 200 GPa design modulus.
+            (("en1993-1-4", "axial-tension"),     static c => c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
+            (("en1993-1-4", "axial-compression"), static c => EnChi(EnLambdaBar(c), 0.76, 0.20) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1993-1-4", "flexure-major"),     static c => EnChiLt(c, 0.76, 0.40, c.Section.Wply.Si) * c.Section.Wply.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1993-1-4", "flexure-minor"),     static c => c.Section.Wplz.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1993-1-4", "shear-major"),       static c => c.Section.AvY.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
+            (("en1993-1-4", "shear-minor"),       static c => c.Section.AvZ.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
             // --- AISI S100 (cold-formed steel, LRFD) — the section moduli on a cold-formed member's seam
             // SectionProperties ARE the Materials capacity owner's Seff-derived EFFECTIVE values (the
             // stress-aware effective-width derivation lives at steel#STEEL_FAMILY DesignCapacity, its owner
@@ -1000,6 +1097,11 @@ public static partial class StructuralAnalysis {
             (("nds", "axial-tension"),         static c => c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("nds", "axial-compression"),     static c => NdsCp(c) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("nds", "flexure-major"),         static c => NdsCl(c) * c.Strength.YieldStrength.Si * c.Section.Wely.Si),
+            // Minor-axis reference bending (one Fb both axes on the rectangular sawn/glulam seam section, no CL
+            // about the minor axis — the en1995 flexure-minor law): the cell exists to feed the §3.9.2 Combined
+            // operand; the standalone flexure-minor CHECK stays a steel/cold-formed/aluminium state by the family
+            // predicate.
+            (("nds", "flexure-minor"),         static c => c.Strength.YieldStrength.Si * c.Section.Welz.Si),
             // Timber rolling/horizontal shear is axis-independent for a rectangular sawn/glulam section (full-area 2/3·Fv·A), so both axes share the formula.
             (("nds", "shear-major"),           static c => (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("nds", "shear-minor"),           static c => (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
@@ -1019,6 +1121,10 @@ public static partial class StructuralAnalysis {
             (("en1995", "axial-tension"),      static c => c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
             (("en1995", "axial-compression"),  static c => Ec5Kc(c) * c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
             (("en1995", "flexure-major"),      static c => Ec5Kcrit(c) * c.Strength.YieldStrength.Si * c.Section.Wely.Si / c.Code.GammaM),
+            // Minor-axis reference bending (§6.1.6 — one f_m both axes on the rectangular seam section, no k_crit
+            // about the minor axis): the cell exists to feed the Combined k_m operand; the standalone flexure-minor
+            // CHECK stays a steel/cold-formed/aluminium state by the family predicate.
+            (("en1995", "flexure-minor"),      static c => c.Strength.YieldStrength.Si * c.Section.Welz.Si / c.Code.GammaM),
             (("en1995", "shear-major"),        static c => 0.67 * (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
             (("en1995", "shear-minor"),        static c => 0.67 * (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
             // --- TMS 402 (masonry, allowable) — slenderness-reduced ------------------------
@@ -1032,6 +1138,25 @@ public static partial class StructuralAnalysis {
             // Component/masonry FlexuralStrengthEn row and resolve at section altitude, so the absent cells report
             // NotApplicable here rather than dividing a real demand by a fabricated resistance.
             (("en1996", "axial-compression"),  static c => EnMasonryPhi(c) * c.Strength.UltimateStrength.Si * c.Section.Area.Si / c.Code.GammaM),
+            // --- EN 1999-1-1 (aluminium, gammaM=1.10) — the class-3 elastic floor ---------------------------
+            // fo rides the seam YieldStrength (the Rasm.Materials projector maps the banded 0.2%-proof strength
+            // onto it, the contract the timber f_k mapping set); the flexure cells are Wel·fo/γM1 — the floor the
+            // Materials AluminumMember receipt states, the plastic credit unclaimed, not unproven — with the
+            // §6.3.2.2 class-3/4 LTB curve (αLT = 0.20, λ̄0,LT = 0.40; section-class-keyed, alloy-blind). Axial
+            // compression reads the §6.3.1.2 χ over the SEAM-CROSSED Table 6.6 (α, λ̄0) pair the Materials
+            // AluminumMember receipt publishes per BucklingClass letter (BucklingOf, the ShearLinkOf wire) through
+            // the ONE EnChi Perry-Robertson kernel — curve constants are the member's own bag data, never a
+            // guessed-class copy; a member NO aluminium screen stamped yields ZERO capacity and governs loud (the
+            // consumed-action discipline the Materials torsion column set), never a silent pass and never a
+            // carbon-steel χ on aluminium.
+            (("en1999", "axial-tension"),      static c => c.Strength.YieldStrength.Si * c.Section.Area.Si / c.Code.GammaM),
+            (("en1999", "axial-compression"),  static c => c.Buckling.Match(
+                Some: b => EnChi(EnLambdaBar(c), b.Alpha, b.LambdaZero) * c.Section.Area.Si * c.Strength.YieldStrength.Si / c.Code.GammaM,
+                None: static () => 0.0)),
+            (("en1999", "flexure-major"),      static c => EnChiLt(c, 0.20, 0.40, c.Section.Wely.Si) * c.Section.Wely.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1999", "flexure-minor"),      static c => c.Section.Welz.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
+            (("en1999", "shear-major"),        static c => c.Section.AvY.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
+            (("en1999", "shear-minor"),        static c => c.Section.AvZ.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
         }.ToFrozenDictionary(static row => row.Key, static row => row.Rule);
 
     // Cell absence is the CODE-scoped not-applicable answer, carried as None so a check can report it rather than
@@ -1058,13 +1183,19 @@ public static partial class StructuralAnalysis {
         double ncr = Math.PI * Math.PI * c.Strength.YoungsModulus.Si * c.Section.Area.Si * i * i / Math.Max(l * l, Eps);
         return Math.Sqrt(c.Section.Area.Si * c.Strength.YieldStrength.Si / Math.Max(ncr, Eps));
     }
-    static double EnChi(double lambdaBar, double alpha) {                        // EN 1993 6.3.1 buckling-curve reduction
-        double phi = 0.5 * (1.0 + alpha * (lambdaBar - 0.2) + lambdaBar * lambdaBar);
+    // ONE Perry-Robertson kernel across EN 1993-1-1, EN 1993-1-4, and EN 1999 — the codes differ in the (α, λ̄0)
+    // policy pair each cell passes, never in the φ/χ form, so a curve is a call-site constant and a per-code kernel
+    // sibling is the deleted shape. The Min clamp is the plateau: χ = 1 for λ̄ ≤ λ̄0 falls out of the same formula.
+    static double EnChi(double lambdaBar, double alpha, double lambdaZero) {
+        double phi = 0.5 * (1.0 + alpha * (lambdaBar - lambdaZero) + lambdaBar * lambdaBar);
         return Math.Min(1.0, 1.0 / (phi + Math.Sqrt(Math.Max(phi * phi - lambdaBar * lambdaBar, Eps))));
     }
-    static double EnChiLt(CapacityContext c) {                                   // EN 1993 6.3.2 LTB (warping-free Mcr, curve c)
+    // LTB over the warping-free Mcr; the (α, λ̄0) pair and the slenderness modulus are the calling cell's policy —
+    // Wpl on the EN 1993 class-1/2 premise, Wel on the EN 1999 class-3 floor — so λ̄LT = √(W·fy/Mcr) reads the same
+    // modulus the cell's resistance carries.
+    static double EnChiLt(CapacityContext c, double alpha, double lambdaZero, double wSi) {
         double mcr = Math.PI / Math.Max(c.UnbracedLength, Eps) * Math.Sqrt(Math.Max(c.Strength.YoungsModulus.Si * c.Section.Izz.Si * c.Strength.ShearModulus.Si * c.Section.J.Si, 0.0));
-        return EnChi(Math.Sqrt(c.Section.Wply.Si * c.Strength.YieldStrength.Si / Math.Max(mcr, Eps)), 0.49);
+        return EnChi(Math.Sqrt(wSi * c.Strength.YieldStrength.Si / Math.Max(mcr, Eps)), alpha, lambdaZero);
     }
     static double NdsCp(CapacityContext c) {                                     // NDS column stability (Ylinen)
         double fcStar = c.Strength.YieldStrength.Si, slender = c.EffectiveLengthFactor * c.UnbracedLength / Math.Max(c.Section.LeastDimension.Si, Eps);
@@ -1173,7 +1304,7 @@ public static partial class StructuralAnalysis {
             // interacts hardest is never scored on its compression corner alone.
             Option<double> util =
                 state == LimitState.Combined ? caps.Map(operands => Math.Max(
-                    code.Interaction(response.TensionCorner, operands), code.Interaction(response.CompressionCorner, operands)))
+                    code.Interaction(response.TensionCorner, operands, ctx), code.Interaction(response.CompressionCorner, operands, ctx)))
                 : state == LimitState.Deflection ? Some(response.MaxDeflection / Math.Max(policy.DeflectionLimitRatio * member.Length, Eps))
                 : capacity.Map(value => demand / Math.Max(value, Eps));
             return new MemberCheck(member.Id, state, demand, capacity, util);
@@ -1368,7 +1499,12 @@ public readonly partial record struct ModalCorrelation([property: OrderedEqualit
 // --- [MODELS] ------------------------------------------------------------------------------
 // Site class, ground motion, behavior/response-modification, and damping as one parameter record — the spectrum rows
 // read it, the content key folds it (a changed site class or q re-keys the assessment). The ground-type S/TB/TC/TD
-// columns are NOT here: they are the spectrum row's own code table, resolved once through Admit.
+// columns are NOT here: they are the spectrum row's own code table, resolved once through Admit. Behavior is the
+// SYSTEM coefficient the Materials concrete#SEISMIC_SYSTEMS rows supply at composition — the EN 1998-1 q off the
+// EnConcreteDuctility row (q0 with its αu/α1 and elevation modifiers, floored at 1.5) or the ASCE 7 R/Ie off the
+// AsceRcSystem.R column — crossing as a SCALAR because the branch strata forbid a Materials reference in either
+// direction: this column IS the demand-side consumption those system rows exist for, resolved once per engagement
+// by the lateral-system selection, never re-derived here and never a per-member read.
 public sealed record SpectrumPolicy(
     string SiteClass, double Pga, double Sds, double Sd1, double T1, double TLong, double Behavior, double DampingRatio);
 

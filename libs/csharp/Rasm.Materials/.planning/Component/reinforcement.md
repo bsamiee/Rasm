@@ -2,23 +2,23 @@
 
 THE REINFORCING-BAR SEED FAMILY and THE HOST-NEUTRAL REINFORCED-CONCRETE-SECTION ASSEMBLER. A rebar is one `ComponentRow` minted by the ONE generator `ReinforcementSeed.Rows -> Component.Of` over the `ComponentFamily.Reinforcement` policy row (`ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Circle`, cross-nominal the circle diameter — the bar's own disc solves like any other section while its RC participation rides `[03]-[RC_SECTION]`, which reads the assembled layer geometry rather than a single bar's receipt), never a `Rebar` type and never a bespoke `RebarSection` payload: the geometry is `SectionProfile.Circle(DiameterMm)`, the IFC stamp is `IfcBinding.Of("IfcReinforcingBar", usage.IfcPredefinedType)` computed at seed time from the `RebarUsage` vocabulary, and the realization detail is the seed-built `RebarDetail.Of` bag.
 
-Under `SEED_ROW_LAW` the pure standards-data vocabularies are frozen row tables with per-column provenance — `Bars` (imperial, CSA, and EN nominal sizes, the EN H-series VENDOR-keyed to the `VividOrange.ISections` `BarDiameter` catalogue), `Grades` (ASTM A615 and A706, CSA G30.18, and the EN 10080 ductility classes bound to their `EnRebarGrade`), `ShapeCodes` (the BS 8666:2020 schedule set), and `Strands` (the ACTIVE modality — ASTM A416 and EN 10138-3 seven-wire prestressing rows with their `RelaxationClass` certification data, seeded as `IfcTendon` `STRAND` component rows through the same generator) — while the policy vocabularies carrying delegate or IFC-token behavior stay `[SmartEnum<string>]`. `RebarSchedule` owns the bend algebra over those currencies, and its receipt is what a BAR-BENDING SCHEDULE is made of: every placed bar publishes its BS 8666 shape code and, where it is bent, its ACI inside-bend diameter, hook extension, and EN mandrel diameter into the realization bag under the names the shop deliverable reads, so a detailed bar reaches a fabricator's cut-and-bend sheet instead of resolving to typed geometry no document consumes. The `ForceBasis` and `TendonBasis` policy rows own the passive and active force projections over one shape, and every fault across both modalities accumulates in one applicative pass rather than one modality masking the other's.
+Under `SEED_ROW_LAW` the pure standards-data vocabularies are frozen row tables with per-column provenance — `Bars` (imperial, CSA, and EN nominal sizes, the EN H-series VENDOR-keyed to the `VividOrange.ISections` `BarDiameter` catalogue), `Grades` (ASTM A615 and A706, CSA G30.18, and the EN 10080 ductility classes bound to their `EnRebarGrade`), `ShapeCodes` (the BS 8666:2020 schedule set), and `Strands` (the ACTIVE modality — ASTM A416 and EN 10138-3 seven-wire prestressing rows with their `RelaxationClass` certification data, seeded as `IfcTendon` `STRAND` component rows through the same generator) — while the policy vocabularies carrying delegate or IFC-token behavior stay `[SmartEnum<string>]`. Beside the strand line rides the POST-TENSIONING HARDWARE estate as CLOSED KIND ROSTERS over typed-absent dimensions: `AnchorageKind`/`TendonConduitKind` carry the roster-verified `IfcTendonAnchor` (`TENSIONING_END`/`FIXED_END`/`COUPLER`) and `IfcTendonConduit` (`DUCT`/`GROUTING_DUCT`/`TRUMPET`/`DIABOLO`/`COUPLER`) leaves, `TendonProfileKind` the drape vocabulary the `DetailSchema.TendonProfile` row stamps, and the `Anchorages`/`Ducts` rows hold every dimension column `None` — anchor bearing plates, wedge geometry, and duct diameter series are ETA/vendor-certified data no evidence pack two-sources, so the axes exist typed and the numbers refuse rather than invent. `RebarSchedule` owns the bend algebra over those currencies, and its receipt is what a BAR-BENDING SCHEDULE is made of: every placed bar publishes its BS 8666 shape code and, where it is bent, its ACI inside-bend diameter, hook extension, and EN mandrel diameter into the realization bag under the names the shop deliverable reads, so a detailed bar reaches a fabricator's cut-and-bend sheet instead of resolving to typed geometry no document consumes. The `ForceBasis` and `TendonBasis` policy rows own the passive and active force projections over one shape, and every fault across both modalities accumulates in one applicative pass rather than one modality masking the other's.
 
 `[03]-[RC_SECTION]` is the family-agnostic assembler: `RcSectionBuilder.Of` lowers EN grades through the `EnGrade` boundary, builds the `VividOrange.Sections` `ConcreteSection` over the PROFILE-FAITHFUL `SectionSolver.ProfileOf(concrete.Profile, key)` `IProfile` of ANY `Component`, folds the `RebarLayout` `[Union]` through the collapsed placement engines, and mints the `RcSection` receipt whose transformed-section columns read the `ConcreteSectionProperties` carrier — never a hand-summed bar loop. `RcSectionBuilder.Capacity` is the reinforcement-side ENTRY into the capacity rail: the built section reaches `SectionCapacity.Resolve` from here, so the RC hull and the elastic transformed-section surfaces `capacity#SECTION_CAPACITY` declares have the producer this family owes them. Growth is one row: a new bar one `BarRow`, a new grade one `RebarGradeRow`, a new role one `RebarUsage` row, a new schedule shape one `ShapeCodeRow`, a new placed bar one `Placements` row through the same generator.
 
 ## [01]-[INDEX]
 
-- [02]-[REINFORCEMENT_FAMILY]: the retained policy SmartEnums (`RebarStandard` · `RebarUsage` · `RebarSurface` · `RibPattern` · `HookKind` · `RebarHook` · `RelaxationClass`), the tier-3 frozen row tables (`Bars` 31 · `Grades` 11 · `ShapeCodes` 37 · the `Strands` seven-wire prestressing line) with per-column `VENDOR`/`DEFINED`/`PUBLISHED` provenance, the `RebarRibGeometry`/`RebarBend` receipts, the `RebarSchedule` rib/hook algebra plus the `ForceBasis` and `TendonBasis` force-policy rows and the `TendonForce` relaxation projection, the seed-time `RebarDetail.Of`/`TendonDetail.Of` realization bags, and the fail-loud `ReinforcementSeed.Rows : Context -> Fin<Seq<ComponentRow>>` Traverse the `ComponentFamily.Reinforcement` policy row binds.
+- [02]-[REINFORCEMENT_FAMILY]: the retained policy SmartEnums (`RebarStandard` · `RebarUsage` · `RebarSurface` · `RibPattern` · `HookKind` · `RebarHook` · `RelaxationClass`), the tier-3 frozen row tables (`Bars` 31 · `Grades` 11 · `ShapeCodes` 37 · the `Strands` seven-wire prestressing line) with per-column `VENDOR`/`DEFINED`/`PUBLISHED` provenance, the PT-hardware kind rosters (`AnchorageKind` · `TendonConduitKind` · `TendonProfileKind` with the `Anchorages`/`Ducts` typed-absent dimension rows), the `RebarRibGeometry`/`RebarBend` receipts, the `RebarSchedule` rib/hook algebra with the `ForceBasis` and `TendonBasis` force-policy rows and the `TendonForce` relaxation projection, the seed-time `RebarDetail.Of`/`TendonDetail.Of`/`TendonDetail.Assembly` realization bags, and the fail-loud `ReinforcementSeed.Rows : Context -> Fin<Seq<ComponentRow>>` Traverse the `ComponentFamily.Reinforcement` policy row binds.
 - [03]-[RC_SECTION]: the `RcSection` reinforced-concrete assembler — the `RebarLayout` `[Union]` over the four `VividOrange.Sections` placement engines, the `EnGrade` EN-grade admission boundary, `RcSectionBuilder.Of` over the family-agnostic `SectionSolver.ProfileOf` concrete outline, the `ConcreteSectionProperties`-backed transformed-section receipt columns, and the EC2 `MinimumReinforcementSpacing` rule with the aggregate term wired.
 
 ## [02]-[REINFORCEMENT_FAMILY]
 
-- Owner: `RebarStandard`/`RebarUsage`/`RebarSurface`/`RibPattern`/`HookKind`/`RebarHook` the retained `[SmartEnum<string>]` policy vocabularies; `BarRow`/`RebarGradeRow`/`ShapeCodeRow` the tier-3 row currencies with `Bars`/`Grades`/`ShapeCodes` the frozen tables; `RebarRibGeometry`/`RebarBend` the receipts; `RebarSchedule` the rib/hook operation owner; `ForceBasis` the schedule-force policy rows; `RebarDetail` the seed-time realization-bag constructor; `ReinforcementSeed` the `Rows` fold the `component#COMPONENT_OWNER` `ComponentFamily.Reinforcement` policy row binds.
+- Owner: `RebarStandard`/`RebarUsage`/`RebarSurface`/`RibPattern`/`HookKind`/`RebarHook` the retained `[SmartEnum<string>]` policy vocabularies; `AnchorageKind`/`TendonConduitKind`/`TendonProfileKind` the PT-hardware kind rosters carrying their roster-verified `IfcTendonAnchor`/`IfcTendonConduit` leaves; `BarRow`/`RebarGradeRow`/`ShapeCodeRow`/`AnchorageRow`/`DuctRow` the tier-3 row currencies with `Bars`/`Grades`/`ShapeCodes`/`Anchorages`/`Ducts` the frozen tables; `RebarRibGeometry`/`RebarBend` the receipts; `RebarSchedule` the rib/hook operation owner; `ForceBasis` the schedule-force policy rows; `RebarDetail` the seed-time realization-bag constructor; `ReinforcementSeed` the `Rows` fold the `component#COMPONENT_OWNER` `ComponentFamily.Reinforcement` policy row binds.
 - Cases: grade {A615 Gr40/Gr60/Gr75/Gr80 (carbon, non-weldable) · A706 Gr60W/Gr80W (low-alloy, weldable) · G30.18 400W/500W (CSA metric, weldable) · EN 10080 B500A/B500B/B500C (the ductility classes the `EnRebarFactory.CreateBiLinear` k = 1.05/1.08/1.15 branches read)} × size {#3..#11, #14, #18 imperial · 10M..55M CSA · H6..H50 EN keyed `BarDiameter.D6`..`D50`} × usage {main · ligature · shear · punching · edge · ring · anchoring · spacer · stud · userdefined · notdefined — the full verified 11-member `IfcReinforcingBarTypeEnum`} × surface {textured · plain} × rib-pattern {uniform-height 90° · crescent 60°} × hook {90°/135°/180° over development/stirrup-tie/seismic ACI tables} × shape-code {the BS 8666:2020 37-code set} — a bar is one `Placements` row over one `BarRow` and one `RebarGradeRow`, the standard-consistency law `RebarGradeRow.Admits` (a grade admits only the bar rows its spec body rolls) enforced BEFORE construction.
 - Entry: `public static Fin<Seq<ComponentRow>> ReinforcementSeed.Rows(Context context)` traverses `Placements` through the common `Component.Of` rail. `RebarSchedule.StandardHook(BarRow, RebarUsage, HookKind, RebarHook, Op)` rejects a longitudinal usage paired with a tie/seismic hook policy and a transverse usage paired with the development policy before emitting the ACI/EN/BS bend receipt.
 - Packages: Rasm.Numerics (project — `PositiveMagnitude` the `>0` finite magnitude every admitted diameter column lifts into), Rasm.Domain (project — `Op`/`Context`/`AcceptValidated`), Rasm.Element (project — `MaterialId`, `PropertyBag`/`DetailSchema`/`Dimension` the detail bag composes), VividOrange.Sections (`BarDiameter` the EN-10080 D6..D50 catalogue the EN `BarRow` rows VENDOR-key; `.api/api-vividorange-sections.md`), VividOrange.Materials (`EnRebarGrade` the EN-bodied binding, `EnRebarFactory.CreateLinearElastic`/`CreateBiLinear` the registered yield + ductility ultimate; `.api/api-vividorange-materials.md`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, `[UseDelegateFromConstructor]` the `HookKind` bend delegate), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`/`guard`), BCL inbox (`FrozenDictionary`, `ImmutableArray`, collection expressions).
-- Growth: one row per new fact — a new bar size one `BarRow` (printed diameter/area/weight PUBLISHED, or the DEFINED `πd²/4`/`A·ρ` fallbacks), a new grade one `RebarGradeRow` bound to its `EnRebarGrade` when EN-bodied, a new role one `RebarUsage` row carrying its verified token, a new schedule shape one `ShapeCodeRow`, a new hook table one `HookKind` row with its bend delegate, a new realized bar one `Placements` row; a new strand diameter or grade one `StrandRow`, a new relaxation certification one `RelaxationClass` row, a new realized tendon one `Tendons` row — never a per-bar type, never a `ComponentFamily` edit, never a central edit. A welded mesh grows as an `IfcReinforcingMesh` projection over the same row currencies, never an eleventh family; anchorage and duct hardware is vendor-certified data outside the published-table provenance.
-- Boundary: the seed admits raw standards data once through the symbolic `Bars`/`Grades` row references, `RebarGradeRow.Admits`, and the `SectionProfile.Circle.Of` rail. `StandardHook` validates the `usage.Stirrup`/`HookKind` correspondence, `ForceBasis.ForceKn` validates the bar/grade system before any registered-grade projection, and `TendonBasis.ForceKn` reads the strand row alone — its jacking ceiling resolves the authority's own `JackingProofFactor` column, so a body with no published rule projects absence. The IFC role remains `IfcBinding.Of("IfcReinforcingBar", usage.IfcPredefinedType)`, and the independent substance and appearance identifiers remain grade-carried.
+- Growth: one row per new fact — a new bar size one `BarRow` (printed diameter/area/weight PUBLISHED, or the DEFINED `πd²/4`/`A·ρ` fallbacks), a new grade one `RebarGradeRow` bound to its `EnRebarGrade` when EN-bodied, a new role one `RebarUsage` row carrying its verified token, a new schedule shape one `ShapeCodeRow`, a new hook table one `HookKind` row with its bend delegate, a new realized bar one `Placements` row; a new strand diameter or grade one `StrandRow`, a new relaxation certification one `RelaxationClass` row, a new realized tendon one `Tendons` row; a new anchorage or conduit product is one `AnchorageRow`/`DuctRow` whose dimension columns fill ONLY from an ETA/vendor certificate (the roster is closed vocabulary today, every dimension typed-absent), and a duct row gaining a certified diameter seeds as an `IfcTendonConduit` component through the same generator once the family admission widens to its annular profile — never a per-bar type, never a `ComponentFamily` edit, never a central edit. A welded mesh grows as an `IfcReinforcingMesh` projection over the same row currencies, never an eleventh family.
+- Boundary: the seed admits raw standards data once through the symbolic `Bars`/`Grades` row references, `RebarGradeRow.Admits`, and the `SectionProfile.Circle.Of` rail. `StandardHook` validates the `usage.Stirrup`/`HookKind` correspondence, `ForceBasis.ForceKn` validates the bar/grade system before any registered-grade projection, and `TendonBasis.ForceKn` reads the strand row alone — its jacking ceiling resolves the authority's own `JackingProofFactor` column, so a body with no published rule projects absence. The IFC role remains `IfcBinding.Of("IfcReinforcingBar", usage.IfcPredefinedType)`, and the independent substance and appearance identifiers remain grade-carried. PT hardware is ROSTER-ONLY at the component tier: an `AnchorageRow`/`DuctRow` carries no dimension a certificate has not published, so no hardware `Component` seeds today — the hardware reaches the seam as the `TendonDetail.Assembly` bag rows (`AnchorageType`/`DuctDiameter`/`TendonProfile`, each stamped only where its column is `Some`), and the `DuctDiameter` row rides BESIDE the strand's own `NominalDiameter` because a tendon assembly carries both facts as two rows, exactly as `Rasm.Element/Properties/property#DETAIL_SCHEMA` declares them.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -125,6 +125,46 @@ public sealed partial class RelaxationClass {
     public static readonly RelaxationClass LowRelaxation = new("low-relaxation", rho1000Percent: 2.5);   // A416 low-relaxation / EN 10138 Class 2
     public static readonly RelaxationClass Normal        = new("normal",         rho1000Percent: 8.0);   // EN 10138 Class 1 — the stress-relieved wire class
     public double Rho1000Percent { get; }
+}
+
+// The PT anchorage kind axis — the closed hardware vocabulary over the verified IfcTendonAnchor leaf set (GeometryGym 25.7.30)
+// {COUPLER, FIXED_END, TENSIONING_END}: mono- and multi-strand live ends share the TENSIONING_END token and split
+// on the strand-count band the AnchorageRow carries (its one dimension-free discriminant), the dead end is
+// FIXED_END, and the tendon coupler the anchor entity's own COUPLER. Every geometric column is ETA/vendor
+// territory — the kind axis is what this page can close without inventing a plate size.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AnchorageKind {
+    public static readonly AnchorageKind MonoLive  = new("mono-live",  ifcPredefinedType: "TENSIONING_END");
+    public static readonly AnchorageKind MultiLive = new("multi-live", ifcPredefinedType: "TENSIONING_END");
+    public static readonly AnchorageKind DeadEnd   = new("dead-end",   ifcPredefinedType: "FIXED_END");
+    public static readonly AnchorageKind Coupler   = new("coupler",    ifcPredefinedType: "COUPLER");
+    public string IfcPredefinedType { get; }
+}
+
+// The tendon conduit kind axis over the verified IfcTendonConduit leaf set (GeometryGym 25.7.30) {COUPLER, DIABOLO, DUCT,
+// GROUTING_DUCT, TRUMPET}: the two duct BODIES (corrugated galvanized steel, corrugated HDPE plastic) both ride
+// the DUCT token and split on this axis's own body discriminant, the accessory kinds carry their exact tokens.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TendonConduitKind {
+    public static readonly TendonConduitKind CorrugatedSteel   = new("corrugated-steel",   ifcPredefinedType: "DUCT");
+    public static readonly TendonConduitKind CorrugatedPlastic = new("corrugated-plastic", ifcPredefinedType: "DUCT");
+    public static readonly TendonConduitKind Trumpet           = new("trumpet",            ifcPredefinedType: "TRUMPET");
+    public static readonly TendonConduitKind Diabolo           = new("diabolo",            ifcPredefinedType: "DIABOLO");
+    public static readonly TendonConduitKind GroutVent         = new("grout-vent",         ifcPredefinedType: "GROUTING_DUCT");
+    public static readonly TendonConduitKind ConduitCoupler    = new("conduit-coupler",    ifcPredefinedType: "COUPLER");
+    public string IfcPredefinedType { get; }
+}
+
+// The drape-profile vocabulary the DetailSchema.TendonProfile row stamps — the tendon geometry CLASS a layout
+// declares (the drape ordinates themselves are member-run geometry outside Materials).
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TendonProfileKind {
+    public static readonly TendonProfileKind Straight  = new("straight");
+    public static readonly TendonProfileKind Parabolic = new("parabolic");
+    public static readonly TendonProfileKind Harped    = new("harped");
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -272,6 +312,30 @@ public static class Strands {
     public static readonly ImmutableArray<StrandRow> Rows = [S13Gr1725, S13Gr1860, S15Gr1860, Y1860S7D125, Y1860S7D157];
 }
 
+// PT-hardware row currencies: the kind is CLOSED, every dimension TYPED-ABSENT — anchor bearing-plate size,
+// wedge geometry, strand capacity, duct inner diameter, and wall gauge are ETA/vendor-certificate data no pack
+// two-sources, so a `Some` in any column names its certificate or does not land. The rows exist so the tendon
+// assembly bag, the IFC leaf, and the growth path are typed TODAY while the numbers stay honest.
+public readonly record struct AnchorageRow(string Key, AnchorageKind Kind, Option<int> Strands, Option<double> BearingPlateMm);
+public readonly record struct DuctRow(string Key, TendonConduitKind Kind, Option<double> InnerDiameterMm, Option<double> WallMm);
+
+// One realized row per kind — the closed vocabulary made joinable; a certified product is a further row whose
+// dimension columns are Some, and a duct row gaining a certified inner diameter is what the Growth clause seeds
+// as an IfcTendonConduit component.
+public static class Anchorages {
+    public static readonly AnchorageRow MonoLive  = new("anchor-mono-live",  AnchorageKind.MonoLive,  None, None);
+    public static readonly AnchorageRow MultiLive = new("anchor-multi-live", AnchorageKind.MultiLive, None, None);
+    public static readonly AnchorageRow DeadEnd   = new("anchor-dead-end",   AnchorageKind.DeadEnd,   None, None);
+    public static readonly AnchorageRow Coupler   = new("anchor-coupler",    AnchorageKind.Coupler,   None, None);
+    public static readonly ImmutableArray<AnchorageRow> Rows = [MonoLive, MultiLive, DeadEnd, Coupler];
+}
+
+public static class Ducts {
+    public static readonly DuctRow CorrugatedSteel   = new("duct-corrugated-steel",   TendonConduitKind.CorrugatedSteel,   None, None);
+    public static readonly DuctRow CorrugatedPlastic = new("duct-corrugated-plastic", TendonConduitKind.CorrugatedPlastic, None, None);
+    public static readonly ImmutableArray<DuctRow> Rows = [CorrugatedSteel, CorrugatedPlastic];
+}
+
 // The BS 8666:2020 37-code schedule set. 00/01 straight, 11..15 single-bend/hook, 21..36 multi-bend, 41..56 complex,
 // 47/48/51/52/63 closed links, 64 six-leg, 67 radiused arc, 75 circular link, 77 helix, 98 chair, 99 the non-standard
 // fully-dimensioned sketch (Legs 0).
@@ -412,12 +476,13 @@ public static class TendonForce {
 // resolving to typed geometry nothing consumes. A STRAIGHT bar publishes shape code 00 and no bend block at all,
 // which is why the deliverable's bend columns are an optional extension rather than a gate.
 public static class RebarDetail {
-    public static Fin<PropertyBag> Of(BarRow bar, RebarUsage usage, Option<RebarBend> bend, Provenance source) =>
+    public static Fin<PropertyBag> Of(BarRow bar, RebarUsage usage, Option<RebarBend> bend, Provenance source, Op key) =>
+        from joint in ComponentDetail.Joint("Cast", key)
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, bar.NominalDiameterMm * 1e-3)
         from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, bar.NominalAreaMm2 * 1e-6)
         from bendRows in bend.Match(Some: b => BendRow(b).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
         select ComponentDetail.RealizationRows([
-            ComponentDetail.Joint("Cast"),
+            joint,
             ComponentDetail.Token(DetailSchema.BarType, usage.IfcPredefinedType),
             ComponentDetail.Token(DetailSchema.BendShapeCode, bend.Map(static b => b.Shape.Key).IfNone(ShapeCodes.Straight.Key)),
             ComponentDetail.Sourced(source),
@@ -431,23 +496,45 @@ public static class RebarDetail {
         from extension in Si(bend.HookExtensionMm)
         from mandrel in Si(bend.MandrelDiameterMm)
         select (DetailSchema.BendSchedule, (PropertyValue)new PropertyValue.Complex("bend-schedule", Map(
-            (PropertyName.Create("BendAngle"), (PropertyValue)new PropertyValue.Text($"{bend.BendDegrees:R}")),
-            (PropertyName.Create("InsideBendDiameter"), inside),
-            (PropertyName.Create("HookExtension"), extension),
-            (PropertyName.Create("MandrelDiameter"), mandrel))));
+            (DetailSchema.BendAngle, (PropertyValue)new PropertyValue.Text($"{bend.BendDegrees:R}")),
+            (DetailSchema.InsideBendDiameter, inside),
+            (DetailSchema.HookExtension, extension),
+            (DetailSchema.MandrelDiameter, mandrel))));
 
     static Fin<PropertyValue> Si(double mm) =>
         MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
 // The tendon realization bag: the same dimension-only NominalDiameter/CrossSectionArea mints the bar bag carries plus
-// the Joint("Cast") row — a strand realizes cast-in like a bar; the anchorage/duct hardware is vendor-certified data
-// outside this table's provenance.
+// the Joint("Cast") row — a strand realizes cast-in like a bar. Assembly is the POST-TENSIONED superset: the same
+// strand rows plus the three Element-declared PT stamps — AnchorageType off the anchorage row's kind,
+// TendonProfile off the drape vocabulary, and DuctDiameter ONLY where the duct row's inner diameter is Some
+// (typed-absent today), riding BESIDE the strand's own NominalDiameter because the assembly carries both facts
+// as two rows exactly as the Element schema declares. A pre-tensioned strand keeps the plain Of — no duct, no
+// anchorage token, no fabricated hardware row.
 public static class TendonDetail {
-    public static Fin<PropertyBag> Of(StrandRow strand, Provenance source) =>
+    public static Fin<PropertyBag> Of(StrandRow strand, Provenance source, Op key) =>
+        from joint in ComponentDetail.Joint("Cast", key)
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, strand.NominalDiameterMm * 1e-3)
         from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, strand.AreaMm2 * 1e-6)
-        select ComponentDetail.RealizationRows(ComponentDetail.Joint("Cast"), ComponentDetail.Sourced(source), diameter, area);
+        select ComponentDetail.RealizationRows(joint, ComponentDetail.Sourced(source), diameter, area);
+
+    public static Fin<PropertyBag> Assembly(StrandRow strand, AnchorageRow anchorage, DuctRow duct, TendonProfileKind profile, Provenance source, Op key) =>
+        from joint in ComponentDetail.Joint("Cast", key)
+        from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, strand.NominalDiameterMm * 1e-3)
+        from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, strand.AreaMm2 * 1e-6)
+        from ductRow in duct.InnerDiameterMm.Match(
+            Some: mm => ComponentDetail.Measured(DetailSchema.DuctDiameter, Dimension.LengthDim, mm * 1e-3).Map(Some),
+            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        select ComponentDetail.RealizationRows([
+            joint,
+            ComponentDetail.Token(DetailSchema.AnchorageType, anchorage.Kind.Key),
+            ComponentDetail.Token(DetailSchema.TendonProfile, profile.Key),
+            ComponentDetail.Sourced(source),
+            diameter,
+            area,
+            .. ductRow.ToSeq(),
+        ]);
 }
 
 // The realized-placement seed: SYMBOLIC BarRow/RebarGradeRow/usage/surface row references — a typo'd bar or grade is
@@ -529,7 +616,7 @@ public static class ReinforcementSeed {
                 Some: policy => RebarSchedule.StandardHook(r.Bar, r.Usage, policy.Kind, policy.Hook, key).Map(Some),
                 None: static () => Fin.Succ(Option<RebarBend>.None))
             from profile in SectionProfile.Circle.Of(r.Bar.NominalDiameterMm, key)
-            from detail in RebarDetail.Of(r.Bar, r.Usage, bend, Tabulated)
+            from detail in RebarDetail.Of(r.Bar, r.Usage, bend, Tabulated, key)
             from item in Component.Of(
                 ComponentFamily.Reinforcement, r.Designation, profile,
                 IfcBinding.Of("IfcReinforcingBar", r.Usage.IfcPredefinedType),
@@ -539,7 +626,7 @@ public static class ReinforcementSeed {
     }
 
     // The realized tendon selection — strand components in the SAME family (a strand is a Circle-profiled reinforcing
-    // part; family stays closed at ten), the IfcTendon STRAND wire the row's own binding.
+    // part, never a new family row), the IfcTendon STRAND wire the row's own binding.
     static readonly ImmutableArray<TendonRow> Tendons = [
         new(Strands.S13Gr1725),
         new(Strands.S13Gr1860),
@@ -551,7 +638,7 @@ public static class ReinforcementSeed {
         Op key = Op.Of(name: r.Designation);
         return
             from profile in SectionProfile.Circle.Of(r.Strand.NominalDiameterMm, key)
-            from detail in TendonDetail.Of(r.Strand, Tabulated)
+            from detail in TendonDetail.Of(r.Strand, Tabulated, key)
             from item in Component.Of(
                 ComponentFamily.Reinforcement, r.Designation, profile,
                 IfcBinding.Of("IfcTendon", "STRAND"),
@@ -581,7 +668,7 @@ public static class ReinforcementSeed {
 
 ## [03]-[RC_SECTION]
 
-- Owner: `RcSection` the reinforced-concrete receipt over the `VividOrange.Sections` `IConcreteSection` PLUS the held `ConcreteSectionProperties` transformed-section carrier; `RebarLayout` `[Union]` the closed rebar-arrangement axis (`FaceCount`/`FaceSpacing`/`PerimeterCount`/`PerimeterSpacing`) collapsing the four `VividOrange.Sections` layout-engine constructors; `EnGrade` the EN-grade admission boundary lowering the `VividOrange.Materials` derivation throws onto the typed `ComponentFault` rail; `RcSectionBuilder` the one assembler minting the `IConcreteSection` the `capacity#SECTION_CAPACITY` solvers consume.
+- Owner: `RcSection` the reinforced-concrete receipt over the `VividOrange.Sections` `IConcreteSection` AND the held `ConcreteSectionProperties` transformed-section carrier; `RebarLayout` `[Union]` the closed rebar-arrangement axis (`FaceCount`/`FaceSpacing`/`PerimeterCount`/`PerimeterSpacing`) collapsing the four `VividOrange.Sections` layout-engine constructors; `EnGrade` the EN-grade admission boundary lowering the `VividOrange.Materials` derivation throws onto the typed `ComponentFault` rail; `RcSectionBuilder` the one assembler minting the `IConcreteSection` the `capacity#SECTION_CAPACITY` solvers consume.
 - Cases: layout {`FaceCount` (n bars on a named `SectionFace` — `ReinforcementLayoutByCount` + `FaceReinforcementLayer`) · `FaceSpacing` (max-spacing bars on a face) · `PerimeterCount` (n bars round the whole section — `PerimeterReinforcementLayer`, no face) · `PerimeterSpacing` · `Placed` (one bar at an explicit Y-Z section-plane station — `LongitudinalReinforcement`, the engine ingress the four rule-driven cases structurally cannot express)} — the face cases over the `SectionFace` floor enum (`Top`/`Left`/`Right`/`Bottom`/`Sides`; NO `Perimeter` member — perimeter distribution is the separate engine, never a face value); a bar arrangement is a `RebarLayout` case, never a scattered layer constructor; a stirrup is the `Link` promoted once from the same `RebarOf` bar the layouts use.
 - Entry: `public static Fin<RcSection> RcSectionBuilder.Of(Component concrete, EnConcreteGrade concreteGrade, RebarGradeRow barGrade, BarRow link, Seq<RebarLayout> layout, double coverMm, NationalAnnex annex, Op key)` — the ONE reinforced-section boundary: it lowers the grades through `EnGrade.Concrete`/`Rebar` (a non-EN `barGrade.EnGrade == None` railing `ComponentFault.Grade`), proves the link AND every layout bar against the ONE `RebarGradeRow.Admits` standard-consistency law (a standard mismatch railing the same typed grade fault the seed fold rails), builds the `ConcreteSection` from the FAMILY-AGNOSTIC profile-faithful `SectionSolver.ProfileOf(concrete.Profile, key)` `IProfile` + the concrete `IMaterial` + the promoted `Link` + the `coverMm` `Length`, folds each `RebarLayout` case to its placement engine through `AddRebarLayer`, and constructs the `ConcreteSectionProperties` carrier ONCE (eager-forced at the boundary) onto the receipt; `public static Fin<double> MinimumBarSpacingMm(NationalAnnex annex, BarRow bar, double maxAggregateMm, Op key)` reads the EC2 clear-spacing rule with `MaximumAggregateSize` SET so the `+(d_g + k2)` aggregate term is live — one polymorphic boundary, never a `BuildRcByCount`/`BuildRcBySpacing` family.
 - Packages: VividOrange.Sections (`ConcreteSection`, `Rebar`/`Link`/`LongitudinalReinforcement`, `FaceReinforcementLayer`/`PerimeterReinforcementLayer`, `MinimumReinforcementSpacing` with the settable `MaximumAggregateSize`/`AdditionalAggregateFactor`, `SectionFace`, `BarDiameter`; the `InvalidMaterialTypeException`/`InvalidProfileTypeException` boundary throws trapped here; `.api/api-vividorange-sections.md`), VividOrange.Sections.SectionProperties (`ConcreteSectionProperties` — `TotalReinforcementArea`/`ConcreteArea`/`GeometricReinforcementRatio`/`CrossSectionalShearReinforcementArea`/`ReinforcementSecondMomentOfAreaYy`/`Zz`/`EffectiveDepth(SectionFace)`/`ReinforcementArea(SectionFace)`; `.api/api-vividorange-sections-sectionproperties.md`), VividOrange.Materials (`EnConcreteMaterial`/`EnRebarMaterial`, `EnConcreteFactory`/`EnRebarFactory`; the `ArgumentException`/`MissingNationalAnnexException` throws trapped here; `.api/api-vividorange-materials.md`), VividOrange.Standards (`En1992`/`NationalAnnex`; `.api/api-vividorange-standards.md`), VividOrange.Profiles (`IProfile` via `component#SECTION_SOLVER` `ProfileOf`), UnitsNet (`Length` cover/diameter/aggregate at the edge), Thinktecture.Runtime.Extensions (`[Union]`), LanguageExt.Core (`Fin`/`Seq`/`Try`).

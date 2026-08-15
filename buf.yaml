@@ -34,3 +34,10 @@ breaking:
   # one file against one snapshot and a deleted message or renamed field fails at the source that owns it.
   use:
     - FILE
+  ignore_only:
+    # csharp:Rasm.Element/Graph/wire#WIRE_CODEC absence law: FireWire.reaction, EnvironmentalWire.recycled_content,
+    # and EnvironmentalWire.end_of_life_recovery moved to explicit presence so absence never aliases a zero or a
+    # blank key — an owner-decided one-time flip, wire-compatible at WIRE/WIRE_JSON, waived here at the owning file
+    # rather than by lowering the FILE category.
+    FIELD_SAME_CARDINALITY:
+      - tests/contracts/rasm/element/v1/element.proto

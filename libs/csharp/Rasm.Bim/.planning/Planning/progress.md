@@ -77,10 +77,10 @@ public static class ProgressVerification {
     // A direct bag read beside either selection is the second surface Model/query#ELEMENT_SET exists to refuse.
     static readonly ElementPredicate Flagged = new ElementPredicate.ByProperty(
         new ValueMatch.Exact(new PropertyValue.Text(ReconstructionRows.Set)),
-        new ValueMatch.Exact(new PropertyValue.Text(ReconstructionRows.NeedsReview)),
+        new ValueMatch.Exact(new PropertyValue.Text(ReconstructionRows.NeedsReview.Value)),
         new ValueMatch.Exact(new PropertyValue.Boolean(true)));
 
-    static readonly ValueSource Lineage = new ValueSource.Property(ReconstructionRows.Set, ReconstructionRows.SourceCloud);
+    static readonly ValueSource Lineage = new ValueSource.Property(ReconstructionRows.Set, ReconstructionRows.SourceCloud.Value);
 
     // BindAssignments gates FIRST: a task naming a GlobalId the as-designed graph never declares aborts on the
     // schedule owner's own DanglingReference law rather than scoring zero progress against geometry no model

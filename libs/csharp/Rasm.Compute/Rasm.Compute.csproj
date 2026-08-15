@@ -101,6 +101,7 @@
         <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
+    <!-- rasm.compute.v1 is the corpus-homed suite source; this package compiles GrpcServices=Client while app roots compile the same file GrpcServices=Server, and ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Mapping Wire">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
@@ -109,5 +110,8 @@
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/compute/v1/compute.proto"
+                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
+                  GrpcServices="Client" />
     </ItemGroup>
 </Project>

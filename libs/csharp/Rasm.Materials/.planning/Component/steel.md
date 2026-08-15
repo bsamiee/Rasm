@@ -4,16 +4,16 @@ THE STEEL SEED FAMILY GROUNDED IN THE PUBLISHED SECTION DATABASE. `SteelSeed.Row
 
 ## [01]-[INDEX]
 
-- [02]-[STEEL_FAMILY]: the `SteelTopology` open/closed/solid axis, the `SteelClass` nine-row subtype axis with the TOTAL `OfShape(AmericanShape)`/`OfShape(EuropeanShape)` folds and the `IfcProfileDef` mapping, the `SteelGrade` registered-yield band over `EnSteelMaterial.TryCreateFromDesignition`/`EnSteelFactory`, the `SteelJurisdiction` basis-keyed ladder-and-body table, the `SectionDims` published-dims currency, the `SteelShape.Of` catalogue admission boundary (geometry-driven hollow split + family fold + `PositiveMagnitude` lift), the `CompositeDetail` augmentation and the generated `ColdFormedRow`/`ColdFormedSections` SSMA lattice feeding the parametric `SectionProfile.ColdFormedC` lane, the `CompactnessClass` + `SteelDesign` one polymorphic `Capacity` entry over the profile arm, grade band, and `capacity#SECTION_CAPACITY` `DesignBasis` — the AISC Table B4.1 and EN Table 5.2 classifications, the LRFD projection, the computed AISI effective width, and the EN 1993-1-1 §6.3.1/§6.3.2 `χ`/`χLT` partial-factor arm over the per-class imperfection factors `SteelClass` carries, the `FireRetention` EN 1993-1-2 Table 3.1 rows with the `SteelDesign` fire facts, and the fail-loud full-database `SteelSeed.Rows : Context -> Fin<Seq<ComponentRow>>` Traverse the `ComponentFamily.Steel` policy row binds.
+- [02]-[STEEL_FAMILY]: the `SteelTopology` open/closed/solid axis, the `SteelClass` nine-row subtype axis with the TOTAL `OfShape(AmericanShape)`/`OfShape(EuropeanShape)` folds and the `IfcProfileDef` mapping, the `SteelGrade` registered-yield band over `EnSteelMaterial.TryCreateFromDesignition`/`EnSteelFactory` and the EN 10088 `StainlessBands` form-banded proof-cell registry, the `SteelJurisdiction` basis-keyed ladder-and-body table with the EN 1993-1-4 reduced-ε row, the `SectionDims` published-dims currency, the `SteelShape.Of` catalogue admission boundary (geometry-driven hollow split + family fold + `PositiveMagnitude` lift), the `CompositeDetail` augmentation and the generated `ColdFormedRow`/`ColdFormedSections` SSMA lattice feeding the parametric `SectionProfile.ColdFormedC` lane, the `CompactnessClass` + `SteelDesign` one polymorphic `Capacity` entry over the profile arm, grade band, and `capacity#SECTION_CAPACITY` `DesignBasis` — the AISC Table B4.1 and EN Table 5.2 classifications, the LRFD projection, the computed AISI effective width, and the EN 1993-1-1 §6.3.1/§6.3.2 `χ`/`χLT` partial-factor arm over the per-class imperfection factors `SteelClass` carries, the `FireRetention` EN 1993-1-2 Table 3.1 rows with the `SteelDesign` fire facts, and the fail-loud full-database `SteelSeed.Rows : Context -> Fin<Seq<ComponentRow>>` Traverse the `ComponentFamily.Steel` policy row binds.
 
 ## [02]-[STEEL_FAMILY]
 
-- Owner: `SteelTopology` the open/closed/solid discriminant; `SteelClass` the `IfcProfileDef` subtype axis folded onto the published taxonomies; `SteelGrade` the registered-yield band; `SectionDims` the admitted published-dims currency; `SteelShape` the catalogued profile payload; `CompositeDetail` the composite augmentation row; `ColdFormedRow`/`ColdFormedSections` the generated SSMA designation lattice; `SteelRowSource` the closed profile-origin axis (rolled catalogue · published cold-formed row · fabricated build delegate); `CompactnessClass`/`DesignCapacity`/`SteelDesign` the basis-dispatched AISC 360 + AISI S100 + EN 1993-1-1 projection and railed EN 1993-1-2 fire operations; `SteelSeed` the catalogue fold.
-- Cases: class {i-shape (W/M/S/HP + the EN H/I families, open) · u-shape (C/MC/UPE/PFC/UPN/U/CH, open) · l-shape (L, open) · double-angle (2L, open) · hss-rect (closed) · hss-round (round HSS + Pipe, closed) · tee (WT/MT/ST, open) · composite (AISC 360 Ch I, open core) · cold-formed (AISI S100, open)} × grade {A36/A992/A572 AISC spec-nominal · S235/S275/S355/S420/S450/S460 EN Table 3.1 registered} × topology {open · closed · solid} — a section is one seed row over one published identity; the composite variant is the SAME row with a `Some CompositeDetail` and a reclassed `SteelClass` on its `Rolled` source arm, and the cold-formed stud is the SAME row on its `Formed` source arm — a parametric `ColdFormedC` profile over the published `ColdFormedRow`, never a catalogue impersonation and never a parallel owner.
+- Owner: `SteelTopology` the open/closed/solid discriminant; `SteelClass` the `IfcProfileDef` subtype axis folded onto the published taxonomies; `SteelGrade` the registered-yield band; `StainlessBands` the EN 10088 published proof-cell registry the stainless bands read; `SectionDims` the admitted published-dims currency; `SteelShape` the catalogued profile payload; `CompositeDetail` the composite augmentation row; `ColdFormedRow`/`ColdFormedSections` the generated SSMA designation lattice; `SteelRowSource` the closed profile-origin axis (rolled catalogue · published cold-formed row · fabricated build delegate); `CompactnessClass`/`DesignCapacity`/`SteelDesign` the basis-dispatched AISC 360 + AISI S100 + EN 1993-1-1 projection and railed EN 1993-1-2 fire operations; `SteelSeed` the catalogue fold.
+- Cases: class {i-shape (W/M/S/HP + the EN H/I families, open) · u-shape (C/MC/UPE/PFC/UPN/U/CH, open) · l-shape (L, open) · double-angle (2L, open) · hss-rect (closed) · hss-round (round HSS + Pipe, closed) · tee (WT/MT/ST, open) · composite (AISC 360 Ch I, open core) · cold-formed (AISI S100, open)} × grade {A36/A992/A572 AISC spec-nominal · S235/S275/S355/S420/S450/S460 EN Table 3.1 registered · 1.4301/1.4307/1.4401/1.4404/1.4462 EN 10088 published stainless} × topology {open · closed · solid} — a section is one seed row over one published identity; the composite variant is the SAME row with a `Some CompositeDetail` and a reclassed `SteelClass` on its `Rolled` source arm, and the cold-formed stud is the SAME row on its `Formed` source arm — a parametric `ColdFormedC` profile over the published `ColdFormedRow`, never a catalogue impersonation and never a parallel owner.
 - Entry: `SteelSeed.Rows(Context)` traverses the unified `SteelRowSeed` table. `SteelDesign.Capacity` admits the rolled, cold-formed-stud, or steel-deck modality on the shape of its typed input and resolves the REGISTERED yield from the grade band at the element thickness — the `CapacityPlacement` `DesignBasis` and `NationalAnnex` cross together, never a caller yield double and never a loose code flag. `SteelDesign.RetentionAt(double, Op) : Fin<(double Ky, double KE)>` rejects non-finite steel temperature before interpolating the EN 1993-1-2 table.
 - Packages: VividOrange.Profiles.Catalogue (`CatalogueFactory.CreateAmerican`/`CreateEuropean`, `American`/`European` identities, `AmericanShape`/`EuropeanShape` families, the `II`/`IIParallelFlange`/`IChannel`/`ITee`/`IAngle`/`IDoubleAngle`/`IRectangularHollow`/`ICircularHollow`+`IHollowStructuralSection` geometry contracts with `IIParallelFlange.FilletRadius`/`IDoubleAngle.BackToBackDistance`; `.api/api-vividorange-profiles-catalogue.md`), VividOrange.Materials (`EnSteelMaterial`/`EnSteelFactory.CreateLinearElastic` the Table 3.1 `f_y` by grade × delivery × thickness band, `EnSteelDeliveryCondition`; the derivation throws trapped at the grade admission; `.api/api-vividorange-materials.md`), VividOrange.Standards (`En1993` the EN grades cite, `NationalAnnex`; `.api/api-vividorange-standards.md`), UnitsNet (`Length`/`Pressure` at the admission edge; `libs/csharp/.api/api-unitsnet.md`), Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`AcceptValidated`), Rasm.Element (project — `MaterialId`), Rasm.Materials.Component (project — the parent `component#COMPONENT_OWNER`; `capacity#SECTION_CAPACITY` `DesignBasis`/`SafetyFormat`/`CapacityPlacement` the jurisdiction currency the one `Capacity` entry dispatches on; `StudClass` the composite `ΣQn` reads is `joint#JOINT_FAMILY`'s, DEFINED in this parent namespace — no `.Joint` child namespace exists), Thinktecture.Runtime.Extensions (`[SmartEnum]`/`[SmartEnum<string>]` with `[KeyMemberEqualityComparer]` + `[KeyMemberComparer]` stacked for ordered key lookup), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`).
-- Growth: the seed IS the registered database (the full `American` and `European` identity domains enumerate through `Enum.GetValues` — a stocked subset is a policy filter over the fold, never the hard bound); a new composite variant one `Augmented` row with its detail; a new cold-formed stud one designation triple the `ColdFormedSections` lattice already generates; a new fabricated section one `Augmented` row over a `SteelRowSource.Plated` build delegate (the profile arm and its `Forms` supplement already exist — the row is DATA); a new grade one `SteelGrade` row binding its `EnSteelGrade` + the delivery condition whose Table 3.1 sub-table holds it; a new DESIGN CODE one `capacity#SECTION_CAPACITY` `DesignBasis` row plus its resistance arm here (never a second receipt record and never a per-code `Capacity` overload); a new shape family one `SteelClass` row carrying its topology + `FlexureRegime` + `IfcProfileDef` subtype + the §6.3.1/§6.3.2 imperfection factors + `OfShape` arm, PLUS the compiler-forced `SectionProfile` arm and `SectionSolver.Solve`/`Forms` arm on `component#SECTION_SOLVER` (buildingSMART profile-schema cadence, never thing cadence) — never a per-section type, never a transcribed property literal, never a parallel section receipt.
-- Boundary: `SteelShape.Of` is the BOUNDARY_ADMISSION point where raw `VividOrange` `UnitsNet` geometry is admitted EXACTLY ONCE — the published dims (AISC native `LengthUnit.Inch`, EN native `LengthUnit.Millimeter`, the unit travelling WITH the quantity, `.Millimeters` owning the conversion) lift into the `PositiveMagnitude` `SectionDims` columns, an unmatched geometry interface rails `ComponentFault.Family` (never a fabricated sentinel), and the interior carries proven-positive SI scalars with no `UnitsNet` type in a signature; the hollow split is GEOMETRY-driven (`ICircularHollow` before `IRoundedRectangularHollow` before `IRectangularHollow` before the family folds — a round HSS and a rectangular HSS share `AmericanShape.HSS`, so the family enum cannot discriminate them, and the AISC rectangular HSS concretes implement the ROUNDED contract, which does not extend the sharp one) and `SteelClass.OfShape` is TOTAL over both published taxonomies (the EN 10365 families are exclusively i-shape and channel; an unrecognized family rails, never a silent `_ => IShape`); the SOLVE is `component#SECTION_SOLVER`'s — `SectionSolver.Solve` dispatches the `Catalogued` arm over `Shape.Profile` (the exact-fillet `.Utility.Parts` `TrapezoidalPart`/`EllipseQuarterPart` integral) and `Forms.FromCatalogue(Shape)` fills the eight derived columns from `Shape.Section` + `Shape.Class` per topology, so this page holds NO stiffness algebra and NO twenty-column lift (the `ThinWalled` sectorial and `Plastic` strip kernels live on the solver; the elastic solver computes ONLY `Area`/`MomentOfInertiaYy,Zz`/`ElasticSectionModulusYy,Zz`/`RadiusOfGyrationYy,Zz`/`Perimeter`, and VividOrange publishes no plastic, torsion, warping, or shear source at all, so those kernels are load-bearing); the design yield is the registered `SteelGrade.YieldMpa(thicknessMm, annex, key)` DATA and `SteelDesign.Capacity` BINDS it rather than accepting it — the one `Capacity` entry reads the band selector off its own lowered `SectionDims` (a rolled shape's flange, a formed sheet's wall), so no caller can price an S355 shape at 235 MPa and no path bypasses the registered EN Table 3.1 read; an EN band carries its PUBLISHED DESIGNATION and `EnSteelMaterial.TryCreateFromDesignition` resolves grade and specification together — the designation suffix IS the delivery statement, so no second mapping can pair a grade with a sub-table that does not hold it — then reads the thickness-banded `f_y` from `EnSteelFactory.CreateLinearElastic`, the unparsed designation railing typed and the derivation throw trapped onto `ComponentFault.Grade`; the AISC/ASTM bands stay spec-nominal (no .NET package owns the AISC or A653 grade tables); `SteelDesign` reads ONLY canonical `ComputedSection` columns (`Iw` for F2 LTB, the receipt's derived `GoverningRadiusMm` for the weak-axis buckling the real column design governs on, `Avy` the major-axis web shear matching the seam `AvY`, `J/c` the §H3.1 closed-section torsional constant `C`) — a re-minted dimension or a parallel `SteelBeamCheck` surface has no place here, and `DesignCapacity.TorsionalNmm`/`FlexuralMinorNmm` are the one source the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Steel` arm reads onto `SectionCapacity.SteelMember.TorsionalKnm`/`FlexuralMinorKnm`; the DESIGN CODE is `DesignCapacity.Basis` DATA rather than a per-code receipt type — the AISC 360 φ-format and EN 1993-1-1 partial-factor arms fill ONE column set and the capacity rail folds either through the basis's own interaction kernel, so an EN-seeded IPE/HE/UPN at S355 receives an EC3 verdict without a second receipt record, a second lift arm, or a sibling capacity case; the composite `ΣQn` reads `joint#JOINT_FAMILY` `StudClass.SteelShearKn(StudGroup) × StudsPerMetre × ShearSpanMm` (the one stud vocabulary summed over the AISC §I3.2d max-moment-to-zero-moment span), never a re-derived stud shear and never a per-metre rate against a total force; the element IFC stamp is the `ComponentFamily.Steel.Ifc` concrete leaf (role and placement are occurrence refinements the Bim egress gates; every IFC string here stays neutral, the generated `Rasm.Bim` roster holding validation authority at composition-time `IfcLegality` and egress-time `AdmitPredefined`) while `SteelClass.IfcSubtype` (`IfcIShapeProfileDef`/`IfcUShapeProfileDef`/`IfcLShapeProfileDef`/`IfcRectangleHollowProfileDef`/`IfcCircleHollowProfileDef`/`IfcTShapeProfileDef`/`IfcRectangleProfileDef`/`IfcCircleProfileDef`, `IfcArbitraryClosedProfileDef` for `DoubleL`/`Composite`) reaches the Bim profile lane as the seeded `DetailSchema.ProfileSubtype` realization row — steel therefore carries `DetailLane.Realization`, because a family declaring no lane seeds no bag and that lane resolves every steel section to `None` however many subtype tokens this page publishes; BACK-TO-BACK publishes as its own realization row beside it, the double angle's spacing being a fabrication fact of the pair rather than a column on a section-geometry type; the AISI capacity data path is CLOSED in-page — `SteelDesign.FormOf` lowers the `ColdFormedC` and `Corrugated` arms straight onto `SectionDims` and the §B2 effective width computes from that geometry, so no reverse row lookup and no designation-string parse exists.
+- Growth: the seed IS the registered database (the full `American` and `European` identity domains enumerate through `Enum.GetValues` — a stocked subset is a policy filter over the fold, never the hard bound); a new composite variant one `Augmented` row with its detail; a new cold-formed stud one designation triple the `ColdFormedSections` lattice already generates; a new fabricated section one `Augmented` row over a `SteelRowSource.Plated` build delegate (the profile arm and its `Forms` supplement already exist — the row is DATA); a new grade one `SteelGrade` row binding its `EnSteelGrade` + the delivery condition whose Table 3.1 sub-table holds it — or, stainless, its `StainlessBands` registry row whose two-sourced EN 10088 cells are the yield source; a new DESIGN CODE one `capacity#SECTION_CAPACITY` `DesignBasis` row with its resistance arm here (never a second receipt record and never a per-code `Capacity` overload); a new shape family one `SteelClass` row carrying its topology + `FlexureRegime` + `IfcProfileDef` subtype + the §6.3.1/§6.3.2 imperfection factors + `OfShape` arm, AND the compiler-forced `SectionProfile` arm and `SectionSolver.Solve`/`Forms` arm on `component#SECTION_SOLVER` (buildingSMART profile-schema cadence, never thing cadence) — never a per-section type, never a transcribed property literal, never a parallel section receipt.
+- Boundary: `SteelShape.Of` is the BOUNDARY_ADMISSION point where raw `VividOrange` `UnitsNet` geometry is admitted EXACTLY ONCE — the published dims (AISC native `LengthUnit.Inch`, EN native `LengthUnit.Millimeter`, the unit travelling WITH the quantity, `.Millimeters` owning the conversion) lift into the `PositiveMagnitude` `SectionDims` columns, an unmatched geometry interface rails `ComponentFault.Family` (never a fabricated sentinel), and the interior carries proven-positive SI scalars with no `UnitsNet` type in a signature; the hollow split is GEOMETRY-driven (`ICircularHollow` before `IRoundedRectangularHollow` before `IRectangularHollow` before the family folds — a round HSS and a rectangular HSS share `AmericanShape.HSS`, so the family enum cannot discriminate them, and the AISC rectangular HSS concretes implement the ROUNDED contract, which does not extend the sharp one) and `SteelClass.OfShape` is TOTAL over both published taxonomies (the EN 10365 families are exclusively i-shape and channel; an unrecognized family rails, never a silent `_ => IShape`); the SOLVE is `component#SECTION_SOLVER`'s — `SectionSolver.Solve` dispatches the `Catalogued` arm over `Shape.Profile` (the exact-fillet `.Utility.Parts` `TrapezoidalPart`/`EllipseQuarterPart` integral) and `Forms.FromCatalogue(Shape)` fills the eight derived columns from `Shape.Section` + `Shape.Class` per topology, so this page holds NO stiffness algebra and NO twenty-column lift (the `ThinWalled` sectorial and `Plastic` strip kernels live on the solver; the elastic solver computes ONLY `Area`/`MomentOfInertiaYy,Zz`/`ElasticSectionModulusYy,Zz`/`RadiusOfGyrationYy,Zz`/`Perimeter`, and VividOrange publishes no plastic, torsion, warping, or shear source at all, so those kernels are load-bearing); the design yield is the registered `SteelGrade.YieldMpa(thicknessMm, annex, key)` DATA and `SteelDesign.Capacity` BINDS it rather than accepting it — the one `Capacity` entry reads the band selector off its own lowered `SectionDims` (a rolled shape's flange, a formed sheet's wall), so no caller can price an S355 shape at 235 MPa and no path bypasses the registered EN Table 3.1 read; an EN band carries its PUBLISHED DESIGNATION and `EnSteelMaterial.TryCreateFromDesignition` resolves grade and specification together — the designation suffix IS the delivery statement, so no second mapping can pair a grade with a sub-table that does not hold it — then reads the thickness-banded `f_y` from `EnSteelFactory.CreateLinearElastic`, the unparsed designation railing typed and the derivation throw trapped onto `ComponentFault.Grade`; the AISC/ASTM bands stay spec-nominal — reflection over the whole admitted VividOrange train at the locked versions finds no A36/A992/A500/A572/A653 type, member, or embedded string, `EnSteelGrade` S235–S460 being the train's only steel-grade surface, so the spec-nominal literal is the strongest form the ecosystem admits; a STAINLESS band resolves through the published EN 10088 `StainlessBands` registry cell at the product form its profile ORIGIN states (a catalogued identity the EN 10088-3 bar/section table, a formed sheet the -2 cold strip, a fabricated plate arm the -2 plate) under the `en1993-1-4` jurisdiction whose reduced ε carries the E/210000 term at the 200 GPa stainless design modulus — the γM set (1.10/1.10/1.25) rides the `capacity#SECTION_CAPACITY` `DesignBasis` row, and an absent registry cell rails typed rather than borrowing a neighbouring form; `SteelDesign` reads ONLY canonical `ComputedSection` columns (`Iw` for F2 LTB, the receipt's derived `GoverningRadiusMm` for the weak-axis buckling the real column design governs on, `Avy` the major-axis web shear matching the seam `AvY`, `J/c` the §H3.1 closed-section torsional constant `C`) — a re-minted dimension or a parallel `SteelBeamCheck` surface has no place here, and `DesignCapacity.TorsionalNmm`/`FlexuralMinorNmm` are the one source the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Steel` arm reads onto `SectionCapacity.SteelMember.TorsionalKnm`/`FlexuralMinorKnm`; the DESIGN CODE is `DesignCapacity.Basis` DATA rather than a per-code receipt type — the AISC 360 φ-format and EN 1993-1-1 partial-factor arms fill ONE column set and the capacity rail folds either through the basis's own interaction kernel, so an EN-seeded IPE/HE/UPN at S355 receives an EC3 verdict without a second receipt record, a second lift arm, or a sibling capacity case; the composite `ΣQn` reads `joint#JOINT_FAMILY` `StudClass.SteelShearKn(StudGroup) × StudsPerMetre × ShearSpanMm` (the one stud vocabulary summed over the AISC §I3.2d max-moment-to-zero-moment span), never a re-derived stud shear and never a per-metre rate against a total force; the element IFC stamp is the `ComponentFamily.Steel.Ifc` concrete leaf (role and placement are occurrence refinements the Bim egress gates; every IFC string here stays neutral, the generated `Rasm.Bim` roster holding validation authority at composition-time `IfcLegality` and egress-time `AdmitPredefined`) while `SteelClass.IfcSubtype` (`IfcIShapeProfileDef`/`IfcUShapeProfileDef`/`IfcLShapeProfileDef`/`IfcRectangleHollowProfileDef`/`IfcCircleHollowProfileDef`/`IfcTShapeProfileDef`/`IfcRectangleProfileDef`/`IfcCircleProfileDef`, `IfcArbitraryClosedProfileDef` for `DoubleL`/`Composite`) reaches the Bim profile lane as the seeded `DetailSchema.ProfileSubtype` realization row — steel therefore carries `DetailLane.Realization`, because a family declaring no lane seeds no bag and that lane resolves every steel section to `None` however many subtype tokens this page publishes; BACK-TO-BACK publishes as its own realization row beside it, the double angle's spacing being a fabrication fact of the pair rather than a column on a section-geometry type; the AISI capacity data path is CLOSED in-page — `SteelDesign.FormOf` lowers the `ColdFormedC` and `Corrugated` arms straight onto `SectionDims` and the §B2 effective width computes from that geometry, so no reverse row lookup and no designation-string parse exists.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -145,10 +145,52 @@ public sealed partial class CompactnessClass {
     public CompactnessClass Worse(CompactnessClass other) => Rank >= other.Rank ? this : other;
 }
 
+// The EN 10088 product-form axis of a stainless proof cell: the -2 flat forms (C cold-rolled strip t ≤ 8, H
+// hot-rolled strip t ≤ 13.5, P hot-rolled plate t ≤ 75) and the -3 solution-annealed bar/section d ≤ 160. The form
+// is a PRODUCT fact the profile origin already states, which is what lets the capacity entry recover it from the
+// value instead of a caller flag.
+public enum StainlessForm : byte { ColdStrip = 0, HotStrip = 1, Plate = 2, Bar = 3 }
+
+// One EN 10088-2/-3 grade's proof-stress cells (Rp0.2 min, MPa) per product form — every cell an Option because
+// only what two independent sources print seeds (SEED_ROW_LAW, Published). ProofMpa is the ONE read: an absent
+// cell rails typed rather than borrowing a neighbouring form, so a plate girder in a grade whose plate row is
+// unpublished refuses instead of pricing on a bar cell.
+public readonly record struct StainlessRow(
+    string EnNumber, Option<double> ColdStripMpa, Option<double> HotStripMpa, Option<double> PlateMpa, Option<double> BarMpa) {
+
+    public Option<double> Cell(StainlessForm form) => form switch {
+        StainlessForm.ColdStrip => ColdStripMpa,
+        StainlessForm.HotStrip  => HotStripMpa,
+        StainlessForm.Plate     => PlateMpa,
+        _                       => BarMpa,
+    };
+
+    public Fin<double> ProofMpa(StainlessForm form, Op key) =>
+        Cell(form).ToFin(ComponentFault.Grade(key, $"<stainless-cell-unpublished:{EnNumber}:{form}>"));
+}
+
+// The EN 10088 registry: the standard-table print corroborated by an independent second producer datasheet fills a
+// cell; a single-sourced cell stays None — the 1.4404 H/P flats (numerically equal to the two-sourced 1.4401
+// 316-family block yet never captured under their own label), the 1.4301/1.4401 bar rows, the 1.4462 flat rows
+// (the EN 1993-1-4 460 print is one source), and EVERY 1.4571 cell. 1.4571 therefore registers with no SteelGrade
+// band at all: its substance id stands in the Properties catalogue, and its band is one SteelGrade row the moment
+// a second source lands a cell.
+public static class StainlessBands {
+    public static readonly StainlessRow S14301 = new("1.4301", Some(230.0), Some(210.0), Some(210.0), None);
+    public static readonly StainlessRow S14307 = new("1.4307", Some(220.0), Some(200.0), Some(200.0), Some(175.0));
+    public static readonly StainlessRow S14401 = new("1.4401", Some(240.0), Some(220.0), Some(220.0), None);
+    public static readonly StainlessRow S14404 = new("1.4404", Some(240.0), None,        None,        Some(200.0));
+    public static readonly StainlessRow S14462 = new("1.4462", None,        None,        None,        Some(450.0));
+    public static readonly StainlessRow S14571 = new("1.4571", None,        None,        None,        None);
+}
+
 // The structural-steel grade band: the EN bands bind their EnSteelGrade + the EnSteelDeliveryCondition whose EN 1993-1-1
 // Table 3.1 sub-table HOLDS the grade (AR/EN 10025-2 holds S235/S275/S355/S450; N/EN 10025-3 and M/EN 10025-4 hold
 // S420/S460 — the default AR spec rails them), so the design yield is registered DATA citing En1993; the AISC bands carry
-// their spec-nominal (no .NET package owns the AISC grade table). SubstanceId is the per-grade Mechanical row the design
+// their spec-nominal (no admitted package carries any AISC/ASTM grade member or string). The STAINLESS bands bind a
+// StainlessBands registry row instead of an EnDesignation — EnSteelMaterial parses carbon EN 10025 designations only —
+// and the capacity entry routes them through the row's own form-banded cell, so NominalYieldMpa on a stainless band is
+// the row's least two-sourced cell — a conservative floor no design path consults. SubstanceId is the per-grade Mechanical row the design
 // seam reads; the render AppearanceId rides the seed (the two-slot independence law).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -168,9 +210,19 @@ public sealed partial class SteelGrade {
     public static readonly SteelGrade S420 = new("s420", nominalYieldMpa: 420.0, substanceId: "steel.s420", enDesignation: Some("S420N"));
     public static readonly SteelGrade S450 = new("s450", nominalYieldMpa: 440.0, substanceId: "steel.s450", enDesignation: Some("S450"));
     public static readonly SteelGrade S460 = new("s460", nominalYieldMpa: 460.0, substanceId: "steel.s460", enDesignation: Some("S460N"));
+    public static readonly SteelGrade Ss14301 = new("ss1-4301", nominalYieldMpa: 210.0, substanceId: "steel.1.4301", stainless: Some(StainlessBands.S14301));
+    public static readonly SteelGrade Ss14307 = new("ss1-4307", nominalYieldMpa: 175.0, substanceId: "steel.1.4307", stainless: Some(StainlessBands.S14307));
+    public static readonly SteelGrade Ss14401 = new("ss1-4401", nominalYieldMpa: 220.0, substanceId: "steel.1.4401", stainless: Some(StainlessBands.S14401));
+    public static readonly SteelGrade Ss14404 = new("ss1-4404", nominalYieldMpa: 200.0, substanceId: "steel.1.4404", stainless: Some(StainlessBands.S14404));
+    public static readonly SteelGrade Ss14462 = new("ss1-4462", nominalYieldMpa: 450.0, substanceId: "steel.1.4462", stainless: Some(StainlessBands.S14462));
     public double NominalYieldMpa { get; }
     public string SubstanceId { get; }
     public MaterialId Substance => MaterialId.Of(SubstanceId);
+
+    // The published EN 10088 registry row of a stainless band — the yield SOURCE the capacity entry routes through
+    // at the profile-origin product form. Mutually exclusive with EnDesignation by construction of the roster: a
+    // band's yield has exactly one producer.
+    public Option<StainlessRow> Stainless { get; }
 
     // The EN grade as its PUBLISHED DESIGNATION rather than a grade enum plus a hand-set delivery condition. The
     // designation IS the delivery statement — `S420N` names the normalized sub-table, `S355` the as-rolled one — so
@@ -205,8 +257,17 @@ public sealed partial class SteelJurisdiction {
     public static readonly SteelJurisdiction AisiS100 = new("aisi-s100", ladder: SteelLadder.Computed, body: SteelBody.Aisc);
     public static readonly SteelJurisdiction En1993   = new("en1993",    ladder: SteelLadder.Eurocode, body: SteelBody.Eurocode);
     public static readonly SteelJurisdiction En1994   = new("en1994",    ladder: SteelLadder.Eurocode, body: SteelBody.Eurocode);
+    // EN 1993-1-4: the STAINLESS jurisdiction rides the shared Eurocode ladder and body under its own reduced ε —
+    // ε² = (235/f_y)·(E/210000) with the 200 GPa stainless design modulus, so every Table 5.2 limit tightens by the
+    // modulus ratio and nothing else on the arm re-derives. Its γM set (γM0 = γM1 = 1.10, γM2 = 1.25) is the
+    // capacity#SECTION_CAPACITY `en1993-1-4` DesignBasis row the Eurocode arm divides by.
+    public static readonly SteelJurisdiction En1993Stainless = new("en1993-1-4", ladder: SteelLadder.Eurocode, body: SteelBody.Eurocode, epsilonModulusRatio: 200_000.0 / 210_000.0);
     public SteelLadder Ladder { get; }
     public SteelBody Body { get; }
+
+    // The E/210000 term of the jurisdiction's OWN ε basis — 1.0 on the carbon rows (EN 1993-1-1 ε = √(235/f_y)),
+    // the modulus ratio on the stainless row; a column, never a second classifier.
+    public double EpsilonModulusRatio { get; }
 
     public static Fin<SteelJurisdiction> Of(DesignBasis basis, Op key) =>
         TryGet(basis.Key, out SteelJurisdiction? row) && row is { } served
@@ -347,7 +408,9 @@ public readonly record struct DesignCapacity(
 public static class SteelDesign {
     const double φb = 0.90, φc = 0.90, φv = 0.90;
     // The elastic constants are the family's ONE spelling — internal because the generated ColdFormedRow lattice
-    // reads E for its §B4.2 stiffener slenderness, and one spelling is what keeps the two in step.
+    // reads E for its §B4.2 stiffener slenderness, and one spelling is what keeps the two in step. The 200 GPa
+    // value is ALSO the EN 1993-1-4 stainless design modulus, so the stainless bands ride the same constant and
+    // the reduced-ε basis carries the carbon 210 GPa reference only inside the jurisdiction's own ratio column.
     internal const double E = 200_000.0, G = 77_200.0;
 
     // The §E3 flexural-buckling column both design lanes drive: the effective slenderness over the receipt's own
@@ -365,7 +428,7 @@ public static class SteelDesign {
     public static Fin<CompactnessClass> Classify(SteelClass cls, SectionDims d, double yieldMpa, SteelJurisdiction jurisdiction) =>
         jurisdiction.Ladder switch {
             SteelLadder.Aisc     => Fin.Succ(ClassifyAisc(cls, d, yieldMpa)),
-            SteelLadder.Eurocode => Fin.Succ(ClassifyEn(cls, d, yieldMpa)),
+            SteelLadder.Eurocode => Fin.Succ(ClassifyEn(cls, d, yieldMpa, jurisdiction.EpsilonModulusRatio)),
             _                    => Fin.Succ(CompactnessClass.Compact),   // the formed lane overwrites this with its own computed verdict
         };
 
@@ -381,12 +444,14 @@ public static class SteelDesign {
     // channel flange is a full outstand where a rolled-I flange is a half one, and a tee stem and an angle leg read
     // the full depth where an I web deducts both flanges. Reading one I-shape model for every class hands an HSS wall
     // and a channel flange the half-outstand divisor, which under-states their slenderness by a factor of two.
-    static CompactnessClass ClassifyEn(SteelClass cls, SectionDims d, double yieldMpa) => cls.Slenderness.Match(
-        Some: row => EnVerdict(row, d, yieldMpa),
+    static CompactnessClass ClassifyEn(SteelClass cls, SectionDims d, double yieldMpa, double modulusRatio) => cls.Slenderness.Match(
+        Some: row => EnVerdict(row, d, yieldMpa, modulusRatio),
         None: static () => CompactnessClass.Compact);
 
-    static CompactnessClass EnVerdict(SlendernessRow row, SectionDims d, double yieldMpa) {
-        double e = Math.Sqrt(235.0 / yieldMpa);
+    // ε² carries the jurisdiction's own E/210000 term — 1.0 carbon, the 200/210 stainless ratio — so the ONE
+    // Table 5.2 generator serves both codes and the stainless limits tighten by exactly the published basis.
+    static CompactnessClass EnVerdict(SlendernessRow row, SectionDims d, double yieldMpa, double modulusRatio) {
+        double e = Math.Sqrt(235.0 / yieldMpa * modulusRatio);
         double flange = d.WidthMm.Value / (row.FlangeDivisor * d.FlangeMm.Value);
         double web = (row.WebClear ? Math.Max(d.DepthMm.Value - 2.0 * d.FlangeMm.Value, 0.0) : d.DepthMm.Value) / d.WebMm.Value;
         return Verdict(flange, EnFlangeCompact * e, EnFlangeSemiCompact * e)
@@ -430,9 +495,13 @@ public static class SteelDesign {
         from jurisdiction in SteelJurisdiction.Of(placement.Basis, key)
         from form in FormOf(profile, key)
         // The band selector is the element the grade table bands on: a rolled shape's FLANGE, a formed sheet's WALL —
-        // one column read off the lowered dims, never a caller-supplied thickness.
-        from yieldMpa in grade.YieldMpa(
-            Formed(form.Class) ? form.Dims.WebMm.Value : form.Dims.FlangeMm.Value, placement.Annex, key)
+        // one column read off the lowered dims, never a caller-supplied thickness. A STAINLESS band routes through
+        // its registry row at the profile-origin product form instead — the form is recovered from the value, so no
+        // caller can price a plate girder on a bar cell and an unpublished cell refuses typed.
+        from yieldMpa in grade.Stainless.Match(
+            Some: row => row.ProofMpa(StainlessFormOf(profile), key),
+            None: () => grade.YieldMpa(
+                Formed(form.Class) ? form.Dims.WebMm.Value : form.Dims.FlangeMm.Value, placement.Annex, key))
         from classification in Classify(form.Class, form.Dims, yieldMpa, jurisdiction)
         // TOPOLOGY picks the effective-SECTION step and the JURISDICTION picks the resistance body — two independent
         // axes, dispatched independently. A formed sheet's section is post-buckling EFFECTIVE under every code that
@@ -446,6 +515,15 @@ public static class SteelDesign {
                 : Rolled(placement.Basis, form.Class, form.Dims, form.Composite, s, yieldMpa, classification, placement.UnbracedLengthMm, placement.EffectiveLengthMm);
 
     static bool Formed(SteelClass cls) => cls == SteelClass.ColdFormed;
+
+    // The EN 10088 product form recovered from the profile ORIGIN: a catalogued identity is a hot-rolled long
+    // product (the -3 bar/section table), a formed sheet is cold strip (-2 C), and every fabricated arm is
+    // hot-rolled plate (-2 P) — a product fact the arm already states, never a caller flag.
+    static StainlessForm StainlessFormOf(SectionProfile profile) => profile switch {
+        SectionProfile.Catalogued => StainlessForm.Bar,
+        SectionProfile.ColdFormedC or SectionProfile.Zed or SectionProfile.Corrugated => StainlessForm.ColdStrip,
+        _ => StainlessForm.Plate,
+    };
 
     // The ONE safety-format application: a resistance-factor code MULTIPLIES a nominal by φ, a partial-factor code
     // DIVIDES a characteristic by γM. Every lane states its nominal and hands it here, so one lane serves both
@@ -461,11 +539,11 @@ public static class SteelDesign {
     static Fin<(SteelClass Class, SectionDims Dims, Option<CompositeDetail> Composite)> FormOf(SectionProfile profile, Op key) => profile switch {
         SectionProfile.Catalogued c        => Fin.Succ((c.Shape.Class, c.Shape.Section, c.Shape.Composite)),
         SectionProfile.IShape i            => Dims(SteelClass.IShape, i.DepthMm, i.WidthMm, i.WebMm, i.FlangeMm, i.FilletMm),
-        SectionProfile.AsymmetricIShape a  => Dims(SteelClass.IShape, a.DepthMm, Wider(a.TopWidthMm, a.BottomWidthMm), a.WebMm, Thinner(a.TopFlangeMm, a.BottomFlangeMm), a.FilletMm),
+        SectionProfile.AsymmetricIShape a  => Dims(SteelClass.IShape, a.DepthMm, Wider(a.TopFlangeWidthMm, a.BottomFlangeWidthMm), a.WebThicknessMm, Thinner(a.TopFlangeThicknessMm, a.BottomFlangeThicknessMm), a.FilletMm),
         SectionProfile.Channel c           => Dims(SteelClass.UShape, c.DepthMm, c.WidthMm, c.WebMm, c.FlangeMm, c.FilletMm),
         SectionProfile.Tee t               => Dims(SteelClass.Tee, t.DepthMm, t.WidthMm, t.WebMm, t.FlangeMm, t.FilletMm),
         SectionProfile.Angle an            => Dims(SteelClass.LShape, an.DepthMm, an.WidthMm, an.ThicknessMm, an.ThicknessMm, an.FilletMm),
-        SectionProfile.Zed z               => Dims(SteelClass.ColdFormed, z.DepthMm, z.FlangeWidthMm, z.WebMm, z.FlangeMm, z.FilletMm),
+        SectionProfile.Zed z               => Dims(SteelClass.ColdFormed, z.DepthMm, Wider(z.TopFlangeWidthMm, z.BottomFlangeWidthMm), z.WallMm, z.WallMm, z.InnerFilletMm),
         SectionProfile.ColdFormedC cf      => Dims(SteelClass.ColdFormed, cf.DepthMm, cf.WidthMm, cf.WallMm, cf.WallMm, cf.InnerFilletMm),
         // A deck's §B2 flange is its TOP FLAT — the plate element that actually buckles between folds. The rib PITCH
         // is a repeat distance spanning flats and inclined webs alike, so feeding it to the flange column measured
@@ -977,11 +1055,13 @@ public static class SteelSeed {
 
     // The augmented rows ride the SAME seed vocabulary: a W18x50 composite floor beam (1200×100 mm slab, f'c 28 MPa,
     // 3/4in studs at 2/m over the 4.5 m §I3.2d shear span of a 9 m simple beam — ΣQn reads StudClass.S19.SteelShearKn),
-    // the 600S162-54 AISI stud on its OWN generated ColdFormedRow at the A653 SS Gr 50 band, and the two FABRICATED rows that make the open-thin-walled Forms algebra reachable from an
+    // the 600S162-54 AISI stud on its OWN generated ColdFormedRow at the A653 SS Gr 50 band, and the FABRICATED rows that make the open-thin-walled Forms algebra reachable from an
     // admitted Component: a welded plate girder (1200 mm web × 12 mm, 400/500 mm asymmetric flanges × 25/32 mm — the
-    // AsymmetricIShape arm Forms.MonoI prices) and a cold-formed Z purlin (200 mm depth, 75/65 mm flanges, 2.5 mm
-    // wall, 20/18 mm lips — the Zed arm Forms.PointSymmetricZ prices). Fabricated dims are seed DATA, the same
-    // posture as a SmartEnum row column; the profile arms admit through their own railed Of factories inside RowOf.
+    // AsymmetricIShape arm Forms.MonoI prices), a cold-formed Z purlin (200 mm depth, 75/65 mm flanges, 2.5 mm
+    // wall, 20/18 mm lips — the Zed arm Forms.PointSymmetricZ prices), and a welded STAINLESS girder in 1.4301 whose
+    // Plated origin resolves the EN 10088-2 plate cell (210 MPa) — the row that makes the stainless lane reachable.
+    // Fabricated dims are seed DATA, the same posture as a SmartEnum row column; the profile arms admit through
+    // their own railed Of factories inside RowOf.
     static readonly Seq<SteelRowSeed> Augmented = Seq(
         new SteelRowSeed("steel.comp-w18x50-slab120",
             new SteelRowSource.Rolled(CatalogueFactory.CreateAmerican(American.W18x50),
@@ -992,7 +1072,9 @@ public static class SteelSeed {
             topFlangeThicknessMm: 25.0, bottomFlangeThicknessMm: 32.0, webThicknessMm: 12.0, filletMm: 0.0, key)), SteelGrade.S355, En),
         new SteelRowSeed("steel.zed-200x75x25", new SteelRowSource.Plated(static key => SectionProfile.Zed.Of(
             depthMm: 200.0, topFlangeWidthMm: 75.0, bottomFlangeWidthMm: 65.0,
-            thicknessMm: 2.5, topLipMm: 20.0, bottomLipMm: 18.0, innerFilletMm: 3.75, key)), SteelGrade.A653Gr50, Aisc));
+            thicknessMm: 2.5, topLipMm: 20.0, bottomLipMm: 18.0, innerFilletMm: 3.75, key)), SteelGrade.A653Gr50, Aisc),
+        new SteelRowSeed("steel.pg-ss-800x300", new SteelRowSource.Plated(static key => SectionProfile.IShape.Of(
+            depthMm: 800.0, widthMm: 300.0, webMm: 8.0, flangeMm: 20.0, filletMm: 0.0, flangeToeMm: 20.0, key)), SteelGrade.Ss14301, En));
 
     // The seed domain is the ENUMERATED identity space of the admitted catalogue package — every `American` and
     // `European` member the package declares, minted through its singleton factory, so a model importing a W40x593 or

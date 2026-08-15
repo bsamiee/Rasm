@@ -647,6 +647,32 @@ public sealed partial class SemanticProjector(
     internal static readonly string PositioningAttributeSet = "IfcLinearPositioning";
     internal static readonly string ProjectAttributeSet = "IfcProjectContext";
 
+    // The Rasm-authored bag ROW names this ingest stamps and a peer surface reads back by name: the port flow
+    // pair composes the Element-declared PortRows statics (the BoundaryRows custody — Element declares, this
+    // ingest stamps, the Model/systems trace reads; the prior two-site PropertyCategory.Seam.Row mints were the
+    // fork-on-first-rename that custody deletes), while the context root's Phase/LongName header labels the
+    // egress restamps stay this page's own Seam.Row mints — one producer, one reader, both HERE.
+    internal static readonly PropertyName Phase = PropertyCategory.Seam.Row("Phase");
+    internal static readonly PropertyName LongName = PropertyCategory.Seam.Row("LongName");
+
+    // The type-signature bookkeeping bag rows: this ingest authors them and the Exchange/import reconcile reads
+    // them back by name, so each is ONE PropertyName static under the same Seam.Row mint — a literal at either
+    // end is the key-space fork the branch row-name custody ruling deletes.
+    public static class SignatureRows {
+        public static readonly PropertyName GlobalId = PropertyCategory.Seam.Row("GlobalId");
+        public static readonly PropertyName IfcEntity = PropertyCategory.Seam.Row("IfcEntity");
+        public static readonly PropertyName PredefinedType = PropertyCategory.Seam.Row("PredefinedType");
+        public static readonly PropertyName Name = PropertyCategory.Seam.Row("Name");
+        public static readonly PropertyName MaterialName = PropertyCategory.Seam.Row("MaterialName");
+        public static readonly PropertyName MaterialCategory = PropertyCategory.Seam.Row("MaterialCategory");
+        public static readonly PropertyName MaterialStandard = PropertyCategory.Seam.Row("MaterialStandard");
+        public static readonly PropertyName MaterialGrade = PropertyCategory.Seam.Row("MaterialGrade");
+        public static readonly PropertyName ProfileStandard = PropertyCategory.Seam.Row("ProfileStandard");
+        public static readonly PropertyName ProfileDesignation = PropertyCategory.Seam.Row("ProfileDesignation");
+        public static readonly PropertyName ProfileEntity = PropertyCategory.Seam.Row("ProfileEntity");
+        public static readonly PropertyName ProfileStepKey = PropertyCategory.Seam.Row("ProfileStepKey");
+    }
+
     // Entity-borne facts with no IfcPropertySet carrier land as synthesized Import bags through the SAME Capture
     // path the type-signature bag rides: the port flow attributes (the Model/systems#SYSTEM_TRACE directed-trace
     // inputs — an unsurfaced FlowDirection reads NOTDEFINED and degrades every trace to undirected reachability),
@@ -663,8 +689,8 @@ public sealed partial class SemanticProjector(
             IfcDistributionPort port => Fin.Succ(Some(new PropertyBag(
                 PortAttributeSet,
                 Map(
-                    (PropertyName.Create("FlowDirection"), (PropertyValue)new PropertyValue.Text(port.FlowDirection.ToString())),
-                    (PropertyName.Create("SystemType"), new PropertyValue.Text(port.SystemType.ToString()))),
+                    (PortRows.FlowDirection, (PropertyValue)new PropertyValue.Text(port.FlowDirection.ToString())),
+                    (PortRows.SystemType, new PropertyValue.Text(port.SystemType.ToString()))),
                 InheritanceMode.OccurrenceWins,
                 PropertySource.Import))),
             IfcStructuralItem or IfcStructuralActivity or IfcStructuralLoadGroup or IfcStructuralResultGroup or IfcStructuralAnalysisModel =>
@@ -683,10 +709,10 @@ public sealed partial class SemanticProjector(
             // LongName display title — so the egress restamps both on the re-authored IfcProject; both blank yields
             // no bag node, and the empty-string GG default never mints a phantom row.
             IfcContext context => Fin.Succ(
-                Seq(("Phase", context.Phase), ("LongName", context.LongName))
-                    .Filter(static row => !string.IsNullOrWhiteSpace(row.Item2))
+                Seq((Row: Phase, Value: context.Phase), (Row: LongName, Value: context.LongName))
+                    .Filter(static row => !string.IsNullOrWhiteSpace(row.Value))
                     .Fold(Map<PropertyName, PropertyValue>(), static (bag, row) =>
-                        bag.Add(PropertyName.Create(row.Item1), new PropertyValue.Text(row.Item2)))
+                        bag.Add(row.Row, new PropertyValue.Text(row.Value)))
                     is { IsEmpty: false } rows
                     ? Some(new PropertyBag(ProjectAttributeSet, rows, InheritanceMode.OccurrenceWins, PropertySource.Import))
                     : Option<PropertyBag>.None),
@@ -698,22 +724,22 @@ public sealed partial class SemanticProjector(
     static PropertyBag ImportedSource(IfcTypeSignature signature) =>
         new PropertyBag(
             TypeSignatureSet,
-            Seq(("MaterialName", signature.Material.Map(static m => m.Name)),
-                ("MaterialCategory", signature.Material.Map(static m => m.Category)),
-                ("MaterialStandard", signature.Material.Bind(static m => m.Standard)),
-                ("MaterialGrade", signature.Material.Bind(static m => m.Grade)),
-                ("ProfileStandard", signature.Profile.Map(static p => p.Standard)),
-                ("ProfileDesignation", signature.Profile.Map(static p => p.Designation)),
-                ("ProfileEntity", signature.Profile.Map(static p => p.IfcEntity)),
-                ("ProfileStepKey", signature.Profile.Map(static p => p.StepKey)))
+            Seq((Row: SignatureRows.MaterialName, Value: signature.Material.Map(static m => m.Name)),
+                (Row: SignatureRows.MaterialCategory, Value: signature.Material.Map(static m => m.Category)),
+                (Row: SignatureRows.MaterialStandard, Value: signature.Material.Bind(static m => m.Standard)),
+                (Row: SignatureRows.MaterialGrade, Value: signature.Material.Bind(static m => m.Grade)),
+                (Row: SignatureRows.ProfileStandard, Value: signature.Profile.Map(static p => p.Standard)),
+                (Row: SignatureRows.ProfileDesignation, Value: signature.Profile.Map(static p => p.Designation)),
+                (Row: SignatureRows.ProfileEntity, Value: signature.Profile.Map(static p => p.IfcEntity)),
+                (Row: SignatureRows.ProfileStepKey, Value: signature.Profile.Map(static p => p.StepKey)))
             .Fold(
                 Map<PropertyName, PropertyValue>()
-                    .Add(PropertyName.Create("GlobalId"), new PropertyValue.Text(signature.GlobalId))
-                    .Add(PropertyName.Create("IfcEntity"), new PropertyValue.Text(signature.IfcEntity))
-                    .Add(PropertyName.Create("PredefinedType"), new PropertyValue.Text(signature.PredefinedType))
-                    .Add(PropertyName.Create("Name"), new PropertyValue.Text(signature.Name)),
-                static (bag, row) => row.Item2.Match(
-                    Some: value => bag.Add(PropertyName.Create(row.Item1), new PropertyValue.Text(value)),
+                    .Add(SignatureRows.GlobalId, new PropertyValue.Text(signature.GlobalId))
+                    .Add(SignatureRows.IfcEntity, new PropertyValue.Text(signature.IfcEntity))
+                    .Add(SignatureRows.PredefinedType, new PropertyValue.Text(signature.PredefinedType))
+                    .Add(SignatureRows.Name, new PropertyValue.Text(signature.Name)),
+                static (bag, row) => row.Value.Match(
+                    Some: value => bag.Add(row.Row, new PropertyValue.Text(value)),
                     None: () => bag)),
             InheritanceMode.TypeDrivenOnly,
             PropertySource.Import);
@@ -826,7 +852,7 @@ public sealed partial class SemanticProjector(
             .Map(values => new Noted<Seq<(PropertyName, PropertyValue)>>(rows.Log, values.Filter(static row => row.value switch {
                 PropertyValue.Text text => text.Value.Length > 0,
                 _ => true,
-            }).Map(static row => (PropertyName.Create(row.Key), row.value)).ToSeq()));
+            }).Map(static row => (PropertyCategory.Seam.Row(row.Key), row.value)).ToSeq()));
     }
 
     static (string, Fin<PropertyValue>) Length(string name, double native, UnitScale scale) =>

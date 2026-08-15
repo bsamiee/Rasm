@@ -104,6 +104,7 @@ public sealed partial class Detail {
 
     // --- [IMPORT_LEG]
     public static readonly Detail ImportCataloguePending = new("import-catalogue-pending", DetailLeg.Import, Codec);
+    public static readonly Detail ImportEnergyRoute = new("import-energy-route", DetailLeg.Import, Codec);
     public static readonly Detail ImportGeospatialRoute = new("import-geospatial-route", DetailLeg.Import, Codec);
     public static readonly Detail ImportIfcRoute = new("import-ifc-route", DetailLeg.Import, Codec);
     public static readonly Detail ImportNeedsCompanion = new("import-needs-companion", DetailLeg.Import, Capability);
@@ -122,6 +123,7 @@ public sealed partial class Detail {
     public static readonly Detail CobieExportGraphRoute = new("cobie-export-graph-route", DetailLeg.Export, Codec);
     public static readonly Detail ElementSceneEmpty = new("element-scene-empty", DetailLeg.Export, Codec);
     public static readonly Detail ElementSceneMeshMiss = new("element-scene-mesh-miss", DetailLeg.Export, Dangling);
+    public static readonly Detail EnergyExportRoute = new("energy-export-route", DetailLeg.Export, Codec);
     public static readonly Detail ExportCataloguePending = new("export-catalogue-pending", DetailLeg.Export, Codec);
     public static readonly Detail ExportNeedsHost = new("export-needs-host", DetailLeg.Export, Capability);
     public static readonly Detail GeoExportRoute = new("geo-export-route", DetailLeg.Export, Codec);
@@ -131,6 +133,7 @@ public sealed partial class Detail {
     public static readonly Detail KhrEncoderUnrouted = new("khr-encoder-unrouted", DetailLeg.Export, Codec);
     public static readonly Detail LodDecimate = new("lod-decimate", DetailLeg.Export, Rejected);
     public static readonly Detail MeshletBuild = new("meshlet-build", DetailLeg.Export, Rejected);
+    public static readonly Detail SafExportGraphRoute = new("saf-export-graph-route", DetailLeg.Export, Codec);
     public static readonly Detail SceneAuthor = new("scene-author", DetailLeg.Export, Codec);
     public static readonly Detail SceneExport = new("scene-export", DetailLeg.Export, Codec);
     public static readonly Detail ScheduleAnimation = new("schedule-animation", DetailLeg.Export, Rejected);
@@ -183,6 +186,10 @@ public sealed partial class Detail {
     public static readonly Detail EnergyClassMiss = new("energy-class-miss", DetailLeg.Energy, Unmapped);
     public static readonly Detail EnergyConstructionAbsent = new("energy-construction-absent", DetailLeg.Energy, Dangling);
     public static readonly Detail EnergyDecode = new("energy-decode", DetailLeg.Energy, Rejected);
+    // A standing rail over a PROVED absence, not a growth marker: the OpenStudio translator matrix admits
+    // OSM-family sources alone (the binding ships no HBJSON ingest), HBJSON→OSM is the python peer's
+    // honeybee-openstudio wire leg, and a graph→OSM build is Compute's simulation lane — so a graph→osm/gbxml/idf
+    // Lower request rails here by design, the egress composing Lower(hbjson) → peer wire → Translate.
     public static readonly Detail EnergyEgressPending = new("energy-graph-egress-pending", DetailLeg.Energy, Capability);
     public static readonly Detail EnergyEnvelopeEmpty = new("energy-envelope-empty", DetailLeg.Energy, Rejected);
     public static readonly Detail EnergyFaceMiss = new("energy-face-miss", DetailLeg.Energy, Unmapped);

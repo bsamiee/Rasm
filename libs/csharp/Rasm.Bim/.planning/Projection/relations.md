@@ -521,7 +521,7 @@ public static class EdgeProjection {
     static Option<int> OptionalCardinal(IfcCardinalPointReference point) =>
         point == IfcCardinalPointReference.MID ? Option<int>.None : Some((int)point);
 
-    // The space-boundary level discriminant -> the egress-declared SemanticProjector.BoundaryLevel attr, THREE-valued
+    // The space-boundary level discriminant -> the seam-declared BoundaryRows.Level attr, THREE-valued
     // because the runtime type is: "2nd"/"1st" name the exact subtype the egress refined-construct re-authors, "" the
     // base-class instance (2ndLevel derives from 1stLevel, so the 2nd probe runs first — a level is never upgraded onto
     // a base instance). The GeometryGym IfcRelSpaceBoundary exposes RelatingSpace/RelatedBuildingElement/
@@ -537,7 +537,7 @@ public static class EdgeProjection {
     // from two spellings of the same fact.
     static Map<PropertyName, PropertyValue> BoundaryAttrs(IfcRelSpaceBoundary rel, IIfcProfileStore profiles, Op key) =>
         PreserveInterface(rel.ConnectionGeometry, profiles, key).Fold(
-            Map((SemanticProjector.BoundaryLevel, (PropertyValue)new PropertyValue.Text(BoundaryLevelOf(rel)))),
+            Map((BoundaryRows.Level, (PropertyValue)new PropertyValue.Text(BoundaryLevelOf(rel)))),
             static (attrs, surface) => attrs.Add(SemanticProjector.InterfaceKey, new PropertyValue.Text(surface.ToString("X32"))));
 
     static string BoundaryLevelOf(IfcRelSpaceBoundary rel) =>

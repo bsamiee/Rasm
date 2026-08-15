@@ -1,12 +1,12 @@
 # [MATERIALS_COMPONENT]
 
-THE POLYMORPHIC COMPONENT OWNER. One `Component` record is the canonical standardized-TYPE concept every steel/timber member, masonry/CMU/IGU unit, sheet-goods board, and rebar/fastener/connector/joint part parameterizes: a closed `SectionProfile` cross-section algebra (a FIELD, never a peer union of per-family payloads), an `IfcBinding` row stamp, a `Coring` void class, a `ComponentStandard` receipt, two independent `MaterialId` slots, and an `Option<PropertyBag>` detail whose presence is a TYPE LAW of the family's `DetailLane`. One `ComponentFamily` `[SmartEnum<string>]` is THE policy row: each of the ten rows {masonry · cmu · steel · timber · glazing · reinforcement · fastener · connector · joint · panel} carries its `ComponentClass`, its `DetailLane`, its profile-admission predicate, its cross-nominal selector, and its `<Family>Seed.Rows` fold — so a NEW FAMILY is one row plus one seed page with zero central edits, and a NEW PART is one seed row with zero type edits. Every per-family discriminant is a stored column, a base-constructor fact, a family delegate, or a field read — the family axis carries its own class, lane, IFC leaf, admission predicate, cross-nominal selector, seed fold, and capacity producer, so nothing about a family is decided by dispatch anywhere else.
+THE POLYMORPHIC COMPONENT OWNER. One `Component` record is the canonical standardized-TYPE concept every steel/timber/concrete/aluminum member, masonry/CMU/IGU unit, sheet-goods board, precast product, covering/insulation product, pipe/duct/conductor segment, and rebar/fastener/connector/joint part parameterizes: a closed `SectionProfile` cross-section algebra (a FIELD, never a peer union of per-family payloads), an `IfcBinding` row stamp, a `Coring` void class, a `ComponentStandard` receipt, two independent `MaterialId` slots, and an `Option<PropertyBag>` detail whose presence is a TYPE LAW of the family's `DetailLane`. One `ComponentFamily` `[SmartEnum<string>]` is THE policy row: each of the nineteen rows {masonry · cmu · steel · timber · glazing · reinforcement · fastener · connector · joint · panel · concrete · precast · aluminum · insulation · finish · fireproofing · pipework · ductwork · electrical} carries its `ComponentClass`, its `DetailLane`, its profile-admission predicate, its cross-nominal selector, its symmetry projection, and its `<Family>Seed.Rows` fold — so a NEW FAMILY is one row and one seed page with zero central edits, and a NEW PART is one seed row with zero type edits. Every per-family discriminant is a stored column, a base-constructor fact, a family delegate, or a field read — the family axis carries its own class, lane, IFC leaf, admission predicate, cross-nominal selector, symmetry projection, seed fold, and capacity producer, so nothing about a family is decided by dispatch anywhere else.
 
 This page also owns the ONE section-computation spine: `SectionSolver.Solve` is the single exhaustive generated `Switch` over the closed `SectionProfile` axis — a new arm is compiler-forced HERE and nowhere else. Every solvable arm routes the ONE `VividOrange.Sections.SectionProperties` Green's-theorem integral through the ONE twenty-column `Admit` lift, then a topology supplement: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` floor contract (`IRectangle`/`IRoundedRectangle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`) or an exact `Perimeter`; the typed contracts let the solver decompose fillets and curved edges through `TrapezoidalPart` + `EllipseQuarterPart`, while the `Perimeter` path preserves multi-void, corrugated, offset-trapezium, triangle, and free-outline geometry. `Forms` supplies the plastic/torsion/warping/shear/asymmetry supplement through TWO kernels: `ThinWalled` sweeps each open arm's own midline for its shear centre, warping constant, and Saint-Venant torsion, and `Plastic` integrates the exact equal-area-axis first moment over each arm's strip stack — so a shape factor against an elastic modulus and a per-shape warping transcription are both unrepresentable. `ComputedSection` stays the FROZEN twenty-column receipt (`[FROZEN_INVARIANTS]`), `ComponentCatalogue.Of` the ONE fail-loud `Traverse` fold computing BOTH frozen maps in one pass beside `AdmitImported`, the reverse-direction fold lowering ingested IFC type candidates onto the same railed `Component.Of` construction, `ComponentResolution` the byte-identical M7 one-hop, `QuantityRow` the one typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose, and `ComponentDetail` the seed-time bag constructors every `Realization`/`Product`-lane seed composes. The page composes the `Rasm.Numerics` kernel `PositiveMagnitude`, the `Rasm.Domain` `Op`/`Context`/`Expected`/`AcceptValidated` rail, the `Rasm.Element` seam (`MaterialId`, `ProfileRef`, `FaultBand`, the `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`DetailSchema` property vocabulary), and the VividOrange profile/section floor. `ProfileRef`/`ProfileSet`/`SectionProperties`/`ComputedSection` stay seam-canonical — the rename STOPS at the Materials boundary.
 
 ## [01]-[INDEX]
 
-- [02]-[COMPONENT_OWNER]: `ComponentId`, `ComponentClass`, `DetailLane`, `CoringClass`/`Coring`, `ComponentAuthority`, `IfcBinding`, the `ComponentFamily` policy row, the band-2300 `ComponentFault` (registry read), `ComponentUnit`, `ComponentStandard`, and the `Component` record with its ONE polymorphic `Of` admission.
+- [02]-[COMPONENT_OWNER]: `ComponentId`, `ComponentClass`, `DetailLane`, `CoringClass`/`Coring`, `ComponentAuthority`, `IfcBinding`, the `ComponentFamily` policy row, `ComponentSymmetry` the construction-row projection onto the kernel `MaterialSymmetry`, the band-2300 `ComponentFault` (registry read), `ComponentUnit`, `ComponentStandard`, and the `Component` record with its ONE polymorphic `Of` admission and its `Symmetry` derivation.
 - [03]-[SECTION_PROFILE]: `VoidCell`, the bounded `PlyRole` vocabulary, `Ply`, and the closed `SectionProfile` `[Union]` — named `PositiveMagnitude` dimensions, gross bounding facts as base-constructor state, and one railed `Of` factory per arm.
 - [04]-[SECTION_SOLVER]: `SectionSupplement`, the `ProfileGeometry` row and the ONE `SectionGeometry.Of` dispatch behind `SectionSolver.Solve`/`ProfileOf`, the twenty-column `Admit` lift, the `Curves` typed-contract table, the `Forms` supplement table, and the `ThinWalled` sectorial and `Plastic` strip kernels every arm composes.
 - [05]-[COMPUTED_SECTION]: the FROZEN twenty-field receipt + `GoverningRadiusMm`.
@@ -17,37 +17,38 @@ This page also owns the ONE section-computation spine: `SectionSolver.Solve` is 
 
 ## [02]-[COMPONENT_OWNER]
 
-- Owner: `Component` over the ten-row `ComponentFamily` policy axis; `ComponentId` the `family.designation` key; `ComponentFault` band 2300 read from the `FaultBand` registry; `IfcBinding` the Materials-side IFC pair as ROW DATA (was two 10-arm switches); `DetailLane` the bag-presence law; `Coring`/`CoringClass` the cross-family void class; `ComponentUnit`/`ComponentStandard` the shared dimensional and regional receipts.
-- Cases: one `Component` shape across all ten families — `Family` (the policy row), `Designation`, `Profile` (the `SectionProfile` arm), `Ifc` (the stored `IfcBinding` row), `Coring`, `Standard`, `SubstanceId`/`AppearanceId` (independent `MaterialId` slots — a coated rebar keeps capacity steel and epoxy appearance distinct), `Detail` (`Option<PropertyBag>`, `Some` iff the family lane is not `None`). Every per-family discriminant is a field read (`IfcEntity`/`PredefinedToken`), a family delegate (`CrossNominalMm`), or base-constructor state (`GrossRectangleMm`).
+- Owner: `Component` over the nineteen-row `ComponentFamily` policy axis; `ComponentId` the `family.designation` key; `ComponentFault` band 2300 read from the `FaultBand` registry; `IfcBinding` the Materials-side IFC pair as ROW DATA (was two 10-arm switches); `DetailLane` the bag-presence law; `Coring`/`CoringClass` the cross-family void class; `ComponentUnit`/`ComponentStandard` the shared dimensional and regional receipts; `ComponentSymmetry` the construction-row projection onto the kernel `MaterialSymmetry` — the ONE symmetry authority for grain, nap, and face direction, bound per family as the `Symmetry` policy column.
+- Cases: one `Component` shape across all nineteen families — `Family` (the policy row), `Designation`, `Profile` (the `SectionProfile` arm), `Ifc` (the stored `IfcBinding` row), `Coring`, `Standard`, `SubstanceId`/`AppearanceId` (independent `MaterialId` slots — a coated rebar keeps capacity steel and epoxy appearance distinct), `Detail` (`Option<PropertyBag>`, `Some` iff the family lane is not `None`). Every per-family discriminant is a field read (`IfcEntity`/`PredefinedToken`), a family delegate (`CrossNominalMm`, `Symmetry`), or base-constructor state (`GrossRectangleMm`).
 - Entry: `Component.Of(family, designation, profile, ifc, coring, standard, substanceId, appearanceId, detail, key)` guards the exact `family.designation` grammar, family-prefix ownership, family/profile admission, coring, and lane/detail consistency. `SectionProfile.Layered.Of` owns ply-stack closure because every admitted layered value must be valid before a `Component` exists.
-- Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`Expected`/`AcceptValidated`), Rasm.Element (project — `MaterialId`, `ProfileRef`, `FaultBand`, `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`PropertyName`/`PropertyValue`/`DetailSchema`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`[UseDelegateFromConstructor]`, generated exhaustive `Switch`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`; `libs/csharp/.api/api-thinktecture-runtime-extensions.md`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`guard` — rails-and-effects doctrine substrate), VividOrange.IProfiles + VividOrange.Profiles.Perimeter + VividOrange.Geometry + VividOrange.Sections.SectionProperties + UnitsNet (`Rasm.Materials/.api` catalogues), BCL inbox (`FrozenDictionary`).
-- Growth: a new part is one seed row; a new family is one `ComponentFamily` row plus one seed page (no union edit, no switch edit, no `.Concat` edit); a new section shape is one `SectionProfile` arm plus one compiler-forced `Solve` arm (buildingSMART profile-schema cadence, never thing cadence); a new fault is one `ComponentFault` case; a new structural column is one `ComputedSection` field every solvable arm fills; a new detail row is one `DetailSchema`-named tuple in a seed bag; a new typed mint is one `QuantityRow` row; a new row provenance is one `Provenance` row, never a second catalogue.
-- Boundary: `ComponentFault` derives `Expected` (`IValidationError<ComponentFault>`), its `Code` the `FaultBand.Component` registry read — disjointness is type-enforced, never prose. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Every seed page declares the ONE flat `Rasm.Materials.Component` namespace — the `Component/` folder is one namespace under `dotnet_style_namespace_match_folder = true:error` — so the policy rows bind `<Family>Seed.Rows` by bare name with no alias.
+- Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`Expected`/`AcceptValidated`), Rasm (project — `MaterialSymmetry`/`SymmetryFold`/`MirrorGrant`, the `Rasm/Parametric/patternmap#PATTERNING` placement-legality law the `Symmetry` derivation projects onto), Rasm.Element (project — `MaterialId`, `ProfileRef`, `FaultBand`, `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`PropertyName`/`PropertyValue`/`DetailSchema`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`[UseDelegateFromConstructor]`, generated exhaustive `Switch`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`; `libs/csharp/.api/api-thinktecture-runtime-extensions.md`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`guard` — rails-and-effects doctrine substrate), VividOrange.IProfiles + VividOrange.Profiles.Perimeter + VividOrange.Geometry + VividOrange.Sections.SectionProperties + UnitsNet (`Rasm.Materials/.api` catalogues), BCL inbox (`FrozenDictionary`).
+- Growth: a new part is one seed row; a new family is one `ComponentFamily` row and one seed page (no union edit, no switch edit, no `.Concat` edit); a new section shape is one `SectionProfile` arm and one compiler-forced `Solve` arm (buildingSMART profile-schema cadence, never thing cadence); a new fault is one `ComponentFault` case; a new structural column is one `ComputedSection` field every solvable arm fills; a new detail row is one `DetailSchema`-named tuple in a seed bag; a new typed mint is one `QuantityRow` row; a new row provenance is one `Provenance` row, never a second catalogue. Three admissions widen by declared trigger, never speculatively: the reinforcement predicate grows `CircleHollow` when a certified tendon-duct diameter lands (the `reinforcement#REINFORCEMENT_FAMILY` Growth clause seeds the annular `IfcTendonConduit` row through the same generator), the precast predicate grows `Layered` when a dimensioned sandwich-wythe build two-sources over the `PlyRole.ConcreteWythe` row (its symmetry already rides `ComponentSymmetry.Stack`, so the wythe stack derives with zero symmetry edits), and the electrical predicate grows `CircleHollow` when the NEC Chapter 9 Table 4 OD/ID ladder proves (the `electrical#CONTAINMENT` conduit systems then mint through their own fold beside the conductor folds — without this widening the declared containment growth would fault at family admission). The symmetry projection widens by declared trigger the same way: `MirrorGrant.Matched` lands when a book-match veneer pairing fact two-sources onto a construction row — the pair obligation then derives from the material fact alone, never a caller flag — and the nap vector (`SymmetryFold.Fixed`: a pile lies one way, so a half-turn shows) lands when a napped covering build authors an oriented face row.
+- Boundary: `ComponentFault` derives `Expected` (`IValidationError<ComponentFault>`), its `Code` the `FaultBand.Component` registry read — disjointness is type-enforced, never prose. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Every seed page declares the ONE flat `Rasm.Materials.Component` namespace — the `Component/` folder is one namespace under `dotnet_style_namespace_match_folder = true:error` — so the policy rows bind `<Family>Seed.Rows` by bare name with no alias. `Component.Symmetry` is the ONE symmetry authority: the kernel `PatternPlan.Law`/`PanelPolicy.Law` admissions and the `Rasm.Fabrication` nesting move gate read this projection, never a re-derivation from appearance or geometry — a consumer-side legality knob beside a material that already models direction is the named re-mint. The derivation under-grants and never over-grants (a directional read admits a subset of the isotropic placements), so a missing construction fact costs placements, never legality; masonry stays isotropic by the same boundary — `BondGeometry`'s wallpaper group is ASSEMBLY symmetry, how units tile, while this law is the unit substance's own, and the two never merge.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using System.Collections.Frozen;
-using System.Globalization;                          // CultureInfo.InvariantCulture (the ComponentId.Validate format provider)
-using System.Linq;                                   // Index, All, Sum, ForAll over the Seq and cell spans
+using System.Globalization;                           // CultureInfo.InvariantCulture (the ComponentId.Validate format provider)
+using System.Linq;                                    // Index, All, Sum, ForAll over the Seq and cell spans
 using LanguageExt;
-using LanguageExt.Common;                            // Error (the MapFail carrier the solver traps VividOrange throws onto)
+using LanguageExt.Common;                             // Error (the MapFail carrier the solver traps VividOrange throws onto)
 using Rasm.Numerics;                                  // PositiveMagnitude — the kernel >0-finite magnitude (Atoms.cs)
-using Rasm.Domain;                                   // Op, Context, Expected, AcceptValidated
-using Rasm.Element.Composition;      // MaterialId, ProfileRef
-using Rasm.Element.Projection;       // FaultBand
-using Rasm.Element.Properties;       // MeasureValue, QuantityType, PropertyBag, PropertyName, PropertyValue, DetailSchema, Dimension
+using Rasm.Domain;                                    // Op, Context, Expected, AcceptValidated
+using Rasm.Element.Composition;                       // MaterialId, ProfileRef
+using Rasm.Element.Projection;                        // FaultBand
+using Rasm.Element.Properties;                        // MeasureValue, QuantityType, PropertyBag, PropertyName, PropertyValue, DetailSchema, Dimension
+using Rasm.Parametric;                                // MaterialSymmetry, SymmetryFold, MirrorGrant — the kernel placement-legality law the Symmetry derivation projects onto
 using Thinktecture;
-using UnitsNet;                                      // Length — the typed profile-contract dimension currency
-using VividOrange.Geometry;                          // LocalPoint2d, LocalPolyline2d, ILocalPoint2d, ILocalPolyline2d
-using VividOrange.Profiles;                          // IProfile + the typed parametric contracts (IRectangle/ICircle/IEllipse/II/IC/IZ/ITee/IAngle/…), Perimeter
+using UnitsNet;                                       // Length — the typed profile-contract dimension currency
+using VividOrange.Geometry;                           // LocalPoint2d, LocalPolyline2d, ILocalPoint2d, ILocalPolyline2d
+using VividOrange.Profiles;                           // IProfile + the typed parametric contracts (IRectangle/ICircle/IEllipse/II/IC/IZ/ITee/IAngle/…), Perimeter
 using VividOrange.Sections.SectionProperties.Utility; // Areas/Inertiae/SectionModuli — the carrier-free Green's-theorem kernels
-using Expected = Rasm.Domain.Expected;               // the kernel Expected (parameterless ctor + virtual Code/Category), NOT LanguageExt.Common.Expected
-using Dimension = Rasm.Element.Properties.Dimension;            // the seam 7-exponent measure Dimension (Rasm.Numerics.Dimension, the count atom, is unused here)
+using Expected = Rasm.Domain.Expected;                // the kernel Expected (parameterless ctor + virtual Code/Category), NOT LanguageExt.Common.Expected
+using Dimension = Rasm.Element.Properties.Dimension;  // the seam 7-exponent measure Dimension (Rasm.Numerics.Dimension, the count atom, is unused here)
 using SectionProperties = VividOrange.Sections.SectionProperties.SectionProperties;   // the solver carrier; the seam Rasm.Element.Composition.SectionProperties is prose-only on this page
 using static LanguageExt.Prelude;
 
 // component#COMPONENT_OWNER owns Component/ComponentClass/ComponentFamily/ComponentId/ComponentFault/DetailLane/
-// IfcBinding/Coring/CoringClass/ComponentUnit/ComponentStandard/ComponentAuthority/SectionProfile/VoidCell/PlyRole/
+// IfcBinding/Coring/CoringClass/ComponentUnit/ComponentStandard/ComponentAuthority/ComponentSymmetry/SectionProfile/VoidCell/PlyRole/
 // Ply/SectionSolver/ComputedSection/ComponentRow/ComponentCatalogue/QuantityRow/ComponentDetail/ComponentResolution.
 // Every <Family>Seed declares in this ONE Rasm.Materials.Component namespace (the <Family>Seed naming keeps rows
 // collision-free), so the ComponentFamily policy rows bind SteelSeed.Rows/MasonrySeed.Rows/… by bare name — no alias.
@@ -76,7 +77,7 @@ public readonly partial struct ComponentId {
 // The structural-class discriminant, a THREE-row axis: Primary a space-bounding one-piece member (geometry-on-type,
 // one occurrence one piece), Panel a standardized sheet-goods board (one board type, MANY laid pieces), Minor a
 // standardized part (one type, many discrete pieces). The class carries NO IFC column: `IfcBuiltElement` and
-// `IfcElementComponent` are ABSTRACT IFC4 entities no file can instantiate, and one abstract pair shared across six
+// `IfcElementComponent` are ABSTRACT IFC4 entities no file can instantiate, and one abstract pair shared across the
 // Minor families leaves the reverse Claimant read electing nothing. The concrete leaf is the ComponentFamily row's
 // own IfcBinding, unique per family by construction.
 [SmartEnum<string>]
@@ -169,6 +170,9 @@ public sealed partial class ComponentAuthority {
     public static readonly ComponentAuthority Apa  = new("APA",  region: "us");          // APA PRG 320 CLT
     public static readonly ComponentAuthority Csa  = new("CSA",  region: "ca");          // CSA G30.18 rebar
     public static readonly ComponentAuthority Sdi  = new("SDI",  region: "us");          // ANSI/SDI steel deck
+    public static readonly ComponentAuthority Smacna = new("SMACNA", region: "us");      // SMACNA duct-construction schedules — the ductwork gauge/pressure-class body
+    public static readonly ComponentAuthority Nfpa = new("NFPA", region: "us");          // NFPA 70 (NEC) — the 310.16 ampacity body the electrical NEC lanes cite
+    public static readonly ComponentAuthority Iec  = new("IEC",  region: "int");         // IEC 60364-5-52 — the reference-method ampacity body, adopted regionally via CENELEC HD
     public string Region { get; }
     public Option<(double Ultimate, double Proof)> Jacking { get; }
 
@@ -191,9 +195,12 @@ public readonly record struct IfcBinding(string Entity, string Predefined, Optio
 }
 
 // The ONE family axis as a POLICY ROW: class, detail lane, the admission predicate (was the family/section mismatch
-// guard), the cross-nominal selector (was the 10-arm switch), the seed-row fold, and the CAPACITY PRODUCER. The
-// catalogue folds Items, so a NEW FAMILY is this row plus one seed page — no central edit anywhere. Seed owners are
-// named <Family>Seed.
+// guard), the cross-nominal selector (was the 10-arm switch), the SYMMETRY PROJECTION, the seed-row fold, and the
+// CAPACITY PRODUCER. The catalogue folds Items, so a NEW FAMILY is this row plus one seed page — no central edit
+// anywhere. Seed owners are named <Family>Seed. The symmetry column binds one of the three named ComponentSymmetry
+// producers, so the placement-legality law a family's components author is a row fact like its lane: Timber binds
+// Grain (the substance is directional on every admitted arm), the stack-bearing families Glazing/Panel/Precast bind
+// Stack (direction only where a construction row authors it), and the fifteen remaining families bind Isotropic.
 // The capacity column is what gives capacity#SECTION_CAPACITY's Lift/Check/SectionSelection folds real producers: a
 // family EITHER binds the entry that lowers its own Component onto a SectionCapacity, or binds an explicit typed
 // refusal naming the route that does own its capacity (a bar's rides the RcSection assembler, a fastener's the
@@ -203,35 +210,93 @@ public readonly record struct IfcBinding(string Entity, string Predefined, Optio
 // AsymmetricIShape, a cranked mono-I an IShape, a fabricated channel/tee/angle its own arm, a cold-formed purlin Zed,
 // and a rolled-corner bar RoundedRectangle — so the Forms.OpenI/MonoI/OpenChannel/MonoTee/OpenAngle/PointSymmetricZ/
 // SolidRounded algebra the solver already prices is reachable from an admitted Component; Timber admits
-// RoundedRectangle for the eased-arris glulam. An arm no family admits is capability the catalogue cannot seed.
+// RoundedRectangle for the eased-arris glulam; Aluminum admits the parametric die space (hollow, open, solid, and the
+// declared-topology Outline silhouette) the extrusion trade actually cuts. An arm no family admits is capability the
+// catalogue cannot seed. The trade families hold their honest floors: Concrete/Precast admit the gross envelope arms
+// their seed pages prove (the precast interior lattice is typed-absent until it two-sources), the covering families
+// admit the batt/board Rectangle and the applied-build Nominal, and the segment families admit exactly the hollow or
+// solid rounds their published ladders dimension — Pipework CircleHollow, Ductwork CircleHollow/RectangleHollow,
+// Electrical the area-true solid Circle.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComponentFamily {
-    public static readonly ComponentFamily Masonry       = new("masonry",       ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcBuildingElementPart", "MasonryUnit"),          admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: MasonrySeed.Rows, capacity: MasonrySeed.Capacity);
-    public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcBuildingElementPart", "ConcreteMasonryUnit"),  admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: CmuSeed.Rows, capacity: CmuSeed.Capacity);
-    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.Realization, IfcBinding.Named("IfcBuildingElementProxy", "SteelSection"),        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC or SectionProfile.BuiltUp or SectionProfile.IShape or SectionProfile.AsymmetricIShape or SectionProfile.Channel or SectionProfile.Tee or SectionProfile.Angle or SectionProfile.Zed or SectionProfile.RoundedRectangle, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows, capacity: SteelSeed.Capacity);
-    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        IfcBinding.Named("IfcBuildingElementProxy", "TimberSection"),       admits: static p => p is SectionProfile.Rectangle or SectionProfile.RoundedRectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows, capacity: TimberSeed.Capacity);
-    public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcPlate", "SHEET"),                                 admits: static p => p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Pane || ply.Role == PlyRole.Interlayer || ply.Role == PlyRole.Cavity),               crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: GlazingSeed.Rows, capacity: GlazingSeed.Capacity);
-    public static readonly ComponentFamily Reinforcement = new("reinforcement", ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Of("IfcReinforcingBar", "NOTDEFINED"),                   admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ReinforcementSeed.Rows, capacity: ReinforcementSeed.Capacity);
-    public static readonly ComponentFamily Fastener      = new("fastener",      ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Of("IfcMechanicalFastener", "BOLT"),                     admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: FastenerSeed.Rows, capacity: FastenerSeed.Capacity);
-    public static readonly ComponentFamily Connector     = new("connector",     ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcDiscreteAccessory", "Connector"),              admits: static p => p is SectionProfile.Rectangle or SectionProfile.Outline,                                              crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ConnectorSeed.Rows, capacity: ConnectorSeed.Capacity);
-    public static readonly ComponentFamily Joint         = new("joint",         ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcFastener", "Joint"),                           admits: static p => p is SectionProfile.FilletTriangle or SectionProfile.Trapezium or SectionProfile.Circle or SectionProfile.Nominal, crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: JointSeed.Rows, capacity: JointSeed.Capacity);
-    public static readonly ComponentFamily Panel         = new("panel",         ComponentClass.Panel,   DetailLane.Product,     IfcBinding.Of("IfcPlate", "NOTDEFINED"),                            admits: static p => p is SectionProfile.Layered or SectionProfile.Corrugated,                                             crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: PanelSeed.Rows, capacity: PanelSeed.Capacity);
+    public static readonly ComponentFamily Masonry       = new("masonry",       ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcBuildingElementPart", "MasonryUnit"),          admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: MasonrySeed.Rows, capacity: MasonrySeed.Capacity);
+    public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcBuildingElementPart", "ConcreteMasonryUnit"),  admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: CmuSeed.Rows, capacity: CmuSeed.Capacity);
+    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.Realization, IfcBinding.Named("IfcBuildingElementProxy", "SteelSection"),        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC or SectionProfile.BuiltUp or SectionProfile.IShape or SectionProfile.AsymmetricIShape or SectionProfile.Channel or SectionProfile.Tee or SectionProfile.Angle or SectionProfile.Zed or SectionProfile.RoundedRectangle, crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: SteelSeed.Rows, capacity: SteelSeed.Capacity);
+    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        IfcBinding.Named("IfcBuildingElementProxy", "TimberSection"),       admits: static p => p is SectionProfile.Rectangle or SectionProfile.RoundedRectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Grain,     rows: TimberSeed.Rows, capacity: TimberSeed.Capacity);
+    public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcPlate", "SHEET"),                                 admits: static p => p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Pane || ply.Role == PlyRole.Interlayer || ply.Role == PlyRole.Cavity),               crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Stack,     rows: GlazingSeed.Rows, capacity: GlazingSeed.Capacity);
+    public static readonly ComponentFamily Reinforcement = new("reinforcement", ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Of("IfcReinforcingBar", "NOTDEFINED"),                   admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: ReinforcementSeed.Rows, capacity: ReinforcementSeed.Capacity);
+    public static readonly ComponentFamily Fastener      = new("fastener",      ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Of("IfcMechanicalFastener", "BOLT"),                     admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: FastenerSeed.Rows, capacity: FastenerSeed.Capacity);
+    public static readonly ComponentFamily Connector     = new("connector",     ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcDiscreteAccessory", "Connector"),              admits: static p => p is SectionProfile.Rectangle or SectionProfile.Outline,                                              crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: ConnectorSeed.Rows, capacity: ConnectorSeed.Capacity);
+    public static readonly ComponentFamily Joint         = new("joint",         ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcFastener", "Joint"),                           admits: static p => p is SectionProfile.FilletTriangle or SectionProfile.Trapezium or SectionProfile.Circle or SectionProfile.Nominal, crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: JointSeed.Rows, capacity: JointSeed.Capacity);
+    public static readonly ComponentFamily Panel         = new("panel",         ComponentClass.Panel,   DetailLane.Product,     IfcBinding.Of("IfcPlate", "NOTDEFINED"),                            admits: static p => p is SectionProfile.Layered or SectionProfile.Corrugated,                                             crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Stack,     rows: PanelSeed.Rows, capacity: PanelSeed.Capacity);
+    public static readonly ComponentFamily Concrete      = new("concrete",      ComponentClass.Primary, DetailLane.Realization, IfcBinding.Named("IfcBuildingElementProxy", "ConcreteSection"),     admits: static p => p is SectionProfile.Rectangle or SectionProfile.Circle,                                               crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: ConcreteSeed.Rows, capacity: ConcreteSeed.Capacity);
+    public static readonly ComponentFamily Precast       = new("precast",       ComponentClass.Primary, DetailLane.Product,     IfcBinding.Named("IfcBuildingElementProxy", "PrecastSection"),      admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Stack,     rows: PrecastSeed.Rows, capacity: PrecastSeed.Capacity);
+    public static readonly ComponentFamily Aluminum      = new("aluminum",      ComponentClass.Primary, DetailLane.Product,     IfcBinding.Of("IfcMember", "MULLION"),                              admits: static p => p is SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.IShape or SectionProfile.Channel or SectionProfile.Tee or SectionProfile.Angle or SectionProfile.ColdFormedC or SectionProfile.Rectangle or SectionProfile.Outline, crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: AluminumSeed.Rows, capacity: AluminumSeed.Capacity);
+    public static readonly ComponentFamily Insulation    = new("insulation",    ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcCovering", "INSULATION"),                         admits: static p => p is SectionProfile.Rectangle or SectionProfile.Nominal,                                              crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: InsulationSeed.Rows, capacity: InsulationSeed.Capacity);
+    public static readonly ComponentFamily Finish        = new("finish",        ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcCovering", "FLOORING"),                           admits: static p => p is SectionProfile.Rectangle or SectionProfile.Nominal,                                              crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: FinishSeed.Rows, capacity: FinishSeed.Capacity);
+    public static readonly ComponentFamily Fireproofing  = new("fireproofing",  ComponentClass.Minor,   DetailLane.Realization, IfcBinding.Named("IfcCovering", "Fireproofing"),                    admits: static p => p is SectionProfile.Nominal,                                                                          crossNominal: static p => p.GrossRectangleMm.DepthMm, symmetry: ComponentSymmetry.Isotropic, rows: FireproofingSeed.Rows, capacity: FireproofingSeed.Capacity);
+    public static readonly ComponentFamily Pipework      = new("pipework",      ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcPipeSegment", "RIGIDSEGMENT"),                    admits: static p => p is SectionProfile.CircleHollow,                                                                     crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: PipeworkSeed.Rows, capacity: PipeworkSeed.Capacity);
+    public static readonly ComponentFamily Ductwork      = new("ductwork",      ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcDuctSegment", "RIGIDSEGMENT"),                    admits: static p => p is SectionProfile.CircleHollow or SectionProfile.RectangleHollow,                                   crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: DuctworkSeed.Rows, capacity: DuctworkSeed.Capacity);
+    public static readonly ComponentFamily Electrical    = new("electrical",    ComponentClass.Minor,   DetailLane.Product,     IfcBinding.Of("IfcCableSegment", "CONDUCTORSEGMENT"),               admits: static p => p is SectionProfile.Circle,                                                                           crossNominal: static p => p.GrossRectangleMm.WidthMm, symmetry: ComponentSymmetry.Isotropic, rows: ElectricalSeed.Rows, capacity: ElectricalSeed.Capacity);
 
     [UseDelegateFromConstructor] public partial bool Admits(SectionProfile profile);
     [UseDelegateFromConstructor] public partial PositiveMagnitude CrossNominal(SectionProfile profile);
+    [UseDelegateFromConstructor] public partial MaterialSymmetry Symmetry(SectionProfile profile);
     [UseDelegateFromConstructor] public partial Fin<Seq<ComponentRow>> Rows(Context context);
     [UseDelegateFromConstructor] public partial Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key);
     public ComponentClass Class { get; }
     public DetailLane Lane { get; }
 
-    // The family's own CONCRETE IFC4 leaf, unique across the ten rows by construction — the reverse Claimant read in
-    // ComponentCatalogue.AdmitImported keys on this triple, so an ingested type elects exactly one family instead of
-    // six Minor families colliding on one abstract pair. A family whose leaf is genuinely kind-determined (a panel
-    // board versus a deck sheet versus a covering) overrides it PER SEED ROW; this column is the family default and
-    // the reverse-read key.
+    // The family's own CONCRETE IFC4 leaf, unique across the nineteen rows by construction — the reverse Claimant
+    // read in ComponentCatalogue.AdmitImported keys on this triple, so an ingested type elects exactly one family
+    // instead of the Minor families colliding on one abstract pair. A family whose leaf is genuinely kind-determined
+    // (a panel board versus a deck sheet versus a covering, a concrete role, a precast product, an extrusion role, a
+    // finish kind, the PEX and containment segments) overrides it PER SEED ROW; this column is the family default
+    // and the reverse-read key. Two families' SEED ROWS may lawfully share one pair (the panel rigid boards and the
+    // insulation batts both stamp IfcCovering/INSULATION): the Claims fold builds from seeded rows, elects nothing
+    // for a two-family pair, and that typed skip is the declared verdict — board and batt are not IFC-tellable.
     public IfcBinding Ifc { get; }
+}
+
+// THE ONE SYMMETRY AUTHORITY (co-located with the family axis that binds it — delegate-backed row behavior never
+// splits for mechanical section order). Construction rows author the placement-legality law: the family's symmetry
+// column binds one of these three producers, Component.Symmetry projects it, and the kernel PatternPlan.Law /
+// PanelPolicy.Law admissions and the Rasm.Fabrication nesting move gate consume the projection — no consumer
+// hand-sets a legality knob beside a material that already models direction, and none re-derives it from appearance.
+// Grain: the substance itself is directional — every admitted timber arm carries lengthwise grain the profile never
+// spells (a sawn Rectangle has no ply row to say so), so the half-turn fold is a FAMILY fact; the mirror is realized
+// by TURNING THE BLANK (MirrorGrant.Turned — the kernel parity columns are the shop-floor record), tightening to the
+// palindrome-gated stack read where a layup exists (a CLT layup is palindromic, so Turned survives; a face-locked
+// layup refuses).
+// Stack: direction only where a construction row authors it — an Oriented ply or the corrugation axis. In-plane the
+// flutes are stripes, so mirrors map stripes to stripes and Corrugated keeps Reflective while its fold drops to
+// Half. An unoriented stack stays Reflective even when face-distinguished, because an in-plane mirror never turns
+// the blank; an ORIENTED stack shows its figure, so the mirror must turn — palindromic builds grant Turned, and a
+// face-distinguished oriented build refuses (turning exposes the wrong face, reflecting in place breaks the figure).
+// The derivation UNDER-GRANTS by construction — Half where a balanced layup could prove Quarter — which costs
+// placements, never legality. MirrorGrant.Matched never derives today: the book-match pair obligation lands when a
+// veneer pairing fact two-sources onto a construction row (the declared Growth trigger), never as a caller flag.
+public static class ComponentSymmetry {
+    public static MaterialSymmetry Isotropic(SectionProfile _) => MaterialSymmetry.Free;
+
+    public static MaterialSymmetry Grain(SectionProfile profile) => new(
+        SymmetryFold.Half,
+        profile is SectionProfile.Layered layered ? Mirror(layered.Plies) : MirrorGrant.Turned);
+
+    public static MaterialSymmetry Stack(SectionProfile profile) =>
+        profile is SectionProfile.Corrugated ? new MaterialSymmetry(SymmetryFold.Half, MirrorGrant.Reflective)
+        : profile is SectionProfile.Layered layered ? new MaterialSymmetry(Fold(layered.Plies), Mirror(layered.Plies))
+        : MaterialSymmetry.Free;
+
+    static SymmetryFold Fold(Seq<Ply> plies) =>
+        plies.Exists(static ply => ply.Role.Oriented) ? SymmetryFold.Half : SymmetryFold.Free;
+
+    static MirrorGrant Mirror(Seq<Ply> plies) =>
+        !plies.Exists(static ply => ply.Role.Oriented) ? MirrorGrant.Reflective
+        : plies == plies.Rev() ? MirrorGrant.Turned
+        : MirrorGrant.Refused;
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
@@ -310,6 +375,11 @@ public sealed record Component(
     public PositiveMagnitude CrossNominalMm => Family.CrossNominal(Profile);
     public (PositiveMagnitude WidthMm, PositiveMagnitude DepthMm) GrossRectangleMm => Profile.GrossRectangleMm;
 
+    // The ONE symmetry authority a placement consumes: the family projection over this component's own construction
+    // rows onto the kernel MaterialSymmetry. PatternPlan.Law and PanelPolicy.Law admit against it, and the
+    // Rasm.Fabrication nesting move gate derives its flip and rotation set from it — never from appearance or geometry.
+    public MaterialSymmetry Symmetry => Family.Symmetry(Profile);
+
     public static Fin<Component> Of(
         ComponentFamily family, string designation, SectionProfile profile, IfcBinding ifc,
         Coring coring, ComponentStandard standard, MaterialId substanceId, MaterialId appearanceId,
@@ -328,39 +398,47 @@ public sealed record Component(
 
 ## [03]-[SECTION_PROFILE]
 
-- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the ten families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail, `BuiltUp` positioned composition); `VoidCell` the fill-state cell row; `PlyRole` the BOUNDED layer-semantics vocabulary; `Ply` the laminate row.
+- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the nineteen families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail, `BuiltUp` positioned composition); `VoidCell` the fill-state cell row; `PlyRole` the BOUNDED layer-semantics vocabulary; `Ply` the laminate row.
 - Cases: twenty-two arms; gross bounding `(WidthMm, DepthMm)` facts are BASE-CONSTRUCTOR STATE declared once per arm — no interior switch exists on this axis; the ONE dispatch site is `SectionSolver.Solve`. Growth cadence is the profile schema (buildingSMART parameterized-profile set), never thing cadence.
-- Entry: construction is RAILED — each arm carries an `Of` factory returning `Fin<SectionProfile>` that lifts magnitudes through `key.AcceptValidated<PositiveMagnitude>` AND validates the non-magnitude slots (non-negative finite fillets/edges, finite slopes/offsets, cell containment PLUS pairwise cell disjointness — an overlapping lattice double-subtracts the net section and voids silently, so it faults at admission — wall-versus-profile closure) on `ComponentFault.Dimension`; seed folds construct through `Of` INSIDE their `Traverse`, never a throwing lift. `Catalogued` constructs direct — its payload is already-admitted `SteelShape` state.
-- Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryVoids.Cells` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `Ply.Role` is the BOUNDED `PlyRole` row, never a free string: `Longitudinal`/`Transverse` are the timber structural discriminants, `Pane`/`Interlayer`/`Cavity` the glazing stack semantics, and the panel face/core rows carry appearance-facing policy. `ComponentFamily.Admits` proves the lane subset, so a known panel role cannot enter timber and a known timber role cannot enter glazing. The human-readable `IfcMaterialLayer.Name` is a BOUNDARY projection over `(Material, Role, ordinal)` — an unknown role is unrepresentable, and no consumer parses a role string. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
+- Entry: construction is RAILED — each arm carries an `Of` factory returning `Fin<SectionProfile>` that lifts magnitudes through `key.AcceptValidated<PositiveMagnitude>` AND validates the non-magnitude slots (non-negative finite fillets/edges, finite slopes/offsets, cell containment AND pairwise cell disjointness — an overlapping lattice double-subtracts the net section and voids silently, so it faults at admission — wall-versus-profile closure) on `ComponentFault.Dimension`; seed folds construct through `Of` INSIDE their `Traverse`, never a throwing lift. `Catalogued` constructs direct — its payload is already-admitted `SteelShape` state.
+- Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryVoids.Cells` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `Ply.Role` is the BOUNDED `PlyRole` row, never a free string: `Longitudinal`/`Transverse` are the timber structural discriminants, `Pane`/`Interlayer`/`Cavity` the glazing stack semantics, the panel face/core rows carry appearance-facing policy, and `ConcreteWythe` is the precast sandwich structural layer a dimensioned wythe build instantiates; the `Oriented` column marks the grain-bearing rows (`Longitudinal`/`Transverse`/`VeneerPly`/`StrandLayer`) the `ComponentSymmetry` stack read folds, so a new figured layer authors placement direction by declaring its row, never by a consumer edit. `ComponentFamily.Admits` proves the lane subset, so a known panel role cannot enter timber and a known timber role cannot enter glazing. The human-readable `IfcMaterialLayer.Name` is a BOUNDARY projection over `(Material, Role, ordinal)` — an unknown role is unrepresentable, and no consumer parses a role string. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 // The bounded layer-semantics vocabulary a Ply carries: timber orientation, glazing stack position, and panel
 // face/core material function share one identity regime and one IFC layer-name boundary. Facing states that the row
 // is BONDED TO AN OUTWARD FACE of a build, which `Layered.Of` admits as a geometric invariant and `Layered.Facings`
-// reads — every timber/glazing/core row is false because none of them faces.
+// reads — every timber/glazing/core row is false because none of them faces. Oriented states that the row's
+// substance carries an in-plane grain axis — the timber laminations, the face veneer, and the mill-aligned strand
+// mat — the discriminant `ComponentSymmetry`'s stack read folds; glass, films, facers, and cast cores are false
+// because none carries a figure.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlyRole {
-    public static readonly PlyRole Longitudinal        = new("0",                       facing: false);
-    public static readonly PlyRole Transverse          = new("90",                      facing: false);
-    public static readonly PlyRole Pane                = new("pane",                    facing: false);
-    public static readonly PlyRole Interlayer          = new("interlayer",              facing: false);
-    public static readonly PlyRole Cavity              = new("cavity",                  facing: false);
-    public static readonly PlyRole PaperFace           = new("paper-face",              facing: true);
-    public static readonly PlyRole GlassMatFacer       = new("glass-mat-facer",         facing: true);
-    public static readonly PlyRole FoilFacer           = new("foil-facer",              facing: true);
-    public static readonly PlyRole GlassFiberMatFacer  = new("glass-fiber-mat-facer",   facing: true);
-    public static readonly PlyRole CoatedGlassFacer    = new("coated-glass-facer",     facing: true);
-    public static readonly PlyRole GlassMeshScrim      = new("glass-mesh-scrim",        facing: true);
-    public static readonly PlyRole GypsumCore          = new("gypsum-core",             facing: false);
-    public static readonly PlyRole VeneerPly           = new("veneer-ply",              facing: false);
-    public static readonly PlyRole StrandLayer         = new("strand-layer",            facing: false);
-    public static readonly PlyRole CementAggregateCore = new("cement-aggregate-core",   facing: false);
-    public static readonly PlyRole FoamCore            = new("foam-core",               facing: false);
-    public static readonly PlyRole MembraneCore        = new("membrane-core",           facing: false);
+    public static readonly PlyRole Longitudinal        = new("0",                       facing: false, oriented: true);
+    public static readonly PlyRole Transverse          = new("90",                      facing: false, oriented: true);
+    public static readonly PlyRole Pane                = new("pane",                    facing: false, oriented: false);
+    public static readonly PlyRole Interlayer          = new("interlayer",              facing: false, oriented: false);
+    public static readonly PlyRole Cavity              = new("cavity",                  facing: false, oriented: false);
+    public static readonly PlyRole PaperFace           = new("paper-face",              facing: true,  oriented: false);
+    public static readonly PlyRole GlassMatFacer       = new("glass-mat-facer",         facing: true,  oriented: false);
+    public static readonly PlyRole FoilFacer           = new("foil-facer",              facing: true,  oriented: false);
+    public static readonly PlyRole GlassFiberMatFacer  = new("glass-fiber-mat-facer",   facing: true,  oriented: false);
+    public static readonly PlyRole CoatedGlassFacer    = new("coated-glass-facer",     facing: true,  oriented: false);
+    public static readonly PlyRole GlassMeshScrim      = new("glass-mesh-scrim",        facing: true,  oriented: false);
+    public static readonly PlyRole GypsumCore          = new("gypsum-core",             facing: false, oriented: false);
+    public static readonly PlyRole VeneerPly           = new("veneer-ply",              facing: false, oriented: true);
+    public static readonly PlyRole StrandLayer         = new("strand-layer",            facing: false, oriented: true);
+    public static readonly PlyRole CementAggregateCore = new("cement-aggregate-core",   facing: false, oriented: false);
+    public static readonly PlyRole FoamCore            = new("foam-core",               facing: false, oriented: false);
+    public static readonly PlyRole MembraneCore        = new("membrane-core",           facing: false, oriented: false);
+    // The precast sandwich-panel STRUCTURAL layer (a wythe IS the face, never a bonded facer, so Facing is false
+    // like Pane): the row the precast#PRECAST_PRODUCTS wythe convention names, instantiated by a dimensioned
+    // wythe build when one two-sources — the Layered arm can represent the stack today, the dimensions cannot.
+    public static readonly PlyRole ConcreteWythe       = new("concrete-wythe",          facing: false, oriented: false);
     public bool Facing { get; }
+    public bool Oriented { get; }
 }
 
 // The SECTION-TOPOLOGY discriminant every downstream physical law dispatches on, stored as a geometry-row column
@@ -701,7 +779,7 @@ file static class Admit {
 
 ## [04]-[SECTION_SOLVER]
 
-- Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Admit` lift plus a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
+- Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Admit` lift with a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
 - Cases: `Curves` lowers each arm onto a verified `VividOrange.IProfiles` contract or a typed `Perimeter`. The `Perimeter` path owns multi-void, corrugated, asymmetric-trapezium, triangle, and free-outline geometry; `Trapezium.TopOffsetMm` therefore changes the integrated centroid and moments instead of disappearing through the symmetric `ITrapezoid` contract.
 - Entry: `SectionSolver.Solve(profile, key)` and `SectionSolver.ProfileOf(profile, key)` are two COLUMN READS over the one `SectionGeometry.Of` row; `ProfileOf` is the PROFILE-FAITHFUL RC-outline entry `reinforcement#RC_SECTION` feeds, and because both reads take the SAME outline column, a circular column feeds `ConcreteSection` its true `ICircle`, a trapezoidal member its integrated `Perimeter`, and a cellular unit its void-bearing perimeter whose grouted cells are already filled — so a partly-grouted unit cannot present as solid stock on the RC path while presenting its true net on the elastic one.
 - Boundary: `SectionSolver.Solve` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.SectionSolve(Key, Profile, Section, Elapsed)` tap SUBJECT and the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.SectionSolve` measured kernel; the tap is a composition-root decorator over `MaterialsHooks.SectionSolve`, so this owner emits nothing, carries no `Duration`, and references no signal type — the seam is declared at both ends and instrumented at neither.

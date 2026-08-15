@@ -1,6 +1,6 @@
 # [MATERIALS_PROPERTIES]
 
-THE TYPED-ENGINEERING-PROPERTY SOURCE. This owner holds the estate's known-material physics: one `MaterialPropertyCatalogue` keying published mechanical, thermal, acoustic, fire, damping, hygrothermal, and optical data per `MaterialId`, and one `Admit` lowering that turns a published row into the seam's own typed cases. A material's engineering properties are never a per-discipline material type — one `Seq<MaterialPropertySet>` over one `MaterialId` carries conductivity, sound spectrum, fire rating, structural grade, damping ratio, sorption anchors, and glazing optics together. The boundary is exact: this page is the SOURCE and the seam is the CARRIER, so it re-mints no seam type, authors no aggregation, and crosses to `Rasm.Compute`/`Rasm.Bim` only through the seam graph. Multi-ply assembly aggregation is `Rasm.Compute`'s; a substance-level transmittance and a product-level resilient-layer stiffness are neither the catalogue's nor representable in it.
+THE TYPED-ENGINEERING-PROPERTY SOURCE. This owner holds the estate's known-material physics: one `MaterialPropertyCatalogue` keying published mechanical, thermal, acoustic, fire, damping, hygrothermal, optical, and electrical data per `MaterialId`, and one `Admit` lowering that turns a published row into the seam's own typed cases. A material's engineering properties are never a per-discipline material type — one `Seq<MaterialPropertySet>` over one `MaterialId` carries conductivity, sound spectrum, fire rating, structural grade, damping ratio, sorption anchors, glazing optics, and conductor resistivity together. The boundary is exact: this page is the SOURCE and the seam is the CARRIER, so it re-mints no seam type, authors no aggregation, and crosses to `Rasm.Compute`/`Rasm.Bim` only through the seam graph. Multi-ply assembly aggregation is `Rasm.Compute`'s; a substance-level transmittance and a product-level resilient-layer stiffness are neither the catalogue's nor representable in it.
 
 The typed property family is seam-owned: the `Rasm.Element` `MaterialPropertySet` class-root `[Union]` keyed to the one `Discipline` is the canonical carrier the `Material` node holds, `MeasureValue` the SI-coerced measure each dimensional column carries, and the intrinsic acoustic folds (`Nrc`/`Saa`/`StcWeighted`/`Rw` over the shared `RatingContour.Fit` kernel) live on the seam `Acoustic` case. This page DECLARES `Published<T>`, the ONE shared ingress carrier over `VividOrange.Uncertainties` that `Properties/sustainability#SUSTAINABILITY_PROPERTY` and `Properties/assessment#ASSESSMENT_RECORD` both COMPOSE. Every typed dimensional mint passes through the `Component/component#COMPONENT_OWNER` `QuantityRow` rows, and the EN-vendored mechanical columns DELEGATE per `SEED_ROW_LAW`: the `steel.s235`–`steel.s460` (+`steel.s450`, `metal.steel`) triples resolve through `EnSteelFactory.CreateBiLinear` over `EnSteelMaterial` × `EnSteelDeliveryCondition`, the six-member `EnRebarGrade` roster through `EnRebarFactory.CreateBiLinear`, each factory throw trapped ONCE at this boundary onto `Fin`. Hand rows keep only the non-vendor columns, and the no-EN-producer grades stay AUTHORED verbatim. The lifecycle `Environmental`/`Cost` cases lower from `Properties/sustainability#SUSTAINABILITY_PROPERTY`, the directional `Orthotropic` from `Component/timber#TIMBER_FAMILY`, and `Lookup` is the projector-facing resolution `Projection/component#COMPONENT_PROJECTOR` calls. Every seam admission and every trapped vendor throw rails ONE band — `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` (2500), never the appearance `MaterialFault` 2450 of another concern.
 
@@ -14,12 +14,12 @@ The typed property family is seam-owned: the `Rasm.Element` `MaterialPropertySet
 ## [02]-[MATERIAL_PROPERTY_CATALOGUE]
 
 - Owner: `Published<T>` the ONE shared evidence-bearing uncertainty carrier all three Properties owners ride; `VapourResistance` the closed permeability class; `MechanicalSource` the closed mechanical-column source axis (`Authored` / `NailWire` / `EnSteel` / `EnRebar`); `NailWireClass` the ASTM F1667-S1 bending-yield band table; `SubstancePhysics` the shared family anchor a roster row references; `MaterialPropertyRow` the published-data ingress record; `MaterialPropertyCatalogue` the registered-row database; `Admit` the row→seam-case lowering; `Lookup` the projector-facing resolution.
-- Cases: one `MaterialPropertyRow` shape across all materials — a `SubstancePhysics` anchor (density, Poisson, expansion, conductivity, specific heat, vapour class, fire declaration, design damping) plus the row's own `MechanicalSource`, and the optional acoustic, hygrothermal, and optical declarations only a characterized substance carries; `Admit` produces a `Seq<MaterialPropertySet>` of the seam `Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Damping`/`Hygrothermal`/`Optical` cases — each a `MaterialPropertySet` over a `MaterialId`, never a property subtype.
+- Cases: one `MaterialPropertyRow` shape across all materials — a `SubstancePhysics` anchor (density, Poisson, expansion, conductivity, specific heat, vapour class, fire declaration, design damping) with the row's own `MechanicalSource`, and the optional acoustic, hygrothermal, optical, and electrical declarations only a characterized substance carries; `Admit` produces a `Seq<MaterialPropertySet>` of the seam `Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Damping`/`Hygrothermal`/`Optical`/`Electrical` cases — each a `MaterialPropertySet` over a `MaterialId`, never a property subtype.
 - Law: AUTHORED transcriptions carry the catalogue's relative band and code-REGISTERED values cross EXACT — `Published.Of` admits through the `VividOrange` relative factory, `Published.Exact` mints the zero-width datum, and the seam's own EXACTNESS-IS-BAND-ABSENCE rule then answers `None` at the `Measure` mint rather than offering `MeasureBand.Admit` a zero-width band that refuses its own re-admission. A DELEGATED vendor value never wears a fabricated spread.
-- Entry: `public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key)` — resolves the `MechanicalSource` (the stored MPa triple, the F1667-S1 band read, or the vendor build with its throw trapped onto `ElementFault.ValueRejected` via the kernel `Op.Catch` funnel), mints every dimensional column through the `QuantityRow` typed-mint rows with the `Published<T>.Band` provider-model→`MeasureBand` lowering, passes the scalar columns central-only (the seam guards Poisson `[0,0.5]`, μ `>= 1`, ζ `[0,1)`, the isotherm `wf >= w80`, the optical conservation refinements), folds the acoustic declaration through the six-arg seam `Acoustic.Of` gate, and the fire declaration through `FireRating.Parse` + the generated `SmokeClass.TryGet`/`DropletClass.TryGet` + the three-criterion `FireResistance` ctor. Only the `Strength` resolution BINDS; the seven discipline groups and the three fire tokens are INDEPENDENT and ACCUMULATE applicatively, so a row with several rejected columns faults them ALL in one `Fin.Fail` `ManyErrors`. `MaterialPropertyCatalogue.Lookup(MaterialId id, Op key)` reads the memoized admitted catalogue, faulting `ElementFault.ValueRejected` for an unregistered material — one polymorphic resolution, never a `GetMechanical`/`GetThermal` family.
+- Entry: `public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key)` — resolves the `MechanicalSource` (the stored MPa triple, the F1667-S1 band read, or the vendor build with its throw trapped onto `ElementFault.ValueRejected` via the kernel `Op.Catch` funnel), mints every dimensional column through the `QuantityRow` typed-mint rows with the `Published<T>.Band` provider-model→`MeasureBand` lowering, passes the scalar columns central-only (the seam guards Poisson `[0,0.5]`, μ `>= 1`, ζ `[0,1)`, εr `>= 1`, the isotherm `wf >= w80`, the optical conservation refinements), folds the acoustic declaration through the six-arg seam `Acoustic.Of` gate, the electrical declaration through the seam `OfElectrical` raw arity, and the fire declaration through `FireRating.Parse` + the generated `SmokeClass.TryGet`/`DropletClass.TryGet` + the three-criterion `FireResistance` ctor. Only the `Strength` resolution BINDS; the eight discipline groups and the three fire tokens are INDEPENDENT and ACCUMULATE applicatively, so a row with several rejected columns faults them ALL in one `Fin.Fail` `ManyErrors`. `MaterialPropertyCatalogue.Lookup(MaterialId id, Op key)` reads the memoized admitted catalogue, faulting `ElementFault.ValueRejected` for an unregistered material — one polymorphic resolution, never a `GetMechanical`/`GetThermal` family.
 - Packages: Rasm.Element (project — `MaterialPropertySet` + its `Of*` admissions, `MeasureValue.OfSi`/`WithUncertainty`, `MeasureBand.Admit`, `UncertaintyKind`, `PropertyEvidence`, `FireRating.Parse`, `SmokeClass`/`DropletClass`, `FireResistance`, `Acoustic.Of`, `Discipline`, `MaterialId`, `ElementFault.ValueRejected`), Rasm.Materials.Component (project — the `QuantityRow` typed-mint owner and its `OfNative` mint), VividOrange.Uncertainties + VividOrange.Uncertainties.Quantities (the four uncertainty models over the `double` and `IQuantity` carriers, the fluent `WithRelativeUncertainty`/`WithAbsoluteUncertainty`/`WithIntervalUncertainty` admissions, the `IntervalUncertaintyQuantity<TQuantity>` carrier the dimensional interval arm mints directly, the `IUncertainty<T>` kind interfaces), VividOrange.Materials (`EnSteelFactory`/`EnRebarFactory`/`EnSteelMaterial`/`EnSteelGrade`/`EnRebarGrade`/`EnSteelDeliveryCondition`/`IBiLinearMaterial`), VividOrange.Standards (`NationalAnnex`), UnitsNet (`Density`/`Pressure`/`ThermalConductivity`/`SpecificEntropy`/`Length` — raw-to-SI coercion at this boundary only), NodaTime (`LocalDate` evidence expiry), Rasm (project — `Op` + the `Op.Catch` trap funnel), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option` + `Match`/`Map`), BCL inbox (`FrozenDictionary`, `Lazy<T>`, `ReadOnlyMemory<double>`, `ImmutableArray<T>`).
-- Growth: a new engineering property shared across materials is one column on the matching seam case the row gains a published column for and `Admit` lowers; a new known material is one `Rows` entry naming its `SubstancePhysics` anchor (the roster grows by row to thousands with no seam touch, and a corrected family figure is one anchor edit rather than a hundred-row sweep); a new vendor grade table or published-yield convention is one `MechanicalSource` case plus one `Strength` arm, compiler-forced at the generated `Switch`; a new nail-wire class or diameter band is one `NailWireClass` row or one band entry; a new property discipline is one seam case — the `Damping`/`Hygrothermal`/`Optical` cases landed exactly this way and this catalogue sources three of them.
-- Boundary: `MaterialPropertyRow` is the published-DATA ingress, NOT a parallel domain union — the seam `MaterialPropertySet` is the one typed carrier and `Admit` the one `BOUNDARY_ADMISSION`, so the row and every declaration beside it stay `internal` and the public surface is `Admit`/`Lookup` alone, both answering the ADMITTED set the analytics projection also folds. The dimensional columns coerce to SI through `UnitsNet` reads inside the `QuantityRow`-typed mint, the provider uncertainty models lower to neutral `MeasureBand` bounds at exactly that mint, and provider types never cross into `Rasm.Element`. A SUBSTANCE HAS NO TRANSMITTANCE: the seam `Thermal` case carries a U-value column, this mint answers the substance's conductance at UNIT thickness — numerically λ, carrying no thickness at all — and the EN ISO 6946 assembly fold in `Rasm.Compute` owns every real U-value over a declared buildup. A SUBSTANCE HAS NO DYNAMIC STIFFNESS either: EN 29052-1 `s'` is an installed-assembly quantity whose airflow term is pure geometry, measured to differ across thicknesses of one declared product, so the seam `Acoustic.Of` optional slot stays absent from every roster row and a product-keyed source is the only honest home. The vendor factories are exception-throwing at their derivation boundary (`ArgumentException`/`MissingNationalAnnexException`/`InvalidSteelSpecificationException`) so `Strength` traps them ONCE via `Op.Catch` onto the SAME band every seam admission rails — a mixed-band `Admit` chain is the rejected cross-concern leak. The lowered `Seq<MaterialPropertySet>` is what `Projection/component#COMPONENT_PROJECTOR` writes onto the seam `Material` node, and no uncertainty value routes a VividOrange serializer, the canonical Rasm codec owning every wire; the `Optical`/`Hygrothermal` column sets align one-to-one with the standard IFC material property sets `Rasm.Bim` emits FROM that graph, so the alignment lives at the seam and neither side transcribes the other's member names. SUBSTANCE-ID CLOSURE is a hard invariant: every `Component.SubstanceId` a seed page mints resolves a row here, a seed-keyed id with no row being a projection-time `Lookup` fault, so a new seed substance lands with its row in the same campaign; a ply-cavity, stud-appearance, or adhesive-appearance id is NOT a substance key and never routes this catalogue.
+- Growth: a new engineering property shared across materials is one column on the matching seam case the row gains a published column for and `Admit` lowers; a new known material is one `Rows` entry naming its `SubstancePhysics` anchor (the roster grows by row to thousands with no seam touch, and a corrected family figure is one anchor edit rather than a hundred-row sweep); a new vendor grade table or published-yield convention is one `MechanicalSource` case and one `Strength` arm, compiler-forced at the generated `Switch`; a new nail-wire class or diameter band is one `NailWireClass` row or one band entry; a new property discipline is one seam case — the `Damping`/`Hygrothermal`/`Optical`/`Electrical` cases landed exactly this way and this catalogue sources four of them.
+- Boundary: `MaterialPropertyRow` is the published-DATA ingress, NOT a parallel domain union — the seam `MaterialPropertySet` is the one typed carrier and `Admit` the one `BOUNDARY_ADMISSION`, so the row and every declaration beside it stay `internal` and the public surface is `Admit`/`Lookup` alone, both answering the ADMITTED set the analytics projection also folds. The dimensional columns coerce to SI through `UnitsNet` reads inside the `QuantityRow`-typed mint, the provider uncertainty models lower to neutral `MeasureBand` bounds at exactly that mint, and provider types never cross into `Rasm.Element`. A SUBSTANCE HAS NO TRANSMITTANCE: the seam `Thermal` case carries a U-value column, this mint answers the substance's conductance at UNIT thickness — numerically λ, carrying no thickness at all — and the EN ISO 6946 assembly fold in `Rasm.Compute` owns every real U-value over a declared buildup. A SUBSTANCE HAS NO DYNAMIC STIFFNESS either: EN 29052-1 `s'` is an installed-assembly quantity whose airflow term is pure geometry, measured to differ across thicknesses of one declared product, so the seam `Acoustic.Of` optional slot stays absent from every roster row and a product-keyed source is the only honest home. A SUBSTANCE CARRIES NO AMPACITY: the NEC 310.16 / IEC 60364-5-52 current-carrying tables key on insulation temperature rating, installation method, and conductor grouping — component and assembly facts the electrical detail rows own — so the seam `Electrical` case admits the substance constants alone and no current rating ever seeds a roster row. The vendor factories are exception-throwing at their derivation boundary (`ArgumentException`/`MissingNationalAnnexException`/`InvalidSteelSpecificationException`) so `Strength` traps them ONCE via `Op.Catch` onto the SAME band every seam admission rails — a mixed-band `Admit` chain is the rejected cross-concern leak. The lowered `Seq<MaterialPropertySet>` is what `Projection/component#COMPONENT_PROJECTOR` writes onto the seam `Material` node, and no uncertainty value routes a VividOrange serializer, the canonical Rasm codec owning every wire; the `Optical`/`Hygrothermal` column sets align one-to-one with the standard IFC material property sets `Rasm.Bim` emits FROM that graph, so the alignment lives at the seam and neither side transcribes the other's member names. SUBSTANCE-ID CLOSURE is a hard invariant: every `Component.SubstanceId` a seed page mints resolves a row here, a seed-keyed id with no row being a projection-time `Lookup` fault, so a new seed substance lands with its row in the same campaign; a ply-cavity, stud-appearance, or adhesive-appearance id is NOT a substance key and never routes this catalogue.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -226,6 +226,17 @@ internal readonly record struct OpticalDeclaration(
     double SolarT, double SolarRf, double SolarRb,
     double IrT, double IrEf, double IrEb);
 
+// The electrical ingress group — the IEC 60364 / NEC SIZING constants a conductor or dielectric substance
+// declares: DC volume resistivity at its Ω·m SI base and the relative permittivity the seam guards >= 1. The two
+// optional columns stay absent wherever no source publishes them — a breakdown field moves an order of magnitude
+// with film thickness and test method, so only a product-declared value seeds, and μr is None for every
+// non-magnetic substance rather than a fabricated unity.
+internal readonly record struct ElectricalDeclaration(
+    double ResistivityOhmM,
+    double RelativePermittivity,
+    Option<double> DielectricStrengthVPerM = default,
+    Option<double> MagneticPermeabilityRelative = default);
+
 // The published engineering data for one material — pure DATA, lifted only at Admit. The prior shape banded every
 // column in its own constructor and Admit then read the centrals straight back out, so each row allocated ten
 // uncertainty carriers to answer ten doubles; banding now happens once, at the mint that consumes it.
@@ -235,6 +246,7 @@ internal sealed record MaterialPropertyRow(
     Option<AcousticDeclaration> Acoustic = default,
     Option<HygrothermalDeclaration> Hygrothermal = default,
     Option<OpticalDeclaration> Optical = default,
+    Option<ElectricalDeclaration> Electrical = default,
     PropertyEvidence Evidence = default);
 
 // The mechanical triple an admission resolved, carrying the evidence its SOURCE earned: a delegated row speaks for
@@ -268,12 +280,12 @@ public static class MaterialPropertyCatalogue {
 
     // Lowers a published row into the seam cases. EVERY value flows through a seam admission or the trapped vendor
     // build, so the WHOLE chain rails ONE band — ElementFault.ValueRejected (2500). Strength is mechanical's ONE
-    // dependency and binds first; the seven discipline groups are INDEPENDENT and accumulate APPLICATIVELY — the
+    // dependency and binds first; the eight discipline groups are INDEPENDENT and accumulate APPLICATIVELY — the
     // seam's own VALIDATION_MONOID shape one level up, so a curated row with a bad fire token AND a bad optical
-    // fraction reports BOTH in one Fin.Fail (ManyErrors), never first-fault-only. Poisson/μ/ζ/sorption/optics cross
-    // central-only (the seam guards range and refinement: Poisson [0,0.5], μ >= 1, ζ [0,1), wf >= w80, per-band
-    // τ+ρ <= 1). Damping passes no Rayleigh pair — the (α, β) calibration is a per-model FE input, never a
-    // catalogue datum.
+    // fraction reports BOTH in one Fin.Fail (ManyErrors), never first-fault-only. Poisson/μ/ζ/εr/sorption/optics
+    // cross central-only (the seam guards range and refinement: Poisson [0,0.5], μ >= 1, ζ [0,1), εr >= 1,
+    // wf >= w80, per-band τ+ρ <= 1). Damping passes no Rayleigh pair — the (α, β) calibration is a per-model FE
+    // input, never a catalogue datum.
     internal static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key) =>
         Strength(row.Mechanical, key).Bind(strength =>
             (Mechanical(row, strength, key).ToValidation(),
@@ -304,9 +316,12 @@ public static class MaterialPropertyCatalogue {
                  Some: h => MaterialPropertySet.OfHygrothermal(h.Porosity, h.W80KgM3, h.WfKgM3, h.AValueKgM2SqrtS, key, row.Evidence).Map(set => Seq(set)).ToValidation()),
              row.Optical.Match(
                  None: static () => NoGroup,
-                 Some: o => MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, key, row.Evidence).Map(set => Seq(set)).ToValidation()))
-            .Apply(static (mechanical, thermal, acoustic, fire, damping, hygrothermal, optical) =>
-                Seq(mechanical, thermal) + acoustic + fire + damping + hygrothermal + optical).As()
+                 Some: o => MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, key, row.Evidence).Map(set => Seq(set)).ToValidation()),
+             row.Electrical.Match(
+                 None: static () => NoGroup,
+                 Some: e => MaterialPropertySet.OfElectrical(e.ResistivityOhmM, e.RelativePermittivity, e.DielectricStrengthVPerM, e.MagneticPermeabilityRelative, key, row.Evidence).Map(set => Seq(set)).ToValidation()))
+            .Apply(static (mechanical, thermal, acoustic, fire, damping, hygrothermal, optical, electrical) =>
+                Seq(mechanical, thermal) + acoustic + fire + damping + hygrothermal + optical + electrical).As()
             .ToFin());
 
     // The density column carries the AUTHORED transcription band even on a DELEGATED row, because no EN factory
@@ -421,6 +436,8 @@ public static class MaterialPropertyCatalogue {
     static readonly Option<FireDeclaration> FireD = Some(new FireDeclaration("D", "s2", "d0"));
     static readonly Option<FireDeclaration> FireD30 = Some(new FireDeclaration("D", "s2", "d0", Some(30), Some(30), Some(30)));
     static readonly Option<FireDeclaration> FireE = Some(new FireDeclaration("E", "s2", "d0"));
+    // An untested reaction class is ABSENCE, never a guessed Euroclass — the FireDeclaration dual of NoDamping.
+    static readonly Option<FireDeclaration> NoFire = Option<FireDeclaration>.None;
 
     static readonly Option<double> ZSteel = Some(0.02);
     static readonly Option<double> ZConcrete = Some(0.05);
@@ -434,6 +451,7 @@ public static class MaterialPropertyCatalogue {
     static readonly SubstancePhysics Austenitic    = new(8000.0, 0.30, 16.0e-6, 15.0, 500.0, Impermeable, FireA1, ZSteel);      // EN 10088 austenitic block
     static readonly SubstancePhysics Duplex        = Austenitic with { DensityKgM3 = 7800.0, ExpansionPerK = 13.0e-6 };
     static readonly SubstancePhysics Aluminium     = new(2700.0, 0.33, 23.0e-6, 167.0, 900.0, Impermeable, FireB, ZSteel);
+    static readonly SubstancePhysics Copper        = new(8940.0, 0.34, 17.0e-6, 339.0, 385.0, Impermeable, FireA1, NoDamping);   // C12200 DHP: λ tracks the 85 % IACS conductivity, never the C11000 391
     static readonly SubstancePhysics Thermoset     = new(1200.0, 0.35, 60.0e-6, 0.20, 1000.0, Mu(10_000.0), FireE, NoDamping);  // a bond line is not an EN 1998-1 ζ family
     static readonly SubstancePhysics Concrete      = new(2400.0, 0.20, 10.0e-6, 2.30, 1000.0, Mu(50.0), FireA1, ZConcrete);
     static readonly SubstancePhysics Softwood      = new(350.0, 0.40, 5.0e-6, 0.13, 1600.0, Mu(50.0), FireD, ZTimber);
@@ -453,8 +471,14 @@ public static class MaterialPropertyCatalogue {
     static readonly SubstancePhysics FibreCement   = new(1400.0, 0.20, 8.0e-6, 0.19, 900.0, Mu(15.0), FireA2, NoDamping);
     static readonly SubstancePhysics WoodPanel     = new(600.0, 0.30, 5.0e-6, 0.13, 1600.0, Mu(90.0), FireD, ZTimber);
     static readonly SubstancePhysics Membrane      = new(1150.0, 0.45, 160.0e-6, 0.25, 1000.0, Mu(50_000.0), FireE, NoDamping);
+    static readonly SubstancePhysics RigidVinyl    = new(1400.0, 0.38, 52.0e-6, 0.16, 900.0, Mu(50_000.0), NoFire, NoDamping);   // PVC-U pipe/profile compound (D1784 cell-class family)
+    static readonly SubstancePhysics Polyolefin    = new(958.0, 0.42, 150.0e-6, 0.40, 1900.0, Mu(100_000.0), FireE, NoDamping);  // PE100/PEX polyethylene block
+    static readonly SubstancePhysics Ceramic       = new(2300.0, 0.22, 6.5e-6, 1.30, 840.0, Impermeable, FireA1, NoDamping);     // fired porcelain/stoneware body — the A137.1 Impervious class seeds vapour-tight
+    static readonly SubstancePhysics Textile       = new(700.0, 0.0, 0.0, 0.06, 1300.0, Mu(5.0), NoFire, NoDamping);             // tufted carpet tile (pile + backing bulk)
+    static readonly SubstancePhysics MineralFelt   = new(250.0, 0.0, 0.0, 0.06, 1000.0, Mu(5.0), NoFire, NoDamping);             // wet-felt mineral ceiling tile body
 
-    // The structural-materials roster — every row a published EN/ASTM/CSA datasheet keyed by the canonical
+    // The full-building materials roster — structure, envelope, MEP, finishes, fireproofing — every row a
+    // published EN/ASTM/CSA/ISO datasheet keyed by the canonical
     // MaterialId (seam-generated ordinal-ignore-case equality keys the table), in EXACT MaterialId parity with the
     // Properties/sustainability EPD roster, a parity the sibling catalogue's type-init census PROVES rather than
     // asserts. Mechanical columns: DELEGATED rows read EN 1993-1-1 Table 3.1 or EN 1992-1-1 §3.2 at Admit; AUTHORED
@@ -466,6 +490,8 @@ public static class MaterialPropertyCatalogue {
     // EN 29053 flow resistivity the Delany-Bazley route reads. Fire: EN 13501-1 reaction + EN 13501-2 R/E/I minutes
     // where a slab rating is published — resistance is otherwise an assembly property Rasm.Compute computes over
     // the buildup. Hygrothermal: the WUFI/Fraunhofer sorption anchors. Optical: the EN 410 published record.
+    // Electrical: the IEC 60028 / textbook conductor and dielectric constants only a characterized conductor or
+    // insulation substance carries — εr crosses the seam >= 1 guard, and ampacity stays a component fact.
     internal static readonly FrozenDictionary<MaterialId, MaterialPropertyRow> Rows = new (MaterialId Id, MaterialPropertyRow Row)[] {
         // --- structural carbon steel (EN 10025-2/-3; DELEGATED — Table 3.1 <=40 mm: S235 235/360, S275 275/430,
         //     S355 355/490, S450 440/550 on AR; S420 420/520, S460 460/540 on N; E 210 GPa the factory law)
@@ -484,6 +510,13 @@ public static class MaterialPropertyCatalogue {
         (MaterialId.Of("metal.steel"), new(CarbonSteel, new MechanicalSource.EnSteel(EnSteelGrade.S235, EnSteelDeliveryCondition.AR))),
         // metal.iron — the cast/wrought-iron generic the Component/joint weld family keys; ductile EN-GJS-400-15
         (MaterialId.Of("metal.iron"), new(CastIron, MechanicalSource.Mpa(170_000.0, 250.0, 400.0))),
+        // iron.cast / iron.ductile — the PIPE-grade irons beside the metal.iron generic, per the family idiom the
+        // steel block sets: the generic alias keeps the EN-GJS-400 casting baseline, a graded substance mints its
+        // own id. Gray iron (ASTM A48 Class 30, the A74 soil-pipe casting basis) is BRITTLE — no yield plateau, so
+        // proof and ultimate are the one published tensile, the adhesive-block idiom; ductile pipe casts to AWWA
+        // C151/A21.51 grade 60-42-10 (yield 290 / tensile 414, E the AWWA C150 24e6 psi design value).
+        (MaterialId.Of("iron.cast"),    new(CastIron with { DensityKgM3 = 7150.0, PoissonsRatio = 0.26 }, MechanicalSource.Mpa(100_000.0, 207.0, 207.0))),
+        (MaterialId.Of("iron.ductile"), new(CastIron with { DensityKgM3 = 7100.0 }, MechanicalSource.Mpa(165_000.0, 290.0, 414.0))),
         // --- AISC structural steel (ASTM A36 250/400, A992 345/450, A572 Gr50 345/450; E 200 GPa AISC — no EN
         //     producer, FLOOR_SCOPE_GATE, AUTHORED) — the Component/steel#STEEL_FAMILY SubstanceId rows
         (MaterialId.Of("steel.a36"),  new(CarbonSteel, MechanicalSource.Mpa(200_000.0, 250.0, 400.0))),
@@ -532,6 +565,10 @@ public static class MaterialPropertyCatalogue {
         (MaterialId.Of("steel.a500"), new(CarbonSteel, MechanicalSource.Mpa(200_000.0, 345.0, 427.0))),
         (MaterialId.Of("steel.a53"),  new(CarbonSteel, MechanicalSource.Mpa(200_000.0, 240.0, 415.0))),
         (MaterialId.Of("steel.a653"), new(CarbonSteel, MechanicalSource.Mpa(200_000.0, 340.0, 450.0))),
+        // steel.galvanized — the SMACNA duct-sheet substance (ASTM A653 CS/lock-forming quality at the SS Grade 33
+        // minima 230/310; the zinc bath changes lifecycle and surface, never the core strengths). Distinct from
+        // steel.a653: that row is the SS Grade 50 structural sheet the cold-formed family keys.
+        (MaterialId.Of("steel.galvanized"), new(CarbonSteel, MechanicalSource.Mpa(200_000.0, 230.0, 310.0))),
         // --- weld filler metal (the Component/joint#JOINT_FAMILY ElectrodeClass SubstanceId rows): AWS A5.1 carbon
         //     (E60/E70) and A5.5 low-alloy (E80..E110) deposited-metal minima — the FEXX tensile is the electrode
         //     row's own TensileMpa column and the yield the matching AWS classification minimum.
@@ -662,7 +699,26 @@ public static class MaterialPropertyCatalogue {
         (MaterialId.Of("aluminium.6082t6"), new(Aluminium with { DensityKgM3 = 2710.0, ExpansionPerK = 23.1e-6, ConductivityWMK = 170.0 }, MechanicalSource.Mpa(70_000.0, 260.0, 310.0))),
         (MaterialId.Of("aluminium.6061t6"), new(Aluminium, MechanicalSource.Mpa(70_000.0, 240.0, 290.0))),
         (MaterialId.Of("aluminium.6063t5"), new(Aluminium with { ConductivityWMK = 200.0 }, MechanicalSource.Mpa(70_000.0, 130.0, 175.0))),
+        (MaterialId.Of("aluminium.6063t6"), new(Aluminium with { ConductivityWMK = 200.0 }, MechanicalSource.Mpa(70_000.0, 160.0, 195.0))),
         (MaterialId.Of("aluminium.5083"),   new(Aluminium with { DensityKgM3 = 2660.0, ExpansionPerK = 24.0e-6, ConductivityWMK = 117.0 }, MechanicalSource.Mpa(70_000.0, 125.0, 275.0))),
+        // --- aluminium conductor (AA-1350 EC-grade, ≥ 99.5 % Al — the electrical#CONDUCTOR_TABLES substance,
+        //     never a structural alloy: the mechanical triple is the 1350-O annealed floor (the H19 hard-drawn
+        //     wire's 160–200 MPa tensile band is a per-diameter PRODUCT fact its wire declares, not a substance
+        //     column). The electrical column carries the grade's identity: the 1350 designation guarantees
+        //     61 % IACS, and against the IEC 60028 annealed-copper anchor 1.7241e-8 Ω·m that fixes
+        //     ρ = 1.7241e-8/0.61 = 2.83e-8 Ω·m — two-source-checked, the copper row's own derivation idiom. λ = 234
+        //     re-anchors on the same purity axis the 6063 row already moves on; εr = 1.0 the conductor identity.
+        (MaterialId.Of("aluminium.1350"),   new(Aluminium with { ConductivityWMK = 234.0 }, MechanicalSource.Mpa(70_000.0, 28.0, 83.0),
+            Electrical: Some(new ElectricalDeclaration(2.83e-8, 1.0)))),
+        // --- copper tube (ASTM B88 water tube; C12200 phosphorus-deoxidized DHP — the TUBE-grade substance,
+        //     distinct from electrical-grade C11000: deoxidation buys weldability at a conductivity cost. Drawn
+        //     H58 minima 207/248 (CDA Copper Tube Handbook + B88); E the CDA wrought 117 GPa. The electrical
+        //     column carries the DHP truth: IEC 60028 pins annealed standard copper at 1.7241e-8 Ω·m (100 % IACS)
+        //     and C12200 publishes 85 % IACS, so ρ = 2.03e-8 — the 100 % figure on a DHP substance would overstate
+        //     its conductivity by a sixth. εr = 1.0 is the conductor's engineering identity (conduction rides σ;
+        //     the lattice permittivity is unity in the complex-permittivity model), never a measured dielectric.
+        (MaterialId.Of("copper.c12200"), new(Copper, MechanicalSource.Mpa(117_000.0, 207.0, 248.0),
+            Electrical: Some(new ElectricalDeclaration(2.03e-8, 1.0)))),
         // --- masonry units (EN 771; fb the normalized compressive strength surrogate; the WUFI/Fraunhofer sorption
         //     anchors carried on the hygrothermally-characterized clay and AAC rows)
         (MaterialId.Of("masonry.clay"), new(ClayUnit, MechanicalSource.Mpa(7_000.0, 10.0, 20.0),
@@ -722,10 +778,69 @@ public static class MaterialPropertyCatalogue {
         (MaterialId.Of("cement.board"), new(FibreCement, MechanicalSource.Mpa(7_000.0, 7.0, 10.0))),
         (MaterialId.Of("wood.plywood"), new(WoodPanel, MechanicalSource.Mpa(8_000.0, 30.0, 40.0))),
         (MaterialId.Of("wood.osb"),     new(WoodPanel with { DensityKgM3 = 650.0, SpecificHeatJKgK = 1700.0, Vapour = Mu(200.0) }, MechanicalSource.Mpa(3_500.0, 20.0, 26.0))),
-        // --- roofing/waterproofing membrane (EN 13956; per-area products; the membrane IS the vapour control layer)
+        // --- roofing/waterproofing membrane (EN 13956 / ASTM D4637 EPDM, D6878 TPO, D4434 PVC — D6878 is the TPO
+        //     sheet standard, D6754 being the KEE sheet spec; per-area products; the membrane IS the vapour
+        //     control layer)
         (MaterialId.Of("membrane.epdm"), new(Membrane, MechanicalSource.Mpa(5.0, 5.0, 9.0))),
         (MaterialId.Of("membrane.pvc"),  new(Membrane with { DensityKgM3 = 1300.0, ExpansionPerK = 70.0e-6, ConductivityWMK = 0.16, Vapour = Mu(20_000.0) }, MechanicalSource.Mpa(15.0, 10.0, 15.0))),
         (MaterialId.Of("membrane.tpo"),  new(Membrane with { DensityKgM3 = 920.0, ExpansionPerK = 150.0e-6, ConductivityWMK = 0.20, Vapour = Mu(30_000.0) }, MechanicalSource.Mpa(10.0, 9.0, 14.0))),
+        // --- construction barrier sheets (the Component/panel#PANEL_FAMILY AirBarrier / VapourRetarder /
+        //     Waterproofing / FlashingMembrane SubstanceIds). membrane.wrap is the spun-bonded HDPE air-barrier
+        //     sheet whose PERMEANCE is the load-bearing fact: the EN 13859-2 DoP sd 0,01 m at the 0.185 mm
+        //     functional layer reads back as μ ≈ 54 — vapour-OPEN, three orders under the retarder films beside
+        //     it — with density the sheet EFFECTIVE 61 g/m² / 0.185 mm (the void-bearing fibre lattice; the 980
+        //     HDPE bulk would overstate every ply mass threefold), λ the EN ISO 10456 HDPE polymer figure as the
+        //     upper bound a 0.19 mm gauge cannot register, tensile the EN 12311-1 310 N/50 mm at that gauge (a
+        //     nonwoven has no plateau, so proof=ultimate; E the secant at the declared 17,5 % elongation), and
+        //     reaction class E per the product DoP. membrane.pe is the polyethylene vapour-retarder film at the
+        //     EN ISO 10456 LDPE row (920 / 0.33, the μ 100 000 PE-foil class the Polyolefin anchor already
+        //     carries); the Class I retarder RATING is the component page's product fact and this row the
+        //     polymer's — strengths the textbook LDPE bulk band, reaction class untested-absent. membrane.sbs is
+        //     the SBS-modified PYE sheet at the EN ISO 10456 bitumen-felt/sheet row (1100 / 0.23 with the
+        //     Membrane anchor's own μ 50 000 and cp 1000); tensile the EN 12311-1 700 N/50 mm polyester-PYE
+        //     longitudinal at the 4 mm sheet (proof=ultimate), E the 23 °C compound-stiffness ORDER — bituminous
+        //     stiffness is temperature-ruled and no constant publishes — and class E per the EN 13707 DoPs.
+        (MaterialId.Of("membrane.wrap"), new(Polyolefin with { DensityKgM3 = 330.0, ConductivityWMK = 0.50, Vapour = Mu(54.0) }, MechanicalSource.Mpa(200.0, 34.0, 34.0))),
+        (MaterialId.Of("membrane.pe"),   new(Polyolefin with { DensityKgM3 = 920.0, ConductivityWMK = 0.33, Fire = NoFire }, MechanicalSource.Mpa(200.0, 10.0, 17.0))),
+        (MaterialId.Of("membrane.sbs"),  new(Membrane with { DensityKgM3 = 1100.0, ConductivityWMK = 0.23 }, MechanicalSource.Mpa(50.0, 3.5, 3.5))),
+        // --- pipe polymers (the MEP substances the piping components key). PVC-U cell class 12454 (ASTM D1785):
+        //     tensile 48 / E 2.76 GPa; CPVC cell class 23447 (ASTM F441): 55 / 2.9 GPa at 200 °F service; PEX
+        //     (ASTM F876 crosslinked PE) and PE100 (HDPE) carry the polyethylene bulk figures. Electrical: rigid
+        //     PVC εr 3.4 / ρ 1e12 Ω·m and polyethylene εr 2.3 / ρ 1e14 Ω·m — the XLPE 1e14 the seam's own
+        //     Electrical card anchors on; CPVC's dielectric record is single-sourced and stays absent.
+        (MaterialId.Of("pipe.pvc"),  new(RigidVinyl, MechanicalSource.Mpa(2_760.0, 48.0, 48.0),
+            Electrical: Some(new ElectricalDeclaration(1.0e12, 3.4)))),
+        (MaterialId.Of("pipe.cpvc"), new(RigidVinyl with { DensityKgM3 = 1550.0, ExpansionPerK = 62.0e-6, ConductivityWMK = 0.14 }, MechanicalSource.Mpa(2_900.0, 55.0, 55.0))),
+        (MaterialId.Of("pipe.pex"),  new(Polyolefin with { DensityKgM3 = 940.0, ConductivityWMK = 0.38 }, MechanicalSource.Mpa(800.0, 19.0, 22.0),
+            Electrical: Some(new ElectricalDeclaration(1.0e14, 2.3)))),
+        (MaterialId.Of("pipe.hdpe"), new(Polyolefin, MechanicalSource.Mpa(1_000.0, 23.0, 30.0),
+            Electrical: Some(new ElectricalDeclaration(1.0e14, 2.3)))),
+        // --- finishes (ANSI A137.1/ISO 13006 porcelain tile — the Impervious class <= 0.5 % absorption seeds the
+        //     body vapour-tight, MOR 35 MPa the BIa registered minimum; ASTM F1700 Class III printed-film LVT —
+        //     the live LVT standard; E1264 wet-felt mineral ceiling tile; tufted PA6 carpet tile. The soft
+        //     finishes carry the non-structural triple idiom the insulation rows hold, and no acoustic vector
+        //     seeds — E1264 NRC/CAC are PRODUCT declarations, structurally absent as substance data.
+        (MaterialId.Of("ceramic.tile"),       new(Ceramic, MechanicalSource.Mpa(70_000.0, 35.0, 35.0))),
+        (MaterialId.Of("flooring.resilient"), new(RigidVinyl with { DensityKgM3 = 1700.0, ConductivityWMK = 0.17 }, MechanicalSource.Mpa(2_000.0, 15.0, 25.0))),
+        (MaterialId.Of("flooring.carpet"),    new(Textile, MechanicalSource.Mpa(1.0, 0.001, 0.002))),
+        (MaterialId.Of("ceiling.mineral"),    new(MineralFelt, MechanicalSource.Mpa(50.0, 0.20, 0.40))),
+        // coating.paint — the FinishKind.Paint dried architectural coating film (the Component/finishes
+        //     FinishKind SubstanceId): the cured-acrylic film physics the intumescent row's idiom carries —
+        //     density the pigmented dried film (the clear acrylic film floors it at ~1050 and PVC pigment
+        //     loading lifts flat grades toward 1600, so the mid-band value wears the catalogue band), the
+        //     Thermoset resin-film μ, reaction class untested-absent, and the soft no-plateau triple; neither
+        //     finish family publishes a structural resistance, so the Component capacity producers stay typed
+        //     refusals and this triple is film physics, never a design allowable.
+        (MaterialId.Of("coating.paint"),      new(Thermoset with { DensityKgM3 = 1300.0, Fire = NoFire }, MechanicalSource.Mpa(1_000.0, 3.0, 3.0))),
+        // --- fireproofing (SFRM: the low/standard-density gypsum-binder class 240-336 kg/m³ — density CLASS is
+        //     the value axis, and the row carries the EC3 fire-design protection-material figures for sprayed
+        //     mineral/gypsum coat: ρ 300, λ 0.12, c 1200. The IBC/ASTM E736 150 psf bond floor (7.18 kPa) is the
+        //     ONE published strength and seeds proof=ultimate; the unfaced mineral spray takes the A1 class the
+        //     mineral-wool family carries. Intumescent: the cured epoxy/acrylic film — DFT-per-rating is
+        //     LISTING-specific (UL 263 × W/D × orientation), structurally absent as a substance column, so the
+        //     row carries film physics alone and its reaction class stays untested-absent.
+        (MaterialId.Of("fireproofing.sfrm"),        new(Gypsum with { DensityKgM3 = 300.0, ConductivityWMK = 0.12, SpecificHeatJKgK = 1200.0, Fire = FireA1 }, MechanicalSource.Mpa(10.0, 0.0072, 0.0072))),
+        (MaterialId.Of("fireproofing.intumescent"), new(Thermoset with { DensityKgM3 = 1400.0, Fire = NoFire }, MechanicalSource.Mpa(2_000.0, 5.0, 5.0))),
     }.ToFrozenDictionary(static r => r.Id, static r => r.Row);
 
     // The ADMITTED catalogue, frozen at first access. Admission runs the whole applicative join AND constructs an
@@ -766,7 +881,7 @@ public static class MaterialPropertyCatalogue {
 
 - Owner: `CementType` the binder axis carrying its own published ageing exponent; `DurabilityMix` the published `(cement × w/c)` chloride-migration row; `DurabilityCatalogue` the fib Annex B transcription and its `Resolve` lowering onto the seam `Durability` case.
 - Law: DURABILITY IS MIX-KEYED, NEVER SUBSTANCE-KEYED. The reference publishes the migration coefficient `D_RCM,0` and the ageing exponent `alpha` against binder type and equivalent water/cement ratio and against nothing else, and a strength class determines neither: one C30/37 is reachable at w/c 0.45 on CEM I and at w/c 0.55 on CEM III/B, whose migration coefficients differ by roughly sevenfold in OPPOSITE directions. A `Durability` column on a concrete substance row is therefore unfillable in principle rather than merely unfilled, and the roster carries none by construction.
-- Cases: three published binder rows — CEM I 42.5R, CEM I with fly ash at `k = 0.5`, and CEM III/B — each over the five published w/c steps. A binder the reference adds is one `CementType` row plus its five `DurabilityMix` entries.
+- Cases: three published binder rows — CEM I 42.5R, CEM I with fly ash at `k = 0.5`, and CEM III/B — each over the five published w/c steps. A binder the reference adds is one `CementType` row with its five `DurabilityMix` entries.
 - Entry: `public static Fin<MaterialPropertySet> Resolve(CementType cement, double waterCementRatio, double carbonationRateMmPerSqrtYear, Op key)` — reads the published pair and lowers through the seam `OfDurability`. The carbonation rate is a CALLER input because the reference keys it on exposure class rather than on mix, so the mix table answers exactly the two columns it publishes and the exposure class supplies the third.
 - Packages: Rasm.Element (project — `MaterialPropertySet.OfDurability`, `PropertyEvidence`, `ElementFault.ValueRejected`), Rasm (project — `Op`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` the binder axis), LanguageExt.Core (`Fin`/`Option`), BCL inbox (`FrozenDictionary`).
 - Boundary: the table admits only the ratios the reference PRINTS. It publishes at 0.05 steps and an interpolated cell is a derivation rather than a transcription, so a ratio between two rows rails instead of blending them, and a ratio outside `[0.40, 0.60]` is outside the reference's stated validity domain and rails for that reason. The migration coefficient carries the reference's own coefficient of variation as a relative band and the ageing exponent its published mean and standard deviation, both stated on the row rather than assumed by a consumer; a project supplying a measured mix design substitutes a `Properties/assessment#ASSESSMENT_RECORD` `Measured` record and never edits this table.

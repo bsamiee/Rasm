@@ -13,7 +13,7 @@ THE JOINT SEED PAGE — the `joint` `ComponentFamily` row (`ComponentClass.Minor
 - Entry: `JointSeed.Rows(Context)` traverses the closed `JointRow` table through one total row dispatch. Weld geometry is already admitted through `PositiveMagnitude`; a fillet row proves the AISC J2.4 minimum, a plug or slot row proves the AWS §4.4.5.4 depth of filling, and a PJP groove proves its prep survives its own process deduction. `JointRow.Weld.DirectionalShearKn(Angle)` applies the directional factor without a raw-angle convention.
 - Packages: Rasm.Numerics (`PositiveMagnitude` — throat/leg/size/length/bond-line/overlap/width/spacing, never an int-backed count that truncates a fractional throat), Rasm.Domain (`Context`/`Op`/`AcceptValidated`), Rasm.Element (`MaterialId`, `DetailSchema`, `Dimension`, `PropertyBag`, `PropertyName`, `PropertyValue`), Rasm.Materials.Component (`Component`/`ComponentRow`/`SectionProfile`/`IfcBinding`/`ComponentDetail`/`ComponentFault`/`Coring`/`ComponentStandard`/`ComponentAuthority`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + generated total `Switch` for the policy axes), UnitsNet (`Angle` at the directional-strength read), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`Option`), BCL inbox (`ImmutableArray`, `FrozenDictionary`). AWS/AISC/ISO/ASTM have no VividOrange body, so every design-code citation on these rows stays `PUBLISHED` provenance and the typed EN identity rides `capacity#SECTION_CAPACITY` `SectionCapacity.Code`.
 - Growth: a new weld geometry is one `WeldType` row; a new groove one `GrooveGeometry` row carrying its angle/radius; a new electrode one `ElectrodeClass` row naming its own classification number; a new adhesive one `AdhesiveClass` row; a new stud diameter one `StudClass` row; a new stud grade one `StudGrade` row (`fy`/`fu`); a new deck-and-position combination one `StudGroup` row; a new designation one `JointRow` table entry; a new continuous-connection modality ONE `JointRow` case whose missing `Switch` arms break `JointDetail.Of` and `JointSeed.Row` at compile time. The structural-joint utilisation verdict is the `capacity#SECTION_CAPACITY` `Connection` case lifting these receipts, never this page's.
-- Boundary: strength axes remain frozen rows because identity and lookup behavior are absent; policy axes remain SmartEnums because they carry dispatch data. `WeldGeometry` distinguishes payload arity and timing: only groove geometry carries preparation and process, only hole welds carry diameter/depth, and only line welds carry a run. A THROAT is a line-weld concept — a plug and a slot resist on the faying-plane hole area with no throat at all — so `EffectiveThroatMm` is `Option<double>` and the two hole arms answer absence rather than the zero a reader would divide by.
+- Boundary: strength axes remain frozen rows because identity and lookup behavior are absent; policy axes remain SmartEnums because they carry dispatch data. `WeldGeometry` distinguishes payload arity and timing: only groove geometry carries preparation and process, only hole welds carry diameter/depth, and only line welds carry a run. A THROAT is a line-weld concept — a plug and a slot resist on the faying-plane hole area with no throat at all — so `EffectiveThroatMm` is `Option<double>` and the two hole arms answer absence rather than the zero a reader divides by.
 - Boundary: the plug and slot effective area is the NOMINAL AREA OF THE HOLE OR SLOT IN THE PLANE OF THE FAYING SURFACE, stated identically by AWS D1.1 §4.4.5.3 and AISC 360 §J2.3a, so the weld DEPTH enters no strength term at all. Depth is instead an ADMISSION datum: the code requires a plug or slot in material 16 mm or thinner to be filled to the full thickness and a thicker one to half its thickness or 16 mm, whichever is greater, capped at the thinner joined part — an underfilled plug is a NONCONFORMING weld rather than a weaker one, so the depth column gates the row at seed and never reduces a resistance afterwards.
 - Boundary: `StudClass.SteelShearKn` takes its `StudGroup` and has no default. AISC Eq I8-1 caps the stud at `Rg·Rp·Asa·Fu`, where `Rg` falls to 0.85 at two studs per rib and 0.70 at three, and `Rp` falls from 0.75 to 0.60 the moment the stud sits in the weak position — a stud group frozen at `1.0`/`0.75` reports a strong-position, directly-welded connector's capacity for a three-per-rib weak-position one and over-states it by more than half. The deck relation, the studs-per-rib count, and the rib position are PLACEMENT facts, so they arrive as the placement's own `StudGroup` and the vocabulary carries the published pair for each.
 
@@ -497,30 +497,30 @@ public static class JointDetail {
             flareBevel: static _ => 0.0, flareV: static _ => 0.0))
         let profile = row.Profile
         select (DetailSchema.WeldPrep, (PropertyValue)new PropertyValue.Complex("weld-prep", Map(
-            (PropertyName.Create("WeldType"), (PropertyValue)new PropertyValue.Text(row.Type.Key)),
-            (PropertyName.Create("Electrode"), new PropertyValue.Text(row.Electrode.Key)),
-            (PropertyName.Create("Specification"), new PropertyValue.Text(row.Electrode.Specification)),
-            (PropertyName.Create("Face"), new PropertyValue.Text(profile.Face.Key)),
-            (PropertyName.Create("RootTreatment"), new PropertyValue.Text(profile.Root.Key)),
-            (PropertyName.Create("Reinforcement"), new PropertyValue.Text($"{profile.ReinforcementMm:R}")),
-            (PropertyName.Create("ToeRadius"), new PropertyValue.Text($"{profile.ToeRadiusMm:R}")),
-            (PropertyName.Create("RootFace"), face))
+            (DetailSchema.WeldType, (PropertyValue)new PropertyValue.Text(row.Type.Key)),
+            (DetailSchema.Electrode, new PropertyValue.Text(row.Electrode.Key)),
+            (DetailSchema.Specification, new PropertyValue.Text(row.Electrode.Specification)),
+            (DetailSchema.Face, new PropertyValue.Text(profile.Face.Key)),
+            (DetailSchema.RootTreatment, new PropertyValue.Text(profile.Root.Key)),
+            (DetailSchema.Reinforcement, new PropertyValue.Text($"{profile.ReinforcementMm:R}")),
+            (DetailSchema.ToeRadius, new PropertyValue.Text($"{profile.ToeRadiusMm:R}")),
+            (DetailSchema.RootFace, face))
             + row.Geometry.Switch(
                 groove: g => Map(
-                    (PropertyName.Create("Groove"), (PropertyValue)new PropertyValue.Text(g.Prep.Geometry.Key)),
-                    (PropertyName.Create("Penetration"), new PropertyValue.Text(g.Prep.Penetration.Key)),
-                    (PropertyName.Create("Backing"), new PropertyValue.Text(g.Prep.Backing.Key)),
-                    (PropertyName.Create("Process"), new PropertyValue.Text(g.Process.Key))),
+                    (DetailSchema.Groove, (PropertyValue)new PropertyValue.Text(g.Prep.Geometry.Key)),
+                    (DetailSchema.Penetration, new PropertyValue.Text(g.Prep.Penetration.Key)),
+                    (DetailSchema.Backing, new PropertyValue.Text(g.Prep.Backing.Key)),
+                    (DetailSchema.Process, new PropertyValue.Text(g.Process.Key))),
                 fillet: static _ => Map<PropertyName, PropertyValue>(), plug: static _ => Map<PropertyName, PropertyValue>(),
                 slot: static _ => Map<PropertyName, PropertyValue>(), flareBevel: static _ => Map<PropertyName, PropertyValue>(),
                 flareV: static _ => Map<PropertyName, PropertyValue>())
-            + opening.Map(static value => Map((PropertyName.Create("RootOpening"), value))).IfNone(Map<PropertyName, PropertyValue>())));
+            + opening.Map(static value => Map((DetailSchema.RootOpening, value))).IfNone(Map<PropertyName, PropertyValue>())));
 
     static (PropertyName, PropertyValue) GradeRow(StudGrade grade) =>
         (DetailSchema.StudGrade, new PropertyValue.Complex("stud-grade", Map(
-            (PropertyName.Create("Grade"), (PropertyValue)new PropertyValue.Text(grade.Key)),
-            (PropertyName.Create("YieldStrength"), new PropertyValue.Text($"{grade.YieldMpa:R}")),
-            (PropertyName.Create("UltimateStrength"), new PropertyValue.Text($"{grade.UltimateMpa:R}")))));
+            (DetailSchema.Grade, (PropertyValue)new PropertyValue.Text(grade.Key)),
+            (DetailSchema.YieldStrength, new PropertyValue.Text($"{grade.YieldMpa:R}")),
+            (DetailSchema.UltimateStrength, new PropertyValue.Text($"{grade.UltimateMpa:R}")))));
 
     static Fin<PropertyValue> Si(double mm) =>
         MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));

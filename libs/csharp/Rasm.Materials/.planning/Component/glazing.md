@@ -861,10 +861,10 @@ public static class GlazingDetail {
             Token(DetailSchema.SpacerType, spacer.Key),
             Sourced(source),
             (DetailSchema.EdgeSeal, (PropertyValue)new PropertyValue.Complex("edge-seal", Map(
-                (PropertyName.Create("Primary"), (PropertyValue)new PropertyValue.Text(edgeSeal.Primary.Key)),
-                (PropertyName.Create("Secondary"), new PropertyValue.Text(edgeSeal.Secondary.Key)),
-                (PropertyName.Create("Desiccant"), new PropertyValue.Text(edgeSeal.Desiccant.Key)),
-                (PropertyName.Create("CorneredKeys"), new PropertyValue.Boolean(edgeSeal.CorneredKeys))))))
+                (DetailSchema.Primary, (PropertyValue)new PropertyValue.Text(edgeSeal.Primary.Key)),
+                (DetailSchema.Secondary, new PropertyValue.Text(edgeSeal.Secondary.Key)),
+                (DetailSchema.Desiccant, new PropertyValue.Text(edgeSeal.Desiccant.Key)),
+                (DetailSchema.CorneredKeys, new PropertyValue.Boolean(edgeSeal.CorneredKeys))))))
             + muntinRows
             + fireRows
         select ProductRows([.. rows]);
@@ -878,43 +878,43 @@ public static class GlazingDetail {
         from width in Si(Dimension.LengthDim, muntin.BarWidthMm.Value * 1e-3)
         from depth in Si(Dimension.LengthDim, muntin.BarDepthMm.Value * 1e-3)
         select Seq((DetailSchema.MuntinGrid, (PropertyValue)new PropertyValue.Complex("muntin", Map(
-            (PropertyName.Create("Style"), (PropertyValue)new PropertyValue.Text(muntin.Style.Key)),
-            (PropertyName.Create("HorizontalBars"), new PropertyValue.Text($"{muntin.HorizontalBars}")),
-            (PropertyName.Create("VerticalBars"), new PropertyValue.Text($"{muntin.VerticalBars}")),
-            (PropertyName.Create("BarWidth"), width),
-            (PropertyName.Create("BarDepth"), depth)))));
+            (DetailSchema.Style, (PropertyValue)new PropertyValue.Text(muntin.Style.Key)),
+            (DetailSchema.HorizontalBars, new PropertyValue.Text($"{muntin.HorizontalBars}")),
+            (DetailSchema.VerticalBars, new PropertyValue.Text($"{muntin.VerticalBars}")),
+            (DetailSchema.BarWidth, width),
+            (DetailSchema.BarDepth, depth)))));
 
     // The per-face coating rows carry the wire truth directly — one token per physical face, "none" the uncoated state.
     static Fin<PropertyValue.Complex> PaneComplex(Pane pane, int index) =>
         from thickness in Si(Dimension.LengthDim, pane.ThicknessMm.Value * 1e-3)
         from interlayerThickness in Si(Dimension.LengthDim, pane.InterlayerThicknessMm * 1e-3)
         select new PropertyValue.Complex($"pane-{index}", Map(
-            (PropertyName.Create("Glass"), (PropertyValue)new PropertyValue.Text(pane.Glass.Key)),
-            (PropertyName.Create("Thickness"), thickness),
-            (PropertyName.Create("CoatingOutboard"), new PropertyValue.Text(pane.OutboardCoating.Key)),
-            (PropertyName.Create("CoatingInboard"), new PropertyValue.Text(pane.InboardCoating.Key)),
-            (PropertyName.Create("Interlayer"), new PropertyValue.Text(pane.Interlayer.Key)),
-            (PropertyName.Create("InterlayerThickness"), interlayerThickness)));
+            (DetailSchema.Glass, (PropertyValue)new PropertyValue.Text(pane.Glass.Key)),
+            (DetailSchema.Thickness, thickness),
+            (DetailSchema.CoatingOutboard, new PropertyValue.Text(pane.OutboardCoating.Key)),
+            (DetailSchema.CoatingInboard, new PropertyValue.Text(pane.InboardCoating.Key)),
+            (DetailSchema.Interlayer, new PropertyValue.Text(pane.Interlayer.Key)),
+            (DetailSchema.InterlayerThickness, interlayerThickness)));
 
     static Fin<PropertyValue.Complex> CavityComplex(Cavity cavity, int index) => cavity.Fill.Switch(
         state: (WidthMm: cavity.WidthMm.Value, Index: index),
         gasFill: static (state, gas) =>
             from width in Si(Dimension.LengthDim, state.WidthMm * 1e-3)
             select new PropertyValue.Complex($"cavity-{state.Index}", Map(
-                (PropertyName.Create("Gas"), (PropertyValue)new PropertyValue.Text(gas.Gas.Key)),
-                (PropertyName.Create("FillFraction"), new PropertyValue.Text($"{gas.FillFraction:R}")),
-                (PropertyName.Create("Balance"), new PropertyValue.Text(gas.Balance.Key)),
-                (PropertyName.Create("Width"), width))),
+                (DetailSchema.Gas, (PropertyValue)new PropertyValue.Text(gas.Gas.Key)),
+                (DetailSchema.FillFraction, new PropertyValue.Text($"{gas.FillFraction:R}")),
+                (DetailSchema.Balance, new PropertyValue.Text(gas.Balance.Key)),
+                (DetailSchema.Width, width))),
         vacuumFill: static (state, vacuum) =>
             from pressure in Si(Dimension.PressureDim, vacuum.ResidualPressurePa)
             from radius in Si(Dimension.LengthDim, vacuum.PillarRadiusMm.Value * 1e-3)
             from pitch in Si(Dimension.LengthDim, vacuum.PillarPitchMm.Value * 1e-3)
             from width in Si(Dimension.LengthDim, state.WidthMm * 1e-3)
             select new PropertyValue.Complex($"cavity-{state.Index}", Map(
-                (PropertyName.Create("ResidualPressure"), pressure),
-                (PropertyName.Create("PillarRadius"), radius),
-                (PropertyName.Create("PillarPitch"), pitch),
-                (PropertyName.Create("Width"), width))));
+                (DetailSchema.ResidualPressure, pressure),
+                (DetailSchema.PillarRadius, radius),
+                (DetailSchema.PillarPitch, pitch),
+                (DetailSchema.Width, width))));
 
     // The homogenized glass-only Thermal columns, each under its own physical mixing law: conductivity the SERIES
     // harmonic mean Σt/Σ(t/λ) (the through-thickness slab law — an arithmetic mean overstates a mixed borosilicate/

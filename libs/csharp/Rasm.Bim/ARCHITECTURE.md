@@ -165,6 +165,7 @@ flowchart LR
     Rasm -->|"[SHAPE]: CellLattice"| Semantics
     Rasm -->|"[SHAPE]: ChannelDtype"| Semantics
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
+    Model -->|"[SHAPE]: CorrespondenceRow"| Compute
     Exchange <-->|"[TESSELLATION]: TessellationOutcome"| Compute
     Review <-->|"[TRANSPORT]: IdsVerdict"| Compute
     Planning -->|"[CONTENT_KEY]: CostSchedule"| Compute

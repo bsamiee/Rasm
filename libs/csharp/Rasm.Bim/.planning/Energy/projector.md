@@ -462,8 +462,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // Fin: a non-finite source height rails the seam OfSi finite gate rather than entering the canonical bytes.
     static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance) =>
         MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling).Map(height => {
-            QuantityBag bag = new(SpaceQuantitySet,
-                Map((PropertyName.Create("Height"), height)),
+            QuantityBag bag = new(QuantityRows.SpaceBaseQuantities,
+                Map((QuantityRows.Height, height)),
                 InheritanceMode.OccurrenceWins, PropertySource.Import);
             Node.QuantitySet probe = new(NodeId.Content([]), bag);
             return new Node.QuantitySet(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
@@ -714,17 +714,20 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 }));
 
     // --- [SHARED_MINTS]
-    // Energy boundary payload keys: BoundaryLevel is the SemanticProjector-owned attr (ONE symbol across both
-    // projectors — a re-spelled literal is the seam-drift defect), BoundaryCondition/Host/StoryMultiplier are
-    // energy-raise-owned and the lower reads the same statics back.
-    internal static readonly PropertyName BoundaryCondition = PropertyName.Create("BoundaryCondition");
-    internal static readonly PropertyName Host = PropertyName.Create("Host");
-    internal static readonly PropertyName StoryMultiplier = PropertyName.Create("StoryMultiplier");
+    // Energy boundary payload keys: BoundaryLevel and Host are the Rasm.Element BoundaryRows statics — the seam
+    // declarer's ONE cross-package symbol per space-boundary row, the Rasm.Compute energy build reading Host back
+    // — while BoundaryCondition/StoryMultiplier/UFactor/ConstructionName are energy-raise-owned, each minted ONCE
+    // through the owner-blessed empty-prefix PropertyCategory.Seam.Row (the Properties/property#DETAIL_SCHEMA
+    // custody law, the wire name staying bare) and the lower reads the same statics back.
+    internal static readonly PropertyName BoundaryCondition = PropertyCategory.Seam.Row("BoundaryCondition");
+    internal static readonly PropertyName StoryMultiplier = PropertyCategory.Seam.Row("StoryMultiplier");
+    internal static readonly PropertyName UFactor = PropertyCategory.Seam.Row("UFactor");
+    internal static readonly PropertyName ConstructionName = PropertyCategory.Seam.Row("ConstructionName");
 
-    // Two evidence BAG names cross the raise and the lower: a quantity set carrying a space's height and a
-    // property set carrying the storey multiplier and the uFactor degrade. Re-spelling either at one end drops
-    // that round trip silently, because a set-name mismatch reads as an absent bag.
-    internal const string SpaceQuantitySet = "Qto_SpaceBaseQuantities";
+    // One evidence BAG name crosses the raise and the lower beside the seam-declared Qto set: the property set
+    // carrying the storey multiplier and the uFactor degrade. Re-spelling it at one end drops that round trip
+    // silently, because a set-name mismatch reads as an absent bag; the space-height quantity set composes
+    // QuantityRows.SpaceBaseQuantities at both ends for the same reason.
     internal const string EnergyModelSet = "Pset_EnergyModel";
 
     // No energy schema declares a vapour-resistance factor, so every raised layer floors at μ = 1 — still air, the
@@ -755,8 +758,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // between two parsers that disagree about what "Adiabatic" means.
     static Relationship Boundary(NodeId space, NodeId surface, BoundaryRow condition) =>
         new Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, surface, Map(
-            (SemanticProjector.BoundaryLevel, (PropertyValue)new PropertyValue.Text("2nd")),
-            (BoundaryCondition,               (PropertyValue)new PropertyValue.Text(condition.Key))));
+            (BoundaryRows.Level,  (PropertyValue)new PropertyValue.Text("2nd")),
+            (BoundaryCondition,   (PropertyValue)new PropertyValue.Text(condition.Key))));
 
     // An aperture/door IS a space boundary in energy modeling (the IfcRelSpaceBoundary related element may be a
     // window/door), so the opening joins the SPACE by the same edge shape with a Host correlation attribute — the
@@ -768,8 +771,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         return (blobbed
             .Land(EnergySlot.Opening, Element(openingId, @class, "", identifier, footprint))
             .Link(new Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, openingId, Map(
-                (SemanticProjector.BoundaryLevel, (PropertyValue)new PropertyValue.Text("2nd")),
-                (Host,                            (PropertyValue)new PropertyValue.Text(hostIdentifier))))), openingId);
+                (BoundaryRows.Level, (PropertyValue)new PropertyValue.Text("2nd")),
+                (BoundaryRows.Host,  (PropertyValue)new PropertyValue.Text(hostIdentifier))))), openingId);
     }
 
     // One composition landing: layer nodes, the LayerSet node, the Associate edge, the construction tally on the
@@ -818,8 +821,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             Fail: _ => state.Note(EnergyReason.MeasureRejected, construction.nameString()),
             Succ: uValue => {
                 PropertyBag bag = new(EnergyModelSet, Map(
-                    (PropertyName.Create("UFactor"),          (PropertyValue)new PropertyValue.Measure(uValue)),
-                    (PropertyName.Create("ConstructionName"), (PropertyValue)new PropertyValue.Text(construction.nameString()))),
+                    (UFactor,          (PropertyValue)new PropertyValue.Measure(uValue)),
+                    (ConstructionName, (PropertyValue)new PropertyValue.Text(construction.nameString()))),
                     InheritanceMode.OccurrenceWins, PropertySource.Derived);
                 Node.PropertySet probe = new(NodeId.Content([]), bag);
                 return Assigned(state, surfaceId, new Node.PropertySet(NodeId.Content(probe.ToCanonicalBytes(ctx.Header.Tolerance).Span), bag));

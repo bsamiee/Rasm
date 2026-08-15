@@ -14,7 +14,10 @@
 
 - Code-REGISTERED characteristic values cross `Published.Exact` — exactness is the zero-width band; an AUTHORED transcription carries a relative band.
 - `SectionCapacity` cases cut by structural FAMILY and MODALITY — a code-named case forks the closed `GoverningAction`/`Utilisation` vocabulary.
-- `DesignBasis` shares one KEY SET with `Rasm.Compute/Analysis/structural#DESIGN_CHECK` — a key minted without its counterpart row is the defect.
+- `DesignBasis` MEMBER keys share one KEY SET with `Rasm.Compute/Analysis/structural#DESIGN_CHECK` — a key minted alone forks the set.
+- Glazing, connection, anchorage, and fatigue keys are the DECLARED section-and-load-path carve — no member-check counterpart exists or crosses.
+- `Demand` MODALITY columns bind their OWN case — unit shear to `LateralPanel`, range/count to `Fatigue`; member arms neither resist nor read them.
+- φ-format jurisdictions land WHOLE — proven ACI anchorage coefficients wait on the unproven anchor φ roster; a partial landing mis-prices verdicts.
 - `ModelCard.LicenseClass` is EVIDENCE off the weight card — a repo licence resolves independently, so a silent card enters `Blocked` with no grant.
 - `WeightPolicy` states redistribution and carries NO address — the app-root import boundary resolves bytes, so the registry stays vocabulary.
 - Generative super-resolution admits as `base_color` ALONE via `ModelCard.PhysicalChannelForbidden` — invented detail elsewhere shades as measured.
