@@ -7,25 +7,25 @@
 ```text codemap
 security/
 └── src/
-    ├── crypt/                 # Crypto authority: signing, minting, shredding, custody, inbound verification
-    │   ├── sign.ts            # The sole mint — every digest, signature, token, and envelope originates here
-    │   ├── verify.ts          # Inbound-signature dialect table + one constant-time verify fold over HELD request octets
-    │   └── secret.ts          # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
-    ├── authn/                 # Authentication: session spine, digest credentials, OAuth, passkeys
-    │   ├── session.ts         # The identity spine the ceremonies feed — rotation, ports, CSRF egress
-    │   ├── credential.ts      # Digest — the one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
-    │   ├── oauth.ts           # Issuers modeled as rows over one authorization-code ceremony
-    │   ├── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
-    │   └── workload.ts        # Machine identity: GrantRequest family over one discovered client per issuer, DPoP binding, principal projection
-    └── access/                # Authorization: entitlement fold, tenancy contract, and the security fact rail
-        ├── audit.ts           # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
-        ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts          # Identity.Tenant binding, session-coordinate vocabulary, and tenant metric aspect
+    ├── crypt/             # Crypto authority: signing, minting, shredding, custody, inbound verification
+    │   ├── sign.ts        # Sole mint — every digest, signature, token, and envelope originates here
+    │   ├── verify.ts      # Inbound-signature dialect table + one constant-time verify fold over HELD request octets
+    │   └── secret.ts      # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
+    ├── authn/             # Authentication: session spine, digest credentials, OAuth, passkeys
+    │   ├── session.ts     # Identity spine the ceremonies feed — rotation, ports, CSRF egress
+    │   ├── credential.ts  # Digest — one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
+    │   ├── oauth.ts       # Issuers modeled as rows over one authorization-code ceremony
+    │   ├── webauthn.ts    # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
+    │   └── workload.ts    # Machine identity: GrantRequest family over one discovered client per issuer, DPoP binding, principal projection
+    └── access/            # Authorization: entitlement fold, tenancy contract, and the security fact rail
+        ├── audit.ts       # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
+        ├── claim.ts       # Entitlement vocabulary + RBAC-union-ReBAC evaluation fold, resolved once per request
+        └── tenant.ts      # Identity.Tenant binding, session-coordinate vocabulary, and tenant metric aspect
 ```
 
 ## [02]-[STRATA]
 
-- S0 `access/audit` + `access/tenant` — core-only floor; `audit` owns facts, and `tenant` owns `TenantScope` plus session coordinates.
+- S0 `access/audit` + `access/tenant` — core-only floor; `audit` owns facts, and `tenant` owns `TenantScope` with its session coordinates.
 - S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope.
 - S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes the `sign` authority.
 - S3 ceremonies and claims — `authn` and `access` stay peers; `workload` reaches the sign and verify owners, never session.

@@ -248,7 +248,7 @@ flowchart LR
 
 Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
 
-The `[PORT]` and `[SHAPE]: Fact` edges are the two halves of one evidence spine and run opposite: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. The producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
+`[PORT]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. Producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
 
 Intra-`data` relations are composition, never seams; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 

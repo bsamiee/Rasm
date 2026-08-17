@@ -26,8 +26,23 @@
 - Package self-identity homes at the kernel signal capsule — the `ReceiptSinkPort` scope seam is string-typed, so a distant emitter hand-spells it.
 - Host beat evidence composes the kernel `MonotonicBeat` — cadence-only columns extend the receipt, and a flat host beat re-mints temporal identity.
 - Kernel measures leave as bare `double` and `Rasm.Element` `MeasureValue` is the dimensioned carrier — unit identity federates at `BaseDimensions`.
+- `Rasm` `FaultBand` is the ONE band registry — every folder reads and extends its own row there, so `Disjoint` proves the whole estate at once.
+- `Retriability` on `Expected` is the ONE retriability discriminant and `Redrive` the ONE re-drive owner — Polly executes at the HTTP hop alone.
+- `CanonicalWriter` at `Rasm/Domain/identity` is the ONE preimage writer — peers compose it and re-export nothing, so one framing keys the estate.
+- `ContentHash.Hex` and `ContentHash.Admit` are the ONE identity text and its inverse — admission REFUSES uppercase, so the round trip is exact.
+- `HookRail<TPoint,TFact,TOwner>` is the ONE hook mechanism — a folder declares its `<Package>Point` roster and closed fact union alone.
+- `Stat<TCarrier>` and `Distribution<TCarrier>` are the ONE moment and order-statistic owners — a local fold re-derives the recurrence and forks it.
+- `MonotonicTimeline.Gauged` is the ONE gauged span — every tier below the app root gauges through it, so elapsed time carries one clock.
+- `ToleranceLane` rows are the ONE branch tolerance vocabulary, each carrying its own `Band` — Fabrication GD&T stackup composes them as scalars.
+- `MeshSource` is the ONE mesh admission discriminant on `MeshSpace` — a new carrier lands as one arm or one `MeshBlock` band.
+- Combinable capability rides `CapabilitySet<TCapability>` over an `ICapability` vocabulary — set algebra collapses every parallel bool column.
+- `Transition<TState>` carries every CAS verdict a step can DECLINE or a budget EXHAUST — a refused swap and a committed no-op read one state.
+- `PackageIdentity<TKey,THostFact>` at the kernel causal frame is the ONE plugin-identity resolve; `PluginKey` and `HookScope` stay the host keys.
+- `MotionDrive` at `Rasm/Parametric/projections` is the ONE motion sampler; a host owns its timer lease alone.
+- `Rasm/Drawing/sheet` is the ONE drawing-standards owner — a package re-declaring a sheet, scale, or naming row forks the standard it composes.
+- Generated-owner roster proofs read through an ACCESSOR-backed lazy — the generator fills `Items` at static init, so an eager fold passes vacuously.
 - Material occurrence-usage rides the seam `Associate` edge's typed `MaterialUsage` payload — a parallel usage node double-owns the fact.
-- Tenancy crosses every surface as the kernel pair under ONE text — `TenantId.Wire` renders it, so a raw `Guid` slot forks two alphabets.
+- Tenancy crosses as the kernel pair under ONE text — `TenantId.Text` renders through `ContentHash.Hex`, so a raw `Guid` forks alphabets.
 - Dimension keys are owner-declared consts — `CorrelationId.Slot` and `TenantContext.TenantSlot` spell the causal frame; a bare noun forks.
 - `Sli.Partition` binds ONE counter partitioned on the outcome dimension its arm stamps — a good-half twin doubles the series and strands its floor.
 - Package receipt unions carry one kind vocabulary — the `[JsonDerivedType]` roster projected once at type init, a case-to-literal dispatch twins it.
@@ -49,7 +64,7 @@
 - App-platform dispatch vocabulary declares at `Rasm.AppHost` and `Rasm.Compute` composes it downward — the reverse closes a forbidden S1-to-S3 cycle.
 - LanguageExt carriers cross STJ through the kernel `LanguageExtJsonConverterFactory` each wire mint registers — a bare carrier throws on read.
 - Merged wires have ONE producer surface, the composition-bound options handle — a `.Default` type-info or context instance drops resolver modifiers.
-- Library tiers publish retriability as a typed discriminant and execute none — `IStoreRetriable` classifies and the root-bound executor runs it.
+- Library tiers classify retriability and execute none — the root-bound executor drives, so a tier-local policy forks the estate's one schedule.
 - Store bands seat executors by SEAM — `RemoteStoreFault` and `WideColumnFault` at `OutboundHop`, `CoordinationFault` at the store strategy.
 - `HopOutcome` is transport-neutral, so its exception arms alone are HTTP-shaped — a store rail joins the keyed lane as a row, never a second family.
 - `CostVector` crosses as REMAINING BALANCE per unit — a spend reading re-supplies its ceiling at the caller and re-opens the fenced write's TOCTOU.
@@ -67,15 +82,15 @@
 
 ## [03]-[COLLAPSE]
 
-- Host-boundary machinery twins stay plural — a shared owner over `RhinoInstruments` and `GhInstruments` forces the cross-reference S1 forbids.
+- Host-boundary MECHANISM seats in `Rasm/Interaction/`, which both boundaries reference — only instrument and `<Package>Point` rosters stay plural.
 - Instrument-shape bind factories collapse to one kernel `InstrumentSpec` carrying the full kind space beside the `MeasureForm` axis.
 - `Sli`, `AlertSeverity`, `PanelKind`, `PanelSpec`, and `BoardPack` are kernel rows every sink composes — hand-typed windows fork alerting.
 - `InstrumentSpec` families partition by UCUM unit, never domain case — the case key rides its `Dimensions`, so a landed unit needs no roster edit.
-- `StreamMonitor.Quantile`, `BenchMeasurement`, and `Distribution.Of` stay three-formed — no estimator replaces an exact bench figure.
+- `Distribution<TCarrier>.Of` and `QuantileSketch` stay two-formed on the exact-versus-estimator split — a stream holds no order statistic.
 - Mounted sets fold over any number of meters through one `InstrumentSet.Of` — a root re-folding pre-bound pairs positionally re-mints the derivation.
 - `InstrumentSet.Tags` materializes dimension keys at the write entry — a folder re-spelling that fold copies the one materialization.
 - `RasterPolicy`, `VisualCodec`, and `RasterCodec` stay plural per stratum — a shared owner forces a cross-stratum reference.
-- Rhino `FilePdf` publish and AppUi PDFsharp/MigraDoc vector-PDF stay plural per stratum — a shared owner forces the S1-to-S4 cross-reference.
+- Rhino `FilePdf`, AppUi PDFsharp/MigraDoc vector-PDF, and `PdfPolicy` stay plural per stratum — a shared owner forces the S1-to-S4 cross-reference.
 - `SolarPosition` is the kernel's ONE ephemeris almanac — every consumer projects the ANGLES into its own frame, a local Meeus fold being deleted.
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the seam — an absent lane is a missing descriptor, never an empty buffer.

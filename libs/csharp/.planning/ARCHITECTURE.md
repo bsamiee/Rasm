@@ -282,6 +282,14 @@ Every extension lands on a canonical owner — a row where possible, a compiler-
 |  [12]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; the vocabulary stays S0     |
 |  [13]   | analytics residence or slot | `Rasm.Persistence` columnar custodian    | one row answering the estate residence floor    |
 |  [14]   | new columnar query end      | `Rasm.Persistence` `FederationFlight`    | one verb or ticket axis on the one Flight plane |
+|  [15]   | new tolerance lane          | `Rasm` `ToleranceLane`                   | one lane row carrying its band and dimension    |
+|  [16]   | new fault band              | `Rasm` `FaultBand`                       | one registry row; `Disjoint` proves it          |
+|  [17]   | new retriability class      | `Rasm` `Retriability`                    | one case plus one `Redrive` arm                 |
+|  [18]   | new hook mechanism          | `Rasm` `HookRail`                        | one member on the one mechanism                 |
+|  [19]   | new mesh source             | `Rasm` `MeshSource`                      | one case plus one admission arm                 |
+|  [20]   | new statistic               | `Rasm` `Stat<TCarrier>`                  | one slot plus one validity conjunct             |
+|  [21]   | new UI modality or control  | the owning `Rasm/Interaction` owner      | one case or one row                             |
+|  [22]   | new sheet size / standard   | `Rasm` `SheetSeries` / `Drawing/sheet`   | one series root or one declared table row       |
 
 ## [06]-[ADMISSION_POLICY]
 
@@ -289,4 +297,4 @@ Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row
 
 Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference.
 
-`Rasm` is RhinoCommon-aware by charter and the host boundaries add Grasshopper2 and Eto; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.
+`Rasm` is RhinoCommon- and Eto-aware by charter — it seats the interaction machinery both boundaries compose — while the host boundaries add the native platform handlers and the Grasshopper boundary alone adds Grasshopper2; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.

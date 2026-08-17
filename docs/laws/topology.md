@@ -19,7 +19,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [09]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
 |  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
 |  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
-|  [12]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
+|  [12]   | `FaultBand` row mint, widening, or retire    | every fault union reading that row         | one registry proves disjointness for all     |
 |  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
 |  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
 |  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |

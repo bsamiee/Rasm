@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>RhinoCommon-aware geometry foundation and analysis algebra.</Description>
+        <Description>RhinoCommon- and Eto-aware geometry foundation, analysis algebra, and interaction plane.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
@@ -40,6 +40,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Kernel Usings">
+        <!-- Eto.Drawing stays out: its Matrix collides with Rasm.Numerics.Matrix and its Point with the globally imported Rhino.Geometry.Point, so interaction fences alias it in their own prelude. -->
+        <Using Include="Eto.Forms" />
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />
         <Using Include="Rhino.Geometry" />

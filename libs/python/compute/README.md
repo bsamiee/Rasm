@@ -124,4 +124,4 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `meshio`
 
 [TRANSITIVE]:
-- `narwhals` — the study DOE frame admits through published `data/tabular` contract surfaces, so this folder composes no member.
+- `narwhals` — study DOE frames admit through published `data/tabular` contract surfaces, so this folder composes no member.

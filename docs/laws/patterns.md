@@ -16,8 +16,10 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 - Law: Evidence records carry the pre-run source key in their identity slot, the key a hit test compares.
 - Law: Produced-output content addresses stay a separate derived fact, and minting one into the identity slot defeats keyed elision.
 - Law: Sources with no canonical byte form — a live handle, a callable, a nondeterministic serialization — join as environment-scoped identity.
+- Law: Continuous coordinates key on an exact-predicate ordinal or a lattice quantum — raw float keys hash equal points apart and split welds.
 - Law: Environment-scoped identity demotes admission to forced-live and never elides.
 - Boundary: Security identities ride a cryptographic digest — credential fingerprints, trust material — and the speed hash keys caches, never trust.
+- Boundary: Rounding sites carry the quantum in the key — it is part of the identity, so folds rounding differently address disjoint spaces.
 
 [WIRE_TOKEN]:
 - Binds: All branches.

@@ -145,14 +145,14 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [PLANAR_GEOMETRY]:
 - `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam.
-- `NetTopologySuite.IO.GeoJSON4STJ` — the STJ GeoJSON codec leg of the geospatial seam; site context and web projection.
-- `NetTopologySuite.IO.GeoPackage` — the GeoPackage geometry-BLOB leg; site and context ingest.
+- `NetTopologySuite.IO.GeoJSON4STJ` — carries the STJ GeoJSON codec leg of the geospatial seam for site context and web projection.
+- `NetTopologySuite.IO.GeoPackage` — carries the GeoPackage geometry-BLOB leg for site and context ingest.
 
 [GEOSPATIAL_INDEX]:
 - `pocketken.H3` — keys the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS arm, the coarse `ulong` bucket beside the `STRtree`.
 
 [ENERGY_SIMULATION]:
-- `NREL.OpenStudio.macOS-arm64` — the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
+- `NREL.OpenStudio.macOS-arm64` — drives the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — message-envelope type the announcement projection mints through `Rasm/Domain/event`; transport bindings stay app-tier.

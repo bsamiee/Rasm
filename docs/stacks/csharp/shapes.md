@@ -36,7 +36,7 @@ When a concept matches several signatures, the most specific row wins.
 [COLLAPSE_FUNCTIONS]:
 - `CollapseFamily(family)`: keep generated closure only when the owner absorbs admission, identity, dispatch, policy, boundary projection, or stored modality; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
 - `MergeSamePayload(cases)`: collapse passive, non-generic, non-fault cases with identical semantics, and byte-identical siblings whose name-only distinction an op trait row already derives — one case, the discriminant read from the trait row; preserve marker, behavior, fault, and genuinely named-semantic cases.
-- `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold.
+- `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold. Two or more `bool` columns on one generated row are that flag set spelled positionally — the deleted form — because the row then admits every corner of a product its domain never legalizes and no consumer can state which corners exist; the set rides ONE rank-ordered owner whose rank fixes a canonical wire text, and the legal corners ride a declared law the construction admits against, so an illegal corner is unrepresentable rather than guarded at each use. Genuinely independent axes with no legal-corner law stay bool columns and say so at the owner.
 - `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at seam conversion.
 
 [BEHAVIOR_FUNCTIONS]:
@@ -126,7 +126,7 @@ public static class ShapeOps {
 
 [VALUE_TRAIT_AXES]:
 - Law: the LanguageExt `LanguageExt.Traits.Domain` value traits are the algebraic axis layer over generated admission, each a static-abstract self-constrained interface granting a fixed BCL operator-interface set the axis selects — `VectorSpace<TSelf,TScalar>` grants `IAdditionOperators<TSelf,TSelf,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TSelf>`, scalar `IMultiplyOperators<TSelf,TScalar,TSelf>`/`IDivisionOperators<TSelf,TScalar,TSelf>`, and `IUnaryNegationOperators<TSelf,TSelf>`; `Amount<TSelf,TScalar>` adds `IComparable<TSelf>` and `IComparisonOperators<TSelf,TSelf,bool>` ordering to that fragment; `Locus<TSelf,TDist,TScalarDist>` is affine position over `where TDist : Amount<TDist,TScalarDist>`, granting `IAdditionOperators<TSelf,TDist,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TDist>`, `IAdditiveIdentity<TSelf,TSelf>`, and negation but never `TSelf+TSelf`.
-- Law: every axis inherits `DomainType<TSelf,TRepr>`, whose `static abstract Fin<TSelf> From(TRepr)` and instance `TRepr To()` are the trait's own admission and egress members — the generator emits neither (Thinktecture carries no LanguageExt reference), so the bridge is one expression each: `From` re-anchors the generated `Validate` so the trait's admission and the canonical `Validate` are one rule, not two, and `To()` returns the key the owner already holds; the inherited `static virtual FromUnsafe` rides `From().ThrowIfFail()` untouched. Re-validating inside `From` rather than delegating to `Validate` is the rejected second construction path.
+- Law: every axis inherits the arity-ONE marker `DomainType<TSelf>` alone, so an owner declares `DomainType<TSelf,TRepr>` BESIDE its axis or the admission and egress members are not in scope — `Amount<TSelf,TScalar>`, `VectorSpace<TSelf,TScalar>`, and `Locus<TSelf,TDist,TScalarDist>` all inherit `DomainType<TSelf>`, and the representation arity carries `static abstract Fin<TSelf> From(TRepr)` and instance `TRepr To()`, the trait's own admission and egress members — the generator emits neither (Thinktecture carries no LanguageExt reference), so the bridge is one expression each: `From` re-anchors the generated `Validate` so the trait's admission and the canonical `Validate` are one rule, not two, and `To()` returns the key the owner already holds; the inherited `static virtual FromUnsafe` rides `From().ThrowIfFail()` untouched. Re-validating inside `From` rather than delegating to `Validate` is the rejected second construction path.
 - Law: the bridge currency forces the fault owner — the default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so `Fin.Fail` refuses it and `From` cannot type-check until `[ValidationError<Fault>]` makes the generated `Validate` return the `[FAULT_FAMILIES]` `Fault` (an `Expected` subtype); the value-trait axis layer therefore composes that one fault family as its admission currency, never a second error type minted for the bridge.
 - Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so `position + position` resolves no operator, and the owner's `OperatorsGeneration.None` and explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
 - Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint because position is not in the vector-space fragment, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
@@ -136,7 +136,7 @@ public static class ShapeOps {
     MultiplyOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [ValidationError<Fault>]
-public readonly partial struct Offset : Amount<Offset, double> {
+public readonly partial struct Offset : Amount<Offset, double>, DomainType<Offset, double> {
     public static Fin<Offset> From(double repr) => Validate(repr, null, out var value) is { } fault ? Fin.Fail<Offset>(fault) : value;
     public double To() => (double)this;
     public static Offset operator -(Offset value) => Create(-(double)value);
@@ -149,7 +149,7 @@ public readonly partial struct Offset : Amount<Offset, double> {
     DivisionOperators = OperatorsGeneration.None,
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Explicit)]
 [ValidationError<Fault>]
-public readonly partial struct Station : Locus<Station, Offset, double> {
+public readonly partial struct Station : Locus<Station, Offset, double>, DomainType<Station, double> {
     public static Fin<Station> From(double repr) => Validate(repr, null, out var value) is { } fault ? Fin.Fail<Station>(fault) : value;
     public double To() => (double)this;
     public static Station AdditiveIdentity => Create(0d);

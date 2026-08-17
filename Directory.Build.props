@@ -42,8 +42,10 @@
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm.Grasshopper' or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsGrasshopperAwareProject>
         <!-- App-package tests stay out of Rhino host-reference inheritance. -->
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm' or '$(CSharpPackageName)' == 'Rasm.Grasshopper' or '$(CSharpPackageName)' == 'Rasm.Rhino' or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestScenarioKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')))">true</IsRhinoCommonAwareProject>
-        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm.Rhino' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm' or '$(CSharpPackageName)' == 'Rasm.Rhino' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
         <NeedsRhinoHostUiSurface Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">true</NeedsRhinoHostUiSurface>
+        <!-- Native platform handlers ride the boundaries alone; the kernel interaction plane is Eto-portable. -->
+        <NeedsHostPlatformSurface Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(CSharpPackageName)' != 'Rasm'">true</NeedsHostPlatformSurface>
     </PropertyGroup>
 
     <PropertyGroup Label="Output Routing">
@@ -91,7 +93,7 @@
         <NoWarn>$(NoWarn);CS1591;CA2225;CS9236</NoWarn>
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
         <!-- CA1724: Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum. -->
-        <NoWarn Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">$(NoWarn);CA1724</NoWarn>
+        <NoWarn Condition="'$(NeedsHostPlatformSurface)' == 'true'">$(NoWarn);CA1724</NoWarn>
         <NeedsOnnxRuntimeLegacyRidSuppression Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == '' and ('$(CSharpPackageName)' == 'Rasm.Compute' or '$(CSharpPackageName)' == 'Rasm.AppUi')">true</NeedsOnnxRuntimeLegacyRidSuppression>
         <!-- Microsoft.ML.OnnxRuntime.Extensions ships legacy version-specific OSX RID assets. -->
         <NoWarn Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == 'true'">$(NoWarn);NETSDK1206</NoWarn>
@@ -173,13 +175,13 @@
 
     <ItemGroup Label="RhinoWIP Host Requirements">
         <_RhinoRequiredHostFile Include="$(RhinoCommonReferencePath)" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'" />
-        <_RhinoRequiredHostFile Include="$(RhinoUiReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(RhinoUiReferencePath)" Condition="'$(NeedsHostPlatformSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(SystemDrawingCommonReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(Grasshopper2ReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(GrasshopperIoReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(EtoReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
-        <_RhinoRequiredHostFile Include="$(EtoMacOSReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
-        <_RhinoRequiredHostFile Include="$(MicrosoftMacOSReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(EtoMacOSReferencePath)" Condition="'$(NeedsHostPlatformSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(MicrosoftMacOSReferencePath)" Condition="'$(NeedsHostPlatformSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoRuntimeCodeReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoCodePlatformReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
     </ItemGroup>
@@ -243,8 +245,7 @@
         <ProjectReference Include="$(TestScenarioKitRoot)Rasm.ScenarioKit.csproj" />
     </ItemGroup>
 
-    <!-- coverlet.MTP is CLI-configured; the coverlet.msbuild Coverlet* property family is inert under the MTP flavor.
-         RasmCoverage=true splices the activation tail into the MTP argument stream per test executable. -->
+    <!-- coverlet.MTP is CLI-configured; the coverlet.msbuild Coverlet* property family is inert under the MTP flavor. RasmCoverage=true splices the activation tail into the MTP argument stream per test executable. -->
     <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true' and '$(RasmCoverage)' == 'true'">
         <RasmCoverageFormat Condition="'$(RasmCoverageFormat)' == ''">cobertura</RasmCoverageFormat>
         <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)</TestingPlatformCommandLineArguments>
@@ -265,8 +266,7 @@
         <Using Include="Thinktecture" />
     </ItemGroup>
 
-    <!-- Colliding global namespaces demote to aliases; host namespaces stay on host-aware strata.
-         Kernel namespaces are per-project rows on the boundary manifests that consume them, never a central injection. -->
+    <!-- Colliding global namespaces demote to aliases; host namespaces stay on host-aware strata. Kernel namespaces are per-project rows on the boundary manifests that consume them, never a central injection. -->
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />
@@ -319,7 +319,7 @@
             <HintPath>$(EtoReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
-        <Reference Include="Eto.macOS" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+        <Reference Include="Eto.macOS" Condition="'$(NeedsHostPlatformSurface)' == 'true'">
             <HintPath>$(EtoMacOSReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
@@ -331,7 +331,7 @@
             <HintPath>$(GrasshopperIoReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
-        <Reference Include="Microsoft.macOS" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+        <Reference Include="Microsoft.macOS" Condition="'$(NeedsHostPlatformSurface)' == 'true'">
             <HintPath>$(MicrosoftMacOSReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
@@ -339,7 +339,7 @@
             <HintPath>$(RhinoRuntimeCodeReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="Rhino.UI" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+        <Reference Include="Rhino.UI" Condition="'$(NeedsHostPlatformSurface)' == 'true'">
             <HintPath>$(RhinoUiReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
