@@ -53,6 +53,7 @@
 |  [14]   | `FilteredBidirectionalGraph<TVertex, TEdge, TGraph>`  | view class    | predicate-scoped subgraph, no copy             |
 |  [15]   | `DelegateVertexAndEdgeListGraph<TVertex, TEdge>`      | lazy class    | vertex sequence plus a `TryFunc` adjacency     |
 |  [16]   | `DelegateBidirectionalIncidenceGraph<TVertex, TEdge>` | lazy class    | paired out- and in-edge accessors              |
+|  [17]   | `DelegateIncidenceGraph<TVertex, TEdge>`              | lazy class    | one `TryFunc` out-edge accessor, no vertex set |
 
 [PUBLIC_TYPE_SCOPE]: `QuikGraph.Predicates` — the filtered-view ladder over a base container and the `Test`-shaped predicates that feed it
 

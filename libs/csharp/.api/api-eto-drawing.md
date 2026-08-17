@@ -88,6 +88,8 @@
 |  [12]   | `ImageFormat`            | enum          | encode-format selector                                 |
 |  [13]   | `PixelFormat`            | enum          | pixel layout including `Format32bppRgba`               |
 |  [14]   | `ImageInterpolation`     | enum          | resample quality on draw and scale                     |
+|  [15]   | `Icon`                   | class         | multi-frame icon resolving a frame per device scale    |
+|  [16]   | `IconFrame`              | class         | one scale-tagged raster inside an icon                 |
 
 [SYSTEM_FONT_ROLES]: `Default` `Bold` `Label` `Menu` `MenuBar` `Message` `Palette` `StatusBar` `TitleBar` `ToolTip` `User`
 

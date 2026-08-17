@@ -161,7 +161,7 @@
 |  [13]   | `FontDialog`         | dialog        | native font chooser                                                       |
 |  [14]   | `FileFilter`         | value         | file-extension filter row                                                 |
 
-[WINDOW_VOCABULARY]: `DialogResult` `WindowState` `WindowStyle` `DialogDisplayMode` `MessageBoxType` `MessageBoxButtons`
+[WINDOW_VOCABULARY]: `DialogResult` `WindowState` `WindowStyle` `DialogDisplayMode` `MessageBoxType` `MessageBoxButtons` `MessageBoxDefaultButton`
 [WINDOW_STATE]:
 - `Window`: `Title` `Location` `Bounds` `Opacity` `Resizable` `Topmost` `WindowState` `WindowStyle` `Icon` `LogicalPixelSize`
 - `Window` events: `Closing` `Closed` `WindowStateChanged` `LogicalPixelSizeChanged`; `Form`: `ShowActivated`
@@ -180,8 +180,17 @@
 |  [05]   | `Command`        | command       | shared invocation with `Enabled`, `Shortcut`, and `Executed` |
 |  [06]   | `CheckCommand`   | command       | toggling command                                             |
 |  [07]   | `RadioCommand`   | command       | radio-grouped command                                        |
+|  [08]   | `MenuBar`           | menu          | top-level application menu (`Interaction/chrome` `MenuOf`)  |
+|  [09]   | `CheckMenuItem`     | menu item     | checkable menu entry                                         |
+|  [10]   | `RadioMenuItem`     | menu item     | radio-grouped menu entry                                     |
+|  [11]   | `SeparatorMenuItem` | menu item     | menu divider                                                 |
+|  [12]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries (`chrome` `BarOf`)  |
+|  [13]   | `ButtonToolItem`    | tool item     | invoking toolbar button                                      |
+|  [14]   | `CheckToolItem`     | tool item     | toggle toolbar button                                        |
+|  [15]   | `DropDownToolItem`  | tool item     | toolbar button carrying a dropdown menu                      |
+|  [16]   | `SeparatorToolItem` | tool item     | toolbar divider                                              |
 
-[COMMAND_STATE]: `Command.ID`/`MenuText`/`ToolBarText`/`ToolTip`/`Enabled`/`Shortcut`/`Executed`; `CheckCommand.Checked`/`CheckedChanged`; `RadioCommand.Controller`; `ContextMenu.Items`/`Trim`/`Opening`/`Closing`/`Closed`
+[COMMAND_STATE]: `Command.ID`/`MenuText`/`ToolBarText`/`ToolTip`/`Enabled`/`Shortcut`/`Executed`; `Command.CreateMenuItem()`/`CreateToolItem()` project ONE command into each chrome; `CheckCommand.Checked`/`CheckedChanged`; `RadioCommand.Controller`; `ContextMenu.Items`/`Trim`/`Opening`/`Closing`/`Closed`
 
 ## [03]-[ENTRYPOINTS]
 

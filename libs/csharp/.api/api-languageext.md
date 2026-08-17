@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `LanguageExt.Core`
 - package: `LanguageExt.Core` (MIT)
 - assembly: `LanguageExt.Core` (`lib/net10.0`)
-- namespace: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`
+- namespace: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Traits.Domain`
 - asset: pure managed library; `using static LanguageExt.Prelude;` carries the constructor vocabulary
 - abi: every carrier implements `K<Self, A>`, so one trait extension binds uniformly across rails, collections, and transformers
 - rail: functional substrate
@@ -60,35 +60,43 @@
 |  [19]   | `Change<A>`             | abstract class  | `TrackingHashMap` change-log entry, cases below         |
 |  [20]   | `IOptional`             | interface       | presence surface every `Option<A>` implements           |
 
+- The `LanguageExt.Traits.Domain` axis layer is the algebraic value-trait tier over generated admission, and its inheritance arity is the trap: `Amount<SELF,SCALAR>`, `VectorSpace<SELF,SCALAR>`, `Locus<SELF,DIST,SCALARDIST>`, and `Identifier<SELF>` all inherit the arity-ONE marker `DomainType<SELF>`, which declares NO members. `From(REPR)` and `To()` live on `DomainType<SELF,REPR>` alone, so an owner declaring only its axis compiles with no admission or egress surface and the whole bridge silently disappears — every axis owner names BOTH (`: Amount<Offset, double>, DomainType<Offset, double>`), and every constraint consuming the bridge names both too.
+- The bridge's fault currency is forced: the default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so `Fin.Fail` refuses it and `From` cannot type-check until `[ValidationError<TFault>]` makes the generated `Validate` return an `Expected` subtype. The axis layer therefore composes the branch's one fault family, which must itself carry `IValidationError<TFault>` and a `static TFault Create(string)`.
 - `Change<A>` cases: `NoChange<A>` (`NoChange<A>.Default`, also `Change<A>.None`), `EntryAdded<A>`, `EntryRemoved<A>`, and `EntryMapped<FROM, A>` — the value type sits SECOND, so a mapped entry is matched through the open `EntryMappedFrom<FROM>` and closed `EntryMappedTo<A>` views rather than by naming both arguments. Mints are `Change<A>.Added(value)`/`Removed(oldValue)`/`Mapped<FROM>(oldValue, value)`; the predicate columns `HasChanged`/`HasNoChange`/`HasAdded`/`HasRemoved`/`HasMapped`/`HasMappedFrom<FROM>()` read a case without a type test, and `ToOption()` projects the added-or-mapped-to value. `Change<A> : Monoid<Change<A>>`, so consecutive entries for one key `Combine` into the net change — a removal then an add folds to `Mapped`.
 
 [PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                |
-| :-----: | :--------------------- | :-------------- | :------------------------------------------ |
-|  [01]   | `K<F, A>`              | interface       | higher-kinded seam every carrier implements |
-|  [02]   | `Functor<F>`           | interface       | `Map` conformance                           |
-|  [03]   | `Applicative<F>`       | interface       | `Apply` fan-in conformance                  |
-|  [04]   | `Monad<M>`             | interface       | `Bind` and tail-recursive `Recur`           |
-|  [05]   | `MonadIO<M>`           | interface       | `IO` lifting into a carrier                 |
-|  [06]   | `Semigroup<A>`         | interface       | associative `Combine`                       |
-|  [07]   | `Monoid<A>`            | interface       | `Combine` with an identity                  |
-|  [08]   | `Foldable<T>`          | interface       | fold, search, and aggregate conformance     |
-|  [09]   | `Traversable<T>`       | interface       | effect and shape inversion                  |
-|  [10]   | `Alternative<F>`       | interface       | first-success choice                        |
-|  [11]   | `Fallible<E, F>`       | interface       | typed failure raise and recover             |
-|  [12]   | `Readable<M, Env>`     | interface       | ambient-environment reads                   |
-|  [13]   | `Stateful<M, S>`       | interface       | threaded-state reads and writes             |
-|  [14]   | `ReaderT<Env, M, A>`   | record          | environment threaded over any `M`           |
-|  [15]   | `StateT<S, M, A>`      | record          | state threaded over any `M`                 |
-|  [16]   | `WriterT<W, M, A>`     | record          | monoidal output over any `M`                |
-|  [17]   | `RWST<R, W, S, M, A>`  | record          | reader, writer, and state in one pass       |
-|  [18]   | `FinT<M, A>`           | record          | `Fin` stacked over any `M`                  |
-|  [19]   | `OptionT<M, A>`        | record          | `Option` stacked over any `M`               |
-|  [20]   | `EitherT<L, M, A>`     | record          | `Either` stacked over any `M`               |
-|  [21]   | `ValidationT<F, M, A>` | record          | `Validation` stacked over any `M`           |
-|  [22]   | `Free<F, A>`           | abstract record | open interpreter over a functor             |
-|  [23]   | `Schedule`             | abstract record | composable repeat and retry policy          |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [CAPABILITY]                                |
+| :-----: | :------------------------------ | :-------------- | :------------------------------------------ |
+|  [01]   | `K<F, A>`                       | interface       | higher-kinded seam every carrier implements |
+|  [02]   | `Functor<F>`                    | interface       | `Map` conformance                           |
+|  [03]   | `Applicative<F>`                | interface       | `Apply` fan-in conformance                  |
+|  [04]   | `Monad<M>`                      | interface       | `Bind` and tail-recursive `Recur`           |
+|  [05]   | `MonadIO<M>`                    | interface       | `IO` lifting into a carrier                 |
+|  [06]   | `Semigroup<A>`                  | interface       | associative `Combine`                       |
+|  [07]   | `Monoid<A>`                     | interface       | `Combine` with an identity                  |
+|  [08]   | `Foldable<T>`                   | interface       | fold, search, and aggregate conformance     |
+|  [09]   | `Traversable<T>`                | interface       | effect and shape inversion                  |
+|  [10]   | `Alternative<F>`                | interface       | first-success choice                        |
+|  [11]   | `Fallible<E, F>`                | interface       | typed failure raise and recover             |
+|  [12]   | `Readable<M, Env>`              | interface       | ambient-environment reads                   |
+|  [13]   | `Stateful<M, S>`                | interface       | threaded-state reads and writes             |
+|  [14]   | `ReaderT<Env, M, A>`            | record          | environment threaded over any `M`           |
+|  [15]   | `StateT<S, M, A>`               | record          | state threaded over any `M`                 |
+|  [16]   | `WriterT<W, M, A>`              | record          | monoidal output over any `M`                |
+|  [17]   | `RWST<R, W, S, M, A>`           | record          | reader, writer, and state in one pass       |
+|  [18]   | `FinT<M, A>`                    | record          | `Fin` stacked over any `M`                  |
+|  [19]   | `OptionT<M, A>`                 | record          | `Option` stacked over any `M`               |
+|  [20]   | `EitherT<L, M, A>`              | record          | `Either` stacked over any `M`               |
+|  [21]   | `ValidationT<F, M, A>`          | record          | `Validation` stacked over any `M`           |
+|  [22]   | `Free<F, A>`                    | abstract record | open interpreter over a functor             |
+|  [23]   | `Schedule` — `recurs(int) → ScheduleTransformer`, `Forever`, `Never`, `spaced`, `exponential`, `Run() → Iterable<Duration>`; `operator |(ScheduleTransformer, Schedule)` applies the transformer (`recurs(n) | Forever` is `Forever.Take(n)`, exactly n), `operator &(Schedule, ScheduleTransformer)` intersects | abstract record | composable repeat and retry policy |
+|  [24]   | `DomainType<SELF>`              | interface       | value-trait marker, no members              |
+|  [25]   | `DomainType<SELF, REPR>`        | interface       | `From(REPR)` admission, `To()` egress       |
+|  [26]   | `Identifier<SELF>`              | interface       | equality-only domain identity               |
+|  [27]   | `VectorSpace<SELF, SCALAR>`     | interface       | additive plus scalar multiply axis          |
+|  [28]   | `Amount<SELF, SCALAR>`          | interface       | ordered vector-space measure axis           |
+|  [29]   | `Locus<SELF, DISTANCE, DISTANCE_SCALAR>` | interface | affine position over a distance axis    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -228,19 +236,25 @@
 |  [24]   | `IO.Run()`                                                    | instance | synchronous execution                |
 |  [25]   | `IO.RunAsync()`                                               | instance | `ValueTask` execution                |
 |  [26]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                    | instance | acquire-use-release scope            |
-|  [27]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)` | instance | scope with a failure arm             |
+|  [27]   | `IO.Bracket(Use:, Catch:, Fin:)` — `Func<A,IO<C>> Use`, `Func<Error,IO<C>> Catch` (the `Error` ALONE, never the acquired value), `Func<A,IO<B>> Fin` | instance | scope with a failure arm |
 |  [28]   | `IO.Finally(K<IO,X>)`                                         | instance | unconditional release                |
-|  [29]   | `IO.Repeat(Schedule)`                                         | instance | policy-driven repetition             |
-|  [30]   | `IO.RepeatUntil(Func<A,bool>)`                                | instance | predicate-bounded repetition         |
-|  [31]   | `IO.Retry(Schedule)`                                          | instance | policy-driven retry                  |
-|  [32]   | `IO.RetryUntil(Func<Error,bool>)`                             | instance | predicate-bounded retry              |
-|  [33]   | `IO.Fork(Option<TimeSpan>)`                                   | instance | concurrent execution handle          |
-|  [34]   | `IO.Timeout(TimeSpan)`                                        | instance | bounded execution                    |
-|  [35]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`             | instance | predicate-selected recovery          |
-|  [36]   | `IO.Uninterruptible()`                                        | instance | cancellation masking                 |
-|  [37]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                    | static   | rail-generic recovery handler        |
-|  [38]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
-|  [39]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
+|  [29]   | `IO.Repeat()`                                                 | instance | unconditional repetition             |
+|  [30]   | `IO.Repeat(Schedule)`                                         | instance | policy-driven repetition             |
+|  [31]   | `IO.RepeatWhile(Func<A,bool>)`                                | instance | state-advancing repetition           |
+|  [32]   | `IO.RepeatWhile(Schedule, Func<A,bool>)`                      | instance | scheduled state-advancing repetition |
+|  [33]   | `IO.RepeatUntil(Func<A,bool>)` / `RepeatUntil(Schedule, Func<A,bool>)` | instance | predicate-bounded repetition |
+|  [34]   | `IO.Retry()`                                                  | instance | unconditional retry                  |
+|  [35]   | `IO.Retry(Schedule)`                                          | instance | policy-driven retry                  |
+|  [36]   | `IO.RetryWhile(Func<Error,bool>)`                             | instance | classified retry                     |
+|  [37]   | `IO.RetryWhile(Schedule, Func<Error,bool>)`                   | instance | scheduled classified retry           |
+|  [38]   | `IO.RetryUntil(Func<Error,bool>)` / `RetryUntil(Schedule, Func<Error,bool>)` | instance | predicate-bounded retry |
+|  [39]   | `IO.Fork(Option<TimeSpan>)`                                   | instance | concurrent execution handle          |
+|  [40]   | `IO.Timeout(TimeSpan)`                                        | instance | bounded execution                    |
+|  [41]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`             | instance | predicate-selected recovery          |
+|  [42]   | `IO.Uninterruptible()`                                        | instance | cancellation masking                 |
+|  [43]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                    | static   | rail-generic recovery handler        |
+|  [44]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
+|  [45]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
 
 - `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous: `Func<Fin<A>>` is the more specific candidate, so `IO.lift(() => <Fin<T>>)` resolves to the railed row [20] and lands `IO<T>` with the `Fail` folded onto the error channel — NEVER `IO<Fin<T>>`. A body that means to carry the `Fin` as its value spells the type argument (`IO.lift<Fin<T>>(…)`); a downstream `Bind` treating the payload as a `Fin` after the bare spelling is the defect this row forecloses.
 - `IO.Fork` spins one DEDICATED `TaskCreationOptions.LongRunning` thread per fork — forked IOs overlap fully before the await (measured: 16×200ms forks complete in ~206ms wall) and the pool imposes NO concurrency bound, so an unbounded fan-out is an unbounded thread count. A fan-out fold chunks its forked width to its own worker budget; one fork per element over an unbounded population is the defect this row forecloses.
@@ -357,8 +371,8 @@
 |  [01]   | `Prelude.Atom(A, Func<A,bool>)`          | static   | validated lock-free cell         |
 |  [02]   | `Atom.Value`                             | property | current-state snapshot read      |
 |  [03]   | `Atom.ValueIO`                           | property | repeating read on the IO rail    |
-|  [04]   | `Atom.Swap(Func<A,A>)`                   | instance | CAS update                       |
-|  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>)`      | instance | CAS update with refusal          |
+|  [04]   | `Atom.Swap(Func<A,A>) -> A`              | instance | CAS update, post-state return    |
+|  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>) -> A` | instance | CAS update, refusal keeps state  |
 |  [06]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update on the effect rail    |
 |  [07]   | `Atom.Change`                            | event    | accepted-swap notification       |
 |  [08]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | lock-free keyed cell             |
@@ -416,6 +430,7 @@
 - `Error : Monoid<Error>` is why `Validation<Error, A>` accumulates: `Combine` and `+` join failures into one carrier that `Head`, `Tail`, `Count`, and `AsIterable` re-enumerate.
 - `Atom<A>.Swap` owns lock-free shared state and publishes each accepted swap on `Change`; `Ref<A>` owns the transactional cell that `atomic` commits across several refs in one isolation scope.
 - `Atom<A>.Swap` returns the NEW value, so a take-and-clear spelled as `cell.Swap(_ => empty)` hands back the empty value it just installed — an evidence or tally cell drained that way reports zero forever. Hand-off reads need a member returning the prior value; `Value` is the honest snapshot where none exists.
+- `Atom<A>.SwapMaybe` returns `A`, never `Option<A>`: a refused transition hands back the CURRENT state, which is byte-identical to what a committed no-op transition hands back, so the return alone cannot tell a refusal from a commit and a caller reading only the value is `docs/laws/scars.md` `[DECISION_UNDERIVABLE_FROM_STATE]` on its face. The verdict rides a frame-local capture inside the transition function — the last invocation is the committing one — or the value itself carries an owner column the caller compares.
 - `Atom<A>.Swap`/`SwapMaybe` re-run their function inside a `SpinWait` CAS loop, so the function must be free of side effects — a dispose, a counter bump, or a log inside a swap runs once per losing attempt, and a handle released on an attempt that then loses the exchange is a live cell holding a dead native. A release therefore rides the state the swap ANSWERS: the transition records what it unlinked on the value it installs, and the caller drains that roster once after the swap returns, which also makes a losing attempt recompute against the winner's state and select again.
 
 [STACKING]:
