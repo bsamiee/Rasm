@@ -55,8 +55,38 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 - [ALWAYS]: use `nuget` MCP to validate the existence of a package and newest version available.
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: use `openaiDeveloperDocs` MCP when working on Codex configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
-- [ALWAYS]: use `uv run python -m tools.assay static` for static quality `.py`, `.ts/.tsx`, and `.cs` files (ruff/ty/mypy, tsc/biome, dotnet format/build).
-- [ALWAYS]: use `uv run python -m tools.assay provision <verb>` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence.
+
+[CLI_ESTATE]: Reach for each tool by its own contract, never the upstream one it shadows:
+
+| [INDEX] | [TOOL]     | [GUIDANCE]                                                                                                                |
+| :-----: | :--------- | :------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `tree`     | `eza --tree` shim: pass `-a` or `.planning`/`.api` vanish; `-D` is dirs-only (`-d` errors); `-L n` overrides depth 4.     |
+|  [02]   | `loc`      | `scc` wrapper sorting inside folder groups — `\| head` is never a global top-N; rank `--json` on `folder`+`file`.         |
+|  [03]   | `fd`       | `--hidden` is baked in, so `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored.    |
+|  [04]   | `rg`       | Config forces `--smart-case --hidden`, so `-s` pins case; types `docs agent config data lock`; `-U` reaches `\n`.         |
+|  [05]   | `ast-grep` | Never `sg`. Wrong pattern and clean tree both read zero — control-probe it; `--kind` inventories; `--json=compact` glued. |
+|  [06]   | `assay`    | Run at repo root under `uv run --no-sync`; bare `static` plans zero — pass `--folder\|--project\|--all`.                  |
+|  [07]   | `fmt`      | Defaults to `--write` — pass `--check` first; markdown and C# hold no lane and skip silently.                             |
+|  [08]   | `gha`      | `check` folds actionlint+zizmor+ratchet, `run` passes to `act`; `act -l -W <dir>` exits 0 on zero workflows.              |
+|  [09]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.       |
+|  [10]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                   |
+
+[LANE_GATES]: Run every gate from the repo root; a wrong cwd fabricates results instead of failing:
+
+| [INDEX] | [LANE]       | [CHECK_INVOCATION]                                                                                                       |
+| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `csharp`     | `assay static --project <csproj>` · `dotnet build Workspace.slnx --no-restore` — serial; assay's parallel fan self-locks |
+|  [02]   | `python`     | `assay static --folder <dir>` — ruff, ty, mypy, lint-imports; ty binds, mypy advises, and both lie from a foreign cwd    |
+|  [03]   | `typescript` | `assay static --folder <dir>` — `biome ci` and `tsc --noEmit`; `biome lint` skips the formatter and greens falsely       |
+|  [04]   | `markdown`   | `assay docs check <paths>` · `.claude/skills/docgen/scripts/prose_gate.py fix --write` — the sole markdown formatter     |
+|  [05]   | `sql`        | `uv run sqlfluff lint <paths>` · `uv run squawk` — a bare `.` lints vendored fixtures inside `.venv`, honoring no ignore |
+|  [06]   | `shell`      | `shellcheck <files>` · `shfmt -d <files>` — pathless `shfmt` blocks on stdin until the deadline kills it                 |
+|  [07]   | `config`     | `taplo fmt --check <files>` · `yamllint <files>` — both read `~/.config`, so neither verdict reproduces off this box     |
+|  [08]   | `ci`         | `gha check [PATH...]` · `gha pin` · `gha events` — actionlint exit 3 names an empty discovery, never a lint failure      |
+|  [09]   | `oci`        | `hadolint <file>` · `dive --ci <image>` — each hangs or backtraces when handed no explicit argument                      |
+|  [10]   | `security`   | `trivy fs --scanners vuln,secret,misconfig --skip-dirs node_modules --skip-dirs .venv .` · `gitleaks detect`             |
+|  [11]   | `iac`        | `pulumi preview -C <dir>` · `pulumi about` — `pulumi whoami` mints a real ephemeral cloud account, never read-only       |
+|  [12]   | `provision`  | `assay provision <verb>` — Forge service, Postgres-extension, and DuckDB/SQLite surface evidence                         |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
