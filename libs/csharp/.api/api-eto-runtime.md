@@ -42,11 +42,15 @@
 |  [10]   | `TextInputEventArgs` | class         | composed-text event payload                             |
 |  [11]   | `SystemColors`       | static class  | host-consistent theme colours                           |
 
+[POINTER_ARGS]: `MouseEventArgs` carries `Modifiers` `Buttons` `Location` `Handled` `Pressure` (`float`) `Delta` (`SizeF`) and NOTHING else
+[MODIFIER_MASK]: `Keys.ModifierMask = 0xF000` over `Shift = 0x1000` `Alt = 0x2000` `Control = 0x4000` `Application = 0x8000`; `F1 = 0x1B` through `F12 = 0x26` are contiguous
+[BUTTON_SET]: `MouseButtons` is `[Flags]`: `None = 0` `Primary = 1` `Alternate = 2` `Middle = 4`
 [KEYBOARD_STATE]: `Modifiers` `SupportedLockKeys` `ModifiersChanged`
 [MOUSE_STATE]: `IsSupported` `Position` `Buttons`
 [SCREEN_STATE]: `Bounds` `WorkingArea` `DisplayBounds` `LogicalPixelSize` `Scale` `RealScale` `DPI` `RealDPI` `BitsPerPixel` `IsPrimary`
 [CURSOR_ROSTER]: `Default` `Arrow` `Crosshair` `Pointer` `IBeam` `Move` `SizeAll` `NotAllowed` `VerticalSplit` `HorizontalSplit` `SizeLeft` `SizeTop` `SizeRight` `SizeBottom` `SizeTopLeft` `SizeTopRight` `SizeBottomLeft` `SizeBottomRight`
 
+- `MouseEventArgs` reports NO click count — the platform raises `MouseDoubleClick` as its own event, so a single-click derivation off one release is unspellable and `Pressure` defaults to `1f` when the constructor is handed none.
 - `Keyboard.SupportedLockKeys` is an `IEnumerable<Keys>` membership set, never a `Keys` flag mask.
 - `Mouse.Position` is settable — assigning it warps the system pointer.
 
@@ -62,6 +66,7 @@
 |  [06]   | `DragEventArgs` | class         | drop location, `Data`, `AllowedEffects`, resolved `Effects` |
 
 [CLIPBOARD_STATE]: `Instance` `Types` `Text` `Html` `Image` `Uris` `ContainsText` `ContainsHtml` `ContainsImage` `ContainsUris`
+[FORMAT_IDENTIFIERS]: `DataFormats` publishes `Text` `Html` `Color` ALONE — the typed image and URI payloads have no identifier row, so a well-known-format roster keys on the `Clipboard` accessor names, never on `DataFormats`
 [DATAOBJECT_STATE]: `Text` `Html` `Image` `Uris` `Types` `TypeName` `Value`
 
 [PUBLIC_TYPE_SCOPE]: notification and tray — `TrayIndicator` owns persistent tray presence, `Notification` the transient toast optionally anchored to it
@@ -146,7 +151,7 @@ Every payload keys by a MIME type string; `SetString`/`SetData`/`SetDataStream`/
 
 [STACKING]:
 - `LanguageExt.Core`(`.api/api-languageext.md`): a UI-thread dispatch wraps into `Eff<A>`/`IO<A>` and folds to `Fin<A>`, so `Invoke<T>`/`InvokeAsync<T>` compose as effectful reads rather than raw blocking calls threaded through domain code; `Option<A>` lifts every nullable transfer read gated by `Contains(type)`; `UITimer` and `TrayIndicator` acquire and release through the `use` rail — `Start`/`Show` acquire, `Stop`/`Hide` release — so the clock and tray icon never leak past their owning scope.
-- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `Cursors`, `DragEffects`, `MouseButtons`, `Keys`, and `UIThreadCheckMode` bind as `[SmartEnum]` and flag owners routed by generated `Switch`/`Map` instead of raw static-field reads and bitwise tests; the `DataFormats` identifiers project onto a `[SmartEnum<string>]` payload-kind owner carrying its parse and serialize behaviour, and a MIME type binds as `[ValueObject<string>]` so transfer access is keyed by a validated owner.
+- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `Cursors`, `DragEffects`, `MouseButtons`, `Keys`, and `UIThreadCheckMode` bind as `[SmartEnum]` and flag owners routed by generated `Switch`/`Map` instead of raw static-field reads and bitwise tests; the `Clipboard` typed-accessor names project onto a `[SmartEnum<string>]` payload-kind owner carrying its parse and serialize behaviour — `DataFormats` publishes only three identifiers and cannot key that roster, and a MIME type binds as `[ValueObject<string>]` so transfer access is keyed by a validated owner.
 - `api-eto-forms`(`.api/api-eto-forms.md`): control invalidation and dialog presentation are the construction-side consumers that marshal through `Application.Instance`.
 - `api-macos-native`(`.api/api-macos-native.md`): `Application.Invoke`, `UITimer`, and `Screen.LogicalPixelSize` are the host-neutral boundary the macOS layer replaces with `CADisplayLink` pacing and `NSScreen` refresh metrics for high-cadence work.
 

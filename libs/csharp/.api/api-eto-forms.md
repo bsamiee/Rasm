@@ -28,51 +28,67 @@
 
 [PUBLIC_TYPE_SCOPE]: text and value input
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :--------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `TextBox`        | text input    | single-line editable text                            |
-|  [02]   | `TextArea`       | text input    | multi-line editable text with wrap and caret control |
-|  [03]   | `RichTextArea`   | text input    | styled rich-text editor over a formatted buffer      |
-|  [04]   | `PasswordBox`    | text input    | masked secret entry                                  |
-|  [05]   | `SearchBox`      | text input    | search-styled field with clear affordance            |
-|  [06]   | `NumericStepper` | value input   | bounded numeric entry with increment stepping        |
-|  [07]   | `Slider`         | value input   | ranged track selector                                |
-|  [08]   | `DateTimePicker` | value input   | date and time selection with a min/max range         |
-|  [09]   | `ColorPicker`    | value input   | inline colour swatch and picker field                |
-|  [10]   | `FontPicker`     | value input   | inline font-selection field                          |
-|  [11]   | `FilePicker`     | value input   | inline file or folder path field                     |
-|  [12]   | `Spinner`        | indicator     | indeterminate activity spinner                       |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :--------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `TextBox`        | text input    | single-line editable text                             |
+|  [02]   | `TextArea`       | text input    | multi-line editable text with wrap and caret control  |
+|  [03]   | `RichTextArea`   | text input    | styled rich-text editor over a formatted buffer       |
+|  [04]   | `PasswordBox`    | text input    | masked secret entry                                   |
+|  [05]   | `SearchBox`      | text input    | search-styled field with clear affordance             |
+|  [06]   | `NumericStepper` | value input   | bounded numeric entry with increment stepping         |
+|  [07]   | `TextStepper`    | text input    | `TextBox` carrying a stepper affordance and its raise |
+|  [08]   | `Slider`         | value input   | ranged track selector                                 |
+|  [09]   | `DateTimePicker` | value input   | date and time selection with a min/max range          |
+|  [10]   | `Calendar`       | value input   | month-grid date or date-range selection               |
+|  [11]   | `ColorPicker`    | value input   | inline colour swatch and picker field                 |
+|  [12]   | `FontPicker`     | value input   | inline font-selection field                           |
+|  [13]   | `FilePicker`     | value input   | inline file or folder path field                      |
+|  [14]   | `Spinner`        | indicator     | indeterminate activity spinner                        |
 
 [FIELD_STATE]:
 - `TextBox`: `PlaceholderText` `MaxLength` `ReadOnly` `CaretIndex` `SelectedText` `Selection` `SelectAll()` `TextChanging`
 - `TextArea`: `AcceptsReturn` `AcceptsTab` `SpellCheck` `Wrap` `CaretIndex` `Selection` `CaretIndexChanged` `SelectionChanged`
 - `NumericStepper`: `MinValue` `MaxValue` `Increment` `Value` `DecimalPlaces` `FormatString` `Wrap`
 - `Slider`: `MinValue` `MaxValue` `Value` `Orientation` `TickFrequency` `SnapToTick` `ValueChanged`
+- `TextStepper`: inherits every `TextBox` member and adds `ValidDirection` (`StepperValidDirections`) `ShowStepper` `Step` (`EventHandler<StepperEventArgs>`)
+- `DateTimePicker`: `Value` (`DateTime?`) `MinDate` `MaxDate` (both non-nullable) `Mode` `TextColor` `ShowBorder` `ValueChanged`
+- `Calendar`: `SelectedDate` (`DateTime`) `SelectedRange` (`Range<DateTime>`) `MinDate` `MaxDate` `Mode` `SelectedDateChanged` `SelectedRangeChanged`
+- `ColorPicker`: `Value` `AllowAlpha` `SupportsAllowAlpha` `ColorChanged`
 - `FilePicker`: `Filters` owns the mutable file-filter collection
+
+[MODE_ROSTERS]:
+- `DateTimePickerMode` is `[Flags]`: `Date = 1` `Time = 2` `DateTime = 3` — the composite is a declared member, never a caller's own OR
+- `CalendarMode`: `Single` `Range`
+- `SegmentedSelectionMode`: `None` `Single` `Multiple`
+- `FileAction` (namespace `Eto`, NOT `Eto.Forms`): `OpenFile` `SaveFile` `SelectFolder`
 
 [PUBLIC_TYPE_SCOPE]: choice, command, and display
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                |
-| :-----: | :---------------- | :------------ | :------------------------------------------ |
-|  [01]   | `CheckBox`        | choice        | tri-state boolean toggle                    |
-|  [02]   | `RadioButton`     | choice        | mutually-exclusive selection within a group |
-|  [03]   | `DropDown`        | choice        | single-selection collapsed list             |
-|  [04]   | `ComboBox`        | choice        | editable-text dropdown                      |
-|  [05]   | `ListControl`     | choice base   | list base carrying store and selection      |
-|  [06]   | `ListBox`         | choice        | scrollable single-selection list            |
-|  [07]   | `CheckBoxList`    | choice        | multi-check option group                    |
-|  [08]   | `SegmentedButton` | choice        | linked multi-segment toggle bar             |
-|  [09]   | `Button`          | command       | push-command control                        |
-|  [10]   | `ToggleButton`    | command       | push command carrying pressed state         |
-|  [11]   | `LinkButton`      | command       | hyperlink-styled command                    |
-|  [12]   | `Label`           | display       | static or wrapping text label               |
-|  [13]   | `ImageView`       | display       | static image presenter                      |
-|  [14]   | `ProgressBar`     | indicator     | determinate or indeterminate progress track |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :-------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `CheckBox`            | choice        | tri-state boolean toggle                      |
+|  [02]   | `RadioButton`         | choice        | mutually-exclusive selection within a group   |
+|  [03]   | `DropDown`            | choice        | single-selection collapsed list               |
+|  [04]   | `ComboBox`            | choice        | editable-text dropdown                        |
+|  [05]   | `ListControl`         | choice base   | list base carrying store and selection        |
+|  [06]   | `ListBox`             | choice        | scrollable single-selection list              |
+|  [07]   | `CheckBoxList`        | choice        | multi-check option group                      |
+|  [08]   | `SegmentedButton`     | choice        | linked multi-segment toggle bar               |
+|  [09]   | `SegmentedItem`       | choice part   | one segment base carrying text and command    |
+|  [10]   | `ButtonSegmentedItem` | choice part   | push-shaped segment, optionally command-bound |
+|  [11]   | `Button`              | command       | push-command control                          |
+|  [12]   | `ToggleButton`        | command       | push command carrying pressed state           |
+|  [13]   | `LinkButton`          | command       | hyperlink-styled command                      |
+|  [14]   | `Label`               | display       | static or wrapping text label                 |
+|  [15]   | `ImageView`           | display       | static image presenter                        |
+|  [16]   | `ProgressBar`         | indicator     | determinate or indeterminate progress track   |
 
 [CHOICE_STATE]:
 - `CheckBox`: `Checked` (`bool?`) `ThreeState` `CheckedChanged`
 - `DropDown`: `ShowBorder` `ItemImageBinding` `DropDownOpening` `DropDownClosed` `FormatItem`
-- `ListControl`: `DataStore` `SelectedIndex` `SelectedValue` `SelectedKey` `SelectedIndexChanged` `SelectedValueChanged`
+- `ListControl`: `DataStore` `SelectedIndex` `SelectedValue` `SelectedKey` `SelectedIndexChanged` `SelectedValueChanged` — `SelectedKey` is SINGULAR here; the plural lives on `CheckBoxList`
+- `CheckBoxList` (a `Panel`, not a `ListControl`): `SelectedKeys` (`IEnumerable<string>`) `SelectedValues` (`IEnumerable<object>`) `Orientation` `SelectedValuesChanged` `SelectedKeysChanged`
+- `SegmentedButton`: `Items` `SelectionMode` `SelectedIndex` `SelectedIndexes` (`IEnumerable<int>`) `SelectedIndexesChanged`; `SegmentedItem`: `Text` `Command`
 - `ProgressBar`: `MinValue` `MaxValue` `Value` `Indeterminate`
 
 [PUBLIC_TYPE_SCOPE]: containers and host surfaces
@@ -94,7 +110,7 @@
 [CONTAINER_STATE]:
 - `Splitter`: `Panel1` `Panel2` `Orientation` `Position` `FixedPanel` `SplitterWidth`
 - `TabControl`: `Pages` `SelectedIndex` `SelectedPage` `TabPosition` `SelectedIndexChanged`
-- `Expander`: `Expanded` `ExpandedChanged`; `PropertyGrid`: `ShowCategories`
+- `Expander`: `Expanded` `ExpandedChanged`; `PropertyGrid`: `SelectedObject` `SelectedObjects` `ShowCategories` `ShowDescription`
 - `RichTextArea`: `SelectionFont` `SelectionForeground` `SelectionBackground` `SelectionBold` `SelectionItalic` `SelectionUnderline` `SelectionStrikethrough` `Buffer` `Rtf`
 
 [PUBLIC_TYPE_SCOPE]: grid, tree, and cell families
@@ -124,6 +140,9 @@
 - `Grid` events: `CellEditing` `CellEdited` `CellClick` `CellFormatting` `RowFormatting`
 - `GridColumn`: `HeaderText` `DataCell` `Editable` `Resizable` `Sortable` `AutoSize` `Visible` `Width`
 - `TreeGridView`: `DataStore` (`ITreeGridStore<ITreeGridItem>`) `SelectedItem` (`ITreeGridItem`); the expand, collapse, and activate event family
+- `CellEventArgs`: `Row` `Item` `CellState` `IsEditing` `IsSelected` `CellTextColor`, raising `INotifyPropertyChanged` as the state moves
+- `CellPaintEventArgs` (a `PaintEventArgs`): `Graphics` `ClipRectangle` `CellState` `Item` `IsEditing` `IsSelected` — the LIVE owner-draw payload
+- `DrawableCellPaintEventArgs` is `[Obsolete]` since 2.2 and survives only on `DrawableCell.Paint`; the non-obsolete route is overriding `DrawableCell.OnPaint(CellPaintEventArgs)`
 
 [PUBLIC_TYPE_SCOPE]: layout owners
 
@@ -132,9 +151,9 @@
 |  [01]   | `DynamicLayout`   | layout        | nested vertical, horizontal, group, and scrollable regions |
 |  [02]   | `TableLayout`     | layout        | scaling cell grid over `TableRow`/`TableCell`              |
 |  [03]   | `TableRow`        | layout part   | one grid row of cells with scale flags                     |
-|  [04]   | `TableCell`       | layout part   | one grid cell with an x-scale flag                         |
+|  [04]   | `TableCell`       | layout part   | one grid cell with an x-scale flag (`ScaleWidth`)          |
 |  [05]   | `StackLayout`     | layout        | linear run over `StackLayoutItem` with alignment           |
-|  [06]   | `StackLayoutItem` | layout part   | one stacked child with an expand flag                      |
+|  [06]   | `StackLayoutItem` | layout part   | one stacked child with an expand flag (`Expand`)           |
 |  [07]   | `PixelLayout`     | layout        | absolute pixel-positioned placement                        |
 |  [08]   | `Padding` (`Eto`) | value         | four-edge inset                                            |
 |  [09]   | `Size` (`Eto`)    | value         | integer extent                                             |
@@ -171,20 +190,20 @@
 
 [PUBLIC_TYPE_SCOPE]: menus and commands
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :--------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `ContextMenu`    | menu          | popup menu bound to a control                                |
-|  [02]   | `MenuItem`       | menu item     | leaf menu entry                                              |
-|  [03]   | `ButtonMenuItem` | menu item     | invoking menu entry carrying submenu children                |
-|  [04]   | `SubMenuItem`    | menu item     | nested submenu container                                     |
-|  [05]   | `Command`        | command       | shared invocation with `Enabled`, `Shortcut`, and `Executed` |
-|  [06]   | `CheckCommand`   | command       | toggling command                                             |
-|  [07]   | `RadioCommand`   | command       | radio-grouped command                                        |
-|  [08]   | `MenuBar`           | menu          | top-level application menu (`Interaction/chrome` `MenuOf`)  |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :------------------ | :------------ | :----------------------------------------------------------- |
+|  [01]   | `ContextMenu`       | menu          | popup menu bound to a control                                |
+|  [02]   | `MenuItem`          | menu item     | leaf menu entry                                              |
+|  [03]   | `ButtonMenuItem`    | menu item     | invoking menu entry carrying submenu children                |
+|  [04]   | `SubMenuItem`       | menu item     | nested submenu container                                     |
+|  [05]   | `Command`           | command       | shared invocation with `Enabled`, `Shortcut`, and `Executed` |
+|  [06]   | `CheckCommand`      | command       | toggling command                                             |
+|  [07]   | `RadioCommand`      | command       | radio-grouped command                                        |
+|  [08]   | `MenuBar`           | menu          | top-level application menu (`Interaction/chrome` `MenuOf`)   |
 |  [09]   | `CheckMenuItem`     | menu item     | checkable menu entry                                         |
 |  [10]   | `RadioMenuItem`     | menu item     | radio-grouped menu entry                                     |
 |  [11]   | `SeparatorMenuItem` | menu item     | menu divider                                                 |
-|  [12]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries (`chrome` `BarOf`)  |
+|  [12]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries (`chrome` `BarOf`)   |
 |  [13]   | `ButtonToolItem`    | tool item     | invoking toolbar button                                      |
 |  [14]   | `CheckToolItem`     | tool item     | toggle toolbar button                                        |
 |  [15]   | `DropDownToolItem`  | tool item     | toolbar button carrying a dropdown menu                      |

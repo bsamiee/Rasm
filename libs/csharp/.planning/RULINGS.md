@@ -27,12 +27,14 @@
 - Host beat evidence composes the kernel `MonotonicBeat` — cadence-only columns extend the receipt, and a flat host beat re-mints temporal identity.
 - Kernel measures leave as bare `double` and `Rasm.Element` `MeasureValue` is the dimensioned carrier — unit identity federates at `BaseDimensions`.
 - `Rasm` `FaultBand` is the ONE band registry — every folder reads and extends its own row there, so `Disjoint` proves the whole estate at once.
+- `FaultBand` row names never shadow a kernel TYPE in consumer scope — `LaneGuard`/`StoreStat` prefix, a row name being free where a wire key is not.
+- `FaultBand.OwnerOf` takes the `BandKind` it decodes — the two id spaces partition, so an interval-only read answers whichever row sorts first.
 - `Retriability` on `Expected` is the ONE retriability discriminant and `Redrive` the ONE re-drive owner — Polly executes at the HTTP hop alone.
 - `CanonicalWriter` at `Rasm/Domain/identity` is the ONE preimage writer — peers compose it and re-export nothing, so one framing keys the estate.
 - `ContentHash.Hex` and `ContentHash.Admit` are the ONE identity text and its inverse — admission REFUSES uppercase, so the round trip is exact.
 - `HookRail<TPoint,TFact,TOwner>` is the ONE hook mechanism — a folder declares its `<Package>Point` roster and closed fact union alone.
 - `Stat<TCarrier>` and `Distribution<TCarrier>` are the ONE moment and order-statistic owners — a local fold re-derives the recurrence and forks it.
-- `MonotonicTimeline.Gauged` is the ONE gauged span — every tier below the app root gauges through it, so elapsed time carries one clock.
+- `MonotonicTimeline.Gauged` is the ONE gauged span from S3 upward; the S0 op-cost capsule marks its own pair — the floor cannot read up-strata.
 - `ToleranceLane` rows are the ONE branch tolerance vocabulary, each carrying its own `Band` — Fabrication GD&T stackup composes them as scalars.
 - `MeshSource` is the ONE mesh admission discriminant on `MeshSpace` — a new carrier lands as one arm or one `MeshBlock` band.
 - Combinable capability rides `CapabilitySet<TCapability>` over an `ICapability` vocabulary — set algebra collapses every parallel bool column.

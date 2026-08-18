@@ -115,9 +115,10 @@
 |  [12]   | `Span2D<T>.Fill(T)`                          | instance  | write one value across the plane                     |
 |  [13]   | `Span2D<T>.Clear()`                          | instance  | zero the plane                                       |
 |  [14]   | `Memory2D<T>.Span -> Span2D<T>`              | property  | address the owned plane                              |
-|  [15]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array                    |
-|  [16]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check                   |
-|  [17]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage                        |
+|  [15]   | `Memory2D<T>.Height` / `.Width`              | property  | owned-plane extents (verified on installed 8.4.2)    |
+|  [16]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array                    |
+|  [17]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check                   |
+|  [18]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage                        |
 |  [18]   | `Cast<TFrom, TTo>`                           | extension | reinterpret element width                            |
 |  [19]   | `Tokenize`                                   | extension | split on a separator value                           |
 |  [20]   | `Enumerate`                                  | extension | index-paired or by-ref enumeration                   |

@@ -41,7 +41,10 @@ Every reopen predicate rides the license gate.
 - Every `SolveReceipt` is READ — a consumer mapping it away to the solution alone discards the solver evidence the receipt exists to carry.
 - `IntersectOp.PlaneMesh` is the ONE mesh-plane section — a native contour beside it forks the tier, while interval sweep and surface iso stay native.
 - `SampleAssurance` is the ONE guarantee column on the sample receipt — parallel bool flags leave illegal corners the roster forecloses.
-- Every solver residual anchors on `EpsilonPolicy.SqrtEpsilon`, never a `ToleranceLane` — the `Relative` lane is a model percent.
+- Solver residuals floor on `EpsilonPolicy.SqrtEpsilon` and lane through `ResidualCap.In` — a bare epsilon forks it; `Relative` is a model percent.
+- Residual-band `ToleranceLane` rows DERIVE `EpsilonPolicy.SqrtEpsilon`, never the model percent — a percent of a percent lands under the band floor.
+- `Cell.SwapBudget` is the ONE contended-commit default — an Interaction page minting a budget shell passes its own measured `Dimension` instead.
+- Device `ToleranceLane` rows derive `0.0`, BELOW their band's closed floor, so an un-overridden device gate hands back refusing evidence.
 - `HealStage.RebuildsTopology`/`Collects` stay a bool PAIR — independent axes with no illegal corner leave a capability set nothing to foreclose.
 - `SplineFit`/`SplinePolicy` are the `Rasm.Parametric` fitting names; `Solving` keeps `FitKind`/`FitPolicy` — same word, two bounded concepts.
 - `Stat<Scalar>` derived off its own column is the ONE moment summary — a page-local tuple beside it forks the statistic per consumer.
@@ -72,6 +75,7 @@ Every reopen predicate rides the license gate.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 - `Context.For(lane)` is the ONE tolerance read — every threshold derives from a `ToleranceLane` row, so no page mints an epsilon literal.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
+- Generated `Validate` bridges via `Op.AcceptValidated`; `[ValidationError<Fault>]` survives only where every path mints typed — framework refusals degrade to `Fault.Text`.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
 - `[BoundaryAdapter]` entries alone spell an optional key `Op? key = null` with `OrDefault()`; every other optional rides `Option<T> = default`.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.

@@ -38,6 +38,7 @@
 |  [06]   | `Style`                                              | static        | style registry keyed by handler type and name  |
 |  [07]   | `StyleWidgetHandler<TWidget>`                        | delegate      | style applied against a widget facade          |
 |  [08]   | `StyleHandler<THandler>`                             | delegate      | style applied against a concrete handler       |
+|  [09]   | `IStyleProvider`                                     | interface     | style registry contract a provider swap seats  |
 
 [PUBLIC_TYPE_SCOPE]: native-control hosting
 
@@ -95,6 +96,7 @@
 - `CreateShared` resolves through the same instantiator map as `Create` and memoizes per contract on the platform instance, so a shared handler outlives every widget that reaches it — `Create` is the per-call mint and the two never substitute.
 - `Cache<TKey,TValue>` hands back a platform-lifetime dictionary keyed by an opaque cache key; it is the same shared-property store `CreateShared` uses, and it is the platform-scoped typed cache a hand-rolled spec-to-resource registry replaces.
 - `HandlerCreated` and `WidgetCreated` are the only mint observation points, so a census of what the platform produced subscribes both rather than instrumenting construction sites.
+- `Widget` is `IDisposable` over a `public void Dispose()` delegating to a `protected virtual void Dispose(bool disposing)` that disposes the handler once and latches `IsDisposed`; a widget subclass owning host children overrides the protected arity, and the latch is what makes a second pass a no-op rather than a double release.
 
 [ENTRYPOINT_SCOPE]: `Platform` — boot, context, and marshal (composition-root surfaces)
 
@@ -120,11 +122,16 @@
 
 | [INDEX] | [SURFACE]                                                  | [SHAPE] | [CAPABILITY]                      |
 | :-----: | :--------------------------------------------------------- | :------ | :-------------------------------- |
-|  [01]   | `Style.Provider`                                           | static  | active style provider, nullable   |
+|  [01]   | `Style.Provider -> IStyleProvider`                         | static  | active provider, get and set      |
 |  [02]   | `Style.StyleWidget`                                        | static  | per-widget style event            |
 |  [03]   | `Style.Add<TWidget>(string?, StyleWidgetHandler<TWidget>)` | static  | register a widget-facade style    |
 |  [04]   | `Style.Add<THandler>(string?, StyleHandler<THandler>)`     | static  | register a concrete-handler style |
+|  [05]   | `IStyleProvider.Inherit -> bool`                           | instance | cascading application declared    |
+|  [06]   | `IStyleProvider.ApplyStyle(object, string)`                | instance | apply one named style to a widget |
+|  [07]   | `IStyleProvider.ApplyCascadingStyle(object, object, string)` | instance | apply a container's style downward |
+|  [08]   | `IStyleProvider.ApplyDefault(object)`                      | instance | apply the unnamed default style   |
 
+- `Style.Provider` is settable and defaults to the lazily created `DefaultStyleProvider` the first `Add` mints, so a provider swap replaces the whole registry rather than any per-key row and is never a per-registration act.
 - `Style.Add` APPENDS into the active provider's per-key `IList<Action<object>>`; the only removal is the provider's whole-registry `Clear()`, so a second `Add` under a live key stacks a handler beside the first and retires nothing — a detachable registration owns its own dispatch cell and empties it, never re-`Add`s.
 
 [ENTRYPOINT_SCOPE]: `NativeControlHost` — hosting a raw platform view

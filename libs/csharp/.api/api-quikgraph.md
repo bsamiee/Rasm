@@ -403,6 +403,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 
 [TOPOLOGY]:
 - `AddVerticesAndEdge` admits both endpoints where `AddEdge` requires them present, and `AddVertexRange` preserves the isolated vertices a later fold reads.
+- `AddEdgeRange(IEnumerable<TEdge>)` batches edge admission under `AddEdge` semantics — endpoints must already be present (verified on the installed 2.5.0).
 - Direction is a container choice: `IVertexListGraph` serves outgoing traversal, `IBidirectionalGraph` predecessor access, `IUndirectedGraph` symmetric adjacency, and `GraphExtensions` converts between them.
 - `TryFunc` accessors signal an unreachable target as a `false` return, never a fault.
 - Every algorithm object folds through `AlgorithmBase<TGraph>`: `Compute()` runs it, `State` and the `Started`/`Finished`/`Aborted` events report it, and `Services` carries the `ICancelManager` an `Abort()` trips.
