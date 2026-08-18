@@ -188,6 +188,7 @@ public static class AxisAlgebra {
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
 - Law: startup probes force the `LazyThreadSafetyMode.ExecutionAndPublication` lazy, assign indices, build the frozen lookup, fail-fast duplicate keys, and cache one poisoning across metadata consumers walking `Items`.
 - Law: derived indexes project from `Items` through accessors, never eager static initializers; the accessor read supplies the materialization edge, and string-keyed vocabularies use the zero-allocation span alternate lookup.
+- Law: a value a BASE-CONSTRUCTOR argument demands rides a `Lazy<Fin<T>>` accessor — the lazy defers admission to first use, the rail holds the verdict, and the fault surfaces on the host failure channel at the read; an eager `static readonly` field running the admission inside the loader's type-init frame is the forbidden form this clause names the alternative for.
 - Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation seams as keys re-admitted on the far side.
 
 [DISPATCH_AND_ROWS]:

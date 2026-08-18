@@ -29,7 +29,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Readable values fill from their surface's read, and a hand-asserted copy reads as a defect on sight.
 - Trigger: Asserted flags, tenancy claims, and capability columns diverge silently the first time the surface they mirror moves, and nothing raises.
 - Boundary: This scar spans fence literals and prose claims alike — a comment asserting a behavior the member contradicts falls with the literal.
-- Boundary: Inference substituting for a declared fact falls with the asserted copy — total coverage never separates two states one probe reads alike.
+- Boundary: Inference substituting for a declared fact falls with the asserted copy — coverage never separates two states one probe reads alike.
 - Boundary: Transforms resolved into a column apply once; an egress helper re-applying one over the resolved column is the defect both sites hide.
 
 [FORGED_ZERO]:
@@ -65,7 +65,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 
 [LAW_WITHOUT_PRODUCER]:
 - Law: Rows added to a data anchor land with their construction in the same edit.
-- Law: Inversion holds too — a sole-construction entrypoint proves by its call site, and a producer no consumer reaches is inert whatever it declares.
+- Law: Inversion holds — a sole-construction entrypoint proves by its call site, and a producer no consumer reaches is inert whatever it declares.
 - Trigger: Severed or partial writes leave columns half-landed and laws producer-less, each reading complete to a prose scan while inert.
 - Boundary: Construction and call sites on disk prove a producer; a declaration, census row, or exported type never does.
 - Boundary: Wire-complete chains prove at the owning evaluator's read — a column that evaluator never reads passes every producer census inert.
@@ -127,7 +127,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 
 [CITED_RULING_UNWRITTEN]:
 - Law: Decisions citing a ruling hold only where it resolves on disk at the cited tier; an unresolvable citation carries no authority.
-- Trigger: Scope narrowed "by ruling" freezes while the named registry holds no such row, reading settled until re-litigated the moment someone looks.
+- Trigger: Scope narrowed "by ruling" freezes while the named registry holds no such row, reading settled until someone looks.
 - Boundary: Proof reads the named registry at the named tier — a recalled ruling, a repeating peer page, and an asserting receipt prove nothing.
 - Boundary: Decisions surviving the miss land their ruling row in the same pass, and one that does not survive reverses whole with its ripples.
 
