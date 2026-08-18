@@ -58,8 +58,6 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `ruling`: Registers one settled decision at its narrowest owning tier, foreclosing re-litigation rather than teaching mechanism.
 - `charter`: Opens a surface on the capability it owns and the boundary it holds.
 - `scar`: Records regression-proven law whose only justification is a failure the estate paid for, beside the trigger re-arming it.
-- `slot`: Keys one consequence row in a receipt family, and each regime spells its own carrier — `IFactSlot`, `Built<TSlot>`, none for UI presence.
-    - [NOT]: One carrier bridging the regimes — merging a fact slot with a build slot puts an undo column on a value no commit sealed.
 - `pick receipt`: Names one host boundary's own hit evidence, and the two host spellings stay PLURAL — their frames and providers share zero column.
     - [NOT]: One cross-host pick receipt; Rhino and Grasshopper `PickReceipt` types stand allowlisted DISTINCT owners, never halves of a shared shape.
 - `wire pass`: Names the Grasshopper wire-drawing plan producer over the kernel paint program.
