@@ -42,7 +42,7 @@ Domain vocabulary carries the AEC, fabrication, geometry, geospatial, building-p
 - `icon source`: Resolves through the kernel `AssetOrigin` family alone, and each carrier shape lands as one case on that family.
     - [NOT]: Boundary-local origin unions and filename-scale conventions; scale rides a column on the raster case, never a parsed suffix.
 - `user text`: Carries the host document's per-object and per-document user STRINGS (`UserTextValue`/`UserTextAnswer`).
-    - [NOT]: Annotation text runs (`Annotation/text`) and command-prompt default text (`Commands`); three senses, three owners, no shared carrier.
+    - [NOT]: Annotation text runs and command-prompt default text, neither sharing a carrier with the document's own user strings.
 
 ## [04]-[GEOMETRY]
 

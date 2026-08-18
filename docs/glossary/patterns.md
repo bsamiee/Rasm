@@ -1,6 +1,6 @@
 # [PATTERNS_GLOSSARY]
 
-Shape vocabulary and replicated-state vocabulary bind every branch alike, so one concept under three language spellings stays one concept.
+Shape vocabulary and replicated-state vocabulary bind every branch alike, so one concept under every language spelling stays one concept.
 
 ## [01]-[SHAPE]
 

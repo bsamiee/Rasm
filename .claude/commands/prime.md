@@ -14,8 +14,8 @@ Grounding stays below 100k tokens and reads only target- or objective-owned surf
 ## [01]-[TOPOLOGY]
 
 Run in one parallel block:
-1. `tree -L 3 libs` — Maps every branch and package with per-file size and modified-age columns: all docs as relative page weight in one view.
-2. `fd -H -t d -d 3 '^\.(planning|api)$' libs` — censuses the scaffold: which folders carry a `.planning/` and which carry an `.api/` catalog tier.
+1. `tree -a -L 3 libs` — Maps every branch and package with per-file size and modified-age columns: all docs as relative page weight in one view.
+2. `fd -t d -d 3 '^\.(planning|api)$' libs` — censuses the scaffold: which folders carry a `.planning/` and which carry an `.api/` catalog tier.
 3. `fd -d 1 -t f .` — Root files, names only. Root file — central manifests, lockfiles, workspace/solution files, tool config — an owner to know exists.
 
 ## [02]-[PLANNING_LAW]
@@ -23,7 +23,7 @@ Run in one parallel block:
 READ 100%, one batch (`==> path <==` headers delimit files):
 
 ```bash copy-safe
-fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning docs/laws -X tail -n +1
+fd -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning docs/laws -X tail -n +1
 ```
 
 - Batch grounds all Tier-0 and branch law, including every `RULINGS.md`. `IDEAS.md` and `TASKLOG.md` load only when a dispatched rail works their cards.
@@ -38,7 +38,7 @@ Spent only on what TARGET or the arrived objective names — folder cores are ne
 Bare-language TARGET: batch the branch's folder cores in one command:
 
 ```bash template
-fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE|RULINGS)\.md$' libs/<lang> -X tail -n +1
+fd -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE|RULINGS)\.md$' libs/<lang> -X tail -n +1
 ```
 
 ## [04]-[CLOSE]
