@@ -122,7 +122,8 @@
 [Metadata]: `Keyed.SmartEnum` `Keyed.ValueObject` `KeylessSmartEnum` `ComplexValueObject` `RegularUnion` `AdHocUnion`
 
 - `Metadata`: carries `[Union]` itself and nests `Keyed` as a second `[Union]`, so an adapter folds owner kinds through the same exhaustive dispatch a domain owner uses.
-- `Metadata.Keyed`: exposes `KeyType`, `ValidationErrorType`, `ConvertToKey`/`ConvertToKeyExpression`, and `GetKey`, so a store or codec takes the conversion as a delegate or an expression tree.
+- `Metadata.Keyed`: exposes `KeyType`, `ValidationErrorType`, `ConvertToKey`/`ConvertToKeyExpression`, and `GetKey`, so a store or codec takes the OUTBOUND conversion as a delegate or an expression tree. The INBOUND half is not on `Keyed` — `ConvertFromKey`, `ConvertFromKeyExpression`, and `ConvertFromKeyExpressionViaConstructor` sit on the `Keyed.SmartEnum` and `Keyed.ValueObject` cases, non-null on the value-object case and nullable on the smart-enum case where an unknown key has no owner to mint; the `*ViaConstructor` form bypasses the validation rail for a store that already holds admitted values, which is why a read path and a write path pick different members off the same metadata.
+- `Metadata.Keyed.SmartEnum` adds `Items` (a `Lazy<IReadOnlyList<SmartEnumItemMetadata>>`, so the roster materializes on first read), `TryGetFromKey`, and `DisableSpanBasedJsonConversion`; `Metadata.ComplexValueObject` carries `AssignableMembers` and `MemberTypes`; the two union cases carry `TypeMembers`, `ConvertToValue`/`ConvertToValueExpression`, and `GetValue`. An adapter therefore reads one shape per owner kind after the `Switch`, never a reflection probe.
 
 [PUBLIC_TYPE_SCOPE]: collection and text utilities — allocation-free degenerate collections and the wrappers that keep a count or projection read-only.
 
@@ -141,28 +142,30 @@
 
 [ENTRYPOINT_SCOPE]: the declaration a domain owner carries and the members the generator emits onto it.
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                   |
-| :-----: | :------------------------------------------------------------ | :------- | :----------------------------- |
-|  [01]   | `[SmartEnum<TKey>]`                                           | ctor     | keyed smart-enum declaration   |
-|  [02]   | `[ValueObject<T>]`                                            | ctor     | keyed value-object declaration |
-|  [03]   | `[ComplexValueObject]`                                        | ctor     | multi-member value declaration |
-|  [04]   | `[Union]`                                                     | ctor     | regular-union declaration      |
-|  [05]   | `[Union<T1..T5>]`                                             | ctor     | ad-hoc union declaration       |
-|  [06]   | `[ObjectFactory<T>]`                                          | ctor     | alternate factory binding      |
-|  [07]   | `[ValidationError<TValidationError>]`                         | ctor     | error type selection           |
-|  [08]   | `Owner.Items -> IReadOnlyList<T>`                             | property | smart-enum item roster         |
-|  [09]   | `Owner.Get(TKey?) -> T?`                                      | static   | keyed lookup                   |
-|  [10]   | `Owner.TryGet(TKey?, out T) -> bool`                          | static   | tested keyed lookup            |
-|  [11]   | `Owner.Create(TValue) -> Owner`                               | factory  | validated construction         |
-|  [12]   | `Owner.TryCreate(TValue, out Owner) -> bool`                  | factory  | tested construction            |
-|  [13]   | `Owner.Validate(TValue?, IFormatProvider?, out Owner?)`       | static   | admission returning the error  |
-|  [14]   | `ValidateFactoryArguments(ref TValidationError?, ref TValue)` | static   | domain validation seam         |
-|  [15]   | `Owner.ToValue() -> TKey`                                     | instance | key projection                 |
-|  [16]   | `Owner.Switch(TState, …)`                                     | fold     | exhaustive case dispatch       |
-|  [17]   | `Owner.Map(TResult, …) -> TResult`                            | fold     | exhaustive case projection     |
-|  [18]   | `Owner.Empty`                                                 | property | default instance of a struct   |
-|  [19]   | `operator TKey(Owner)`                                        | operator | key projection conversion      |
-|  [20]   | `operator Owner(TKey)`                                        | operator | key admission conversion       |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `[SmartEnum<TKey>]`                                           | ctor     | keyed smart-enum declaration     |
+|  [02]   | `[ValueObject<T>]`                                            | ctor     | keyed value-object declaration   |
+|  [03]   | `[ComplexValueObject]`                                        | ctor     | multi-member value declaration   |
+|  [04]   | `[Union]`                                                     | ctor     | regular-union declaration        |
+|  [05]   | `[Union<T1..T5>]`                                             | ctor     | ad-hoc union declaration         |
+|  [06]   | `[ObjectFactory<T>]`                                          | ctor     | alternate factory binding        |
+|  [07]   | `[ValidationError<TValidationError>]`                         | ctor     | error type selection             |
+|  [08]   | `Owner.Items -> IReadOnlyList<T>`                             | property | smart-enum item roster           |
+|  [09]   | `Owner.Get(TKey?) -> T?`                                      | static   | keyed lookup                     |
+|  [10]   | `Owner.TryGet(TKey?, out T) -> bool`                          | static   | tested keyed lookup              |
+|  [11]   | `Owner.Create(TValue) -> Owner`                               | factory  | validated construction           |
+|  [12]   | `Owner.TryCreate(TValue, out Owner) -> bool`                  | factory  | tested construction              |
+|  [13]   | `Owner.Validate(TValue?, IFormatProvider?, out Owner?)`       | static   | admission returning the error    |
+|  [14]   | `ValidateFactoryArguments(ref TValidationError?, ref TValue)` | static   | domain validation seam           |
+|  [15]   | `Owner.ToValue() -> TKey`                                     | instance | key projection                   |
+|  [16]   | `Owner.Switch(TState, …)`                                     | fold     | exhaustive case dispatch         |
+|  [17]   | `Owner.Map(TResult, …) -> TResult`                            | fold     | exhaustive case projection       |
+|  [18]   | `Owner.SwitchPartially(@default:, …)`                         | fold     | subset dispatch with a default   |
+|  [19]   | `Owner.MapPartially(@default:, …) -> TResult`                 | fold     | subset projection with a default |
+|  [20]   | `Owner.Empty`                                                 | property | default instance of a struct     |
+|  [21]   | `operator TKey(Owner)`                                        | operator | key projection conversion        |
+|  [22]   | `operator Owner(TKey)`                                        | operator | key admission conversion         |
 
 - `Owner.Get`: returns `null` for a null key and throws `UnknownSmartEnumIdentifierException` for an unknown non-null key.
 - `Owner.Create`: throws on a validation error, so a boundary value enters through `TryCreate` or `Validate`.
@@ -170,7 +173,9 @@
 - `[SmartEnum<TKey>]` ctor: the generator emits the private ctor itself — `(key, <plain non-key columns in declaration order>, <delegates>)` with the `[UseDelegateFromConstructor]` delegates after every plain column and ordered among themselves by partial-method DECLARATION order — never alphabetical — each named for its partial method, and no parameter defaults; `ValidateConstructorArguments` covers key plus columns, never the delegates; a hand-declared chaining ctor overload beside the generated one is admitted (probe-proven on the live generator).
 - `Owner.Create`, `Owner.TryCreate`, and `Owner.Empty`: named by `CreateFactoryMethodName`, `TryCreateFactoryMethodName`, and `DefaultInstancePropertyName`.
 - `ValidateFactoryArguments`: takes each argument by `ref`, so normalization lands before construction and a trimmed or clamped value reaches the generated ctor.
-- `Owner.Switch` and `Owner.Map`: `SwitchMapStateParameterName` threads caller state into every arm, so an arm lambda closes over nothing; `DefaultWithPartialOverloads` adds the overload that handles a subset.
+- `Owner.Switch` and `Owner.Map`: `SwitchMapStateParameterName` threads caller state into every arm, so an arm lambda closes over nothing.
+- `SwitchMethods`/`MapMethods` at `SwitchMapMethodsGeneration.DefaultWithPartialOverloads` emit SEPARATELY NAMED members — `SwitchPartially` and `MapPartially`, each taking a leading `@default:` arm beside the case arms it does cover — so partial coverage never weakens the exhaustive `Switch`/`Map` pair, which keeps breaking at compile time when a case lands. A consumer handling two of nine cases therefore names the two and the default, rather than hand-writing the seven arms it does not care about, and the choice between the two members is visible at the call site.
+- `[UnionSwitchMapOverload(StopAt = …)]` emits a further non-exhaustive overload whose arms stop at a named boundary type and its siblings, which is how a nested union group delegates its own branch to a separate method instead of flattening the whole tree into one arm list.
 - `operator TKey(Owner)` and `operator Owner(TKey)`: `ConversionToKeyMemberType` and `ConversionFromKeyMemberType` select implicit, explicit, or absent per direction.
 
 [GENERATION_POLICY]: properties on the declaration attribute, each naming or narrowing what the generator emits.

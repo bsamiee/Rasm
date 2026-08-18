@@ -8,28 +8,22 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Quantity Graph">
+    <ItemGroup Label="Core Substrate">
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <ItemGroup Label="Identity Time">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.Protobuf" />
-        <PackageReference Include="System.IO.Hashing" />
-    </ItemGroup>
-
-    <ItemGroup Label="Event Transport">
-        <PackageReference Include="CloudNative.CloudEvents" />
-    </ItemGroup>
-
     <!-- rasm.element.v1 is the corpus-homed source this seam mints; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
-    <ItemGroup Label="Wire Transcription">
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/element/v1/element.proto"
                   ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
                   GrpcServices="None" />

@@ -24,7 +24,6 @@
         <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
-        <PackageReference Include="pocketken.H3" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3mc" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
@@ -44,12 +43,8 @@
         <PackageReference Include="Microsoft.Data.Sqlite" />
     </ItemGroup>
 
-    <ItemGroup Label="Planar Geometry">
-        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
-        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
-    </ItemGroup>
-
-    <ItemGroup Label="Columnar And Codecs">
+    <ItemGroup Label="Columnar Codecs">
+        <PackageReference Include="Aardvark.Data.E57" />
         <PackageReference Include="Apache.Arrow.Adbc" />
         <PackageReference Include="Apache.Arrow.Adbc.Drivers.Apache" />
         <PackageReference Include="Apache.Arrow.Adbc.Drivers.BigQuery" />
@@ -76,27 +71,7 @@
         <PackageReference Include="ZstdSharp.Port" />
     </ItemGroup>
 
-    <ItemGroup Label="Reality Capture">
-        <PackageReference Include="Aardvark.Data.E57" />
-    </ItemGroup>
-
-    <ItemGroup Label="Event Transport">
-        <PackageReference Include="CloudNative.CloudEvents" />
-        <PackageReference Include="NATS.Net" />
-        <PackageReference Include="Pidgin" />
-    </ItemGroup>
-
-    <ItemGroup Label="Geometry Interchange">
-        <PackageReference Include="Speckle.Objects" />
-        <PackageReference Include="Speckle.Sdk" />
-        <PackageReference Include="Unofficial.laszip.netstandard" />
-    </ItemGroup>
-
-    <ItemGroup Label="Energy Simulation">
-        <PackageReference Include="PollinationSDK" />
-    </ItemGroup>
-
-    <ItemGroup Label="Append And Egress">
+    <ItemGroup Label="Append Egress">
         <PackageReference Include="AMQPNetLite.Core" />
         <PackageReference Include="CloudNative.CloudEvents.Amqp" />
         <PackageReference Include="CloudNative.CloudEvents.Kafka" />
@@ -107,14 +82,11 @@
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
         <PackageReference Include="DotPulsar" />
         <PackageReference Include="Marten" />
-        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
-        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
-        <PackageReference Include="MQTTnet" />
         <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
         <PackageReference Include="RabbitMQ.Client" />
     </ItemGroup>
 
-    <ItemGroup Label="Object Cache Kms">
+    <ItemGroup Label="Object Custody">
         <PackageReference Include="AWSSDK.KeyManagementService" />
         <PackageReference Include="AWSSDK.S3" />
         <PackageReference Include="Azure.Security.KeyVault.Keys" />
@@ -122,42 +94,58 @@
         <PackageReference Include="Azure.Storage.Blobs.Batch" />
         <PackageReference Include="Google.Cloud.Kms.V1" />
         <PackageReference Include="Google.Cloud.Storage.V1" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="Minio" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AWS" />
+    </ItemGroup>
+
+    <ItemGroup Label="Cache Backplane">
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" />
         <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 
-    <ItemGroup Label="Recency Cache">
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    <ItemGroup Label="Event Transport">
+        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="MQTTnet" />
+        <PackageReference Include="NATS.Net" />
+        <PackageReference Include="Pidgin" />
     </ItemGroup>
 
-    <!-- Contract half only; the activation verbs and name registration are AppHost composition surface. -->
-    <ItemGroup Label="Telemetry Contract">
-        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+    <ItemGroup Label="Exchange Substrate">
+        <PackageReference Include="PollinationSDK" />
+        <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
+        <PackageReference Include="Unofficial.laszip.netstandard" />
     </ItemGroup>
 
-    <ItemGroup Label="Code Generation">
-        <PackageReference Include="MessagePack" />
-        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+    <ItemGroup Label="Planar Geospatial">
+        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
+        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
+        <PackageReference Include="pocketken.H3" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Functional Core">
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
     </ItemGroup>
 
-    <ItemGroup Label="Time Identity">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
-        <PackageReference Include="System.IO.Hashing" />
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
     </ItemGroup>
 
-    <ItemGroup Label="Perf">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="System.Numerics.Tensors" />
+    <!-- Telemetry.Abstractions is the contract half only; the activation verbs and name registration are AppHost composition surface. -->
+    <ItemGroup Label="Host Services">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
     </ItemGroup>
 </Project>

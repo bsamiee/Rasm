@@ -61,6 +61,7 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [44]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
 - [45]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
+
 ## [02]-[DOMAIN_PACKAGES]
 
 Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
@@ -83,30 +84,29 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `VividOrange.Uncertainties` — scalar uncertainty arithmetic riding the published measurement rows.
 - `VividOrange.Uncertainties.Quantities` — UnitsNet quantity uncertainty over the published measurement surfaces.
 
-[APPEARANCE]:
-- `Wacton.Unicolour.Datasets` — reference observers, illuminants, and named datasets over the `Wacton.Unicolour` owner.
-
-[RASTER_IMAGING]:
+[APPEARANCE_MEDIA]:
 - `Magick.NET-Q16-HDRI-AnyCPU` — ingest-only breadth tier: AVIF, HEIF, JXL, DPX, and Cineon decode where no managed engine reaches; never an egress.
 - `SixLabors.ImageSharp` — managed PNG, TIFF, WebP, QOI, and JPEG containers across the `L8`-to-`RgbaVector` depth ladder, carrying ICC.
 - `TinyEXR.NET` — owns OpenEXR past flat-scanline reach: block-level part, level, and deep access beside the spectral and colour folds.
 - `TextureCompressor` — pure-managed GPU texture payloads over a format-keyed coder registry spanning BCn, ASTC, ETC, and Basis.
 - `TextureCompressor.FileFormats.Ktx` — KTX1 and KTX2 containers with Zstandard, Zlib, and BasisLZ supercompression.
 - `TextureCompressor.FileFormats.Hdr` — Radiance RGBE ingest decoding straight to a float plane.
+- `Wacton.Unicolour.Datasets` — reference observers, illuminants, and named datasets over the `Wacton.Unicolour` owner.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
 - `NodaTime` — `Duration` fact columns, `Instant`/`Interval` receipt stamps, and the `LocalDate` evidence expiry.
+- `QuikGraph` — appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
+- `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.
+- `Wacton.Unicolour` — color-space conversion and perceptual difference for the appearance engine.
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
@@ -118,20 +118,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Silk.NET.WebGPU.Extensions.WGPU` — `Wgpu` extension view: instance extras, `DevicePoll` map advance, submit-index waits, native log callback.
 - `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` runtime binaries the binding P/Invokes; binaries only, no managed surface to catalogue.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
-
-[COLOR_SCIENCE]:
-- `Wacton.Unicolour` — color-space conversion and perceptual difference for the appearance engine.
+[WIRE_CODEGEN]:
+- `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
+- `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
+- `System.Text.Json` — options identity behind the MaterialX and appearance interchange payloads.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — `ILogger` and generated-log contracts for the fixed-severity fault projection.
 - `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
-
-[WIRE_CODEGEN]:
-- `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.
-- `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
-- `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
-
-[RUNTIME_INBOX]:
-- `System.Text.Json` — options identity behind the MaterialX and appearance interchange payloads.

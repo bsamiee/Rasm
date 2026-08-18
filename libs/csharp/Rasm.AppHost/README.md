@@ -155,41 +155,27 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
-- `LanguageExt.Core`
-- `Thinktecture.Runtime.Extensions`
-- `Thinktecture.Runtime.Extensions.Json`
+[CORE_SUBSTRATE]:
 - `Generator.Equals` — `HostFingerprint` structural equality over its stamp map.
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
+- `LanguageExt.Core`
 - `NodaTime`
-- `NodaTime.Serialization.Protobuf` — carries `Duration` and `Instant` across the control-verb wire.
 - `NodaTime.Serialization.SystemTextJson`
-- `System.IO.Hashing`
-
-[NUMERIC_SUBSTRATE]:
-- `System.Numerics.Tensors`
-
-[GRAPH_ALGORITHM]:
 - `QuikGraph` — adjacency, reachability, and topological order under the determinism recompute graph.
-
-[RECENCY_CACHE]:
-- `Microsoft.Extensions.Caching.Hybrid`
+- `System.IO.Hashing`
+- `System.Numerics.Tensors`
+- `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json`
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — message-envelope algebra the HTTP ingress admits and every outbox hop projects.
-
-[MACHINE_CONNECTIVITY]:
 - `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row.
 - `MQTTnet` — subscribe-shaped `mqtt` `ExternalTransport` row, its held client, and the consumer-kinded receive bracket.
-
-[DATA_CLASSIFICATION]:
-- `Microsoft.Extensions.Compliance.Redaction`
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry.Abstractions`
+- `Microsoft.Extensions.Compliance.Redaction`
 
 [AI_CONTRACTS]:
 - `Microsoft.Extensions.AI.Abstractions`
@@ -197,12 +183,14 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf` — runtime for the control-verb request and reply messages the codegen emits.
-- `Grpc.Net.Client`
 - `Grpc.AspNetCore`
 - `Grpc.Core.Api` — `ControlService` descriptors, marshallers, and the per-call context the control rail binds.
+- `Grpc.Net.Client`
 - `Grpc.Tools` — build-only codegen over the Compute-owned control proto; its `<Protobuf>` item carries the mode.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
+- `NodaTime.Serialization.Protobuf` — carries `Duration` and `Instant` across the control-verb wire.
 
-[RUNTIME_INBOX]:
+[RUNTIME_SUPPLY]:
+- `Microsoft.Extensions.Caching.Hybrid` — stampede-guarded recency tier the host composes once at the root.
 - `System.Net.Http` — handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
 - `System.Text.Json` — suite wire: merged source-generated contexts freeze into one options identity, with schema export off it.

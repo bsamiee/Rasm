@@ -114,29 +114,20 @@
         <PackageReference Include="FluentModbus" />
         <PackageReference Include="MQTTnet" />
         <PackageReference Include="MTConnect.NET-Common" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" />
         <PackageReference Include="System.IO.Ports" />
         <PackageReference Include="Wasmtime" />
     </ItemGroup>
 
-    <ItemGroup Label="Functional Core">
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-    </ItemGroup>
-
-    <ItemGroup Label="Time Identity">
+    <ItemGroup Label="Core Substrate">
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
-        <PackageReference Include="System.IO.Hashing" />
-    </ItemGroup>
-
-    <ItemGroup Label="Numeric Substrate">
-        <PackageReference Include="System.Numerics.Tensors" />
-    </ItemGroup>
-
-    <ItemGroup Label="Recompute Graph">
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">

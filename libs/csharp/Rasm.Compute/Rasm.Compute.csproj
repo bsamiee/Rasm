@@ -11,36 +11,49 @@
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Numeric Acceleration">
+    <ItemGroup Label="Core Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Numeric Kernel">
         <PackageReference Include="CSparse" />
         <PackageReference Include="HyperJet" />
-        <PackageReference Include="libtorch-cpu" />
+        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
-        <PackageReference Include="TorchSharp" />
+        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
-    <ItemGroup Label="Symbolic Cas">
+    <ItemGroup Label="Solver Search">
         <PackageReference Include="AngouriMath" />
-    </ItemGroup>
-
-    <ItemGroup Label="Optimization">
         <PackageReference Include="GeneticSharp" />
         <PackageReference Include="Google.OrTools" />
         <PackageReference Include="Microsoft.Z3" />
     </ItemGroup>
 
-    <ItemGroup Label="Recency Cache">
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    <!-- GPGPU dispatch binds the AppUi-minted device; the native wgpu binaries ride that peer's row, never one here. -->
+    <ItemGroup Label="GPU Dispatch">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
     </ItemGroup>
 
     <ItemGroup Label="Model Runtime">
-        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+        <PackageReference Include="libtorch-cpu" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
+        <PackageReference Include="TorchSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Service Contracts">
+        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
     <ItemGroup Label="Energy Simulation">
@@ -48,9 +61,28 @@
         <PackageReference Include="PollinationSDK" />
     </ItemGroup>
 
+    <ItemGroup Label="Planar Geometry">
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="NetTopologySuite" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry Interchange">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
+        <PackageReference Include="SharpGLTF.Toolkit" />
+    </ItemGroup>
+
     <ItemGroup Label="Data Substrate">
         <PackageReference Include="Apache.Arrow" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
+    </ItemGroup>
+
+    <ItemGroup Label="Array Store">
+        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+        <PackageReference Include="PureHDF" />
+        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
+        <PackageReference Include="PureHDF.Filters.Lzf" />
     </ItemGroup>
 
     <ItemGroup Label="Event Transport">
@@ -59,54 +91,14 @@
         <PackageReference Include="NATS.Net" />
     </ItemGroup>
 
-    <ItemGroup Label="Geometry Interchange">
-        <PackageReference Include="SharpGLTF.Core" />
-        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
-        <PackageReference Include="SharpGLTF.Toolkit" />
-    </ItemGroup>
-
-    <ItemGroup Label="Mesh Processing">
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
-    </ItemGroup>
-
-    <ItemGroup Label="Interchange Transport">
-        <PackageReference Include="Grpc.Net.Client.Web" />
-        <PackageReference Include="Grpc.Net.Common" />
-        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
-        <PackageReference Include="PureHDF" />
-        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
-        <PackageReference Include="PureHDF.Filters.Lzf" />
-    </ItemGroup>
-
-    <ItemGroup Label="Functional Core">
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-    </ItemGroup>
-
-    <ItemGroup Label="Numeric">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="PeterO.Numbers" />
-        <PackageReference Include="System.Numerics.Tensors" />
-        <PackageReference Include="UnitsNet" />
-    </ItemGroup>
-
-    <ItemGroup Label="Identity Time">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="System.IO.Hashing" />
-    </ItemGroup>
-
-    <ItemGroup Label="Graph Geometry">
-        <PackageReference Include="Clipper2" />
-        <PackageReference Include="NetTopologySuite" />
-        <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
     <!-- rasm.compute.v1 is the corpus-homed suite source; this package compiles GrpcServices=Client while app roots compile the same file GrpcServices=Server, and ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Mapping Wire">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Grpc.Net.Client.Web" />
+        <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />

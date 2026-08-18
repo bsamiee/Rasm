@@ -31,7 +31,7 @@
         <PackageReference Include="Xaml.Behaviors.Avalonia" />
     </ItemGroup>
 
-    <ItemGroup Label="Controls Theme">
+    <ItemGroup Label="Controls Library">
         <PackageReference Include="AsyncImageLoader.Avalonia" />
         <PackageReference Include="Avalonia.AvaloniaEdit" />
         <PackageReference Include="Avalonia.Controls.ColorPicker" />
@@ -43,10 +43,12 @@
         <PackageReference Include="FluentIcons.Common" />
         <PackageReference Include="Irihi.Ursa" />
         <PackageReference Include="Irihi.Ursa.ReactiveUIExtension" />
-        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
-        <PackageReference Include="Markdig" />
-        <PackageReference Include="PanAndZoom" />
+    </ItemGroup>
+
+    <!-- Semi skins cover the base, Dock, DataGrid, ColorPicker, and editor surfaces whole; variant coherence across them is a standing obligation. -->
+    <ItemGroup Label="Theme Skins">
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
         <PackageReference Include="Semi.Avalonia" />
         <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" />
@@ -54,18 +56,18 @@
         <PackageReference Include="Semi.Avalonia.Dock" />
     </ItemGroup>
 
-    <ItemGroup Label="Render GPU">
+    <ItemGroup Label="Canvas Editing">
+        <!-- NodeEditorAvalonia pulls the renamed pan-zoom id; the alias keeps its duplicate ZoomBorder out of global scope so PanAndZoom wins. -->
+        <PackageReference Include="Avalonia.Controls.PanAndZoom" Aliases="legacyzoom" />
+        <PackageReference Include="NodeEditorAvalonia" />
+        <PackageReference Include="PanAndZoom" />
+    </ItemGroup>
+
+    <ItemGroup Label="Render Skia">
         <PackageReference Include="Avalonia.Skia" />
         <PackageReference Include="CSharpMath.SkiaSharp" />
         <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
-        <PackageReference Include="Silk.NET.OpenXR" />
-        <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
-        <PackageReference Include="Silk.NET.OpenXR.Extensions.FB" />
-        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
@@ -74,33 +76,50 @@
         <PackageReference Include="Svg.Skia" />
     </ItemGroup>
 
-    <ItemGroup Label="Media Input">
+    <!-- This folder mints the presented wgpu device every peer plane binds; the native binaries ride this row alone. -->
+    <ItemGroup Label="GPU Device">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
+    </ItemGroup>
+
+    <ItemGroup Label="XR Runtime">
+        <PackageReference Include="Silk.NET.OpenXR" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.FB" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+    </ItemGroup>
+
+    <ItemGroup Label="Media Playback">
         <PackageReference Include="FFmpeg.AutoGen" />
         <PackageReference Include="HanumanInstitute.LibMpv" />
         <PackageReference Include="HanumanInstitute.LibMpv.Avalonia" />
+        <PackageReference Include="Whisper.net" />
+    </ItemGroup>
+
+    <ItemGroup Label="Device Input">
         <PackageReference Include="HidSharp" />
         <PackageReference Include="Melanchall.DryWetMidi" />
         <PackageReference Include="Silk.NET.Input" />
         <PackageReference Include="Silk.NET.SDL" />
     </ItemGroup>
 
-    <ItemGroup Label="Geometry Interchange">
-        <PackageReference Include="ACadSharp" />
-    </ItemGroup>
-
-    <ItemGroup Label="Exchange Collab">
-        <!-- NodeEditorAvalonia pulls the renamed pan-zoom id; the alias keeps its duplicate ZoomBorder out of global scope so PanAndZoom wins. -->
-        <PackageReference Include="Avalonia.Controls.PanAndZoom" Aliases="legacyzoom" />
+    <ItemGroup Label="Document Export">
         <PackageReference Include="DocumentFormat.OpenXml" />
         <PackageReference Include="lcmsNET" />
-        <PackageReference Include="LoroCs" />
-        <PackageReference Include="Mapsui.Avalonia12" />
-        <PackageReference Include="Mapsui.Nts" />
-        <PackageReference Include="MessageFormat" />
-        <PackageReference Include="NodeEditorAvalonia" />
         <PackageReference Include="PDFsharp" />
         <PackageReference Include="PDFsharp-MigraDoc" />
-        <PackageReference Include="Whisper.net" />
+    </ItemGroup>
+
+    <ItemGroup Label="Text Processing">
+        <PackageReference Include="LoroCs" />
+        <PackageReference Include="Markdig" />
+        <PackageReference Include="MessageFormat" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geospatial Mapping">
+        <PackageReference Include="Mapsui.Avalonia12" />
+        <PackageReference Include="Mapsui.Nts" />
     </ItemGroup>
 
     <ItemGroup Label="Dev Loop">
@@ -109,31 +128,19 @@
         <PackageReference Include="ProDiagnostics" PrivateAssets="all" />
     </ItemGroup>
 
-    <ItemGroup Label="Functional Core">
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-    </ItemGroup>
-
-    <ItemGroup Label="Time Identity">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="System.IO.Hashing" />
-    </ItemGroup>
-
-    <ItemGroup Label="Numeric Substrate">
+    <ItemGroup Label="Core Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="UnitsNet" />
-    </ItemGroup>
-
-    <ItemGroup Label="Graph Algorithm">
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Planar Geometry">
-        <PackageReference Include="NetTopologySuite" />
-    </ItemGroup>
-
-    <ItemGroup Label="Color Science">
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="UnitsNet" />
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
+    <ItemGroup Label="Geometry Numerics">
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="NetTopologySuite" />
+    </ItemGroup>
 </Project>

@@ -26,27 +26,27 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 
 CloudEvents siblings split by what a catalogue STACKS on: the message-envelope core and every event FORMAT sibling catalogue at the branch tier, since the kernel owns one codec identity every folder composes, while a protocol BINDING catalogues at the tier its transport carrier already holds — Kafka and AMQP beside `api-kafka.md` and `api-amqpnetlite.md` at the Persistence tier, ASP.NET Core at the branch tier its framework carrier sits on. Promoting a binding catalogue above its carrier reaches DOWN into a folder tier for the surface it stacks on, which is the inversion this split forecloses. Host SDK assemblies are not packages and home at the branch tier catalogue-only where more than one folder composes one surface: `RhinoCommon` because the kernel and both host-boundary folders reach it, `Eto` because the kernel and both host-boundary folders do — the kernel seats the interaction machinery both boundaries compose — and `Eto.macOS`, `Microsoft.macOS`, and `Rhino.UI` because both host-boundary folders do, the kernel taking the portable UI surface alone under a narrower classification — each folder tier then registers the branch catalogue by path and holds only the subsystem its own boundary reaches.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
+- `CommunityToolkit.HighPerformance` — 2D span grids and high-performance buffers.
+- `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
+- `JetBrains.Annotations`
 - `LanguageExt.Core`
+- `NodaTime`
+- `NodaTime.Serialization.SystemTextJson`
+- `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
+- `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
+- `System.IO.Hashing` — content-hash mint behind every content key.
+- `System.Numerics.Tensors` — SIMD-lowered tensor folds.
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
-- `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
-- `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
-- `NodaTime`
-- `NodaTime.Serialization.SystemTextJson`
-- `NodaTime.Serialization.Protobuf`
-- `System.IO.Hashing` — content-hash mint behind every content key.
+- `UnitsNet` — typed quantity boundary.
+- `Wacton.Unicolour` — perceptual-color owner and color-space projection substrate; `Wacton.Unicolour.Datasets` stays a Materials addition.
 
 [NUMERIC_SUBSTRATE]:
-- `CommunityToolkit.HighPerformance` — 2D span grids and high-performance buffers.
 - `CSparse` — direct sparse Cholesky, LDL', LU, and QR factorization with pattern-reusing refactorization and rank-1 update.
 - `MathNet.Numerics` — distribution-fit, regression, and Monte-Carlo folds.
 - `PeterO.Numbers` — arbitrary-precision `EFloat`/`EDecimal`/`ERational`/`EInteger` exact-arithmetic carriers.
-- `System.Numerics.Tensors` — SIMD-lowered tensor folds.
-- `UnitsNet` — typed quantity boundary.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — WebGPU binding behind the presented, surfaceless-bake, and GPGPU-dispatch device mints.
@@ -67,16 +67,11 @@ CloudEvents siblings split by what a catalogue STACKS on: the message-envelope c
 - `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
 - `geometry3Sharp` — `DMesh3` OBJ/STL/OFF text-mesh decode and the line-sourced `BiArcFit2` biarc fitter.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
-
-[PLANAR_GEOMETRY]:
+[PLANAR_GEOSPATIAL]:
 - `Clipper2` — polygon offset and boolean algebra at the planar production boundary.
 - `NetTopologySuite` — planar geometry algebra on the float production plane.
 - `NetTopologySuite.IO.GeoJSON4STJ` — STJ-native RFC 7946 GeoJSON converter factory over the NTS feature model.
 - `NetTopologySuite.IO.GeoPackage` — OGC GeoPackage geometry-BLOB codec over NTS `Geometry`.
-
-[GEOSPATIAL_INDEX]:
 - `pocketken.H3` — managed Uber-H3 cell index over the NTS coordinate bridge; one cell vocabulary in process and in PostgreSQL.
 
 [ENERGY_SIMULATION]:
@@ -87,21 +82,14 @@ CloudEvents siblings split by what a catalogue STACKS on: the message-envelope c
 - `Apache.Arrow` — columnar `RecordBatch` format and Arrow IPC wire; Compute constructs, Persistence serialises and egresses.
 - `Microsoft.Data.Sqlite` — embedded SQLite ADO.NET transport; the Persistence store rail and the Compute results reader.
 
-[COLOR_SCIENCE]:
-- `Wacton.Unicolour` — perceptual-color owner and color-space projection substrate; `Wacton.Unicolour.Datasets` stays a Materials addition.
-
-[RECENCY_CACHE]:
+[SERVICE_CONTRACTS]:
+- `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
 - `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency substrate behind application and host-session caches.
-
-[DATA_CLASSIFICATION]:
-- `Microsoft.Extensions.Compliance.Redaction` — classified-data redaction at the logging and persistence boundary.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator.
 - `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]` emission grammar, enricher contracts, and the latency ledger.
-
-[AI_CONTRACTS]:
-- `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
+- `Microsoft.Extensions.Compliance.Redaction` — classified-data redaction at the logging and persistence boundary.
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf` — carries the `rasm.element.v1` graph wire messages.
@@ -112,7 +100,7 @@ CloudEvents siblings split by what a catalogue STACKS on: the message-envelope c
 - `MessagePack` — schemaless binary wire with in-codec LZ4 framing; per-folder resolver profiles over one codec.
 - `MessagePackAnalyzer` — build-only source generator and `MsgPack###` contract gate under `PrivateAssets=all`.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
-- `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
+- `NodaTime.Serialization.Protobuf` — NodaTime instant and duration mapping onto the protobuf well-known types.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope and typed attribute algebra.
@@ -141,6 +129,7 @@ CloudEvents siblings split by what a catalogue STACKS on: the message-envelope c
 - `CsCheck`
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
+- `NodaTime.Testing` — `FakeClock` semantic-instant double and the scripted zone sources a DST proof needs; `FakeTimeProvider`'s pair, not its rival.
 - `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion rail over any instrument.
 - `Polly.Testing` — `ResiliencePipelineDescriptor` composition inspection over a built resilience pipeline.
 - `Microsoft.Testing.Platform`

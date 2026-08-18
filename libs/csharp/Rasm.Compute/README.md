@@ -71,18 +71,14 @@ One intent rail admits every execution request once, a substrate axis routes it 
 
 Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
-[NUMERIC_ACCELERATION]:
+[NUMERIC_KERNEL]:
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
 - `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
 - `cslsqp` — source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
 - `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
-- `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
-- `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
 
-[SYMBOLIC_CAS]:
+[SOLVER_SEARCH]:
 - `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
-
-[OPTIMIZATION]:
 - `Google.OrTools` — CP-SAT and MILP exact optimization lane.
 - `GeneticSharp` — evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
 - `Microsoft.Z3` — SMT rule satisfaction returning SAT/UNSAT and unsat-core, where CP-SAT optimizes.
@@ -91,21 +87,56 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.ML.OnnxRuntime` — ONNX inference session core.
 - `Microsoft.ML.OnnxRuntime.Extensions` — custom-op and string-tensor extension surface.
 - `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
+- `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
+- `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
 
-[SIMULATION_CARBON]:
-- `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
-
-[INTERCHANGE_TRANSPORT]:
+[ARRAY_STORE]:
 - `PureHDF` — managed HDF5 behind the ONE `Runtime/codecs` archive owner; every consumer composes over that one session capsule.
 - `PureHDF.Filters.BZip2.SharpZipLib` — managed BZip2 codec registered on the HDF5 filter pipeline.
 - `PureHDF.Filters.Lzf` — managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
+
+[REMOTE_TRANSPORT]:
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
+- `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+
+[CORE_SUBSTRATE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json`
+- `Generator.Equals` — `[Equatable]` structural equality and `Inequalities` diff rails for class roots and collection members; union CASES only.
+- `JetBrains.Annotations`
+- `NodaTime`
+- `System.IO.Hashing`
+- `CommunityToolkit.HighPerformance`
+- `System.Numerics.Tensors`
+- `UnitsNet` — `Analysis/energy` result-unit coercion; `Analysis/aggregator` ISO 6946 surface-film binding.
+- `QuikGraph` — adjacency, dependency, and partition graph algebra: traversal, condensation, contention colouring, and cut-minimizing bisection.
+- `Riok.Mapperly` — reader-free boundary transcription, every mapping compiler-proof under `RequiredMappingStrategy.Both`.
+
+[NUMERIC_SUBSTRATE]:
+- `CSparse` — managed sparse direct-factor terminal.
+- `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
+- `PeterO.Numbers` — exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
+
+[GPU_DEVICE]:
+- `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
+
+[GEOMETRY_INTERCHANGE]:
+- `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.
+- `SharpGLTF.Toolkit` — mesh-building toolkit.
+- `SharpGLTF.Ext.3DTiles` — `Runtime/codecs#TILE_PARTITION` seats `Tiles3DExtensions.RegisterExtensions()` once at composition and emits no leaf body.
+- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings.
+
+[PLANAR_GEOMETRY]:
+- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
+- `Clipper2` — corridor-clearance offset algebra at the same boundary.
 
 [ENERGY_SIMULATION]:
 - `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
@@ -115,65 +146,22 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; the egress train stays Persistence-side.
 - `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
 
+[SERVICE_CONTRACTS]:
+- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
+- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
+
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — envelope type the branch-owned MQTT 5.0 and NATS bindings raise; `Rasm/Domain/event` owns grammar, roster, and decode.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
-
-[MACHINE_CONNECTIVITY]:
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
-[FUNCTIONAL_CORE]:
-- `LanguageExt.Core`
-- `Thinktecture.Runtime.Extensions`
-- `Thinktecture.Runtime.Extensions.Json`
-- `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
-- `NodaTime`
-- `NodaTime.Serialization.Protobuf`
-- `System.IO.Hashing`
-
-[NUMERIC_SUBSTRATE]:
-- `CommunityToolkit.HighPerformance`
-- `CSparse` — managed sparse direct-factor terminal.
-- `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
-- `PeterO.Numbers` — exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
-- `System.Numerics.Tensors`
-- `UnitsNet` — `Analysis/energy` result-unit coercion; `Analysis/aggregator` ISO 6946 surface-film binding.
-
-[GPU_DEVICE]:
-- `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
-- `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
-
-[MESH_PROCESSING]:
-- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings.
-
-[GEOMETRY_INTERCHANGE]:
-- `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.
-- `SharpGLTF.Toolkit` — mesh-building toolkit.
-- `SharpGLTF.Ext.3DTiles` — `Runtime/codecs#TILE_PARTITION` seats `Tiles3DExtensions.RegisterExtensions()` once at composition and emits no leaf body.
-
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — adjacency, dependency, and partition graph algebra: traversal, condensation, contention colouring, and cut-minimizing bisection.
-
-[PLANAR_GEOMETRY]:
-- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
-- `Clipper2` — corridor-clearance offset algebra at the same boundary.
-
-[RECENCY_CACHE]:
-- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
-
-[AI_CONTRACTS]:
-- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
-
 [WIRE_CODEGEN]:
-- `Riok.Mapperly` — reader-free boundary transcription, every mapping compiler-proof under `RequiredMappingStrategy.Both`.
-- `Generator.Equals` — `[Equatable]` structural equality and `Inequalities` diff rails for class roots and collection members; union CASES only.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
 - `Grpc.Core.Api` — `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` on the served compute endpoints.
 - `Grpc.Tools`
+- `NodaTime.Serialization.Protobuf`
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.

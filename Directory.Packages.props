@@ -15,26 +15,24 @@
     </ItemGroup>
 
     <ItemGroup Label="Host Compile Surface">
-        <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.10" />
+        <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />
     </ItemGroup>
 
-    <ItemGroup Label="Foundational Core">
+    <ItemGroup Label="Core Substrate">
+        <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="Generator.Equals"                                        Version="4.0.2" />
         <PackageVersion Include="JetBrains.Annotations"                                   Version="2026.2.0" />
+        <!-- LanguageExt v5 is the newest release on any channel; the 4.x stable line predates the higher-kinded trait system this branch composes. -->
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
-        <PackageVersion Include="Riok.Mapperly"                                           Version="4.3.1" />
-        <PackageVersion Include="System.IO.Hashing"                                       Version="10.0.10" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.4.0" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.4.0" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.4.0" />
-    </ItemGroup>
-
-    <ItemGroup Label="Shared Domain Primitives">
-        <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />
         <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />
-        <PackageVersion Include="System.Numerics.Tensors"                                 Version="10.0.10" />
+        <PackageVersion Include="Riok.Mapperly"                                           Version="4.3.1" />
+        <PackageVersion Include="System.IO.Hashing"                                       Version="10.0.11" />
+        <PackageVersion Include="System.Numerics.Tensors"                                 Version="10.0.11" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.4.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.4.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.4.0" />
         <PackageVersion Include="UnitsNet"                                                Version="5.75.1" />
         <PackageVersion Include="Wacton.Unicolour"                                        Version="8.0.0" />
     </ItemGroup>
@@ -280,7 +278,7 @@
         <PackageVersion Include="OpenTelemetry"                                           Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.17.0" />
         <!-- Extensions (BaggageActivityProcessor / RateLimitingSampler contrib) ships beta-only; pinned to the sole published channel. -->
-        <PackageVersion Include="OpenTelemetry.Extensions"                                 Version="1.17.0-beta.1" />
+        <PackageVersion Include="OpenTelemetry.Extensions"                                Version="1.17.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore"                Version="1.17.0" />
         <!-- GrpcNetClient instrumentation ships beta-only; pinned to the sole published channel. -->

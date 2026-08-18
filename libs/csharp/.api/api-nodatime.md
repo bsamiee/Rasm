@@ -52,10 +52,13 @@
 |  [16]   | `ZoneLocalMapping`       | class         | zero, one, or two results for one local value   |
 |  [17]   | `ZoneEqualityComparer`   | class         | option-scoped zone equality                     |
 |  [18]   | `Resolvers`              | class         | predefined resolver catalogue                   |
+|  [19]   | `TzdbZoneLocation`       | class         | zone centroid, country, and comment metadata    |
+|  [20]   | `WindowsZones`           | class         | the CLDR Windows-to-TZDB mapping document       |
+|  [21]   | `MapZone`                | class         | one Windows id, territory, and TZDB id list     |
 
 [CALENDAR_IDENTITY]: `Era` `IsoDayOfWeek`
 [MAPPING_DELEGATES]: `ZoneLocalMappingResolver` `AmbiguousTimeResolver` `SkippedTimeResolver`
-[ZONE_FAULTS]: `AmbiguousTimeException` `SkippedTimeException` `DateTimeZoneNotFoundException`
+[ZONE_FAULTS]: `AmbiguousTimeException` `SkippedTimeException` `DateTimeZoneNotFoundException` `InvalidDateTimeZoneSourceException`
 
 [PUBLIC_TYPE_SCOPE]: text and interop family
 
@@ -116,34 +119,48 @@
 
 [ENTRYPOINT_SCOPE]: zone mapping and calendar operations
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                   |
-| :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------- |
-|  [01]   | `DateTimeZoneProviders.Tzdb`                                                  | property | embedded TZDB provider         |
-|  [02]   | `DateTimeZoneProviders.Bcl`                                                   | property | `TimeZoneInfo`-backed provider |
-|  [03]   | `IDateTimeZoneProvider[string] -> DateTimeZone`                               | property | required id lookup             |
-|  [04]   | `IDateTimeZoneProvider.GetZoneOrNull(string) -> DateTimeZone?`                | instance | optional id lookup             |
-|  [05]   | `IDateTimeZoneProvider.Ids -> ReadOnlyCollection<string>`                     | property | ordinal-sorted id roster       |
-|  [06]   | `IDateTimeZoneProvider.GetSystemDefault() -> DateTimeZone`                    | instance | machine zone                   |
-|  [07]   | `IDateTimeZoneProvider.GetAllZones() -> IEnumerable<DateTimeZone>`            | static   | materializes every zone        |
-|  [08]   | `TzdbDateTimeZoneSource.Default`                                              | property | source behind `Tzdb`           |
-|  [09]   | `DateTimeZone.ForOffset(Offset) -> DateTimeZone`                              | factory  | fixed-offset zone              |
-|  [10]   | `DateTimeZone.MapLocal(LocalDateTime) -> ZoneLocalMapping`                    | instance | models gap and overlap         |
-|  [11]   | `DateTimeZone.ResolveLocal(LocalDateTime, ZoneLocalMappingResolver)`          | instance | applies explicit policy        |
-|  [12]   | `DateTimeZone.AtStrictly(LocalDateTime) -> ZonedDateTime`                     | instance | rejects gap and overlap        |
-|  [13]   | `DateTimeZone.AtLeniently(LocalDateTime) -> ZonedDateTime`                    | instance | resolves gap and overlap       |
-|  [14]   | `DateTimeZone.AtStartOfDay(LocalDate) -> ZonedDateTime`                       | instance | day-boundary projection        |
-|  [15]   | `DateTimeZone.GetUtcOffset(Instant) -> Offset`                                | instance | offset at an instant           |
-|  [16]   | `DateTimeZone.GetZoneInterval(Instant) -> ZoneInterval`                       | instance | offset span at an instant      |
-|  [17]   | `DateTimeZone.GetZoneIntervals(Interval, Options)`                            | instance | transitions across a window    |
-|  [18]   | `Resolvers.CreateMappingResolver(AmbiguousTimeResolver, SkippedTimeResolver)` | static   | composes one resolver pair     |
-|  [19]   | `ZoneLocalMapping.Count`                                                      | property | 0 gap, 1 unique, 2 ambiguous   |
-|  [20]   | `ZonedDateTime.IsDaylightSavingTime() -> bool`                                | instance | daylight state at the value    |
-|  [21]   | `ZonedDateTime.WithZone(DateTimeZone) -> ZonedDateTime`                       | instance | re-zones one instant           |
-|  [22]   | `LocalDate.With(Func<LocalDate, LocalDate>) -> LocalDate`                     | fold     | applies one adjuster           |
-|  [23]   | `LocalDate.WithCalendar(CalendarSystem) -> LocalDate`                         | instance | same day, other calendar       |
-|  [24]   | `CalendarSystem.ForId(string) -> CalendarSystem`                              | factory  | calendar by id                 |
-|  [25]   | `IWeekYearRule.GetLocalDate(int, int, IsoDayOfWeek, CalendarSystem)`          | instance | week-year construction         |
-|  [26]   | `WeekYearRules.ForMinDaysInFirstWeek(int) -> IWeekYearRule`                   | factory  | custom week-boundary rule      |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `DateTimeZoneProviders.Tzdb`                                                  | property | embedded TZDB provider           |
+|  [02]   | `DateTimeZoneProviders.Bcl`                                                   | property | `TimeZoneInfo`-backed provider   |
+|  [03]   | `IDateTimeZoneProvider[string] -> DateTimeZone`                               | property | required id lookup               |
+|  [04]   | `IDateTimeZoneProvider.GetZoneOrNull(string) -> DateTimeZone?`                | instance | optional id lookup               |
+|  [05]   | `IDateTimeZoneProvider.Ids -> ReadOnlyCollection<string>`                     | property | ordinal-sorted id roster         |
+|  [06]   | `IDateTimeZoneProvider.GetSystemDefault() -> DateTimeZone`                    | instance | machine zone                     |
+|  [07]   | `IDateTimeZoneProvider.GetAllZones() -> IEnumerable<DateTimeZone>`            | static   | materializes every zone          |
+|  [08]   | `TzdbDateTimeZoneSource.Default`                                              | property | source behind `Tzdb`             |
+|  [09]   | `TzdbDateTimeZoneSource.Aliases -> ILookup<string, string>`                   | property | canonical id to its alias set    |
+|  [10]   | `TzdbDateTimeZoneSource.CanonicalIdMap -> IDictionary<string, string>`        | property | any id to its canonical id       |
+|  [11]   | `TzdbDateTimeZoneSource.ZoneLocations -> IList<TzdbZoneLocation>?`            | property | per-zone centroid and country    |
+|  [12]   | `TzdbDateTimeZoneSource.Zone1970Locations -> IList<TzdbZone1970Location>?`    | property | multi-country zone locations     |
+|  [13]   | `TzdbDateTimeZoneSource.TzdbToWindowsIds` / `.WindowsToTzdbIds`               | property | the mapping as flat dictionaries |
+|  [14]   | `TzdbDateTimeZoneSource.WindowsMapping -> WindowsZones`                       | property | the full CLDR mapping document   |
+|  [15]   | `TzdbDateTimeZoneSource.TzdbVersion -> string`                                | property | the embedded TZDB release        |
+|  [16]   | `TzdbDateTimeZoneSource.FromStream(Stream)`                                   | factory  | a source over supplied data      |
+|  [17]   | `DateTimeZone.ForOffset(Offset) -> DateTimeZone`                              | factory  | fixed-offset zone                |
+|  [18]   | `DateTimeZone.MapLocal(LocalDateTime) -> ZoneLocalMapping`                    | instance | models gap and overlap           |
+|  [19]   | `DateTimeZone.ResolveLocal(LocalDateTime, ZoneLocalMappingResolver)`          | instance | applies explicit policy          |
+|  [20]   | `DateTimeZone.AtStrictly(LocalDateTime) -> ZonedDateTime`                     | instance | rejects gap and overlap          |
+|  [21]   | `DateTimeZone.AtLeniently(LocalDateTime) -> ZonedDateTime`                    | instance | resolves gap and overlap         |
+|  [22]   | `DateTimeZone.AtStartOfDay(LocalDate) -> ZonedDateTime`                       | instance | day-boundary projection          |
+|  [23]   | `DateTimeZone.GetUtcOffset(Instant) -> Offset`                                | instance | offset at an instant             |
+|  [24]   | `DateTimeZone.GetZoneInterval(Instant) -> ZoneInterval`                       | instance | offset span at an instant        |
+|  [25]   | `DateTimeZone.GetZoneIntervals(Interval, Options)`                            | instance | transitions across a window      |
+|  [26]   | `Resolvers.CreateMappingResolver(AmbiguousTimeResolver, SkippedTimeResolver)` | static   | composes one resolver pair       |
+|  [27]   | `ZoneLocalMapping.Count`                                                      | property | 0 gap, 1 unique, 2 ambiguous     |
+|  [28]   | `ZonedDateTime.IsDaylightSavingTime() -> bool`                                | instance | daylight state at the value      |
+|  [29]   | `ZonedDateTime.WithZone(DateTimeZone) -> ZonedDateTime`                       | instance | re-zones one instant             |
+|  [30]   | `LocalDate.With(Func<LocalDate, LocalDate>) -> LocalDate`                     | fold     | applies one adjuster             |
+|  [31]   | `LocalDate.WithCalendar(CalendarSystem) -> LocalDate`                         | instance | same day, other calendar         |
+|  [32]   | `CalendarSystem.ForId(string) -> CalendarSystem`                              | factory  | calendar by id                   |
+|  [33]   | `IWeekYearRule.GetLocalDate(int, int, IsoDayOfWeek, CalendarSystem)`          | instance | week-year construction           |
+|  [34]   | `WeekYearRules.ForMinDaysInFirstWeek(int) -> IWeekYearRule`                   | factory  | custom week-boundary rule        |
+|  [35]   | `IWeekYearRule.GetWeeksInWeekYear(int, CalendarSystem)`                       | instance | week count in one week-year      |
+|  [36]   | `IWeekYearRule.GetWeekYear(LocalDate) -> int`                                 | instance | the date's owning week-year      |
+|  [37]   | `IWeekYearRule.GetWeekOfWeekYear(LocalDate) -> int`                           | instance | the date's week number           |
+
+- `IWeekYearRule` is a two-way correspondence: rows [33] and [35] construct and count, rows [36] and [37] recover the week-year and week number a `LocalDate` sits in, so `WeekYearRules.Iso` answers an ISO week label without a local day-of-year fold.
+- `TzdbDateTimeZoneSource.ZoneLocations` carries `Latitude`/`Longitude`/`CountryCode`/`ZoneId`/`Comment` per row, so a sited coordinate elects its IANA zone off the embedded table rather than a network lookup; `Aliases` and `CanonicalIdMap` are the inverse pair a boundary admits a legacy id through, and `TzdbToWindowsIds`/`WindowsToTzdbIds` resolve the Windows crossing in one hop where `WindowsMapping.MapZones` needs a territory walk.
 
 [LOCAL_SIDE_MAPPING]: `LocalDateTime.InZoneStrictly(DateTimeZone)` `LocalDateTime.InZoneLeniently(DateTimeZone)` `LocalDateTime.InZone(DateTimeZone, ZoneLocalMappingResolver)` `LocalDate.AtStartOfDayInZone(DateTimeZone)`
 [AMBIGUOUS_RESOLVERS]: `Resolvers.ReturnEarlier` `Resolvers.ReturnLater` `Resolvers.ThrowWhenAmbiguous`
@@ -151,6 +168,7 @@
 [MAPPING_RESOLVERS]: `Resolvers.StrictResolver` `Resolvers.LenientResolver`
 [DATE_ADJUSTERS]: `DateAdjusters.StartOfMonth` `DateAdjusters.EndOfMonth` `DateAdjusters.DayOfMonth` `DateAdjusters.Month` `DateAdjusters.Next` `DateAdjusters.NextOrSame` `DateAdjusters.Previous` `DateAdjusters.PreviousOrSame` `DateAdjusters.AddPeriod`
 [TIME_ADJUSTERS]: `TimeAdjusters.TruncateToSecond` `TimeAdjusters.TruncateToMinute` `TimeAdjusters.TruncateToHour`
+[CALENDAR_FACTORIES]: `CalendarSystem.Ids` `CalendarSystem.GetHebrewCalendar(HebrewMonthNumbering)` `CalendarSystem.GetIslamicCalendar(IslamicLeapYearPattern, IslamicEpoch)` — the Hebrew and Islamic statics below are elections off these two factories over `HebrewMonthNumbering`, `IslamicLeapYearPattern`, and `IslamicEpoch`, so a variant no static names enters through the factory rather than a local calendar fold.
 [CALENDARS]: `CalendarSystem.Iso` `CalendarSystem.Gregorian` `CalendarSystem.Julian` `CalendarSystem.Coptic` `CalendarSystem.Badi` `CalendarSystem.HebrewCivil` `CalendarSystem.HebrewScriptural` `CalendarSystem.IslamicBcl` `CalendarSystem.UmAlQura` `CalendarSystem.PersianSimple` `CalendarSystem.PersianArithmetic` `CalendarSystem.PersianAstronomical`
 
 [ENTRYPOINT_SCOPE]: text and interop operations

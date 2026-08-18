@@ -152,6 +152,10 @@ Beyond the `ColourSpace` roster above, scalar and metadata accessors project der
 |  [09]   | `.ExcitationPurity -> double`     | property | `Wxy.X`                                      |
 |  [10]   | `.Hex -> string`                  | property | clipped 8-bit hex, `-` outside RGB gamut     |
 |  [11]   | `.Configuration -> Configuration` | property | bound working-space policy                   |
+|  [12]   | `.Alpha -> Alpha`                 | property | coverage as constructed or mixed             |
+|  [13]   | `.Description -> string`          | property | space-joined plain-language colour name      |
+
+- `.Description` reads off `Hsl` and answers a phrase, never a catalogue name — a swatch label a person reads, not an identity a lookup keys on; `.Alpha` is the one coverage read, and `Mix`/`Palette` land their interpolated coverage there rather than on a second channel.
 
 [`gamut predicates`]: `IsInRgbGamut` `IsInPointerGamut` `IsInMacAdamLimits` `IsImaginary`
 

@@ -1,6 +1,6 @@
 # [RASM_API_JETBRAINS_ANNOTATIONS]
 
-`JetBrains.Annotations` carries the attribute vocabulary a declaration states its analyzer contract with: nullability, implicit reachability, purity and result consumption, resource ownership, enumeration and collection effect, assertion shape, and string-payload grammar. Every attribute is `[Conditional("JETBRAINS_ANNOTATIONS")]`, so a contract reaches metadata only where the consumer defines that symbol and no runtime dependency follows. `MeansImplicitUse` and `BaseTypeRequired` lift the vocabulary onto a repo marker, which projects its law onto every declaration it marks.
+`JetBrains.Annotations` carries the attribute vocabulary a declaration states its analyzer contract with: nullability, implicit reachability, declaration order, purity and result consumption, resource ownership, enumeration and collection effect, assertion and termination shape, and string-payload grammar. Every attribute is `[Conditional("JETBRAINS_ANNOTATIONS")]`, so a contract reaches metadata only where the consumer defines that symbol and no runtime dependency follows. `MeansImplicitUse` and `BaseTypeRequired` lift the vocabulary onto a repo marker, which projects its law onto every declaration it marks.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -26,35 +26,38 @@
 |  [08]   | `DefaultEqualityUsageAttribute`           | attribute     | default-equality dependence on a generic parameter  |
 |  [09]   | `BaseTypeRequiredAttribute`               | attribute     | base or interface required of a marker's targets    |
 |  [10]   | `PublicAPIAttribute`                      | attribute     | preserved public surface                            |
-|  [11]   | `UsedImplicitlyAttribute`                 | attribute     | reflection, generator, or host-called usage         |
-|  [12]   | `MeansImplicitUseAttribute`               | attribute     | implicit-use lift onto a local attribute            |
-|  [13]   | `ImplicitUseKindFlags`                    | enum          | access, assignment, instantiation kinds             |
-|  [14]   | `ImplicitUseTargetFlags`                  | enum          | reach across itself, members, inheritors            |
-|  [15]   | `TestSubjectAttribute`                    | attribute     | test-to-subject binding                             |
-|  [16]   | `MeansTestSubjectAttribute`               | attribute     | subject binding through a base generic parameter    |
-|  [17]   | `ProvidesContextAttribute`                | attribute     | canonical value site for a context type             |
-|  [18]   | `PureAttribute`                           | attribute     | observable-state-free method                        |
-|  [19]   | `MustUseReturnValueAttribute`             | attribute     | result the caller consumes                          |
-|  [20]   | `ContractAnnotationAttribute`             | attribute     | input-to-output nullability and halt grammar        |
-|  [21]   | `InstantHandleAttribute`                  | attribute     | delegate or sequence consumed within the call       |
-|  [22]   | `RequireStaticDelegateAttribute`          | attribute     | capture-free delegate argument                      |
-|  [23]   | `MustDisposeResourceAttribute`            | attribute     | disposal ownership transferred to the caller        |
-|  [24]   | `HandlesResourceDisposalAttribute`        | attribute     | disposal ownership accepted at the member           |
-|  [25]   | `LinqTunnelAttribute`                     | attribute     | postponed-enumeration LINQ method                   |
-|  [26]   | `NoEnumerationAttribute`                  | attribute     | sequence parameter left unenumerated                |
-|  [27]   | `CollectionAccessAttribute`               | attribute     | collection read and mutation effect                 |
-|  [28]   | `CollectionAccessType`                    | enum          | collection effect vocabulary                        |
-|  [29]   | `AssertionMethodAttribute`                | attribute     | control-flow-halting assertion helper               |
-|  [30]   | `AssertionConditionAttribute`             | attribute     | the asserted parameter                              |
-|  [31]   | `AssertionConditionType`                  | enum          | asserted-value vocabulary                           |
-|  [32]   | `StringFormatMethodAttribute`             | attribute     | positional format-string parameter                  |
-|  [33]   | `StructuredMessageTemplateAttribute`      | attribute     | named-placeholder template parameter                |
-|  [34]   | `InvokerParameterNameAttribute`           | attribute     | argument matching a caller parameter name           |
-|  [35]   | `ValueProviderAttribute`                  | attribute     | completion values from a named static holder        |
-|  [36]   | `RegexPatternAttribute`                   | attribute     | regex pattern payload                               |
-|  [37]   | `LanguageInjectionAttribute`              | attribute     | foreign-language string payload                     |
-|  [38]   | `InjectedLanguage`                        | enum          | injected-language vocabulary                        |
-|  [39]   | `NotifyPropertyChangedInvocatorAttribute` | attribute     | `INotifyPropertyChanged` raise method               |
+|  [11]   | `NoReorderAttribute`                      | attribute     | authored member order held against IDE reordering   |
+|  [12]   | `UsedImplicitlyAttribute`                 | attribute     | reflection, generator, or host-called usage         |
+|  [13]   | `MeansImplicitUseAttribute`               | attribute     | implicit-use lift onto a local attribute            |
+|  [14]   | `ImplicitUseKindFlags`                    | enum          | access, assignment, instantiation kinds             |
+|  [15]   | `ImplicitUseTargetFlags`                  | enum          | reach across itself, members, inheritors            |
+|  [16]   | `TestSubjectAttribute`                    | attribute     | test-to-subject binding                             |
+|  [17]   | `MeansTestSubjectAttribute`               | attribute     | subject binding through a base generic parameter    |
+|  [18]   | `ProvidesContextAttribute`                | attribute     | canonical value site for a context type             |
+|  [19]   | `PureAttribute`                           | attribute     | observable-state-free method                        |
+|  [20]   | `MustUseReturnValueAttribute`             | attribute     | result the caller consumes                          |
+|  [21]   | `ContractAnnotationAttribute`             | attribute     | input-to-output nullability and halt grammar        |
+|  [22]   | `TerminatesProgramAttribute`              | attribute     | method that never returns control                   |
+|  [23]   | `InstantHandleAttribute`                  | attribute     | delegate or sequence consumed within the call       |
+|  [24]   | `RequireStaticDelegateAttribute`          | attribute     | capture-free delegate argument                      |
+|  [25]   | `MustDisposeResourceAttribute`            | attribute     | disposal ownership transferred to the caller        |
+|  [26]   | `HandlesResourceDisposalAttribute`        | attribute     | disposal ownership accepted at the member           |
+|  [27]   | `LinqTunnelAttribute`                     | attribute     | postponed-enumeration LINQ method                   |
+|  [28]   | `NoEnumerationAttribute`                  | attribute     | sequence parameter left unenumerated                |
+|  [29]   | `CollectionAccessAttribute`               | attribute     | collection read and mutation effect                 |
+|  [30]   | `CollectionAccessType`                    | enum          | collection effect vocabulary                        |
+|  [31]   | `AssertionMethodAttribute`                | attribute     | control-flow-halting assertion helper               |
+|  [32]   | `AssertionConditionAttribute`             | attribute     | the asserted parameter                              |
+|  [33]   | `AssertionConditionType`                  | enum          | asserted-value vocabulary                           |
+|  [34]   | `StringFormatMethodAttribute`             | attribute     | positional format-string parameter                  |
+|  [35]   | `StructuredMessageTemplateAttribute`      | attribute     | named-placeholder template parameter                |
+|  [36]   | `InvokerParameterNameAttribute`           | attribute     | argument matching a caller parameter name           |
+|  [37]   | `ValueProviderAttribute`                  | attribute     | completion values from a named static holder        |
+|  [38]   | `RegexPatternAttribute`                   | attribute     | regex pattern payload                               |
+|  [39]   | `UriStringAttribute`                      | attribute     | URI string payload                                  |
+|  [40]   | `LanguageInjectionAttribute`              | attribute     | foreign-language string payload                     |
+|  [41]   | `InjectedLanguage`                        | enum          | injected-language vocabulary                        |
+|  [42]   | `NotifyPropertyChangedInvocatorAttribute` | attribute     | `INotifyPropertyChanged` raise method               |
 
 [ImplicitUseKindFlags]: `Access` `Assign` `InstantiatedWithFixedConstructorSignature` `InstantiatedNoFixedConstructorSignature` `Default`
 [ImplicitUseTargetFlags]: `Itself` `Members` `WithMembers` `WithInheritors` `Default`
@@ -93,15 +96,19 @@
 |  [19]   | `[StringFormatMethod(string)]`                                     | ctor     | name the format parameter                |
 |  [20]   | `[ValueProvider(string)]`                                          | ctor     | name the static value holder             |
 |  [21]   | `[NotifyPropertyChangedInvocator(string)]`                         | ctor     | name the property-name parameter         |
-|  [22]   | `[LanguageInjection(InjectedLanguage)]`                            | ctor     | select a known language                  |
-|  [23]   | `[LanguageInjection(string)]`                                      | ctor     | name a language outside the enum         |
-|  [24]   | `[LanguageInjection(Prefix = string)]`                             | property | literal prefix framing the fragment      |
-|  [25]   | `[LanguageInjection(Suffix = string)]`                             | property | literal suffix framing the fragment      |
-|  [26]   | `[TestSubject(Type)]`                                              | ctor     | bind the tested type                     |
+|  [22]   | `[UriString(string)]`                                              | ctor     | name the HTTP verb the URI answers       |
+|  [23]   | `[LanguageInjection(InjectedLanguage)]`                            | ctor     | select a known language                  |
+|  [24]   | `[LanguageInjection(string)]`                                      | ctor     | name a language outside the enum         |
+|  [25]   | `[LanguageInjection(Prefix = string)]`                             | property | literal prefix framing the fragment      |
+|  [26]   | `[LanguageInjection(Suffix = string)]`                             | property | literal suffix framing the fragment      |
+|  [27]   | `[TestSubject(Type)]`                                              | ctor     | bind the tested type                     |
 
 - `UsedImplicitly`, `MeansImplicitUse`: a parameterless application takes `ImplicitUseKindFlags.Default` with `ImplicitUseTargetFlags.Default`.
 - `ValueRange`: `ulong` overloads mirror both `long` forms for unsigned domains, and the attribute repeats for non-intersecting intervals.
 - `MustDisposeResource`: reaches a constructor through its declaring type's annotation, never through the base constructor it delegates to.
+- `NoReorder`: the IDE honors it only where a member-reordering pattern names the attribute, so a load-bearing order states itself at the declaration rather than in a comment.
+- `TerminatesProgram`: states unconditional termination to the analyzer where the inbox `[DoesNotReturn]` states it to nullable flow analysis, so a fail-fast entry carries both.
+- `UriString`: the parameterless form marks any URI payload; the `string` form names the HTTP verb an endpoint route answers.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -122,10 +129,11 @@
 - `[MeansImplicitUse]` lifts reachability onto a repo-owned marker attribute and `[BaseTypeRequired(Type)]` states that marker's target contract.
 - `[MustDisposeResource]` marks a factory returning an owned resource, and `[HandlesResourceDisposal]` marks the field, property, or parameter accepting that ownership.
 - `[Pure]` or `[MustUseReturnValue]` marks every rail combinator, while `[InstantHandle]` or `[NoEnumeration]` fixes a sequence or delegate parameter's consumption point.
-- `[RegexPattern]`, `[LanguageInjection]`, `[StringFormatMethod]`, and `[StructuredMessageTemplate]` declare a string parameter's foreign grammar at that parameter.
+- `[RegexPattern]`, `[UriString]`, `[LanguageInjection]`, `[StringFormatMethod]`, and `[StructuredMessageTemplate]` declare a string parameter's foreign grammar at that parameter.
+- `[NoReorder]` marks every owner whose declaration order is load-bearing — generated cases, dispatch rows, migration steps — and `[TerminatesProgram]` marks the fail-fast entry that never hands control back.
 
 [RAIL_LAW]:
 - Package: `JetBrains.Annotations`
-- Owns: the compile-time contract vocabulary for nullability, reachability, purity, resource ownership, enumeration and collection effect, assertion shape, and string-payload grammar.
+- Owns: the compile-time contract vocabulary for nullability, reachability, declaration order, purity, resource ownership, enumeration and collection effect, assertion and termination shape, and string-payload grammar.
 - Accept: contracts declared at the owning member and lifted onto repo markers through `[MeansImplicitUse]` and `[BaseTypeRequired]`, over one shared package identity.
 - Reject: a local mirror of an attribute this package declares, and a suppression comment standing where an attribute states the contract.

@@ -124,27 +124,22 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `CloudNative.CloudEvents.Protobuf` — `application/cloudevents+protobuf` formatter and its generated message-envelope type.
 - `CloudNative.CloudEvents.Avro` — `application/cloudevents+avro` formatter over the published message-envelope schema.
 
-[HOST_SURFACE]:
-- `RhinoCommon` — host reference from `Directory.Build.props` with no manifest row; `RhinoDoc` enters only at charter adapters.
-
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
-- `LanguageExt.Core`
-- `Thinktecture.Runtime.Extensions`
-- `Thinktecture.Runtime.Extensions.Json` — generated-owner converters on the one event-format serializer identity.
+[CORE_SUBSTRATE]:
 - `Generator.Equals` — generated structural equality for carriers whose collection or memory members void synthesized record equality.
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
-- `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
+- `LanguageExt.Core`
 - `NodaTime` — semantic instants and spans on the causal frame, receipt message envelope, and objective windows.
 - `NodaTime.Serialization.SystemTextJson` — instant and span converters on the one event-format serializer identity.
-
-[UNIT_IDENTITY]:
+- `QuikGraph` — bounded graph-algorithm lane; every graph result leaves as a kernel-owned SoA wire.
+- `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
+- `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json` — generated-owner converters on the one event-format serializer identity.
 - `UnitsNet` — dynamic unit conversion behind the `ModelUnit` unit-bridge seam; geometry measures still leave the kernel as bare `double`.
+- `Wacton.Unicolour` — perceptual color model behind the one atoms color owner.
 
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — dense linear-algebra, root-finding, quadrature, interpolation, and distribution substrate under the `Numerics` owners.
@@ -153,19 +148,12 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.Numerics.Tensors` — vectorized span reductions (`TensorPrimitives`) under `Band.Admits` and the SoA fold floors.
 - `CommunityToolkit.HighPerformance` — 2D spans and pooled owners on the SoA build arenas.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — bounded graph-algorithm lane; every graph result leaves as a kernel-owned SoA wire.
-
-[COLOR_SCIENCE]:
-- `Wacton.Unicolour` — perceptual color model behind the one atoms color owner.
-
 [EVENT_ENVELOPE]:
 - `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope, attribute algebra, and standard-extension helpers behind the one branch mint.
 - `CloudNative.CloudEvents.SystemTextJson` — one `JsonEventFormatter` identity across structured, binary, and batch mode.
-
-[NATIVE_UI]:
-- `Eto` — portable control, layout, binding, clipboard, drag, and paint surface behind `Interaction/`, host-referenced on `NeedsRhinoHostUiSurface`.
-- `System.Drawing.Common` — host colour seam `PerceptualColor` crosses at egress, arriving with the same classification.
-
-[RUNTIME_INBOX]:
 - `System.Text.Json` — `[JsonDerivedType]` receipt-union roster and the frozen evidence-wire options identity.
+
+[HOST_SURFACE]:
+- `Eto` — portable control, layout, binding, clipboard, drag, and paint surface behind `Interaction/`, host-referenced on `NeedsRhinoHostUiSurface`.
+- `RhinoCommon` — host reference from `Directory.Build.props` with no manifest row; `RhinoDoc` enters only at charter adapters.
+- `System.Drawing.Common` — host colour seam `PerceptualColor` crosses at egress, arriving with the same classification.

@@ -7,6 +7,8 @@
 [PACKAGE_SURFACE]: `Riok.Mapperly`
 - package: `Riok.Mapperly` (Apache-2.0)
 - assembly: `Riok.Mapperly.Abstractions` carries the attribute and enum surface; `Riok.Mapperly` ships the Roslyn generator under `analyzers/dotnet/cs` and never binds at runtime
+- asset: ONE package carries both halves — the generator as an analyzer asset and the abstractions as `lib/netstandard2.0` — so there is no separate abstractions package to reference and the reference lands per consuming project rather than once at `Directory.Build.props`
+- build: `build/Riok.Mapperly.targets` defines `MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME` only when the consumer sets `MapperlyAbstractionsScope` to `runtime`; left unset, every attribute's `[Conditional]` elides it from the emitted IL
 - namespace: `Riok.Mapperly.Abstractions`, `Riok.Mapperly.Abstractions.ReferenceHandling`
 - rail: mapping (boundary transcription)
 
@@ -135,7 +137,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every attribute carries `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]`, so the compiler reads its syntax and elides it from consumer IL.
+- Every attribute carries `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]` and the package's own `.targets` defines that constant ONLY under `MapperlyAbstractionsScope=runtime`, so at the default the compiler reads each attribute's syntax and emits none of it: no consuming assembly can observe an abstractions type, and the abstractions assembly is a compile-time input that never becomes a runtime dependency. This is what makes the per-project `PrivateAssets="all"` reference complete rather than merely tidy — the build asset still reaches the declaring project and does its elision there, while nothing survives to flow transitively in the first place. Setting the scope to `runtime` inverts that and puts the attributes into IL for a reflection consumer, which is a deliberate opt-in and not a default this branch takes.
 - Every `partial` mapping method's body generates as ordinary inspectable C# — direct assignment, object initialization, element loops, derived-type switches — leaving no mapping engine, runtime expression compilation, or reflection; target construction owns per-map allocation.
 - Every emitted type reference is `global::`-qualified and the generator carries no extern-alias machinery, so a type reachable only through an `extern alias` is UNADDRESSABLE from a generated body — that boundary stays hand-written no matter how mechanical the transcription looks.
 - `ProjectTo` emits a static expression tree the LINQ provider translates, so a projection never materializes the source graph; reference handling and projection are mutually exclusive by construction.

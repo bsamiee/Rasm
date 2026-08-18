@@ -50,30 +50,22 @@ No domain package lands here — the host-neutral, provider-free seam. Domain co
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
+- `Generator.Equals` — structural equality and member diff feeding the 3-way merge.
+- `JetBrains.Annotations`
 - `LanguageExt.Core`
+- `NodaTime` — instant stamps on assessments, provenance, and headers.
+- `QuikGraph` — built-once incidence and topology view over the graph.
+- `System.IO.Hashing` — kernel seed-zero content-hash seed.
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
-- `JetBrains.Annotations`
-
-[EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — `CloudEvent` values `Graph/wire#EVENT_ENVELOPE` mints through the kernel message envelope owner per consuming binding.
-
-[TIME_IDENTITY]:
-- `System.IO.Hashing` — kernel seed-zero content-hash seed.
-- `NodaTime` — instant stamps on assessments, provenance, and headers.
-- `NodaTime.Serialization.Protobuf` — `Instant` wire crossing on the `Graph/wire` headers.
 - `TimeProvider` — in-box injected monotonic clock behind every timed seam decoration.
-
-[NUMERIC_SUBSTRATE]:
 - `UnitsNet` — quantity-type registry and SI-coercion boundary.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — built-once incidence and topology view over the graph.
-
 [WIRE_CODEGEN]:
+- `CloudNative.CloudEvents` — `CloudEvent` values `Graph/wire#EVENT_ENVELOPE` mints through the kernel message envelope owner per consuming binding.
 - `Google.Protobuf` — `rasm.element.v1` message flow and payload-limit gate.
 - `Grpc.Tools` — build-only proto codegen; never a runtime surface.
-- `Riok.Mapperly` — source-generated seam↔wire case transcription.
-- `Generator.Equals` — structural equality and member diff feeding the 3-way merge.
 - `Microsoft.Extensions.Compliance.Abstractions` — `rasm.element` taxonomy over the wire's classified columns; contract-only, no redactor resolves.
+- `NodaTime.Serialization.Protobuf` — `Instant` wire crossing on the `Graph/wire` headers.
+- `Riok.Mapperly` — source-generated seam↔wire case transcription.

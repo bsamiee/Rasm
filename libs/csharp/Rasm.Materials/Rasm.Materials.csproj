@@ -27,51 +27,45 @@
         <PackageReference Include="VividOrange.Uncertainties.Quantities" />
     </ItemGroup>
 
-    <ItemGroup Label="Appearance">
-        <PackageReference Include="Wacton.Unicolour.Datasets" />
-    </ItemGroup>
-
-    <ItemGroup Label="Raster Imaging">
+    <ItemGroup Label="Appearance Media">
         <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TextureCompressor" />
         <PackageReference Include="TextureCompressor.FileFormats.Hdr" />
         <PackageReference Include="TextureCompressor.FileFormats.Ktx" />
         <PackageReference Include="TinyEXR.NET" />
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
-    <ItemGroup Label="GPU Bake">
+    <ItemGroup Label="GPU Device">
         <PackageReference Include="Silk.NET.WebGPU" />
         <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
         <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
     </ItemGroup>
 
-    <ItemGroup Label="Functional Core">
+    <ItemGroup Label="Core Substrate">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
+        <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
-    <ItemGroup Label="Numeric">
+    <ItemGroup Label="Numeric Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <ItemGroup Label="Mapping Graph">
+    <ItemGroup Label="Wire Codegen">
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
-        <PackageReference Include="QuikGraph" />
-        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Color Science">
-        <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
     <ItemGroup Label="Observability">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
-        <PackageReference Include="NodaTime" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

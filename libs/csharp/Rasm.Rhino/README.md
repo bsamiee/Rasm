@@ -126,23 +126,21 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
+- `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.
+- `Riok.Mapperly` — existing-target policy transcription onto host option objects; `Exchange/options` `PolicyMap` is the landed seat.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry.Abstractions`
-- `Microsoft.Extensions.Compliance.Abstractions` — transitive `DataClassification` attribute surface; no direct manifest row.
-
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.
 
 [WIRE_CODEGEN]:
-- `Riok.Mapperly` — existing-target policy transcription onto host option objects; `Exchange/options` `PolicyMap` is the landed seat.
 - `Google.Protobuf` — runtime message surface behind the `rasm.organization.v1` egress at `Document/layers`.
 - `Grpc.Tools` — build-only `<Protobuf>` compile of the corpus-homed organization source; never a runtime surface.
 
 [DEPENDENCY_FLOORS]:
+- `Microsoft.Extensions.Compliance.Abstractions` — transitive `DataClassification` attribute surface; no direct manifest row.
 - `System.Drawing.Common` — compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.

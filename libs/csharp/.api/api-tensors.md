@@ -116,6 +116,13 @@
 - [RELATIONAL]: `Equals` `GreaterThan` `GreaterThanOrEqual` `LessThan` `LessThanOrEqual`
 - `SequenceEqual(ReadOnlyTensorSpan<T>, ReadOnlyTensorSpan<T>) -> bool` compares shape and elements in one call.
 
+[ENTRYPOINT_SCOPE]: `Tensor` strided operator algebra
+- Each op takes `(ReadOnlyTensorSpan<T> …)`, mints a `Tensor<T>`, and mirrors a `ref readonly TensorSpan<T>` destination overload writing into a caller window under the same generic-math constraint its `TensorPrimitives` twin names.
+- [STRIDED_UNARY]: `Abs` `Negate` `Increment` `Decrement` `Round` `Floor` `Ceiling` `Truncate` `Reciprocal` `Sqrt` `Cbrt` `Exp` `Exp2` `Exp10` `ExpM1` `Exp2M1` `Exp10M1` `Log` `Log2` `Log10` `LogP1` `Log2P1` `Log10P1` `Sin` `Sinh` `SinPi` `Cos` `Cosh` `CosPi` `Tan` `Tanh` `TanPi` `Asin` `Asinh` `AsinPi` `Acos` `Acosh` `AcosPi` `Atan` `Atanh` `AtanPi` `DegreesToRadians` `RadiansToDegrees` `Sigmoid` `SoftMax` `ILogB` `OnesComplement` `PopCount` `LeadingZeroCount` `TrailingZeroCount`
+- [STRIDED_BINARY]: `Add` `Subtract` `Multiply` `Divide` `Pow` `Log` `Atan2` `Atan2Pi` `Hypot` `Ieee754Remainder` `CopySign` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber` `BitwiseAnd` `BitwiseOr` `Xor`; the integer-parameter family is `RootN` `RotateLeft` `RotateRight` `ShiftLeft` `ShiftRightArithmetic` `ShiftRightLogical`
+- [STRIDED_REDUCE]: `Sum` `SumOfSquares` `Product` `Average` `StdDev` `Norm` `Dot` `CosineSimilarity` `Distance` `IndexOfMax` `IndexOfMin` `IndexOfMaxMagnitude` `IndexOfMinMagnitude`; the strided conversion family is `ConvertChecked` `ConvertSaturating` `ConvertTruncating` alone.
+- The strided plane is a proper subset: every ternary fuse (`MultiplyAdd`, `MultiplyAddEstimate`, `FusedMultiplyAdd`, `AddMultiply`, `Lerp`, `Clamp`), `Remainder`, `ScaleB`, `Sign`, `DivRem`, `SinCos`/`SinCosPi`, `BitIncrement`/`BitDecrement`, the estimate family (`ReciprocalEstimate`, `ReciprocalSqrt`, `ReciprocalSqrtEstimate`), `SumOfMagnitudes`, `ProductOfSums`/`ProductOfDifferences`, `HammingDistance`/`HammingBitDistance`, the `Is*` predicate masks, and the `ConvertToHalf`/`ConvertToSingle`/`ConvertToInteger` narrowings live on `TensorPrimitives` alone — a chain needing one drops through `GetSpan` or `FlattenTo` and returns through the strided window.
+
 [ENTRYPOINT_SCOPE]: `TensorPrimitives` unary elementwise operators
 - Each operator takes `(ReadOnlySpan<T> x, Span<T> destination)` under the generic-math constraint its family names.
 - [TRIGONOMETRY]: `Sin` `Cos` `Tan` `SinPi` `CosPi` `TanPi` `Asin` `Acos` `Atan` `AsinPi` `AcosPi` `AtanPi` `Sinh` `Cosh` `Tanh` `Asinh` `Acosh` `Atanh` `DegreesToRadians` `RadiansToDegrees`

@@ -104,6 +104,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [GEOMETRY_ENGINES]:
 - `CavalierContours` — arc-native bulge-polyline offset and boolean owner.
 - `OpenCAMLib` — 3-axis cutter-location engine for surface finishing; vendored over shared `libocl`.
+- `RectangleBinPack.CSharp` — rectangular cutting-stock packer suite and NFP rectangle fast-path.
 
 [EXCHANGE_INGRESS]:
 - `DSTV.Net` — DSTV/NC1 steel-fabrication exchange for profile-cut programs.
@@ -117,23 +118,21 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `PicoGK` — implicit-voxel kernel for lattice infill and layer rasterization; companion-only.
 - `lib3mf` — 3MF reader and writer for core, production, and beam-lattice egress; vendored.
 
-[NESTING]:
-- `RectangleBinPack.CSharp` — rectangular cutting-stock packer suite and NFP rectangle fast-path.
-
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
 - `System.IO.Hashing` — reached only through the kernel content-hash mint every egress key seeds from.
 - `NodaTime` — instant stamps on travelers, quality records, probing receipts, and tool-life schedules.
 - `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
+- `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set partition.
+- `Riok.Mapperly` — source-generated boundary projections over non-aliased shapes; a shape behind an `extern alias` keeps a hand copyist.
+- `Generator.Equals` — compile-time structural equality and member-level difference receipts over attributed partial owners.
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet` — cut-parameter and tolerance quantity boundary.
@@ -141,30 +140,17 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.Numerics.Tensors` — SIMD-lowered sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — 2D span grids for grayscale, engagement, and layer-census rasters.
 
-[GEOMETRY_INTERCHANGE]:
-- `ACadSharp` — DWG/DXF profile-read leg into `Loop` values and markings; Bim holds the mesh read, AppUi the drafting write.
-
 [PLANAR_GEOMETRY]:
 - `Clipper2` — line-space lanes behind the `FillOf` seam; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
-
-[MESH_PROCESSING]:
 - `geometry3Sharp` — line-sourced `BiArcFit2` biarc fit feeding `G2`/`G3` arc emit.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set partition.
-
-[RECENCY_CACHE]:
-- `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.
-
-[MACHINE_CONNECTIVITY]:
+[EXCHANGE_SUBSTRATE]:
+- `ACadSharp` — DWG/DXF profile-read leg into `Loop` values and markings; Bim holds the mesh read, AppUi the drafting write.
 - `MTConnect.NET-Common` — ISO-13399 cutting-tool partition behind the magazine and tool telemetry.
 
-[DATA_CLASSIFICATION]:
+[HOST_SERVICES]:
+- `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.
 - `Microsoft.Extensions.Compliance.Redaction` — classification attributes on classified receipt members; redactor binding stays at the app root.
-
-[WIRE_CODEGEN]:
-- `Generator.Equals` — compile-time structural equality and member-level difference receipts over attributed partial owners.
-- `Riok.Mapperly` — source-generated boundary projections over non-aliased shapes; a shape behind an `extern alias` keeps a hand copyist.
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box owner of the instrument surface.

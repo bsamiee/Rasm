@@ -112,21 +112,18 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
 - `NodaTime`
 - `System.IO.Hashing` — reached only through the kernel content-hash mint every content key seeds from.
-
-[NUMERIC_SUBSTRATE]:
 - `UnitsNet`
 - `CommunityToolkit.HighPerformance` — pooled buffer staging behind the mesh encoders.
+- `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 
-[GEOMETRY_INTERCHANGE]:
+[EXCHANGE_SUBSTRATE]:
 - `ACadSharp` — DWG/DXF mesh-read leg into `ImportedGeometry`; Fabrication holds the profile read, AppUi the drafting write.
 - `SharpGLTF.Core` — glTF schema I/O behind the `Exchange/export` emit and the import decode leg.
 - `SharpGLTF.Toolkit` — builds the vertex-fragment, mesh, scene, and material heads feeding `ToGltf2`.
@@ -135,31 +132,20 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Speckle.Sdk` — receive-side `Base` graph: `Flatten` traversal, display values, metre conversion.
 - `Speckle.Objects` — display-mesh geometry and the `DataObject` host-object family the import seam folds.
 - `Unofficial.laszip.netstandard` — compressed-LAZ decode leg of the dual-engine `Exchange/reconstruct` ingest front.
+- `NREL.OpenStudio.macOS-arm64` — drives the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
 
 [MESH_PROCESSING]:
 - `Alimer.Bindings.MeshOptimizer` — meshopt compression behind the mesh encoders.
 - `geometry3Sharp` — OBJ/STL/OFF text-mesh decode arm of the `MeshText` interchange codec.
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
-
-[PLANAR_GEOMETRY]:
+[PLANAR_GEOSPATIAL]:
 - `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam.
 - `NetTopologySuite.IO.GeoJSON4STJ` — carries the STJ GeoJSON codec leg of the geospatial seam for site context and web projection.
 - `NetTopologySuite.IO.GeoPackage` — carries the GeoPackage geometry-BLOB leg for site and context ingest.
-
-[GEOSPATIAL_INDEX]:
 - `pocketken.H3` — keys the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS arm, the coarse `ulong` bucket beside the `STRtree`.
 
-[ENERGY_SIMULATION]:
-- `NREL.OpenStudio.macOS-arm64` — drives the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
-
-[EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — message-envelope type the announcement projection mints through `Rasm/Domain/event`; transport bindings stay app-tier.
-
-[WIRE_CODEGEN]:
+[WIRE_SEAM]:
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
 - `Generator.Equals` — structural equality and member diff behind the emit change derivation.
-
-[RUNTIME_INBOX]:
+- `CloudNative.CloudEvents` — message-envelope type the announcement projection mints through `Rasm/Domain/event`; transport bindings stay app-tier.
 - `System.Text.Json` — generated wire contexts behind the exchange message envelopes, review records, and the GeoJSON seam.

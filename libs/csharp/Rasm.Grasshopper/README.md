@@ -59,30 +59,22 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 - `RhinoCommon` — Rhino document and geometry carriers with the getter and dialog handoff.
 - `Rhino.UI` — Rhino styling and the native UI bridge.
 
-[UI_TOOLKIT]:
+[NATIVE_UI]:
 - `Eto` — carries the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input.
 - `Eto.macOS` — backs Eto with AppKit and the `IMacControlHandler` view roles.
-
-[PLATFORM_NATIVE]:
 - `Microsoft.macOS` — AppKit, CoreAnimation, CoreGraphics, CoreImage, and Foundation bindings behind the gated native owners.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
 
-[RECENCY_CACHE]:
+[HOST_SUBSTRATE]:
 - `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency and stampede control for document-scoped `SessionCache` values.
-
-[OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.
-
-[DATA_CLASSIFICATION]:
 - `Microsoft.Extensions.Compliance.Redaction` — `DataClassification` grammar the `GhSensitivity` rows spell; the redactor runs at the app root alone.
-
-[DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary.

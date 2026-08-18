@@ -8,17 +8,12 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Recency Cache">
+    <ItemGroup Label="Host Substrate">
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
-    </ItemGroup>
-
-    <ItemGroup Label="Telemetry">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
 
-    <ItemGroup Label="Host Usings">
-        <Using Include="Eto.Drawing" />
-        <Using Include="Eto.Forms" />
+    <ItemGroup Label="Grasshopper Usings">
         <Using Include="Grasshopper2.Components" />
         <Using Include="Grasshopper2.Data" />
         <Using Include="Grasshopper2.Data.Meta" />
@@ -28,5 +23,10 @@
         <Using Include="Grasshopper2.UI" />
         <Using Include="Grasshopper2.UI.Canvas" />
         <Using Include="Grasshopper2.UI.Flex" />
+    </ItemGroup>
+
+    <ItemGroup Label="Eto Usings">
+        <Using Include="Eto.Drawing" />
+        <Using Include="Eto.Forms" />
     </ItemGroup>
 </Project>

@@ -91,14 +91,15 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [10]   | `UnitMath`                    | class         | typed quantity aggregation      |
 |  [11]   | `UnitSystem`                  | class         | base-unit policy                |
 |  [12]   | `UnitsNetSetup`               | class         | configured service root         |
-|  [13]   | `ComparisonType`              | enum          | tolerance comparison mode       |
-|  [14]   | `QuantityTypeConverter`       | class         | attribute-driven type converter |
-|  [15]   | `DefaultUnitAttribute`        | class         | default-unit declaration        |
-|  [16]   | `ConvertToUnitAttribute`      | class         | conversion-unit declaration     |
-|  [17]   | `DisplayAsUnitAttribute`      | class         | display-unit declaration        |
-|  [18]   | `UnitsNetException`           | class         | package failure root            |
-|  [19]   | `UnitNotFoundException`       | class         | unresolved unit failure         |
-|  [20]   | `AmbiguousUnitParseException` | class         | ambiguous-abbreviation failure  |
+|  [13]   | `ComparisonType`              | enum          | relative or absolute error mode |
+|  [14]   | `Comparison`                  | class         | scalar tolerance comparison     |
+|  [15]   | `QuantityTypeConverter`       | class         | attribute-driven type converter |
+|  [16]   | `DefaultUnitAttribute`        | class         | default-unit declaration        |
+|  [17]   | `ConvertToUnitAttribute`      | class         | conversion-unit declaration     |
+|  [18]   | `DisplayAsUnitAttribute`      | class         | display-unit declaration        |
+|  [19]   | `UnitsNetException`           | class         | package failure root            |
+|  [20]   | `UnitNotFoundException`       | class         | unresolved unit failure         |
+|  [21]   | `AmbiguousUnitParseException` | class         | ambiguous-abbreviation failure  |
 
 `ConversionFunction` carries two shapes — `public delegate IQuantity ConversionFunction(IQuantity)` and `public delegate TQuantity ConversionFunction<TQuantity>(TQuantity) where TQuantity : IQuantity` — and BOTH `GetConversionFunction<TQuantity>` and `TryGetConversionFunction<TQuantity>` yield the NON-generic typeless form, so a typed hot path re-narrows the boxed `IQuantity` result itself; a `Func<TQuantity, TQuantity>` method-group conversion over either getter does not compile.
 
@@ -192,9 +193,9 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [29]   | `operator +(Temperature, TemperatureDelta) -> Temperature` | operator | affine offset              |
 |  [30]   | `operator -(Temperature, TemperatureDelta) -> Temperature` | operator | affine offset              |
 |  [31]   | `operator <(Length, Length)`                               | operator | ordered comparison         |
-|  [32]   | `operator ==(Length, Length)`                              | operator | strict equality            |
+|  [32]   | `operator <=(Length, Length)`                              | operator | ordered comparison         |
 |  [33]   | `Length.CompareTo(Length)`                                 | instance | quantity ordering          |
-|  [34]   | `Length.Equals(Length, double, ComparisonType)`            | instance | tolerance equality         |
+|  [34]   | `Length.Equals(Length, Length)`                            | instance | tolerance equality         |
 |  [35]   | `Length.ToString(string?, IFormatProvider?)`               | instance | culture-aware rendering    |
 |  [36]   | `Length.Zero`                                              | static   | additive identity          |
 |  [37]   | `Length.BaseUnit`                                          | static   | base-unit metadata         |
@@ -202,7 +203,7 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [39]   | `Length.Info`                                              | static   | quantity metadata          |
 |  [40]   | `Length.BaseDimensions`                                    | static   | dimension metadata         |
 
-`Length.FeetInches` is the inverse of row [04]: it answers a `public sealed class FeetInches` carrying `Feet` truncated from the inch projection and `Inches` as the remainder, both `double`, so a customary split needs no local divmod and the fractional remainder is what an architectural denominator rounds.
+Equality on a quantity struct is the tolerance form ALONE: `==`, `!=`, `Equals(object?)`, and `Equals(Length other)` all carry `[Obsolete]` on the installed surface, and row [34]'s second argument is a QUANTITY, not a `double` — the tolerance therefore states its own unit and the comparison crosses units by construction. Ordering (`<`, `<=`, `>`, `>=`, `CompareTo`) and `GetHashCode` stay live, so a quantity still keys and sorts; the scalar-tolerance form `Equals(Length, double, ComparisonType)` is obsolete and `ComparisonType` survives only on `Comparison`. `Length.FeetInches` is the inverse of row [04]: it answers a `public sealed class FeetInches` carrying `Feet` truncated from the inch projection and `Inches` as the remainder, both `double`, so a customary split needs no local divmod and the fractional remainder is what an architectural denominator rounds.
 
 Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum row, and the plural falls on the leading noun of a compound unit, so a name derived mechanically from the enum misses on every compound. Every cross-quantity operator row above carries its commuted twin on the same declaring struct (decompile-verified for `Pressure*Area`, `Area*Length`, `Density*Volume`). `Angle` repeats the exemplar whole — `Angle.FromDegrees`, `Angle.ToUnit(AngleUnit)`, `AngleUnit.Degree`, the abbreviation render — so the plane-rotation family reads off this table without a second roster. Selectors below are the SI base-unit reads for the families whose fences project a canonical scalar.
 
@@ -281,6 +282,13 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 |  [49]   | `Quantity.FromQuantityInfo(QuantityInfo, QuantityValue)`                                    | factory  | metadata-keyed construction     |
 |  [50]   | `UnitAbbreviationsCache.Default`                                                            | static   | ambient abbreviation cache      |
 |  [51]   | `UnitAbbreviationsCache.GetDefaultAbbreviation(Type, int, IFormatProvider?)`                | instance | erased default abbreviation     |
+|  [52]   | `UnitAbbreviationsCache.CreateDefault()` / `.CreateEmpty()`                                 | factory  | a cache outside the setup root  |
+|  [53]   | `UnitAbbreviationsCache.MapUnitToDefaultAbbreviation<TUnit>(TUnit, string)`                 | instance | set the PRIMARY abbreviation    |
+|  [54]   | `UnitAbbreviationsCache.GetUnitAbbreviations<TUnit>(TUnit, IFormatProvider?)`               | instance | every alias for one unit        |
+|  [55]   | `UnitAbbreviationsCache.GetAllUnitAbbreviationsForQuantity(Type, IFormatProvider?)`         | instance | every alias across a unit enum  |
+|  [56]   | `Comparison.EqualsRelative(double, double, double)`                                         | static   | error relative to the reference |
+|  [57]   | `Comparison.EqualsAbsolute(double, double, double)`                                         | static   | error as an absolute magnitude  |
+|  [58]   | `Comparison.Equals(double, double, double, ComparisonType)`                                 | static   | mode-selected scalar tolerance  |
 
 - Row [26] returns ONE `UnitInfo` and throws where the `BaseUnits` match is ambiguous or absent; row [27] returns the whole `IEnumerable<UnitInfo>` and is the read the boxed `ToUnit(UnitSystem)` runs internally. `UnitInfo<TUnit>` re-declares both as `UnitInfo<TUnit>`-typed, and re-declares `Value` as `TUnit`.
 - Rows [42]-[45] are the setup root's own instances, and `UnitParser.Default`, `UnitAbbreviationsCache.Default`, and `UnitConverter.Default` are declared shortcuts FORWARDING to rows [44], [43], and [42] — one object under two spellings, so a surface composing the root reaches each instance there and a static facade beside it renames what it already holds.
@@ -288,6 +296,8 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - Row [42] is the quantity STRUCT type (`ValueType` is assigned `zero.GetType()` at construction), so it is the argument rows [04], [05], and `Parse(Type, string)` take, while row [43] is the parallel `<Quantity>Unit` enum type; a boxed parse against a family therefore needs no per-family switch.
 - [UNITMATH_CONSTRAINTS]: rows [11], [14], and [16] constrain `TQuantity : IQuantity` alone, while rows [12], [13], and [15] constrain `TQuantity : IComparable, IQuantity` — the boxed `IQuantity` face satisfies neither comparison constraint, so `Min`, `Max`, and `Clamp` are unreachable from an erased quantity and a bound over a runtime-selected family projects through `As(unit)`, clamps the scalar, and rebuilds through `Quantity.From(value, unit)`.
 - [BASEUNITS_PARTIALITY]: rows [26], [27], [32], [37] resolve through full SEVEN-AXIS `BaseUnits` equality, and the metadata that walk needs is absent from most of the roster — `UnitInfo.BaseUnits` is `BaseUnits.Undefined` on the majority of unit rows, `MassUnit.Kilogram` and every `LinearDensityUnit`/`ThermalResistanceUnit` member included. Consequence: `GetUnitInfosFor(UnitSystem.SI.BaseUnits)` returns EMPTY and `IQuantity.ToUnit(UnitSystem.SI)` throws `ArgumentException("No units were found for the given UnitSystem")` for 69 of the 135 registry quantities (`Mass`, `Density`, `Torque`, `Frequency`, `HeatTransferCoefficient`, `ThermalConductivity`, `LinearDensity`, `ThermalResistance`, `VolumeFlow`, `ElectricResistance` among them), while `Force`, `Pressure`, and `Area` succeed. `BaseUnits.IsSubsetOf` is no remedy — it returns `false` for an `Undefined` receiver against a defined target by construction, and a subset walk resolves only 49 of 135. A canonical-SI resolution therefore ELECTS its target from `QuantityInfo.BaseUnitInfo` (SI-coherent for all but a named handful — `Angle`→`Degree`, `MassFlow`→`GramPerSecond`, `ThermalResistance`→`SquareMeterKelvinPerKilowatt` are the prefixed/convention exceptions) and never walks `BaseUnits`.
+- Rows [52]-[55] are the abbreviation registry's own surface: `MapUnitToAbbreviation` APPENDS aliases while `MapUnitToDefaultAbbreviation` decides the one token `GetDefaultAbbreviation` answers with, and `CreateDefault`/`CreateEmpty` mint a cache a custom-unit registration mutates without touching `UnitsNetSetup.Default`. `GetAllUnitAbbreviationsForQuantity` keys on the unit ENUM type, so an intake parser builds its whole alias table from one call per family.
+- Rows [56]-[58] are `Comparison`, the only live consumer of `ComparisonType` now that the quantity-level scalar-tolerance overload is obsolete: the quantity face compares through `Equals(TQuantity, TQuantity tolerance)`, and `Comparison` stays the rail for the raw scalars a projection already unwrapped.
 - [BASEUNIT_COHERENCE]: `QuantityInfo.BaseUnitInfo` is the DECLARED base, not a guaranteed SI-coherent one. Ten quantities carry no coherent unit anywhere in their roster: the logarithmic `Level`/`AmplitudeRatio`/`PowerRatio`, the volt-ampere-hour `ApparentEnergy`/`ElectricApparentEnergy`/`ReactiveEnergy`/`ElectricReactiveEnergy`, `RelativeHumidity` (`Percent` alone), `FuelEfficiency` (`LiterPer100Kilometers`), and `SpecificFuelConsumption` (`GramPerKiloNewtonSecond`). `UnitInfo.Name` IS `Value.ToString()` for every row, so a name-keyed index and an enum-keyed one join exactly — and it is therefore NOT a display token: a readout resolving a unit label through row [30] prints `Millimeter` where a reader expects `mm`. Row [35] constrains `TUnit : Enum` and cannot bind a value already erased to the `Enum` face, so an elected unit carried as `Enum` reaches its abbreviation through row [47], which is exactly what row [35]'s own body forwards to; a `null` provider on either sends the lookup to `CurrentCulture`, so a deterministic surface passes its own resolved culture.
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -321,4 +331,4 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - Package: `UnitsNet`
 - Owns: typed quantity algebra, registry identity, boundary conversion, unit-system policy, and typed aggregation.
 - Accept: unit-aware inputs and receipts; `QuantityInfo.Name` identity with `BaseDimensions` validation; `UnitConverter` boundary conversion; `UnitMath` aggregation; `IQuantity.Value`/`IQuantity.Unit` wire projection.
-- Reject: a hand-rolled unit-conversion table where `UnitConverter` owns the rescale, a per-quantity conversion helper where the struct's `ToUnit`/`As` owns it, a raw `double` carrying its unit in a comment where the quantity struct binds it, a quantity type crossing an interior signature or a wire, an AEC-domain reach down to the Compute units owner — each stratum owns its own unit boundary — and a `GenericMathExtensions`/`DecimalGenericMathExtensions` call (neither exists), `UnitFormatter` (internal; `QuantityFormatter` is the public formatter), or `IDecimalQuantity` (`IValueQuantity<decimal>` is the live face).
+- Reject: a quantity `==`/`!=` or single-argument `Equals` comparison where the two-quantity tolerance form is the live one, a hand-rolled unit-conversion table where `UnitConverter` owns the rescale, a per-quantity conversion helper where the struct's `ToUnit`/`As` owns it, a raw `double` carrying its unit in a comment where the quantity struct binds it, a quantity type crossing an interior signature or a wire, an AEC-domain reach down to the Compute units owner — each stratum owns its own unit boundary — and a `GenericMathExtensions`/`DecimalGenericMathExtensions` call (neither exists), `UnitFormatter` (internal; `QuantityFormatter` is the public formatter), or `IDecimalQuantity` (`IValueQuantity<decimal>` is the live face).

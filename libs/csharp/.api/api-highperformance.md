@@ -58,21 +58,24 @@
 
 `MemoryOwner<T>` and `SpanOwner<T>` share one `Allocate(int[, ArrayPool<T>][, AllocationMode])` family, mint a zero-length owner through the static `.Empty`, return the rental on `Dispose`, and each exposes `DangerousGetArray() -> ArraySegment<T>` beside `DangerousGetReference() -> ref T`. `AllocationMode.Clear` zeroes on rent where `AllocationMode.Default` hands back pool-dirty storage, and `StringPool.GetOrAdd` interns from a `string`, a `ReadOnlySpan<char>`, or a `ReadOnlySpan<byte>` with its `Encoding`.
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE]   | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------------ | :-------- | :-------------------------------- |
-|  [01]   | `MemoryOwner<T>.Allocate(int, ArrayPool<T>, AllocationMode)`              | factory   | rent heap-safe pooled memory      |
-|  [02]   | `SpanOwner<T>.Allocate(int, ArrayPool<T>, AllocationMode)`                | factory   | rent a stack-scoped pooled span   |
-|  [03]   | `MemoryOwner<T>.Memory`                                                   | property  | owned `Memory<T>` over the window |
-|  [04]   | `MemoryOwner<T>.Span`                                                     | property  | owned `Span<T>` over the window   |
-|  [05]   | `MemoryOwner<T>.Slice(int, int)`                                          | instance  | re-window without a second rental |
-|  [06]   | `ArrayPoolExtensions.Resize<T>(ArrayPool<T>, ref T[], int, bool)`         | extension | resize a rented array in place    |
-|  [07]   | `ArrayPoolExtensions.EnsureCapacity<T>(ArrayPool<T>, ref T[], int, bool)` | extension | grow an undersized rental         |
-|  [08]   | `StringPool.Shared`                                                       | property  | process-wide default pool         |
-|  [09]   | `StringPool(int)`                                                         | ctor      | pool sized to a staging budget    |
-|  [10]   | `StringPool.GetOrAdd(ReadOnlySpan<char>)`                                 | instance  | intern text without allocating    |
-|  [11]   | `StringPool.TryGet(ReadOnlySpan<char>, out string)`                       | instance  | probe without interning           |
-|  [12]   | `StringPool.Add(string)`                                                  | instance  | seed a known value                |
-|  [13]   | `StringPool.Reset()`                                                      | instance  | drop every interned entry         |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]   | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------ | :-------- | :--------------------------------- |
+|  [01]   | `MemoryOwner<T>.Allocate(int, ArrayPool<T>, AllocationMode)`              | factory   | rent heap-safe pooled memory       |
+|  [02]   | `SpanOwner<T>.Allocate(int, ArrayPool<T>, AllocationMode)`                | factory   | rent a stack-scoped pooled span    |
+|  [03]   | `MemoryOwner<T>.Memory`                                                   | property  | owned `Memory<T>` over the window  |
+|  [04]   | `MemoryOwner<T>.Span`                                                     | property  | owned `Span<T>` over the window    |
+|  [05]   | `SpanOwner<T>.Span`                                                       | property  | owned `Span<T>` over the rental    |
+|  [06]   | `MemoryOwner<T>.Length` / `SpanOwner<T>.Length`                           | property  | element count of the rented window |
+|  [07]   | `MemoryOwner<T>.Slice(int, int)`                                          | instance  | re-window without a second rental  |
+|  [08]   | `ArrayPoolExtensions.Resize<T>(ArrayPool<T>, ref T[], int, bool)`         | extension | resize a rented array in place     |
+|  [09]   | `ArrayPoolExtensions.EnsureCapacity<T>(ArrayPool<T>, ref T[], int, bool)` | extension | grow an undersized rental          |
+|  [10]   | `StringPool.Shared`                                                       | property  | process-wide default pool          |
+|  [11]   | `StringPool(int)`                                                         | ctor      | pool sized to a staging budget     |
+|  [12]   | `StringPool.Size`                                                         | property  | read the pool budget back          |
+|  [13]   | `StringPool.GetOrAdd(ReadOnlySpan<char>)`                                 | instance  | intern text without allocating     |
+|  [14]   | `StringPool.TryGet(ReadOnlySpan<char>, out string)`                       | instance  | probe without interning            |
+|  [15]   | `StringPool.Add(string)`                                                  | instance  | seed a known value                 |
+|  [16]   | `StringPool.Reset()`                                                      | instance  | drop every interned entry          |
 
 [ENTRYPOINT_SCOPE]: buffer-writer emit
 
@@ -103,25 +106,49 @@
 | :-----: | :------------------------------------------- | :-------- | :--------------------------------------------------- |
 |  [01]   | `AsSpan2D<T>`                                | extension | project a plane view                                 |
 |  [02]   | `AsMemory2D<T>`                              | extension | project an owned plane                               |
-|  [03]   | `ArrayExtensions.GetRow<T>(T[,], int)`       | extension | walk one row as `RefEnumerable<T>`                   |
-|  [04]   | `ArrayExtensions.GetColumn<T>(T[,], int)`    | extension | walk one column by ref                               |
-|  [05]   | `ArrayExtensions.GetRowSpan<T>(T[,], int)`   | extension | contiguous row span                                  |
-|  [06]   | `ArrayExtensions.GetRowMemory<T>(T[,], int)` | extension | contiguous row memory                                |
-|  [07]   | `Span2D<T>.Slice(int, int, int, int)`        | instance  | window a sub-plane                                   |
-|  [08]   | `Span2D<T>.GetRowSpan(int)`                  | instance  | contiguous row of a plane                            |
-|  [09]   | `Span2D<T>.TryGetSpan(out Span<T>)`          | instance  | probe plane contiguity                               |
-|  [10]   | `ReadOnlySpan2D<T>.GetRowSpan(int)`          | instance  | contiguous read row of a plane, `-> ReadOnlySpan<T>` |
-|  [11]   | `Span2D<T>.CopyTo(Span2D<T>)`                | instance  | blit plane to plane                                  |
-|  [12]   | `Span2D<T>.Fill(T)`                          | instance  | write one value across the plane                     |
-|  [13]   | `Span2D<T>.Clear()`                          | instance  | zero the plane                                       |
-|  [14]   | `Memory2D<T>.Span -> Span2D<T>`              | property  | address the owned plane                              |
-|  [15]   | `Memory2D<T>.Height` / `.Width`              | property  | owned-plane extents (verified on installed 8.4.2)    |
-|  [16]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array                    |
-|  [17]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check                   |
-|  [18]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage                        |
-|  [18]   | `Cast<TFrom, TTo>`                           | extension | reinterpret element width                            |
-|  [19]   | `Tokenize`                                   | extension | split on a separator value                           |
-|  [20]   | `Enumerate`                                  | extension | index-paired or by-ref enumeration                   |
+|  [03]   | `ArrayExtensions.AsSpan<T>(T[,])`            | extension | flatten a rank-2 array to one span                   |
+|  [04]   | `ArrayExtensions.GetRow<T>(T[,], int)`       | extension | walk one row as `RefEnumerable<T>`                   |
+|  [05]   | `ArrayExtensions.GetColumn<T>(T[,], int)`    | extension | walk one column by ref                               |
+|  [06]   | `ArrayExtensions.GetRowSpan<T>(T[,], int)`   | extension | contiguous row span                                  |
+|  [07]   | `ArrayExtensions.GetRowMemory<T>(T[,], int)` | extension | contiguous row memory                                |
+|  [08]   | `Span2D<T>.Slice(int, int, int, int)`        | instance  | window a sub-plane                                   |
+|  [09]   | `Span2D<T>[int, int] -> ref T`               | indexer   | address one element of a plane                       |
+|  [10]   | `Span2D<T>.GetRowSpan(int)`                  | instance  | contiguous row of a plane                            |
+|  [11]   | `Span2D<T>.GetRow(int)` / `.GetColumn(int)`  | instance  | strided row or column as `RefEnumerable<T>`          |
+|  [12]   | `Span2D<T>.TryGetSpan(out Span<T>)`          | instance  | probe plane contiguity                               |
+|  [13]   | `ReadOnlySpan2D<T>.GetRowSpan(int)`          | instance  | contiguous read row of a plane, `-> ReadOnlySpan<T>` |
+|  [14]   | `Span2D<T>.CopyTo(Span2D<T>)`                | instance  | blit plane to plane                                  |
+|  [15]   | `Span2D<T>.Fill(T)`                          | instance  | write one value across the plane                     |
+|  [16]   | `Span2D<T>.Clear()`                          | instance  | zero the plane                                       |
+|  [17]   | `Memory2D<T>.Span -> Span2D<T>`              | property  | address the owned plane                              |
+|  [18]   | `Memory2D<T>.Height` / `.Width`              | property  | owned-plane extents                                  |
+|  [19]   | `Memory2D<T>.TryGetMemory(out Memory<T>)`    | instance  | probe owned-plane contiguity                         |
+|  [20]   | `Memory2D<T>.Pin() -> MemoryHandle`          | instance  | hold an owned plane across a native call             |
+|  [21]   | `DangerousGetReference<T>`                   | extension | root reference of a span or array                    |
+|  [22]   | `DangerousGetReferenceAt<T>`                 | extension | indexed reference, no bounds check                   |
+|  [23]   | `AsBytes<T>`                                 | extension | reinterpret unmanaged storage                        |
+|  [24]   | `Cast<TFrom, TTo>`                           | extension | reinterpret element width                            |
+|  [25]   | `Tokenize`                                   | extension | split on a separator value                           |
+|  [26]   | `Enumerate`                                  | extension | index-paired or by-ref enumeration                   |
+
+[ENTRYPOINT_SCOPE]: strided row and column traversal
+
+`GetRow` and `GetColumn` hand back a `RefEnumerable<T>` — a length-and-step window carrying its own gather, scatter, fill, and materialize family — so a column reads and writes without a transpose or a per-element loop; `ReadOnlyRefEnumerable<T>` mirrors the read half, and each `Try*` form answers `false` on a length mismatch where its bare twin raises.
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]   | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------- | :-------- | :-------------------------------------- |
+|  [01]   | `RefEnumerable<T>.Length`                             | property  | element count along the stride          |
+|  [02]   | `RefEnumerable<T>[int] -> ref T`                      | indexer   | address one strided element             |
+|  [03]   | `RefEnumerable<T>.CopyFrom(ReadOnlySpan<T>)`          | instance  | scatter a flat span across the stride   |
+|  [04]   | `RefEnumerable<T>.TryCopyFrom(ReadOnlySpan<T>)`       | instance  | `false` when the lengths disagree       |
+|  [05]   | `RefEnumerable<T>.CopyTo(Span<T>)`                    | instance  | gather the stride into a flat span      |
+|  [06]   | `RefEnumerable<T>.CopyTo(RefEnumerable<T>)`           | instance  | copy stride to stride                   |
+|  [07]   | `RefEnumerable<T>.Fill(T)`                            | instance  | write one value along the stride        |
+|  [08]   | `RefEnumerable<T>.Clear()`                            | instance  | zero the stride                         |
+|  [09]   | `RefEnumerable<T>.ToArray()`                          | instance  | materialize the stride                  |
+|  [10]   | `RefEnumerable<T>.DangerousCreate(ref T, int, int)`   | static    | mint a stride over caller memory        |
+|  [11]   | `SpanExtensions.CopyTo<T>(Span<T>, RefEnumerable<T>)` | extension | scatter a flat span into a strided view |
+|  [12]   | `ReadOnlyRefEnumerable<T>.CopyTo(Span<T>)`            | instance  | gather a read-only stride               |
 
 [ENTRYPOINT_SCOPE]: `AsStream` byte bridge
 
@@ -159,42 +186,47 @@ Every `ParallelHelper` entry takes a `struct TAction` — `default`-constructed 
 
 Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` form mutates the word in place and the value form returns the updated word.
 
-| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                  |
-| :-----: | :--------------------------------------------------- | :-------- | :---------------------------- |
-|  [01]   | `BitHelper.HasFlag(uint, int)`                       | static    | read one bit                  |
-|  [02]   | `BitHelper.HasZeroByte(uint)`                        | static    | detect a zero byte in a word  |
-|  [03]   | `BitHelper.HasByteEqualTo(uint, byte)`               | static    | detect a byte value in a word |
-|  [04]   | `BitHelper.HasLookupFlag(uint, int, int)`            | static    | read a bit from a lookup word |
-|  [05]   | `BitHelper.SetFlag(ref uint, int, bool)`             | static    | set one bit in place          |
-|  [06]   | `BitHelper.SetFlag(uint, int, bool) -> uint`         | static    | set one bit into a new word   |
-|  [07]   | `BitHelper.ExtractRange(uint, byte, byte)`           | static    | read a bit range              |
-|  [08]   | `BitHelper.SetRange(ref uint, byte, byte, uint)`     | static    | write a bit range in place    |
-|  [09]   | `BitHelper.SetRange(uint, byte, byte, uint) -> uint` | static    | write a range into a new word |
-|  [10]   | `BoolExtensions.ToBitwiseMask32(bool) -> int`        | extension | branchless all-ones mask      |
-|  [11]   | `BoolExtensions.ToByte(bool) -> byte`                | extension | branchless zero-or-one byte   |
+| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------------- | :-------- | :------------------------------------- |
+|  [01]   | `BitHelper.HasFlag(uint, int)`                       | static    | read one bit                           |
+|  [02]   | `BitHelper.HasZeroByte(uint)`                        | static    | detect a zero byte in a word           |
+|  [03]   | `BitHelper.HasByteEqualTo(uint, byte)`               | static    | detect a byte value in a word          |
+|  [04]   | `BitHelper.HasLookupFlag(uint, int, int)`            | static    | read a bit from a lookup word          |
+|  [05]   | `BitHelper.SetFlag(ref uint, int, bool)`             | static    | set one bit in place                   |
+|  [06]   | `BitHelper.SetFlag(uint, int, bool) -> uint`         | static    | set one bit into a new word            |
+|  [07]   | `BitHelper.ExtractRange(uint, byte, byte)`           | static    | read a bit range                       |
+|  [08]   | `BitHelper.SetRange(ref uint, byte, byte, uint)`     | static    | write a bit range in place             |
+|  [09]   | `BitHelper.SetRange(uint, byte, byte, uint) -> uint` | static    | write a range into a new word          |
+|  [10]   | `BoolExtensions.ToBitwiseMask32(bool) -> int`        | extension | branchless all-ones mask               |
+|  [11]   | `BoolExtensions.ToBitwiseMask64(bool) -> long`       | extension | branchless all-ones mask at word width |
+|  [12]   | `BoolExtensions.ToByte(bool) -> byte`                | extension | branchless zero-or-one byte            |
 
 [ENTRYPOINT_SCOPE]: reference access into boxed, nullable, and object storage
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------------------------ | :-------- | :---------------------------------------- |
-|  [01]   | `Box<T>.GetFrom(object) -> Box<T>`                                  | static    | type a boxed struct, throwing on mismatch |
-|  [02]   | `Box<T>.DangerousGetFrom(object) -> Box<T>`                         | static    | type a boxed struct unchecked             |
-|  [03]   | `Box<T>.TryGetFrom(object, out Box<T>)`                             | static    | probe a boxed struct                      |
-|  [04]   | `BoxExtensions.GetReference<T>(Box<T>) -> ref T`                    | extension | mutate the boxed value in place           |
-|  [05]   | `NullableRef<T>.Value -> ref T`                                     | property  | address the carried reference             |
-|  [06]   | `NullableRef<T>.HasValue`                                           | property  | test presence before deref                |
-|  [07]   | `ObjectMarshal.TryUnbox<T>(object, out T)`                          | extension | probe an unboxed value                    |
-|  [08]   | `ObjectMarshal.DangerousUnbox<T>(object) -> ref T`                  | static    | address a boxed value unchecked           |
-|  [09]   | `ObjectMarshal.DangerousGetObjectDataByteOffset<T>(object, ref T)`  | static    | compute a payload byte offset             |
-|  [10]   | `ObjectMarshal.DangerousGetObjectDataReferenceAt<T>(object, nint)`  | static    | address payload at an offset              |
-|  [11]   | `NullableExtensions.DangerousGetValueOrDefaultReference<T>(ref T?)` | extension | reference into a `Nullable<T>`            |
-|  [12]   | `ListExtensions.AsSpan<T>(List<T>)`                                 | extension | address list backing storage              |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]   | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------------ | :-------- | :------------------------------------------ |
+|  [01]   | `Box<T>.GetFrom(object) -> Box<T>`                                  | static    | type a boxed struct, throwing on mismatch   |
+|  [02]   | `Box<T>.DangerousGetFrom(object) -> Box<T>`                         | static    | type a boxed struct unchecked               |
+|  [03]   | `Box<T>.TryGetFrom(object, out Box<T>)`                             | static    | probe a boxed struct                        |
+|  [04]   | `BoxExtensions.GetReference<T>(Box<T>) -> ref T`                    | extension | mutate the boxed value in place             |
+|  [05]   | `NullableRef<T>.Value -> ref T`                                     | property  | address the carried reference               |
+|  [06]   | `NullableRef<T>.HasValue`                                           | property  | test presence before deref                  |
+|  [07]   | `NullableRef<T>.Null`                                               | property  | the absent carrier                          |
+|  [08]   | `ObjectMarshal.TryUnbox<T>(object, out T)`                          | extension | probe an unboxed value                      |
+|  [09]   | `ObjectMarshal.DangerousUnbox<T>(object) -> ref T`                  | static    | address a boxed value unchecked             |
+|  [10]   | `ObjectMarshal.DangerousGetObjectDataByteOffset<T>(object, ref T)`  | static    | compute a payload byte offset               |
+|  [11]   | `ObjectMarshal.DangerousGetObjectDataReferenceAt<T>(object, nint)`  | static    | address payload at an offset                |
+|  [12]   | `NullableExtensions.DangerousGetValueOrDefaultReference<T>(ref T?)` | extension | reference into a `Nullable<T>`              |
+|  [13]   | `NullableExtensions.DangerousGetValueOrNullReference<T>(ref T?)`    | extension | null reference where the value is absent    |
+|  [14]   | `SpanExtensions.IndexOf<T>(Span<T>, ref T)`                         | extension | recover an element index from its reference |
+|  [15]   | `ListExtensions.AsSpan<T>(List<T>)`                                 | extension | address list backing storage                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Pooled owners bound the staging lifetime: a rental enters through `Allocate`, projects as span, memory, plane, or array segment while live, and returns to its pool on `Dispose`.
 - `AsStream` is the whole public stream surface over memory, owners, writers, and sequences; its implementations stay assembly-internal.
+- `RefEnumerable<T>` is the one strided carrier: a plane column, a padded row, and a caller-minted `DangerousCreate` window share one gather-and-scatter family, so a transposed copy never materializes an intermediate buffer.
 - `struct TAction` carries the parallel kernel and its captured state rides the `in` overload, so partitioning allocates nothing and the invoker inlines.
 - Each `BitHelper` operation binds one machine width per call site, so a flag axis picks `uint` or `ulong` once and its accumulators stay that width.
 - Reinterpreting projections — `AsBytes`, `Cast`, `DangerousGetReferenceAt` — admit unmanaged elements and hand endianness ownership to the calling rail.

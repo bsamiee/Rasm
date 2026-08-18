@@ -103,7 +103,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `DialogHost.Avalonia`
 - `Kiwi`
 
-[CONTROLS_THEME]:
+[CONTROLS_LIBRARY]:
 - `Avalonia.Controls.DataGrid`
 - `Avalonia.Controls.ColorPicker`
 - `Avalonia.AvaloniaEdit`
@@ -114,19 +114,23 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `AsyncImageLoader.Avalonia`
 - `FluentIcons.Avalonia`
 - `FluentIcons.Common`
-- `Markdig`
-- `PanAndZoom` — viewport control the graph and dashboard canvases host; every saved-view, zoom, grid, rotation, and export member lives here alone.
-- `Avalonia.Controls.PanAndZoom` — `NodeEditorAvalonia` declares this id; carrying `Aliases` keeps its duplicate `ZoomBorder` out of global scope.
+- `Irihi.Ursa`
+- `Irihi.Ursa.ReactiveUIExtension`
+
+[THEME_SKINS]:
 - `Semi.Avalonia`
 - `Semi.Avalonia.DataGrid`
 - `Semi.Avalonia.ColorPicker`
 - `Semi.Avalonia.Dock` — `Dock.Avalonia` skin covering that surface whole; VARIANT COHERENCE with `Semi.Avalonia` is its standing obligation.
 - `Semi.Avalonia.AvaloniaEdit`
-- `Irihi.Ursa`
 - `Irihi.Ursa.Themes.Semi`
-- `Irihi.Ursa.ReactiveUIExtension`
 
-[RENDER_GPU]:
+[CANVAS_EDITING]:
+- `PanAndZoom` — viewport control the graph and dashboard canvases host; every saved-view, zoom, grid, rotation, and export member lives here alone.
+- `Avalonia.Controls.PanAndZoom` — `NodeEditorAvalonia` declares this id; carrying `Aliases` keeps its duplicate `ZoomBorder` out of global scope.
+- `NodeEditorAvalonia`
+
+[RENDER_SKIA]:
 - `Avalonia.Skia` — declares a LOWER `SkiaSharp` major than the pinned stack; the loader satisfies that floor under a matching public key.
 - `CSharpMath.SkiaSharp` — TeX-subset math typesetting painted onto the Skia surface for the typography Math arms.
 - `SkiaSharp`
@@ -139,31 +143,39 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
+
+[XR_RUNTIME]:
 - `Silk.NET.OpenXR`
 - `Silk.NET.OpenXR.Extensions.KHR`
 - `Silk.NET.OpenXR.Extensions.EXT`
 - `Silk.NET.OpenXR.Extensions.FB`
 
-[MEDIA_INPUT]:
+[MEDIA_PLAYBACK]:
 - `FFmpeg.AutoGen`
 - `HanumanInstitute.LibMpv`
 - `HanumanInstitute.LibMpv.Avalonia`
+- `Whisper.net`
+
+[DEVICE_INPUT]:
 - `HidSharp`
 - `Silk.NET.Input`
 - `Silk.NET.SDL`
 - `Melanchall.DryWetMidi`
 
-[EXCHANGE_COLLAB]:
+[DOCUMENT_EXPORT]:
 - `DocumentFormat.OpenXml`
-- `lcmsNET`
 - `PDFsharp`
 - `PDFsharp-MigraDoc`
-- `NodeEditorAvalonia`
+- `lcmsNET`
+
+[TEXT_PROCESSING]:
+- `Markdig`
+- `MessageFormat`
+- `LoroCs`
+
+[GEOSPATIAL_MAPPING]:
 - `Mapsui.Avalonia12`
 - `Mapsui.Nts` — `EditManager`/`EditMode` redline editing surface the basemap `Apply` verbs bind.
-- `LoroCs`
-- `MessageFormat`
-- `Whisper.net`
 
 [DEV_LOOP]:
 - `ProDiagnostics` — Debug-only tree, property, style, event, and layout inspection.
@@ -174,38 +186,28 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[FUNCTIONAL_CORE]:
+[CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Generator.Equals` — `Availability` and `ResolvedTheme` structural equality over frozen set and map members.
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
 - `NodaTime`
 - `System.IO.Hashing`
-
-[NUMERIC_SUBSTRATE]:
-- `MathNet.Numerics` — exact order statistics over a materialized sorted sample behind every bench distribution column.
 - `UnitsNet`
 - `CommunityToolkit.HighPerformance` — word-level bit reads and writes inside the cross-filter dimension index.
+- `QuikGraph` — proves acyclicity and orders topologically behind every dependency closure this folder admits.
+- `Wacton.Unicolour` — selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
+
+[GEOMETRY_NUMERICS]:
+- `MathNet.Numerics` — exact order statistics over a materialized sorted sample behind every bench distribution column.
+- `NetTopologySuite` — indexes point-in-area location behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
+- `ACadSharp` — DWG/DXF/SVG drafting-WRITE leg over one authored `CadDocument`; Bim holds the mesh read, Fabrication the profile read.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — presented-viewport device this folder mints and every peer plane binds.
 - `Silk.NET.WebGPU.Extensions.WGPU` — per-frame `DevicePoll`, native log routing, multi-draw, and LUID adapter match.
 - `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
-
-[GEOMETRY_INTERCHANGE]:
-- `ACadSharp` — DWG/DXF/SVG drafting-WRITE leg over one authored `CadDocument`; Bim holds the mesh read, Fabrication the profile read.
-
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — proves acyclicity and orders topologically behind every dependency closure this folder admits.
-
-[PLANAR_GEOMETRY]:
-- `NetTopologySuite` — indexes point-in-area location behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
-
-[COLOR_SCIENCE]:
-- `Wacton.Unicolour` — selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box instrument surface behind the `rasm.appui.*` telemetry spine.

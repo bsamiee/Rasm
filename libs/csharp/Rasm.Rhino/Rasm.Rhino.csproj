@@ -8,16 +8,12 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Graph Algorithm">
+    <ItemGroup Label="Core Substrate">
         <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Boundary Transcription">
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
-    <!-- rasm.organization.v1 is the corpus-homed source this boundary produces; ProtoRoot pins the corpus root so the
-         generated descriptor path matches the frozen snapshot every peer minter carries. -->
+    <!-- rasm.organization.v1 is the corpus-homed source this boundary produces; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Wire Transcription">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
@@ -31,10 +27,7 @@
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
     </ItemGroup>
 
-    <ItemGroup Label="Host Usings">
-        <Using Include="Rasm.Domain" />
-        <Using Include="Eto.Drawing" />
-        <Using Include="Eto.Forms" />
+    <ItemGroup Label="Rhino Usings">
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />
         <Using Include="Rhino.Display" />
@@ -46,9 +39,18 @@
         <Using Include="Rhino.PlugIns" />
         <Using Include="Rhino.UI" />
         <Using Include="Rhino.UI.Gumball" />
-        <Using Include="Rhino.Render.ChangeQueue" Alias="Cq" />
         <Using Include="Rhino.DocObjects.Font" Alias="Font" />
+        <Using Include="Rhino.Render.ChangeQueue" Alias="Cq" />
+    </ItemGroup>
+
+    <ItemGroup Label="Eto Usings">
+        <Using Include="Eto.Drawing" />
+        <Using Include="Eto.Forms" />
         <Using Include="Eto.Drawing.Matrix" Alias="Matrix" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Usings">
+        <Using Include="Rasm.Domain" />
         <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftFact" />
         <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftReceipt" />
         <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockFact" />
