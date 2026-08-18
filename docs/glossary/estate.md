@@ -104,7 +104,8 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `slot`: Refuses bare use, and every site spells one qualified sense below.
 - `identity slot`: Holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
 - `carrier slot`: Names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
-- `host slot`: Addresses one live host session every document-touching tool binds to.
+- `host slot`: Seats one host-owned member the boundary writes under that host's own convention, and the domain never reads it back.
+    - [NOT]: Rhino session slots, which the `rhino-mcp` tooling names and defines at its own site.
 - `layout slot`: Fixes an object's attribute table at declaration, replacing per-instance dictionary storage.
 - `envelope`: Refuses bare use, and every site spells one qualified sense below.
 - `message envelope`: Wraps a domain fact in the attributes a transport routes on, so a consumer routes without opening the payload.
