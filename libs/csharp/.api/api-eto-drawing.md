@@ -219,21 +219,24 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 
 [ENTRYPOINT_SCOPE]: `Bitmap` — staging, pixels, and encode
 
-| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :---------------------------------------------- | :------- | :----------------------- |
-|  [01]   | `Bitmap(Size, PixelFormat)`                     | ctor     | sized blank raster       |
-|  [02]   | `Bitmap(int, int, PixelFormat)`                 | ctor     | sized blank raster       |
-|  [03]   | `Bitmap(string)`                                | ctor     | decode from a file       |
-|  [04]   | `Bitmap(Stream)`                                | ctor     | decode from a stream     |
-|  [05]   | `Bitmap(Image, int?, int?, ImageInterpolation)` | ctor     | resample an image        |
-|  [06]   | `Lock() -> BitmapData`                          | instance | lock the pixel buffer    |
-|  [07]   | `GetPixel(Point) -> Color`                      | instance | read a pixel             |
-|  [08]   | `SetPixel(Point, Color)`                        | instance | write a pixel            |
-|  [09]   | `BitmapData.SetPixel(Point, Color)`             | instance | write inside one lock    |
-|  [10]   | `Clone(Rectangle?) -> Bitmap`                   | instance | copy whole or sub-region |
-|  [11]   | `Save(string, ImageFormat)`                     | instance | encode to a file         |
-|  [12]   | `Save(Stream, ImageFormat)`                     | instance | encode to a stream       |
-|  [13]   | `ToByteArray(ImageFormat) -> byte[]`            | instance | encode to bytes          |
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :---------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `Bitmap(Size, PixelFormat)`                     | ctor     | sized blank raster         |
+|  [02]   | `Bitmap(int, int, PixelFormat)`                 | ctor     | sized blank raster         |
+|  [03]   | `Bitmap(string)`                                | ctor     | decode from a file         |
+|  [04]   | `Bitmap(Stream)`                                | ctor     | decode from a stream       |
+|  [05]   | `Bitmap(Image, int?, int?, ImageInterpolation)` | ctor     | resample an image          |
+|  [06]   | `Lock() -> BitmapData`                          | instance | lock the pixel buffer      |
+|  [07]   | `GetPixel(Point) -> Color`                      | instance | read a pixel               |
+|  [08]   | `SetPixel(Point, Color)`                        | instance | write a pixel              |
+|  [09]   | `BitmapData.SetPixel(Point, Color)`             | instance | write inside one lock      |
+|  [10]   | `Clone(Rectangle?) -> Bitmap`                   | instance | copy whole or sub-region   |
+|  [11]   | `Save(string, ImageFormat)`                     | instance | encode to a file           |
+|  [12]   | `Save(Stream, ImageFormat)`                     | instance | encode to a stream         |
+|  [13]   | `ToByteArray(ImageFormat) -> byte[]`            | instance | encode to bytes            |
+|  [14]   | `BitmapData.PremultipliedAlpha`                 | property | per-lock coverage carriage |
+
+- `BitmapData` publishes its own layout and the layout is per LOCK, never per backend: `PremultipliedAlpha` is set at construction from the live representation — the macOS handler passes `alpha && !BitmapFormat.HasFlag(NSBitmapFormat.AlphaNonpremultiplied)` — and `TranslateArgbToData`/`TranslateDataToArgb` multiply and divide coverage on exactly that flag while reordering channels, so `GetPixel`/`SetPixel` speak STRAIGHT `Color` on every backend and `TranslateDataToArgb` is the only channel-order-canonical read a caller has. `ScanWidth` is the representation's own row pitch rather than `Width * BytesPerPixel`, and `Flipped` names bottom-up rows (false on macOS), so a row egress repacks both. `Bitmap.Lock()` admits no format, so a wanted carriage is normalized after the lock, unlike the GDI `LockBits(Rectangle, ImageLockMode, PixelFormat)` leg which converts inside the lock.
 
 [ENTRYPOINT_SCOPE]: `Drawable` — the paint seam
 
