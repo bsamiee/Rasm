@@ -29,7 +29,7 @@ Each entry seats its term as the grammatical subject: its code-span leader names
 - Law: Definitions name owners by role noun or code span alone, because a path, anchor, or link couples this page to a surface it never owns.
 - Law: `[NOT]` lines open on the foreign sense's own name and close on the clause earning the repo sense.
 - Law: Adjacent entries take distinct verbs and distinct content words, so the census reads sibling definitions as sibling decisions.
-- Law: Polysemous terms keeping two live senses refuse bare use — each qualified spelling takes an entry, and one refusal entry names the bare word.
+- Law: Polysemous terms refuse bare use — one refusal entry names the bare word, and each admitted qualified spelling takes its own entry.
 
 ## [03]-[ADMISSION]
 

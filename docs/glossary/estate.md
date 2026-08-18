@@ -82,32 +82,32 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 
 Words carrying live senses no context disambiguates refuse bare use, and every site spells one qualified form.
 
-- `lane`: Refuses bare use, and every site spells one qualified sense below.
+- `lane`: Refuses bare use.
 - `dispatch lane`: Routes one class of agent work through a workflow under its own model, authority, and read scope.
 - `offload lane`: Keys one isolation arm a blocking or CPU-bound body runs on, each bounded by its own capacity limiter.
 - `transaction lane`: Separates a serialized writing path from an unwrapped analytical read path over one engine.
 - `cache lane`: Keys one cache topology a resolver resolves by lane key, so each lane reads its own second-level store.
 - `signal lane`: Carries one telemetry signal's exporter and pipeline rows through egress.
-- `descriptor`: Refuses bare use, and every site spells one qualified sense below.
+- `descriptor`: Refuses bare use.
 - `capability descriptor`: Rows an open consumption axis — key, supplied capability, reached isolation — filled by its supplying branch alone.
 - `descriptor set`: Snapshots a proto source's compiled form beside it as the drift gate's per-source baseline.
-- `frame budget`: Refuses bare use, and every site spells one qualified sense below.
+- `frame budget`: Refuses bare use.
 - `viewport frame budget`: Bounds one rendered frame's spend — time, draws, residency — so a breach names its axis and degrades the frame alone.
 - `solver frame budget`: Stops a coarse solve at one frame deadline between iteration floor and ceiling, forking refinement onto a background lane.
-- `time travel`: Refuses bare use, every site spells one qualified sense below; two packages legitimately declare `TimeTravel` owner.
+- `time travel`: Refuses bare use, and sibling packages each declare a legitimate `TimeTravel` owner.
 - `collab time travel`: Reverts a live collaborative document onto a prior intent-ledger frontier by appending inverse intents.
 - `store time travel`: Reads the system of record as it stood at one commit or instant through the store's as-of session, never mutating it.
-- `landing`: Refuses bare use, and every site spells one qualified sense below.
+- `landing`: Refuses bare use.
 - `wire landing`: Declares a decoded wire family's one branch-side shape at the codec owner, so a consumer imports it and re-derives no field.
 - `landing grain`: States a fact at task resolution, naming the exact file or sub-domain a card's work lands in.
 - `plane landing`: Settles an infrastructure plane's row onto its realized backend, so readers provision off the armed set.
-- `slot`: Refuses bare use, and every site spells one qualified sense below.
+- `slot`: Refuses bare use.
 - `identity slot`: Holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
 - `carrier slot`: Names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
 - `host slot`: Seats one host-owned member the boundary writes under that host's own convention, and the domain never reads it back.
     - [NOT]: Rhino session slots, which the `rhino-mcp` tooling names and defines at its own site.
 - `layout slot`: Fixes an object's attribute table at declaration, replacing per-instance dictionary storage.
-- `envelope`: Refuses bare use, and every site spells one qualified sense below.
+- `envelope`: Refuses bare use.
 - `message envelope`: Wraps a domain fact in the attributes a transport routes on, so a consumer routes without opening the payload.
 - `building envelope`: Separates a building's conditioned interior from its exterior, and its tightness bounds the air a zone leaks.
 - `operating envelope`: Bounds the conditions one machine or process admits, so a demand outside it refuses rather than degrades.
