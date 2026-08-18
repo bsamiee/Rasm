@@ -106,10 +106,13 @@
 |  [09]   | `WebView`           | container     | embedded browser: navigation, script execution, title              |
 |  [10]   | `PropertyGrid`      | container     | reflected property editor over a bound object graph                |
 |  [11]   | `NativeControlHost` | container     | host-native view embedding seam (`.api/api-eto-platform.md`)       |
+|  [12]   | `DocumentControl`   | container     | closable, reorderable document-tab host                            |
+|  [13]   | `DocumentPage`      | container     | one closable document tab over a content control                   |
 
 [CONTAINER_STATE]:
 - `Splitter`: `Panel1` `Panel2` `Orientation` `Position` `FixedPanel` `SplitterWidth`
 - `TabControl`: `Pages` `SelectedIndex` `SelectedPage` `TabPosition` `SelectedIndexChanged`
+- `DocumentControl`: `Pages` `SelectedIndex` `AllowReordering`; `DocumentPage`: `Content` `Text` `Closable`
 - `Expander`: `Expanded` `ExpandedChanged`; `PropertyGrid`: `SelectedObject` `SelectedObjects` `ShowCategories` `ShowDescription`
 - `RichTextArea`: `SelectionFont` `SelectionForeground` `SelectionBackground` `SelectionBold` `SelectionItalic` `SelectionUnderline` `SelectionStrikethrough` `Buffer` `Rtf`
 
@@ -210,6 +213,16 @@
 |  [16]   | `SeparatorToolItem` | tool item     | toolbar divider                                              |
 
 [COMMAND_STATE]: `Command.ID`/`MenuText`/`ToolBarText`/`ToolTip`/`Enabled`/`Shortcut`/`Executed`; `Command.CreateMenuItem()`/`CreateToolItem()` project ONE command into each chrome; `CheckCommand.Checked`/`CheckedChanged`; `RadioCommand.Controller`; `ContextMenu.Items`/`Trim`/`Opening`/`Closing`/`Closed`
+
+[PUBLIC_TYPE_SCOPE]: themed controls (`Eto.Forms.ThemedControls`)
+
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :----------------------- | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `ThemedMessageBox`       | dialog        | themed modal message box with arbitrary result-typed buttons    |
+|  [02]   | `ThemedPropertyGrid`     | control       | themed reflected property editor over one or many bound objects |
+|  [03]   | `ThemedCollectionEditor` | control       | themed add and remove editor over a homogeneous collection      |
+
+[THEMED_STATE]: `ThemedMessageBox.AddButton`; result, text, alignment, image · `ThemedPropertyGrid` selection, categories, description, refresh, change · `ThemedCollectionEditor.DataStore`/`ElementType`/`ExtraContent` — the `Themed*Handler` backends register at the platform-handler seam, never as construction rows
 
 ## [03]-[ENTRYPOINTS]
 

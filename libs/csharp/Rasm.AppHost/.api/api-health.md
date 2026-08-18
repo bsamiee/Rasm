@@ -73,7 +73,7 @@
 - `HealthCheckService` aggregates registrations into a `HealthReport` of keyed `HealthReportEntry` values, and `IHealthCheckPublisher` pushes that report on the `HealthCheckPublisherOptions` cadence of delay, period, predicate, and timeout.
 
 [STACKING]:
-- `AspNetCore.HealthChecks.{NpgSql,Redis,Kafka,Nats,Uris,System}`(`.api/api-healthchecks-*.md`): each ships one concrete `IHealthCheck` the `HealthContributorRow.Driver` adapter folds into one contributor row carrying that dependency's tag and failure status, never a parallel `Add*` registration face.
+- `AspNetCore.HealthChecks.{NpgSql,Redis,Kafka,Nats,Uris,System}`(`.api/api-healthchecks-*.md`): each ships one concrete `IHealthCheck` the `ProbeSource.Driver` case folds into one contributor row carrying that dependency's tag and failure status, never a parallel `Add*` registration face.
 - `HealthContributorRow` adapts every `IHealthCheck` through `Peer`/`Gauge`/`Driver`, `HealthSurface.Register` folds the row span into `HealthCheckRegistration`s, `HealthReport.Snapshot(Instant, CorrelationId)` projects the aggregate into the wire-neutral `HealthSnapshot`, and `DegradationCell` binds as the one `IHealthCheckPublisher`, folding each `HealthReport` into a degradation level in one atomic swap.
 
 [LOCAL_ADMISSION]:

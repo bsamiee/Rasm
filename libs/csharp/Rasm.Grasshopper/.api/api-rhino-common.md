@@ -63,7 +63,7 @@
 - `RhinoDoc` crosses one seam — `Editor.BeginRhinoGetter(RhinoDoc)` on `Shell/editor.md`'s `GetterCase` — and a getter-arbitration consumer reads `ActiveDoc` as the default target when the case carries `None`; a direct `RhinoDoc` getter beside the editor is the deleted form
 - geometry carriers enter as `typeof(Rhino.Geometry.T)` in `Components/ports.md`'s `PortRow` vocabulary and as record payloads in `Components/data.md`'s shape unions, transported by value or reference and never mutated
 - value structs and `GeometryBase` classes split the carrier roster: a struct carrier copies through the port pin, a reference carrier pins the live host object
-- the registered value prompts are the Rhino-styled fast lane behind `Eto/windows.md`'s `PickerSpec.EditCase`/`NumberCase`, settling a value where a full Eto dialog is unwarranted
+- Registered value prompts are the Rhino-styled fast lane behind the kernel `Rasm/Interaction` chrome estate's `PickerSpec` edit/number cases (the folder's Eto windows twin is deleted), settling a value where a full Eto dialog is unwarranted
 
 [STACKING]:
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): `RhinoDoc.ActiveDoc` null-gates through `Optional(...)` into `Option<RhinoDoc>`; a carrier's `IsValid` gate folds to `Validation<Error, T>` before the port admits it

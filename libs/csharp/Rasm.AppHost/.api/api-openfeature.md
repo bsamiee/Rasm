@@ -53,6 +53,23 @@
 - `Flag`: exposes `bool Disabled`, is implemented by `Flag<T>`, and is the value type of the `InMemoryProvider` flag map.
 - `FlagEvaluationDetails<T>`: carries `Value`, `FlagKey`, `Reason`, `Variant`, `ErrorType`, `ErrorMessage`, and `FlagMetadata`.
 
+[PUBLIC_TYPE_SCOPE]: hook and event family
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [CAPABILITY]                            |
+| :-----: | :----------------------------- | :----------------- | :-------------------------------------- |
+|  [01]   | `Hook`                         | abstract class     | four evaluation lifecycle overrides     |
+|  [02]   | `HookContext<T>`               | context carrier    | flag key, default, and context per call |
+|  [03]   | `HookData`                     | per-call bag       | hook-private state across the lifecycle |
+|  [04]   | `TrackingEventDetails`         | tracking payload   | experimentation event attributes        |
+|  [05]   | `TrackingEventDetailsBuilder`  | builder            | attribute and numeric-value assembly    |
+|  [06]   | `ProviderEventPayload`         | event payload      | provider name, message, error, flag set |
+|  [07]   | `EventHandlerDelegate`         | delegate           | `void (ProviderEventPayload?)`          |
+
+- `Hook`: `BeforeAsync<T>(HookContext<T>, IReadOnlyDictionary<string, object>?, CancellationToken) -> ValueTask<EvaluationContext>`, `AfterAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`, `ErrorAsync<T>(HookContext<T>, Exception, …) -> ValueTask`, and `FinallyAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`; normal order is Before, After, Finally and an abnormal one is Error, Finally.
+- `HookContext<T>`: `FlagKey`, `DefaultValue`, `FlagValueType`, `EvaluationContext`, `ClientMetadata`, `ProviderMetadata`, `Data`.
+- `TrackingEventDetails`: construction is `TrackingEventDetails.Builder()` (a STATIC factory — the constructors are internal), then `Set(key, …)`/`SetValue(double?)`/`Build()`; `Empty` is the no-attribute value.
+- `ProviderEventPayload`: `ProviderName`, `Type`, `Message`, `ErrorType`, `FlagsChanged`, `EventMetadata` — every column nullable, and the handler receives a NULLABLE payload.
+
 [PUBLIC_TYPE_SCOPE]: outcome vocabulary family
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]    | [CAPABILITY]                 |
@@ -63,7 +80,7 @@
 |  [04]   | `ProviderEventTypes`       | event enum       | provider event kind          |
 |  [05]   | `FeatureProviderException` | provider failure | resolution exception base    |
 
-- [REASON]: `TargetingMatch` `Split` `Disabled` `Default` `Static` `Cached` `Unknown` `Error`
+- [REASON]: `TargetingMatch` `Split` `Disabled` `Default` `Static` `Cached` `Unknown` `Error` — EIGHT constants; there is no `Stale`, so a consumer lowering onto a wider peer vocabulary admits the unrostered case rather than naming a member the SDK does not publish
 - [ERROR_TYPE]: `None` `ProviderNotReady` `FlagNotFound` `ParseError` `TypeMismatch` `General` `InvalidContext` `TargetingKeyMissing` `ProviderFatal`
 
 ## [03]-[ENTRYPOINTS]

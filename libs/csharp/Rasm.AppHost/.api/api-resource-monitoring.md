@@ -92,7 +92,7 @@
 
 [STACKING]:
 - `OpenTelemetry`(`libs/csharp/.api/api-opentelemetry.md`): `AddMeter("Microsoft.Extensions.Diagnostics.ResourceMonitoring")` on `MeterProviderBuilder` admits the whole roster, and `AddView` with a `MetricStreamConfiguration` drops or reshapes an individual instrument as on any foreign meter — the one seat normalizing the platform-divergent kind and unit of `container.cpu.time` before export.
-- `HealthContributorRow.Monitor` registers the monitor once and pins the four flags off `PressurePolicy`, `PressureSource.Container`/`.Host` name the gauge pair each arm grades, `UtilizationCell` binds the `MeterListener` on the package meter and drives the observation, and `PressurePolicy.Quota` carries the `ResourceQuotaProvider.GetResourceQuota()` ceilings the grade detail stamps.
+- `ProbeSource.Gauge.Mount` registers the monitor once under `HealthSurface.Register`, pinning both range flips and reading `UseLinuxCalculationV2`/`EnableSystemDiskIoMetrics` off `PressurePolicy.Features`, `PressureSource.Container`/`.Host` name the gauge pair each arm grades, `UtilizationCell` binds the `MeterListener` on the package meter and drives the observation, and `PressurePolicy.Quota` carries the `ResourceQuotaProvider.GetResourceQuota()` ceilings the grade detail stamps.
 
 [LOCAL_ADMISSION]:
 - Registration is composition-root-only; every reader binds a `MeterListener` on the package meter and observes through `MeterListener.RecordObservableInstruments()`, which a bare `Start()` never does.

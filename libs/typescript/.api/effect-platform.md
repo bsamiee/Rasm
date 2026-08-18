@@ -105,7 +105,12 @@
 |  [09]   | `HttpApiScalar` / `HttpApiSwagger`      | docs ui        | `serve/api` — Scalar reference UI beside the derived OpenAPI route           |
 |  [10]   | `HttpApiError` faults                   | status faults  | status-tagged endpoint errors; `serve/problem` folds escaped ones            |
 |  [11]   | `ChannelSchema`                         | typed channel  | `serve/live` — `Schema`-typed bidirectional `Channel`                        |
-|  [12]   | `Effectify` / `OpenApiJsonSchema` / `HttpMethod` / `WorkerError` | idle capability | node-callback→Effect lifting, standalone JSON-Schema projection, the method literal union, and the worker fault family — verified members no fence composes yet; each enters at its consuming seam, never through a wrapper |
+|  [12]   | `Effectify`                             | lift           | `effectify` wraps a node-callback function as an `Effect`                    |
+|  [13]   | `OpenApiJsonSchema`                     | schema         | `make` projects a `Schema` to standalone JSON Schema                         |
+|  [14]   | `HttpMethod`                            | literal union  | the method literals every router keys on                                     |
+|  [15]   | `WorkerError`                           | fault family   | the tagged worker fault `isWorkerError` narrows                              |
+
+- Rows [12]-[15] carry verified members no fence composes yet; each enters at its consuming seam rather than through a wrapper.
 
 [ENTRYPOINT_SCOPE]: system-API contracts and frame codecs
 - rail: system-apis

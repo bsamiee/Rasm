@@ -66,7 +66,7 @@ Every `AddNpgSql` extends `IHealthChecksBuilder` and ends with `string? name`, `
 
 [STACKING]:
 - `api-health.md`(`.api/api-health.md`): `NpgSqlHealthCheck` implements the `IHealthCheck` the fold registers through `HealthCheckRegistration`, and a faulted scalar returns a typed `HealthCheckResult` folded by `HealthReport.Snapshot` into a `HealthSnapshot.Entry`, never an exception crossing the report.
-- health fold (`.planning/Observability/health.md`): `HealthContributorRow.Driver(DriverProbe.Postgres, cadence, NpgSqlHealthCheck)` adapts the check into one `Store`-tagged contributor through the one driver adapter, and overload [03]'s null `dbDataSourceFactory` binds the SAME pooled `NpgsqlDataSource` the Persistence store owns — connection credentials, type mappings, and pool settings defined once.
+- health fold (`.planning/Observability/health.md`): `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Postgres, NpgSqlHealthCheck), cadence)` adapts the check into one `Store`-tagged contributor through the one driver case, and overload [03]'s null `dbDataSourceFactory` binds the SAME pooled `NpgsqlDataSource` the Persistence store owns — connection credentials, type mappings, and pool settings defined once.
 
 [LOCAL_ADMISSION]:
 - Overload [03] (null factory) binds the pooled `NpgsqlDataSource` the Persistence store registers, never re-spelling a connection vocabulary or opening an out-of-pool connection.

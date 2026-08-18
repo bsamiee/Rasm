@@ -34,19 +34,26 @@
 
 [ENTRYPOINT_SCOPE]: registration, client reads, context altitude, transaction propagation. Leading-dot surfaces are `OpenFeature` singleton statics, `client.*` are instance reads, and `get{Boolean,String,Number,Object}Value`/`get*Details` take `(flag, fallback, context?, options?: FlagEvaluationOptions)` — the fourth slot carries per-call `hooks`/`hookHints`.
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE]         | [CAPABILITY]                               |
-| :-----: | :------------------------------------------------------------------------ | :-------------- | :----------------------------------------- |
-|  [01]   | `.setProviderAndWait(provider)` / `.setProvider(domain, provider)`        | static          | register the provider, await readiness     |
-|  [02]   | `.getClient()` / `.getClient(context)` / `.getClient(domain, context?)` / `.getClient(domain, version, context?)` | static | mint the `Flags` service client — the one-argument arm reads as CONTEXT when it is not a string, so a domain always travels with its own slot |
-|  [03]   | `client.get*Value` / `client.get*Details`                                 | instance        | value and `Verdict`-fed detail reads       |
-|  [04]   | `.setContext(context)` / `client.setContext(context)`                     | static/instance | context at global or client altitude       |
-|  [05]   | `.addHooks(...)` / `client.addHooks(...)` / invocation `{ hooks }`        | static/instance | register lifecycle hooks                   |
-|  [06]   | `.addHandler(ProviderEvents.X, handler)` / `client.addHandler`            | static/instance | observe readiness and config events        |
-|  [07]   | `.setTransactionContextPropagator(p)` / `.setTransactionContext(ctx, fn)` | static          | install the `AsyncLocalStorage` propagator — the DEFAULT is the no-op propagator, so request-scoped context reaches nothing until a root installs one |
-|  [08]   | `.close()`                                                                | static          | scope-release teardown in `Flags` Layer    |
-|  [09]   | `client.track(name, context?, details?)`                                  | instance        | associate a flag outcome with an action    |
-|  [10]   | `TypedInMemoryProvider`                                                   | class           | in-memory provider for SDK-seam specs — the bare `InMemoryProvider` spelling survives only as a deprecated alias |
-|  [11]   | `CommonProvider.domainScoped?` / `CommonProvider.track?`                  | contract        | optional provider members — `track` is the outcome seat the provider literal implements, `domainScoped` opts a provider into per-domain instantiation |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]         | [CAPABILITY]                                  |
+| :-----: | :----------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `.setProviderAndWait(provider)` / `.setProvider(domain, provider)` | static          | register the provider, await readiness        |
+|  [02]   | `.getClient(context?)`                                             | static          | client on the default domain                  |
+|  [03]   | `.getClient(domain, context?)`                                     | static          | client bound to a domain                      |
+|  [04]   | `.getClient(domain, version, context?)`                            | static          | domain client stamped with a version          |
+|  [05]   | `client.get*Value` / `client.get*Details`                          | instance        | value and `Verdict`-fed detail reads          |
+|  [06]   | `.setContext(context)` / `client.setContext(context)`              | static/instance | context at global or client altitude          |
+|  [07]   | `.addHooks(...)` / `client.addHooks(...)` / invocation `{ hooks }` | static/instance | register lifecycle hooks                      |
+|  [08]   | `.addHandler(ProviderEvents.X, handler)` / `client.addHandler`     | static/instance | observe readiness and config events           |
+|  [09]   | `.setTransactionContextPropagator(p)`                              | static          | install the `AsyncLocalStorage` propagator    |
+|  [10]   | `.setTransactionContext(ctx, fn, ...args)`                         | static          | run `fn` under a request-scoped context       |
+|  [11]   | `.close()`                                                         | static          | scope-release teardown in `Flags` Layer       |
+|  [12]   | `client.track(name, context?, details?)`                           | instance        | associate a flag outcome with an action       |
+|  [13]   | `TypedInMemoryProvider`                                            | class           | in-memory provider for SDK-seam specs         |
+|  [14]   | `CommonProvider.domainScoped?` / `CommonProvider.track?`           | contract        | optional members a provider literal opts into |
+
+- `.getClient`: its one-argument arm reads as CONTEXT whenever the argument is not a string, so a domain always travels with its own slot.
+- No-op propagation is the default, so request-scoped context reaches nothing until a root installs a propagator.
+- `CommonProvider.track?` is the outcome seat a provider literal implements, and `CommonProvider.domainScoped?` opts a provider into per-domain instantiation.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

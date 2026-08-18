@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_ETO_DRAWING]
 
-`Eto.Drawing` paints every Grasshopper2 canvas painter, wire renderer, icon projector, and tooltip painter. The immediate `Graphics` stream, `GraphicsPath` geometry, the brush/pen family, measured text, and `Bitmap` staging are the branch algebra this boundary composes unchanged; the rows below are the icon, indexed-raster, hex-egress, and font-enumeration carriers the GH2 chrome adds beyond it.
+`Eto.Drawing` paints every Grasshopper2 canvas painter, wire renderer, icon projector, and tooltip painter. Immediate `Graphics` stream, `GraphicsPath` geometry, the brush/pen family, measured text, and `Bitmap` staging are the branch algebra this boundary composes unchanged; the rows below are the icon, indexed-raster, hex-egress, and font-enumeration carriers the GH2 chrome adds beyond it.
 
 ## [01]-[PACKAGE_SURFACE]
 

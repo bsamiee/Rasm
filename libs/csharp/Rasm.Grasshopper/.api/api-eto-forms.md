@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_ETO_FORMS]
 
-`Eto.Forms` raises every GH2-hosted panel inside the Rhino process. The control base, layout owners, window and dialog hierarchy, grid and cell families, and command surface are the branch construction spine this boundary composes unchanged; the rows below are the masked and stepped field family, the exclusive option group, the rich-text buffer contract, and the tree hit-test and drop-target models the GH2 panel and canvas add beyond it.
+`Eto.Forms` raises every GH2-hosted panel inside the Rhino process. Control base, layout owners, window and dialog hierarchy, grid and cell families, and command surface are the branch construction spine this boundary composes unchanged; the rows below are the masked and stepped field family, the exclusive option group, the rich-text buffer contract, and the tree hit-test and drop-target models the GH2 panel and canvas add beyond it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -54,7 +54,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- A masked field owns its own format contract: `MaskedTextBox<T>` and `MaskedTextStepper<T>` take a typed provider, so a format is a provider value and never a validation ladder beside a plain text field.
+- Masked field owns its own format contract: `MaskedTextBox<T>` and `MaskedTextStepper<T>` take a typed provider, so a format is a provider value and never a validation ladder beside a plain text field.
 - Increment is an affordance, not a widget kind: `Stepper` is the bare affordance and `TextStepper`/`NumericUpDown` are the fields that carry it, so a stepped variant of an existing field composes the affordance rather than forking the field roster. `NumericUpDown` ships `[Obsolete]` — `NumericStepper` is the live spelling and the obsolete field never enters a fence.
 - `MaskedTextStepper<T>` constructs bare or over `(IMaskedTextProvider<T>)` — no string-mask constructor exists, so it composes a typed provider, never `FixedMaskedTextProvider`'s string mask.
 - Owner-drawn and templated cells: `DrawableCell`'s whole hook is its `Paint` event; `CustomCell` carries the `CreateCell`/`ConfigureCell`/`GetIdentifier`/`GetPreferredWidth` delegate slots beside `BeginEdit`/`CancelEdit`/`CommitEdit`/`Paint` events.
@@ -70,8 +70,8 @@
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): `Optional(view.GetCellAt(point))` null-gates a hit test into `Option<TreeGridCell>` and a drop-target read folds to `Fin<TreeGridViewDragInfo>` before a canvas commits the move.
 
 [LOCAL_ADMISSION]:
-- A panel subclasses a registered control or composes the registered roster directly; a new control capability lands as a subclass or a composition, never a wrapper renaming a host member or a re-implemented native widget.
-- A format-masked or increment-carrying field takes the rows here; a hand-rolled mask parser or spinner pair beside them is the deleted form.
+- Panel subclasses a registered control or composes the registered roster directly; a new control capability lands as a subclass or a composition, never a wrapper renaming a host member or a re-implemented native widget.
+- Format-masked or increment-carrying field takes the rows here; a hand-rolled mask parser or spinner pair beside them is the deleted form.
 - Boundary faults lower onto the LanguageExt rail.
 
 [RAIL_LAW]:

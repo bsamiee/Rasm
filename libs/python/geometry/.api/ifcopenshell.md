@@ -90,8 +90,8 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [03]   | `root.copy_class(file, product)`                                                                 | duplicate an entity in its class      |
 |  [04]   | `attribute.edit_attributes(file, product, attributes)`                                           | set direct attribute values           |
 |  [05]   | `geometry.add_mesh_representation(file, context, vertices, edges=None, faces=None, …)`           | attach a mesh shape representation    |
-|  [05b]  | `geometry.add_profile_representation(file, context, profile, depth=1.0, cardinal_point=5, …)`    | attach an extruded-profile shape      |
-|  [05c]  | `geometry.assign_representation(file, product, representation) -> None`                          | bind a representation to a product    |
+|  [06]   | `geometry.add_profile_representation(file, context, profile, depth=1.0, cardinal_point=5, …)`    | attach an extruded-profile shape      |
+|  [07]   | `geometry.assign_representation(file, product, representation) -> None`                          | bind a representation to a product    |
 |  [08]   | `geometry.edit_object_placement(file, product, matrix)`                                          | set a product's object placement      |
 |  [09]   | `context.add_context(file, context_type, …)`                                                     | add a representation context          |
 |  [10]   | `unit.add_si_unit(file, unit_type, prefix=None)`                                                 | add an SI unit to the project         |

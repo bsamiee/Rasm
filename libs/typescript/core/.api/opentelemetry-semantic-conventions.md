@@ -55,15 +55,15 @@ Stable (`.`) namespaces, imported by default:
 
 Incubating (`./incubating`) namespaces, imported behind the alias row:
 
-| [INDEX] | [NAMESPACE]                                                              | [CONSUMER]                                                       |
-| :-----: | :----------------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `browser.*` (brands/language/mobile/platform), `device.model.identifier` | vital RUM enrichment through the `Convention` aliases            |
-|  [02]   | `session.*`, `network.connection.type` with its `TYPE_VALUE` family      | RUM session continuity and transport-class enrichment            |
-|  [03]   | `cloud.region`/`cloud.availability_zone`, `host.name`                    | the region, zone, and host folds on the identity projection      |
-|  [04]   | `feature_flag.*` with its `RESULT_REASON` value family                   | the flag telemetry hook and tracking seat at `runtime/proc/flag` |
-|  [05]   | `cloudevents.event_*` (id/source/spec_version/subject/type)              | announcement identity on every event-fabric span                 |
-|  [06]   | `messaging.*` with its `OPERATION_TYPE` and `SYSTEM` value families      | transport coordinates on `runtime/net` publish and consume       |
-|  [07]   | `host.arch`, `process.*`, `cloud.provider`                               | unrowed — the SDK detector roster names them without a row       |
+| [INDEX] | [NAMESPACE]                                                              | [CONSUMER]                                                   |
+| :-----: | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `browser.*` (brands/language/mobile/platform), `device.model.identifier` | vital RUM enrichment through the `Convention` aliases        |
+|  [02]   | `session.*`, `network.connection.type` with its `TYPE_VALUE` family      | RUM session continuity and transport-class enrichment        |
+|  [03]   | `cloud.region`/`cloud.availability_zone`, `host.name`                    | region, zone, and host folds on the identity projection      |
+|  [04]   | `feature_flag.*` with its `RESULT_REASON` value family                   | flag telemetry hook and tracking seat at `runtime/proc/flag` |
+|  [05]   | `cloudevents.event_*` (id/source/spec_version/subject/type)              | announcement identity on every event-fabric span             |
+|  [06]   | `messaging.*` with its `OPERATION_TYPE` and `SYSTEM` value families      | transport coordinates on `runtime/net` publish and consume   |
+|  [07]   | `host.arch`, `process.*`, `cloud.provider`                               | unrowed — SDK detectors name them without a row              |
 
 - `feature_flag.*` churns hardest of the incubating set: it carries `feature_flag.provider.name` and `feature_flag.result.reason` at this pin, superseding the `@deprecated` `feature_flag.evaluation.reason` predecessor and its parallel value family, so the alias row makes the next move one seam edit rather than a sweep of every flag site.
 - Two `*_VALUE_*` families reach `observe/convention` rows: `FEATURE_FLAG_RESULT_REASON_VALUE_*` and `NETWORK_CONNECTION_TYPE_VALUE_*` (`cell`/`unavailable`/`unknown`/`wifi`/`wired`). Each spells the TELEMETRY vocabulary its producer answers in another dialect — the OpenFeature SDK resolves uppercase reasons, the Network Information API answers `cellular`/`ethernet`/`none` — so the emitting owner maps dialect onto row at its stamp site.

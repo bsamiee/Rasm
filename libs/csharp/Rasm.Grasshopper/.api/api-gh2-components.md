@@ -43,7 +43,7 @@
 
 [PUBLIC_TYPE_SCOPE]: component-attribute bases (`Grasshopper2.Doc`, `Grasshopper2.Doc.Attributes`)
 
-The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition holds the concrete bases a component author subclasses and states their edge against that contract.
+`IAttributes` contract itself is `api-gh2-document.md`'s; this partition holds the concrete bases a component author subclasses and states their edge against that contract.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [CAPABILITY]                                                             |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------------------------------------------------- |
@@ -84,26 +84,26 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 
 [ENTRYPOINT_SCOPE]: component lifecycle and variable parameters
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]   | [CAPABILITY]                       |
-| :-----: | :---------------------------------------------------------- | :-------- | :--------------------------------- |
-|  [01]   | `Component(Nomen)`                                          | author    | construct the component            |
-|  [02]   | `AddInputs(InputAdder)` / `AddOutputs(OutputAdder)`         | author    | declare the fixed pin surface      |
-|  [03]   | `Process(IDataAccess)`                                      | compute   | compute one access iteration       |
-|  [04]   | `Process(IDataAccess[], CancellationToken)`                 | compute   | dispatch the iteration array       |
-|  [05]   | `BeforeProcess(Solution)` / `PreProcess(Solution)`          | lifecycle | open the solution-scoped process   |
-|  [06]   | `PostProcess(Solution, FleetingCustomData)`                 | lifecycle | close the solution-scoped process  |
-|  [07]   | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree           |
-|  [08]   | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation         |
-|  [09]   | `Parameters`                                                | state     | expose the component's pin roster  |
-|  [10]   | `Threading`                                                 | state     | select `Grasshopper2.Components.ThreadingState` processing policy |
-|  [11]   | `SupportsVariableParameters`                                | gate      | expose variable-pin capability     |
-|  [12]   | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change        |
-|  [13]   | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo             |
-|  [14]   | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo             |
-|  [15]   | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface  |
-|  [16]   | `BakeCapable`                                               | bake      | virtual bakeability gate           |
-|  [17]   | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual call, baked-id roster  |
-|  [18]   | `CreateAttributes`                                          | view      | construct object attributes        |
+| [INDEX] |                          [SURFACE]                          |  [SHAPE]  |                  [CAPABILITY]                 |
+| :-----: | :---------------------------------------------------------- | :-------- | :-------------------------------------------- |
+|   [01]  | `Component(Nomen)`                                          | author    | construct the component                       |
+|   [02]  | `AddInputs(InputAdder)` / `AddOutputs(OutputAdder)`         | author    | declare the fixed pin surface                 |
+|   [03]  | `Process(IDataAccess)`                                      | compute   | compute one access iteration                  |
+|   [04]  | `Process(IDataAccess[], CancellationToken)`                 | compute   | dispatch the iteration array                  |
+|   [05]  | `BeforeProcess(Solution)` / `PreProcess(Solution)`          | lifecycle | open the solution-scoped process              |
+|   [06]  | `PostProcess(Solution, FleetingCustomData)`                 | lifecycle | close the solution-scoped process             |
+|   [07]  | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree                      |
+|   [08]  | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation                    |
+|   [09]  | `Parameters`                                                | state     | expose the component's pin roster             |
+|   [10]  | `Threading`                                                 | state     | select the `ThreadingState` processing policy |
+|   [11]  | `SupportsVariableParameters`                                | gate      | expose variable-pin capability                |
+|   [12]  | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change                   |
+|   [13]  | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo                        |
+|   [14]  | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo                        |
+|   [15]  | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface             |
+|   [16]  | `BakeCapable`                                               | bake      | virtual bakeability gate                      |
+|   [17]  | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual call, baked-id roster             |
+|   [18]  | `CreateAttributes`                                          | view      | construct object attributes                   |
 
 [ENTRYPOINT_SCOPE]: document emission (`Grasshopper2.Bake`)
 
@@ -188,39 +188,39 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 
 - `ResizableAttributes<T> : Attributes<T>` directly, NOT `ComponentAttributes` — so `LayoutBounds`, `DrawForegroundDecorations`, and the three layout boxes exist only on the component base, and a resizable shell hooks `Layout(Shape)` and `protected Draw(Context, Skin, Capsule)` instead, reading its shade as `skin.Shades[Owner]`.
 - `Size`'s setter is the whole commit: it clamps to `MinimumSize`/`MaximumSize`, rounds, writes `Owner.CustomValues.Set("Attr.Size", value)`, re-frames `Bounds` from `Pivot`, then calls the empty `InvalidateLayout()` — so overriding `InvalidateLayout` is the sanctioned committed-size hook and it fires during base construction before a subclass field is assigned.
-- the resize gesture is the responder's, not the shell's: `MouseDown` mints a `ResizingFrame(Bounds, MinimumSize, MaximumSize, SnappingConstraints.CreateFromDocument(Owner.Document, Owner.InstanceId), SnappingSettings.Current)` and a `Grasshopper2.Undo.Actions.ResizeAction(Owner)`, `MouseDrag` advances it, `MouseUp` clears both canvas snap axes and commits through `Owner.Document.Undo.Do(("Resize", Owner.Nomen.Name), action)`, and `KeyDown` toggles `Settings.CanvasSnapToObjects`.
+- Resize gesture is the responder's, not the shell's: `MouseDown` mints a `ResizingFrame(Bounds, MinimumSize, MaximumSize, SnappingConstraints.CreateFromDocument(Owner.Document, Owner.InstanceId), SnappingSettings.Current)` and a `Grasshopper2.Undo.Actions.ResizeAction(Owner)`, `MouseDrag` advances it, `MouseUp` clears both canvas snap axes and commits through `Owner.Document.Undo.Do(("Resize", Owner.Nomen.Name), action)`, and `KeyDown` toggles `Settings.CanvasSnapToObjects`.
 - `ICursorAwareAttributes.CursorAt` is an EXPLICIT implementation, so a subclass cannot override it and re-listing the interface on the subclass re-implements the map instead — silently replacing the host's edge-resize cursor with the subclass member; the base body pads by `EdgeSize`, zeroes the axes whose min and max agree, and returns `null` outside `Bounds.Contains(point, 0.5f)`.
 
 [ENTRYPOINT_SCOPE]: writable parameter modifiers (`Grasshopper2.Parameters.Standard`)
 
-| [INDEX] | [SURFACE]                                | [SHAPE]                              | [CAPABILITY]                     |
-| :-----: | :--------------------------------------- | :----------------------------------- | :------------------------------- |
-|  [01]   | `VectorParameter.UnitiseVectors`         | `bool`                               | unit-length projection           |
-|  [02]   | `VectorParameter.ReverseVectors`         | `bool`                               | sense projection                 |
-|  [03]   | `AngleParameter.EnforceKind`             | `int`                                | untyped 0/1/2/3 unit ordinal     |
-|  [04]   | `AngleParameter.ReduceAngles`            | `bool`                               | turn reduction                   |
-|  [05]   | `BooleanParameter.NegateValues`          | `bool`                               | negation                         |
-|  [06]   | `BooleanParameter.ReplaceNullsWithTrue`  | `bool`                               | null substitution to true        |
-|  [07]   | `BooleanParameter.ReplaceNullsWithFalse` | `bool`                               | null substitution to false       |
-|  [08]   | `ConnectionParameter.DoCollect`          | `bool`                               | collect connected source ids     |
-|  [09]   | `IntegerParameter.IsIndex`               | `bool`                               | index posture                    |
-|  [10]   | `IntegerParameter.Indexing`              | `IndexModifier`                      | wrap policy                      |
-|  [11]   | `IntegerParameter.Hint`                  | `UiInteger`                          | `Grasshopper2.UI` integer hint   |
+| [INDEX] | [SURFACE]                                | [SHAPE]                              | [CAPABILITY]                                       |
+| :-----: | :--------------------------------------- | :----------------------------------- | :------------------------------------------------- |
+|  [01]   | `VectorParameter.UnitiseVectors`         | `bool`                               | unit-length projection                             |
+|  [02]   | `VectorParameter.ReverseVectors`         | `bool`                               | sense projection                                   |
+|  [03]   | `AngleParameter.EnforceKind`             | `int`                                | untyped 0/1/2/3 unit ordinal                       |
+|  [04]   | `AngleParameter.ReduceAngles`            | `bool`                               | turn reduction                                     |
+|  [05]   | `BooleanParameter.NegateValues`          | `bool`                               | negation                                           |
+|  [06]   | `BooleanParameter.ReplaceNullsWithTrue`  | `bool`                               | null substitution to true                          |
+|  [07]   | `BooleanParameter.ReplaceNullsWithFalse` | `bool`                               | null substitution to false                         |
+|  [08]   | `ConnectionParameter.DoCollect`          | `bool`                               | collect connected source ids                       |
+|  [09]   | `IntegerParameter.IsIndex`               | `bool`                               | index posture                                      |
+|  [10]   | `IntegerParameter.Indexing`              | `IndexModifier`                      | wrap policy                                        |
+|  [11]   | `IntegerParameter.Hint`                  | `UiInteger`                          | `Grasshopper2.UI` integer hint                     |
 |  [12]   | `NumberParameter.Hint`                   | `UiNumber`                           | `Grasshopper2.UI` slider domain and precision hint |
-|  [13]   | `NumericParameter.ExoticFilter`          | `NumericFilter`                      | admitted exotic numeric families |
-|  [14]   | `CurveParameter.NormaliseDomains`        | `NormalisationMethod`                | curve domain rule                |
-|  [15]   | `CurveParameter.FlipCurves`              | `bool`                               | curve sense flip                 |
-|  [16]   | `SurfaceParameter.AcceptMeshes`          | `bool`                               | mesh admission                   |
-|  [17]   | `SurfaceParameter.NormaliseDomains`      | `CurveParameter.NormalisationMethod` | surface domain rule              |
-|  [18]   | `SurfaceParameter.FlipSurfaces`          | `bool`                               | surface sense flip               |
-|  [19]   | `TextParameter.Flavour`                  | `TextFlavour`                        | text flavour                     |
-|  [20]   | `TextParameter.FileExtensions`           | `string[]`                           | extension filter                 |
-|  [21]   | `TextParameter.WatchFiles`               | `bool`                               | file-watch toggle                |
-|  [22]   | `TextParameter.Casing`                   | `CasingBehaviour`                    | casing policy                    |
-|  [23]   | `TextParameter.CleanWhitespace`          | `bool`                               | whitespace cleanup               |
-|  [24]   | `TextPatternParameter.PatternKind`       | `TextPatternKind`                    | pattern dialect                  |
-|  [25]   | `TextPatternParameter.CaseSensitive`     | `bool`                               | case policy                      |
-|  [26]   | `IParameter.PersistentDataWeak`          | `ITree`                              | erased persisted-tree slot       |
+|  [13]   | `NumericParameter.ExoticFilter`          | `NumericFilter`                      | admitted exotic numeric families                   |
+|  [14]   | `CurveParameter.NormaliseDomains`        | `NormalisationMethod`                | curve domain rule                                  |
+|  [15]   | `CurveParameter.FlipCurves`              | `bool`                               | curve sense flip                                   |
+|  [16]   | `SurfaceParameter.AcceptMeshes`          | `bool`                               | mesh admission                                     |
+|  [17]   | `SurfaceParameter.NormaliseDomains`      | `CurveParameter.NormalisationMethod` | surface domain rule                                |
+|  [18]   | `SurfaceParameter.FlipSurfaces`          | `bool`                               | surface sense flip                                 |
+|  [19]   | `TextParameter.Flavour`                  | `TextFlavour`                        | text flavour                                       |
+|  [20]   | `TextParameter.FileExtensions`           | `string[]`                           | extension filter                                   |
+|  [21]   | `TextParameter.WatchFiles`               | `bool`                               | file-watch toggle                                  |
+|  [22]   | `TextParameter.Casing`                   | `CasingBehaviour`                    | casing policy                                      |
+|  [23]   | `TextParameter.CleanWhitespace`          | `bool`                               | whitespace cleanup                                 |
+|  [24]   | `TextPatternParameter.PatternKind`       | `TextPatternKind`                    | pattern dialect                                    |
+|  [25]   | `TextPatternParameter.CaseSensitive`     | `bool`                               | case policy                                        |
+|  [26]   | `IParameter.PersistentDataWeak`          | `ITree`                              | erased persisted-tree slot                         |
 
 - every row above is a `public { get; set; }` auto-property on the concrete parameter, so a pin modifier is assigned after the adder returns and never through a declaration argument; `TextParameter.WatchFiles` alone initializes `true`.
 - `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the host's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol, so the ordinals `0` none, `1` degrees, `2` radians, `3` turns are host wire constants and a boundary vocabulary typing them carries them as an `int` column.
@@ -263,7 +263,7 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 - pins are `IParameter`s carrying an `Access` (`Item`/`Twig`/`Tree`) and a `Requirement` (`MustExist`/`MayBeNull`/`MayBeMissing`); the adder families are the one pin-declaration surface, and the modular adders extend each with label, colour, category, and hidden state.
 - data is `Tree<T>` of `Twig<T>` of `Pear<T>`: `Garden` builds and folds trees (`PairWiseOp`/`PearWiseOp`), `Twig<T>.Convert`/`Apply` transform a branch, and the `Grasshopper2.Parameters.Standard` brokers and `ConversionServer` resolve a host object onto its concrete family carrying a `Merit` score.
 - `ModularComponent` drives its pin surface from `__`-prefixed well-known keys (`__Icon`, `__Colour`, `__Optional`, `__Category`, `__HideByDefault`, `__HiddenWires`); `Plugin`/`PluginServer` own registration and `IoIdAttribute` stamps the persistent serialization id.
-- a pin's writable policy is post-declaration property assignment on the concrete `Grasshopper2.Parameters.Standard` parameter the adder returned, never a declaration argument, so a policy carrier admits its whole column set and writes it in one pass against the exact parameter type.
+- Pin's writable policy is post-declaration property assignment on the concrete `Grasshopper2.Parameters.Standard` parameter the adder returned, never a declaration argument, so a policy carrier admits its whole column set and writes it in one pass against the exact parameter type.
 - `CreateAttributes` returns the object's own `IAttributes`: `ComponentAttributes` is the component base whose `Responder` and `DrawForegroundDecorations` are the two extension seams, while `ResizableAttributes<T>` is a sibling over `Attributes<T>` carrying persisted size and its own resize responder — the two bases share no layout or decoration member, so one policy spine projects onto them through different host callbacks.
 
 [STACKING]:

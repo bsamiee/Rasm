@@ -33,7 +33,7 @@
 |  [01]   | `SystemProperties`               | struct        | HMD name, vendor, graphics/tracking caps                                            |
 |  [02]   | `View`                           | struct        | per-eye pose + field-of-view                                                        |
 |  [03]   | `ViewConfigurationType`          | enum          | stereo/mono/quad view config                                                        |
-|  [04]   | `ViewConfigurationView`          | struct        | recommended/max image rect + sample count                                           |
+|  [04]   | `ViewConfigurationView`          | struct        | `Recommended`/`Max` `ImageRect*` + `SwapchainSampleCount`                           |
 |  [05]   | `ViewState`                      | struct        | `ViewStateFlags` orientation/position valid + tracked bits                          |
 |  [06]   | `Posef`                          | struct        | position quaternion + translation                                                   |
 |  [07]   | `Fovf`                           | struct        | asymmetric tangent field-of-view (`AngleLeft`/`Right`/`Up`/`Down`)                  |

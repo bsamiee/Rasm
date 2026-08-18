@@ -91,7 +91,7 @@
 
 - `Canvas.ResolvePick`: five bools — `includeGrips`, `includeForeground`, `includeBackground`, `includeWires`, `recursive`; inherited from `FlexControl`, reads the `DrawPickMap` buffer
 - `DragPickingMode` (`Grasshopper2.UI.Canvas`, public enum) is GH2's own drag-grain vocabulary: `Default` defers to keyboard state, `SubObject` drags sub-objects where supported, `OneObject` drags whole objects, `AllObjects` drags every object in a parameter at once. It is the ONLY published pick vocabulary — a category roster naming surfaces, wires, or "everything" is a local invention with no host counterpart.
-- The host's own resolver is unreachable: `ResolvePickMode(bool shift, bool control)` is `public` on `Canvas.ViewportMouseDragger`, a PRIVATE nested class, so no consumer can call it. Its law is what composes instead — `Default` resolves to `AllObjects` under shift and `OneObject` otherwise, and `control` is accepted and unread — and a folder re-spelling that law states it as a row column against this line, never as a fresh policy.
+- Host's own resolver is unreachable: `ResolvePickMode(bool shift, bool control)` is `public` on `Canvas.ViewportMouseDragger`, a PRIVATE nested class, so no consumer can call it. Its law is what composes instead — `Default` resolves to `AllObjects` under shift and `OneObject` otherwise, and `control` is accepted and unread — and a folder re-spelling that law states it as a row column against this line, never as a fresh policy.
 
 [ENTRYPOINT_SCOPE]: hosted editors, window-select gates, snap axes (`Grasshopper2.UI.Canvas`)
 
@@ -152,7 +152,7 @@
 |  [17]   | `SlabF.MessageBar(float, out GraphicsPath, out RectangleF)`                  | instance | message-bar geometry, `false` when absent     |
 
 - `Capsule` mutates: `AddInputPlug`/`AddOutputPlug` grow internal arrays in blocks of six and `HasInfoMessage`/`HasWarningMessage`/`HasErrorMessage` are settable, so a capsule is a per-paint scratch value built inside the draw, never a cached one — `Attributes<T>.Draw(Context, Skin)` re-mints it every frame through `CreateFromOuter(skin.Shape, Bounds)`.
-- the draw legs are ordered — grips, faces, messaging, overlay, edges — and `Draw(Graphics, Parts, Shade, Skin)` selects a subset by flag; each leg fades its own geometry through `skin.Fades.Form`/`.Grip`, so a partial draw still matches the animated skin.
+- Draw legs are ordered — grips, faces, messaging, overlay, edges — and `Draw(Graphics, Parts, Shade, Skin)` selects a subset by flag; each leg fades its own geometry through `skin.Fades.Form`/`.Grip`, so a partial draw still matches the animated skin.
 - `SlabF.Contains` is the exact answer and `RectangleF.Contains` the coarse pre-filter; a hit test on bounds alone accepts the four rounded corners the capsule excludes.
 
 [ENTRYPOINT_SCOPE]: skin interpolation and sparkle draws (`Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`)
@@ -181,7 +181,7 @@
 - `WireShape` is the closed wire-route family; `Create` discriminates endpoint pair versus parameter-attribute pair and every route answers `Project`/`DistanceTo`/`Intersects`/`IsCoincident`/`Draw`
 - snapping is document-scoped: `api-gh2-interaction.md` owns the `SnappingConstraints` resolution surface whole (`CreateFromDocument`, `SnapRectangle`, `SnapWires`, `DrawSnappingBoxes`); this partition keeps the `SnappingAction` candidate factories, its feedback columns, and the `SnappingSettings` policy rows, and `SmallerMagnitude` folds the winning nudge
 - skin interpolation is value-parametric: `Skin.Interpolate`/`WireSkin.Interpolate` blend at a parameter and `WireSkin.ResolveColours` emits the wire end-colour pair by state
-- the capsule is the object silhouette every attributes draw folds: `Capsule.CreateFromOuter(Skin.Shape, Bounds)` mints it per frame, `SlabF` carries the rounded geometry and answers `Contains` exactly, and the `Parts` flag set selects which of the five ordered legs run
+- Capsule is the object silhouette every attributes draw folds: `Capsule.CreateFromOuter(Skin.Shape, Bounds)` mints it per frame, `SlabF` carries the rounded geometry and answers `Contains` exactly, and the `Parts` flag set selects which of the five ordered legs run
 
 [STACKING]:
 - `api-gh2-flex.md`(`.api/api-gh2-flex.md`): the `IFlexControl` seam owns projection (`Map`), navigation (`Navigate`), window-select (`BeginWindowSelect`/`EndWindowSelect`), responsive registration, redraw scheduling (`ScheduleRedraw`), and `Animate`; the canvas composes it and holds no parallel viewport transform

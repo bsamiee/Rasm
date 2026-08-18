@@ -43,8 +43,8 @@ Each interface is one capability facet; its config records parameterize the face
 |  [07]   | `TouchAction`                                          | camera config  | touch-action policy; `viewer/geo/project.md`   |
 |  [08]   | `SceneGraphInterface` / `SceneExportOptions`           | scene mutation | `binary`/`trs`/`onlyVisible`/`maxTextureSize`  |
 |  [09]   | `AnnotationInterface` / `HotspotData`                  | hotspot + ray  | `position`/`normal`/`canvasPosition`/`facing`  |
-|  [09a]  | `HotspotConfiguration`                                 | hotspot config | `name` IS the slot name; `position`/`normal`   |
-|  [09b]  | `HotspotVisibilityDetails`                             | hotspot event  | `hotspot-visibility` detail `{ visible }`      |
+|  [10]   | `HotspotConfiguration`                                 | hotspot config | `name` IS the slot name; `position`/`normal`   |
+|  [11]   | `HotspotVisibilityDetails`                             | hotspot event  | `hotspot-visibility` detail `{ visible }`      |
 |  [12]   | `ARInterface` / `ARMode` / `ARStatusDetails`           | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look |
 |  [13]   | `EnvironmentInterface` / `ToneMappingValue`            | IBL lighting   | `environmentImage`/`skyboxImage`/`shadow`      |
 |  [14]   | `AnimationInterface` / `PlayAnimationOptions`          | animation      | `repetitions`/`pingpong` clip playback         |
@@ -75,15 +75,15 @@ Each interface is one capability facet; its config records parameterize the face
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------- |
 |  [01]   | `exportScene(options?): Promise<Blob>`                            | scene graph    | GLB round-trip export                      |
-|  [01a]  | `toBlob(options?: ToBlobOptions): Promise<Blob>`                  | scene graph    | viewport raster capture                    |
-|  [01b]  | `toDataURL(type?: string, encoderOptions?: number): string`       | scene graph    | sync data-URL capture of the current frame |
+|  [02]   | `toBlob(options?: ToBlobOptions): Promise<Blob>`                  | scene graph    | viewport raster capture                    |
+|  [03]   | `toDataURL(type?: string, encoderOptions?: number): string`       | scene graph    | sync data-URL capture of the current frame |
 |  [04]   | readonly `.model?: Model` / `.orientation` / `.scale`             | scene graph    | model-root access + transform              |
 |  [05]   | `.availableVariants` / `.variantName`                             | scene graph    | KHR_materials_variants switch              |
 |  [06]   | `createTexture(uri, type?)` / `createCanvasTexture()`             | texture        | runtime `ModelViewerTexture` authoring     |
 |  [07]   | `createVideoTexture(uri)`                                         | texture        | a video-backed `ModelViewerTexture`        |
 |  [08]   | `materialFromPoint(px, py): Material \| null`                     | material pick  | screen-pixel → material                    |
 |  [09]   | `updateHotspot(config)` / `queryHotspot(name)`                    | hotspot        | hotspot update + query                     |
-|  [07a]  | `slot="hotspot*"` + `data-position`/`-normal`/`-surface`          | hotspot mount  | the ONLY hotspot creation path             |
+|  [10]   | `slot="hotspot*"` + `data-position`/`-normal`/`-surface`          | hotspot mount  | the ONLY hotspot creation path             |
 |  [11]   | `positionAndNormalFromPoint(px, py)`                              | ray            | pixel → 3D position + normal               |
 |  [12]   | `surfaceFromPoint(px, py): string \| null`                        | ray            | pixel → surface node; `viewer/mark/bcf.md` |
 |  [13]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight`            | environment    | IBL + skybox binding                       |

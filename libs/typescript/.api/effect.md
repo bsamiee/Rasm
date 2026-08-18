@@ -173,12 +173,15 @@
 |  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot      | fiber handoff, `haltWhen` signals, promise-once           |
 |  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel       | `work/queue` job intake with backpressure                 |
 |  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, quarantine, `journal/fact` drain    |
-|  [06]   | `FiberRef.make` + `Effect.locally`/`locallyWith`/`locallyScoped`/`locallyScopedWith` | fiber-local | `serve/api` middleware; built-in `currentLogAnnotations` — the locally family lives on `Effect`, not `FiberRef` |
-|  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
-|  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
-|  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
-|  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
+|  [06]   | `FiberRef.make`                                         | fiber-local   | `serve/api` middleware; `currentLogAnnotations` built in  |
+|  [07]   | `Effect.locally` / `locallyWith`                        | fiber-local   | override for the wrapped effect alone                     |
+|  [08]   | `Effect.locallyScoped` / `locallyScopedWith`            | fiber-local   | override held for the enclosing `Scope`                   |
+|  [09]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
+|  [10]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
+|  [11]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
+|  [12]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
 
+- [07]-[LOCALLY]: `Effect` declares the whole `locally` family; `FiberRef` carries only the cell and its `get`/`set` pair.
 - `PubSub.publish` / `Queue.offer` / `Mailbox.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
 - `Mailbox.end` / `Mailbox.toStream`: `end` is the LOSSLESS stop — the consumer keeps receiving what was already offered and the stream completes after the buffer empties — where `Queue.shutdown` cancels pending operations and discards the buffer, so a plane that must flush at shutdown takes a mailbox and a plane that must stop now takes `shutdown`. Both `end` and `shutdown` answer `false` once the mailbox is done, and `offer` answers `false` from that point rather than suspending.
 - `Mailbox` carries the `@experimental` flag and stays the buffer `@effect/cluster` builds on, so the tag marks API churn, never maturity.

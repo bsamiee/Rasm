@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_MACOS_NATIVE]
 
-Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto-hosted Grasshopper 2 canvas that the pacing core does not reach: `CoreAnimation` owns the composited layer graph and its animation values, `AppKit` owns the local event monitor, gesture and pressure recognizers, vibrancy chrome, and haptics, and `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own leased capture and locked pixel-row egress. The view-window-screen anchor chain, display link, run loop, accessibility gates, and object bridge are the branch pacing core this partition registers. Each retained native object carries its removal, invalidation, or disposal inverse.
+Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto-hosted Grasshopper 2 canvas that the pacing core does not reach: `CoreAnimation` owns the composited layer graph and its animation values, `AppKit` owns the local event monitor, gesture and pressure recognizers, vibrancy chrome, and haptics, and `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own leased capture and locked pixel-row egress. View-window-screen anchor chain, display link, run loop, accessibility gates, and object bridge are the branch pacing core this partition registers. Each retained native object carries its removal, invalidation, or disposal inverse.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -13,7 +13,7 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 ## [02]-[PUBLIC_TYPES]
 
 - Registers the macOS pacing core (`libs/csharp/.api/api-macos-native.md`): the `NSView`-to-`NSWindow`-to-`NSScreen` anchor chain with its display facts, coordinate maps (`NSView.ConvertPointFromView`), and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there; the rows below are the subsystem this canvas boundary adds beyond it.
-- The `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog composes it and adds only the AppKit-side facts a conversion call site needs.
+- `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog composes it and adds only the AppKit-side facts a conversion call site needs.
 
 [PUBLIC_TYPE_SCOPE]: layer graph, animation, and filtering
 
@@ -186,7 +186,7 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 - Within-folder: the seam gate admits the boundary, the compositor mounts the layer graph with Display-P3 colour, the capture owner leases the stream into stamped frame rings, and motion pacing consumes the registered display link through one shared step fold.
 
 [LOCAL_ADMISSION]:
-- The seam admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
+- Seam admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
 - Layer, recognizer, monitor, and capture work binds to the extracted container view; canvas extraction stays the explicit control-object branch and never a widened cast.
 - Value crossings take the `Eto.Mac` conversion owners; a local conversion beside them is the deleted form.
 

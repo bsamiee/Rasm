@@ -46,7 +46,7 @@ Build from points, a DXF, or a Rhino `.3dm`, register interior voids through the
 | [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                                 |
 | :-----: | :---------------------------------------------------- | :------- | :----------------------------------------------------------- |
 |  [01]   | `Geometry.from_points(…)`                             | factory  | ONE region; raises without exactly one control point         |
-|  [01b]  | `CompoundGeometry.from_points(…)`                     | factory  | multi-region owner — one control point per region            |
+|  [02]   | `CompoundGeometry.from_points(…)`                     | factory  | multi-region owner — one control point per region            |
 |  [03]   | `Geometry.from_dxf(dxf_filepath)`                     | factory  | DXF profile in; answers `Geometry` or `CompoundGeometry`     |
 |  [04]   | `Geometry.from_3dm(filepath)`                         | factory  | Rhino `.3dm` profile import                                  |
 |  [05]   | `CompoundGeometry(geoms)`                             | ctor     | assemble built-up section from regions                       |

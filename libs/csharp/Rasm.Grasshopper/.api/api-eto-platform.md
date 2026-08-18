@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_ETO_PLATFORM]
 
-`Eto.macOS` is the AppKit backend behind every Eto widget a Grasshopper2 panel raises on macOS: `Eto.Mac.Platform` seats the handler set, `IMacControlHandler` partitions the native `NSView` roles for layout, content, events, focus, and text input, `MacControlExtensions` extracts the Eto-backed view, `NativeControlHandler` admits a raw AppKit object, and `MacConversions`/`CGConversions` carry every value across the Eto, AppKit, and CoreGraphics boundary. The handler-factory root itself is the branch surface this partition registers.
+`Eto.macOS` is the AppKit backend behind every Eto widget a Grasshopper2 panel raises on macOS: `Eto.Mac.Platform` seats the handler set, `IMacControlHandler` partitions the native `NSView` roles for layout, content, events, focus, and text input, `MacControlExtensions` extracts the Eto-backed view, `NativeControlHandler` admits a raw AppKit object, and `MacConversions`/`CGConversions` carry every value across the Eto, AppKit, and CoreGraphics boundary. Handler-factory root itself is the branch surface this partition registers.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -58,7 +58,7 @@
 - Both `net` tables are UNLOGGED, so a crash truncates queued requests and landed responses alike.
 
 [STACKING]:
-- `Npgsql`(`.api/api-npgsql.md`), `Npgsql.EntityFrameworkCore.PostgreSQL`(`.api/api-npgsql-ef.md`): url, `params`, `headers`, `body`, and `timeout_milliseconds` bind as `NpgsqlParameter` values through `FromSql`/`RelationalDatabaseFacadeExtensions.SqlQuery<T>`; no EF translator covers the `net` schema.
+- `Npgsql`(`libs/csharp/.api/api-npgsql.md`), `Npgsql.EntityFrameworkCore.PostgreSQL`(`.api/api-npgsql-ef.md`): url, `params`, `headers`, `body`, and `timeout_milliseconds` bind as `NpgsqlParameter` values through `FromSql`/`RelationalDatabaseFacadeExtensions.SqlQuery<T>`; no EF translator covers the `net` schema.
 - `Version/egress#EGRESS_SINK`: `http` enqueues `net.http_post` under the content key as idempotency header and folds `net.http_response_result` on the NEXT drain — `SUCCESS` advances the cursor, `ERROR` and timeout refuse, an unresolved row holds it as `EgressFault.DeliveryUnconfirmed`.
 - `Version/egress#EGRESS_PUMP`: retriability reads three `net._http_response` columns directly — a `5xx` `status_code`, a NULL `status_code` with its transport cause in `error_msg`, and `timed_out = true` re-enqueue through the request function, while a `4xx` dead-letters.
 - `Store/provisioning#SERVER_EXTENSIONS`: `ClusterConfig` verifies `pg_net.ttl` and `pg_net.batch_size` read-only against `pg_settings` after boot, and its verification fold calls `net.check_worker_is_up`/`net.wait_until_running` for liveness.

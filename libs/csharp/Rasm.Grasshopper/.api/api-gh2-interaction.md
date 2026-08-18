@@ -31,7 +31,7 @@
 
 [ENTRYPOINT_SCOPE]: object drag and constraint snapping
 
-A drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a nested `DragResponsive` carrying the `Orthogonal` toggle); `LastPoint` is private and never drag evidence.
+Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a nested `DragResponsive` carrying the `Orthogonal` toggle); `LastPoint` is private and never drag evidence.
 
 | [INDEX] | [SURFACE]                                | [SHAPE]                   | [CAPABILITY]                   |
 | :-----: | :--------------------------------------- | :------------------------ | :----------------------------- |
@@ -71,7 +71,7 @@ A drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a 
 
 [LOCAL_ADMISSION]:
 - Canvas interaction is the Rasm.Grasshopper folder's own domain, composing the Rasm kernel for host-agnostic geometry and referencing no sibling Rasm package.
-- An interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` seam; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
+- Interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` seam; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
 - Snapping enters through `SnappingConstraints` for canvas rectangles or `SnapSpace` for numeric pairs; a hand-rolled alignment or grid solve is the deleted form.
 
 [RAIL_LAW]:

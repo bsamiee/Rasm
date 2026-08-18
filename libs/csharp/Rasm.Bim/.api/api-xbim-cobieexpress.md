@@ -141,12 +141,12 @@
 - `Semantics/properties#PROPERTY_TEMPLATES` (`api-xbim-properties`): the `CobieAttribute` rows project the Pset properties onto (name + `AttributeValue` + unit), the same Pset vocabulary the template defines, never a re-typed property model
 - `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values stamp from the `NodaMoney` `Currency` and `UnitsNet` SI units the cost/quantity owners hold
 - `VividOrange.Stages` (`api-vividorange-stages`): the `CobiePhase`/`CobieStageType`/`CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy
-- `NodaTime` (`libs/csharp/.api/api-nodatime.md`): the `CobieCreatedInfo.CreatedOn` provenance instant stamps from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
+- `NodaTime` (`libs/csharp/.api/api-nodatime.md`): the `CobieCreatedInfo.CreatedOn` provenance instant stamps from the threaded `IClock` — semantic time below the app root, never the app-stratum `ClockPolicy` and never a BCL `DateTime.Now` at the call site
 
 [LOCAL_ADMISSION]:
 - `CobieModel` is the FM-handover asset register, authored from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + properties through `Instances.New<T>()` in a transaction; a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside it is the rejected form
 - `IfcToCoBieExpressExchanger` admits its xBIM source ONLY as a terminal `.ifc`-file→COBie transform opened/converted/disposed inside the export call; a retained xBIM `IModel` as a live second authority alongside GeometryGym is the boundary violation
-- COBie attributes project the Pset vocabulary (`api-xbim-properties`), units the `NodaMoney`/`UnitsNet` owners, phases `VividOrange.Stages`, provenance the `NodaTime` `ClockPolicy` — never a fresh vocabulary minted in the COBie owner
+- COBie attributes project the Pset vocabulary (`api-xbim-properties`), units the `NodaMoney`/`UnitsNet` owners, phases `VividOrange.Stages`, provenance the threaded `NodaTime` `IClock` — never a fresh vocabulary minted in the COBie owner
 - `ExportToTable` mints the canonical COBie-spreadsheet FM deliverable, `SaveAsStep21` the STEP21 interchange form, Esent a working-store backend
 
 [RAIL_LAW]:

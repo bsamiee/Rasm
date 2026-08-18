@@ -13,7 +13,7 @@
 
 ## [02]-[BOUNDARY_REACH]
 
-- Registers the `Eto.Forms` ambient runtime (`libs/csharp/.api/api-eto-runtime.md`): `Application` dispatch and lifecycle, `UITimer`, `Keyboard`/`Mouse`/`Cursors` live input, `Clipboard`/`DataObject`/`DataFormats` typed transfer, `Notification`/`TrayIndicator`, and `Screen` density carry their algebra there. A process singleton admits no per-folder partition, so this boundary adds no carrier and states its reach and composition law over the registered surface.
+- Registers the `Eto.Forms` ambient runtime (`libs/csharp/.api/api-eto-runtime.md`): `Application` dispatch and lifecycle, `UITimer`, `Keyboard`/`Mouse`/`Cursors` live input, `Clipboard`/`DataObject`/`DataFormats` typed transfer, `Notification`/`TrayIndicator`, and `Screen` density carry their algebra there. Process singleton admits no per-folder partition, so this boundary adds no carrier and states its reach and composition law over the registered surface.
 
 | [INDEX] | [BOUNDARY_CONCERN]          | [REGISTERED_MEMBERS]                                                               |
 | :-----: | :-------------------------- | :--------------------------------------------------------------------------------- |
@@ -29,8 +29,8 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- The canvas paces on the registered `UITimer` tick and reads input live inside it: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` answer the ambient state a drag interpolates against, distinct from the per-event snapshots a control raises, so a drag never reconstructs modifier state from a stale event payload.
-- A canvas drop is one keyed payload: the component type string is a `DataFormats` identifier and the payload rides `DataObject` under it, so a drop discriminates on the registered key and never on a parsed blob.
+- Canvas paces on the registered `UITimer` tick and reads input live inside it: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` answer the ambient state a drag interpolates against, distinct from the per-event snapshots a control raises, so a drag never reconstructs modifier state from a stale event payload.
+- Canvas drop is one keyed payload: the component type string is a `DataFormats` identifier and the payload rides `DataObject` under it, so a drop discriminates on the registered key and never on a parsed blob.
 - Density resolves once per paint from `Screen`, so canvas logical geometry maps to device pixels through one read rather than a scale constant threaded through the painter.
 - Every off-thread mutation of panel or canvas state folds through one registered dispatch shape; a second marshal path inside the boundary is the deleted form.
 
@@ -42,7 +42,7 @@
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the `DataFormats` identifiers project onto a `[SmartEnum<string>]` payload-kind owner carrying parse and serialize behaviour, and the modifier and button masks bind as flag owners routed by generated dispatch.
 
 [LOCAL_ADMISSION]:
-- A cross-thread marshal calls the registered application singleton and a cadence uses the registered tick; a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them is the deleted form.
+- Cross-thread marshal calls the registered application singleton and a cadence uses the registered tick; a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them is the deleted form.
 - Transfer payloads ride the typed accessors keyed by a `DataFormats` identifier; a stringly-parsed blob past them is the deleted form.
 - Display density reads from `Screen`; a hardcoded scale constant is the deleted form.
 

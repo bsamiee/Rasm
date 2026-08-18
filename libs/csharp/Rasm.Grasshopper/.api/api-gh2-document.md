@@ -139,8 +139,8 @@
 |  [22]   | `Connections.CutOutMiddleMan`                     | `(IParameter×3, …)`                         | `bool` — bypass an intermediate        |
 |  [23]   | `Connections.CopyAllInputs` / `MigrateAllOutputs` | `(IParameter×2, …)`                         | `int` — duplicate or move a wire set   |
 
-- The spatial finders and the near search live on `ObjectList`, never on `Connectivity` — the connection snapshot carries no coordinate, and `ObjectList.Connectivity` mints a fresh one per read.
-- The two replace verbs order their parameters DIFFERENTLY — `ReplaceSource(oldSource, newSource, target, undo)` against `ReplaceTarget(source, oldTarget, newTarget, undo)` — so call sites bind by name or silently re-point the wrong end.
+- Spatial finders and the near search live on `ObjectList`, never on `Connectivity` — the connection snapshot carries no coordinate, and `ObjectList.Connectivity` mints a fresh one per read.
+- Two replace verbs order their parameters DIFFERENTLY — `ReplaceSource(oldSource, newSource, target, undo)` against `ReplaceTarget(source, oldTarget, newTarget, undo)` — so call sites bind by name or silently re-point the wrong end.
 - `History.FindCommonAncestor`/`FindShortestPath` are nonpublic — branch reconciliation walks the public `Node` topology (`Parent`/`ParentIfNotRoot`/`Depth`/`PrimaryChild`/`SecondaryChildren`).
 - Event-args families are public typed wires: `Grasshopper2.Doc` publishes `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`AfterAddObjectEventArgs`/`AfterRemoveObjectEventArgs`/`ObjectEventArgs`/`ObjectNameEventArgs`/`ObjectGuidEventArgs`/`SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`, `Grasshopper2.Undo` publishes `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`, and the generic `Grasshopper2.BeforeAfterEventArgs<TValue, TOwner>` carries the parent swap.
 - `FindByInlet`/`FindByOutlet` answer the closest grip EVEN WHERE OCCLUDED; `FindByInletOrOutlet` refuses an occluded grip and reports which side fell within range. All three return `null` on a miss.
@@ -149,7 +149,7 @@
 - `WindowSelect(window, mode, considerForeground = true, considerBackground = true, considerWires = true)` INCLUDES each band on true; its `SelectionResult` is a mutable pick accumulator, not a value.
 - `AttributeBounds` unions the laid-out attribute bounds and the wires joining them may exceed it; `PivotBounds` grows over pivots alone, needing no layout pass — quicker and less accurate.
 - `SubsetTopology` MEASURES rather than projects: it answers `GraphTopology.{Empty, Singleton, Convex, Disjoint, Concave}` for the subset. Reading it as a `Connectivity` view is the defect the name invites, and only `WithoutRelays` returns a view.
-- `WithoutRelays(dangling, simple, complex)` REMOVES on true, keyed by relay arity — `dangling` has no inputs or no outputs, `simple` exactly one of each, `complex` two or more on a side. A consumer vocabulary spells the arity and the removal polarity; three positional bools carry neither.
+- `WithoutRelays(dangling, simple, complex)` REMOVES on true, keyed by relay arity — `dangling` has no inputs or no outputs, `simple` exactly one of each, `complex` two or more on a side. Consumer vocabulary spells the arity and the removal polarity; three positional bools carry neither.
 - `FindConnections` yields one `ConnectiveObject[]` per causal PATH between the pair, never the wires joining them.
 
 [ENTRYPOINT_SCOPE]: object identity, solution, undo

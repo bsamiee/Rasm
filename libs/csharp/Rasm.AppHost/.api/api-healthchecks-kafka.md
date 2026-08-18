@@ -61,7 +61,7 @@ Every `AddKafka` overload extends `IHealthChecksBuilder` and closes with `string
 
 [STACKING]:
 - `Confluent.Kafka`: `ProducerConfig` is the admitted broker config the `Wire/topics`/`Wire/outbox` CloudEvents-over-Kafka rail composes, so `Configure` installs the same `SetValueSerializer` the production producer binds and the probe exercises the real serializer path.
-- `Observability/health.md`: `HealthContributorRow.Driver(DriverProbe.Kafka, cadence, kafkaCheck)` adapts `CheckHealthAsync` into one deploy-gated `remote`-tagged contributor row that `HealthSurface.Register` admits and `HealthReport.Snapshot` projects, and a faulted broker drives that owner's `ReducedRemote` degradation.
+- `Observability/health.md`: `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Kafka, kafkaCheck), cadence)` adapts `CheckHealthAsync` into one deploy-gated `remote`-tagged contributor row that `HealthSurface.Register` admits and `HealthReport.Snapshot` projects, and a faulted broker drives that owner's `ReducedRemote` degradation.
 
 [LOCAL_ADMISSION]:
 - `ProducerConfig` carries the same broker/SASL/SSL configuration the CloudEvents-over-Kafka topics rail builds its `IProducer` from; the probe re-binds the admitted config rather than minting a second connection vocabulary, so a broker outage degrades the publish path and the probe in lockstep.

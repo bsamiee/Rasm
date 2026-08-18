@@ -1,6 +1,6 @@
-# [RASM_RHINO_API_ETO_PRINTING]
+# [RASM_API_ETO_PRINTING]
 
-`Eto.Forms` printing owns document output, and the Rhino host boundary is its only reach in this branch — no sibling boundary prints, so this partition carries the whole surface rather than registering one. `PrintDocument` is the paginated render job the two dialogs present, the settings types configure, and `Taskbar` mirrors, held apart from the interactive control tree and ambient runtime.
+`Eto.Forms` printing owns document output, and two reachers compose this surface: the kernel `Rasm/Interaction/chrome#[06]-[PRINT]` deferred-run owner and the Rhino host boundary's publishing legs — so the catalogue seats at the branch tier per the one-catalogue-one-tier ruling. `PrintDocument` is the paginated render job the two dialogs present, the settings types configure, and `Taskbar` mirrors, held apart from the interactive control tree and ambient runtime.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -110,7 +110,7 @@
 
 [LOCAL_ADMISSION]:
 - `Eto.Forms` printing is host-provided and never re-declared; a Rasm owner internalizes document output behind one canonical rail so downstream code composes a print effect and a page-render callback, never a raw `PrintDocument` lifecycle, a stringy dialog-result branch, or a hand-threaded taskbar update.
-- No sibling host boundary in this branch prints, so this partition is the whole surface rather than a registration over a branch owner; a second boundary reaching printing hoists this file to the branch tier rather than re-tabling it.
+- The kernel `Interaction/chrome` print owner and the Rhino publishing legs both compose this one catalogue; a folder-tier copy or redirect stub is the deleted form (branch RULINGS `[04]`).
 
 [RAIL_LAW]:
 - Package: `Eto.Forms`

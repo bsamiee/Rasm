@@ -70,7 +70,7 @@ Schema reflection caches and invalidates by version: two event triggers bump the
 - Reflection is data, never a hand-mapped schema: tables/columns/foreign keys/comments reflect into the GraphQL schema; a table earns exposure through a primary key or a `primary_key_columns`/`foreign_keys` directive for a view/matview/foreign table, type/field/relationship names tune through `@graphql` directives, and the two event triggers invalidate the cache on DDL.
 
 [STACKING]:
-- `npgsql`(`.api/api-npgsql.md`): the `jsonb` resolver result rides raw `Npgsql` through `FromSql`/`SqlQuery`, the query document and `variables` bound as parameters — never an EF-translated member, never a runtime-concatenated GraphQL string.
+- `npgsql`(`libs/csharp/.api/api-npgsql.md`): the `jsonb` resolver result rides raw `Npgsql` through `FromSql`/`SqlQuery`, the query document and `variables` bound as parameters — never an EF-translated member, never a runtime-concatenated GraphQL string.
 - `Store/provisioning#SERVER_EXTENSIONS`: `ServerExtension("pg_graphql", PreloadGated: false)` emits `CREATE EXTENSION IF NOT EXISTS pg_graphql` through `Declare`, its row absent from the preload value.
 - `Element/identity#ELEMENT_IDENTITY`: read-API egress reads the reflected `element_identity`/`node_cell` tables, mapped once from the live schema.
 

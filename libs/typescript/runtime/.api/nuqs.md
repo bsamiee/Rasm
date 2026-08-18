@@ -43,22 +43,26 @@
 [SCALAR_ATOMS]: `parseAsString` `parseAsInteger` `parseAsFloat` `parseAsIndex` `parseAsHex` `parseAsBoolean` — `SingleParserBuilder` scalar constants over `string`/`number`/`boolean`, `parseAsIndex` offset, `parseAsHex` radix.
 [DATE_ATOMS]: `parseAsTimestamp` `parseAsIsoDateTime` `parseAsIsoDate` — `SingleParserBuilder<Date>` over epoch-ms, ISO-8601, date-only.
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :------------------------------------------------------------ | :------- | :---------------------------------- |
-|  [01]   | `parseAsStringEnum(values) -> SingleParserBuilder<E>`         | factory  | closed enum vocabulary              |
-|  [02]   | `parseAsStringLiteral(readonly values)`                       | factory  | closed string-literal set           |
-|  [03]   | `parseAsNumberLiteral(readonly values)`                       | factory  | closed number-literal set           |
-|  [04]   | `parseAsJson(validator \| StandardSchemaV1<T>)`               | factory  | validated JSON — the Schema seam    |
-|  [05]   | `parseAsArrayOf(itemParser, separator?)`                      | factory  | delimited list over an item parser  |
-|  [06]   | `parseAsNativeArrayOf(itemParser)`                            | factory  | repeated-key (`?k=a&k=b`) multi     |
-|  [07]   | `createParser(SingleParser) -> SingleParserBuilder`           | factory  | own any state `T` beyond the atoms  |
-|  [08]   | `createMultiParser(MultiParser) -> MultiParserBuilder`        | factory  | own any repeated-key state `T`      |
-|  [09]   | `createSerializer(ParserMap, Options?) -> SerializeFunction`  | factory  | state → next query string           |
-|  [10]   | `createLoader(ParserMap, {urlKeys}?) -> LoaderFunction`       | factory  | `LoaderInput` → typed state record  |
-|  [11]   | `createStandardSchemaV1(ParserMap, {urlKeys,partialOutput}?)` | factory  | route `ParserMap` → Standard Schema |
-|  [12]   | `throttle(number)` / `debounce(number)`                       | factory  | `-> LimitUrlUpdates`                |
-|  [13]   | `defaultRateLimit`                                            | property | the default `LimitUrlUpdates`       |
-|  [14]   | `nuqs/testing` — `isParserBijective(parser, value, serialized)` / `testParseThenSerialize` / `testSerializeThenParse` | proof | the round-trip proof harness a bespoke `createParser` row exercises in the tests tier — the bijectivity every `Router.Row` codec implicitly claims |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------ | :------- | :-------------------------------------- |
+|  [01]   | `parseAsStringEnum(values) -> SingleParserBuilder<E>`         | factory  | closed enum vocabulary                  |
+|  [02]   | `parseAsStringLiteral(readonly values)`                       | factory  | closed string-literal set               |
+|  [03]   | `parseAsNumberLiteral(readonly values)`                       | factory  | closed number-literal set               |
+|  [04]   | `parseAsJson(validator \| StandardSchemaV1<T>)`               | factory  | validated JSON — the Schema seam        |
+|  [05]   | `parseAsArrayOf(itemParser, separator?)`                      | factory  | delimited list over an item parser      |
+|  [06]   | `parseAsNativeArrayOf(itemParser)`                            | factory  | repeated-key (`?k=a&k=b`) multi         |
+|  [07]   | `createParser(SingleParser) -> SingleParserBuilder`           | factory  | own any state `T` beyond the atoms      |
+|  [08]   | `createMultiParser(MultiParser) -> MultiParserBuilder`        | factory  | own any repeated-key state `T`          |
+|  [09]   | `createSerializer(ParserMap, Options?) -> SerializeFunction`  | factory  | state → next query string               |
+|  [10]   | `createLoader(ParserMap, {urlKeys}?) -> LoaderFunction`       | factory  | `LoaderInput` → typed state record      |
+|  [11]   | `createStandardSchemaV1(ParserMap, {urlKeys,partialOutput}?)` | factory  | route `ParserMap` → Standard Schema     |
+|  [12]   | `throttle(number)` / `debounce(number)`                       | factory  | `-> LimitUrlUpdates`                    |
+|  [13]   | `defaultRateLimit`                                            | property | the default `LimitUrlUpdates`           |
+|  [14]   | `isParserBijective(parser, serialized, input)`                | proof    | round-trip identity in both directions  |
+|  [15]   | `testParseThenSerialize(parser, input)`                       | proof    | parse then serialize returns the string |
+|  [16]   | `testSerializeThenParse(parser, input)`                       | proof    | serialize then parse returns the value  |
+
+- `nuqs/testing` exports the three round-trip proofs; a bespoke `createParser` row exercises them in the tests tier, certifying the bijectivity every `Router.Row` codec claims.
 
 - `createSerializer`: honors only `clearOnDefault`, `urlKeys`, `processUrlSearchParams`; `history`/`scroll`/`shallow`/`startTransition`/`limitUrlUpdates` are hook-only.
 - `createLoader`: returns a loader re-decoding any `LoaderInput` per `navigate` event.

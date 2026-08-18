@@ -145,20 +145,22 @@
 
 [ENTRYPOINT_SCOPE]: `cellSelectionFeature` — the spreadsheet band, stored as corner pairs
 
-| [INDEX] | [SURFACE]                                                                                         | [SHAPE] | [CAPABILITY]                           |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------ | :------------------------------------- |
-|  [01]   | `CellSelectionRange` (`anchorColumnId`/`anchorRowId`/`focusColumnId`/`focusRowId`/`operation?`)   | type    | one rectangle as its two corners       |
-|  [02]   | `CellSelectionState` = `Array<CellSelectionRange>`                                                | state   | the ordered operation list             |
-|  [03]   | `cell.getTabIndex()` / `getIsFocused()` / `getCanSelect()`                                        | cell    | roving focus and the per-cell gate     |
-|  [04]   | `cell.getSelectionStartHandler(contextDocument?)` / `getSelectionExtendHandler()`                 | cell    | `mousedown` open, `mouseenter` extend  |
-|  [05]   | `cell.getSelectionEdges()`                                                                        | cell    | which sides sit on the outline         |
-|  [06]   | `table.setCellSelection(updater)` / `resetCellSelection(defaultState?)`                           | table   | the slice writer and its reset         |
-|  [07]   | `table.selectCellRange(range, { mode })` / `selectAllCells()` / `setFocusedCell(rowId, columnId)` | table   | write a rectangle, all cells, one cell |
-|  [08]   | `table.moveCellSelection(direction)` / `extendCellSelection(direction)`                           | table   | keyboard collapse-move and anchor-hold |
-|  [09]   | `table.getCellSelectionBounds()` / `getCellSelectionMergeBounds()`                                | table   | resolved index rectangles, merged runs |
-|  [10]   | `table.getSelectedCellIds()` / `getSelectedCellRangesData()`                                      | table   | expanded ids, region-major value grids |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `CellSelectionRange`                                                              | type    | one rectangle as its two corners       |
+|  [02]   | `CellSelectionState` = `Array<CellSelectionRange>`                                | state   | the ordered operation list             |
+|  [03]   | `cell.getTabIndex()` / `getIsFocused()` / `getCanSelect()`                        | cell    | roving focus and the per-cell gate     |
+|  [04]   | `cell.getSelectionStartHandler(contextDocument?)` / `getSelectionExtendHandler()` | cell    | `mousedown` open, `mouseenter` extend  |
+|  [05]   | `cell.getSelectionEdges()`                                                        | cell    | which sides sit on the outline         |
+|  [06]   | `table.setCellSelection(updater)` / `resetCellSelection(defaultState?)`           | table   | the slice writer and its reset         |
+|  [07]   | `table.selectCellRange(range, { mode })`                                          | table   | write one rectangle                    |
+|  [08]   | `table.selectAllCells()`                                                          | table   | select every cell                      |
+|  [09]   | `table.setFocusedCell(rowId, columnId)`                                           | table   | move focus to one cell                 |
+|  [10]   | `table.moveCellSelection(direction)` / `extendCellSelection(direction)`           | table   | keyboard collapse-move and anchor-hold |
+|  [11]   | `table.getCellSelectionBounds()` / `getCellSelectionMergeBounds()`                | table   | resolved index rectangles, merged runs |
+|  [12]   | `table.getSelectedCellIds()` / `getSelectedCellRangesData()`                      | table   | expanded ids, region-major value grids |
 
-- A range is its `anchor` and `focus` corners, never a normalized min/max rectangle: the anchor stays put while the focus corner moves under shift-extend or drag, so the pair carries where an interaction resumes. Corners are flat row and column ids because a user-supplied `getRowId` may return any separator.
+- `CellSelectionRange` stores two corners rather than a normalized min/max rectangle: `anchorColumnId`/`anchorRowId` pin the corner a shift-extend pivots on while `focusColumnId`/`focusRowId` carry the moving one, and `operation?` (`include`/`exclude`) sets the range's polarity. Corners are flat row and column ids because a user-supplied `getRowId` may return any separator.
 - `operation` is `'include'` or `'exclude'`, defaulting to include, and the array is ordered — later entries carve or add against what came before, and the last entry is what extend and drag operate on.
 - The state is a bare `Array`, matching `SortingState` and `ColumnFiltersState`, and holds nothing transient: the open-drag flag lives outside the slice as non-reactive instance data, so the whole slice persists and rehydrates without resuming a phantom drag.
 - `getSelectionStartHandler` takes an owning `contextDocument` because it attaches its own document-level `mouseup`, so a drag released outside the table still closes; pass it when the grid renders into an iframe or popout.

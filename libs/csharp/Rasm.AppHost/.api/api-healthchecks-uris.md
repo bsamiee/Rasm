@@ -79,10 +79,10 @@ Each member is an `instance` fluent call returning `IUriOptions`, overriding the
 - `Microsoft.Extensions.Http.Resilience`(`api-resilience.md`): `configurePrimaryHttpMessageHandler` supplies the shared resilience handler, so probe and live traffic share one circuit-breaker state.
 - `OpenIddict.Client`(`api-openiddict-client.md`): `AddCustomHeader` carries the bearer token the client rail acquires for an authenticated endpoint.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`(`api-health.md`): `UriHealthCheck` implements `IHealthCheck`, and its `HealthCheckResult` folds into the one `HealthReport`.
-- `Observability/health.md`: `DriverProbe.Upstream` binds `UriHealthCheck` as one `Remote`-tagged contributor through `HealthContributorRow.Driver` and `HealthSurface.Register`; a faulted upstream drives `Rule(Remote, Unhealthy, ReducedRemote)`.
+- `Observability/health.md`: `DriverProbe.Upstream` binds `UriHealthCheck` as one `Remote`-tagged contributor through the `ProbeSource.Driver` case and `HealthSurface.Register`; a faulted upstream drives `Rule(Remote, Unhealthy, ReducedRemote)`.
 
 [LOCAL_ADMISSION]:
-- `HealthContributorRow.Driver(DriverProbe.Upstream, cadence, UriHealthCheck)` admits the probe as one `Remote`-tagged row through `HealthSurface.Register`, never a standalone `AddUrlGroup` face beside the health fold.
+- `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Upstream, UriHealthCheck), cadence)` admits the probe as one `Remote`-tagged row through `HealthSurface.Register`, never a standalone `AddUrlGroup` face beside the health fold.
 - Resolve every probe endpoint through the `Func<IServiceProvider, Uri>` overload against `Microsoft.Extensions.ServiceDiscovery`, so the probe and the live call target one resolved address.
 - Carry the probe `HttpClient` through `configurePrimaryHttpMessageHandler` so the resilience circuit-breaker state is shared between live calls and probes.
 - Pair `ExpectHttpCodes` with `ExpectContent` for an endpoint whose 200 masks a body-level fault; carry the bearer token through `AddCustomHeader` for an authenticated endpoint.

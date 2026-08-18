@@ -32,25 +32,33 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: dialing and lifecycle
+[ENTRYPOINT_SCOPE]: dialing, lifecycle, and core messaging
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                                             |
-| :-----: | :------------------------------------------------------- | :------------- | :--------------------------------------------------------------------- |
-|  [01]   | `wsconnect(options): Promise<NatsConnection>`            | dial           | the one connection acquisition, `Effect.acquireRelease`-bracketed      |
-|  [02]   | `nc.drain(): Promise<void>`                              | teardown       | the release arm — flushes subscriptions before close                   |
-|  [03]   | `nc.closed(): Promise<void \| Error>`                    | lifecycle      | the settled-close observation a supervisor reads                       |
-|  [04]   | `nc.publish(subject, payload?, opts?)`                   | core publish   | fire-and-forget; `{ headers?, reply? }`, no persistence                |
-|  [05]   | `nc.subscribe(subject, opts?)`                           | core subscribe | ephemeral delivery; absent listeners miss, JetStream owns replay       |
-|  [06]   | `nc.request(subject, payload?, opts?)`                   | request-reply  | RPC-shaped exchange over the same connection                           |
-|  [07]   | `nc.status(): AsyncIterable<Status>`                     | lifecycle      | the out-of-band evidence no publish or consume await reaches           |
-|  [08]   | `nc.reconnect(): Promise<void>`                          | lifecycle      | forced re-dial — the ONE rail a rotated credential reaches the wire on |
-|  [09]   | `tokenAuthenticator(token \| () => token)`               | credential     | writes `auth_token` — the bearer lane an auth-callout service reads    |
-|  [10]   | `usernamePasswordAuthenticator(user \| fn, pass? \| fn)` | credential     | writes `user`/`pass`                                                   |
-|  [11]   | `nkeyAuthenticator(seed? \| () => seed)`                 | credential     | signs the server nonce, writing `nkey`/`sig`                           |
-|  [12]   | `jwtAuthenticator(jwt \| () => jwt, seed?)`              | credential     | writes `jwt` plus the nonce signature where a seed is supplied         |
-|  [13]   | `credsAuthenticator(creds \| () => creds)`               | credential     | parses a creds file and delegates to `jwtAuthenticator`                |
-|  [14]   | `buildAuthenticator(opts): Authenticator`                | credential     | folds `authenticator`/`token`/`user`/`pass` into one composed callback |
-|  [15]   | `errors` module — `AuthorizationError`, `UserAuthenticationExpiredError`, `ClosedConnectionError`, `DrainingConnectionError`, `ConnectionError`, `TimeoutError`, `NoRespondersError`, `PermissionViolationError`, `RequestError`, `ProtocolError` | fault vocabulary | the typed rejection families a dial, request, or supervisor read discriminates; a rejection outside them folds to the engine's `dial` reason |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER]                                                             |
+| :-----: | :-------------------------------------------- | :------------- | :--------------------------------------------------------------------- |
+|  [01]   | `wsconnect(options): Promise<NatsConnection>` | dial           | the one connection acquisition, `Effect.acquireRelease`-bracketed      |
+|  [02]   | `nc.drain(): Promise<void>`                   | teardown       | the release arm — flushes subscriptions before close                   |
+|  [03]   | `nc.closed(): Promise<void \| Error>`         | lifecycle      | the settled-close observation a supervisor reads                       |
+|  [04]   | `nc.publish(subject, payload?, opts?)`        | core publish   | fire-and-forget; `{ headers?, reply? }`, no persistence                |
+|  [05]   | `nc.subscribe(subject, opts?)`                | core subscribe | ephemeral delivery; absent listeners miss, JetStream owns replay       |
+|  [06]   | `nc.request(subject, payload?, opts?)`        | request-reply  | RPC-shaped exchange over the same connection                           |
+|  [07]   | `nc.status(): AsyncIterable<Status>`          | lifecycle      | the out-of-band evidence no publish or consume await reaches           |
+|  [08]   | `nc.reconnect(): Promise<void>`               | lifecycle      | forced re-dial — the ONE rail a rotated credential reaches the wire on |
+
+[ENTRYPOINT_SCOPE]: credential authenticators, each writing its own connect-record keys
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                                  |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `tokenAuthenticator(token \| () => token)`               | token          | `auth_token` for the bearer lane an auth-callout reads      |
+|  [02]   | `usernamePasswordAuthenticator(user \| fn, pass? \| fn)` | user-pass      | `user`/`pass` on the connect record                         |
+|  [03]   | `nkeyAuthenticator(seed? \| () => seed)`                 | nkey           | signs the server nonce, writing `nkey`/`sig`                |
+|  [04]   | `jwtAuthenticator(jwt \| () => jwt, seed?)`              | jwt            | `jwt` plus the nonce signature where a seed is supplied     |
+|  [05]   | `credsAuthenticator(creds \| () => creds)`               | creds          | parses a creds file and delegates to `jwtAuthenticator`     |
+|  [06]   | `buildAuthenticator(opts): Authenticator`                | composite      | folds `authenticator`/`token`/`user`/`pass` to one callback |
+
+[ERRORS]: `AuthorizationError` `UserAuthenticationExpiredError` `ClosedConnectionError` `DrainingConnectionError` `ConnectionError` `TimeoutError` `NoRespondersError` `PermissionViolationError` `RequestError` `ProtocolError`
+
+- `errors` carries every typed rejection a dial, request, or supervisor read discriminates; a rejection outside it folds to the engine's `dial` reason.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

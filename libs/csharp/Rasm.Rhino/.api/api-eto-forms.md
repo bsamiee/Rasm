@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_ETO_FORMS]
 
-`Eto.Forms` builds every native surface the Rhino host embeds. The control base, layout owners, window and dialog hierarchy, grid and cell families, and popup-menu and command surface are the branch construction spine this boundary composes unchanged; the rows below are the calendar and document-tab widgets, the node tree, the application menu-bar and toolbar chrome, the `Eto.Forms.ThemedControls` custom-drawn family, and `Eto.Threading` main-thread identity that this host boundary alone reaches; the data-binding rail registers at the branch tier.
+`Eto.Forms` builds every native surface the Rhino host embeds. The control base, layout owners, window and dialog hierarchy, grid and cell families, and popup-menu and command surface are the branch construction spine this boundary composes unchanged; the rows below are the node tree, the themed-spinner enums, and `Eto.Threading` main-thread identity that this host boundary alone reaches — the calendar, document-tab, themed-control, and menu-bar/toolbar chrome rows seat at the branch tier the kernel `Interaction` plane composes; the data-binding rail registers at the branch tier.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,29 +14,12 @@
 
 - Registers the `Eto.Forms` construction spine (`libs/csharp/.api/api-eto-forms.md`): `Control` and its event families, the text, value, choice, command, and display roster, the container set, `Grid`/`GridView`/`TreeGridView` with the cell family, the four layout owners, the window, dialog, and chooser hierarchy, and the popup-menu and `Command` surface carry their construction there and this boundary composes that spelling; the rows below are the widgets, chrome, and rails this partition adds beyond it.
 
-[PUBLIC_TYPE_SCOPE]: calendar, document tabs, and node tree
+[PUBLIC_TYPE_SCOPE]: node tree
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :---------------- | :------------ | :----------------------------------------------- |
-|  [01]   | `Calendar`        | value input   | month-grid date selection with a min/max range   |
-|  [02]   | `DocumentControl` | container     | closable, reorderable document-tab host          |
-|  [03]   | `DocumentPage`    | container     | one closable document tab over a content control |
-|  [04]   | `TreeView`        | tree          | node tree over `ITreeItem`                       |
-|  [05]   | `ITreeItem`       | contract      | node contract the tree binds                     |
-
-[PUBLIC_TYPE_SCOPE]: application menu bar and toolbar chrome
-
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                            |
-| :-----: | :------------------ | :------------ | :-------------------------------------- |
-|  [01]   | `MenuBar`           | menu          | top-level application menu              |
-|  [02]   | `CheckMenuItem`     | menu item     | checkable menu entry                    |
-|  [03]   | `RadioMenuItem`     | menu item     | radio-grouped menu entry                |
-|  [04]   | `SeparatorMenuItem` | menu item     | menu divider                            |
-|  [05]   | `ToolBar`           | toolbar       | control toolbar over `ToolItem` entries |
-|  [06]   | `ButtonToolItem`    | tool item     | invoking toolbar button                 |
-|  [07]   | `CheckToolItem`     | tool item     | toggle toolbar button                   |
-|  [08]   | `DropDownToolItem`  | tool item     | toolbar button carrying a dropdown menu |
-|  [09]   | `SeparatorToolItem` | tool item     | toolbar divider                         |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                 |
+| :-----: | :---------- | :------------ | :--------------------------- |
+|  [01]   | `TreeView`  | tree          | node tree over `ITreeItem`   |
+|  [02]   | `ITreeItem` | contract      | node contract the tree binds |
 
 [PUBLIC_TYPE_SCOPE]: data binding
 
@@ -44,37 +27,21 @@
 
 [PUBLIC_TYPE_SCOPE]: themed dialogs, editors, and thread identity
 
-`Eto.Forms.ThemedControls` mints the custom-drawn, cross-platform-uniform family; its `Themed*Handler` backend classes register through the platform-handler seam (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`), never a widget-construction row. `Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity.
+The `Eto.Forms.ThemedControls` family registers at the branch tier (`libs/csharp/.api/api-eto-forms.md`) — the kernel `Interaction/control` composes it; the spinner enums and `Eto.Threading.Thread` main-thread identity stay this boundary's alone, and the `Themed*Handler` backends register through the platform-handler seam (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`).
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                    |
-| :-----: | :----------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `ThemedMessageBox`       | dialog        | themed modal message box with arbitrary result-typed buttons    |
-|  [02]   | `ThemedPropertyGrid`     | control       | themed reflected property editor over one or many bound objects |
-|  [03]   | `ThemedCollectionEditor` | control       | themed add and remove editor over a homogeneous collection      |
-|  [04]   | `ThemedSpinnerMode`      | enum          | themed-spinner glyph shape (`Line`/`Circle`)                    |
-|  [05]   | `ThemedSpinnerDirection` | enum          | themed-spinner rotation (`Clockwise`/`CounterClockwise`)        |
-|  [06]   | `Thread`                 | thread        | managed thread with `IsMain`/`MainThread` main-thread identity  |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                   |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------------- |
+|  [01]   | `ThemedSpinnerMode`      | enum          | themed-spinner glyph shape (`Line`/`Circle`)                   |
+|  [02]   | `ThemedSpinnerDirection` | enum          | themed-spinner rotation (`Clockwise`/`CounterClockwise`)       |
+|  [03]   | `Thread`                 | thread        | managed thread with `IsMain`/`MainThread` main-thread identity |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: calendar, document tabs, and command projection
-
-| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Calendar.MinDate { get; set; }` / `Calendar.MaxDate { get; set; }`     | property | bound the selectable dates                |
-|  [02]   | `DocumentControl.Pages / SelectedIndex / AllowReordering { get; set; }` | property | closable, reorderable tab host state      |
-|  [03]   | `DocumentPage.Content / Text / Closable { get; set; }`                  | property | one closable document tab                 |
-|  [04]   | `Command.CreateMenuItem() -> MenuItem`                                  | instance | project the command into one menu item    |
-|  [05]   | `Command.CreateToolItem() -> ToolItem`                                  | instance | project the command into one toolbar item |
-
 [ENTRYPOINT_SCOPE]: themed controls and thread identity
 
-| [INDEX] | [OWNER]                  | [SURFACE]                                             |
-| :-----: | :----------------------- | :---------------------------------------------------- |
-|  [01]   | `ThemedMessageBox`       | `AddButton`; result, text, alignment, image           |
-|  [02]   | `ThemedPropertyGrid`     | selection, categories, description, refresh, change   |
-|  [03]   | `ThemedCollectionEditor` | `DataStore`, `ElementType`, `ExtraContent`            |
-|  [04]   | `Thread`                 | action lifecycle, main and current identity, liveness |
+| [INDEX] | [OWNER]  | [SURFACE]                                             |
+| :-----: | :------- | :---------------------------------------------------- |
+|  [01]   | `Thread` | action lifecycle, main and current identity, liveness |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -98,7 +65,7 @@
 - `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`); an Eto-level main-thread test never replaces the host marshal seam.
 
 [RAIL_LAW]:
-- Partition: `Eto.Forms` Rhino host boundary — calendar and document-tab widgets, the node tree, application menu-bar and toolbar chrome, the themed control family, and managed thread identity; the data-binding rail rides the registered branch owner
+- Partition: `Eto.Forms` Rhino host boundary — the node tree, the themed-spinner enums, and managed thread identity; chrome, calendar, document-tab, and themed-control rows ride the registered branch owner beside the data-binding rail
 - Owns: the widgets, chrome, and rails this host boundary adds over the registered branch spine
-- Accept: date and document-tab construction, node-tree binding, menu-bar and toolbar chrome from one command row, control-to-model binding through `DataContext`, a themed message box, property grid, or collection editor
+- Accept: node-tree binding, themed-spinner configuration, and main-thread identity reads subordinate to the host marshal owner
 - Reject: a re-tabling of the branch construction spine, immediate 2D painting (`libs/csharp/Rasm.Rhino/.api/api-eto-drawing.md`), platform-handler and native-hosting selection plus the `Themed*Handler` backends (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`), document-owned Rhino windows and panels (`libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`), and leaking `Eto.Forms.*` types past the UI owner

@@ -18,15 +18,17 @@
 [PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send receipt
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]   | [CONSUMER]                                             |
-| :-----: | :----------------------------------- | :-------------- | :----------------------------------------------------- |
-|  [01]   | `Transporter<T, D>` = `Mail<T, D>`   | egress service  | `EventEmitter` egress owner; methods in `[03]`         |
-|  [02]   | `Mail.Options` (= `SendMailOptions`) | message shape   | one message contract; parts in `[TOPOLOGY]`            |
-|  [03]   | `Mail.Address`                       | address value   | `{ name?, address }` recipient; escapes `Name <email>` |
-|  [04]   | `Mail.Attachment`                    | attachment      | a `report`/jszip byte artifact attaches here           |
-|  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression seam     |
-|  [06]   | `SentMessageInfo`                    | send receipt    | TOP-LEVEL export is `any` — the shaped receipt is `SMTPTransport.SentMessageInfo`, so consumers declare their own widened band and never import the erased name |
-|  [07]   | `Transport<T, D>`                    | plugin contract | `{ name, version, send, verify?, close? }` backend     |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]   | [CONSUMER]                                                                   |
+| :-----: | :----------------------------------- | :-------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `Transporter<T, D>` = `Mail<T, D>`   | egress service  | `EventEmitter` egress owner; methods in `[03]`                               |
+|  [02]   | `Mail.Options` (= `SendMailOptions`) | message shape   | one message contract; parts in `[TOPOLOGY]`                                  |
+|  [03]   | `Mail.Address`                       | address value   | `{ name?, address }` recipient; escapes `Name <email>`                       |
+|  [04]   | `Mail.Attachment`                    | attachment      | a `report`/jszip byte artifact attaches here                                 |
+|  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression seam                           |
+|  [06]   | `SentMessageInfo`                    | send receipt    | top-level export is `any`; `SMTPTransport.SentMessageInfo` carries the shape |
+|  [07]   | `Transport<T, D>`                    | plugin contract | `{ name, version, send, verify?, close? }` backend                           |
+
+- `SentMessageInfo`: nodemailer erases this root export to `any`, so a consumer declares its own widened band over `SMTPTransport.SentMessageInfo` rather than importing the erased name.
 
 [PUBLIC_TYPE_SCOPE]: connection, authentication, and signing policy
 - rail: system-apis
@@ -68,15 +70,17 @@
 [ENTRYPOINT_SCOPE]: provider resolution, OAuth2, and test sinks
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                     |
-| :-----: | :----------------------------------------------------------- | :-------------- | :--------------------------------------------- |
-|  [01]   | `wellKnown(key)` → `SMTPConnection.Options \| false`         | provider lookup | DEEP import (`nodemailer/lib/well-known`), never a root entrypoint; resolves `"Gmail"`/`"SendGrid"` to the dial |
-|  [02]   | `shared.parseConnectionUrl(url)`                             | url decode      | DEEP import (`nodemailer/lib/shared`), never a root entrypoint; decodes a `smtp://…` `Config` value to options  |
-|  [03]   | `XOAuth2#getToken` / `#generateToken` / `#buildXOAuth2Token` | oauth token     | refresh → access-token flow behind `OAUTH2`    |
-|  [04]   | `DKIM#sign(input, extraOptions?)` → `PassThrough`            | dkim sign       | native signing; `Redacted` PEM key             |
-|  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>`        | test sink       | Ethereal capture; a real inbox, no delivery    |
-|  [06]   | `getTestMessageUrl(info)` → `string \| false`                | test sink       | preview URL for a captured message             |
-|  [07]   | `streamTransport`/`jsonTransport` options                    | inspect sink    | raw MIME or JSON — spec/dry-run sinks          |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                           |
+| :-----: | :----------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `wellKnown(key)` → `SMTPConnection.Options \| false`         | provider lookup | resolves `"Gmail"`/`"SendGrid"` to the dial options  |
+|  [02]   | `shared.parseConnectionUrl(url)`                             | url decode      | decodes a `smtp://…` URL to `SMTPConnection.Options` |
+|  [03]   | `XOAuth2#getToken` / `#generateToken` / `#buildXOAuth2Token` | oauth token     | refresh → access-token flow behind `OAUTH2`          |
+|  [04]   | `DKIM#sign(input, extraOptions?)` → `PassThrough`            | dkim sign       | native signing; `Redacted` PEM key                   |
+|  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>`        | test sink       | Ethereal capture; a real inbox, no delivery          |
+|  [06]   | `getTestMessageUrl(info)` → `string \| false`                | test sink       | preview URL for a captured message                   |
+|  [07]   | `streamTransport`/`jsonTransport` options                    | inspect sink    | raw MIME or JSON — spec/dry-run sinks                |
+
+- `wellKnown` and `shared.parseConnectionUrl` are DEEP imports (`nodemailer/lib/well-known`, `nodemailer/lib/shared`), never root entrypoints.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

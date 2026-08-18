@@ -367,32 +367,37 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 
 - A vertex or edge added to a child propagates UP to every ancestor, so the root's wrapped graph always carries the union and a cluster is a scoped write handle rather than a second container. Removal propagates BOTH ways — down through every descendant holding it and up through every ancestor — so `RemoveVertex` on a leaf cluster evicts it from the whole hierarchy, and a scoped retraction removes from the wrapped graph directly. `Clusters` is the non-generic `IEnumerable` off `IClusteredGraph`, so a typed walk casts each element itself.
 
-[ENTRYPOINT_SCOPE]: `GraphExtensions` container projection and copy — `GraphExtensions` mints a new container over the source's vertices and edges, and `AlgorithmExtensions.Clone` fills a supplied one through cloner delegates
+[ENTRYPOINT_SCOPE]: `GraphExtensions` materialization and copy — `GraphExtensions` mints a new container over the source's vertices and edges, and `AlgorithmExtensions.Clone` fills a supplied one through cloner delegates
 
-| [INDEX] | [SURFACE]                                                                                      | [SHAPE] | [CAPABILITY]                        |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------ | :---------------------------------- |
-|  [01]   | `ToAdjacencyGraph(IEnumerable<TEdge>, bool)`                                                   | static  | materialize from edges              |
-|  [02]   | `ToAdjacencyGraph(IEnumerable<TVertex>, Func<TVertex, IEnumerable<TEdge>>, bool)`              | static  | materialize from a fold             |
-|  [03]   | `ToAdjacencyGraph(TVertex[][])`                                                                | static  | materialize from pair rows          |
-|  [04]   | `ToBidirectionalGraph(IEnumerable<TEdge>, bool)`                                               | static  | predecessor graph from edges        |
-|  [05]   | `ToBidirectionalGraph(IEnumerable<TVertex>, Func<TVertex, IEnumerable<TEdge>>, bool)`          | static  | predecessor graph from a fold       |
-|  [06]   | `ToBidirectionalGraph(IVertexAndEdgeListGraph)`                                                | static  | add an in-edge index                |
-|  [07]   | `ToBidirectionalGraph(IUndirectedGraph)`                                                       | static  | direct a symmetric graph            |
-|  [08]   | `ToUndirectedGraph(IEnumerable<TEdge>, bool)`                                                  | static  | symmetric from edges                |
-|  [09]   | `ToArrayAdjacencyGraph(IVertexAndEdgeListGraph)`                                               | static  | freeze an outgoing snapshot         |
-|  [10]   | `ToArrayBidirectionalGraph(IBidirectionalGraph)`                                               | static  | freeze predecessor state            |
-|  [11]   | `ToArrayUndirectedGraph(IUndirectedGraph)`                                                     | static  | freeze a symmetric snapshot         |
-|  [12]   | `ToCompressedRowGraph(IVertexAndEdgeListGraph)`                                                | static  | pack incidence as CSR               |
-|  [13]   | `ToDelegateIncidenceGraph(TryFunc<TVertex, IEnumerable<TEdge>>)`                               | static  | lazy out-edge accessor only         |
-|  [14]   | `ToDelegateVertexAndEdgeListGraph(IEnumerable<TVertex>, TryFunc<TVertex, IEnumerable<TEdge>>)` | static  | lazy graph, domain index            |
-|  [15]   | `ToDelegateVertexAndEdgeListGraph(IDictionary<TVertex, TEdges>)`                               | static  | lazy graph, adjacency map           |
-|  [16]   | `ToDelegateBidirectionalIncidenceGraph(TryFunc, TryFunc)`                                      | static  | lazy graph, paired edges            |
-|  [17]   | `ToDelegateUndirectedGraph(IEnumerable<TVertex>, TryFunc<TVertex, IEnumerable<TEdge>>)`        | static  | lazy symmetric graph                |
-|  [18]   | `Clone(IVertexAndEdgeListGraph, Func, Func, IMutableVertexAndEdgeSet)`                         | static  | deep copy into a supplied container |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------------------ | :------ | :---------------------------------- |
+|  [01]   | `ToAdjacencyGraph(IEnumerable<TEdge>, bool)`                                          | static  | materialize from edges              |
+|  [02]   | `ToAdjacencyGraph(IEnumerable<TVertex>, Func<TVertex, IEnumerable<TEdge>>, bool)`     | static  | materialize from a fold             |
+|  [03]   | `ToAdjacencyGraph(TVertex[][])`                                                       | static  | materialize from pair rows          |
+|  [04]   | `ToBidirectionalGraph(IEnumerable<TEdge>, bool)`                                      | static  | predecessor graph from edges        |
+|  [05]   | `ToBidirectionalGraph(IEnumerable<TVertex>, Func<TVertex, IEnumerable<TEdge>>, bool)` | static  | predecessor graph from a fold       |
+|  [06]   | `ToBidirectionalGraph(IVertexAndEdgeListGraph)`                                       | static  | add an in-edge index                |
+|  [07]   | `ToBidirectionalGraph(IUndirectedGraph)`                                              | static  | direct a symmetric graph            |
+|  [08]   | `ToUndirectedGraph(IEnumerable<TEdge>, bool)`                                         | static  | symmetric from edges                |
+|  [09]   | `ToArrayAdjacencyGraph(IVertexAndEdgeListGraph)`                                      | static  | freeze an outgoing snapshot         |
+|  [10]   | `ToArrayBidirectionalGraph(IBidirectionalGraph)`                                      | static  | freeze predecessor state            |
+|  [11]   | `ToArrayUndirectedGraph(IUndirectedGraph)`                                            | static  | freeze a symmetric snapshot         |
+|  [12]   | `ToCompressedRowGraph(IVertexAndEdgeListGraph)`                                       | static  | pack incidence as CSR               |
+|  [13]   | `Clone(IVertexAndEdgeListGraph, Func, Func, IMutableVertexAndEdgeSet)`                | static  | deep copy into a supplied container |
 
-- `GraphExtensions.ToDelegateBidirectionalIncidenceGraph`: both parameters are `TryFunc<TVertex, IEnumerable<TEdge>>`, out-edges first and in-edges second.
 - `AlgorithmExtensions.Clone`: takes `Func<TVertex, TVertex>` and `Func<TEdge, TVertex, TVertex, TEdge>` cloners plus the destination `IMutableVertexAndEdgeSet<TVertex, TEdge>`, returning `void` — it is the working-copy mint for the algorithms that MUTATE their container, so a matching or trail solve never runs over the caller's own graph.
 
+[ENTRYPOINT_SCOPE]: `GraphExtensions` delegate-backed views — each container defers to its accessor delegates and materializes nothing
+
+| [INDEX] | [SURFACE]                                                                                      | [SHAPE] | [CAPABILITY]              |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------ | :------------------------ |
+|  [01]   | `ToDelegateIncidenceGraph(TryFunc<TVertex, IEnumerable<TEdge>>)`                               | static  | out-edge accessor only    |
+|  [02]   | `ToDelegateVertexAndEdgeListGraph(IEnumerable<TVertex>, TryFunc<TVertex, IEnumerable<TEdge>>)` | static  | vertex roster + out-edges |
+|  [03]   | `ToDelegateVertexAndEdgeListGraph(IDictionary<TVertex, TEdges>)`                               | static  | adjacency map as roster   |
+|  [04]   | `ToDelegateBidirectionalIncidenceGraph(TryFunc, TryFunc)`                                      | static  | paired out- and in-edges  |
+|  [05]   | `ToDelegateUndirectedGraph(IEnumerable<TVertex>, TryFunc<TVertex, IEnumerable<TEdge>>)`        | static  | symmetric edge accessor   |
+
+- `GraphExtensions.ToDelegateBidirectionalIncidenceGraph`: both parameters are `TryFunc<TVertex, IEnumerable<TEdge>>`, out-edges first and in-edges second.
 [ENTRYPOINT_SCOPE]: `EdgeExtensions` edge and path predicates over a recovered result
 
 | [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                          |

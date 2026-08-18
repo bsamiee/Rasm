@@ -148,8 +148,11 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 |  [06]   | `McpServer.elicit`                      | capability  | server-requested structured input    |
 |  [07]   | `McpSchema.*`                           | wire        | MCP protocol Schemas + typed errors  |
 |  [08]   | `McpSchema.param`                       | constructor | typed resource-template parameter    |
-|  [09]   | `McpServer.run` / `McpServer.layer`     | assembly    | bare-options run and layer forms beneath the transport pair — the interior the `layerStdio`/`layerHttp` rows compose; reach them only where a transport row cannot express the deployment |
-|  [10]   | `McpSchema.McpServerClient`             | client tag  | the server-side client handle elicitation rides; `Host.confirm` reaches it through `McpServer.elicit`, never directly |
+|  [09]   | `McpServer.run` / `McpServer.layer`     | assembly    | bare-options run and layer forms     |
+|  [10]   | `McpSchema.McpServerClient`             | client tag  | the server-side client handle        |
+
+- [09]-[ASSEMBLY]: `run` and `layer` are the interior the `layerStdio`/`layerHttp` rows compose; a fence reaches them only where no transport row expresses the deployment.
+- [10]-[CLIENT_TAG]: elicitation rides this tag, so `Host.confirm` reaches it through `McpServer.elicit` rather than the tag directly.
 
 ## [10]-[TELEMETRY_IDS_ERRORS]
 

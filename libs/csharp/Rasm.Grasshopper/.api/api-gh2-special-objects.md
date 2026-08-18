@@ -58,9 +58,9 @@ Each roster line carries one type's constructor and public members grouped by ac
 - `ValueObject` — ctor `(string, string, Notation)`; get/private-set `Text: string` `Value: object`; get/set `Notations`; method `AssignTextAndValue(string)`
 - `TextInputObject` — ctor `(string, string)`; get `Values: string[]`; get/internal-set `OneEntryPerLine`; get/set `Contents` `Escaping`
 - `ColourSwatchObject` — ctor `(string, Colour, string, bool)`; get/internal-set `Colour` `Palette` `Discrete`; method `SetColour(Colour, bool)`
-- `ButtonObject(IPear, IPear)`: a null pear leaves its tree unset, and a null `down` selects `ButtonAction.Single`.
+- `ButtonObject(IPear, IPear)`: null pears leave their trees unset, and a null `down` selects `ButtonAction.Single`.
 - `ValueObject.AssignTextAndValue`: null or empty text normalizes to `Text == string.Empty` and `Value == null`.
-- `TextInputObject.Values`: an empty array, never null; `Contents` reads an empty string when its backing value is null.
+- `TextInputObject.Values`: answers an empty array, never null; `Contents` reads an empty string when its backing value is null.
 - `ColourSwatchObject`: rejects a null constructor colour, while `SetColour` accepts a null colour at runtime.
 
 [ENTRYPOINT_SCOPE]: editors and samplers
@@ -73,7 +73,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 - `QuickGraphObject` — get `Pins`
 - `ProtractorObject` — ctor `(string, Angle)`; get/set `Mode` `Angle`
 - `GradientEditorObject.Interaction`: null normalizes to the `Matter` interaction.
-- `FunctionEditorObject.Editor`: a read-only property carrying a mutable editor.
+- `FunctionEditorObject.Editor`: read-only property carrying a mutable editor.
 - `MaterialEditorObject.Material`: null replaced lazily with a default material.
 - `ImageSamplerObject`: `ImageUri` and `DisplayImage` are nullable, and public image mutation is URI based.
 
@@ -86,7 +86,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 - `ValueListObject` — get `ItemCount` `Items`; method `Pear(int)` `ItemSelected(int)`; get/set `Mode`; method `SelectPrev` `SelectNext` `SelectItem` `DeselectItem`; event `StateChanged`
 - `PresetPickerObject.UserNames`: null denotes no user-authored selection; `SelectedNames` falls back user names, then available presets, then an empty array, never null.
 - `PresetPickerObject.SelectedPresets(out int[], out IPreset[])`: equal-length, non-null arrays, two empty when no available preset resolves.
-- `PresetCollection`: a public type with an internal constructor obtained through `AvailablePresets`; `AvailablePresetsChanged` and `SelectedPresetsChanged` are assignable delegate fields, not events.
+- `PresetCollection`: public type with an internal constructor, obtained through `AvailablePresets`; `AvailablePresetsChanged` and `SelectedPresetsChanged` are assignable delegate fields, not events.
 - `ValueListObject.Items`: value/meta pears only; the internal `ValueListItem` carrier and the `Set(ValueListItem[], bool)`/`RepairSelection()` members withhold any public list-replacement surface, so public code inspects items and mutates selection alone.
 
 [ENTRYPOINT_SCOPE]: data, utility, and connection routing
@@ -98,7 +98,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 - `Shout` — get/set `ClusterOutput` `StreamData` `StreamPath` `StreamBackup`; method `UpdateNomenBasedOnState()`
 - `Listen` — get `ShoutId` `CurrentDependency`; get/set `DependencyIndex` `DependencyA`..`DependencyD` `ClusterInput` `ClusterIndex`; method `UpdateNomenBasedOnState()`
 - `Relay` — get `FrozenDataIsStale` `FrozenCachedData` `DisplayName`; get/set `Frozen`; method `SafeDisconnect()` `ResolveDisplayName()`
-- `TimerObject.TargetIds`: an empty array, never null; `Targets` omits unresolved identifiers and yields nothing when the timer has no document.
+- `TimerObject.TargetIds`: answers an empty array, never null; `Targets` omits unresolved identifiers and yields nothing when the timer has no document.
 - `PathMapperObject.Notation`: null normalizes to an empty string.
 - `DataRecorderObject.IsEmpty`: evaluates `_buckets.Count > 0`, so it reads true when recorded buckets exist despite the member name and XML summary.
 - `TreeViewerObject.DisplayGradient` and `Shout.StreamPath`: nullable.
@@ -112,7 +112,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 - Every object round-trips through its public `(IReader)` constructor and its `Store(IWriter)` override; a domain value crosses the archive only as that IO pair.
 - Canvas attributes come from protected `CreateAttributes()` overrides; a consumer reads them off the inherited document-object surface and never invokes the concrete factory.
 - Image sampling (`SampleContinuous`) and list replacement (`ValueListItem`, `Set(ValueListItem[], bool)`, `RepairSelection()`) are internal or private; the public surface samples through `ImageUri` and mutates list selection alone.
-- A read that can miss states its miss in the value, not an exception: `TargetIds`/`SelectedNames`/`Values` normalize to empty, `Notation`/`Contents` to empty strings, and `StreamPath`/`CurrentDependency`/`FrozenCachedData`/`DisplayGradient` return null on the unset path.
+- Read that can miss states its miss in the value, not an exception: `TargetIds`/`SelectedNames`/`Values` normalize to empty, `Notation`/`Contents` to empty strings, and `StreamPath`/`CurrentDependency`/`FrozenCachedData`/`DisplayGradient` return null on the unset path.
 
 [STACKING]:
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): nullable state reads (`Shout.StreamPath`, `Listen.CurrentDependency`, `Relay.FrozenCachedData`, `TreeViewerObject.DisplayGradient`) lower to `Option<T>`; a construction that rejects null (`ColourSwatchObject` colour) folds to `Fin<T>` where the reject maps to `Error`; the empty-array normalizers (`TimerObject.TargetIds`, `PresetPickerObject.SelectedNames`, `TextInputObject.Values`) carry as `Seq<T>`; `Relay.SafeDisconnect() -> ActionList` sequences through `Eff`; and slider/toggle/button interactive state rides an `Atom` cell.
@@ -121,7 +121,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 
 [LOCAL_ADMISSION]:
 - These special objects are the Rasm.Grasshopper folder's interactive-parameter domain; each composes the Rasm kernel for host-agnostic logic and never references a sibling Rasm package.
-- A value enters through the typed `Parameter<T>` contract; the internal `ValueListItem`/`SampleContinuous` members are not admitted, and canvas attributes arrive from the protected factory the base owns.
+- Value enters through the typed `Parameter<T>` contract; the internal `ValueListItem`/`SampleContinuous` members are not admitted, and canvas attributes arrive from the protected factory the base owns.
 
 [RAIL_LAW]:
 - Package: `Grasshopper2` (interactive special objects)

@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_SYSTEM]
 
-`AspNetCore.HealthChecks.System` mints the concrete `IHealthCheck` probes that grade a live host or process against a discrete threshold — free disk space, memory ceilings, file and folder presence, process liveness, a Windows-service predicate — over BCL primitives (`DriveInfo`, `GC`, `Process`, `File`/`Directory`, `ServiceController`). Every probe evaluates synchronously to a completed `Task<HealthCheckResult>` and enters the AppHost health fold as a `pressure`-tagged contributor row through the one `HealthContributorRow.Driver` adapter.
+`AspNetCore.HealthChecks.System` mints the concrete `IHealthCheck` probes that grade a live host or process against a discrete threshold — free disk space, memory ceilings, file and folder presence, process liveness, a Windows-service predicate — over BCL primitives (`DriveInfo`, `GC`, `Process`, `File`/`Directory`, `ServiceController`). Every probe evaluates synchronously to a completed `Task<HealthCheckResult>` and enters the AppHost health fold as a `pressure`-tagged contributor row through the one `ProbeSource.Driver` case.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -64,7 +64,7 @@
 
 [STACKING]:
 - `Microsoft.Extensions.Diagnostics.HealthChecks`(`.api/api-health.md`): every probe is an `IHealthCheck` returning `HealthCheckResult`, and each `Add*` extension folds onto `IHealthChecksBuilder` as one `HealthCheckRegistration`.
-- `HealthContributorRow.Driver` (`.planning/Observability/health.md`): the health fold admits `DiskStorageHealthCheck` under `DriverProbe.Disk` and `ProcessAllocatedMemoryHealthCheck` under `DriverProbe.Allocations`, seating each check's failure status on a synthetic `HealthCheckContext` — one `pressure`-tagged contributor row per probe, never an `Add*` registration face.
+- `ProbeSource.Driver` (`.planning/Observability/health.md`): the health fold admits `DiskStorageHealthCheck` under `DriverProbe.Disk` and `ProcessAllocatedMemoryHealthCheck` under `DriverProbe.Allocations`, seating each check's failure status on a synthetic `HealthCheckContext` — one `pressure`-tagged contributor row per probe, never an `Add*` registration face.
 
 [LOCAL_ADMISSION]:
 - `Disk` and `Allocations` are the admitted probes; a threshold breach is a typed `HealthCheckResult` with `FailureStatus`, folded by `HealthReport.Snapshot` into a `HealthSnapshot.Entry`, never a thrown exception crossing the fold.

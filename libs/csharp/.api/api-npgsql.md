@@ -1,4 +1,4 @@
-# [RASM_PERSISTENCE_API_NPGSQL]
+# [RASM_API_NPGSQL]
 
 `Npgsql` owns the PostgreSQL transport every store profile rides — the pooled data source through binary COPY and logical-replication streams — and the advisory-lock and LISTEN/NOTIFY coordination primitives it composes as SQL. Store-profile algebra folds this transport, never a second provider service family.
 

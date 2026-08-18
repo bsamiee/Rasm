@@ -230,7 +230,7 @@
 - `TenancyStyle.Conjoined` adds a tenant column for single-DB multi-tenancy; `TenancyStyle.Single` with `MultiTenantedDatabases`/`MultiTenantedWithSingleServer` shards per tenant database.
 
 [STACKING]:
-- `api-npgsql`(`.api/api-npgsql.md`) / `api-npgsql-ef`(`.api/api-npgsql-ef.md`): Marten rides the one shared `NpgsqlDataSource` bound through `StoreOptions.Connection(dataSource)`, so the EF-mapped identity row and the events share a connection pool and enlist one transaction.
+- `api-npgsql`(`libs/csharp/.api/api-npgsql.md`) / `api-npgsql-ef`(`.api/api-npgsql-ef.md`): Marten rides the one shared `NpgsqlDataSource` bound through `StoreOptions.Connection(dataSource)`, so the EF-mapped identity row and the events share a connection pool and enlist one transaction.
 - `api-thinktecture-json`(`libs/csharp/.api/api-thinktecture-json.md`): event and document serialization is STJ through the registered `ThinktectureJsonConverterFactory`, projecting each `[ValueObject]`/`[SmartEnum]` owner to its key; `RegisterValueType<T>` then keys streams and document ids by that owner, and `NodaTime` instants ride the event `Timestamp`/`Created` columns.
 - `api-ara3d-bimopenschema`(`.api/api-ara3d-bimopenschema.md`): the columnar egress is a co-transactional `FlatTableProjection` whose `Project<T>(StatementMap)` rows land the BIM analytics frame; structural EAV-generic maps are Persistence-owned, BIM-typed maps a Bim-implemented seam projection.
 - `api-duckdb`(`.api/api-duckdb.md`) / `api-apache-age`(`.api/api-apache-age.md`): both mount as `ProjectionLifecycle.Async` daemon views, never the authoritative store; a strong-consistency read goes through the inline ledger view instead.

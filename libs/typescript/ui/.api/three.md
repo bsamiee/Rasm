@@ -54,6 +54,7 @@
 |  [04]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe` ← render-pixel identity parity  |
 |  [05]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms   |
 |  [06]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs    |
+
 - [04]-[PIXEL_PARITY]: `viewer/probe` reads that pass output at `EvidenceTimelineWire.render.pixels`.
 
 [PUBLIC_TYPE_SCOPE]: loader and animation contracts

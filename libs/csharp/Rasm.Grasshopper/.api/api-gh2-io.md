@@ -68,7 +68,7 @@
 
 [TOPOLOGY]:
 - `IWriter` and `IReader` are symmetric write and read seams over one archive; every access keys on a `Name`, and a nested sub-object descends through `CreateWriter`/`FindReader`.
-- A domain value crosses the archive only as an `IStorable`: `Store(IWriter)` writes it and `IReader.Storable<T>` reconstructs it.
+- Domain value crosses the archive only as an `IStorable`: `Store(IWriter)` writes it and `IReader.Storable<T>` reconstructs it.
 - `IoIdAttribute` is the component-type IO identity, read through `Attribute.IsDefined(type, typeof(IoIdAttribute))`; a type without the stamp fails registration.
 - `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read against a missing or wrong-typed item before the scalar accessor runs.
 

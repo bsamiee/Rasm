@@ -44,7 +44,7 @@ Every `AddRedis` overload is a static `IHealthChecksBuilder` extension appending
 - within-lib: the `RedisHealthCheck(IConnectionMultiplexer)` instance path (`AddRedis` overload [03]/[04]) binds the deploy-bound redis sink's shared singleton multiplexer, defining endpoints and cluster topology once; the connection-string static cache is the within-lib rejected form.
 
 [LOCAL_ADMISSION]:
-- `HealthContributorRow.Driver(DriverProbe.Redis, cadence, check)` adapts the probe into one deploy-gated `Store`-tagged sink-tracking row, registering only when the redis sink is bound — never a `Peer` row, never a parallel `AddRedis` registration face; the degradation rule, gRPC projection, and probe deadline stay owned by the health fold.
+- `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Redis, check), cadence)` adapts the probe into one `Store`-tagged row the composition registers only when the redis sink is bound — never a `Peer` row, never a parallel `AddRedis` registration face; the degradation rule, gRPC projection, and probe deadline stay owned by the health fold.
 - It binds the redis sink's shared `IConnectionMultiplexer`, so the connection-string overloads that open a second probe-only multiplexer are the rejected form here.
 - Ping failures, off-`ok` cluster nodes, and connect timeouts fold into a `HealthSnapshot.Entry` as a typed `HealthCheckResult`, never a thrown exception crossing the fold.
 

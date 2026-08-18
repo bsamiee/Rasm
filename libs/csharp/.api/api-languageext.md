@@ -252,54 +252,55 @@
 
 [ENTRYPOINT_SCOPE]: `Try`, `Eff`, `IO` — the deferred tiers
 
-| [INDEX] | [SURFACE]                                                                                                                                            | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `Try.lift(Func<A>)`                                                                                                                                  | static   | exception-trapping thunk             |
-|  [02]   | `TryExtensions.Run(K<Try,A>)`                                                                                                                        | static   | force the thunk to `Fin<A>`          |
-|  [03]   | `Try.ToFin()`                                                                                                                                        | instance | rail conversion                      |
-|  [04]   | `Try.ToIO()`                                                                                                                                         | instance | terminal-tier conversion             |
-|  [05]   | `Eff.lift(Func<A>)`                                                                                                                                  | static   | effect admission                     |
-|  [06]   | `Prelude.liftEff(Func<Task<Fin<A>>>)`                                                                                                                | static   | async fallible effect admission      |
-|  [07]   | `Eff.runtime<RT>() -> Eff<RT, RT>`                                                                                                                   | static   | supplied-runtime reader effect       |
-|  [08]   | `Eff.getState<RT>()`                                                                                                                                 | static   | runtime and `EnvIO` read             |
-|  [09]   | `Eff.local(Func<OuterRT,InnerRT>, Eff<InnerRT,A>)`                                                                                                   | static   | scoped runtime override              |
-|  [10]   | `Eff.localCancel(Eff<RT,A>)`                                                                                                                         | static   | scoped cancellation source           |
-|  [11]   | `EffExtensions.Run(K<Eff,A>)`                                                                                                                        | static   | typed execution to `Fin<A>`          |
-|  [12]   | `EffExtensions.RunAsync(K<Eff,A>)`                                                                                                                   | static   | `Task<Fin<A>>` execution             |
-|  [13]   | `EffExtensions.RunIO(K<Eff,A>)`                                                                                                                      | static   | lower to the terminal `IO` tier      |
-|  [14]   | `Eff.MapFail(Func<Error,Error>)`                                                                                                                     | instance | failure projection                   |
-|  [15]   | `Eff.MapIO(Func<IO<A>,IO<B>>)`                                                                                                                       | instance | inner-effect projection              |
-|  [16]   | `Eff.IfFailEff(Func<Error,Eff<A>>)`                                                                                                                  | instance | effectful recovery                   |
-|  [17]   | `IO.pure(A)`                                                                                                                                         | static   | lifted-value construction            |
-|  [18]   | `IO.fail(Error)`                                                                                                                                     | static   | failed-effect construction           |
-|  [19]   | `IO.lift(Func<A>)`                                                                                                                                   | static   | thunk admission                      |
-|  [20]   | `IO.lift(Func<Fin<A>>)`                                                                                                                              | static   | railed thunk onto the error channel  |
-|  [21]   | `IO.lift(Fin<A>)`                                                                                                                                    | static   | settled rail lifted whole            |
-|  [22]   | `IO.liftAsync(Func<Task<A>>)`                                                                                                                        | static   | `Task` thunk admission               |
-|  [23]   | `IO.liftVAsync(Func<ValueTask<A>>)`                                                                                                                  | static   | `ValueTask` thunk admission          |
-|  [24]   | `IO.Run()`                                                                                                                                           | instance | synchronous execution                |
-|  [25]   | `IO.RunAsync()`                                                                                                                                      | instance | `ValueTask` execution                |
-|  [26]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                                                                                                           | instance | acquire-use-release scope            |
-|  [27]   | `IO.Bracket(Use:, Catch:, Fin:)` — `Func<A,IO<C>> Use`, `Func<Error,IO<C>> Catch` (the `Error` ALONE, never the acquired value), `Func<A,IO<B>> Fin` | instance | scope with a failure arm             |
-|  [28]   | `IO.Finally(K<IO,X>)`                                                                                                                                | instance | unconditional release                |
-|  [29]   | `IO.Repeat()`                                                                                                                                        | instance | unconditional repetition             |
-|  [30]   | `IO.Repeat(Schedule)`                                                                                                                                | instance | policy-driven repetition             |
-|  [31]   | `IO.RepeatWhile(Func<A,bool>)`                                                                                                                       | instance | state-advancing repetition           |
-|  [32]   | `IO.RepeatWhile(Schedule, Func<A,bool>)`                                                                                                             | instance | scheduled state-advancing repetition |
-|  [33]   | `IO.RepeatUntil(Func<A,bool>)` / `RepeatUntil(Schedule, Func<A,bool>)`                                                                               | instance | predicate-bounded repetition         |
-|  [34]   | `IO.Retry()`                                                                                                                                         | instance | unconditional retry                  |
-|  [35]   | `IO.Retry(Schedule)`                                                                                                                                 | instance | policy-driven retry                  |
-|  [36]   | `IO.RetryWhile(Func<Error,bool>)`                                                                                                                    | instance | classified retry                     |
-|  [37]   | `IO.RetryWhile(Schedule, Func<Error,bool>)`                                                                                                          | instance | scheduled classified retry           |
-|  [38]   | `IO.RetryUntil(Func<Error,bool>)` / `RetryUntil(Schedule, Func<Error,bool>)`                                                                         | instance | predicate-bounded retry              |
-|  [39]   | `IO.Fork(Option<TimeSpan>)`                                                                                                                          | instance | concurrent execution handle          |
-|  [40]   | `IO.Timeout(TimeSpan)`                                                                                                                               | instance | bounded execution                    |
-|  [41]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`                                                                                                    | instance | predicate-selected recovery          |
-|  [42]   | `IO.Uninterruptible()`                                                                                                                               | instance | cancellation masking                 |
-|  [43]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                                                                                                           | static   | rail-generic recovery handler        |
-|  [44]   | `Prelude.use(Func<A>, Action<A>)`                                                                                                                    | static   | resource-scoped acquisition          |
-|  [45]   | `Prelude.tail(IO<A>)`                                                                                                                                | static   | tail-recursion marker for deep binds |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Try.lift(Func<A>)`                                                          | static   | exception-trapping thunk             |
+|  [02]   | `TryExtensions.Run(K<Try,A>)`                                                | static   | force the thunk to `Fin<A>`          |
+|  [03]   | `Try.ToFin()`                                                                | instance | rail conversion                      |
+|  [04]   | `Try.ToIO()`                                                                 | instance | terminal-tier conversion             |
+|  [05]   | `Eff.lift(Func<A>)`                                                          | static   | effect admission                     |
+|  [06]   | `Prelude.liftEff(Func<Task<Fin<A>>>)`                                        | static   | async fallible effect admission      |
+|  [07]   | `Eff.runtime<RT>() -> Eff<RT, RT>`                                           | static   | supplied-runtime reader effect       |
+|  [08]   | `Eff.getState<RT>()`                                                         | static   | runtime and `EnvIO` read             |
+|  [09]   | `Eff.local(Func<OuterRT,InnerRT>, Eff<InnerRT,A>)`                           | static   | scoped runtime override              |
+|  [10]   | `Eff.localCancel(Eff<RT,A>)`                                                 | static   | scoped cancellation source           |
+|  [11]   | `EffExtensions.Run(K<Eff,A>)`                                                | static   | typed execution to `Fin<A>`          |
+|  [12]   | `EffExtensions.RunAsync(K<Eff,A>)`                                           | static   | `Task<Fin<A>>` execution             |
+|  [13]   | `EffExtensions.RunIO(K<Eff,A>)`                                              | static   | lower to the terminal `IO` tier      |
+|  [14]   | `Eff.MapFail(Func<Error,Error>)`                                             | instance | failure projection                   |
+|  [15]   | `Eff.MapIO(Func<IO<A>,IO<B>>)`                                               | instance | inner-effect projection              |
+|  [16]   | `Eff.IfFailEff(Func<Error,Eff<A>>)`                                          | instance | effectful recovery                   |
+|  [17]   | `IO.pure(A)`                                                                 | static   | lifted-value construction            |
+|  [18]   | `IO.fail(Error)`                                                             | static   | failed-effect construction           |
+|  [19]   | `IO.lift(Func<A>)`                                                           | static   | thunk admission                      |
+|  [20]   | `IO.lift(Func<Fin<A>>)`                                                      | static   | railed thunk onto the error channel  |
+|  [21]   | `IO.lift(Fin<A>)`                                                            | static   | settled rail lifted whole            |
+|  [22]   | `IO.liftAsync(Func<Task<A>>)`                                                | static   | `Task` thunk admission               |
+|  [23]   | `IO.liftVAsync(Func<ValueTask<A>>)`                                          | static   | `ValueTask` thunk admission          |
+|  [24]   | `IO.Run()`                                                                   | instance | synchronous execution                |
+|  [25]   | `IO.RunAsync()`                                                              | instance | `ValueTask` execution                |
+|  [26]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                                   | instance | acquire-use-release scope            |
+|  [27]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)`                | instance | scope with a failure arm             |
+|  [28]   | `IO.Finally(K<IO,X>)`                                                        | instance | unconditional release                |
+|  [29]   | `IO.Repeat()`                                                                | instance | unconditional repetition             |
+|  [30]   | `IO.Repeat(Schedule)`                                                        | instance | policy-driven repetition             |
+|  [31]   | `IO.RepeatWhile(Func<A,bool>)`                                               | instance | state-advancing repetition           |
+|  [32]   | `IO.RepeatWhile(Schedule, Func<A,bool>)`                                     | instance | scheduled state-advancing repetition |
+|  [33]   | `IO.RepeatUntil(Func<A,bool>)` / `RepeatUntil(Schedule, Func<A,bool>)`       | instance | predicate-bounded repetition         |
+|  [34]   | `IO.Retry()`                                                                 | instance | unconditional retry                  |
+|  [35]   | `IO.Retry(Schedule)`                                                         | instance | policy-driven retry                  |
+|  [36]   | `IO.RetryWhile(Func<Error,bool>)`                                            | instance | classified retry                     |
+|  [37]   | `IO.RetryWhile(Schedule, Func<Error,bool>)`                                  | instance | scheduled classified retry           |
+|  [38]   | `IO.RetryUntil(Func<Error,bool>)` / `RetryUntil(Schedule, Func<Error,bool>)` | instance | predicate-bounded retry              |
+|  [39]   | `IO.Fork(Option<TimeSpan>)`                                                  | instance | concurrent execution handle          |
+|  [40]   | `IO.Timeout(TimeSpan)`                                                       | instance | bounded execution                    |
+|  [41]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`                            | instance | predicate-selected recovery          |
+|  [42]   | `IO.Uninterruptible()`                                                       | instance | cancellation masking                 |
+|  [43]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                                   | static   | rail-generic recovery handler        |
+|  [44]   | `Prelude.use(Func<A>, Action<A>)`                                            | static   | resource-scoped acquisition          |
+|  [45]   | `Prelude.tail(IO<A>)`                                                        | static   | tail-recursion marker for deep binds |
 
+- `IO.Bracket` three-arm form: the middle `Catch` arm receives the `Error` ALONE, never the acquired value, so a release keyed to the resource rides the trailing `Fin` arm.
 - `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous: `Func<Fin<A>>` is the more specific candidate, so `IO.lift(() => <Fin<T>>)` resolves to the railed row [20] and lands `IO<T>` with the `Fail` folded onto the error channel — NEVER `IO<Fin<T>>`. A body that means to carry the `Fin` as its value spells the type argument (`IO.lift<Fin<T>>(…)`); a downstream `Bind` treating the payload as a `Fin` after the bare spelling is the defect this row forecloses.
 - `IO.Fork` spins one DEDICATED `TaskCreationOptions.LongRunning` thread per fork — forked IOs overlap fully before the await (measured: 16×200ms forks complete in ~206ms wall) and the pool imposes NO concurrency bound, so an unbounded fan-out is an unbounded thread count. A fan-out fold chunks its forked width to its own worker budget; one fork per element over an unbounded population is the defect this row forecloses.
 
@@ -434,37 +435,38 @@
 |  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                    | instance | lookup with insert-on-miss           |
 |  [40]   | `HashMap.Add(K, V)`                                                | instance | persistent insert                    |
 |  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                       | instance | persistent matched upsert            |
-|  [42]   | `HashMap.SetItem(K, V)`                                            | instance | persistent replace                   |
-|  [43]   | `HashMap.Remove(K)`                                                | instance | persistent delete                    |
-|  [44]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`          | instance | merge with a collision rule          |
-|  [45]   | `HashMap.ContainsKey(K)`                                           | instance | total key membership                 |
-|  [46]   | `HashMap.ToTrackingHashMap()`                                      | instance | change-logged map lift               |
-|  [47]   | `HashMap.AddOrUpdate(K, V)`                                        | instance | persistent unconditional upsert      |
-|  [48]   | `HashMap.AsIterable()`                                             | instance | `(K Key, V Value)` pair carrier      |
-|  [49]   | `Set.Add(A)`                                                       | instance | persistent set insertion             |
-|  [50]   | `Set.TryAdd(A)`                                                    | instance | insertion tolerating a duplicate     |
-|  [51]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                    | static   | lazy sync lift                       |
-|  [52]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`               | static   | lazy async lift                      |
-|  [53]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                            | static   | `params` span into the carrier rail  |
-|  [54]   | `List.unfold(S, Func<S,Option<(A,S)>>)`                            | static   | state-seeded lazy generation         |
-|  [55]   | `Prelude.toSet(IEnumerable<A>)`                                    | static   | ordered-set enumerable admission     |
-|  [56]   | `Set(IEnumerable<A>)`                                              | ctor     | ordered-set construction             |
-|  [57]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                            | static   | hashed-map pair admission            |
-|  [58]   | `Seq.Iter(Action<A>)`                                              | instance | side-effecting element walk          |
-|  [59]   | `Seq.Skip(int)`                                                    | instance | drop a leading run                   |
-|  [60]   | `Seq.Take(int)`                                                    | instance | keep a leading run                   |
-|  [61]   | `Seq.Count`                                                        | property | materialized member count            |
-|  [62]   | `SeqExtensions.Rev(Seq<A>)`                                        | static   | reversed carrier                     |
-|  [63]   | `Seq.TakeWhile(Func<A,bool>)`                                      | instance | predicate-bounded leading run        |
-|  [64]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | instance | indexed predicate-bounded run        |
-|  [65]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic predicate-bounded fold       |
-|  [66]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic fold to a stop condition     |
-|  [67]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | the argument-flipped module twin     |
-|  [68]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | pure fold to a stop condition        |
-|  [69]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | the right-to-left bounded twins      |
-|  [70]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | the folder itself decides the stop   |
-|  [71]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | bounded monoidal aggregation, nested |
-|  [72]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | one pass over `K<T, K<U, A>>`        |
+|  [42]   | `HashMap.AddOrUpdate(K, Func<V,V>, V)`                             | instance | matched upsert, value fills the miss |
+|  [43]   | `HashMap.SetItem(K, V)`                                            | instance | persistent replace                   |
+|  [44]   | `HashMap.Remove(K)`                                                | instance | persistent delete                    |
+|  [45]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`          | instance | merge with a collision rule          |
+|  [46]   | `HashMap.ContainsKey(K)`                                           | instance | total key membership                 |
+|  [47]   | `HashMap.ToTrackingHashMap()`                                      | instance | change-logged map lift               |
+|  [48]   | `HashMap.AddOrUpdate(K, V)`                                        | instance | persistent unconditional upsert      |
+|  [49]   | `HashMap.AsIterable()`                                             | instance | `(K Key, V Value)` pair carrier      |
+|  [50]   | `Set.Add(A)`                                                       | instance | persistent set insertion             |
+|  [51]   | `Set.TryAdd(A)`                                                    | instance | insertion tolerating a duplicate     |
+|  [52]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                    | static   | lazy sync lift                       |
+|  [53]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`               | static   | lazy async lift                      |
+|  [54]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                            | static   | `params` span into the carrier rail  |
+|  [55]   | `List.unfold(S, Func<S,Option<(A,S)>>)`                            | static   | state-seeded lazy generation         |
+|  [56]   | `Prelude.toSet(IEnumerable<A>)`                                    | static   | ordered-set enumerable admission     |
+|  [57]   | `Set(IEnumerable<A>)`                                              | ctor     | ordered-set construction             |
+|  [58]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                            | static   | hashed-map pair admission            |
+|  [59]   | `Seq.Iter(Action<A>)`                                              | instance | side-effecting element walk          |
+|  [60]   | `Seq.Skip(int)`                                                    | instance | drop a leading run                   |
+|  [61]   | `Seq.Take(int)`                                                    | instance | keep a leading run                   |
+|  [62]   | `Seq.Count`                                                        | property | materialized member count            |
+|  [63]   | `SeqExtensions.Rev(Seq<A>)`                                        | static   | reversed carrier                     |
+|  [64]   | `Seq.TakeWhile(Func<A,bool>)`                                      | instance | predicate-bounded leading run        |
+|  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | instance | indexed predicate-bounded run        |
+|  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic predicate-bounded fold       |
+|  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic fold to a stop condition     |
+|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | the argument-flipped module twin     |
+|  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | pure fold to a stop condition        |
+|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | the right-to-left bounded twins      |
+|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | the folder itself decides the stop   |
+|  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | bounded monoidal aggregation, nested |
+|  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | one pass over `K<T, K<U, A>>`        |
 
 - The bounded folds split their predicate arity by rail and the two do not look different at the call site: the PURE `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>` — the running state AND the element — while the MONADIC `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element ALONE. A state-reading stop condition therefore has no monadic form; it either folds pure and lifts afterwards, or carries the condition into the effect and returns a settled state the next step reads. `foldWhileM` is the same operator with the arguments flipped to `(f, pred, state, ta)`, so a mechanical rewrite between the instance and module spellings silently transposes them.
 - `FoldMaybe` is the fold whose STOP lives in the folder rather than beside it: the step answers `Option<S>` and a `None` ends the walk, returning the last committed state. It is the form a search-and-accumulate takes when the decision to continue is the same computation as the accumulation, and it retires the paired `FoldWhile` predicate that would re-derive that decision a second time. Every bounded fold has a `FoldBack*` right-to-left twin and a `*T` twin folding one pass over a nested `K<T, K<U, A>>`, so a foldable of foldables never flattens first.

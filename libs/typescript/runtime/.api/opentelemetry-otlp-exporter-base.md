@@ -33,13 +33,15 @@
 
 [ENTRYPOINT_SCOPE]: configuration merge and delegate construction — the surface exporters build on
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------------- |
-|  [01]   | `mergeOtlpSharedConfigurationWithDefaults(user, fallback, defaults)` | function | fold user options over env and spec defaults |
-|  [02]   | `getSharedConfigurationDefaults()`                                   | function | spec transport defaults                      |
-|  [03]   | `createOtlpNetworkExportDelegate(config, serializer, metrics, transport)` | factory | 4-arg delegate an exporter's `export` drives — the third slot takes the `ExporterMetrics` self-observation handle |
-|  [04]   | `OTLPExporterBase`                                                   | class    | base class every signal exporter extends     |
-|  [05]   | `ExporterMetrics`                                                    | class    | exporter self-observability counters         |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------------ | :------- | :------------------------------------------- |
+|  [01]   | `mergeOtlpSharedConfigurationWithDefaults(user, fallback, defaults)`      | function | fold user options over env and spec defaults |
+|  [02]   | `getSharedConfigurationDefaults()`                                        | function | spec transport defaults                      |
+|  [03]   | `createOtlpNetworkExportDelegate(config, serializer, metrics, transport)` | factory  | 4-arg delegate an exporter's `export` drives |
+|  [04]   | `OTLPExporterBase`                                                        | class    | base class every signal exporter extends     |
+|  [05]   | `ExporterMetrics`                                                         | class    | exporter self-observability counters         |
+
+- `createOtlpNetworkExportDelegate`: slot three takes the `ExporterMetrics` self-observation handle.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -83,7 +83,8 @@
 
 [STACKING]:
 - `api-hosting.md`(`Microsoft.Extensions.Hosting`): the web app root builds through the ASP.NET host, so both registrations reach the same `IApplicationBuilder`/`IEndpointRouteBuilder` the gRPC and control endpoint mappings already use; `UseStaticFiles` orders in the middleware pipeline ahead of endpoint routing, while `MapStaticAssets` orders among the endpoint mappings.
-- within-lib: `Runtime/profiles.md` `[02]-[PROFILE_AXIS]` `HostDescriptor.CoHostedAssets` is the gate and `UseStaticFiles(StaticFileOptions)` its owner — the column selects a TypeScript bundle at runtime, which `MapStaticAssets` cannot serve — with `FileProvider` a `PhysicalFileProvider` over the selected bundle root and `RequestPath` its mount prefix; `Wire/companion.md` seats the middleware ahead of endpoint routing under that gate. `MapStaticAssets` stands admitted for any asset the .NET build itself emits and is the better owner there.
+- within-lib: `Runtime/profiles.md` `[02]-[PROFILE_AXIS]` gates on `HostCapability.CoHostedAssets` in `HostDescriptor.Held`, and `UseStaticFiles(StaticFileOptions)` owns the serving — the capability selects a TypeScript bundle at runtime, which `MapStaticAssets` cannot serve — with `FileProvider` a `PhysicalFileProvider` over the selected bundle root and `RequestPath` its mount prefix; `Wire/companion.md` seats the middleware ahead of endpoint routing.
+- `MapStaticAssets` stands admitted for any asset the .NET build itself emits and is the better owner there.
 
 [LOCAL_ADMISSION]:
 - Provenance decides the registration: a build-emitted asset takes `MapStaticAssets`, a runtime-selected tree takes `UseStaticFiles(StaticFileOptions)`. Choosing on convenience is the defect this row forecloses.
