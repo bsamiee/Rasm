@@ -299,7 +299,7 @@
 [PAIRED_TAPER]: `Hann` `Hamming` `Cosine` `Lanczos`
 [SINGLE_TAPER]: `Blackman` `BlackmanHarris` `BlackmanNuttall` `Nuttall` `FlatTop` `Bartlett` `BartlettHann` `Triangular` `Dirichlet`
 [SHAPED_TAPER]: `Gauss(width, sigma)` `Tukey(width, r)`
-- The 19 members above (15 tapers plus the four `*Periodic` twins) are the DECOMPILE-VERIFIED complete `Window` surface — no `Kaiser` and no `Bohman` member ships, so a Kaiser response is an owned Bessel-`I0` fold (`Rasm.Materials` `Raster/plane#TEXTURE_PYRAMID` holds the estate's one) and never a phantom `Window.Kaiser` spelling.
+- The 19 members above (15 tapers plus the four `*Periodic` twins) are the DECOMPILE-VERIFIED complete `Window` surface — no `Kaiser` and no `Bohman` member ships, so a Kaiser response is an owned Bessel-`I0` fold — the `Rasm` `Numerics/transform#WINDOW` `WindowTaper.Kaiser`/`Bohman` rows own the taper-array response and `Rasm.Materials` `Raster/plane#TEXTURE_PYRAMID` owns the polyphase windowed-sinc tap table — and never a phantom `Window.Kaiser` spelling.
 
 [ENTRYPOINT_SCOPE]: provider selection — `Control` sets every provider class at once, `LinearAlgebraControl` the linear-algebra class alone; each `Use*` throws on a missing native asset where its `Try*` twin returns `false`
 

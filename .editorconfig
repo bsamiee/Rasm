@@ -378,6 +378,16 @@ dotnet_diagnostic.IDE0360.severity = error                                    # 
 dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifiers.
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
+# --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
+dotnet_diagnostic.RMG001.severity = error                                     # A throwing conversion (LanguageExt explicit Option<T> cast) bound over a registered mapping is a landmine, never a warning.
+dotnet_diagnostic.RMG007.severity = error                                     # A null-rejecting protoc setter fed a nullable carrier throws at runtime; presence writes are hand-owned by law.
+dotnet_diagnostic.RMG012.severity = error                                     # An unmapped TARGET member is a silently absent wire column.
+dotnet_diagnostic.RMG013.severity = error                                     # No suitable constructor: a shape drift between seam and wire must break the build, not degrade.
+dotnet_diagnostic.RMG020.severity = error                                     # An unmapped SOURCE member is a silently dropped seam fact (reader-bearing mappings demote this to authored inventory — the ignore roster states why).
+dotnet_diagnostic.RMG036.severity = error                                     # [MapDerivedType] on a protobuf oneof envelope is refused; the generated Switch owns union dispatch.
+dotnet_diagnostic.RMG060.severity = error                                     # Duplicate user mappings make the selected codec ambient; one per (T, TWire) pair by law.
+dotnet_diagnostic.RMG093.severity = error                                     # A mapping silently ignoring its source value voids the transcription proof.
+
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 

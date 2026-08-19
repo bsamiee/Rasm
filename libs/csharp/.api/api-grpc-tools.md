@@ -113,3 +113,4 @@
 - Owns: build-time `.proto` compilation to C# messages and stubs, and the well-known import root every contract resolves against
 - Accept: `Protobuf` items whose metadata selects stub kind, type visibility, and output sinks, with the option metadata carrying any raw compiler flag
 - Reject: a hand-written wire DTO, a bespoke compiler-invocation target, and checked-in generated source
+- `Rasm.Element`: one `<Protobuf Include="…/tests/contracts/rasm/element/v1/element.proto" ProtoRoot="…/tests/contracts" GrpcServices="None" />` item — message codegen only, `PrivateAssets=all`, the descriptor name pinned to the corpus root all three runtimes compile.

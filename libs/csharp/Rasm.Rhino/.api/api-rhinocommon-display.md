@@ -300,7 +300,7 @@ Grid/axis decor spells differently per owner: `ViewCaptureSettings.DrawAxis` sin
 |  [22]   | `RhinoEndAnalysisModeId`                                                      | analysis id    | built-in end mode                     |
 |  [23]   | `ViewCapture.CaptureToBitmap(ViewCaptureSettings)`                            | capture        | raster egress                         |
 |  [24]   | `ViewCapture.CaptureToSvg(ViewCaptureSettings)`                               | capture        | vector egress                         |
-|  [25]   | `ViewCapture.SendToPrinter(string, ViewCaptureSettings[], int)`               | capture        | printer egress copy count             |
+|  [25]   | `ViewCapture.SendToPrinter(string, ViewCaptureSettings[], int)`               | capture        | `bool` printer egress by copy count   |
 |  [26]   | `new ViewCaptureSettings(RhinoView, Size, double)`                            | capture spec   | view settings                         |
 |  [27]   | `new ViewCaptureSettings(RhinoPageView, double)`                              | capture spec   | page settings                         |
 |  [28]   | `ViewCaptureSettings.CreatePreviewSettings(Size)`                             | capture spec   | preview-scaled derivation             |
@@ -325,6 +325,7 @@ Grid/axis decor spells differently per owner: `ViewCaptureSettings.DrawAxis` sin
 |  [47]   | `ViewCaptureSettings.DrawMargins`                                             | capture flag   | margin draw                           |
 |  [48]   | `ViewCaptureSettings.HeaderText`                                              | capture spec   | page header                           |
 |  [49]   | `ViewCaptureSettings.FooterText`                                              | capture spec   | page footer                           |
+|  [50]   | `ViewCaptureSettings.MediaSize`                                               | capture spec   | seated media extent (`Size`)          |
 |  [50]   | `ViewCaptureSettings.UsePrintWidths`                                          | capture spec   | print-width selection                 |
 |  [51]   | `ViewCaptureSettings.WireThicknessScale`                                      | capture spec   | wire-width scale                      |
 |  [52]   | `ViewCaptureSettings.PointSizeMillimeters`                                    | capture spec   | point size                            |

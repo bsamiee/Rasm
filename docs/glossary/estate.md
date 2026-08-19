@@ -14,6 +14,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `cross-cutting concern`: Names what all owners need and none owns — identity, telemetry, faults, policy — woven at definition or composition time.
     - [NOT]: Aspect weaving, which each branch doctrine owns as an attachment mechanism.
 - `capability`: Names what an owner does for a consumer, stated as present-tense owned fact and never gated on consumer arrival.
+    - [NOT]: `Capability` declarations naming folder-local axes — geometry reads, machine reach — each ride their own `ICapability<TSelf>` roster, never one shared enum.
 - `tier`: Ranks one level of ownership breadth — cross-libs core, branch, folder, page — and the narrowest tier holding a fact owns it.
 - `grain`: Fixes the resolution a fact is stated at: concept grain for an idea, landing grain for a task, member grain for a catalog.
     - [NOT]: Orleans virtual actors and warehouse fact-table grain; neither names a runtime entity here.
@@ -103,6 +104,8 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `plane landing`: Settles an infrastructure plane's row onto its realized backend, so readers provision off the armed set.
 - `slot`: Refuses bare use.
 - `identity slot`: Holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
+- `evidence run`: Names the solver-run audit — who/tool/version/when/cost — the `Rasm.Element` `EvidenceRun` owns and `PropertyEvidence.Run` links.
+    - [NOT]: Material sourcing grade, capture-fit receipt, or ONNX metadata mirror.
 - `carrier slot`: Names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
 - `host slot`: Seats one host-owned member the boundary writes under that host's own convention, and the domain never reads it back.
     - [NOT]: Rhino session slots, which the `rhino-mcp` tooling names and defines at its own site.

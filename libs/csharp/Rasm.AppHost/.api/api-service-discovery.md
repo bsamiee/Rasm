@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERVICE_DISCOVERY]
 
-`Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination rail dials cluster membership and election endpoints by service name over this surface.
+`Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination rail dials cluster membership by service name through the resolving named `HttpClient` this surface decorates.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -80,10 +80,10 @@
 [STACKING]:
 - `Microsoft.Extensions.Http.Resilience`(`.api/api-resilience.md`): the resolving delegating handler that `IHttpClientBuilder.AddServiceDiscovery` installs chains ahead of `AddStandardResilienceHandler` on one outbound pipeline — resolution picks the instance, the resilience handler owns retry and circuit-breaking over it.
 - `Grpc.Net.Client`(`libs/csharp/.api/api-grpc-client.md`): `IHttpClientBuilder.AddServiceDiscovery` installs the gRPC load-balancing filter, so a `Wire/coordination` channel resolves its cluster election endpoint through this resolver rather than a hand-subclassed `Resolver`/`LoadBalancer`.
-- `Wire/coordination`: dials cluster membership and election endpoints by service name through `ServiceEndpointResolver.GetEndpointsAsync`, the round-robin selector picking one instance per call.
+- `Wire/coordination`: `Membership`'s named `HttpClient` carries `AddServiceDiscovery()` with the standard resilience handler, so resolution and round-robin selection run inside the client per request — no fence calls `ServiceEndpointResolver` directly.
 
 [LOCAL_ADMISSION]:
-- Membership and election targets resolve as service names through `ServiceEndpointResolver.GetEndpointsAsync`, never hard-coded host strings.
+- Membership targets resolve as service names inside the `AddServiceDiscovery()`-decorated client, never hard-coded host strings and never a direct resolver call.
 - Instance selection stays inside the resolver's round-robin selector, never reimplemented at a call site.
 - Providers register explicitly — `AddConfigurationServiceEndpointProvider` for `IConfiguration`-backed cluster rows, `AddPassThroughServiceEndpointProvider` for already-addressable endpoints.
 - Scheme filtering is package policy through `ServiceDiscoveryOptions.AllowedSchemes`, never a call-site URI check.

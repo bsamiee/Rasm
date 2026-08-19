@@ -302,7 +302,7 @@
 
 - `MaximumRecommendedInterpolatedVertexCount` is a `static uint` PROPERTY reading `1000`, `ContextId` is a `Guid` property, and the censuses are METHODS — the call parentheses discriminate the two families, and a `Guid`-keyed context row survives a `Clear()`.
 - `Solve` answers `bool` alone with no cause, so an arity mismatch is gated against `InterpolatedVertexCount()` BEFORE the call; the point array length must equal that census, which only the minted solver knows.
-- `SubD.InterpolateSurfacePoints` covers the whole-surface and explicit-id cases alone and publishes no free-vertex census, so the interpolator strictly subsumes it.
+- `SubDSurfaceInterpolator` is UNREACHABLE from detached geometry: `ContextId` requires a live `ParentRhinoObject`, and a detached duplicate answers `null` there, so the mint NREs — `SubD.InterpolateSurfacePoints` (whole-surface and explicit-id) is the ONE detached-safe interpolation native, and the interpolator serves only live-document grips.
 
 [SUBD_TOPOLOGY]: `SubD` component reads and tag authoring.
 
@@ -341,7 +341,7 @@
 - `Rasm` kernel: host-neutral isotropic and quad remesh, quadric decimation, and stencil subdivision stand at the kernel altitude and the boundary re-derives none of them; densities, counts, tolerances, and offset distances compose the kernel numeric owners before the native call.
 
 [LOCAL_ADMISSION]:
-- Construction enters through the mesh or subd op union: each arm binds its native member, projects the outcome and any index-map or `Result` side-channel onto the rail, and disposes the `MeshExtruder` and `SubDSurfaceInterpolator` solvers through a using scope or lease.
+- Construction enters through the mesh or subd op union: each arm binds its native member, projects the outcome and any index-map or `Result` side-channel onto the rail, and disposes the `MeshExtruder` solver through a using scope or lease; `SubDSurfaceInterpolator` never mints on this rail (detached-unreachable, see the interpolation row).
 - Native `Mesh`, `SubD`, component lists, and configuration carriers stay inside the construction grant; downstream code receives content-hash-keyed duplicated geometry, the typed mesh or subd receipt, or an owned geometry lease, and the component-list reads project into detached topology records before crossing the boundary.
 
 [RAIL_LAW]:

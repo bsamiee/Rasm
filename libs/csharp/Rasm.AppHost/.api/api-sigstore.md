@@ -100,15 +100,17 @@ Every verify member is `async Task`, trailing `(…, SigstoreBundle bundle, Veri
 
 [ENTRYPOINT_SCOPE]: bundle, policy, and anchor construction
 
-| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                        |
-| :-----: | :----------------------------------------------------------------------- | :------ | :---------------------------------- |
-|  [01]   | `SigstoreBundle.Deserialize(string)`                                     | static  | parse a bundle JSON string          |
-|  [02]   | `SigstoreBundle.Deserialize(Stream)`                                     | static  | parse a bundle JSON stream          |
-|  [03]   | `SigstoreBundle.LoadAsync(FileInfo, ct)`                                 | static  | load a bundle file                  |
-|  [04]   | `CertificateIdentity.ForGitHubActions(string, string, string?, string?)` | static  | GitHub Actions OIDC signer identity |
-|  [05]   | `InTotoStatement.Parse(ReadOnlyMemory<byte>) -> InTotoStatement?`        | static  | decode the SLSA provenance payload  |
-|  [06]   | `new TufTrustRootProvider(Uri, TufTrustRootProviderOptions?)`            | ctor    | offline-capable TUF anchor          |
-
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------ | :------ | :---------------------------------- |
+|  [01]   | `SigstoreBundle.Deserialize(string)`                                      | static  | parse a bundle JSON string          |
+|  [02]   | `SigstoreBundle.Deserialize(Stream)`                                      | static  | parse a bundle JSON stream          |
+|  [03]   | `SigstoreBundle.LoadAsync(FileInfo, ct)`                                  | static  | load a bundle file                  |
+|  [04]   | `CertificateIdentity.ForGitHubActions(string, string, string?, string?)`  | static  | GitHub Actions OIDC signer identity |
+|  [05]   | `InTotoStatement.Parse(ReadOnlyMemory<byte>) -> InTotoStatement?`         | static  | decode the SLSA provenance payload  |
+|  [06]   | `new TufTrustRootProvider(Uri, TufTrustRootProviderOptions?)`             | ctor    | offline-capable TUF anchor          |
+|  [07]   | `new FileTrustRootProvider(FileInfo)`                                     | ctor    | pinned trusted_root.json anchor     |
+|  [08]   | `new InMemoryTrustRootProvider(TrustedRoot)`                              | ctor    | embedded trust anchor               |
+|  [09]   | `new SigstoreVerifier(ITrustRootProvider, ISigningCertificateValidator?)` | ctor    | offline verifier over an anchor     |
 - `CertificateIdentity.ForGitHubActions`: `issuer` defaults to `https://token.actions.githubusercontent.com`, `workflowRef` to `null`.
 - `InTotoStatement.Parse`: also overloads on `ReadOnlySpan<byte>` and `string`.
 

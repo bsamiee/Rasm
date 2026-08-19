@@ -64,3 +64,4 @@
 - Owns: temporal conversion between NodaTime values and protobuf wire messages
 - Accept: paired boundary extension calls on the seam's inward and outward legs
 - Reject: hand-rolled epoch arithmetic between NodaTime values and wire payloads
+- `Rasm.Element` (`Graph/wire`): `NodaExtensions` + `ProtobufExtensions` registered WHOLESALE through `[UseStaticMapper]` on `SeamConverters`'s composing mapper, so `ToTimestamp`/`ToInstant`/`ToProtobufDuration`/`ToNodaDuration` cross with no per-member codec row; hand bodies keep only the crossings that encode a CHOICE (Interval flattening, Option presence, wire-fixed ISO patterns).

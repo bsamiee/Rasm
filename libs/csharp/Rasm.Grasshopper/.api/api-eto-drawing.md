@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_ETO_DRAWING]
 
-`Eto.Drawing` paints every Grasshopper2 canvas painter, wire renderer, icon projector, and tooltip painter. Immediate `Graphics` stream, `GraphicsPath` geometry, the brush/pen family, measured text, and `Bitmap` staging are the branch algebra this boundary composes unchanged; the rows below are the icon, indexed-raster, hex-egress, and font-enumeration carriers the GH2 chrome adds beyond it.
+`Eto.Drawing` paints every Grasshopper2 canvas painter, wire renderer, icon projector, and tooltip painter. Immediate `Graphics` stream, `GraphicsPath` geometry, the brush/pen family, measured text, and `Bitmap` staging are the branch algebra this boundary composes unchanged; the rows below are the indexed-raster, hex-egress, and font-enumeration carriers the GH2 chrome adds beyond it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -23,13 +23,6 @@
 |  [02]   | `IndexedBitmap` | class         | palette-indexed raster                             |
 |  [03]   | `Palette`       | class         | indexed-colour table                               |
 
-[PUBLIC_TYPE_SCOPE]: multi-frame icon projection
-
-| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                        |
-| :-----: | :---------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `Icon`      | class         | multi-frame icon resolving a frame per device scale |
-|  [02]   | `IconFrame` | class         | one scale-tagged raster inside an icon              |
-
 [PUBLIC_TYPE_SCOPE]: hex egress and font enumeration
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]                              |
@@ -46,16 +39,15 @@
 
 [TOPOLOGY]:
 - `Region` is the one composite clip: a canvas clipping to a union or difference of areas builds the region and hands it to the branch clip stack, never nesting `SetClip` calls to emulate the composition.
-- Icon projection resolves per device scale: a component icon carries its `IconFrame` set and the canvas asks the `Icon` for the frame, so a Retina canvas never rescales a single raster at draw time.
 - `IndexedBitmap` and `Palette` are the palette-indexed staging path beside the branch `Format32bppRgba` raster; a palette swap re-colours a whole sprite without touching pixel memory.
 - `ColorStyles` governs hex egress only — a swatch value reads from the branch colour surface or `SystemColors`, never from a hex round trip.
 
 [STACKING]:
-- `api-eto-drawing`(`libs/csharp/.api/api-eto-drawing.md`): the paint algebra every row here decorates — a `Region` enters the branch clip stack, an `Icon` frame enters `Graphics.DrawImage`, and an `IndexedBitmap` projects to the branch raster at the blit edge.
+- `api-eto-drawing`(`libs/csharp/.api/api-eto-drawing.md`): the paint algebra every row here decorates — a `Region` enters the branch clip stack, and an `IndexedBitmap` projects to the branch raster at the blit edge; the `Icon`/`IconFrame` projection pair carries its rows there, composed through the kernel asset estate rather than this boundary.
 - `api-eto-forms`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-forms.md`): the control lifecycle raises the paint event whose `Graphics` this boundary draws through.
 - `api-eto-platform`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-platform.md`): the managed paint objects back onto CoreGraphics through the `Eto.Mac.Drawing` handler set; a curved-stroke or text-state operation the managed path leaves ambiguous resolves on the `api-macos-native` `CGPath`/`CATextLayer` branch under platform gate.
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `ColorStyles` and `SystemFont` map onto `[SmartEnum]` and flag owners so an egress policy or a semantic font role carries behaviour rather than a bare host enum switch.
-- `api-languageext`(`libs/csharp/.api/api-languageext.md`): an unresolved `FontFamily` face lookup and an absent `IconFrame` scale lower onto `Option<T>` at the folder boundary.
+- `api-languageext`(`libs/csharp/.api/api-languageext.md`): an unresolved `FontFamily` face lookup lowers onto `Option<T>` at the folder boundary.
 
 [LOCAL_ADMISSION]:
 - Composite clipping enters through `Region`, icon projection through `Icon`/`IconFrame`, and palette staging through `IndexedBitmap`/`Palette`; a hand-rolled clip union, a per-scale icon field, or a manual palette walk is the deleted form.

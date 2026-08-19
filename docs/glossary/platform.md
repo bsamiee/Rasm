@@ -78,6 +78,12 @@ Substrate vocabulary spans telemetry, storage engines, and execution: each term 
 - `logical replication`: Streams decoded row changes rather than physical pages, so a subscriber applies them into its own shape.
 - `CDC`: Publishes committed row changes as an ordered stream downstream consumers read.
 - `dead-letter`: Routes a message no consumer can process onto a separate destination, keeping the primary path draining.
+- `topic`: Fans events to subscribed sinks under one named row that also budgets the waiting room it sheds at.
+    - [NOT]: Broker topics naming durable partitioned logs; this estate's `Topic` rows fan in process, and durability rides the outbox, never the fan.
+- `subscription`: Seats one bounded consumer sink on a topic fan, so one hop owns one waiting room and a gap fold accounts every declined offer.
+    - [NOT]: Changefeed subscriptions draining durable store ranges for replay; a bus subscription holds nothing and re-reads nothing after a drop.
+- `drop receipt`: Accounts one in-process delivery loss by conservation — a declined-offer span or a shed dispatch — never by interception.
+    - [NOT]: Interaction's `DropReceipt` settling a pointer drag-drop effect; a loss row and a drop gesture share a spelling and nothing else.
 
 ## [07]-[COLUMNAR_AND_LAKE]
 
