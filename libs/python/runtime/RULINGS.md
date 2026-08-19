@@ -9,7 +9,7 @@
 - `confluent-kafka` is the one Kafka client — librdkafka is the engine the C# and TypeScript legs dial, so a pure-Python client forks that floor.
 - `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
-- `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition to a backend the sync client leaves free.
+- `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition the sync client leaves free.
 
 ## [02]-[SHAPE]
 
@@ -43,12 +43,12 @@
 - Subject index rides the fact and its row — export and erasure key on one `(tenant, subject)` composite, so both rights compose by construction.
 - Journal writers mint the `Hlc` stamp at admission over any caller slot — identity covers the stamped payload, so two producers never share one key.
 - Erasure destroys the key and `open` is TOTAL — a destroyed key folds to `Nothing`, `InvalidTag` stays a fault, each envelope binding `SubjectKey`.
-- Instrumentor train rows carry the driver they wrap and gate on presence before reifying — a contrib instrumentor imports its driver at module scope.
+- Instrumentor rows carry the driver they wrap and gate on presence before reifying — a contrib instrumentor imports its driver at module scope.
 - Scope handles mint once per module, never per call — the API caches none, and the pre-install proxy upgrades at install with no invalidation.
 - Every instrument row proves its `DOMAINS` segment at IMPORT over the whole table — filtering an unrostered row in the census defers the failure.
 - Optional dimensions spell absence by OMITTING the key at every arm — an empty-string value identifies a series a board groups on and nobody fills.
-- Supervision probes answer typed columns, WHICH ceiling tripped, and UNMEASURED — fences bind per COLUMN, so an all-refused reading actuates nothing.
-- One `CapacityLimiter` publishes ONE occupancy probe that concurrent brackets REFCOUNT — `Metrics.occupied` sums live probes and retires by identity.
+- Supervision probes answer typed columns, WHICH ceiling tripped, and UNMEASURED — fences bind per COLUMN, so an all-refused reading actuates none.
+- One `CapacityLimiter` publishes ONE occupancy probe concurrent brackets REFCOUNT — `Metrics.occupied` sums live probes and retires by identity.
 - Blocking native waits ride the library's OWN timeout in the thread — a cancel scope bounds the await while the abandoned thread keeps its token.
 - Caller payload validates HOST-side onto a typed rail before the crossing — a defect reaching the far floor raises where no fault lift can name it.
 - Secret resolution stays ONE sync provider union crossed through `anyio.to_thread.run_sync` under its own probe band — `hvac` ships no `aio` twin.
@@ -82,7 +82,7 @@
 - Survivor and ordering decisions read `evidence/clock#CLOCK`'s `compare` and fold its `Ordering` — two spellings drift when either bound flips.
 - Trace spans partition by `SpanKind` at its four boundaries — a unified aspect mis-kinds them and re-parents the serve interceptor's spans.
 - `loky` and `pebble` stay two executors — crash-respawning warm reuse against terminal wall-clock kill, and neither carries the other's guarantee.
-- Log-record exception semantics stay the SDK's — the emit seam takes the RAISED OBJECT, so the chain resolves `exc_info` to it ahead of the renderer.
+- Log-record exception semantics stay the SDK's — the emit seam takes the RAISED OBJECT, so the chain resolves `exc_info` to it before the renderer.
 - Stdlib-handler bridging collapses into the chain's terminal row — a handler reads a rendered record, carrying neither redaction nor caps.
 - `BoundaryFault` grows by ingress class or case alone — a sibling fault type needing an adapter breaks the cross-tier `combine`/`aggregate` fold.
 

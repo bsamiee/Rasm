@@ -86,7 +86,7 @@ flowchart TB
 - S0 point rail and resource ledger ride every producer dispatch; every producer returns through the hub.
 - S1 `numerics` + `solvers` — one module-acyclic stratum: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail.
 - S1 `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes.
-- S1 interleave: `quadrature` composes `jit` and the receipt `graduate` fold, `interval` that fold alone, `receipt` mounting the `EngineProfile` band.
+- S1 interleave: `quadrature` composes `jit` and the receipt `graduate` fold, `interval` that fold, `receipt` mounting the `EngineProfile` band.
 - S2 `analysis` + `experiments` + `optimization` — the producer stratum no sibling imports.
 - S2 `analysis` composes `ArrayPayload`; `experiments` the `JitBackend` capture and study spine.
 - S2 `optimization` composes the `SolveStatus` verdicts and the receipt `graduate` fold.

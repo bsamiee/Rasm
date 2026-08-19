@@ -126,7 +126,7 @@ flowchart TB
 - S4-S6 `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
 - S4-S6 `event` (`MessageEnvelope`) sits on admission, taking its `Correlation` adoption fold for the creation-time trace and its `Classification`.
 - S7-S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail over recipe, bundle, codec, journal, and binding fan.
-- S7-S9 `binding` (`BindingRow`/`Emitter`) composes the message envelope, the journal's `Retain` classes, and the store lane its `dataref` binds into.
+- S7-S9 `binding` (`BindingRow`/`Emitter`) composes the message envelope, the journal's `Retain` classes, and the store lane its `dataref` binds.
 - S7-S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
 - S7-S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
 - S7-S9 `journal` (`Fact`) stamps through clock, registers hook points, reads its KEK at admission's secret boundary; `Ledger` binds at composition.

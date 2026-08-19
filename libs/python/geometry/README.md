@@ -37,7 +37,7 @@
 
 [ENERGY]:
 - [22]-[CLIMATE](.planning/energy/climate.md): EPW admission and one `ClimateQuery` read surface over series, solar, comfort, indices, MRT, and maps.
-- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under `check_all`, energy-assigned at the shared host fold.
+- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` admits HBJSON and BIM-to-BEM under `check_all`, energy-assigned at the host fold.
 - [24]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing exploding onto the model owner under one shared explosion policy.
 - [25]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — parent-woven translation, recipe-parameterized binding, columnar result decode.
 
@@ -92,8 +92,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `dragonfly-core` — District 2.5-D massing model exploding to Honeybee.
 - `dragonfly-energy` — District-energy translation.
 - `queenbee` — Recipe and workflow schema contract; the schema binding homes to `runtime`.
-- `lbt-recipes` — Recipe binding and input coercion; consumed through the runtime recipe rail, catalog homes to `runtime`.
-- `pollination-handlers` — Model-to-recipe-input handler adapters; consumed through the runtime recipe rail, catalog homes to `runtime`.
+- `lbt-recipes` — Recipe binding and input coercion, consumed through the runtime recipe rail.
+- `pollination-handlers` — Model-to-recipe-input handler adapters the runtime recipe rail consumes.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

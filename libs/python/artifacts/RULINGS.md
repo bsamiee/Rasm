@@ -7,18 +7,18 @@
 - Host-coupled rendering admits per-FORMAT, never per-ENGINE — a per-engine admission couples every artifact's identity to host state.
 - Graph-layout engines are in-process typed libraries reading results into the node index — a DOT subprocess round-trip seats no port on `Port.at`.
 - `openexr` KEEPS its seat beside `imagecodecs` — the split is NAMES, and its sdist vendors every native, so admission adds no machine row.
-- `scikit-image` admits ungated at the floor — a version-pinned `dependency-metadata` row rewrites pythran's gast pin, retiring on pythran's own bump.
+- `scikit-image` admits ungated at the floor — a version-pinned `dependency-metadata` row rewrites pythran's gast pin, retiring on pythran's bump.
 - Source-build repairs land at PACKAGE scope — `opencolorio` kills its Metal helper via `[tool.uv.extra-build-variables]`, never a wrapper knob.
-- Spawned `ktx` holds the KTX2 encode floor and `pyktx` takes the leg a presence probe picks — one provisioned binary makes python and C# bytes agree.
+- Spawned `ktx` holds the KTX2 encode floor, `pyktx` taking the leg a presence probe picks — one provisioned binary makes python and C# bytes agree.
 - `pyvips` admits BARE as a source API-mode build, `no-binary-package` pinning the sdist — API mode compiles the deep lanes the wheel excludes.
 - `pikepdf` alone authors PDF encryption on BOTH license footings — `pdf_oxide`'s R≥5 seal omits the `/Perms` its own dictionary requires.
-- `psd-tools` is the ONE native PSD/PSB owner, authoring and re-proving its own bytes — every second writer is floor-uninstallable, so none re-enters.
+- `psd-tools` is the ONE native PSD/PSB owner, authoring and re-proving its own bytes — every second writer is floor-uninstallable.
 - Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — block encode takes an 8-bit store on BOTH toolchain legs.
 
 ## [02]-[SHAPE]
 
 - Absent, empty, and zero stay three distinct facts — absence rides `Option`/`UnsetType`, since a truthiness fold erases a real `0` at lens recovery.
-- Capability and route selection derive from probes and membership tables — a caller-visible flag enters content identity and forks the key per build.
+- Capability and route selection derive from probes and membership tables — a caller-visible flag enters content identity and forks the key.
 - Substitute resolution walks a fidelity ladder — native filter, in-process composite, then numpy, the closest arm preserving the admitted payload.
 - Admission modality derives from what the emission IS — content-determined input admits `keyed`, a secret-consuming act `bare`, transient `retried`.
 - Any new `Admission` case earns existence only with a behaviorally distinct lowering — a member without one is a phantom the vocabulary refuses.
@@ -36,7 +36,7 @@
 - Set-level `tiled` states a PROVED property or stays false — this folder synthesizes none, so one false assert crosses the frozen wire whole.
 - `tiled` is declaration-sourced and `tile_score` publishes consumer-thresholded evidence — tiled and cut planes overlap whole, so no cutoff exists.
 - Absence IS a gate verdict — a family the policy demands and nothing supplies never reads pass, since an unmeasured axis certifies nothing.
-- Threshold policy keys by ArtifactKind with a DECLARED default row — an unlisted kind grades unmeasured, never the silent pass a missing row invites.
+- Threshold policy keys by `ArtifactKind` with a DECLARED default row — an unlisted kind grades unmeasured, never a silent pass.
 - Primaries are the PLANE's declared datum — the transfer tag names none, so a leg unable to state it refuses the plane over shipping `UNSPECIFIED`.
 - Bit depth follows the plane's REFERENT — display output stays the 8-bit `Frame`, a texture or radiance sample the deep `Plane`, split by ROW.
 - Durable-fact construction collapses at `core/receipt#RECEIPT` — a finer producer diff appends positional `Change` entries, never widening its case.
@@ -59,7 +59,7 @@
 
 ## [04]-[STRUCTURE]
 
-- Worker-body homing splits on floor-legality — a legal provider keeps workers in-page under lazy import, a floor-illegal native earns its own module.
+- Worker-body homing splits on floor-legality — a legal provider keeps workers in-page under lazy import, a floor-illegal native earns a module.
 - Durable records never seat in a worker-process callback — no custody binds there, so evidence returns as data and records at the async fold.
 - Wire announcements SUBSCRIBE to a fired fact — a producer calling a wire owner off-rail inverts the direction and hand-rolls registry isolation.
 - Facts fire at the fold holding settled evidence — a per-kind fire in a roster-generic projection announces a case narrower than its producer holds.
@@ -67,5 +67,5 @@
 
 ## [05]-[PROCESS]
 
-- Every visual owner grades against the pub/print and AEC planes at once — one plane alone ships legal CAD that is illegitimate print, or its inverse.
+- Every visual owner grades against the pub/print and AEC planes at once — one plane alone ships legal CAD that is illegitimate print, or inverts.
 - Output grades as art direction — style rides as theme data on every visual owner, and a library default ships the tool's taste as the product's.

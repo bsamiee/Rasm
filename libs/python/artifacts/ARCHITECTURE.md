@@ -310,7 +310,7 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Dual-license provider pairs split by import reachability: no copyleft module is reachable from the permissive footing.
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
-- `core/receipt.evidence` is the one durable-fact builder every kind funnels through; async legs await the record and sync entrypoints record nothing.
+- `core/receipt.evidence` is the one durable-fact builder every kind funnels through; async legs await the record and sync entrypoints record none.
 - Retention class per kind and the metered fact rows are receipt-owned tables; the aging window and the resource series stay the journal's.
 - Production facts fire on the `core/hooks` point rows at the issue seams and the contribute fold.
 - Observability subscribes through `Production.subscribed` at the app root, never in producer code.

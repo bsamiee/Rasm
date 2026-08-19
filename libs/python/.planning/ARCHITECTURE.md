@@ -24,7 +24,7 @@ Cross-package coupling is a published boundary import or a content-keyed wire; n
 - S4 app root — the composing application seats outside `libs/python` and binds every declared port.
 - S4 port law — `runtime` declares a port at S0, an upper stratum binds it at the root, and an unbound port refuses with typed evidence.
 - S4 counter-edge — `data` supplies the `Ledger` the journal plane writes through, root-bound; S0 consumes the value, importing no owner.
-- S4 sink law — `artifacts` declares `ProductSink`, the root binds it over the runtime `ObjectStoreLane`, the streaming media sink composing directly.
+- S4 sink law — `artifacts` declares `ProductSink`, the root binds it over runtime `ObjectStoreLane`, the streaming media sink composing directly.
 
 ```mermaid
 ---

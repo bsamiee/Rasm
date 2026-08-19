@@ -22,12 +22,12 @@
 - Organization edge relations carry NO repository — a producer re-reads its document whole, so replacement scopes to the source key, never one row.
 - Grouped results re-anchor on the model class's `.fields` where a predicate proves a `FieldOption` column — a group key never unwraps by throw.
 - `_RESIDENCES` states `cap` as a literal false, never a gap — unbounded dimensionality IS the plane, so a later pass overwrites a claim, not a hole.
-- `Retain.Policy` classes extend with `transitions` and foreclose `admit` and `tenancy` — writers stamp the class and `_GROOMS` settles sweep tenancy.
+- `Retain.Policy` classes extend with `transitions` and foreclose `admit` and `tenancy` — writers stamp the class, `_GROOMS` settling sweep tenancy.
 - `Backend.admit` grades recovery on two proofs and takes its `Objective` as a supplied profile value — no branch-local durability table exists.
 - Analytics fills stamp `Convention.identity` on arrival as the journal's join key — a plane filled without it answers nothing until a rewrite.
 - `absorb` obligates `plant` at the same owner and `Olap.mount` creates both in one statement — a collector-planted residence carries neither.
 - `_POINTS` enumerates the OTLP point model, never the mount roster — `_KIND` maps a subset and the unreached relations still hold foreign rows.
-- `_POINTS` keys its scalars per instrument KIND — a histogram relation holds no value column its sum sibling has, so one shared column empties tiles.
+- `_POINTS` keys scalars per instrument KIND — a histogram relation holds no value column its sum sibling has, so one shared column empties tiles.
 - Lake metrics fold the emitting process's live registry into `_POINTS` on a tick — that snapshot IS the cold tail a metrics store cannot retain.
 - Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so the hoist waits on a SECOND consumer.
 - `object_ref.owner` is the closed `_OWNERS` vocabulary — prefix union, brand, and encoding mint derive from it; a new prefix lands its row first.
@@ -40,7 +40,7 @@
 - Admission feeds bridge through `Stream.asyncScoped`, never the push bridge — a buffer-shed intake candidate is a loss no re-emission repairs.
 - Derivative cascades heal on the ledger side — each sweep pass closes with the orphan census, re-probing the source at the engine before re-running.
 - Registered lane scans admit only a pre-pumped bounded source — `rowCount` 0 spells exhausted and nothing-yet alike; `Atomics.wait` blocks fibers.
-- Lane scans pin `supportsProjectionPushdown` and predicate pushdown does not exist — the source row's ceiling is the one bound a filtered read holds.
+- Lane scans pin `supportsProjectionPushdown`; predicate pushdown does not exist — the source row's ceiling is the one bound a filtered read holds.
 
 ## [03]-[COLLAPSE]
 

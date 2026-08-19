@@ -95,7 +95,7 @@ config:
 ---
 flowchart LR
     accTitle: Geometry cross-runtime C# peer seams
-    accDescr: Geometry sub-domain owners exchanging tessellation wires, content keys, IFC crossings, and validation evidence with the C# peers.
+    accDescr: Geometry sub-domain owners exchanging tessellation wires, content keys, IFC crossings, captured-scene descriptors, and validation evidence with the C# peers.
     subgraph geometry[GEOMETRY]
         Mesh[Mesh tessellation]
         Ifc[IFC analysis]
@@ -105,6 +105,7 @@ flowchart LR
     Bim{{Rasm.Bim}}
     Compute{{Rasm.Compute}}
     Element{{Rasm.Element}}
+    Rhino{{Rasm.Rhino}}
     Mesh e1@<-->|"[WIRE]: ComputeService"| Compute
     Mesh e2@<-->|"[CONTENT_KEY]: ContentIdentity"| Compute
     Mesh e3@<-->|"[WIRE]: GlbContentHash"| Element
@@ -112,6 +113,7 @@ flowchart LR
     Ifc e5@-->|"[BOUNDARY]: IdsVerdict"| Bim
     Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Scan
     Energy e7@<-->|"[WIRE]: Hbjson"| Bim
+    Rhino e8@-->|"[WIRE]: rasm.scene.v1"| Energy
 ```
 
 ```mermaid
@@ -159,7 +161,7 @@ flowchart LR
     Runtime e15@-->|"[PORT]: Hooks"| Graduation
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns. `GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes ONCE as the branch's one model CRS source — a dataset's own file CRS stays a data-owned origin beside it — off the single `util.geolocation` transform seam collapsing every coordinate-operation subtype, while the write side rides the `AuthorVerb` usecase vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence: an identity transform reports site-local engineering coordinates as map coordinates the moment the prelude composes it. This producer declares the georeference roster — projected CRS, the conversion's eastings, northings, and orthogonal height, its abscissa/ordinate direction pair and single scale, and the declared true north — and the data decoder mirrors it arm-for-arm.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns. `rasm.scene.v1` is the other one-way inbound crossing: `Rasm.Rhino`'s `Objects/lights#ASK_AND_COMMIT` emitter captures the whole descriptor (stacking the `Render/settings#SUN_ASTRONOMY` sun band downward) and `energy/simulate#SIMULATE`'s `scene` arm decodes it into shade meshes, a point-in-time sky, and an authority-ranked light roster, grading declared fidelity rather than re-solving the producer's own sun angles. `GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes ONCE as the branch's one model CRS source — a dataset's own file CRS stays a data-owned origin beside it — off the single `util.geolocation` transform seam collapsing every coordinate-operation subtype, while the write side rides the `AuthorVerb` usecase vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence: an identity transform reports site-local engineering coordinates as map coordinates the moment the prelude composes it. This producer declares the georeference roster — projected CRS, the conversion's eastings, northings, and orthogonal height, its abscissa/ordinate direction pair and single scale, and the declared true north — and the data decoder mirrors it arm-for-arm.
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.
 

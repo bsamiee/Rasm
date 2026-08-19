@@ -23,9 +23,9 @@
 - `Source._addressedAll` and `Glb.assetDir` seat sibling leaves under one set-keyed `assets/<digest>/` — a per-file digest splits one asset in half.
 - `rasm.*` instruments mint at the core convention owner alone — `@effect/opentelemetry` derives the exported unit from `Convention.wire.unit` alone.
 - `rasm.work.family` rides every actor message span, `rasm.work.shard` the lifetime span alone — `toLayer.spanAttributes` is a static record.
-- `Convention` reads answer the row's DECLARED wire form, never its storage state — a signed level stores as a counter and reads as a monotonic total.
+- `Convention` reads answer the row's DECLARED wire form, not its storage state — a signed level stores as a counter, reading as a monotonic total.
 - Wasm modules are capability, never code — the folder-owned artifact acquires scoped behind a `Context.Tag`, and no linear-memory view escapes it.
-- Scalars cross a seam carrying typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
+- Scalars cross a seam with typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
 - Isolation spells `tenancy` on every descriptor row — `residency`, `partition`, and `scope` name it nowhere, each staying live as its own concept.
 - Provider-native retry pins to ONE attempt and `value/fault#RETRY_BUDGET` owns every curve — a nested SDK schedule multiplies effective attempts.
 - Closed tenancy seats at `core/value/identity#IDENTITY_OWNER` — every stratum reads `Identity.tenancy` and no folder re-mints `none|single|multi`.
@@ -36,7 +36,7 @@
 - Env custody is the `Setting` family form — one described record per namespace resolved at its owning construction; a second decode site forks it.
 - Config rows resolve at the boot line, never first use — a roster row picks which rows resolve, so optional capability never defers the proof.
 - Package-owned config records satisfy the `Setting` family at the package seam — a folder restatement forks it.
-- `iac` mints no `Setting` group — deploy-host env has its own record owners, shape crosses as decoded `StackSpec`, material as in-graph Doppler rows.
+- `iac` mints no `Setting` group — deploy-host env owns its own records, shape crossing as decoded `StackSpec`, material as in-graph Doppler rows.
 - Counter-plane availability stamps the claim's host fingerprint, never a metric band — a band conflates machine refusal with an uncounted metric.
 - Moderation verdicts never borrow the transport reason — transport grades retryable, a verdict denied, so one shared cell re-drives the refusal.
 - `MachinePrincipal.credential` is the HTTP presentation alone — SASL and NATS CONNECT carry the bare `token`, so the prefixed form double-prefixes.
@@ -48,7 +48,7 @@
 
 - `VariantSchema` binds structurally parallel projections of ONE decoded truth — a semantically divergent form keeps its own declaration.
 - Rate limiting stays three postures — `Gate.window` refuses, `Throttle` and `Olap.ingest` delay, `RateLimiter` counts; one owner erases each price.
-- Fault altitudes stay three — interchange adopts `FaultDetail`, folders raise `Fault.Class`, `Problem` prices egress; each owns a source no peer has.
+- Fault altitudes stay three — interchange adopts `FaultDetail`, folders raise `Fault.Class`, `Problem` prices egress, each owning its own source.
 - One rate row is four columns — `window`, `limit`, `key`, `cost` — per posture site, `scope` joined into `key` since the counter namespaces nothing.
 
 ## [04]-[STRUCTURE]

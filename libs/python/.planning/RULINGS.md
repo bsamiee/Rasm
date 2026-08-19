@@ -19,14 +19,14 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `Classification` grades admission sensitivity and `Scrub` names receipts' redaction — sharing a consumer, one spelling resolves to the last import.
 - `Classification` stays folder-local where no consumer reaches two — artifacts' ISO-12006 reference, texture-set result, and grade share no reader.
 - Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.
-- Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused across the branch.
+- Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused branch-wide.
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
 
 ## [03]-[COLLAPSE]
 
 - Graph-analytic reducers stay plural — data's `rustworkx` kernel and geometry's `networkx` families each own a node index a merged owner re-keys.
 - `Cost` is the one process-cost delta bracket and `ProcessReading` the distinct gauge — a folder-local `_PROCESS` delta forks the honest-RSS band.
-- One `MEASURES` pair keeps one recording owner — a second fold recording it doubles the series and strands its aggregation on the next emission edit.
+- One `MEASURES` pair keeps one recording owner — a second fold recording it doubles the series and strands aggregation on the next emission edit.
 - Producer gates prove the WHOLE `MEASURES` descriptor, never the name — a disagreeing mounted unit or family silently exports a rescaled series.
 - `EngineProfile` stays two package-local owners — compute's `numerics/jit` band and data's `tabular/query` decoder meet at `FrameAdmission` alone.
 - Shared slots on an `array_like=True` tagged union declare at the ROOT with no default — a per-arm copy lets one arm shift every slot behind it.

@@ -14,7 +14,7 @@
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
 - [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress receipt owner over the runtime store lane, keyed by content identity.
 - [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
-- [10]-[JOURNAL](.planning/tabular/journal.md): `Ledger` implementer landing runtime audit and meter facts over the commit matrix and the scan reader.
+- [10]-[JOURNAL](.planning/tabular/journal.md): `Ledger` lands runtime audit and meter facts over the commit matrix and scan reader.
 
 [SPATIAL]:
 - [11]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
@@ -142,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `bw2analyzer` — Brightway contribution and comparison analysis on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate over COO triples.
 - `olca-ipc` — live openLCA IPC/REST client, carrying `olca-schema` as its wire model.
-- `premise` — FLOOR-GATED ecoinvent prospective-background transformer over IAM scenarios; `impact/scenario#SCENARIO` refuses every build while gated.
+- `premise` — FLOOR-GATED ecoinvent prospective-background transformer over IAM scenarios; gated, it refuses every build.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

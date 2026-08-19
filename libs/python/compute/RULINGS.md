@@ -5,7 +5,7 @@
 ## [01]-[PACKAGES]
 
 - `jax` and its solver family stay marker-gated at the root manifest — an assay `unsupported` verdict IS that gated state, never a missed admission.
-- Markers seat on `jax` and its siblings, never `jaxlib` — an exact-equality pin makes a binary-half marker inexpressible, and `jaxtyping` stays bare.
+- Markers seat on `jax` and siblings, never `jaxlib` — an exact-equality pin makes a binary-half marker inexpressible, and `jaxtyping` stays bare.
 - `jaxlib` ships wheels with zero sdists, so `forge-scientific-env` lifts nothing — the wrapper gets no source the `geopandas` class always has.
 - `proxsuite` refuses admission and the convex `Backend` axis carries no ProxQP row — its `cmeel` backend dies on py3.15 metadata before any compile.
 - `cvxpy` pins `canon_backend=cp.SCIPY_CANON_BACKEND` at every solve site — the source-built CPP canon aborts on a `ProblemData.hpp` assert.
@@ -21,13 +21,13 @@
 
 ## [03]-[COLLAPSE]
 
-- `MeshExchange` binds `meshio` directly, never data's `MeshPayload` — that projection drops the cell blocks, groups, and field data assembly keys on.
+- `MeshExchange` binds `meshio` directly, never data's `MeshPayload` — that projection drops the cell blocks, groups, and fields assembly keys on.
 
 ## [04]-[STRUCTURE]
 
 - jax-family imports bind function-local on the `Engine.gated()`/`worker()` carriers — `jax_enable_x64` arms first, or solves silently yield float32.
 - Carrier fields ARE that guarantee — helpers read `self.jnp`/`self.lx` off slots `gated()` mints after arming x64, so no `lazy` bind reifies ahead.
-- Single-door jax pages bind module-scope `lazy`, arming on the door's first line — `_capture_jax` is the case, and a second door demands the carrier.
+- Single-door jax pages bind module-scope `lazy`, arming on the door's first line — `_capture_jax` is the case, a second door demanding the carrier.
 
 ## [05]-[PROCESS]
 

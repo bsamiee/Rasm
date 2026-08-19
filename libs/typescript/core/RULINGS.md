@@ -27,7 +27,7 @@
 - `Wire` family names belong to the EMITTING producer — consumer-only vocabulary stays locally named, so no consumer's word enters a peer's wire.
 - `Wire` fields carrying an untyped nested payload declare that boundary at the field — a consumer claiming a typed seat asserts an unproven shape.
 - Positionally-framed wire unions spell `Schema.transform(Schema.Tuple, TaggedStruct)` through one combinator; a bare `TaggedStruct` encodes a map.
-- Channels carrying no `class` supply `Fault.Budget.schedule`'s gate — the default predicate grades a foreign shape `defect` and refuses every replay.
+- Channels carrying no `class` supply `Fault.Budget.schedule`'s gate — the default predicate grades a foreign shape `defect` and refuses replay.
 - `Format.proto._suite` admits a family only where a `.proto` declares it AND this branch decodes it — either miss mounts a reader on unsent bytes.
 - `_suite` keys transcribe the declared message name verbatim — a re-spelling binds `pb.<Name>Schema` to a symbol protoc-gen-es never emits.
 - Families owning no descriptor source ride their LANDED carriage arm — a descriptor minted to satisfy the registry forks the producer's own encoder.
