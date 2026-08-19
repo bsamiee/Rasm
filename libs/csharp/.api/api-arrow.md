@@ -1,6 +1,14 @@
 # [RASM_API_ARROW]
 
-`Apache.Arrow` owns the columnar in-memory format and Arrow IPC file/stream serialisation, minting the `IArrowArrayStream` contract every analytical egress meets at. Two folders bind disjoint seams of the core package: `Rasm.Compute` owns the CONSTRUCTION seam — `RecordBatch.Builder` and the public `RecordBatch` constructor co-order typed columns under an explicit `Schema`, the `PrimitiveArrayBuilder<T,…>` families bulk-append a `ReadOnlySpan<T>` per column, `MemoryAllocator` owns each builder's arena — folding a landed `DoeDataset`, `ChargebackDataset`, or `GeometryDataset` into one self-describing batch, and `Rasm.Persistence` owns IPC serialisation and the egress boundary, folding IPC, ADBC, and Flight behind one `IArrowArrayStream`. The ADBC, Flight, Flight-hosting, Flight-SQL, and IPC-compression packages are Persistence-local at `Rasm.Persistence/.api/api-arrow-egress.md`.
+`Apache.Arrow` owns the columnar in-memory format and Arrow IPC file/stream serialisation, minting the `IArrowArrayStream` contract every analytical egress meets at. Ownership splits BY AXIS, never by package.
+
+| [INDEX] | [AXIS]                                                             | [OWNER]                                                            |
+| :-----: | :----------------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | declaration → `(Schema, columns, builders, order, metadata)` FOLD  | `Rasm.Persistence` `Query/residence.md` `ArrowLanding.Build<TRow>` |
+|  [02]   | dataset PROJECTION, zero-copy arena wrap, `PackSchema` conformance | `Rasm.Compute` `Runtime/codecs.md`                                 |
+|  [03]   | IPC, ADBC, and Flight egress behind one `IArrowArrayStream`        | `Rasm.Persistence`                                                 |
+
+Row `[01]` derives field list, field order, and every column's own builder from the one `AnalyticsSchema`/`ColumnType`/`ColumnShape` declaration; row `[02]` keeps the `Strided` gather, the `on_front` mask, and the arena borrow, which are dataset-shaped. Persistence-local ADBC, Flight, Flight-hosting, Flight-SQL, and IPC-compression packages catalogue at `Rasm.Persistence/.api/api-arrow-egress.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -39,27 +47,43 @@
 
 [PUBLIC_TYPE_SCOPE]: primitive array family — each with its nested `Builder`
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                    |
-| :-----: | :---------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `BooleanArray`    | bool array     | validity-bitmap boolean values                  |
-|  [02]   | `Int8Array`       | integer array  | signed 8-bit values                             |
-|  [03]   | `Int16Array`      | integer array  | signed 16-bit values                            |
-|  [04]   | `Int32Array`      | integer array  | signed 32-bit values                            |
-|  [05]   | `Int64Array`      | integer array  | signed 64-bit values                            |
-|  [06]   | `UInt8Array`      | integer array  | unsigned 8-bit values; the unorm8 lane          |
-|  [07]   | `UInt16Array`     | integer array  | unsigned 16-bit values                          |
-|  [08]   | `UInt32Array`     | integer array  | unsigned 32-bit values                          |
-|  [09]   | `UInt64Array`     | integer array  | unsigned 64-bit values                          |
-|  [10]   | `FloatArray`      | float array    | `PrimitiveArray<float>`; the float32 lane       |
-|  [11]   | `HalfFloatArray`  | half array     | `PrimitiveArray<Half>`; the float16 lane        |
-|  [12]   | `DoubleArray`     | float array    | 64-bit double values                            |
-|  [13]   | `Decimal128Array` | decimal array  | 128-bit fixed-point values                      |
-|  [14]   | `Decimal256Array` | decimal array  | 256-bit fixed-point values                      |
-|  [15]   | `StringArray`     | binary array   | UTF-8 string values                             |
-|  [16]   | `BinaryArray`     | binary array   | opaque byte sequences                           |
-|  [17]   | `TimestampArray`  | temporal array | epoch timestamps under a `TimestampType`        |
-|  [18]   | `Date32Array`     | temporal array | days-since-epoch dates                          |
-|  [19]   | `DurationArray`   | temporal array | duration values                                 |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                              |
+| :-----: | :---------------- | :------------- | :---------------------------------------- |
+|  [01]   | `BooleanArray`    | bool array     | validity-bitmap boolean values            |
+|  [02]   | `Int8Array`       | integer array  | signed 8-bit values                       |
+|  [03]   | `Int16Array`      | integer array  | signed 16-bit values                      |
+|  [04]   | `Int32Array`      | integer array  | signed 32-bit values                      |
+|  [05]   | `Int64Array`      | integer array  | signed 64-bit values                      |
+|  [06]   | `UInt8Array`      | integer array  | unsigned 8-bit values; the unorm8 lane    |
+|  [07]   | `UInt16Array`     | integer array  | unsigned 16-bit values                    |
+|  [08]   | `UInt32Array`     | integer array  | unsigned 32-bit values                    |
+|  [09]   | `UInt64Array`     | integer array  | unsigned 64-bit values                    |
+|  [10]   | `FloatArray`      | float array    | `PrimitiveArray<float>`; the float32 lane |
+|  [11]   | `HalfFloatArray`  | half array     | `PrimitiveArray<Half>`; the float16 lane  |
+|  [12]   | `DoubleArray`     | float array    | 64-bit double values                      |
+|  [13]   | `Decimal128Array` | decimal array  | 128-bit fixed-point values                |
+|  [14]   | `Decimal256Array` | decimal array  | 256-bit fixed-point values                |
+|  [15]   | `StringArray`     | binary array   | UTF-8 string values                       |
+|  [16]   | `BinaryArray`     | binary array   | opaque byte sequences                     |
+|  [17]   | `TimestampArray`  | temporal array | epoch timestamps under a `TimestampType`  |
+|  [18]   | `Date32Array`     | temporal array | days-since-epoch dates                    |
+|  [19]   | `DurationArray`   | temporal array | duration values                           |
+
+[PUBLIC_TYPE_SCOPE]: nested container arrays — each assembles from CHILD ARRAYS, not from a typed child builder
+- note: `ListArray.Builder` and `MapArray.Builder` expose their children only as `IArrowArrayBuilder<IArrowArray, …>`, which carries no typed append, and `DictionaryArray` and `FixedSizeBinaryArray` ship no concrete builder at all — so a composing owner builds each child array through its own element builder and binds the container's public constructor over it.
+
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]    | [CAPABILITY]                                                  |
+| :-----: | :-------------------------------------------------- | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `ListArray`                                         | nested array     | variable-length runs; `ValueOffsets`/`Values` children        |
+|  [02]   | `ListArray.Builder`                                 | builder          | `Builder(IArrowType)`; child face is UNTYPED `ValueBuilder`   |
+|  [03]   | `MapArray`                                          | nested array     | `: ListArray`; `Keys`/`Values` off one `KeyValues` struct     |
+|  [04]   | `MapArray.Builder`                                  | builder          | `Builder(MapType)` alone; `KeyBuilder`/`ValueBuilder` untyped |
+|  [05]   | `DictionaryArray`                                   | encoded array    | `Indices` + `Dictionary`; ships NO builder — ctor is the path |
+|  [06]   | `StructArray`                                       | nested array     | `: IArrowRecord`; `Fields` list; the map entries carrier      |
+|  [07]   | `FixedSizeBinaryArray`                              | binary array     | `Apache.Arrow.Arrays`; `GetBytes(i)` at the type's width      |
+|  [08]   | `FixedSizeBinaryArray.BuilderBase<TArray,TBuilder>` | abstract builder | the ONLY builder shape here; no concrete `Builder` ships      |
+|  [09]   | `ArrayData`                                         | array payload    | `sealed`; type, length, nulls, offset, buffers, children      |
+|  [10]   | `ArrowBuffer.Builder<T>`                            | buffer builder   | `where T : struct`; `bool` THROWS — use `BitmapBuilder`       |
 
 [PUBLIC_TYPE_SCOPE]: type system, IPC, and stream contract
 
@@ -82,7 +106,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: metadata-free `RecordBatch.Builder` assembly, typed-column bulk-append, and metadata-bearing `Schema`/`RecordBatch`/`Table` construction
-- note: `Append(ReadOnlySpan<T>)` copies a whole backing span in one call — the reduced-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns via `.Span`, `Reserve(capacity)` pre-sizing the buffer first; `RecordBatch.Builder` carries no `Schema`/`Metadata` seat, so a receipt-bearing batch builds through the explicit `Schema` and the public `RecordBatch` constructor. A null `StringArray` append lands as a validity-bitmap null.
+- note: `Append(ReadOnlySpan<T>)` copies a whole backing span in one call — the reduced-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns via `.Span`, `Reserve(capacity)` pre-sizing the buffer first; `RecordBatch.Builder` carries no `Schema`/`Metadata` seat, so a receipt-bearing batch builds through the explicit `Schema` and the public `RecordBatch` constructor. Null `StringArray` appends land as a validity-bitmap null.
 
 | [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------------------ |
@@ -120,6 +144,26 @@
 |  [32]   | `new FixedSizeListArray(IArrowType, int, IArrowArray, ArrowBuffer, int, int)` | ctor     | flat child at a fixed stride                |
 |  [33]   | `new TimestampArray.Builder(TimestampType)`                                   | ctor     | builds under the field's own unit and zone  |
 |  [34]   | `TimestampArray.Builder.AppendRange(DateTimeOffset)`                          | instance | appends instants at the builder's unit      |
+
+[ENTRYPOINT_SCOPE]: nested container assembly — the constructor path every container array publishes
+- note: each container binds a child array and its own offsets or index run, so the child builds once through its element type's own builder and never re-appends through the untyped nested builder face; `ArrowBuffer.Builder<int>` carries the offsets and `ArrowBuffer.Empty` fills the absent validity bitmap. Trailing `nullCount`/`offset` parameters default to zero and are elided below.
+
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------------------ | :------- | :------------------------------------------ |
+|  [01]   | `new ListArray(IArrowType, int, ArrowBuffer, IArrowArray, ArrowBuffer)`   | ctor     | binds offsets and one child values array    |
+|  [02]   | `new ListArray.Builder(IArrowType)` / `(Field)`                           | ctor     | opens a run builder over an untyped child   |
+|  [03]   | `ListArray.Builder.Append()` / `.AppendNull()` / `.Build(alloc)`          | instance | opens a run, a null run, or seals the array |
+|  [04]   | `new MapArray(IArrowType, int, ArrowBuffer, IArrowArray, ArrowBuffer)`    | ctor     | binds offsets and one entries `StructArray` |
+|  [05]   | `new MapArray.Builder(MapType)`                                           | ctor     | the only builder ctor; no `IArrowType` arm  |
+|  [06]   | `new StructArray(IArrowType, int, IEnumerable<IArrowArray>, ArrowBuffer)` | ctor     | the map entries carrier over key and value  |
+|  [07]   | `new DictionaryArray(DictionaryType, IArrowArray, IArrowArray)`           | ctor     | index run and value roster; the whole path  |
+|  [08]   | `new ArrayData(IArrowType, int, int, int, IEnumerable<ArrowBuffer>)`      | ctor     | raw payload for a builderless array         |
+|  [09]   | `new FixedSizeBinaryArray(ArrayData)` / `(ArrowTypeId, ArrayData)`        | ctor     | binds a packed run with no builder          |
+|  [10]   | `FixedSizeBinaryArray.BuilderBase.Append(ReadOnlySpan<byte>)`             | instance | one fixed-width value; `Set`/`Swap` beside  |
+|  [11]   | `new ArrowBuffer.Builder<T>(capacity)` / `.Append(T)` / `.Build(alloc)`   | ctor     | offsets and packed runs; `bool` throws      |
+|  [12]   | `MapType.KeyValueType` / `.KeyField` / `.ValueField`                      | property | the entries struct the map ctor takes       |
+|  [13]   | `Date32Array.Builder.Append(DateOnly)` / `(ReadOnlySpan<DateOnly>)`       | instance | `DateArrayBuilder` converts to the day unit |
+|  [14]   | `StringArray.Builder.AppendRange(IEnumerable<string>, Encoding?)`         | instance | whole column append; null writes validity   |
 
 [ENTRYPOINT_SCOPE]: type-system values (`Apache.Arrow.Types`) — a schema field takes an `IArrowType` instance, so the parameterless types expose one shared `Default` and the parameterized take their whole shape at construction
 
@@ -166,13 +210,14 @@
 - `RecordBatch` implements `IArrowRecord` and `IArrowArray` and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy.
 - `IpcOptions.CompressionCodec` (`CompressionCodecType?`, `Lz4Frame` \| `Zstd`) is inert unless `CompressionCodecFactory` is set; the concrete `ICompressionCodecFactory` ships in `Apache.Arrow.Compression`, never core Arrow, invoked per batch for the per-codec `ICompressionCodec`.
 - `DictionaryType(indexType, valueType, ordered)` throws `ArgumentException` unless `indexType` is an `IntegerType`, and its `Default` is `[Obsolete]`, so the index width is fixed at the composing owner; `MapType(key, value, …)` builds its own `entries` struct field, so a composing schema hands two logical types and never assembles the key-value struct itself.
+- Container assembly holds ONE discipline: build each child array through its element type's own builder, then bind the container constructor. `ListArray.Builder` and `MapArray.Builder` reach their children only through the untyped `IArrowArrayBuilder<IArrowArray, …>` face, so a typed append needs a cast; `DictionaryArray` ships no builder and `FixedSizeBinaryArray` ships only the abstract `BuilderBase<TArray, TBuilder>`, so a fixed-width column packs its own run and binds `ArrayData`.
 
 [STACKING]:
 - `NodaTime`(`api-nodatime.md`): an `Instant`/`ZonedDateTime` projects to the `TimestampArray` epoch column under its `TimestampType` at the builder edge — the one clock seam the Arrow wire, the receipt fold, and the Persistence store share; never a bare `DateTime`.
-- `Arrow egress train`(`Rasm.Persistence/.api/api-arrow-egress.md`): the ADBC, Flight, Flight-hosting, Flight-SQL, and IPC-compression packages are Persistence-local and carry the estate's earned behavioural law for them — read its `[SUBSTRAIT_COMMAND_UNROUTED]` topology entry before writing any plan-carrying or Flight-facing member. A sealed `RecordBatch` crosses to the one lake custodian at `Rasm.Persistence/Query/columnar#FLAT_TABLE_EGRESS` `Land`, which owns writers, residence, hive generation, and index custody; the `#FLIGHT_RESULT_PLANE` Flight server is the READ end serving plans back, never a landing door, so a producer dialing Flight to write forks lake custody.
+- `Arrow egress train`(`Rasm.Persistence/.api/api-arrow-egress.md`): the ADBC, Flight, Flight-hosting, Flight-SQL, and IPC-compression packages are Persistence-local and carry the estate's earned behavioural law for them — read its `[SUBSTRAIT_COMMAND_UNROUTED]` topology entry before writing any plan-carrying or Flight-facing member. Sealed `RecordBatch` values cross to the one lake custodian at `Rasm.Persistence/Query/columnar#FLAT_TABLE_EGRESS` `Land`, which owns writers, residence, hive generation, and index custody; the `#FLIGHT_RESULT_PLANE` Flight server is the READ end serving plans back, never a landing door, so a producer dialing Flight to write forks lake custody.
 - `Query/columnar#FLAT_TABLE_EGRESS`(`Rasm.Persistence/.planning/Query/columnar.md`): `LandingArm` and `LakeGeneration` are the corpus types the landing projection composes — Compute names its arm row and readable segment, and the schema key derives off `Schema.FieldsList` on the two row-major arms so an additive column lands a compatible generation; the geometry arm alone keys off the kernel's own `PackSchema.SchemaId`, since re-digesting the Arrow projection splits the hive tree on a spelling the kernel never published. Every writer stays Persistence-side.
 - Compute consumer anchor: `SweepLane.Dataset` folds a `SweepResult` into a content-keyed `DoeDataset` this build projects into one `RecordBatch` the Python graduation companion answers with a graduated ONNX surrogate over `GraduationEvidence`; `ChargebackDataset.Of` folds the identical builder path for billing; `GeometryDataset` wraps the kernel arena's descriptor-tiled slices as copy-free `FixedSizeList` columns — one construction owner, three dataset producers.
-- Persistence consumer anchor: the egress owner folds IPC, ADBC, and Flight behind one `IArrowArrayStream` and reads one typed column via `RecordBatch.Column(name)` returning `IArrowArray` — one boundary materialisation, never a `PrimitiveArray<T>` batch accessor; `Query/columnar#ANALYTICS_RESIDENCE`'s `AnalyticsSchema.Fields` projects the residence column roster into `Field`/`Schema` values off each `ColumnType` row's own `IArrowType`, so a landing binds pre-built columns through the `RecordBatch(Schema, …, length)` ctor rather than re-declaring field order at a builder — the DDL, the batch, and every reader's ordinals derive from one declaration.
+- Persistence consumer anchor: the egress owner folds IPC, ADBC, and Flight behind one `IArrowArrayStream` and reads one typed column via `RecordBatch.Column(name)` returning `IArrowArray` — one boundary materialisation, never a `PrimitiveArray<T>` batch accessor; `Query/residence#COLUMN_VOCABULARY`'s `ArrowLanding.Build<TRow>` is the declaration fold, projecting the residence column roster into `Field`/`Schema` values off each `ColumnType` row's own `IArrowType` and building each column through that row's own `Builder`, so a landing binds pre-built columns through the `RecordBatch(Schema, …, length)` ctor rather than re-declaring field order at a builder — the DDL, the batch, and every reader's ordinals derive from one declaration, and the `metadata` parameter is required at every producer arm so the receipt facts reach the schema.
 
 [LOCAL_ADMISSION]:
 - Compute references core `Apache.Arrow` alone; the `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.AspNetCore`, `Apache.Arrow.Flight.Sql`, and `Apache.Arrow.Compression` egress packages are Persistence's and absent from the Compute closure. `GeoArrowRequest.ArrowIpc` (`Runtime/codecs#TWO_HOP_TESSELLATION`) carries Arrow IPC bytes the Python geospatial branch already encoded; Compute relays them opaque and decodes nothing.
