@@ -7,6 +7,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `platform tier`: Holds the independently adoptable library estates every app, plugin, and service composes exactly as it takes an external package.
 - `product tier`: Declares intent, binds host edges, and emits output over platform capability it never re-owns.
 - `estate`: Bundles one language's packages into an independently adoptable whole that resolves its own graph with no peer branch present.
+    - [NOT]: Deployed resource fleets, spelled `kube estate` and `machine estate` at the iac pages; the language bundle alone carries the bare word.
 - `branch`: Names one language's estate together with the doc-set, manifests, toolchain, and gates that estate owns.
 - `package`: Closes one bounded context — own nouns, own invariants, and a published boundary an unrelated application adopts alone.
 - `bounded context`: Fences one model whose nouns and invariants hold inside it and translate at its boundary.
@@ -18,7 +19,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `tier`: Ranks one level of ownership breadth — cross-libs core, branch, folder, page — and the narrowest tier holding a fact owns it.
     - [NOT]: Deploy-branch `Tier`, the program-base code type its own spec page owns.
 - `grain`: Fixes the resolution a fact is stated at: concept grain for an idea, landing grain for a task, member grain for a catalog.
-    - [NOT]: Orleans virtual actors and warehouse fact-table grain; neither names a runtime entity here.
+    - [NOT]: Orleans virtual actors, warehouse fact-table grain, and fabrication's `grain direction`; none names a resolution here.
 - `altitude`: Names one level of a layered surface a fact can sit at, from an interior body up through the published wire.
     - [NOT]: Solar elevation, which rides `solar altitude` in full and never the bare word.
 
@@ -27,7 +28,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `stratum`: Ranks one dependency layer inside a branch or package, and every edge leaving it runs strictly upward.
 - `strata`: Orders a rank set — branch packages or package sub-domains — seating shared machinery at the lowest rank every consumer reaches.
     - [NOT]: Wave and band, neither of which ranks anything, and `tier`, which ranks ownership breadth rather than dependency.
-- `plane`: Names one horizontal concern band cutting across strata rank, each member seated at its own rank.
+- `plane`: Names one horizontal concern band spanning the owners that serve it, whatever rank each member seats at.
     - [NOT]: Network control and data planes, geometric `Plane` values, and texel-raster `texture plane`, each owned by its own domain.
 - `type plane`: Carries the compile-time half of a declaration, where a name exists for the checker alone.
 - `value plane`: Carries the runtime half of a declaration, where a name exists as a live value.
@@ -45,7 +46,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `drift`: Measures the gap between a surface and its declared truth after one end moves alone.
 - `ripple`: Names every counterpart edit one change obligates elsewhere, landed at each end in the same pass.
 - `fence`: Encloses transcription-complete code inside a design page, and that block is the work product a pass measures.
-    - [NOT]: Namespace and network fences; only the fenced markdown block carries this word.
+    - [NOT]: Namespace, network, and transaction fences beside the coordination fencing token; only the fenced markdown block carries the bare word.
 
 ## [04]-[CORPUS_SURFACES]
 
@@ -107,7 +108,7 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `slot`: Refuses bare use.
 - `identity slot`: Holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
 - `evidence run`: Names the solver-run audit — who/tool/version/when/cost — the `Rasm.Element` `EvidenceRun` owns and `PropertyEvidence.Run` links.
-    - [NOT]: Material sourcing grade, capture-fit receipt, or ONNX metadata mirror.
+    - [NOT]: Material sourcing grade, capture-fit receipt, ONNX mirror, and geometry's `evidence_run` weave; the solver-run audit owns the term.
 - `carrier slot`: Names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
 - `host slot`: Seats one host-owned member the boundary writes under that host's own convention, and the domain never reads it back.
     - [NOT]: Rhino session slots, which the `rhino-mcp` tooling names and defines at its own site.

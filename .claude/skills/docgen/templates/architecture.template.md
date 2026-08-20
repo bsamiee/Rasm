@@ -75,9 +75,7 @@ core/
 
 ## [06]-[BOUNDARIES]
 
-<!-- source-only: prohibition retirement — convert a `[PROHIBITIONS]` section, never delete it: each NEVER row becomes either a positive law whose violation is unrepresentable by construction (the owner mechanism seated here) or a `RULINGS.md` row at the narrowest owning tier. Carry the row's discriminant — the fact that decided the prohibition — through the conversion; dropping it loses the law and is the failed form. -->
-
-Boundaries state one positive ownership line each at the unit's own grain: its admitted role, the app-root pin, and the peer-owned concern.
+<!-- source-only: prohibition retirement — convert a `[PROHIBITIONS]` section, never delete it: each NEVER row becomes either a positive law whose violation is unrepresentable by construction (the owner mechanism seated here) or a `RULINGS.md` row at the narrowest owning tier. Carry the row's discriminant — the fact that decided the prohibition — through the conversion; dropping it loses the law and is the failed form. Boundaries state one positive ownership line each at the unit's own grain — admitted role, app-root pin, peer-owned concern; the section opens directly on its rows, and this instruction never copies into an instance. -->
 
 - <unit role: the capability class this unit owns>
 - <app-root pin: the composition-root-only binding>

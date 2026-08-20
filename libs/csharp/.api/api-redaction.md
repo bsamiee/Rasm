@@ -1,35 +1,46 @@
 # [RASM_API_REDACTION]
 
-`Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress seam, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the seam with no intermediate string on the sized path. Its contract assembly carries the taxonomy, the redactor base, and the provider and builder contracts an instrumented library binds without the registration fold.
+`Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress seam, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the seam with no intermediate string on the sized path. `Microsoft.Extensions.Compliance.Abstractions` carries the taxonomy, the redactor base, and the provider and builder contracts, so a branch that annotates and reads pins it alone and never sees the registration fold.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
 - package: `Microsoft.Extensions.Compliance.Redaction` (MIT)
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
-- contract assembly: `Microsoft.Extensions.Compliance.Abstractions`
-- namespace: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.Compliance.Classification`, `Microsoft.Extensions.DependencyInjection`, `System.Text`
-- asset: runtime library
+- namespace: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.DependencyInjection`
+- asset: runtime library carrying the registration fold and the two configurable redactor implementations
 - rail: redaction
+
+[PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Abstractions`
+- package: `Microsoft.Extensions.Compliance.Abstractions` (MIT)
+- assembly: `Microsoft.Extensions.Compliance.Abstractions`
+- namespace: `Microsoft.Extensions.Compliance.Classification`, `Microsoft.Extensions.Compliance.Redaction`, `System.Text`
+- asset: contract library a branch pins alone to annotate and to read a redactor it never registers
+- rail: classification
 - ruled gate: `EXTEXP0002` on `DataClassificationTypeConverter`
 
 ## [02]-[PUBLIC_TYPES]
 
-[REDACTION_TYPES]: redactor, provider, and builder surfaces
+[REDACTION_TYPES]: redactor base, resolution, and egress contracts (contract assembly)
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]  | [CAPABILITY]                                      |
-| :-----: | :------------------------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `Redactor`                             | abstract class | span-write redaction base, two abstract overrides |
-|  [02]   | `IRedactorProvider`                    | interface      | resolves one redactor per classification set      |
-|  [03]   | `IRedactionBuilder`                    | interface      | classification-to-redactor mapping seam           |
-|  [04]   | `ErasingRedactor`                      | sealed class   | erases to zero length; `Instance` singleton       |
-|  [05]   | `HmacRedactor`                         | sealed class   | keyed HMAC-SHA256 pseudonym at constant width     |
-|  [06]   | `HmacRedactorOptions`                  | options        | key identity, validated at start                  |
-|  [07]   | `NullRedactor`                         | sealed class   | copies through unchanged; `Instance` singleton    |
-|  [08]   | `NullRedactorProvider`                 | sealed class   | pass-through provider; `Instance` singleton       |
-|  [09]   | `RedactionServiceCollectionExtensions` | static class   | `AddRedaction` registration                       |
-|  [10]   | `RedactionExtensions`                  | static class   | HMAC mapping rows on the builder                  |
-|  [11]   | `RedactionStringBuilderExtensions`     | static class   | `StringBuilder` redaction egress                  |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]  | [CAPABILITY]                                      |
+| :-----: | :--------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `Redactor`                         | abstract class | span-write redaction base, two abstract overrides |
+|  [02]   | `IRedactorProvider`                | interface      | resolves one redactor per classification set      |
+|  [03]   | `IRedactionBuilder`                | interface      | classification-to-redactor mapping seam           |
+|  [04]   | `NullRedactor`                     | sealed class   | copies through unchanged; `Instance` singleton    |
+|  [05]   | `NullRedactorProvider`             | sealed class   | pass-through provider; `Instance` singleton       |
+|  [06]   | `RedactionStringBuilderExtensions` | static class   | `StringBuilder` redaction egress                  |
+
+[REDACTOR_IMPLEMENTATIONS]: registration fold and the redactors it binds (runtime library)
+
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :------------------------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `ErasingRedactor`                      | sealed class  | erases to zero length; `Instance` singleton   |
+|  [02]   | `HmacRedactor`                         | sealed class  | keyed HMAC-SHA256 pseudonym at constant width |
+|  [03]   | `HmacRedactorOptions`                  | options       | key identity, validated at start              |
+|  [04]   | `RedactionServiceCollectionExtensions` | static class  | `AddRedaction` registration                   |
+|  [05]   | `RedactionExtensions`                  | static class  | HMAC mapping rows on the builder              |
 
 - `HmacRedactor`: every non-empty input redacts to a constant width — an optional key-id prefix ahead of 24 base64 characters over 16 hash bytes.
 
@@ -108,7 +119,7 @@
 [TOPOLOGY]:
 - `IRedactorProvider` resolves one `Redactor` per set from a frozen map built at registration, so an egress read costs a hash lookup.
 - Lookup keys on whole-set equality: a set composed through `Union` resolves against a row registered for that same composite, never against its member classifications.
-- The `NullRedactor` default binds the framework's own `DataClassification.None` key ALONE; a consumer taxonomy row spelling `none` is an ordinary key and falls to the fallback unless a row claims it, so a pass-through classification registers `SetRedactor<NullRedactor>` explicitly. `ErasingRedactor` is the shipped fallback for every other unclaimed set.
+- `NullRedactor` binds by default to the framework's own `DataClassification.None` key ALONE; a consumer taxonomy row spelling `none` is an ordinary key and falls to the fallback unless a row claims it, so a pass-through classification registers `SetRedactor<NullRedactor>` explicitly. `ErasingRedactor` is the shipped fallback for every other unclaimed set.
 - Sizing precedes writing on every span path: `GetRedactedLength` bounds the destination, then `Redact` writes and returns the count.
 - Provider construction throws when the fallback type resolves to no registered instance, so a fallback row and its redactor registration land together.
 
@@ -124,10 +135,11 @@
 
 [LOCAL_ADMISSION]:
 - `GetRedactor` is the read seam at every exporter and bundle egress; a classified value reaches a sink through the redactor it resolves.
+- Annotate-and-read branches pin `Microsoft.Extensions.Compliance.Abstractions` alone; the composition root pins `Microsoft.Extensions.Compliance.Redaction` and owns the one `AddRedaction` fold.
 - `DataClassificationTypeConverter` binds under `EXTEXP0002` acknowledged as a declared policy value at the owning project row.
 
 [RAIL_LAW]:
-- Package: `Microsoft.Extensions.Compliance.Redaction`
-- Owns: classification-keyed redactor resolution and the span-write redaction contract
+- Packages: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.Compliance.Abstractions`
+- Owns: the classification taxonomy, the span-write redaction contract, and classification-keyed redactor resolution
 - Accept: declared classification sets mapped at one registration fold, HMAC key identity bound from configuration
 - Reject: ad hoc string masking at a call site; a second redaction builder beside the composition-root fold

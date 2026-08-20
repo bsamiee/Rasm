@@ -4,7 +4,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 
 ## [01]-[SHAPE]
 
-- `rail`: Carries a computation's success and failure channels as one typed value, so domain logic returns outcomes rather than throwing.
+- `rail`: Carries outcomes along one typed route — success beside failure, receipts, faults — so producers share one spine and no domain logic throws.
 - `receipt`: Records how a computation resolved — route, status, sampling, solver, host evidence — as typed fields consumers read, never re-derive.
     - [NOT]: Purchase and delivery receipts; only computation evidence carries this word.
 - `fold`: Routes a structure or case family through one owning body — a reduction or a dispatch — so branching never spreads across call sites.
@@ -15,13 +15,14 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `row`: Carries one instance of a settled concept as data, and new capability lands as another row before any new surface appears.
 - `entry`: Names the one polymorphic entrypoint folding modality, arity, tenancy, topology, and provider off the request shape.
     - [NOT]: Dictionary entries and log entries; only the folded public entrypoint carries this word.
-- `axis`: Names one dimension of deployment or policy variation whose value arrives as data at the composition root.
+- `axis`: Names one dimension of variation — deployment shape, policy, or operation family — whose values arrive as data, never call-site branches.
 - `policy row`: Carries one settled configuration decision as a data row a dispatch reads, never as a call-site branch.
 - `posture`: Names one published call form of an operator — pipe-subject or direct — both minted from one dual definition.
     - [NOT]: Security and risk postures; only call form carries this word.
 - `projection`: Maps a source shape onto a derived shape a consumer reads, minted at the source and never stored twice.
     - [NOT]: CQRS read-model projection, one instance rather than this definition, and geometric projection, which the drawing owners spell in full.
 - `statechart`: Declares a hierarchical transition system as data — nodes, guards, ordered transitions — whose macrostep folds that declaration.
+- `free frontier`: Marks a fault band's next unallocated code offset, so a new case appends there and a landed offset never reallocates.
 
 ## [02]-[BOUNDARY]
 
@@ -78,8 +79,8 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `compaction`: Collapses superseded history into the surviving state, bounded below by the retention frontier.
     - [NOT]: Mesh decimation and archive compression; only history collapse carries this word.
 - `outbox pattern`: Writes an outbound message into the same transaction as its state change, and a relay ships it afterward.
-- `lease`: Grants time-bounded exclusive claim over a resource, expiring on its own rather than on a release call.
-    - [NOT]: Rental agreements; expiry without a release call earns the word.
+- `lease`: Grants a bounded exclusive claim over a resource, ended by its own expiry or by the one declared inverse, so no holder outlives the claim.
+    - [NOT]: Rental agreements; only the bounded exclusive claim carries this word.
 
 ## [07]-[DERIVED_VIEWS]
 
