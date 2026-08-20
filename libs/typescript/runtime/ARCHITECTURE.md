@@ -1,6 +1,6 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and peer branches by seam contract, never a cross-package reference.
+`runtime` owns the branch's execution substrate across the server and browser process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and peer branches by seam contract, never a cross-package reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -9,61 +9,65 @@ runtime/
 └── src/
     ├── proc/                  # Process substrate: runtime rows, config, flags, lifecycle, off-thread compute
     │   ├── exec.ts            # Keyed node|bun runtime-row binding table; child processes as declarative values
-    │   ├── config.ts          # Ordered provider chain and the boot-validated Setting contract resolved once
+    │   ├── config.ts          # Closed Stage source family behind one Setting resolution at boot
     │   ├── flag.ts            # OpenFeature server Provider: a recursive rule family over content-key bucketing
     │   ├── life.ts            # Ranked lifecycle and health rows on severed fibers folded into one graded receipt
     │   └── worker.ts          # Off-thread worker protocol: zero-copy crossings over one pool
     ├── net/                   # Outbound transport and the fanout/replay port
-    │   ├── client.ts          # Outbound HTTP lane table: status admission and retry pulses off the core budget
+    │   ├── client.ts          # Composed lane transformers: circuit rows, redirect ceilings, machine-credential presentation
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex, SSE, and MQTT v5 over one frame vocabulary
-    │   ├── pubsub.ts          # Fanout — the engine-blind broadcast, replay, and blob port over one Broker
+    │   ├── pubsub.ts          # Broker port with Fanout.Replayed pairs; in-process, BroadcastChannel, and jetstream rows
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
     ├── otel/                  # OTLP wire: egress, W3C continuation, crash capture, browser RUM
     │   ├── emit.ts            # One OTLP egress Layer and the W3C continuation ingress under the redaction scrub
+    │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
     │   ├── instrument.ts      # Browser-condition registration node: request, document, and interaction rows over the zone manager
     │   ├── server.ts          # Server-condition registration node: engine vitals and http/undici/pg rows over the async-local manager
-    │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
     │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
-    │   ├── profile.ts         # Continuous-profiling lane: Pyroscope push lifecycle under the identity projection
-    │   └── vital.ts           # The estate's one CWV owner: web-vitals capture, graded facts, the render-report intake
+    │   ├── profile.ts         # Pyroscope pprof lifecycle bracket, sample labels, and the effectful long-lived-region arm
+    │   └── vital.ts           # Estate-wide CWV custody: web-vitals capture, graded facts, the render-report intake
     ├── serve/                 # One public front door
-    │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
-    │   ├── route.ts           # HttpLayerRouter serving fold: api mount, upload dispatch, and intake verify
-    │   ├── live.ts            # Realtime SSE/WS serving over branch feeds under the resume-token and admission laws
+    │   ├── api.ts             # HttpApiGroup and RpcGroup contribution contract with derived OpenAPI and client surfaces
+    │   ├── route.ts           # HttpLayerRouter fold: Mount port, tus dispatchers, health trio, raw webhook intake
+    │   ├── live.ts            # Feed-value endpoints over the channel-rule table; replayable reconnect held exact
     │   ├── problem.ts         # Problem — the RFC 9457 owner rendering itself as a self-describing response
-    │   └── cli.ts             # Command-value verb families the app folds into one root
+    │   └── cli.ts             # Verb.main run rail and the Command.withSubcommands fold seat
     ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, filtering, documents
     │   ├── entity.ts          # Durable-actor plane: the WorkClass service-class table over tiered mailboxes
     │   ├── flow.ts            # Workflow suspend-and-replay: minted steps, two-tier deadlines, one durable pause timer
     │   ├── queue.ts           # DurableQueue families and rate-limiter throttles over the pg lane policy and DLQ fold
-    │   ├── schedule.ts        # Cadence rows minted into cluster cron with misfire and catch-up postures
-    │   ├── deliver.ts         # One channel table for mail and webhook egress: one receipt, one fault, one suppression
-    │   ├── filter.ts          # The seven subscription dialects compiled to one predicate, CESQL the parsed seventh
+    │   ├── schedule.ts        # ClusterCron singleton mint over the recurrence table; one fire per cluster tick
+    │   ├── deliver.ts         # Channel dispatch table and the outbox-relay cluster singleton draining every row
+    │   ├── filter.ts          # Dialect rows with broker-pushdown verdicts; chevrotain lexer and LL(k) grammar seat
     │   └── report.ts          # Report specs folded through three engine arms over the same decoded rows
     ├── ai/                    # Intelligence spine
-    │   ├── model.ts           # Provider families on one capability-asymmetry table with ranked fallback
+    │   ├── model.ts           # Model.make rows and the compiled ExecutionPlan shared by effect and stream arms
     │   ├── embed.ts           # Deterministic chunking and embedding rows satisfying the data retrieval ports
-    │   ├── tool.ts            # Schema-typed tools and toolkit assembly across both MCP lanes under one safety owner
+    │   ├── tool.ts            # Tool.make/Toolkit.make declarations and the Safety partition admission engine
     │   └── agent.ts           # Agent altitude: transition-machine sessions with persisted-chat durability
     └── browser/               # Browser runtime condition
         ├── boot.ts            # Single-boot law: the app-spec budget, connect cells, and the capability roster
-        ├── shell.ts           # PWA shell: the manifest as a typed value under a scoped resource and update handshake
+        ├── shell.ts           # Workbox scoped resource and the SwLifecycle phase cell every affordance reads
         ├── persist.ts         # IndexedDB domain vocabulary, storage-residency verdicts, the file-egress routes
-        ├── route.ts           # Navigation-API typed router carrying the Vault session plane and admission fold
+        ├── route.ts           # Route-table rows with nuqs codecs and guard policies; one navigation commit path
         └── fetch.ts           # Browser byte transport: XHR, WebSocket, and worker binding rows for verified arrivals
 ```
 
 ## [02]-[STRATA]
 
-- S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport (`Client`, `Feed`) and import no runtime sibling.
-- S1 `proc` — `config` resolves `Setting` once over `Client`, `flag` rides `Feed` channels, `exec`/`life`/`worker` mint their rails floor-free.
+Strata rank the runtime interior; seating rows carry only the law the fence cannot show.
+
+- S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport and import no runtime sibling.
+- S1 `proc` merge — `exec`, `life`, and `worker` mint their rails floor-free; only `config` and `flag` reach the net floor.
 - S1 `worker.main.ts` hands `Report.worker` in as composition-root code, never a stratum import.
-- S2 carriers + work — `pubsub`/`coordinate`, `otel`, `browser`, and `work` seat at one rank; every lateral edge stays inside the stratum.
+- S2 lateral — every lateral edge points at `otel`, and `otel` reads no S2 sibling back, so the shared rank closes no cycle.
+- S2 `otel` merge — the three registration nodes are condition-gated composition seats; `emit` alone owns egress, hiding no interior import.
+- S2 `work` merge — `deliver` drains under the queue verdict vocabulary, `filter` verdicts ride dialect rows; no member opens a second store.
+- S2 `browser` merge — `boot` alone mints the runtime handle, and its siblings compose that handle once per document.
 - S2 `browser` stands parallel to the server plane, importing none of serve, work, or ai.
-- S2 `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol, marking settlement facts through the otel meter bridge.
-- S3 `serve` — the front door composing `Fanout`, `Propagation`, and `Life`; nothing imports serve.
-- `ai` composes no runtime sibling — its edges run outward to core, data, and security alone, standing beside the strata rather than inside them.
+- S3 `serve` — nothing imports the front door, and its one rank above the carriers keeps every dispatch downward.
+- S3→S1 `serve` reads `Life` directly — the probe anchor is a floor fact no carrier wraps, and nothing returns upward.
 
 ```mermaid
 ---
@@ -75,18 +79,18 @@ config:
 ---
 flowchart TB
     accTitle: Runtime interior import strata
-    accDescr: Four strata — serve over the carriers, browser and work at the same rank, over proc onto the net floor; lateral edges stay inside S2.
+    accDescr: How the interior sub-domains rank onto the net floor, lateral edges held inside one stratum.
     subgraph S3["S3 SERVE"]
         Serve["api · route · live · problem · cli"]
     end
     subgraph S2["S2 CARRIERS + WORK"]
         Fanout["pubsub · coordinate"]
-        Otel["emit · crash · dev · instrument · meter · profile · server · vital"]
+        Otel["emit · dev · instrument · server · crash · meter · profile · vital"]
         Browser["boot · shell · persist · route · fetch"]
-        Work["entity · flow · queue · schedule · deliver · report"]
+        Work["entity · flow · queue · schedule · deliver · filter · report"]
     end
     subgraph S1["S1 PROC"]
-        Proc["config · flag · exec · life · worker"]
+        Proc["exec · config · flag · life · worker"]
     end
     subgraph S0["S0 NET FLOOR"]
         NetFloor["client · channel"]
@@ -94,20 +98,21 @@ flowchart TB
     Proc e1@-->|"[IMPORT]: Client"| NetFloor
     Fanout e2@-->|"[IMPORT]: Setting"| Proc
     Otel e3@-->|"[IMPORT]: Life"| Proc
-    Otel e11@-->|"[IMPORT]: Setting"| Proc
-    Browser e4@-->|"[IMPORT]: Client"| NetFloor
-    Work e5@-->|"[IMPORT]: Setting"| Proc
-    Work e6@-->|"[IMPORT]: Client"| NetFloor
-    Work e10@-->|"[IMPORT]: Bench"| Proc
-    Work e12@-->|"[IMPORT]: Pulse"| Otel
-    Browser e13@-->|"[IMPORT]: Vital"| Otel
-    Fanout e14@-->|"[IMPORT]: Propagation"| Otel
-    Serve e7@-->|"[IMPORT]: Fanout"| Fanout
-    Serve e8@-->|"[IMPORT]: Propagation"| Otel
-    Serve e9@-->|"[IMPORT]: Life"| Proc
-    Serve ~~~ Fanout
-    S0 f1@-->|"forbidden: upward import"| S3
+    Otel e4@-->|"[IMPORT]: Setting"| Proc
+    Browser e5@-->|"[IMPORT]: Client"| NetFloor
+    Work e6@-->|"[IMPORT]: Setting"| Proc
+    Work e7@-->|"[IMPORT]: Client"| NetFloor
+    Work e8@-->|"[IMPORT]: Bench"| Proc
+    Work e9@-->|"[IMPORT]: Pulse"| Otel
+    Browser e10@-->|"[IMPORT]: Vital"| Otel
+    Fanout e11@-->|"[IMPORT]: Propagation"| Otel
+    Serve e12@-->|"[IMPORT]: Fanout"| Fanout
+    Serve e13@-->|"[IMPORT]: Propagation"| Otel
+    Serve e14@-->|"[IMPORT]: Life"| Proc
+    NetFloor f1@-->|"forbidden: upward import"| S3
 ```
+
+`ai` composes no runtime sibling; its edges run outward to core, data, and security alone, so the fence seats no ai node.
 
 ## [03]-[SEAMS]
 
@@ -131,7 +136,7 @@ flowchart LR
         Work[Work plane]
         Ai[AI spine]
     end
-    Core{{core}}
+    Core([core])
     Security{{security}}
     Data[(data)]
     Core e1@-->|"[SHAPE]: FlagVerdict"| Proc
@@ -210,7 +215,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime execution spine
-    accDescr: Protocol ingress continues its carrier through serving and work, then emits signals and delivery outcomes.
+    accDescr: Which stages one admitted request crosses between carrier continuation and its emitted signals and delivery.
     Ingress([protocol ingress])
     Carrier[otel · Carrier continuation]
     Serve[serve · front door]
@@ -227,9 +232,7 @@ flowchart LR
     Delivery e7@-->|"emit: transport"| Egress
 ```
 
-`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability under one ambient redaction scrub every capture seam inherits; its vocabulary lives in core.
-
-`serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so the durable plane shares one service-class economy. `ai` folds five providers onto one capability table and satisfies the data stratum's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane.
+One front-door law rules serving: packages export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. Every capture seam inherits the one ambient redaction scrub, every outbound call inherits its lane's compiled pulse and circuit row, every durable surface prices against the one `WorkClass` table, and the browser condition boots the same package once per document. Exact per-stage wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 

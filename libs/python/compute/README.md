@@ -1,6 +1,6 @@
 # [PY_COMPUTE]
 
-`compute` is the terminal evidence plane of the Python branch — host-free scientific computation converging on one graduation hub, graded on the composed hub rather than the solver roster: evidence lands under receipts, admits against governed ceilings, keys over canonical bytes, and emits self-describing so a consumer decodes without re-derivation. It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis` — while a study resumes from history under provably equal keys.
+`compute` is the Python branch's terminal evidence plane: host-free scientific computation whose evidence lands under receipts, admits against governed ceilings, keys over canonical bytes, and emits self-describing so a consumer decodes without re-derivation. It imports no host runtime and re-owns no peer interior, and a study resumes from history under provably equal keys.
 
 ## [01]-[ROUTER]
 
@@ -10,33 +10,33 @@
 - [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` route over root, minimise, fixed-point, and least-squares solves.
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
-- [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` owner threading reverse-mode and implicit-adjoint sensitivity.
+- [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` one autodiff owner over the full derivative algebra and the FD floor.
 - [07]-[MESH](.planning/solvers/mesh.md): `MeshField` topology-and-field owner beside the `MeshExchange` generate, assemble, read, and write legs.
 - [08]-[FIELD](.planning/solvers/field.md): `FieldQuery` readout interpolating, projecting, and resampling over a discrete field.
 
 [OPTIMIZATION]:
 - [09]-[DESIGN](.planning/optimization/design.md): `DesignProblem` driving differentiable design over the implicit-adjoint gradient.
-- [10]-[PROGRAM](.planning/optimization/program.md): `ProgramIntent` over constrained, integer, global, and assignment programs.
+- [10]-[PROGRAM](.planning/optimization/program.md): `ProgramIntent` over linear, integer, global, constrained-smooth, and assignment programs.
 - [11]-[CONVEX](.planning/optimization/convex.md): `ConvexProgram` returning a dual-certificate proof over disciplined-convex programs.
 
 [EXPERIMENTS]:
 - [12]-[STUDY](.planning/experiments/study.md): `Study` folding DOE sampling, SALib sensitivity, surrogate fitting, and the benchmark discriminant.
 - [13]-[HISTORY](.planning/experiments/history.md): `RunHistory` owner of content-keyed run persistence, partial resume, and comparison.
-- [14]-[INFERENCE](.planning/experiments/inference.md): `Inference` owner of gradient-MCMC posteriors with convergence diagnostics.
-- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of estimator validation, smoke inference, ONNX export, and the drift envelope.
+- [14]-[INFERENCE](.planning/experiments/inference.md): `Inference` owner of gradient-MCMC posteriors with chain-mixing diagnostics.
+- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of estimator validation, smoke inference, ONNX export, and the envelope copy.
 
 [NUMERICS]:
 - [16]-[ARRAY](.planning/numerics/array.md): `ArrayPayload` admitting any backend array through namespace dispatch.
 - [17]-[JIT](.planning/numerics/jit.md): `JitBackend` compiling the numba LLVM, ufunc, C-ABI, and XLA routes over one capture table.
-- [18]-[INTERVAL](.planning/numerics/interval.md): `IntervalNumerics` certified-interval floor ladder.
+- [18]-[INTERVAL](.planning/numerics/interval.md): `IntervalNumerics` certified enclosures whose receipt names the certifying `Floor` and width.
 - [19]-[QUANTITY](.planning/numerics/quantity.md): `UncertainQuantity` threading correlated uncertainty through unit algebra.
 - [20]-[STATISTICS](.planning/numerics/statistics.md): `TestIntent` routing in-memory hypothesis tests and MLE distribution fit.
 
 [ANALYSIS]:
 - [21]-[SIGNAL](.planning/analysis/signal.md): `SignalOp` folding IIR/FIR filtering, spectral estimation, resample, and the wavelet case.
 - [22]-[TRANSFORM](.planning/analysis/transform.md): `TransformOp` over in-memory DFT, trigonometric, Hankel, and analytic-signal transforms.
-- [23]-[SYMBOLIC](.planning/analysis/symbolic.md): `SymbolicDerivation` lowering symbols to a numpy or C handoff artifact.
-- [24]-[SPATIAL](.planning/analysis/spatial.md): `SpatialQuery` folding neighbour, hull, Delaunay, Voronoi, and alpha-shape queries.
+- [23]-[SYMBOLIC](.planning/analysis/symbolic.md): `SymbolicDerivation` left-folding symbolic ops to a numpy, jax, or native handoff artifact.
+- [24]-[SPATIAL](.planning/analysis/spatial.md): `SpatialQuery` over Qhull tessellation, KD-tree proximity, distances, alignment, alpha shapes.
 
 [GRADUATION]:
 - [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and evidence weave.
@@ -54,7 +54,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `jax`
 - `jaxtyping`
 - `sparse`
-- `dask` — passive `array_namespace` backend; compute imports no Dask runtime.
+- `dask` — Passive `array_namespace` backend; compute imports no Dask runtime.
 
 [SOLVERS]:
 - `scipy`
@@ -87,7 +87,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 [EXPERIMENTS]:
 - `SALib`
-- `pyDOE3` — classical design-of-experiments matrix generation.
+- `pyDOE3` — Classical design-of-experiments matrix generation.
 - `scikit-learn`
 - `onnx`
 - `onnxruntime`
@@ -103,7 +103,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`
@@ -111,7 +111,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `beartype`
 
 [OBSERVABILITY]:
-- `opentelemetry-api` — hub-only trace surface folding the geometry producer context as a span `Link`.
+- `opentelemetry-api` — Hub-only trace surface folding the geometry producer context as a span `Link`.
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
@@ -123,5 +123,3 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [MESH_INTERCHANGE]:
 - `meshio`
 
-[TRANSITIVE]:
-- `narwhals` — study DOE frames admit through published `data/tabular` contract surfaces, so this folder composes no member.

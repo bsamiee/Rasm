@@ -6,8 +6,7 @@
 
 - `ReactiveUI.Validation` DROPPED — `IReactiveObject` moved assembly with no type forward, so a green restore graph proves nothing.
 - Declared-floor major crossings settle as a `SkewGuard` row over the render lease — a pin freezes a stack on an unseen risk.
-- Member-composed transitive assemblies admit DIRECT — off the floor, `Mapsui.Nts` and `HarfBuzzSharp` leave pin, catalog, and registry claim unowned.
-- Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
+- Member-composed transitive assemblies admit DIRECT — off the floor, `Mapsui.Nts` and `HarfBuzzSharp` leave pin, catalog, and registry unowned.
 
 ## [02]-[SHAPE]
 
@@ -15,19 +14,19 @@ Each row binds every surface of its kind this folder grows, never the one instan
 
 - Value crossing an ACTION-shaped marshal rides a completion gate — `SurfaceScheduler.Marshal` answers `Unit`, so a value-returning lambda drops it.
 - Durable counterparts to an evidence fold are SOURCES — `EvidenceSource` hands one `ReceiptEnvelope` live or resident, so accrual stays one body.
-- Device caches carry a BYTE ceiling, a least-touched release, and a generation floor eviction respects — `ResidencyBudget` counts bytes, not handles.
+- Device caches carry a BYTE ceiling, a least-touched release, and a generation floor eviction respects — `ResidencyBudget` counts bytes.
 - `AssetCache` keeps the ceiling and INVERTS the generation floor — retention is a consumer holding the value, not a live generation.
 - `AssetCache` rotation owns unlink-then-release and every edge filling the queue drains it — a cohort grace spans the sweep, pressure one eviction.
-- `IconRow` geometry is a STEP on the resolved metric scale — a fixed-axis family elects its largest member under that step and refuses with no glyph.
+- `IconRow` geometry is a STEP on the resolved metric scale — a fixed-axis family elects its largest member at that step and refuses glyph-less.
 - Capability a surface reaches is its own declared ROW, never a foreign `Has*` probe — `SvgLease`'s presence read and its scene read run one build.
 - Capabilities ELECTED off a foreign face are APPLIED to what the renderer reads — `FaceInstance.Palette` rides the typeface Skia rasterizes through.
-- Raster shading READS a resolved `EnvironmentLight` and integrates none — SH run, GGX ladder, LUT, and equirect cross as data under one level ladder.
+- Raster shading READS a resolved `EnvironmentLight` and integrates none — SH run, GGX ladder, LUT, and equirect cross as data on one level ladder.
 - Values arriving both locally and off a store wire have ONE construction site — the local leg builds `SearchDocument` and decodes through its gate.
 - Unions a foreign backend closes carry no open arm — `PdfAnnotation`'s silent-drop path makes that arm a no-op wearing a capability's name.
 - `OptionsInspector<TDraft, TValue>` splits draft from record — one type parameter leaves "persist the rebuild, never the draft" unenforceable.
 - Editors receive their write channel BOUND from `EditorRowFactory` — the factory path carries the command mint, veto edge, and undo enqueue.
-- Receipt sealing is double-count-proof by construction — a running-total scan seals the per-delta cell and two producers seal DISTINCT outcome cases.
-- `SessionPresence` is a HINT and `MemberRegister` AUTHORITY — admission reads membership alone, so a forged frame costs a cursor, never a capability.
+- Receipt sealing is double-count-proof by construction — a running-total scan seals the per-delta cell and two producers seal DISTINCT outcomes.
+- `SessionPresence` is a HINT and `MemberRegister` AUTHORITY — admission reads membership alone, so a forged frame costs a cursor alone.
 - Foreign narrows lift a fresh handle and leave the wrapper standing — `CollabRegister.Read`/`Level` scope both, so `Get(key)?.As*()` leaks.
 - `RoutedCommandExecutingEventArgs` extends its executed args, so a veto edge narrows to the DERIVED type — a base-typed probe never reaches cancel.
 - Foreign admission predicates read against the LIFECYCLE they gate — the grid factory's `Accept` filters CLONING, and a narrowing refuses the token.
@@ -37,7 +36,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Revert LANES are INSTANCES of one `RevertScope` — each holds its own recorder, roster, window, and cursor, so no undo pops a shared window.
 - Two undo owners over one surface partition by PLANE, neither wrapping the other — the rope stack owns in-pane text and `EditHistory` typed ops.
 - Platform-capability gates read the capability PROPERTIES and the activation preconditions — the no-op provider is `internal` and unspellable.
-- Meter delegate arity mirrors the declared `Dimensions`, its slot an `Option` pair — wider invites an untagged write, narrower blocks a breakdown.
+- Meter delegate arity mirrors the declared `Dimensions`, each dimension slot an `Option` pair — wider invites untagged writes, narrower blocks reads.
 - Capability admission folds every TOTAL gating plane through one predicate — `DegradationLevel` retains all at `Full`, so tenancy adds its own.
 - `TrackInterp` slerps poses by REACHABILITY — Rhino-typed `MotionInterpolation` cannot cross the host-free shell; a host-neutral rotor retires it.
 - `Render/capture` owns the `NativeAssetFact` TYPE and `Shell/hosts` `NativeAssets.Identity` is its SOLE producer — a re-probe port is a twin.
@@ -48,12 +47,12 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Compiled-resource correspondence proves mints, defined, and claimed-or-excluded on a LIVE headless walk — `XamlClosure` hides every `x:Key`.
 - Per-variant colour columns on a role row are the deleted shape — light and high-contrast PROJECT through `VariantProjection` from one seed.
 - `InputDevice` admits a cross-platform SDK on the estate's own framework or nothing — a per-platform SDK has no shared decode.
-- `DeviceDriver` cases addressing two legs by one ordinal address the space BOTH enumerate — SDL's joystick and haptic indices are independent spaces.
+- `DeviceDriver` cases addressing two legs by one ordinal address the space BOTH enumerate — SDL's joystick and haptic indices are independent.
 - Visuals SAMPLING pixels outside their own bounds drive invalidation or clamp under `SampleScope` — no dirty region ever widens for a reader.
 - Runtime-shader rosters admit no caller-supplied text and split on RESIDENCY — `ShaderAssetCache` carries backend variants and a VRAM ceiling.
-- `LayerGround` is a closed union at the one `SaveLayer` site — `Backdrop` and `InitializeWithPrevious` defeat each other, and neither opens on black.
+- `LayerGround` is a closed union at the one `SaveLayer` site — `Backdrop` and `InitializeWithPrevious` defeat each other, neither opening on black.
 - Per-frame terms redraw on the `VfxHandler` thread and interleaved treatments in tree — the compositor reaches transform, opacity, colour alone.
-- Numeric entry binds the TYPED spinner of its bound CLR type over a four-arm range union — one `decimal` bound loses `NaN` and every extreme.
+- Numeric entry binds the TYPED spinner of its bound CLR type over its range union — one `decimal` bound loses `NaN` and every extreme.
 - In-control progress lives ON the leading-visual slot it replaces — pending is a field of `IconSlot`, so a self-widening spinner is unspellable.
 - `MaterializeContext` delegate columns are earned ONLY by third-party or host construction — each refusal is named, so absence is closed.
 - `IntentBinding` verbs ATTACH and the gesture column narrows WHICH gesture raises them — read as a gate, an unauthored trigger makes a dead control.
@@ -62,7 +61,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `MotionAxis` rows declare their KIND and a CLAMPING channel refuses an overshooting token at the bind — colour, opacity, and corner saturate.
 - `LatencyTier` derives from the operation's EXPECTED duration, never its surface — one latency ladder elects every rung from none to handoff.
 - Floating chrome takes the `MotionLane` of transform and opacity ALONE — animating extent re-enters layout for the plane beneath on every frame.
-- LAYERED capability ladders answer per row at the WEAKEST rung — a `DockableRow` override outranks every policy above it, leaving dead configuration.
+- LAYERED capability ladders answer per row at the WEAKEST rung — a `DockableRow` override outranks every policy above, leaving dead configuration.
 - Frameworks deserializing their own graph rehydrate through the locator seam published — an unbound `ContextLocator` yields a context-less layout.
 - Substrates DEGRADING silently are measured, never inferred from a channel they never write — `LayoutReceipt` reads each row's post-solve violation.
 - Per-surface admission matrices are a COLUMN on `ChromeSlot` — N rows re-deriving it are N chances to disagree, while a row predicate never widens.
@@ -75,28 +74,27 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `WatchRule` reads a SAMPLE of value and age on its own probe cadence — a stalled feed breaches no predicate any level rule reads.
 - Point-in-area containment binds `NetTopologySuite`'s indexed locator — it amortizes one interval index per query set and answers three-valued.
 - Where a field visualization samples is a `FieldSites` row, never a count — `Sampled` and `Declared` span `SimVisual.Streamline` and `.Glyph` alike.
-- Registries whose absent-key answer is INDISTINGUISHABLE from a real one are reached behind a `MountPolicy` presence fact, never a probe.
-- `StackOwner` gives single occupancy to the stack answering one root's awaited close parameter, never to the stack of self-handled layers.
+- Registries whose absent-key answer is INDISTINGUISHABLE from a real one sit behind a `MountPolicy` presence fact — a probe reads both states as one.
+- `StackOwner` gives single occupancy to the stack answering one root's awaited close — seated on the self-handled stack it blocks open layers.
 - `OverlayShape` is the DISPATCH SHAPE, never a member name — void fire shapes add a plain layer and EVERY awaited overload a masked one.
 - Timers `ToastPlane` must pause, restart, or re-tint are the PRODUCT's — the package's show-time copy expresses no hover pause.
 - Package folds constrained to `IQuantity` are unreachable from an erased face — the answer is that fold's projection, never a reflection.
-- One policy row over package-SIBLING types (`WindowChrome`) constrains at their shared framework base, splitting universal from family-gated writes.
+- One policy row over package-SIBLING types (`WindowChrome`) constrains at their shared framework base — per-sibling rows fork one chrome law.
 - Packages owning a geometry across their OWN item tree receive it once at the host — `FormGeometry` republishes to descendants by ancestor walk.
 - Verbs whose subject is a ROW of a runtime-compiled surface are never `CommandDeck` rows — the deck freezes at boot and a run-time schema has none.
 - `SectionChrome` rows selecting a state their control never DECLARES style nothing — a shipped control sets only its declared metadata roster.
-- Two facts on one `AppUiTelemetry` dimension is a counted lie — an admission verdict and a terminal cause answer different questions under OWN slots.
+- Two facts on one `AppUiTelemetry` dimension is a counted lie — a verdict and a terminal cause answer different questions on OWN dimension slots.
 - Snapshot streams lower into a change-set through a DIFFING operator — a superseding `PaletteFeed` answer replaces the set an upsert never narrows.
 - Per-user overrides of AUTHORED data are a `BindingOverlay` ahead of the freeze, absence and removal DIFFERING — an in-place edit cannot reset.
 - `PaletteStatus` is a COLUMN of the answer — a settled status beside a stale row set makes empty and loading indistinguishable.
-- `DeviceSink` takes the `DeviceSession` shape and quiets the device on teardown — a motor, a rumble, and a lit surface outlive the process uncleared.
+- `DeviceSink` takes the `DeviceSession` shape and quiets the device on teardown — an uncleared motor, rumble, or lit surface outlives the process.
 - Contested-resource ownership has ONE oracle answering `ShortcutRow`'s CLAIMANT LIST — two computations ship an assignment the next freeze rejects.
 - Every key a surface raises is a frozen `CommandIntent` row naming its owner's constant — the fold aborts, so an unlifted roster is a dead SCREEN.
-- Provenance-distinguished rows of ONE concept share one registry and key space — views, bookmarks, cameras, and history are one `NamedView` family.
 - View TOGGLES between two projections preserve the framed extent, so toggling twice is the identity — `2·d·tan(f/2)` is the orthographic height.
 - `SectionHandle` COMMITS through the settled model it manipulates — a private copy lets a saved view restore a state the user already dragged away.
 - LABELS over dimensioned values evaluate under `MeasureKind`'s quantity fold — one family per sum, one scalar per product, a mixed term refusing.
 - DISPLAY POSTURES fold onto the settled `VisibilityOverride` channel — colour-by-property, wireframe, ghosting, and highlight answer one set.
-- TRANSIENT emphasis and a USER-ISSUED posture are two `VisibilityAction` rows — hover emits a row for EVERY element, so one row strobes a table scan.
+- TRANSIENT emphasis and USER-ISSUED posture take two `VisibilityAction` rows — hover emits a row for EVERY element, so one row strobes a table scan.
 - Editors over `Keyframes<T>` re-enter its admission gate on every structural edit — a bracket over an unsorted run answers a plausible wrong value.
 - Two mute-class flags over one roster resolve through `LaneBoard`'s ONE audibility answer — consulted apart, behaviour depends on check order.
 - `TransportVerb` speed scales the tick CADENCE, never the frame step, and rate-less frames mint one ordinal per unit — a bound rate skips ordinals.
@@ -108,14 +106,14 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Domain-scoped artifacts ELECT their own `DraftUnits` over the reader's, and only that — the locale keeps format, denominator, and grammar.
 - `FlameView` and every settled-instrument surface SEAL nothing — every fact is on the message-envelope stream, so they own projection alone.
 - `WedgeSpans` serves every reading of one value tree in UNIT FRACTIONS with a source index per span — two folds diverge on the first repair.
-- Golden captures pin scale, gamut, and posture as `CaptureRow` COLUMNS — an unpinned raster input diffs a golden against the panel it was taken over.
+- Golden captures pin scale, gamut, and posture as `CaptureRow` COLUMNS — an unpinned raster input diffs a golden against its own capture panel.
 - Surfaces that DISPLAY a `ResultPayload` compute none of it — the only arithmetic admitted is a read provably inside the sealed receipt's own range.
 - `AnalysisContext` is the ONE environmental-coordinate owner publishing PROJECTIONS — a scrub track, an absolute range, and a bounded variable.
 - `ContextChannel` easing is LINEAR by construction — a curved playhead accelerates the sun through midday and every derived shadow inherits it.
-- Bounded ROW partitions fold their residual into one member and a bounded `CompareGrid` truncates — nothing draws the union of twelve options.
+- Bounded ROW partitions fold their residual into one member and a bounded `CompareGrid` truncates — nothing draws the whole option union.
 - `CompareLink` shares a VALUE SCALE or the grid is a gallery — own-extent cells render a shortfall like its neighbour, and incompatible arms REFUSE.
 - Strings a materialize resolves against a registry are DECLARED constants on the owning surface — one literal over two key roles binds by accident.
-- `CompareLink` carries each channel's fold on its own row, a row with no per-tick fold earning its place as an ADMISSION elsewhere.
+- `CompareLink` carries each channel's fold on its own row — a fold-less row decides nothing per tick and homes as an ADMISSION elsewhere.
 - Coordinates whose POLICY column shifts a reading publish a SECOND projection — a mutated `ClimateScenario` primary moves the sun with a pathway.
 - `ThreeWayHunk` runs cross an owner boundary as `Seq<string>` — joining collapses the empty and the one-empty-element sequence a fold tells apart.
 - Sealed receipts are no `BatchEdit.Landed` — a TOTAL rail seals one for a rejected, cancelled, and faulted run alike, so the OUTCOME takes the rail.
@@ -124,7 +122,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Tiled payloads ride the carrier their PAYLOAD ARITY admits — a raster tile layer answers ONE `GeoOverlayRow` per tile and drops every attribute.
 - `RedlineStyle` names a vocabulary ROW, never its key as text — the generated keyed owner stamps its converter, so a dead row refuses at build.
 - Conditions a sibling `AppUiFaultBand` owns never mirror into a second, and an unraised case REPAIRS by binding its fence — a cut deletes the claim.
-- PER-DRAW natives are owned by the capsule that built them — `SKPaint.Dispose` releases neither shader, image filter, colour filter, nor path effect.
+- Capsules own the PER-DRAW natives they built — `SKPaint.Dispose` releases neither shader, image filter, colour filter, nor path effect.
 - Presence probes over a foreign block answering its DECLARED schema prove nothing about CONTENT — `SKRuntimeEffectUniforms.Contains` tests names.
 - `LayerGround` and every MOUNT-varying value is a mount parameter, never a column on the vocabulary the mount names — hosts and windows differ.
 - Two independent rosters `ThemeEmission` merges into one keyed sink refuse a shared key BY NAME — the proof is the MERGE's, neither author's.
@@ -139,33 +137,36 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - COUNT instruments read what happened since the previous receipt and LEVELS what stands now, so `ShaderAsset`'s count cell DRAINS at its own seal.
 - Bound surfaces publish their PRODUCT beside lifecycle through one `TileRender` union keyed by surface — a per-class callback drops the empty cases.
 - Totals re-read the BASIS `MetricRow` already carries and never invert a derived column — a ratio divided back out answers NaN on a legitimate zero.
-- `GraphBinding` latches guarding a WHOLE-STATE reconcile HAND the refused arrival to the holder — an arrival after the read names a state never seen.
+- `GraphBinding` latches guarding a WHOLE-STATE reconcile HAND the refused arrival to the holder — an arrival after the read names an unseen state.
 - `RedlineOrigin.Stroke` and every DEFERRED commit carry the frame their samples were taken under — the mounted camera displaces by whatever moved.
 - `MercatorFilter.Inverse` is admitted on its own DOMAIN — a cylindrical axis WRAPS because a pan past the seam names a place, an asymptote REFUSES.
-- Durable REMOVALS prove their target existed at the ONE `RedlineSurface` site the verb and every routed erase cross — else the undo restores nothing.
+- Durable REMOVALS prove their target existed at the ONE `RedlineSurface` site the verb and every routed erase cross, or undo restores nothing.
 - Vocabularies a boot-frozen registry reads declare on a NON-GENERIC owner like `ConflictIntent` — the freeze precedes every receipt type.
 - `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the seam.
+- Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
 
 ## [03]-[COLLAPSE]
 
 - `BoardContext` carries ONE delta-discriminated push and ONE projection per reader class — a per-field mutator re-states the gate in every arm.
 - Operator vocabularies varying only in OPERAND COUNT are one row — the predicate folds `Exists` and reads alike at one operand and at twenty.
-- Filtering and highlighting are ONE `TileSource` channel at two intensities — a source tile is excluded from its own FILTER, never its own HIGHLIGHT.
+- Filtering and highlighting are ONE `TileSource` channel at two intensities — a source tile drops from its own FILTER, never its own HIGHLIGHT.
 - Absolute moves over a stepwise algebra are N single steps under a posture row, receipt TOTAL — a `Fin` discards the prefix a halt already applied.
 - `SelectionGesture` rows live on the MODEL holding their own state custody — five planes handling gestures apart are five readings of shift-click.
 - Two readings of one payload are two rows only where the FOLDS differ — `CustomVisuals.Comfort` serves both charts, which differ in skew and zones.
-- Instances a swap re-writes take ONE `ChromeInk` body over mint and swap and CLEAR every unset slot — a held effect decorates an unasking row.
-- `StatAnatomy` columns no construction site populates are a promise, not a shape — every column DERIVES at the one fold the owner already subscribes.
+- Instances a swap re-writes take ONE `ChromeInk` body over mint and swap and CLEAR every unset ink slot — a held effect decorates an unasking row.
+- `StatAnatomy` columns no construction site populates are a promise, not a shape — every column DERIVES at the fold the owner already subscribes.
 - `ExportDelivery.Deliver` pairs differing only in PAYLOAD CARRIER are one entry at their widest admitted shape — implicit widening binds callers.
-- `ExportCapability` and every declared vocabulary carry EVERY reading as row columns — a bare-constant roster read by N switches enumerates it twice.
+- `ExportCapability` and every declared vocabulary carry EVERY reading as row columns — a bare-constant roster read by N switches enumerates twice.
 - `BurnFeed.Of` and every cold projection several surfaces read is SHARED once and replayed at one — three cold subscriptions run the source thrice.
 - `Scrub` and every driver PACING a shared state hold none of it — a seeded generator forks state at subscription, so it reads live per tick.
+- Provenance-distinguished rows of ONE concept share one registry and key space — views, bookmarks, cameras, and history are one `NamedView` family.
+- `TransportVerb` has ONE owner and every plane CONSUMES it, `MediaCommand` riding a union whose FIRST arm carries the shared row verbatim.
 
 ## [04]-[STRUCTURE]
 
 - `LegendSpec` and every declaration a host cannot RENDER state which arm draws what as a VALUE a root dispatches on — degradation is foreclosed.
 - `ChartAnnotation` marks ride a data-anchored owner or they drift — a pixel-positioned free label carries no axis index across a pan or a re-range.
-- `SelectionFacet` REFUSES a similarity query on an absent property — wildcard and skip both widen to the whole population on the first missing facet.
+- `SelectionFacet` REFUSES a similarity query on an absent property — wildcard and skip both widen to the whole population on first miss.
 - `ThresholdStep` and the values it checks stand in ONE canonical unit and elect display at render — conversion at comparison takes the caller's.
 - `CustomVisual` admits a kind only where NO shipped series or chrome expresses it — a sparkline is an axis-less chart the host draws offscreen.
 - Every retained half of a sealed `VisualRecord` counts against the ONE retention ceiling — a cache pins what the record holds, not only its handle.
@@ -185,10 +186,9 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Optimistic mutations are a MERGE leg outranking the authoritative one — `OverlayRank` republishes, so acknowledgment and rollback are one drop.
 - `FeedPace` COALESCES and never drops — a rate limiter discards whole deltas and strands the collection on a state no producer published.
 - Bounded axes over generated candidates are `FilterOperator` rows over a projected `OptionKpi` — a min/max vocabulary is a second grammar.
-- Vocabularies owning a `GraphRegister` carry BOTH legs of the correspondence, the decode dispatch HOPPING onto it rather than inlining either.
+- Vocabularies owning a `GraphRegister` carry BOTH legs of the correspondence — an inlined leg forks the correspondence the register holds.
 - `EditIntent` SEQUENCES are ordinal-keyed mergeable cells and SETS a keyed map — one replaced leaf lets the later concurrent edit erase the earlier.
 - `CollabEcho` has ONE producer, the merge authority holding both evidence shapes — a timer reports a convergence the authority never reached.
-- `TransportVerb` has ONE owner and every plane CONSUMES it, `MediaCommand` riding a union whose FIRST arm carries the shared row verbatim.
 - `PlaybackTransport.Observe` subscribes the typed wrapper's own change event, never a raw client event beside a name — re-reading each is a POLL.
 - `MediaLease` seals readiness on the RESOLVE, never the assignment — a URL source has attempted nothing, so an assignment seals a 404 as ready.
 - CAPTURE-side and POLICY-side concerns split at the language election — `CaptionPolicy` owns the transcription target, tap and band the media owner.
@@ -196,7 +196,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - DERIVED and REALIZED counts are two facts and a `SourceGroup` badge reads the derived one — a virtualized-window count shrinks as the user scrolls.
 - Per-format CONFIGURATION is a schema row on `ExportTarget` — the roster building the options is the roster the preflight reads.
 - Reshapes `ChartLayer` declares at the ELEMENT grain evaluate there — a container opening one pipeline leaves every element's chain unevaluated.
-- Budgets DERIVED from a `TelemetryBoard` cadence are spelled as that derivation — too tight alerts on jitter, too loose reads a dead lane as live.
+- Budgets DERIVED from a `TelemetryBoard` cadence are spelled as that derivation — too tight alerts on jitter, too loose reads a dead stream as live.
 
 ## [05]-[PROCESS]
 

@@ -9,75 +9,71 @@
 ```text codemap
 Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost}; VividOrange in-folder; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
-│   ├── Component.cs       # Component owner and the one section solver over the profile algebra
-│   ├── Masonry.cs         # Masonry family
-│   ├── Steel.cs           # Steel family over the catalogued AISC and EN sections
-│   ├── Cmu.cs             # Concrete-masonry-unit family
-│   ├── Timber.cs          # Timber family over sawn, glulam, and CLT lamellae
-│   ├── Glazing.cs         # Glazing family over insulated-glass pane, spacer, and cavity records
-│   ├── Reinforcement.cs   # Reinforcement family over the rebar arrangement and prestressing-strand line
-│   ├── Fastener.cs        # Fastener family over the threaded bolt, nut, and washer assembly
-│   ├── Connector.cs       # Connector family
-│   ├── Joint.cs           # Joint family over the weld, adhesive, and stud connection record
-│   ├── Panel.cs           # Panel family over sheet-goods built elements
-│   ├── Concrete.cs        # Cast-in-place concrete family over the grade and role axes with the exposure-driven cover regime
-│   ├── Precast.cs         # Precast product family over the two-sourced hollowcore and double-tee ladders
-│   ├── Aluminum.cs        # Aluminum family over the EN 1999 alloy bands and the authored die roster
-│   ├── Insulation.cs      # Insulation family over the non-board batt, roll, loose-fill, and spray forms
-│   ├── Finishes.cs        # Finish and fireproofing families split by lane law
-│   ├── Pipework.cs        # Pipework family over the published pressure-pipe system rosters
-│   ├── Ductwork.cs        # Ductwork family over the SMACNA pressure-class and gauge schedules
-│   ├── Electrical.cs      # Electrical family over the conductor rosters and ampacity rating rows
-│   └── Capacity.cs        # One section-capacity resolution and check rail
+│   ├── Component.cs       # `Component` record, closed `SectionProfile` algebra, `MaterialGrade` rows, and the `ComponentSeed` traverse and gates
+│   ├── Masonry.cs         # `ComponentFamily.Masonry` policy row and the bond algebra; a unit is a `Component` row, never a `Brick` type
+│   ├── Steel.cs           # `SteelSeed.Roster` spans the registered domains beside the generated cold-formed lattice; `SteelSeed.Law` binds it
+│   ├── Cmu.cs             # `CmuSeed.Roster`/`Law` under the block policy row; ASTM and TMS cells ride as published data
+│   ├── Timber.cs          # `TimberSeed.Roster`/`Law` over EN strength-class tables; members and cross-laminated panels are each one row
+│   ├── Glazing.cs         # IGU rows as `SectionProfile.Layered` with `PlyRole` panes, interlayers, and cavities; performance derives from physics
+│   ├── Reinforcement.cs   # `ReinforcementRow` roster and the host-neutral `RcSection` assembler; bars and tendons are each one row
+│   ├── Fastener.cs        # `StockRow.Threaded` pairs `ThreadRow` with a grade; `StockRow.Plain` carries published nail, dowel, and rivet data
+│   ├── Connector.cs       # Evaluation-report cells with directional allowables; every cell carries its issuing report and safety basis
+│   ├── Joint.cs           # Continuous weld/adhesive/stud vocabulary; no thread or bar section, so nothing folds into the fastener family
+│   ├── Panel.cs           # Board geometry as `SectionProfile.Layered` over the shared bounded `PlyRole`; deck geometry rides its own profile
+│   ├── Concrete.cs        # `ConcreteSeed.Roster`/`Law` over the CIP policy row; exposure classes drive the cover regime
+│   ├── Precast.cs         # `PrecastSeed.Roster`/`Law`; a plank, tee, or panel is one catalogued product row
+│   ├── Aluminum.cs        # EN 1999 characteristic bands beside the authored die roster; section truth is die-owned, the inverse of steel's
+│   ├── Insulation.cs      # Non-board thermal forms under the covering token; the board split law routes rigid boards to the panel family
+│   ├── Finishes.cs        # TWO family rows over ONE algebra; each shape states once and the family column carries the split
+│   ├── Pipework.cs        # Pressure-pipe product rows across the material systems; shared dimension rules state once
+│   ├── Ductwork.cs        # SMACNA product rows: pressure-class ladder, gauges, seal and liner classes, geometry
+│   ├── Electrical.cs      # Conductor product rows with NEC/IEC ampacity cells as RATING rows beside the containment vocabularies
+│   └── Capacity.cs        # `SectionCapacity` `[Union]` and the `Check` fold; one `Demand` against one capacity is the typed `Utilisation`
 ├── Appearance/            # Measured appearance engine — node graph, BSDF lobe family, and the material wire
-│   ├── Bsdf.cs            # Closed BSDF lobe family and the microfacet kernel
-│   ├── Graph.cs           # MaterialGraph node-DAG program and the material-library table
-│   ├── Surface.cs         # OpenPBR color-science lowering and the layered slab stack
-│   ├── Texture.cs         # Texture-sampling fold over the closed texture-source union
-│   ├── Photometric.cs     # Light-unit admission fold — the in-folder UnitsNet boundary
-│   ├── Weathering.cs      # Aging fold over the closed weathering-effect union
-│   ├── Acquisition.cs     # Capture-import fold over the closed capture-source union
-│   ├── Finish.cs          # Kubelka-Munk pigment-reflectance finish engine
-│   ├── Interchange.cs     # MaterialWire and MaterialX .mtlx interchange projection
-│   ├── Environment.cs     # Sky synthesis, environment-map admission, IBL prefilter, and the environment-light row
-│   └── Neural.cs          # Photo-to-PBR model registry and the inference stage plan
+│   ├── Bsdf.cs            # `BsdfLobe` `[Union]` under one `Evaluate`/`Sample`/`Pdf` contract; `Microfacet<T>` generic GGX/Smith/Fresnel kernel
+│   ├── Graph.cs           # `AppearanceNode` `[Union]` over typed `PortValue` channels; `Compile` orders the DAG once on the QuikGraph substrate
+│   ├── Surface.cs         # `SpectralUpsample`, the `ToneMap` operator table, and the OpenPBR construction half the wire and library drive
+│   ├── Texture.cs         # `TextureSource` sampling under `AddressMode`/`FilterMode` bands; `ProceduralNoise` seeds over the `NoiseBasis` band
+│   ├── Photometric.cs     # `PhotometricQuantity` band rows each carrying one closed `Coercion` discriminant; the 683 lm/W efficacy divide
+│   ├── Weathering.cs      # `WeatheringEffect` policy rows drive a library row along `AgeParameter`, so a row carries its trajectory
+│   ├── Acquisition.cs     # `Acquisition.Import` produces `AcquiredMaterial` with its `CaptureProvenance` receipt and admitted plane set
+│   ├── Finish.cs          # `Finish.Resolve` over a pigment-weight vector and coat stack; spectrally-grounded `BaseColor`, measured provenance
+│   ├── Interchange.cs     # One resolved library row crosses in three reconciled shapes keyed by ONE content hash; `CorpusBorne` states the entry
+│   ├── Environment.cs     # `SkyModel` `[Union]`, `EnvironmentMap` admission, and the IBL prefilter; scene-linear radiance end to end
+│   └── Neural.cs          # `ModelCard` frozen registry keyed by `ModelCardId`; stage, licence, weights, tensor contract, provider ladder as DATA
 ├── Raster/                # Texture-map generation — the plane substrate, the bake engine, and its container estate
-│   ├── Plane.cs           # Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge
-│   ├── Codec.cs           # Container roster, the band-2460 RasterFault, and the KTX gate over its CLI floor
-│   ├── Filter.cs          # Plane-transform algebra, the stage scheduler, and the height-field correspondence
-│   ├── Tile.cs            # Set-coherent tiling synthesizer and the deterministic tileability gate
-│   ├── Set.cs             # Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind
-│   ├── Press.cs           # Bake engine over the batched plane evaluator and its content-identity veto
-│   └── Gpu.cs             # Surfaceless bake device and the closed WGSL module table with its golden vectors
+│   ├── Plane.cs           # `TexturePlane` typed-texel pooled arena over the kernel lattice seat; storage, transfer, primaries, alpha, range
+│   ├── Codec.cs           # `RasterFormat` `[SmartEnum<string>]` rows carry extension, magic claim, alpha association, capability, engine case
+│   ├── Filter.cs          # `PlaneOp` `[Union]` under one `Apply` that PLANS shapes, SCHEDULES stages by dependency class, then rents outputs
+│   ├── Tile.cs            # `TileStrategy` `[SmartEnum<string>]` closes the tiling algebra; `TileProof.Grade` is the one tileability mint
+│   ├── Set.cs             # `TextureChannel` `[SmartEnum<string>]` rows carry group, components, transfer, neutral; `SetBind` re-binds the library
+│   ├── Press.cs           # `TexturePress.Press` drives a `PressSubject` across a `PressPlan`; the content-identity veto guards every mint
+│   └── Gpu.cs             # `PressDevice` headless adapter with per-kernel compiled pipelines behind one cache; the only `Silk.NET.WebGPU` speller
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
-│   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements + the mix-keyed durability table
-│   ├── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
-│   └── Assessment.cs      # Dated declaration records and the assessed-over-published resolution
+│   ├── Properties.cs      # `MaterialPropertyCatalogue` keys published physics per `MaterialId`; `Admit` lowers rows into the seam's typed cases
+│   ├── Sustainability.cs  # `SustainabilityCatalogue` in exact roster parity with its engineering sibling; `Lower` mints the seam cases
+│   └── Assessment.cs      # `AssessmentSet.Of` resolves dated declarations over the curated catalogues; `DeclarationWire.Decode` admits the wire
 └── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
-    ├── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
-    ├── Observability.cs   # MaterialsFact union, MaterialsHooks roster, MaterialsInstruments tap, MaterialsLog band, MaterialsDescriptors pack
-    ├── Benchmarks.cs      # BenchKernel workload corpus and the gated BenchmarkReceipt composition
-    └── Analytics.cs       # DatasetWire declarations over ColumnToken and the catalogue-to-row projection folds
+    ├── Component.cs       # `Project` folds payload-complete `Substance` and `Type` cases onto `Fin<GraphDelta>` behind the `ProjectionGate` veto
+    ├── Observability.cs   # `MaterialsPoint` roster over the kernel `IHookRoster` floor; `MaterialsHooks.Live` mints the one folder rail
+    ├── Benchmarks.cs      # `BenchKernel` rows pin `BenchInput` and resolved content keys, so content changes fork lineage, never row spellings
+    └── Analytics.cs       # Dataset rows and projection folds; column types, residences, dialects, and DDL home at `Rasm.Persistence`
 ```
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
 
-C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. Two wires cross INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input (the `python:artifacts/graphic/texture` counterpart edge the artifacts branch registers at its own end), and the `python:data`-minted `DeclarationRecord` — the `tests/contracts/MANIFEST.md` `[02.26]` domain contract — lands at `Properties/Assessment` `DeclarationWire.Decode` as the product-declaration transport reaching `AssessmentSet.Of` unchanged.
+C# is the sole producer of the appearance wire vocabulary: `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. Two wires cross inbound: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input, and the `python:data`-minted `DeclarationRecord` lands at `Properties/Assessment` `DeclarationWire.Decode`, reaching `AssessmentSet.Of` unchanged.
 
 ## [02]-[STRATA]
 
-Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier composes `Raster` products and therefore sits above the plane estate that reads the core. That split follows the folder's own dependency truth rather than a folder boundary — a flat `Appearance` stratum turns every frontier read of a plane product into an upward edge the strata forbid.
+Strata rank the five sub-domains; `Appearance` spans ranks, its core seated at the floor while its egress composes `Raster` products, so seating follows the folder's own dependency truth rather than a folder boundary.
 
-- S0 `Component` — `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail, consuming no sibling.
-- S0 `Appearance` core — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, `OpenPbrSurface`, `TextureUv`, and `MaterialUnits`, consuming no sibling.
-- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, `AssessmentResolution`, and `Published<T>` source rows.
-- S1 `Raster` — `TexturePlane`, `TextureChannel`, `TextureSet`, `TexturePress`, and the `PressDevice` bake seam.
-- S1 flow — engineering dimensional mints pass through the S0 `QuantityRow`; sustainability lowers basis-relative scalars to the seam factories.
-- S1 flow — `Raster` reads the core graph, sampler, and vector, writing back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge.
-- S2 `Appearance` frontier — `EnvironmentLight`, `ModelRegistry`, `Acquisition`, and the wire mint over `Raster` planes and sets.
-- S2 flow — the frontier reads DOWN into `Raster` and the core alike; `Raster` names no frontier type, so the plane estate stands alone.
-- S3 `Projection` — the one `ComponentProjector : IElementProjection` folds `Component`, `Properties`, and `Appearance` into `Fin<GraphDelta>`.
-- S3 `Projection` — the `MaterialsFact` signal tap, benchmark corpus, and analytics projection read every lower owner; nothing composes S3.
+- S0 law — `Component` and the `Appearance` core consume no sibling, and every sibling above reads at least one of the two floors.
+- S1 seat — `Properties` lowers engineering dimensional mints through the S0 `QuantityRow` and basis-relative scalars to the seam factories.
+- S1→S0 — `Raster` reads the core graph, sampler, and vector and writes back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge, acyclic.
+- S2 seat — the `Appearance` egress composes `Raster` planes and sets; `Raster` names no egress type, so the plane estate stands alone.
+- S2 law — a flat `Appearance` stratum turns every egress read of a plane product into an upward edge; the split rank is the dependency truth.
+- S3 law — nothing composes `Projection`; the projector folds the lower owners into `Fin<GraphDelta>` and the projections read down alone.
 
 ```mermaid
 ---
@@ -89,11 +85,11 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Materials interior strata
-    accDescr: Four stacked strata from the one component projector through the appearance frontier and the property and raster plane onto the peer component and appearance-core owners, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
+    accDescr: How the projector composes the egress, plane, and floor ranks; the counter-edge returns a MaterialGraph value.
     subgraph S3["S3 PROJECTION"]
         Projector[ComponentProjector]
     end
-    subgraph S2["S2 APPEARANCE FRONTIER"]
+    subgraph S2["S2 APPEARANCE EGRESS"]
         Wire[MaterialWire]
         Environment[EnvironmentLight]
     end
@@ -113,7 +109,7 @@ flowchart TB
     Projector e4@-->|"[IMPORT]: AppearanceSummary"| Wire
     Catalogue e5@-->|"[IMPORT]: QuantityRow"| QuantityRow
     Raster e6@-->|"[IMPORT]: MaterialGraph"| Library
-    Raster e7@-->|"[COUNTER]: MaterialGraph value"| Library
+    Raster e7@-.->|"[COUNTER]: MaterialGraph"| Library
     Wire e8@-->|"[IMPORT]: TextureSet"| Raster
     Wire e9@-->|"[IMPORT]: MaterialParameters"| Library
     Environment e10@-->|"[IMPORT]: TexturePlane"| Raster
@@ -132,7 +128,7 @@ config:
 ---
 flowchart LR
     accTitle: Materials AEC-domain projection seams
-    accDescr: Materials sub-domain owners exchanging projections, section handles, property sets, and detail bags with the AEC peers Element and Bim, one edge per contract family labeled by kind.
+    accDescr: Which projection, section, property, and detail contracts cross between the Materials owners and the AEC peers.
     subgraph materials[RASM.MATERIALS]
         Projection[Projection contracts]
         Component[Component families]
@@ -140,17 +136,17 @@ flowchart LR
         Appearance[Appearance engine]
     end
     Element{{Rasm.Element}}
-    Bim([Rasm.Bim])
+    Bim{{Rasm.Bim}}
     Element e1@-->|"[SHAPE]: IElementProjection"| Projection
     Projection e2@-->|"[PROJECTION]: GraphDelta"| Element
     Projection e3@-->|"[SHAPE]: DetailSchema"| Bim
     Component e4@<-->|"[SHAPE]: ProfileRef"| Element
     Component e5@-->|"[PORT]: IIfcTypeReconciler"| Bim
-    Bim e9@-->|"[SHAPE]: TypeCandidate"| Component
-    Bim e10@-->|"[SHAPE]: TextureRoster"| Appearance
-    Properties e6@<-->|"[SHAPE]: MaterialPropertySet"| Element
-    Appearance e7@-->|"[CONTENT_KEY]: AppearanceSummary"| Element
-    Component e8@<-->|"[SHAPE]: DetailSchema"| Element
+    Bim e6@-->|"[SHAPE]: TypeCandidate"| Component
+    Bim e7@-->|"[SHAPE]: TextureRoster"| Appearance
+    Properties e8@<-->|"[SHAPE]: MaterialPropertySet"| Element
+    Appearance e9@-->|"[CONTENT_KEY]: AppearanceSummary"| Element
+    Component e10@<-->|"[SHAPE]: DetailSchema"| Element
 ```
 
 ```mermaid
@@ -163,7 +159,7 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires, kernel lattice, storage, solver, atlas, and pattern crossings, plus artifact content keys with the kernel almanac, compute, the app host spine, the persistence store plane, the render host, the Python artifacts and runtime peers, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
+    accDescr: Which capacity, appearance, telemetry, and analytics contracts cross between Materials and the platform, host, and peer runtimes.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
@@ -172,7 +168,7 @@ flowchart LR
         Projection[Projection contracts]
     end
     Compute{{Rasm.Compute}}
-    AppHost{{Rasm.AppHost}}
+    AppHost([Rasm.AppHost])
     AppUi([Rasm.AppUi])
     Persistence([Rasm.Persistence])
     PyArtifacts([python:artifacts])
@@ -182,70 +178,120 @@ flowchart LR
     Ui([typescript:ui])
     Host([Host boundary])
     Rasm([Rasm])
-    Rasm e18@-->|"[SHAPE]: SunPosition"| Appearance
-    Rasm e19@-->|"[SHAPE]: SpectralArena"| Raster
-    Rasm e21@-->|"[SHAPE]: CellLattice"| Raster
-    Rasm e22@-->|"[SHAPE]: ChannelDtype"| Raster
-    Rasm e23@-->|"[PROJECTION]: ChartAtlas"| Raster
-    Rasm e24@-->|"[WIRE]: Lm.Minimize + DualModel"| Appearance
-    Rasm e25@-->|"[WIRE]: PatternPlan + InstanceStream"| Component
-    Rasm e26@-->|"[SHAPE]: MaterialSymmetry"| Component
-    Component e1@-->|"[WIRE]: SectionCapacity"| Compute
-    Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
-    Appearance e11@-->|"[WIRE]: StageRequest"| Compute
-    Compute e12@-->|"[WIRE]: StageResult"| Appearance
-    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
-    Appearance e5@-->|"[WIRE]: MaterialWire"| Core
-    Appearance e13@-->|"[WIRE]: MaterialWire"| PyRuntime
-    Appearance e14@-->|"[WIRE]: TextureSetWire"| Core
-    Appearance e15@-->|"[WIRE]: TextureSetWire"| PyRuntime
-    Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
-    PyArtifacts e16@-->|"[WIRE]: AssetSetManifest"| Raster
-    PyData e20@-->|"[WIRE]: DeclarationRecord"| Properties
-    Host e7@-->|"[WIRE]: CaptureSource"| Appearance
-    Projection e8@-->|"[PORT]: TelemetryContributorPort"| AppHost
-    Projection e9@-->|"[WIRE]: BenchmarkReceipt"| AppHost
-    Projection e10@-->|"[WIRE]: AnalyticsSchema"| Persistence
-    Raster e17@-->|"[CONTENT_KEY]: TextureSet"| Persistence
+    Rasm e1@-->|"[SHAPE]: SunPosition"| Appearance
+    Rasm e2@-->|"[SHAPE]: SpectralArena"| Raster
+    Rasm e3@-->|"[SHAPE]: CellLattice"| Raster
+    Rasm e4@-->|"[SHAPE]: ChannelDtype"| Raster
+    Rasm e5@-->|"[PROJECTION]: ChartAtlas"| Raster
+    Rasm e6@-->|"[WIRE]: DualModel"| Appearance
+    Rasm e7@-->|"[WIRE]: PatternPlan + InstanceStream"| Component
+    Rasm e8@-->|"[SHAPE]: MaterialSymmetry"| Component
+    Rasm e9@-->|"[SHAPE]: RgbProfile"| Appearance
+    Rasm e10@-->|"[SHAPE]: TapSeries"| Appearance
+    Rasm e11@-->|"[SHAPE]: SparseMatrix"| Raster
+    Rasm e12@-->|"[PORT]: ReceiptSinkPort"| Projection
+    Rasm e13@-->|"[SHAPE]: BenchClaim"| Projection
+    Component e14@-->|"[WIRE]: SectionCapacity"| Compute
+    Properties e15@-->|"[WIRE]: MaterialPropertySet"| Compute
+    Appearance e16@-->|"[WIRE]: StageRequest"| Compute
+    Compute e17@-->|"[WIRE]: StageResult"| Appearance
+    Appearance e18@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
+    Appearance e19@-->|"[WIRE]: MaterialWire"| Core
+    Appearance e20@-->|"[WIRE]: MaterialWire"| PyRuntime
+    Appearance e21@-->|"[WIRE]: TextureSetWire"| Core
+    Appearance e22@-->|"[WIRE]: TextureSetWire"| PyRuntime
+    Appearance e23@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
+    PyArtifacts e24@-->|"[WIRE]: AssetSetManifest"| Raster
+    PyData e25@-->|"[WIRE]: DeclarationRecord"| Properties
+    Host e26@-->|"[WIRE]: CaptureSource"| Appearance
+    Projection e27@-->|"[PORT]: TelemetryContributorPort"| AppHost
+    Projection e28@-->|"[WIRE]: BenchmarkReceipt"| AppHost
+    Projection e29@-->|"[WIRE]: MaterialsDataset"| Persistence
+    Raster e30@-->|"[CONTENT_KEY]: TextureSet"| Persistence
 ```
 
-## [04]-[ROUTING]
+## [04]-[INTERNAL]
+
+`Component` mints from published seed rosters once and every capacity read composes the minted row; `Appearance` compiles the one `MaterialGraph` program and every baked plane, set, and wire derives from that compile, CPU-minted wherever a content key follows. Per-stage wiring lives on the owning implementation pages.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Rasm.Materials component spine
+    accDescr: How a published seed roster becomes a typed component whose capacity verdict a demand check reads.
+    Roster(["Seed roster rows"]) e1@--> Mint[[ComponentSeed generator]]
+    Mint e2@--> Row[[Component row]]
+    Row e3@--> Section[[Section solver]]
+    Section e4@--> Capacity[[SectionCapacity]]
+    Capacity e5@--> Check[[Check fold]]
+    Check e6@--> Verdict[(Utilisation verdict)]
+    Mint f1@-.->|"seed-law refusal"| Fault[/Banded fault rail/]
+    Check f2@-.->|"basis refusal"| Fault
+```
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Rasm.Materials appearance spine
+    accDescr: How a compiled material program becomes a content-keyed baked set the wire and the seam re-bind.
+    Graph[[MaterialGraph.Compile]] e1@--> Press[[TexturePress.Press]]
+    Press e2@--> Planes[[TexturePlane products]]
+    Planes e3@--> SetMint[[TextureSet mint]]
+    SetMint e4@--> Bind[[SetBind rebind]]
+    SetMint e5@--> WireEg[/IAppearanceWire egress/]
+    Press f1@-.->|"content-identity veto"| Fault2[/RasterFault band/]
+    WireEg f2@-.->|"container refusal"| Fault2
+```
+
+## [05]-[ROUTING]
 
 | [INDEX] | [CHANGE]                            | [OWNER_SURFACE]             | [SHAPE_OF_THE_EDIT]                                               |
 | :-----: | :---------------------------------- | :-------------------------- | :---------------------------------------------------------------- |
 |  [01]   | new standardized component family   | `Component/component.md`    | one `ComponentFamily` row carrying its `ComponentClass`           |
-|  [02]   | new anchor, panel, or board product | `Component/connector.md`    | one `FastenerKind` arm or `PanelKind` row                         |
-|  [03]   | new scattering lobe                 | `Appearance/bsdf.md`        | one `BsdfLobe` case, admitted only where no parameterization fits |
-|  [04]   | new material or finish              | `Appearance/graph.md`       | one `MaterialLibrary` row over the one `MaterialGraph`            |
-|  [05]   | new standards table                 | the owning catalogue page   | one `SEED_ROW_LAW` table with per-column provenance               |
-|  [06]   | new fault case                      | the owning owner page       | one arm at its `FaultBand` free frontier                          |
-|  [07]   | new seam payload                    | `Rasm.Element` composition  | seam growth the projector composes, never a local remint          |
-|  [08]   | new standard sky or daylight model  | `Appearance/environment.md` | one `CieSkyType` row over the group pair, or one `SkyModel` case  |
-|  [09]   | new photo-to-PBR model              | `Appearance/neural.md`      | one `ModelCard` row carrying its licence class and contract       |
-|  [10]   | new bakeable appearance field       | `Raster/set.md`             | one `TextureChannel` row carrying its twelve columns              |
-|  [11]   | new plane container or block format | `Raster/codec.md`           | one `RasterFormat` row naming its engine, storage, and extension  |
-|  [12]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
-|  [13]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
-|  [14]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
-|  [15]   | new appearance wire document        | `Appearance/interchange.md` | one `IAppearanceWire` record with its `CorpusBorne` verdict       |
-|  [16]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
-|  [17]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
-|  [18]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
-|  [19]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
-|  [20]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
-|  [21]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
-|  [22]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |
-|  [23]   | new fatigue detail category         | `Component/capacity.md`     | one `EnFatigueCategory` or `AiscFatigueCategory` ladder rung      |
-|  [24]   | new trade size or system            | the owning trade seed page  | one roster row or one system policy row, never a stocked sweep    |
+|  [02]   | new anchor or fastened product      | `Component/fastener.md`     | one `FastenerKind` arm or `StockRow` roster row                   |
+|  [03]   | new panel or board product          | `Component/panel.md`        | one `PanelKind` row on the specification-armed policy column      |
+|  [04]   | new scattering lobe                 | `Appearance/bsdf.md`        | one `BsdfLobe` case, admitted only where no parameterization fits |
+|  [05]   | new material or finish              | `Appearance/graph.md`       | one `MaterialLibrary` row over the one `MaterialGraph`            |
+|  [06]   | new standards table                 | its owning catalogue page   | one roster + one `SeedLaw` value on `ComponentSeed`               |
+|  [07]   | new registered material grade       | `Component/component.md`    | one `MaterialGrade` row plus its `GradeProperties` arm            |
+|  [08]   | new fault case                      | its owning fault page       | one arm at its `FaultBand` free frontier                          |
+|  [09]   | new seam payload                    | `Rasm.Element` composition  | seam growth the projector composes, never a local remint          |
+|  [10]   | new standard sky or daylight model  | `Appearance/environment.md` | one `CieSkyType` row over the group pair, or one `SkyModel` case  |
+|  [11]   | new photo-to-PBR model              | `Appearance/neural.md`      | one `ModelCard` row carrying its licence class and contract       |
+|  [12]   | new bakeable appearance field       | `Raster/set.md`             | one `TextureChannel` row carrying its twelve columns              |
+|  [13]   | new plane container or block format | `Raster/codec.md`           | one `RasterFormat` row naming its engine, storage, and extension  |
+|  [14]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
+|  [15]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
+|  [16]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
+|  [17]   | new appearance wire document        | `Appearance/interchange.md` | one `IAppearanceWire` record with its `CorpusBorne` verdict       |
+|  [18]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
+|  [19]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
+|  [20]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
+|  [21]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
+|  [22]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
+|  [23]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
+|  [24]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |
+|  [25]   | new fatigue detail category         | `Component/capacity.md`     | one `EnFatigueCategory` or `AiscFatigueCategory` ladder rung      |
+|  [26]   | new trade size or system            | its owning trade seed page  | one roster row or one system policy row, never a stocked sweep    |
 
-## [05]-[BOUNDARIES]
-
-Boundaries state one positive ownership line each at the folder's own grain — one owner per axis, one entrypoint family per rail, growth by data; per-page boundary cards carry the concrete seams.
+## [06]-[BOUNDARIES]
 
 - Materials owns substance, appearance, and buildable type: one `Component`, one capacity rail, one `MaterialGraph`, one `TextureSet`.
 - Appearance CORE stays pointwise — a DAG node has no neighbours to read; neighbourhood work is the plane algebra's.
 - Every filter, integration, and tiling kernel homes at `Raster/filter` or `Raster/tile`, never a node case.
-- Persisted plane bytes are CPU-minted; the GPU lane is an accelerator whose product carries no set and therefore no content key.
+- Persisted plane bytes are CPU-minted; the GPU lane is an accelerator whose products carry no content key.
 - `ComponentFamily` closes the family axis and `ComponentClass` the structural-class axis, each family row carrying its class discriminant.
 - `SEED_ROW_LAW` seats standards data as in-fence C# under per-column provenance, and every seed row flows the one catalogue-to-solver rail.
 - `ComponentProjector.Project` stamps `Classification`/`PredefinedType` off its `IfcBinding` row, seed-excluded so a later attach never re-keys.
@@ -255,5 +301,5 @@ Boundaries state one positive ownership line each at the folder's own grain — 
 - `Rasm.Element` owns material-composition vocabulary, the perceptual owner color, and UnitsNet admits once per declared edge riding `MeasureValue`.
 - Each concern composes its admitted engine, and a kernel the ecosystem leaves unowned lands hand-authored at its owning page.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
-- Composition-root decorators tap `MaterialsFact` onto `MaterialsHooks`, so owners emit nothing; `MaterialsDescriptors` rides the kernel SLO algebra.
-- `e12` `StageResult` carries the `ParityFresh` observation gate and the `Coverage` mosaic floor whole; dropping either counts unmeasured.
+- Composition-root decorators tap `MaterialsFact` onto `MaterialsPoint`, so owners emit nothing; `MaterialsDescriptors` rides the kernel SLO algebra.
+- `StageResult` crosses from `Rasm.Compute` carrying the `ParityFresh` gate and `Coverage` floor whole; dropping either counts unmeasured.

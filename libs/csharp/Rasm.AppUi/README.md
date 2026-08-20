@@ -1,10 +1,8 @@
 # [APPUI]
 
-`Rasm.AppUi` is one Avalonia product surface spanning the shell, the GPU viewport engine over one wgpu device with Compute-streamed cluster-LOD residency, path-traced appearance from the Materials BSDF, reality capture and OpenXR review, the sheet-drafting surface emitting DWG/DXF/PDF, the chart plane with its AEC climate diagrams, the analysis plane where a sealed study becomes a probed, compared, and baked result layer, the typed-edit plane with revert algebra, the reproducible-notebook plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to.
+`Rasm.AppUi` is the one Avalonia product surface, shell to viewport, drafting, analysis, collaboration, and diagnostics: every plane the router seats reads the receipt spine as settled product vocabulary, the theme vocabulary traces every visual literal, every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
 
-Its bar is product honesty: every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
-
-Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
+Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute receipts inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
 ## [01]-[ROUTER]
 
@@ -12,7 +10,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [01]-[NAVIGATION](.planning/Shell/navigation.md): Routing spine with a typed deep-link grammar over dockable layouts.
 - [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog with ref-counted activation and OAPH-paced state.
 - [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting through seam delegate columns.
-- [04]-[COMMANDS](.planning/Shell/commands.md): Command vocabulary, availability algebra, total receipts, federated palette, binding editor.
+- [04]-[COMMANDS](.planning/Shell/commands.md): One command rail — every menu, hotkey, palette, and remote verb derives from one intent table.
 - [05]-[CONTROLS](.planning/Shell/controls.md): `ControlIntent` union materialized through one control factory.
 - [06]-[SOLVER](.planning/Shell/solver.md): Layout-constraint Kiwi algebra solved by one custom panel.
 - [07]-[VIRTUALIZATION](.planning/Shell/virtualization.md): One virtual-window owner over change-sets and an extent ledger.
@@ -22,9 +20,9 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 
 [RENDER]:
 - [11]-[PIPELINE](.planning/Render/pipeline.md): Render-graph pass-DAG with per-backend targets and a resolve ladder.
-- [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption with hysteresis LOD and a cull cut.
+- [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption under the cull ladder and the hysteresis LOD cut.
 - [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, ray-cone LOD, and denoise oracle over the light rig and its resolved dome.
-- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted plane residency under the layered-BSDF shade pass.
+- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted texture-plane residency under the layered-BSDF shade pass.
 - [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo review, session-state machine, passthrough, FB spatial anchors on the shared device.
 - [16]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
 - [17]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, and vector-print encode rows.
@@ -46,10 +44,10 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [EDITING]:
 - [28]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
 - [29]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
-- [30]-[FORMS](.planning/Editing/forms.md): Sectioned form schema, chrome capsule, pending-commit posture, study recipes, batch-edit receipt fold.
+- [30]-[FORMS](.planning/Editing/forms.md): Schema-driven forms — sectioned layout, dimensioned entry, pending commits, batch edits on one fold.
 - [31]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder, the durable-ledger arm, and its scrubbable timeline.
 - [32]-[LIVEDATA](.planning/Editing/livedata.md): Reactive data spine — sourcing cases, one filter/view algebra, optimistic overlay, design options.
-- [33]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas — model rows, palette ingress, verbs, admission gate, co-edit merge.
+- [33]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas — typed graph edits admitted through one gate and merged live.
 
 [DOCUMENT]:
 - [34]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
@@ -67,7 +65,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [DIAGNOSTICS]:
 - [43]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, 6xxx faults.
 - [44]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, headless proof matrix, frame-bench lanes, and the golden/package-skew guard registry.
-- [45]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flame view, transport-bound scrub, block stream, HUD chips.
+- [45]-[DEVLOOP](.planning/Diagnostics/devloop.md): Debug-profile dev surface — live inspection, profiling, and the solve scrub beside the shell.
 - [46]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution and its operator readout.
 
 [VFX]:
@@ -126,21 +124,21 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Irihi.Ursa.Themes.Semi`
 
 [CANVAS_EDITING]:
-- `PanAndZoom` — viewport control the graph and dashboard canvases host; every saved-view, zoom, grid, rotation, and export member lives here alone.
+- `PanAndZoom` — Viewport control the graph and dashboard canvases host; every saved-view, zoom, grid, rotation, and export member lives here alone.
 - `Avalonia.Controls.PanAndZoom` — `NodeEditorAvalonia` declares this id; carrying `Aliases` keeps its duplicate `ZoomBorder` out of global scope.
 - `NodeEditorAvalonia`
 
 [RENDER_SKIA]:
-- `Avalonia.Skia` — declares a LOWER `SkiaSharp` major than the pinned stack; the loader satisfies that floor under a matching public key.
+- `Avalonia.Skia` — Lower-declared `SkiaSharp` major floor the loader satisfies under a matching public key.
 - `CSharpMath.SkiaSharp` — TeX-subset math typesetting painted onto the Skia surface for the typography Math arms.
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
-- `HarfBuzzSharp` — managed shaping surface (`Feature`/`Tag`) the typography tag-mint composes directly.
+- `HarfBuzzSharp` — Managed shaping surface (`Feature`/`Tag`) the typography tag-mint composes directly.
 - `SkiaSharp.NativeAssets.macOS`
-- `SkiaSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
+- `SkiaSharp.NativeAssets.Linux` — Transitive distribution-closure floor, central pin only.
 - `SkiaSharp.NativeAssets.Linux.NoDependencies` — glibc-only Linux natives for the headless proof lane.
 - `HarfBuzzSharp.NativeAssets.macOS`
-- `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
+- `HarfBuzzSharp.NativeAssets.Linux` — Transitive distribution-closure floor, central pin only.
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
 
@@ -184,7 +182,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
 - `LanguageExt.Core`
@@ -195,21 +193,25 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `NodaTime`
 - `System.IO.Hashing`
 - `UnitsNet`
-- `CommunityToolkit.HighPerformance` — word-level bit reads and writes inside the cross-filter dimension index.
-- `QuikGraph` — proves acyclicity and orders topologically behind every dependency closure this folder admits.
-- `Wacton.Unicolour` — selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
+- `CommunityToolkit.HighPerformance` — Word-level bit reads and writes inside the cross-filter dimension index.
+- `QuikGraph` — Acyclicity proof and topological order behind every dependency closure this folder admits.
+- `Wacton.Unicolour` — Selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
 
-[GEOMETRY_NUMERICS]:
-- `MathNet.Numerics` — exact order statistics over a materialized sorted sample behind every bench distribution column.
-- `NetTopologySuite` — indexes point-in-area location behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
-- `ACadSharp` — DWG/DXF/SVG drafting-WRITE leg over one authored `CadDocument`; Bim holds the mesh read, Fabrication the profile read.
+[NUMERIC_SUBSTRATE]:
+- `MathNet.Numerics` — Exact order statistics over a materialized sorted sample behind every bench distribution column.
 
 [GPU_DEVICE]:
-- `Silk.NET.WebGPU` — presented-viewport device this folder mints and every peer plane binds.
-- `Silk.NET.WebGPU.Extensions.WGPU` — per-frame `DevicePoll`, native log routing, multi-draw, and LUID adapter match.
-- `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
+- `Silk.NET.WebGPU` — Presented-viewport device this folder mints and every peer plane binds.
+- `Silk.NET.WebGPU.Extensions.WGPU` — Per-frame `DevicePoll`, native log routing, multi-draw, and LUID adapter match.
+- `Silk.NET.WebGPU.Native.WGPU` — Native binaries behind this folder's presented-device mint.
+
+[GEOMETRY_INTERCHANGE]:
+- `ACadSharp` — DWG/DXF/SVG drafting-write leg over one authored `CadDocument`.
+
+[PLANAR_GEOSPATIAL]:
+- `NetTopologySuite` — Point-in-area location index behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
 
 [RUNTIME_INBOX]:
-- `System.Diagnostics.Metrics` — in-box instrument surface behind the `rasm.appui.*` telemetry spine.
-- `System.Net.Http` — asset-fetch client behind theme and remote resource loading.
-- `System.Text.Json` — generated wire contexts behind shell persistence, command payloads, and the evidence projection.
+- `System.Diagnostics.Metrics` — In-box instrument surface behind the `rasm.appui.*` telemetry spine.
+- `System.Net.Http` — Asset-fetch client behind theme and remote resource loading.
+- `System.Text.Json` — Generated wire contexts behind shell persistence, command payloads, and the evidence projection.

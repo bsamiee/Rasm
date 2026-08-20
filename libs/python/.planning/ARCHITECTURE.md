@@ -20,7 +20,9 @@ Cross-package coupling is a published boundary import or a content-keyed wire; n
 - S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
+- S2→S1 `geometry` lands its mesh facts on data's `FactJournal` ledger leg — a wire-grain crossing beside its `arrow_bytes` import.
 - S3 `artifacts` — composes runtime and compute's graduation handoff; geometry scene facts cross one-way as GLB bytes through `SceneGrid.of_glb`.
+- S3 data wires — `artifacts` lands `CorpusRow` and `GeoJSON` onto data's planes and reads back `QualityProfile`, wire-grain, never an import.
 - S4 app root — the composing application seats outside `libs/python` and binds every declared port.
 - S4 port law — `runtime` declares a port at S0, an upper stratum binds it at the root, and an unbound port refuses with typed evidence.
 - S4 counter-edge — `data` supplies the `Ledger` the journal plane writes through, root-bound; S0 consumes the value, importing no owner.
@@ -36,7 +38,7 @@ config:
 ---
 flowchart TB
     accTitle: Python branch import strata
-    accDescr: Four import strata from artifacts down to the runtime foundation; solid labeled edges name one imported surface, and dashed edges carry the graduation wire beside the Ledger implementation data supplies and the S4 root binds into runtime.
+    accDescr: Import strata from artifacts down to the runtime foundation, wire-grain crossings dashed beside the root-bound Ledger counter-edge.
     subgraph S3["S3 ARTIFACTS"]
         Artifacts[artifacts]
     end
@@ -51,24 +53,27 @@ flowchart TB
         Runtime[runtime]
     end
     Artifacts e1@-->|"[IMPORT]: GraduationReceipt"| Compute
-    Compute e2@-->|"[IMPORT]: FrameAdmission"| Data
-    Geometry e3@-->|"[IMPORT]: arrow_bytes"| Data
-    Geometry e4@-.->|"[WIRE]: GeometryHandoff"| Compute
-    Data e5@-->|"[IMPORT]: ResourceRef"| Runtime
-    Geometry e6@-->|"[IMPORT]: ContentKey"| Runtime
-    Compute e7@-->|"[IMPORT]: Kernel"| Runtime
-    Artifacts e8@-->|"[IMPORT]: ContentKey"| Runtime
-    Artifacts e11@-->|"[IMPORT]: ObjectStoreLane"| Runtime
-    Geometry e12@-->|"[IMPORT]: ObjectStoreLane"| Runtime
-    Geometry e13@-->|"[LEDGER]: FactJournal"| Data
-    Data e10@-.->|"[PORT]: Ledger impl, S4-bound"| Runtime
+    Artifacts e2@-->|"[IMPORT]: ContentKey"| Runtime
+    Artifacts e3@-->|"[IMPORT]: ObjectStoreLane"| Runtime
+    Artifacts e4@-.->|"[WIRE]: CorpusRow"| Data
+    Artifacts e5@-.->|"[WIRE]: GeoJSON"| Data
+    Data e6@-.->|"[SHAPE]: QualityProfile"| Artifacts
+    Compute e7@-->|"[IMPORT]: FrameAdmission"| Data
+    Compute e8@-->|"[IMPORT]: Kernel"| Runtime
+    Geometry e9@-->|"[IMPORT]: arrow_bytes"| Data
+    Geometry e10@-.->|"[WIRE]: GeometryHandoff"| Compute
+    Geometry e11@-.->|"[LEDGER]: FactJournal"| Data
+    Geometry e12@-->|"[IMPORT]: ContentKey"| Runtime
+    Geometry e13@-->|"[IMPORT]: ObjectStoreLane"| Runtime
+    Data e14@-->|"[IMPORT]: ResourceRef"| Runtime
+    Data e15@-.->|"[COUNTER]: Ledger"| Runtime
     Artifacts ~~~ Compute
-    S0 e9@-->|"forbidden: upward import"| S3
+    Runtime f1@-->|"forbidden: upward import"| S3
 ```
 
 ## [03]-[SEAMS]
 
-Python meets peer branches through corpus contracts and serialized artifacts. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose — runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`.
+Python meets peer branches through corpus contracts and serialized artifacts. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose: runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`.
 
 ```mermaid
 ---
@@ -96,23 +101,24 @@ flowchart LR
     Persistence[(Rasm.Persistence)]
     Materials([Rasm.Materials])
     Fabrication([Rasm.Fabrication])
-    Geometry e12@<-->|"[WIRE]: IfcWire"| Bim
-    Geometry e13@<-->|"[WIRE]: GlbContentHash"| Element
-    Geometry e11@<-->|"[WIRE]: ComputeService"| RasmCompute
-    Runtime e5@<-->|"[CONTENT_KEY]: ContentAddress"| Element
-    Runtime e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
-    Runtime e2@<-->|"[WIRE]: DiscoveryResult"| AppHost
-    Runtime e4@<-->|"[WIRE]: ProtoVocabulary"| RasmCompute
-    Runtime e3@<-->|"[WIRE]: OpLogEntry"| Persistence
-    Compute e10@<-->|"[GRADUATION]: HandoffAxis"| RasmCompute
-    RasmCompute e7@-->|"[SHAPE]: DoeDataset"| Data
-    Data e6@<-->|"[WIRE]: SubstraitPlan"| Persistence
-    Data e8@-->|"[WIRE]: Environmental"| Materials
-    Materials e16@-->|"[WIRE]: MaterialWire + TextureSetWire"| Runtime
-    Artifacts e17@-->|"[WIRE]: AssetSetManifest"| Materials
-    Bim e9@-->|"[WIRE]: GeoFeatureWire"| Data
-    Artifacts e14@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
-    Fabrication e15@-->|"[SHAPE]: Tolerance"| Artifacts
+    Geometry e1@<-->|"[WIRE]: IfcWire"| Bim
+    Geometry e2@<-->|"[WIRE]: GlbContentHash"| Element
+    Geometry e3@<-->|"[WIRE]: ComputeService"| RasmCompute
+    Runtime e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
+    Runtime e5@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
+    Runtime e6@<-->|"[WIRE]: DiscoveryResult"| AppHost
+    Runtime e7@<-->|"[WIRE]: ProtoVocabulary"| RasmCompute
+    Runtime e8@<-->|"[WIRE]: OpLogEntry"| Persistence
+    Materials e9@-->|"[WIRE]: MaterialWire"| Runtime
+    Materials e10@-->|"[WIRE]: TextureSetWire"| Runtime
+    Compute e11@<-->|"[GRADUATION]: HandoffAxis"| RasmCompute
+    RasmCompute e12@-->|"[SHAPE]: DoeDataset"| Data
+    Data e13@<-->|"[WIRE]: SubstraitPlan"| Persistence
+    Data e14@-->|"[WIRE]: Environmental"| Materials
+    Bim e15@-->|"[WIRE]: GeoFeatureWire"| Data
+    Artifacts e16@-->|"[WIRE]: AssetSetManifest"| Materials
+    Artifacts e17@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
+    Fabrication e18@-->|"[WIRE]: GdtFrameWire"| Artifacts
 ```
 
 Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Runtime's transport plane alone holds the branch proto vocabulary and its descriptor drift gate, grading schema drift at boot before the first RPC.
@@ -139,7 +145,7 @@ flowchart LR
     Egress e5@-.->|"EvidenceBundle"| Hub
 ```
 
-Telemetry converges on runtime's observability owner: `Hooks` registers every package's hook points, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Siblings register on that owner — a hook point, an instrument row, a receipt folded through the drain, a bound `Ledger` — and their series leave opaque on the OTLP transport. Journal facts are evidence truth; every metered series beside them rebuilds from the journal window.
+Telemetry converges on runtime's observability owner: `Hooks` registers every package's hook points, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Siblings register on that owner as a hook point, an instrument row, a receipt folded through the drain, or a bound `Ledger`, and their series leave opaque on the OTLP transport. Journal facts are evidence truth; every metered series beside them rebuilds from the journal window.
 
 `data` alone custodies the analytics residences that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind, rows each durable plane on that same matrix, and lands each drained receipt stream into its residence through that same matrix, so history and health read one fact stream.
 
@@ -153,7 +159,7 @@ config:
 ---
 flowchart LR
     accTitle: Python branch observability spine
-    accDescr: Siblings fire hook facts, fold receipts, and record evidence facts into runtime observability; one instrument table meters the derived series, telemetry alone egresses on the opaque OTLP transport, and the journal lands evidence through a Ledger port data implements and the S4 root binds, while the composition's receipt drain lands its analytics residences through the same commit matrix.
+    accDescr: How sibling facts, receipts, and evidence converge on runtime observability and leave through OTLP and the Ledger-bound journal.
     Siblings[compute · data · geometry · artifacts]
     subgraph runtime[RUNTIME OBSERVABILITY]
         Hooks[Hooks registry]

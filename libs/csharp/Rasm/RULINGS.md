@@ -19,10 +19,8 @@ Every reopen predicate rides the license gate.
 - `Domain/hooks` mints the ONE hook capsule type and `HookRail` its one mechanism — an effect-rail caller lifts `Fire` at its own seam.
 - `SignalRail` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
 - `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a new coordinate is one column, never a knob.
-- `Buckets` rows carry real boundary values — `Advised<T>` saturates each into the measured type, so a per-type bound array forks the policy.
-- Packed-upper layout is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
-- `Analysis/relations` owns host-native intersection, `Meshing/intersect` the predicate-exact tier — the consumer's tolerance source decides.
-- Host `Annotation/hatch` owns hatch-table custody and placement, `Drawing/hatch` the exact fill synthesis — the consumer's output target decides.
+- `Buckets` rows carry UCUM unit and real boundary vectors as columns — `Advised<T>` saturates each into the measured type, so a bound array forks it.
+- Packed-upper storage is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - `Drawing/sheet` derives every ISO/JIS extent from its series root by the halving rule — a per-size static forks one ladder into drifting copies.
 - `[ObjectFactory<string>]` rides self-describing text alone — `SheetNumber`/`LayerName` hyphenated grammars parse with the standard EXPLICIT.
 - `HostLayerScheme` is the ONE host projection of `LayerName` — a boundary joining fields with its own delimiter forks the naming standard.
@@ -39,28 +37,22 @@ Every reopen predicate rides the license gate.
 - Every policy scalar rides a guarded value-object column — an evidence fold guards only the claims no band already holds.
 - Every tri-valued classifier lands as a closed `[SmartEnum]` whose rows carry their consequence — `bool?` strands the third case in `case null`.
 - Every `SolveReceipt` is READ — a consumer mapping it away to the solution alone discards the solver evidence the receipt exists to carry.
-- `IntersectOp.PlaneMesh` is the ONE mesh-plane section — a native contour beside it forks the tier, while interval sweep and surface iso stay native.
+- `IntersectOp.PlaneMesh` is the ONE mesh-plane section — a native contour beside it forks the class; interval sweep and surface iso stay native.
 - `SampleAssurance` is the ONE guarantee column on the sample receipt — parallel bool flags leave illegal corners the roster forecloses.
 - Solver residuals floor on `EpsilonPolicy.SqrtEpsilon` and lane through `ResidualCap.In` — a bare epsilon forks it; `Relative` is a model percent.
 - Residual-band `ToleranceLane` rows DERIVE `EpsilonPolicy.SqrtEpsilon`, never the model percent — a percent of a percent lands under the band floor.
+- Tolerance MODE is the lane's `Band` fact — identity elections read `ToleranceLane.Identity`, probe steps `ToleranceLane.Probe`, no page epsilon.
 - `Cell.SwapBudget` is the ONE contended-commit default — an Interaction page minting a budget shell passes its own measured `Dimension` instead.
 - Device `ToleranceLane` rows derive `0.0`, BELOW their band's closed floor, so an un-overridden device gate hands back refusing evidence.
 - `HealStage.RebuildsTopology`/`Collects` stay a bool PAIR — independent axes with no illegal corner leave a capability set nothing to foreclose.
-- `SplineFit`/`SplinePolicy` are the `Rasm.Parametric` fitting names; `Solving` keeps `FitKind`/`FitPolicy` — same word, two bounded concepts.
 - `Stat<Scalar>` derived off its own column is the ONE moment summary — a page-local tuple beside it forks the statistic per consumer.
-- Every policy gate reads a `Tolerance` minted through `Of(context)` off its lane — a `Canonical` static carrying a bare literal pins it off-lane.
-- `MinimumSpanningTreePrim` is single-component — a layout over a labelled multi-component graph takes `MinimumSpanningTreeKruskal`.
+- Every policy gate reads `Context.For(lane)`, the ONE tolerance read off a `ToleranceLane` row — no page epsilon literal, no off-lane static.
+- `MinimumSpanningTreePrim` is single-component — a spanning forest over a labelled multi-component graph takes `MinimumSpanningTreeKruskal`.
 - Host-extensible fact families land an interface floor a non-generic `[SmartEnum]` roster realizes — a boundary extends by realizing that floor.
 - `EvidenceDrain` is the ONE ordinal minter — every source serializes through its stamp, so a second counter hands two events one `UiEvent.Ordinal`.
 - `MatrixKernel` funnels factorization, solve, eigen, transform — a raw reach skips receipt and residual witness; MathNet utilities stay page-local.
-- Fabrication tolerance tiers flattening — `Processing/flatten` variational, `Processing/segment` host LSCM, `Parametric/develop` exact isometry.
-- `Parametric/curve` and `/locate` split by RUNTIME, never capability — vendored host-neutral against live Rhino, meeting at the wire.
-- `SimplifyKind.VoxelRemesh` stays a `decimate` modality, never a `RemeshOp` arm — its genus follows the level set; the rewrite preserves topology.
-- `RemeshOp` stays beside `segment`'s host capture — first-principles rewrite against parameter echo; reopens on RhinoCommon structural predicates.
 - Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
-- `Lm.Minimize` is the ONE damped iterate under `Schedule.recurs` as sole budget authority — a private loop forks the singular guard and accept order.
-- Hulls split by robustness tier — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact hull.
-- `SpatialIndex` owns primitive-AABB broad phase, `NeighborIndex` bare-point neighborhoods — the query subject decides, never one shared owner.
+- `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
 - `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
 - Geometry-fold abandonment lowers ONE case on both arrangement routes — `RunAbandoned` 2403; `Fault.Cancelled` stays the `Eff`-floor spelling.
@@ -70,22 +62,58 @@ Every reopen predicate rides the license gate.
 - Kernel laws bind only where their compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish for exactly that reason.
 - Meeting a stated contrast ratio is kernel work — `PerceptualColor.ToneFor` walks to the least extreme clearing rung and REFUSES where none clears.
 - `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
-- `TenantContext.Key` is the one tenancy-discriminant read — a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
+- `TenantContext.Key` is the one tenancy read and its absent arm structural — the re-derived `Partitions ? Entry : absent` ternary is deleted.
 - `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares coordinates.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
-- `Context.For(lane)` is the ONE tolerance read — every threshold derives from a `ToleranceLane` row, so no page mints an epsilon literal.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
-- Generated `Validate` bridges via `Op.AcceptValidated`; `[ValidationError<Fault>]` survives only where every path mints typed — framework refusals degrade to `Fault.Text`.
+- `Validate` bridges through `Op.AcceptValidated` — `[ValidationError<Fault>]` survives only where every path mints typed; else `Fault.Text` takes it.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
 - `[BoundaryAdapter]` entries alone spell an optional key `Op? key = null` with `OrDefault()`; every other optional rides `Option<T> = default`.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
 - `Interpolant<TCap>` is the ONE interpolation capability owner — `TCap` carries differentiation and integration, so unsupported calls never compile.
 - `PerceptualColor` host egress REFUSES an out-of-display colour where the byte leg CLIPS — a silent clip hands a painter an unattributable colour.
+- `UiThread.Run(crossing, lane, key)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
+- `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.
+- `UiLease` is the ONE accruing one-shot release base — a mount derives it and accrues teardown arms at mint; a hand latch beside it is deleted.
+- `UiFault.Absent` names a missing host MEMBER, `Unavailable` a missing platform FEATURE, a live-member raise `HostRejected` — never conflated.
+- `DataScope.Assign` is the ONE ambient-model seam and `StoreRail.Mount` the ONE store gate — per-control source wiring is the deleted form.
+- `Field` is the ONE harvest-tagging site and `FieldReport.Value(tag)` the ONE read — a half-filled report is unrepresentable by construction.
+- `Displays.Capture` is the ONE host-image mint and answers a `Lease`; drag slop derives from a `ToleranceLane` row, never a caller magnitude.
+- `Surface` is HOST-AFFINE end to end and `PaintColor` the ONE `PerceptualColor` ↔ host-colour correspondence — `HitTest` alone crosses free.
+- `Platform.Add` publishes no removal, so a seat CAPTURES the prior factory and release re-registers it; `HostPlatform.Demand` is the ONE gate.
+- `PayloadSlot.Box` is the ONE erased mint and refuses a disposable — a native handle rides `Resourced` with its lease, never `Bytes`.
+- Interaction clocks take a `MonotonicTimeline`, never a bare `TimeProvider`; a failing tick never silently stops — the posture ROW decides.
+- `AssetOrigin.Resolve` answers the asked extent in the asked product shape; the filter CHAIN is the operation — empty IS unfiltered, order is law.
+- `HookRail` takes the folder's `<Package>Point` roster as a TYPE PARAMETER — an untyped registry loses the closed-roster compile break.
+- `Fire` is the ONE raise and `Ring<T>` the ONE bounded fault cell — a second raise path skips veto admission and bounded fault custody.
+- Hook fact unions declare their own seating — `IHookFact.Seats` derives from the fact→point map and `Fire` gates entry and veto-product on it.
+- Folder fault families ride `RegistryFault<TRow>` over their `IFaultRegistry` roster — `Code`/`Category` seal to it and `Sound` proves offsets.
+- `CanonicalWriter` reads zero tolerance as no-snap identity — `EpsilonPolicy.ZeroTolerance` stays the content quantum, `Bits` the bit framing.
+- `LevelCells.Reader<T>` is the ONE pulled projection — a sibling pull surface forks the level read from its owner's lifetime binding.
+- `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink seam.
+- `PanelSpec`'s constructor is the ONE board-descriptor spelling — a hand-built descriptor bypasses the vocabulary the board compile validates.
+- `SheetSize.Key` is the ONE wire spelling, series prefix with index or suffix — a free-text key forks host re-entry by exact name.
+- `RungLadder` is the ONE Renard-series snap — a page-local rounding table drifts from the published ladder.
+- `WindowTaper` is the ONE taper roster and `SpectralArena` the ONE transform carrier — a framing is a COLUMN on the row, never a second roster.
+- `Op.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
+- `ICapability.Rank` derives from declaration order through the vocabulary's index — a domain rank overrides at its owner, never a hand ordinal.
+- Capability-read failure posture is the consumer seam's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.
+- `Evidence<T>` is the ONE probe receipt — `Measured(T)`/`Refused(Error)`/`Absent` — `Quality` grades trust on a PRESENT reading, never occurrence.
+- Semantic `IClock` and `MonotonicTimeline` never fuse — no joint invariant binds a wall instant to a monotonic mark, so a crossing takes both.
+- QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
 
 ## [03]-[COLLAPSE]
 
-- Graph frontiers compose QuikGraph `AlgorithmExtensions` and observers — a PriorityQueue event simulation stays BCL and names its refused operator.
-- QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
+- Graph traversals compose QuikGraph `AlgorithmExtensions` and observers — a PriorityQueue event simulation stays BCL, naming its refused operator.
+- `Analysis/relations` owns host-native intersection, `Meshing/intersect` the predicate-exact class — the consumer's tolerance source decides.
+- Host `Annotation/hatch` owns hatch-table custody and placement, `Drawing/hatch` the exact fill synthesis — the consumer's output target decides.
+- `SplineFit`/`SplinePolicy` are the `Rasm.Parametric` fitting names; `Solving` keeps `FitKind`/`FitPolicy` — same word, two bounded concepts.
+- Flattening splits by guarantee — `flatten` variational, `segment` host LSCM, `develop` exact isometry; the consumer's acceptance evidence decides.
+- `Parametric/curve` and `/locate` split by RUNTIME, never capability — vendored host-neutral against live Rhino, meeting at the wire.
+- `SimplifyKind.VoxelRemesh` stays a `decimate` modality, never a `RemeshOp` arm — its genus follows the level set; the rewrite preserves topology.
+- `RemeshOp` stays beside `segment`'s host capture — first-principles rewrite against parameter echo; reopens on RhinoCommon structural predicates.
+- Hulls split by robustness class — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact hull.
+- `SpatialIndex` owns primitive-AABB broad phase, `NeighborIndex` bare-point neighborhoods — the query subject decides, never one shared owner.
 
 ## [04]-[STRUCTURE]
 

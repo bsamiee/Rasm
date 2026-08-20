@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- AGPL Ladybug Tools bands admit under lexical license isolation — function-local boundary imports only, since a static audit reads imports.
 
 ## [02]-[SHAPE]
 
@@ -20,23 +20,21 @@
 - GLB context decodes off the scene GRAPH with each node transform applied — a hand-applied axis swap doubles a Y-up producer's own rotation.
 - Georeference extraction answers typed ABSENCE — an ungeoreferenced model crosses `Nothing`, never an identity a map lift reads as coordinates.
 - Georeference wires carry ONE scale across eight fields — a non-uniform `factor_*` triple refuses by name.
+- Coarse pose seeds the fine solve through the solver's OWN transform slot — `probreg`'s EM arm, publishing none, pre-poses once at admission.
 
 ## [03]-[COLLAPSE]
 
-- `LateBound{module, member, leads}` is the ONE AGPL late-bind at `energy/climate` — every table rides it, `leads` binding owner attributes by name.
-- `CORPUS` rosters graded seams, `graded` hands them to `Bench.graded`, and `bench_subject` spells each id — no window or verdict mints here.
-- Coarse pose seeds the fine solve through the solver's OWN transform slot — a pre-posed copy costs a whole cloud.
-- `probreg`'s EM arm publishes no transform slot, so it pre-poses once at admission and returns the pose in the result's own slot.
+- `LateBound{module, member, leads}` is the ONE AGPL late-bind at `energy/climate` — a second dialect forks the copyleft-boundary law audits grep.
+- Every model-mutating arm rides ONE `begin_transaction`/`undo()`/`end_transaction` fence — no arm mints a second rollback dialect.
 
 ## [04]-[STRUCTURE]
 
-- IFC and energy verbs run caller-floor and cross the process band for a long native phase alone — a short decode earns no serialization round-trip.
-- One import-time `find_spec` map refuses a marked provider onto `BoundaryFault(import_=)` before offload — the probe picks a capability tier.
-- Every model-mutating arm rides ONE `begin_transaction`/`undo()`/`end_transaction` fence — no arm mints a second rollback dialect.
 
 ## [05]-[PROCESS]
 
 - `BrepFault` kwargs lift WHOLE into the boundary fault — a projection reachable outside `evidence_run` returns the rail instead of raising.
 - Object-store spill is an OPTIMIZATION riding `SpillOutcome` on the receipt, never a rail — the lane arrives BUILT, so no page mints `from_url`.
-- `FAULT_CONF` fences the innermost untrusted seam — `_dispatch` on a rail capsule, the numeric leaf on an effect one — and `run` carries none.
-- Durable records seat at the nearest async fold past a transaction, HOSTILE kernel, or fault-owning `finally` — a sync owner mints its async twin.
+- `FAULT_CONF` guards the innermost untrusted seam (`_dispatch` on a rail capsule, a numeric leaf on an effect one) — an outer seat re-types faults.
+- Durable records seat past a transaction, HOSTILE kernel, or fault-owning `finally` — an in-bracket record holds half-applied state open.
+- IFC and energy verbs run caller-floor and cross the process band for a long native phase alone — a short decode earns no serialization round-trip.
+- Module-scope table cells over a deferred band carry a call-time thunk or a member name — a live attribute reifies the proxy at import.

@@ -1,34 +1,31 @@
 # [TS_SECURITY_ARCHITECTURE]
 
-`security` owns the identity-and-custody concern — the `crypt`, `authn`, and `access` sub-domains meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data stratum satisfies at app composition, so the folder imports only core.
+`security` owns the identity-and-custody concern: the `crypt`, `authn`, and `access` sub-domains meet through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data stratum satisfies at app composition, so the folder imports only core.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 security/
 └── src/
-    ├── crypt/             # Crypto authority: signing, minting, shredding, custody, inbound verification
-    │   ├── sign.ts        # Sole mint — every digest, signature, token, and envelope originates here
-    │   ├── verify.ts      # Inbound-signature dialect table + one constant-time verify fold over HELD request octets
-    │   └── secret.ts      # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
-    ├── authn/             # Authentication: session spine, digest credentials, OAuth, passkeys
-    │   ├── session.ts     # Identity spine the ceremonies feed — rotation, ports, CSRF egress
-    │   ├── credential.ts  # Digest — one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
-    │   ├── oauth.ts       # Issuers modeled as rows over one authorization-code ceremony
-    │   ├── webauthn.ts    # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
-    │   └── workload.ts    # Machine identity: GrantRequest family over one discovered client per issuer, DPoP binding, principal projection
-    └── access/            # Authorization: entitlement fold, tenancy contract, and the security fact rail
-        ├── audit.ts       # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
-        ├── claim.ts       # Entitlement vocabulary + RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts      # Identity.Tenant binding, session-coordinate vocabulary, and tenant metric aspect
+    ├── crypt/             # Crypto authority the folder's every ceremony composes
+    │   ├── sign.ts        # `Crypto`/`Jwt`/`SingleUse`/`AccessClaims` owners and the sealed-envelope shredder
+    │   ├── verify.ts      # `Verify`, `Intake`, and `IntakeRoute` owners; every spine member imports `Reject`
+    │   └── secret.ts      # DopplerSDK custody behind `Layer.scoped` — download, targeted read, name census
+    ├── authn/             # Authentication ceremonies feeding one identity spine
+    │   ├── session.ts     # `Token` mint and port seats; egress projections declared for the runtime browser plane
+    │   ├── credential.ts  # Entropy-classed material table; argon2 and SHA-256 compare arms behind one resolve
+    │   ├── oauth.ts       # openid-client `Configuration` seat and the code-exchange fold; `SingleUse` stash per leg pair
+    │   ├── webauthn.ts    # Exports-map subpath split; zero shared runtime code between the halves
+    │   └── workload.ts    # `GrantRequest` closed family; reaches the sign and verify owners, never session
+    └── access/            # Authorization decisions and their evidence plane
+        ├── claim.ts       # Verdict fold composing `AccessClaims` and `TenantScope`; flag verdicts join through `FlagGate`
+        ├── tenant.ts      # `TenantScope` reference owner and the GUC coordinate vocabulary the data stratum enforces
+        └── audit.ts       # `SecurityFact` union, class-routed drain lanes, and the `Pseudonym` mask
 ```
 
 ## [02]-[STRATA]
 
-- S0 `access/audit` + `access/tenant` — core-only floor; `audit` owns facts, and `tenant` owns `TenantScope` with its session coordinates.
-- S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope.
-- S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes the `sign` authority.
-- S3 ceremonies and claims — `authn` and `access` stay peers; `workload` reaches the sign and verify owners, never session.
+Strata rank the security interior; seating rows carry only the law the fence cannot show.
 
 ```mermaid
 ---
@@ -40,7 +37,7 @@ config:
 ---
 flowchart TB
     accTitle: Security interior import strata
-    accDescr: Four strata — ceremonies and the entitlement fold over the spine onto the sign authority and the audit-tenant floor; imports downward.
+    accDescr: How ceremonies and claims rank onto the sign authority and the audit floor, the Rotation counter-edge a handed feed.
     subgraph S3["S3 CEREMONY + DECISION"]
         Ceremony["oauth · webauthn · workload"]
         Claim[claim]
@@ -58,24 +55,32 @@ flowchart TB
         Audit[audit]
         TenantRef[tenant]
     end
-    Sign e12@-->|"[IMPORT]: Witness"| Audit
-    Verify e1@-->|"[IMPORT]: Crypto"| Sign
-    Secret e7@-->|"[IMPORT]: Crypto"| Sign
-    Secret e13@-->|"[IMPORT]: Witness"| Audit
-    Session e2@-->|"[IMPORT]: Jwt"| Sign
-    Session e14@-->|"[IMPORT]: Witness"| Audit
-    Credential e8@-->|"[IMPORT]: Crypto"| Sign
-    Ceremony e3@-->|"[IMPORT]: Token"| Session
-    Ceremony e4@-->|"[IMPORT]: SingleUse"| Sign
-    Ceremony e15@-->|"[IMPORT]: Witness"| Audit
-    Claim e5@-->|"[IMPORT]: AccessClaims"| Sign
-    Claim e6@-->|"[IMPORT]: TenantScope"| TenantRef
-    Claim e16@-->|"[IMPORT]: Witness"| Audit
-    Session e9@-->|"[IMPORT]: Reject"| Verify
-    Credential e10@-->|"[IMPORT]: Reject"| Verify
-    Ceremony e11@-->|"[IMPORT]: Reject"| Verify
-    S0 f1@-->|"forbidden: upward import"| S3
+    Sign e1@-->|"[IMPORT]: Witness"| Audit
+    Verify e2@-->|"[IMPORT]: Crypto"| Sign
+    Secret e3@-->|"[IMPORT]: Crypto"| Sign
+    Secret e4@-->|"[IMPORT]: Witness"| Audit
+    Session e5@-->|"[IMPORT]: Jwt"| Sign
+    Session e6@-->|"[IMPORT]: Witness"| Audit
+    Credential e7@-->|"[IMPORT]: Crypto"| Sign
+    Ceremony e8@-->|"[IMPORT]: Token"| Session
+    Ceremony e9@-->|"[IMPORT]: SingleUse"| Sign
+    Ceremony e10@-->|"[IMPORT]: Witness"| Audit
+    Claim e11@-->|"[IMPORT]: AccessClaims"| Sign
+    Claim e12@-->|"[IMPORT]: TenantScope"| TenantRef
+    Claim e13@-->|"[IMPORT]: Witness"| Audit
+    Session e14@-->|"[IMPORT]: Reject"| Verify
+    Credential e15@-->|"[IMPORT]: Reject"| Verify
+    Ceremony e16@-->|"[IMPORT]: Reject"| Verify
+    Secret e17@-.->|"[COUNTER]: Rotation"| Sign
+    Audit f1@-->|"forbidden: upward import"| S3
 ```
+
+- S0 floor — `audit` and `tenant` import core alone; `Witness` is the one symbol reaching down, so the floor feeds nothing back.
+- S1 `crypt/sign` — every upper stratum composes this one authority, and no sibling mints beside it.
+- S2 interleave — `session` and `credential` read `verify`'s `Reject` inside the rank; `verify` imports only the authority below, so no cycle forms.
+- S2→S1 `Rotation` crosses as a caller-handed feed — `secret` supplies it and `sign` swaps its live ring, importing nothing upward.
+- S3 ceremonies and claims — `authn` and `access` stay peers; `workload` reaches the sign and verify owners, never session.
+- S3 merge — only `webauthn` reaches `Witness` inside the ceremony node, so the merged `[IMPORT]: Witness` edge carries one member's read.
 
 ## [03]-[SEAMS]
 
@@ -98,7 +103,7 @@ flowchart LR
     Core([core])
     Data[(data)]
     Runtime{{runtime}}
-    Iac{{iac}}
+    Iac([iac])
     Core e1@-->|"[SHAPE]: Identity.Tenant"| Access
     Data e2@-->|"[PORT]: ClaimStore"| Access
     Access e3@-->|"[BOUNDARY]: TenantScope"| Data
@@ -106,15 +111,15 @@ flowchart LR
     Authn e5@-->|"[PORT]: BearerGuard"| Runtime
     Authn e6@<-->|"[BOUNDARY]: OAuth"| Runtime
     Authn e7@-->|"[SHAPE]: CookieSpec"| Runtime
-    Authn e16@-->|"[SHAPE]: MachinePrincipal"| Runtime
-    Crypt e8@-->|"[SHAPE]: SealedEnvelope"| Data
-    Crypt e9@-->|"[BOUNDARY]: Intake"| Runtime
-    Crypt e10@-->|"[BOUNDARY]: LeaseSpec"| Iac
-    Access e11@-->|"[PORT]: FlagGate"| Runtime
-    Core e12@-->|"[SHAPE]: Convention"| Crypt
-    Access e13@-->|"[SHAPE]: TenantScope.metered"| Runtime
-    Data e14@-->|"[PORT]: AuditJournal"| Access
-    Core e15@-->|"[SHAPE]: Tap.Name/Modality/Handler"| Access
+    Authn e8@-->|"[SHAPE]: MachinePrincipal"| Runtime
+    Crypt e9@-->|"[SHAPE]: SealedEnvelope"| Data
+    Crypt e10@-->|"[BOUNDARY]: Intake"| Runtime
+    Crypt e11@-->|"[BOUNDARY]: LeaseSpec"| Iac
+    Access e12@-->|"[PORT]: FlagGate"| Runtime
+    Core e13@-->|"[SHAPE]: Convention"| Crypt
+    Access e14@-->|"[SHAPE]: TenantScope.metered"| Runtime
+    Data e15@-->|"[PORT]: AuditJournal"| Access
+    Core e16@-->|"[SHAPE]: Tap.Name"| Access
 ```
 
 ## [04]-[INTERNAL]
@@ -138,8 +143,10 @@ flowchart LR
     Crypto[crypt · signed authority]
     Audit[(audit · SecurityFact)]
     Decision([decision + evidence])
+    Reject[/Reject stream/]
     Request e1@-->|"bind: tenant scope"| Tenant
     Request e2@-->|"verify: credential"| Authn
+    Authn f1@-.->|"count: rejected credential"| Reject
     Tenant e3@-->|"scope: principal"| Access
     Authn e4@-->|"carry: principal"| Access
     Access e5@-->|"resolve: claims"| Policy
@@ -149,24 +156,21 @@ flowchart LR
     Audit e9@-->|"emit: decision evidence"| Decision
 ```
 
-`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces, holding every secret `Redacted` from first decode into the primitive call, so no signature, log, or snapshot carries raw material.
+Mint-once rules the crypt crossing: signing keys, webhook secrets, and the argon2 pepper enter as `Material.Source.Held` at construction, and every secret stays `Redacted` from first decode into the primitive call.
 
-`authn/session` is the identity spine the ceremonies feed: `credential` funnels second factors through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath, and single-use snapshots type-witness leg order so replay, cross-ceremony completion, and out-of-order finish stay unspellable.
+Ceremonies lift at the session seam: each two-leg port instantiates `SingleUse`, so replay, cross-ceremony completion, and out-of-order finish stay unspellable, and a verified principal crosses as one carried value.
 
-`access` turns verified identity into decisions and evidence: `claim` evaluates entitlements once per request, `tenant` declares the contract the data stratum enforces as RLS, and `audit` is the fact rail — every loud arm publishes a typed `SecurityFact` through the silent `Witness` seam, class-routed lanes draining into the `AuditJournal` port, every board, alert, and analytics view a projection of one receipt plane.
+Evidence has one plane: every decision and custody fact lands typed at the audit rail, and boards, alerts, and analytics stay projections of it. Exact per-arm wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
 - Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds.
 - Consumers carrying zero durable state compose the folder whole.
-- Every credential-verify surface is throttled and telemetered structurally, and a rejected credential is a verdict arm, never a fault.
-- Growth is one table row per provider, dialect, surface, or role; no capability class earns a sibling owner beside its table.
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.
-- Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser plane; no browser API is touched here.
-- Tenancy is declared here and enforced in the data stratum; the folder opens no database transaction.
-- Flag evaluation is the `FlagGate` consumer port the runtime stratum satisfies; the entitlement fold composes flag verdicts and owns no flag engine.
+- Cookie framing and CSRF are egress projections declared here; the runtime browser plane alone touches browser APIs.
+- Tenancy is declared here and enforced in the data stratum; every database transaction stays the data stratum's.
+- Flag evaluation is the `FlagGate` consumer port the runtime stratum satisfies; the entitlement fold composes verdicts, the engine stays runtime's.
 - Audit facts persist through the `AuditJournal` port the data stratum satisfies on its journal spine.
 - Analytics egress leaves only as the `AuditTrace` projection under the keyed `Pseudonym` mask.
 - Board and alert compilation rides `Board.DashboardModel` and `Reliability.Alert.Spec` into IaC.
-- KDF cost claims leave as core `Claim` receipts — the `BenchmarkClaimWire` landing under `Claim.admit` host admission.
-- KDF measurement runs against the folder's own bulkhead, never persisting or grading a claim.
+- KDF measurement runs against the folder's own bulkhead; claim persistence and grading stay the core board owner's.

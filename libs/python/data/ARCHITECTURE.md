@@ -1,49 +1,49 @@
 # [PY_DATA_ARCHITECTURE]
 
-`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. `tabular` carries the columnar, lakehouse, query, materialize, contract, interop, and egress interchange spine; the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[03]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
+`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. `tabular` carries the columnar, lakehouse, query, materialize, contract, interop, and egress interchange spine; the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 data/
 ├── tabular/              # Columnar, relational, and lakehouse interchange plane and its object-store egress
-│   ├── interop.py        # Backend-agnostic frame owner, FieldShape minter, and Arrow zero-copy carrier
-│   ├── columnar.py       # Dataset-ref owner and the one request-scoped DuckDbSession scan rail
+│   ├── interop.py        # FrameInterop Backend axis against the _BACKEND table; ArrowCStream C-Data hops, pyarrow-free
+│   ├── columnar.py       # DatasetRef source-shape discriminant; the scan base over interop alone, zero back-edges
 │   ├── lakehouse.py      # Lakehouse owner over the LakeOp lifecycle and table-format bindings
-│   ├── query.py          # Query engine folding every QuerySpec frontend to uniform Arrow
-│   ├── materialize.py    # CDC materialization composing lakehouse, query, and columnar downward
+│   ├── query.py          # QuerySpec tagged union: sqlglot-gated SQL, relational, narwhals, Ibis IR, the RemoteOp leg
+│   ├── materialize.py    # DerivedSnapshot partition-delta recompute; PartitionBundle Merkle-folds child content keys
 │   ├── contract.py       # Structural admission, covenant, and quality gate folded on one ContractClaim
 │   ├── profile.py        # Quality-profile owner grading a frame the artifacts renderer renders
-│   ├── egress.py         # Object-store egress owner over one StoreOp axis keyed by content identity
-│   ├── cost.py           # Cost ledger folding the receipt families into the priced tenant-attributed frame
-│   └── journal.py        # Ledger implementer landing runtime audit and meter facts across commit and scan
+│   ├── egress.py         # ObjectEgress receipt-and-governance surface composing the runtime store lane whole
+│   ├── cost.py           # CostFact.of polymorphic receipt harvest; CostLedger.frame group-fold under a rate policy
+│   └── journal.py        # FactJournal over the lakehouse commit matrix and the columnar reader; composed, not widened
 ├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
-│   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes with the model CRS source
-│   ├── query.py          # DuckDB-spatial join, transform, and H3 engine on the shared session rail
+│   ├── geospatial.py     # VectorGeoClaim and RasterGeoClaim carriers; pyproj axis-order-aware reproject prelude
+│   ├── query.py          # ST_GeomFromWKB geometry-view admission; one capability past the generic relational dispatch
 │   ├── grid.py           # GridSystem DGG plane and frame-native geometry algebra
 │   ├── catalog.py        # StacCatalog owner over search, item table, and asset-href egress
 │   ├── mesh.py           # Mesh-file exchange owner over the backend axis and point-cloud row
-│   └── cube.py           # ZoneCube vector-data-cube owner over xvec geometry-indexed dimensions
+│   └── cube.py           # GeometryIndex zone dimension joining field cubes to vector claims; no zone-id join table
 ├── gridded/              # Chunked N-D dense, virtual, and ragged tensor stores with the CF labelled-field store
-│   ├── store.py          # Dense chunked N-D tensor store over the TensorBackend engines and the bounded-memory cubed plan
-│   ├── virtual.py        # Sole manifest-cube owner over manifest write, registration, and the icechunk version-operation axis
-│   ├── ragged.py         # Ragged N-D store over awkward with a zero-copy Arrow bridge
-│   ├── field.py          # CF field-dataset owner, the raw field-container read leg, and the ensemble corpus
-│   └── ensemble.py       # ScenarioTree owner over DataTree scenario hierarchies with group-wise folds
+│   ├── store.py          # TensorStore zarr v3 chunk grid; ZARR sync and TENSORSTORE async engines over one grid
+│   ├── virtual.py        # FieldVirtual byte-range aggregation and VirtualReference chunk registration, copying no byte
+│   ├── ragged.py         # RaggedSource admission, RaggedOp transforms, RaggedSink egress over columnar option rows
+│   ├── field.py          # FieldEngine axis, flox-vectorized FieldSelection folds, and the FieldReceipt egress fold
+│   └── ensemble.py       # DataTree leaves stay field-plane cubes; cross-scenario map, reduce, and difference in one call
 ├── graph/                # Rustworkx graph payloads with a networkx codec lane and typed receipts
-│   ├── graph.py          # Graph-payload owner over the run kernel, the community split, and the layer-topology decoder
-│   └── network.py        # FlowNetwork capacity-network owner over the networkx flow family
+│   ├── graph.py          # License-split backend triangle; analysis collapses onto the rustworkx kernel, stable int ids
+│   └── network.py        # FlowAlgorithm arms over the networkx flow kernels alone; results lower onto GraphResult
 └── impact/               # Material environmental impact: EPD ingest and LCA compute on one EN 15804 carrier
     ├── impact.py         # MaterialImpact owner folding the ImpactSource axis into one EN 15804 matrix
-    ├── declaration.py    # Declaration-registry ingest minting the corpus declaration-record contract
-    ├── inventory.py      # Brightway project and LCI-ingestion custodian with the matrix-datapackage substrate
-    ├── solve.py          # MultiLCA shared-factorization batch and the contribution driver-mining axis
-    └── scenario.py       # ScenarioBuild prospective-background producer over the floor-gated premise transform
+    ├── declaration.py    # Dated identity-bearing record per verified declaration: issuer, dates, coverage census
+    ├── inventory.py      # bw2data project scope, the bw2io ingestion pipeline, and MatrixPackage for the solver
+    ├── solve.py          # LcaBatch one-factorization sweeps; Contribution top-process, emission, and chain mining
+    └── scenario.py       # IAM (model, pathway, year) transform registered back into the Brightway project, proved
 ```
 
 ## [02]-[STRATA]
 
-Strata rank the data interior; seating rows carry only the law the fence cannot show.
+Strata rank the data interior; seating rows carry only the law the fence cannot show. S0 seats module-grain nodes and S1-S2 folder-grain ones, so the tabular floor's interior edges draw while the upper folders compose whole.
 
 ```mermaid
 ---
@@ -55,7 +55,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Spatial composes the middle tier over the tabular floor; labeled edges name imported owners, and dashed edges carry wire data.
+    accDescr: How the data interior ranks over the tabular floor, the dashed GraphResult and PlanReceipt counter-edges carrying wire data downward.
     subgraph D2["S2 SPATIAL"]
         Spatial[spatial]
     end
@@ -76,37 +76,35 @@ flowchart TB
         Profile[profile]
         Interop[interop]
     end
-    Spatial s1@-->|"[IMPORT]: QueryReceipt"| Columnar
-    Spatial s2@-->|"[IMPORT]: ObjectEgress"| Egress
-    Spatial s3@-->|"[IMPORT]: FieldVirtual"| Gridded
-    Spatial s29@-->|"[IMPORT]: FieldReceipt"| Gridded
-    Gridded s4@-->|"[IMPORT]: ArrowCStream"| Interop
-    Impact s5@-->|"[IMPORT]: FrameAdmission"| Contract
-    Impact s6@-->|"[IMPORT]: QualityProfile"| Profile
-    Impact s7@-->|"[IMPORT]: FrameInterop"| Interop
-    Impact s8@-->|"[IMPORT]: arrow_bytes"| Columnar
-    Graph s9@-.->|"[WIRE]: GraphResult"| Columnar
-    Journal s26@-->|"[IMPORT]: LakeOp"| Lakehouse
-    Journal s27@-->|"[IMPORT]: ScanPlan"| Columnar
-    Materialize s10@-->|"[IMPORT]: QuerySpec"| Query
-    Materialize s11@-->|"[IMPORT]: TableFormat"| Lakehouse
-    Materialize s25@-->|"[IMPORT]: LakeOp"| Lakehouse
-    Materialize s12@-->|"[IMPORT]: LAKE_COMMIT_POINT"| Lakehouse
-    Materialize s13@-->|"[IMPORT]: VERDICT_POINT"| Contract
-    Materialize s14@-->|"[IMPORT]: PUT_POINT"| Egress
-    Materialize s15@-->|"[IMPORT]: DELETE_POINT"| Egress
-    Query s16@-->|"[IMPORT]: DuckDbSession"| Columnar
-    Lakehouse s17@-->|"[IMPORT]: DatasetRef"| Columnar
-    Contract s18@-->|"[IMPORT]: FrameInterop"| Interop
-    Columnar s28@-->|"[IMPORT]: arrow_bytes"| Interop
-    Profile s19@-->|"[IMPORT]: FieldShape"| Interop
-    Cost s20@-->|"[IMPORT]: QueryReceipt"| Columnar
-    Cost s21@-->|"[IMPORT]: LakeReceipt"| Lakehouse
-    Cost s22@-->|"[IMPORT]: PartitionBundle"| Materialize
-    Cost s23@-->|"[IMPORT]: EgressReceipt"| Egress
-    Gridded s24@-.->|"[WIRE]: PlanReceipt"| Cost
-    Spatial ~~~ Impact
-    Spatial ~~~ Graph
+    Spatial e1@-->|"[IMPORT]: QueryReceipt"| Columnar
+    Spatial e2@-->|"[IMPORT]: ObjectEgress"| Egress
+    Spatial e3@-->|"[IMPORT]: FieldVirtual"| Gridded
+    Spatial e4@-->|"[IMPORT]: FieldReceipt"| Gridded
+    Gridded e5@-->|"[IMPORT]: ArrowCStream"| Interop
+    Impact e6@-->|"[IMPORT]: FrameAdmission"| Contract
+    Impact e7@-->|"[IMPORT]: QualityProfile"| Profile
+    Impact e8@-->|"[IMPORT]: FrameInterop"| Interop
+    Impact e9@-->|"[IMPORT]: arrow_bytes"| Columnar
+    Graph e10@-.->|"[COUNTER]: GraphResult"| Columnar
+    Journal e11@-->|"[IMPORT]: LakeOp"| Lakehouse
+    Journal e12@-->|"[IMPORT]: ScanPlan"| Columnar
+    Materialize e13@-->|"[IMPORT]: QuerySpec"| Query
+    Materialize e14@-->|"[IMPORT]: TableFormat"| Lakehouse
+    Materialize e15@-->|"[IMPORT]: LakeOp"| Lakehouse
+    Materialize e16@-->|"[IMPORT]: LAKE_COMMIT_POINT"| Lakehouse
+    Materialize e17@-->|"[IMPORT]: VERDICT_POINT"| Contract
+    Materialize e18@-->|"[IMPORT]: PUT_POINT"| Egress
+    Materialize e19@-->|"[IMPORT]: DELETE_POINT"| Egress
+    Query e20@-->|"[IMPORT]: DuckDbSession"| Columnar
+    Lakehouse e21@-->|"[IMPORT]: DatasetRef"| Columnar
+    Contract e22@-->|"[IMPORT]: FrameInterop"| Interop
+    Columnar e23@-->|"[IMPORT]: arrow_bytes"| Interop
+    Profile e24@-->|"[IMPORT]: FieldShape"| Interop
+    Cost e25@-->|"[IMPORT]: QueryReceipt"| Columnar
+    Cost e26@-->|"[IMPORT]: LakeReceipt"| Lakehouse
+    Cost e27@-->|"[IMPORT]: PartitionBundle"| Materialize
+    Cost e28@-->|"[IMPORT]: EgressReceipt"| Egress
+    Gridded e29@-.->|"[COUNTER]: PlanReceipt"| Cost
     Interop f1@-->|"forbidden: upward import"| D2
 ```
 
@@ -114,11 +112,11 @@ flowchart TB
 - S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
 - S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
 - S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` receipt payload, never a CDF provider of its own.
-- S0 `cost` closes the evidence apex, folding sibling receipt families into the priced frame.
-- S1 `gridded` + `impact` — both compose the tabular floor alone; the fence carries impact's floor imports.
-- S1 `gridded` rides the interop `ArrowCStream` carrier for its ragged Arrow bridge; `virtual` mints the field `FieldReceipt` family in-folder.
-- S1 tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import.
-- S1 `graph` — import-isolated, composing runtime alone; its `GraphResult.frame` node table crosses into columnar as wire data, never an import.
+- S0 `cost` prices receipts it never produces — no producer prices its own receipt, so the fold imports receipt families one-way.
+- S1 `gridded` + `impact` — both compose the tabular floor alone, holding no edge between themselves or to `graph`.
+- S1 `virtual` mints the `FieldReceipt` family in-folder, and `field`'s raw read leg decodes the corpus container without a tabular hop.
+- S1→S0 `gridded -> cost` — `PlanReceipt` crosses as wire DATA on the counter-edge, never an import, so the price fold adds no cycle.
+- S1→S0 `graph -> columnar` — `GraphResult` crosses as wire DATA on the counter-edge; `graph` stays import-isolated, composing runtime alone.
 - S1 `network` composes `graph` strictly downward inside the subfolder; the flow family adds no new stratum edge.
 - S1 `impact` siblings — `inventory`, `solve`, and `scenario` compose runtime alone and feed the carrier's cases, never a second matrix.
 - S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` receipt owner, and the gridded `VirtualReference` plane.
@@ -136,7 +134,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package Python host-runtime seam registry
-    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, thread boundaries, the durable evidence port, and the evidence facts their mutation legs record back through it with the Python host runtime sibling.
+    accDescr: Which kinded contracts cross between the data owners and the Python host runtime, the evidence port and facts among them.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Egress[Object egress]
@@ -151,30 +149,30 @@ flowchart LR
     end
     Runtime{{python:runtime}}
     Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
-    Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
-    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Tabular e30@-->|"[SHAPE]: Fact"| Runtime
-    Egress e31@-->|"[SHAPE]: Fact"| Runtime
-    Materialize e32@-->|"[SHAPE]: Fact"| Runtime
-    Gridded e33@-->|"[SHAPE]: Fact"| Runtime
-    Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
-    Runtime e28@-->|"[PORT]: Ledger"| Tabular
-    Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
-    Runtime e29@-->|"[TRANSPORT]: ObjectStoreLane"| Egress
-    Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
-    Runtime e26@-->|"[SHAPE]: BackendGeneration"| Query
-    Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
-    Runtime e27@-->|"[SHAPE]: BackendGeneration"| Materialize
-    Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
+    Query e2@-->|"[RECEIPT]: QueryReceipt"| Runtime
+    Gridded e3@-->|"[RECEIPT]: TensorReceipt"| Runtime
+    Mesh e4@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Tabular e5@-->|"[SHAPE]: Fact"| Runtime
+    Egress e6@-->|"[SHAPE]: Fact"| Runtime
+    Materialize e7@-->|"[SHAPE]: Fact"| Runtime
+    Gridded e8@-->|"[SHAPE]: Fact"| Runtime
+    Runtime e9@-->|"[TRANSPORT]: ResourceRef"| Tabular
+    Runtime e10@-->|"[PORT]: Ledger"| Tabular
+    Runtime e11@-->|"[TRANSPORT]: ResourceRef"| Egress
+    Runtime e12@-->|"[TRANSPORT]: ObjectStoreLane"| Egress
+    Runtime e13@-->|"[BOUNDARY]: on_thread"| Query
+    Runtime e14@-->|"[SHAPE]: BackendGeneration"| Query
+    Runtime e15@-->|"[BOUNDARY]: LanePolicy"| Materialize
+    Runtime e16@-->|"[SHAPE]: BackendGeneration"| Materialize
+    Runtime e17@-->|"[TRANSPORT]: ResourceRef"| Catalog
     Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
-    Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded
-    Runtime e5@-->|"[TRANSPORT]: TransportResource"| Impact
-    Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
-    Runtime e14@-->|"[BOUNDARY]: on_thread"| Profile
-    Runtime e12@-->|"[BOUNDARY]: on_thread"| Geospatial
-    Runtime e22@-->|"[TRANSPORT]: ResourceRef"| Mesh
-    Runtime e13@-->|"[BOUNDARY]: on_thread"| Mesh
+    Runtime e19@-->|"[TRANSPORT]: ResourceRef"| Gridded
+    Runtime e20@-->|"[TRANSPORT]: TransportResource"| Impact
+    Runtime e21@-->|"[BOUNDARY]: on_thread"| Impact
+    Runtime e22@-->|"[BOUNDARY]: on_thread"| Profile
+    Runtime e23@-->|"[BOUNDARY]: on_thread"| Geospatial
+    Runtime e24@-->|"[TRANSPORT]: ResourceRef"| Mesh
+    Runtime e25@-->|"[BOUNDARY]: on_thread"| Mesh
 ```
 
 ```mermaid
@@ -187,7 +185,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package Python domain-peer seam registry
-    accDescr: Data sub-domain owners exchanging wires, frame shapes, columnar bytes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
+    accDescr: Which kinded contracts cross between the data owners and the Python sibling packages.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Profile[Quality profile]
@@ -197,14 +195,15 @@ flowchart LR
     Artifacts{{python:artifacts}}
     Geometry{{python:geometry}}
     Compute([python:compute])
-    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
-    Geometry e25@-->|"[BOUNDARY]: arrow_bytes"| Tabular
-    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
-    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
-    Geometry e17@-->|"[SHAPE]: GeoreferenceFact"| Geospatial
-    Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
-    Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
-    Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
+    Artifacts e1@-->|"[WIRE]: CorpusRow"| Tabular
+    Geometry e2@-->|"[BOUNDARY]: arrow_bytes"| Tabular
+    Geometry e3@-->|"[LEDGER]: FactJournal"| Tabular
+    Profile e4@-->|"[SHAPE]: QualityProfile"| Artifacts
+    Artifacts e5@-->|"[WIRE]: GeoJSON"| Geospatial
+    Geometry e6@-->|"[SHAPE]: GeoreferenceFact"| Geospatial
+    Mesh e7@-->|"[SHAPE]: MeshPayload"| Geometry
+    Mesh e8@-->|"[SHAPE]: PointRecordTable"| Geometry
+    Geometry e9@-->|"[BOUNDARY]: Trimesh"| Mesh
     Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
 ```
 
@@ -230,26 +229,68 @@ flowchart LR
     end
     Persistence[(Rasm.Persistence)]
     Materials([Rasm.Materials])
-    Compute([Rasm.Compute])
+    Compute{{Rasm.Compute}}
     Bim([Rasm.Bim])
     Rhino([Rasm.Rhino])
     Compute e1@-->|"[SHAPE]: DoeDataset"| Tabular
-    Compute e10@-->|"[WIRE]: FieldContainer"| Field
-    Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
-    Tabular e3@-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
-    Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Bim e7@-->|"[WIRE]: GeoFeatureWire"| Geospatial
-    Rhino e11@-->|"[WIRE]: OrganizationWire"| Graph
-    Persistence e8@-->|"[WIRE]: FlightTicket"| Query
-    Impact e9@-->|"[WIRE]: DeclarationRecord"| Materials
+    Compute e2@-->|"[WIRE]: FieldContainer"| Field
+    Geospatial e3@-->|"[SHAPE]: GeoArrow"| Compute
+    Tabular e4@-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Query e5@<-->|"[WIRE]: SubstraitPlan"| Persistence
+    Virtual e6@-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Impact e7@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Bim e8@-->|"[WIRE]: GeoFeatureWire"| Geospatial
+    Rhino e9@-->|"[WIRE]: OrganizationWire"| Graph
+    Persistence e10@-->|"[WIRE]: FlightTicket"| Query
+    Impact e11@-->|"[WIRE]: DeclarationRecord"| Materials
 ```
 
-Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
+Fences split by peer plane: host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
 
-`[PORT]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. Producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
+`[PORT]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. Geometry's mesh census lands its `FactJournal` rows through the same ledger leg. Producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
 
 Intra-`data` relations are composition, never seams; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 
 Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. Single-sided edges declare on the producing side and bind their counterpart when that page lands its mirror row.
+
+## [04]-[INTERNAL]
+
+One interchange spine runs the tabular floor: frames admit once at `interop`, gate through `contract`, land on the lakehouse residence, and serve through `query`; `materialize` closes the operational apex while `cost` and `journal` close the evidence apex. Exact per-stage wiring lives on the owning implementation pages.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data tabular interchange spine
+    accDescr: How a foreign frame admits, gates, lands, refreshes, and serves, with receipts and facts closing on the evidence apex.
+    Foreign([foreign frame or bytes]) e1@-->|"admit: FrameAdmission"| Interop[interop · frame floor]
+    Interop e2@-->|"gate: ContractClaim"| Contract[contract · admission gate]
+    Contract e3@-->|"land: LakeOp"| Lakehouse[(lakehouse residence)]
+    Lakehouse e4@-->|"feed: LakeOp.ChangeFeed"| Materialize[materialize · CDC apex]
+    Materialize e5@-->|"refresh: QuerySpec"| Query[query engine]
+    Materialize e6@-->|"put: StoreOp"| Egress[egress · object store]
+    Query e7@-->|"serve: Arrow"| Consumers([consumers])
+    Lakehouse e8@-->|"receipts"| Cost[cost · evidence apex]
+    Materialize e9@-->|"facts"| Journal[(journal · Ledger implementer)]
+    Contract f1@-.->|"veto: ContractClaim"| Fault[/BoundaryFault rail/]
+    Materialize f2@-.->|"refuse: unrowed change type"| Fault
+```
+
+- Admission runs once at `interop` — every keyer imports the one whole-table `arrow_bytes` serialization, so no second preimage spelling exists.
+- `spatial` persists through `egress`'s `ObjectEgress` receipts — no spatial page opens a store lane of its own.
+- `gridded` decodes once — the ragged bridge crosses the interop carrier and `virtual` registers byte ranges, copying none.
+- `graph` and `impact` lift at the seam — results lower onto `GraphResult` frames and the EN 15804 carrier before any tabular hop.
+
+## [05]-[BOUNDARIES]
+
+- `data` owns host-free interchange and residence — admission, movement, query, and evidence over its own planes.
+- Engine selection stays interior: `EngineProfile` meets compute's jit band at `FrameAdmission` alone, neither folder re-owning the peer's decoder.
+- Graph-analytic reduction splits by analytic family — data answers flow and payload analysis; mesh-feature analytics stay geometry's.
+- `trimesh` crosses as the mesh-exchange boundary value; geometry keeps its own registration and topology.
+- Wire structs stay runtime-minted, and store state past the emitted `ContentKey` stays `Rasm.Persistence`'s.
+- `Ledger` binds at the composition root as the runtime port `journal` implements; no data page opens a durable plane of its own.

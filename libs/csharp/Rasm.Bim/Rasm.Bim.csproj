@@ -4,6 +4,12 @@
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
+    <!-- Design-time vocabulary regeneration; Debug/Release output stays the library. -->
+    <PropertyGroup Label="Codegen Entry" Condition="'$(Configuration)' == 'Codegen'">
+        <OutputType>Exe</OutputType>
+        <StartupObject>Rasm.Bim.Model.VocabularyRegeneration</StartupObject>
+    </PropertyGroup>
+
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
@@ -25,22 +31,7 @@
         <PackageReference Include="Xbim.IO.CobieExpress" />
     </ItemGroup>
 
-    <ItemGroup Label="Exchange Substrate">
-        <PackageReference Include="ACadSharp" />
-        <PackageReference Include="SharpGLTF.Core" />
-        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
-        <PackageReference Include="SharpGLTF.Runtime" />
-        <PackageReference Include="SharpGLTF.Toolkit" />
-        <PackageReference Include="Speckle.Objects" />
-        <PackageReference Include="Speckle.Sdk" />
-    </ItemGroup>
-
-    <ItemGroup Label="Mesh Processing">
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
-        <PackageReference Include="geometry3Sharp" />
-    </ItemGroup>
-
-    <ItemGroup Label="Review">
+    <ItemGroup Label="Review Engines">
         <PackageReference Include="ids-lib" />
         <PackageReference Include="Smino.Bcf.Toolkit" />
         <PackageReference Include="SwiftCollections.Lean" />
@@ -75,13 +66,9 @@
         <PackageReference Include="GISBlox.IO.GeoParquet" />
         <PackageReference Include="MaxRev.Gdal.Core" />
         <PackageReference Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" />
-        <PackageReference Include="NetTopologySuite" />
         <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" />
-        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
-        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles.Mapbox" />
-        <PackageReference Include="pocketken.H3" />
         <PackageReference Include="ProjNET" />
         <PackageReference Include="SharpKml.Core" />
     </ItemGroup>
@@ -93,6 +80,30 @@
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Exchange Substrate">
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
+        <PackageReference Include="SharpGLTF.Runtime" />
+        <PackageReference Include="SharpGLTF.Toolkit" />
+        <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mesh Processing">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="geometry3Sharp" />
+        <!-- The Vector<double> point carrier Exchange/reconstruct decodes into; transitive through Rasm until this row. -->
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
+    <ItemGroup Label="Planar Geospatial">
+        <PackageReference Include="NetTopologySuite" />
+        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
+        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
+        <PackageReference Include="pocketken.H3" />
     </ItemGroup>
 
     <ItemGroup Label="Wire Seam">

@@ -8,40 +8,43 @@
 data/
 └── src/
     ├── lane/             # Guarantee-lane matrix: engines as rows under sealed capability vocabularies
-    │   ├── postgres.ts   # First-party relational lane and its ruled extension matrix
-    │   ├── sqlite.ts     # Embedded lane degrading one relational contract across its profile rows
-    │   ├── olap.ts       # Analytical lane over DuckDB, ClickHouse, Flight, residence rows, and the Arrow-Parquet wire
     │   ├── cache.ts      # Latency lane: single-flight, dedup, restart-surviving cache rows
     │   ├── capability.ts # Fail-closed capability rail probed at Layer construction
+    │   ├── olap.ts       # Analytical lane over DuckDB, ClickHouse, Flight, residence rows, and the Arrow-Parquet wire
+    │   ├── postgres.ts   # SqlClient driver Layers, the ruled extension matrix, and one derived capability union
+    │   ├── sqlite.ts     # Embedded lane degrading one relational contract across its profile rows
     │   └── tenant.ts     # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
     ├── journal/          # Record of truth: atomic writes, evolution, facts, lawful aging
-    │   ├── append.ts     # One atomic write owner: journal, outbox, and idempotency ledger in one commit
+    │   ├── append.ts     # One atomic write owner and the outbox relay claim seam
     │   ├── evolve.ts     # Read-time upcasting: per-tag version chains, snapshot as a projection
-    │   ├── fact.ts       # Durable fact journal: audit and metering as one buffered family
+    │   ├── fact.ts       # AuditFact and MeterFact rows draining into one stream-discriminated table
     │   └── retain.ts     # Retention classes, crypto-shredding, and DSAR portability folds
     ├── object/           # Content-addressed object plane over one Digest.Key
+    │   ├── asset.ts      # Category-blind spine, entry pair, and receipts; the GPU glTF/KTX2 family is the first row set
+    │   ├── file.ts       # Digest.Key intake gate and the derivative emit legs sharing one content identity
+    │   ├── remote.ts     # Remote-origin plane: scheme-dispatched non-local sources
     │   ├── store.ts      # S3-conditional content-addressed object store
-    │   ├── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
-    │   ├── file.ts       # Filesystem plane: gated content-addressed intake and the derivative spine
-    │   ├── asset.ts      # category-general asset plane: category-gated admission over container, ktx, raster, and points rows
-    │   └── remote.ts     # Remote-origin plane: scheme-dispatched non-local sources
+    │   └── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
     └── read/             # Read side: typed queries, batching, projections, reactivity, retrieval
-        ├── query.ts      # Typed CRUD with arity as combinator over Model codec pairs
         ├── batch.ts      # Request-batching engine: structural dedup and windowed resolvers
-        ├── fold.ts       # Durable projection plane binding one Fold.Plan across staleness budgets
+        ├── fold.ts       # Fold.Plan binding seat: inline publish slot, LISTEN/NOTIFY drain actor, operator rebuild
         ├── live.ts       # Reactivity-keyed reads: invalidation keys stamped at publish, read at query
+        ├── query.ts      # Model codec pairs and the arity combinator every relation read folds through
         └── search.ts     # Retrieval lanes fused by reciprocal rank inside the database
 ```
 
 ## [02]-[STRATA]
 
 - S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
+- S0 split — `journal/evolve`, `read/live`, and `lane/cache` seat on the floor apart from their folders: each is a mint no sibling feeds.
 - S1 `lane/tenant` — pins the tenancy write path, mints the maintenance-plane posture, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
-- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction; `retain` ages and `fact` meters inside the stratum.
+- S2 `journal` — `append` is the stratum's one write owner; `retain` ages and `fact` meters inside the stratum.
 - S2 `append` mints the CloudEvents relay message envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
-- S3 `object` — every byte plane binds `Journal` custody under the one content identity; `store` roots, `stream` and `file` tap `Hook` at admission.
-- S4 `read` — consumption over everything below; `lane/olap` sits beside it composing `ObjectStore` and the `Pg.Profile` harvest band.
+- S3 `object` — byte planes bind `Journal` custody under one content identity; `remote` alone binds none, reaching only the latency lane.
+- S3 merge — `asset` rides the object node composing `file`'s derive plane inside the stratum; the merge hides no cross-rank edge.
+- S4 `lane/olap` co-seats with `read` — analytical consumption ranks by its reads, never its folder, and nothing imports either back.
+- S4→S0 crossings are mint reads — floor owners answer every rank without an interior hop, and none reads back, so no cycle forms.
 
 ```mermaid
 ---
@@ -53,7 +56,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Five interior strata onto the mint floor; imports downward, remote alone reaching the cache lane, olap and sqlite reading the Pg band.
+    accDescr: How the interior sub-domains rank onto the mint floor, every import downward.
     subgraph S4["S4 READ"]
         Olap[olap]
         Read["query · batch · search · fold"]
@@ -78,26 +81,26 @@ flowchart TB
     end
     Tenant e1@-->|"[IMPORT]: Capability"| Capability
     Tenant e2@-->|"[IMPORT]: Pg"| Postgres
-    Tenant e19@-->|"[IMPORT]: Live"| Live
-    Journal e3@-->|"[IMPORT]: Tenancy"| Tenant
-    Journal e4@-->|"[IMPORT]: Upcast"| Evolve
-    Journal e5@-->|"[IMPORT]: Live"| Live
-    Journal e6@--> Capability
-    Object e7@-->|"[IMPORT]: Journal"| Journal
-    Remote e8@-->|"[IMPORT]: CacheLane"| Cache
-    Object e9@--> Capability
-    Read e10@-->|"[IMPORT]: ObjectStore"| Object
-    Read e11@-->|"[IMPORT]: Journal"| Journal
-    Read e12@-->|"[IMPORT]: Live"| Live
-    Read e13@--> Capability
-    Read e14@-->|"[IMPORT]: Snapshot"| Evolve
-    Olap e15@-->|"[IMPORT]: ObjectStore"| Object
+    Tenant e3@-->|"[IMPORT]: Live"| Live
+    Journal e4@-->|"[IMPORT]: Tenancy"| Tenant
+    Journal e5@-->|"[IMPORT]: Upcast"| Evolve
+    Journal e6@-->|"[IMPORT]: Live"| Live
+    Journal e7@-->|"[IMPORT]: Capability"| Capability
+    Object e8@-->|"[IMPORT]: Journal"| Journal
+    Remote e9@-->|"[IMPORT]: CacheLane"| Cache
+    Object e10@-->|"[IMPORT]: Capability"| Capability
+    Read e11@-->|"[IMPORT]: ObjectStore"| Object
+    Read e12@-->|"[IMPORT]: Journal"| Journal
+    Read e13@-->|"[IMPORT]: Live"| Live
+    Read e14@-->|"[IMPORT]: Capability"| Capability
+    Read e15@-->|"[IMPORT]: Snapshot"| Evolve
+    Olap e16@-->|"[IMPORT]: ObjectStore"| Object
     Olap e17@-->|"[IMPORT]: Pg"| Postgres
-    Sqlite e16@-->|"[IMPORT]: Pg"| Postgres
-    Object e18@-->|"[IMPORT]: Hook"| Journal
+    Sqlite e18@-->|"[IMPORT]: Pg"| Postgres
+    Object e19@-->|"[IMPORT]: Hook"| Journal
     Object e20@-->|"[IMPORT]: Tenancy"| Tenant
     Read e21@-->|"[IMPORT]: Tenancy"| Tenant
-    S0 f1@-->|"forbidden: upward import"| S4
+    Postgres f1@-->|"forbidden: upward import"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -166,16 +169,17 @@ flowchart LR
     Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
     Fact e29@-->|"[PORT]: AuditJournal"| Security
     Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
-    Core e32@-->|"[SHAPE]: Hops"| Olap
-    Olap e31@-->|"[SHAPE]: Board.Query.Target"| Core
+    Core e31@-->|"[SHAPE]: Hops"| Olap
+    Olap e32@-->|"[SHAPE]: Board.Query.Target"| Core
     Core e33@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Olap
     Iac e34@-->|"[PORT]: analytics residence"| Olap
     Core e35@-->|"[SHAPE]: Convention"| Asset
-    Core e38@-->|"[SHAPE]: Wire.TextureSet"| Asset
-    Rhino e36@-->|"[WIRE]: OrganizationWire"| Fold
-    Core e39@-->|"[SHAPE]: Carrier.Context/Identity.Tenant"| Append
-    Core e37@-->|"[EVENT]: Event.Fact"| Append
-    Append e40@-->|"[PORT]: EventLogServer.Storage"| Runtime
+    Core e36@-->|"[SHAPE]: Wire.TextureSet"| Asset
+    Rhino e37@-->|"[WIRE]: OrganizationWire"| Fold
+    Core e38@-->|"[SHAPE]: Carrier.Context"| Append
+    Core e39@-->|"[SHAPE]: Identity.Tenant"| Append
+    Core e40@-->|"[EVENT]: Event.Fact"| Append
+    Append e41@-->|"[PORT]: EventLogServer.Storage"| Runtime
 ```
 
 ## [04]-[INTERNAL]
@@ -205,9 +209,9 @@ flowchart LR
     Residence e6@-->|"serve: query target"| Query
 ```
 
-`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth — `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold.
+`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth: `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold.
 
-`read` composes the lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion. One pool and one code path serve a fleet-scale consumer with tenancy carried as a scope value; an artifact hashed in any runtime is reusable by every other; and `retain` makes erasure cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker.
+`read` composes the guarantee lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion. One pool and one code path serve a fleet-scale consumer with tenancy carried as a scope value; an artifact hashed in any runtime is reusable by every other; and `retain` makes erasure cryptographically total: destroying the sole wrapped key folds every sealed read to a redaction marker.
 
 ## [05]-[BOUNDARIES]
 

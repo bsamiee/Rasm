@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed artifact object plane; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
+`Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`: the version-control engine over it, the consistency-split read lanes, the content-keyed artifact object plane, and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
 It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph` and the `Rasm` kernel alone for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds, so no app-platform package is referenced.
 
@@ -20,31 +20,38 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [09]-[PROVENANCE](.planning/Version/provenance.md): W3C-PROV causal DAG and attested tamper-evidence ledger.
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
-- [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump, its subscription-over-binding roster, and the seven-dialect CESQL filter.
+- [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump, its subscription-over-binding roster, and the CESQL dialect-family filter.
 - [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, rostered decode, `(source, id)` dedup.
 
 [QUERY]:
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
 - [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval fusing the vector and text branches beside the document full-text corpus lane.
 - [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
-- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane, flat-table projection, and the analytics residence family.
-- [18]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
-- [19]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
-- [20]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.
+- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane over extension trust gates, secret residence, and ADBC warehouse reach.
+- [18]-[LAKEHOUSE](.planning/Query/lakehouse.md): Co-transactional flat-table egress, Parquet generation codec, and the partitioned lake scan.
+- [19]-[RESIDENCE](.planning/Query/residence.md): Column vocabulary, the analytics residence family, seam admission, and provisioning DDL.
+- [20]-[SERVING](.planning/Query/serving.md): Residence read plan, Substrait lowering, transport reach, and the relational landing.
+- [21]-[DATASETS](.planning/Query/datasets.md): Series hypertable roster, Fleet op-log rows, and the receipt evidence plane.
+- [22]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
+- [23]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
+- [24]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.
 
 [INGEST]:
-- [21]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
-- [22]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
-- [23]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
-- [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row seam to the container custodian.
-- [25]-[POINTCLOUD](.planning/Ingest/pointcloud.md): Reality-capture codec — E57/LAS/LAZ scan headers, chunked blob residence, per-region H3 cells.
+- [25]-[TABULAR](.planning/Ingest/tabular.md): `TabularSource` lane over the MiniExcel streaming codec; `TabularSpec` the modality discriminant.
+- [26]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
+- [27]-[GEOSPATIAL](.planning/Ingest/geospatial.md): `GeoSource` lane over the NTS-IO codec family; `GeoFormat` crossing four wire projections.
+- [28]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row seam to the container custodian.
+- [29]-[POINTCLOUD](.planning/Ingest/pointcloud.md): Reality-capture codec — E57/LAS/LAZ scan headers, chunked blob residence, per-region H3 cells.
 
 [STORE]:
-- [26]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane with its write-blob-first seal.
-- [27]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
-- [28]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
-- [29]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [30]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
+- [30]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane — client dispatch, grant plane, multipart transfer sessions.
+- [31]-[RESIDENCE](.planning/Store/residence.md): Stored-byte form and write stance — checksum, codec, seal, storage tier, WORM lock.
+- [32]-[REDRIVE](.planning/Store/redrive.md): Process-seam fault band, the retriability discriminant, the re-offer route, and the re-drive port.
+- [33]-[BLOBGC](.planning/Store/blobgc.md): Write-blob-first protocol, lifecycle arming, and the full-history reachability sweep.
+- [34]-[SCHEMA](.planning/Store/schema.md): One immutable `SchemaContract` — generation identity minted canonically, the two-proof verdict.
+- [35]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
+- [36]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [37]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -58,7 +65,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Npgsql.NetTopologySuite`
 - `Npgsql.NodaTime` — ADO temporal codec the raw lanes need, since the EF plugin places codecs only on mapped connections.
 - `Npgsql.OpenTelemetry`
-- `OpenTelemetry.Instrumentation.EntityFrameworkCore` — trace-only ORM-layer command spans complementing the ADO-layer `Npgsql.OpenTelemetry` spans.
+- `OpenTelemetry.Instrumentation.EntityFrameworkCore` — Trace-only ORM-layer command spans complementing the ADO-layer `Npgsql.OpenTelemetry` spans.
 - `EFCore.NamingConventions`
 - `linq2db.EntityFrameworkCore`
 - `Microsoft.EntityFrameworkCore.Design`
@@ -69,59 +76,45 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `SQLitePCLRaw.bundle_e_sqlite3`
 - `SQLitePCLRaw.bundle_e_sqlite3mc` — Multiple Ciphers bundle; encrypted embedded floor under a KMS-custodied key.
 
-[SERVER_EXTENSIONS]: PostgreSQL SQL-provisioned extensions carrying no managed assembly. `Store/provisioning`'s `ServerExtension` roster is authoritative — its keys carry the server `CREATE EXTENSION` spelling and its base-bridge rows land only through the verification fold; rows here carry the package spelling, each with a folder `.api/` catalogue of its SQL surface.
-- `timescaledb` — hypertable, continuous-aggregate, retention, and columnstore.
-- `timescaledb_toolkit` — hyperfunction and time-weighted-aggregate layer over `timescaledb`.
-- `pg_duckdb` — in-PG DuckDB analytical bridge, distinct from the in-process `DuckDB.NET` lane.
-- `postgis` — carries the geospatial base the raster, 3D, and routing rows extend.
-- `postgis_raster` — PostGIS raster over `postgis`.
-- `postgis_sfcgal` — PostGIS exact 3D geometry over `postgis`.
-- `pgvector` — ships the `hnsw` ANN access method and the `vector` base `pgvectorscale` gates on.
-- `pgvectorscale` — diskann access method over a pgvector column.
-- `pg_search` — ParadeDB bm25 access method.
-- `pg_cron` — database-local cron for SQL maintenance jobs.
-- `pg_partman` — declarative range and list partition maintenance.
-- `pg_squeeze` — lock-light table-bloat reclamation.
-- `pg_jsonschema` — server-side JSON Schema CHECK validation.
-- `pgaudit` — session and object audit logging.
-- `h3-pg` — Uber-H3 hex indexing in PostgreSQL; cell ids match the `pocketken.H3` pin.
-- `apache-age` — openCypher over `agtype`, demoted beneath QuikGraph and disabled by default.
-- `pgrouting` — network routing over `postgis` backing the `Query/cypher` routing cases.
-- `pg_graphql` — in-Postgres GraphQL schema and resolver reflection.
-- `pg_net` — asynchronous non-blocking HTTP/HTTPS from SQL.
 
 [SCALEOUT_BACKENDS]: Dedicated scale-out store clients and embedded KV engines beyond the relational tier, each a distinct backend class.
-- `ClickHouse.Driver` — distributed columnar OLAP client; the billion-row lane beyond in-PG TimescaleDB and DuckDB.
+- `ClickHouse.Driver` — Distributed columnar OLAP client; the billion-row lane beyond in-PG TimescaleDB and DuckDB.
 - `ScyllaDBCSharpDriver` — CQL wide-column client driving ScyllaDB and Cassandra over one protocol.
-- `Qdrant.Client` — scale-out vector store; the billion-scale ANN class beyond in-PG `pgvector`.
+- `Qdrant.Client` — Scale-out vector store; the billion-scale ANN class beyond in-PG `pgvector`.
 - `DeltaLake.Net` — delta-rs Delta Lake read/write over S3/Azure/GCS for external-warehouse interop.
-- `rocksdb` — embedded LSM-tree write-optimized KV/log engine.
+- `rocksdb` — Embedded LSM-tree write-optimized KV/log engine.
 - `LightningDB` — LMDB memory-mapped B+tree read-optimized MVCC engine.
 
-[COLUMNAR_CODECS]: In-process columnar analytics stack and the serialization, interchange, scan, and compression codec belt.
-- `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge.
+[COLUMNAR_QUERY]: In-process columnar engine, the Flight and ADBC transports, and the Substrait plan IR.
+- `DuckDB.NET.Data.Full` — Drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge.
 - `Apache.Arrow.Flight`
-- `Apache.Arrow.Flight.AspNetCore` — binds a `FlightServer` subclass onto an ASP.NET Core gRPC endpoint; sole holder of the server-adapter grant.
+- `Apache.Arrow.Flight.AspNetCore` — Binds a `FlightServer` subclass onto an ASP.NET Core gRPC endpoint; sole holder of the server-adapter grant.
 - `Apache.Arrow.Flight.Sql` — Flight SQL dialect over the Flight transport; `FlightSqlClient` verbs and the `FlightSqlServer` served-node base.
 - `Apache.Arrow.Adbc`
-- `Apache.Arrow.Adbc.Drivers.Apache` — pure-managed Thrift+Arrow ADBC over Hive, Impala, and Spark.
-- `Apache.Arrow.Adbc.Drivers.BigQuery` — pure-managed BigQuery ADBC cloud-warehouse lane.
-- `Apache.Arrow.Compression` — Arrow-IPC `Lz4Frame`/`Zstd` codec factory.
-- `ParquetSharp` — native libparquet Parquet read and write.
-- `ParquetSharp.Dataset` — partitioned multi-file Parquet lake scanner streaming `Apache.Arrow` batches with predicate and column pushdown.
+- `Apache.Arrow.Adbc.Drivers.Apache` — Pure-managed Thrift+Arrow ADBC over Hive, Impala, and Spark.
+- `Apache.Arrow.Adbc.Drivers.BigQuery` — Pure-managed BigQuery ADBC cloud-warehouse lane.
 - `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation rail and the one residence lowering.
+
+[COLUMNAR_FORMATS]: Columnar file formats, the lake scanner, and content-defined chunking.
+- `Apache.Arrow.Compression` — Arrow-IPC `Lz4Frame`/`Zstd` codec factory.
+- `ParquetSharp` — Native libparquet Parquet read and write.
+- `ParquetSharp.Dataset` — Partitioned multi-file Parquet lake scanner streaming `Apache.Arrow` batches with predicate and column pushdown.
 - `FastCDC.Net`
 - `Ara3D.BimOpenSchema`
 - `Ara3D.BimOpenSchema.IO`
-- `Parquet.Net` — pure-managed Parquet codec under the BimOpenSchema Parquet-zip leg, version-governed as a central transitive pin.
+- `Parquet.Net` — Pure-managed Parquet codec under the BimOpenSchema Parquet-zip leg, version-governed as a central transitive pin.
+
+[WIRE_SNAPSHOT_CODECS]: Row, snapshot, and schema codecs with their compression belt.
 - `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping; mints the `dataschema` registry subject.
 - `Chr.Avro.Binary`
 - `System.Formats.Cbor` — BCL CBOR / RFC 8949 self-describing snapshot codec.
-- `MiniExcel` — streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach.
-- `ZstdSharp.Port` — standalone Zstandard snapshot and blob compression.
 - `JsonSchema.Net` — JSON Schema 2020-12 evaluator; the in-process `pg_jsonschema` fallback.
+- `ZstdSharp.Port` — Standalone Zstandard snapshot and blob compression.
 - `K4os.Compression.LZ4`
-- `K4os.Compression.LZ4.Streams` — separate distribution carrying the `Stream` frame adapters the object-plane codec row composes.
+- `K4os.Compression.LZ4.Streams` — Separate distribution carrying the `Stream` frame adapters the object-plane codec row composes.
+
+[FILE_CODECS]: Spreadsheet, schedule, and scan file codecs.
+- `MiniExcel` — Streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach.
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack.
 - `Aardvark.Data.E57` — ASTM E57 scan decode behind the `Ingest/pointcloud` residence leg: header, `Data3D` setup, CompressedVector stream.
 - `Sep`
@@ -129,37 +122,37 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [APPEND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
 - `Marten` — PostgreSQL event store; `GraphDelta` bodies fold `ElementGraph` via `AggregateStreamAsync` AS-OF.
 - `Confluent.Kafka`
-- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters.
+- `OpenTelemetry.Instrumentation.ConfluentKafka` — Instrumented producer/consumer builders carrying messaging spans and meters.
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution.
 - `Confluent.SchemaRegistry.Serdes.Avro`
-- `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`.
+- `Confluent.SchemaRegistry.Serdes.Protobuf` — Registry-governed Protobuf serde over `Google.Protobuf`.
 - `Confluent.SchemaRegistry.Serdes.Json`
 - `AMQPNetLite.Core` — `AMQP 1.0` protocol transport beneath the CloudEvents binding: connection, session, links, framing.
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg.
-- `CloudNative.CloudEvents.Kafka` — binary-mode `ce_` header binding onto `Confluent.Kafka`; backs the `kafka` binding row.
+- `CloudNative.CloudEvents.Kafka` — Binary-mode `ce_` header binding onto `Confluent.Kafka`; backs the `kafka` binding row.
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs the `rabbitmq` binding row.
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs the `pulsar` binding row.
-- `Pidgin` — allocation-light parser combinators; the table-driven CESQL grammar behind the `sql` dialect at `Version/egress#SUBSCRIPTION_FILTER`.
+- `Pidgin` — Allocation-light parser combinators; the table-driven CESQL grammar behind the `sql` dialect at `Version/egress#SUBSCRIPTION_FILTER`.
 
 [OBJECT_CUSTODY]: Cloud object stores and the KMS key custody beneath the content-keyed object plane.
 - `AWSSDK.S3`
-- `OpenTelemetry.Instrumentation.AWS` — one root registration spanning the S3 and KMS legs through the shared `AWSSDK.Core` pipeline.
+- `OpenTelemetry.Instrumentation.AWS` — One root registration spanning the S3 and KMS legs through the shared `AWSSDK.Core` pipeline.
 - `Azure.Storage.Blobs`
-- `Azure.Storage.Blobs.Batch` — separate distribution carrying the blob batch client the object plane's page-at-a-time erase folds.
+- `Azure.Storage.Blobs.Batch` — Separate distribution carrying the blob batch client the object plane's page-at-a-time erase folds.
 - `Google.Cloud.Storage.V1`
-- `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane.
+- `Minio` — Endpoint-agnostic S3-compatible client for the self-hosted lane.
 - `AWSSDK.KeyManagementService`
 - `Azure.Security.KeyVault.Keys`
 - `Google.Cloud.Kms.V1`
 
 [CACHE_BACKPLANE]: Redis backplane serving the read-lane cache tier and the egress binding row.
-- `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `redis` binding row.
+- `StackExchange.Redis` — Backs the `Query/cache` L2 backplane and the `Version/egress` `redis` binding row.
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
-- `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the cache and egress multiplexers into the root trace.
+- `OpenTelemetry.Instrumentation.StackExchangeRedis` — Trace-only command spans hooking the cache and egress multiplexers into the root trace.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
 - `LanguageExt.Core`
@@ -170,27 +163,27 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
-- `QuikGraph` — models the in-process topology the synchronous `Query/topology` lane composes.
-- `Riok.Mapperly` — generated boundary transcription; `Store/schema` `CapabilityMap` is the landed projector.
-- `Generator.Equals` — generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
-- `CommunityToolkit.HighPerformance` — spans, memory pools, and bit primitives on the cache and object-store path.
+- `QuikGraph` — Models the in-process topology the synchronous `Query/topology` lane composes.
+- `Riok.Mapperly` — Generated boundary transcription; `Store/schema` `ContractMap` owns the schema seam whole.
+- `Generator.Equals` — Generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
+- `CommunityToolkit.HighPerformance` — Spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 
 [DATA_SUBSTRATE]:
-- `Apache.Arrow` — columnar format and Arrow IPC wire; the ADBC/Flight/compression egress train rides folder-side (`api-arrow-egress.md`).
-- `Microsoft.Data.Sqlite` — embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile rail.
+- `Apache.Arrow` — Columnar format and Arrow IPC wire; the ADBC/Flight/compression egress train rides folder-side (`api-arrow-egress.md`).
+- `Microsoft.Data.Sqlite` — Embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile rail.
 
 [EXCHANGE_SUBSTRATE]:
-- `Speckle.Sdk` — send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
+- `Speckle.Sdk` — Send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
 - `Speckle.Objects` — `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
-- `Unofficial.laszip.netstandard` — one LAS/LAZ engine behind chunked residence and `.lax` windowed reads.
-- `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
+- `Unofficial.laszip.netstandard` — One LAS/LAZ engine behind chunked residence and `.lax` windowed reads.
+- `PollinationSDK` — Cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
 
 [PLANAR_GEOSPATIAL]:
 - `NetTopologySuite` — `Geometry` currency and WKB/WKT core codecs behind every spatial column, satellite codec, and geometry content key.
 - `NetTopologySuite.IO.GeoJSON4STJ` — GeoJSON text on the `Ingest/geospatial#FEATURE_ROWS` seam and the web egress projection.
 - `NetTopologySuite.IO.GeoPackage` — GeoPackage geometry-BLOB coding on the same feature-rows seam.
-- `pocketken.H3` — managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
+- `pocketken.H3` — Managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — `CloudEvent` values `Version/egress` mints per `OpLogEntry` through the kernel envelope owner holding codec identity.
@@ -198,18 +191,19 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `MQTTnet` — QoS-1 `PublishAsync` PUBACK evidence and the v5 User Property carrier the branch-owned MQTT binding writes unprefixed attributes onto.
 
 [WIRE_CODEGEN]:
-- `MessagePack` — snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
-- `MessagePackAnalyzer` — build-only generator and `MsgPack###` gate behind the AOT resolver chain.
+- `MessagePack` — Snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
+- `MessagePackAnalyzer` — Build-only generator and `MsgPack###` gate behind the AOT resolver chain.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 
 [HOST_SERVICES]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.
-- `Microsoft.Extensions.Compliance.Redaction` — classification attributes on egressed members; redactor binding stays at the app root.
-- `Microsoft.Extensions.Telemetry.Abstractions` — pooled per-operation latency ledger the `Query/lane` read phases stamp; activation stays app-root.
+- `Microsoft.Extensions.Compliance.Redaction` — Classification attributes on egressed members; redactor binding stays at the app root.
+- `Microsoft.Extensions.Telemetry.Abstractions` — Pooled per-operation latency ledger the `Query/lane` read phases stamp; activation stays app-root.
 
 [RUNTIME_INBOX]:
-- `System.Net.Http` — blob-store client, ranged reads, and multipart upload legs of the object plane.
-- `System.Text.Json` — generated wire contexts and the `JsonDocument`/`JsonElement` payload plane.
+- `System.Net.Http` — Blob-store client, ranged reads, and multipart upload legs of the object plane.
+- `System.Text.Json` — Generated wire contexts and the `JsonDocument`/`JsonElement` payload plane.
+- `System.Threading.Channels` — Bounded fan-out lanes behind the changefeed, outbox, and egress pump, and the AMQP leg's in-flight bound.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `Verify.XunitV3`

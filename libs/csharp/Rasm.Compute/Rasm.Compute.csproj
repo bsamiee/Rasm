@@ -11,23 +11,10 @@
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Core Substrate">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="QuikGraph" />
-        <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="System.Numerics.Tensors" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-        <PackageReference Include="UnitsNet" />
-    </ItemGroup>
-
     <ItemGroup Label="Numeric Kernel">
-        <PackageReference Include="CSparse" />
         <PackageReference Include="HyperJet" />
-        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
-        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
     <ItemGroup Label="Solver Search">
@@ -35,12 +22,6 @@
         <PackageReference Include="GeneticSharp" />
         <PackageReference Include="Google.OrTools" />
         <PackageReference Include="Microsoft.Z3" />
-    </ItemGroup>
-
-    <!-- GPGPU dispatch binds the AppUi-minted device; the native wgpu binaries ride that peer's row, never one here. -->
-    <ItemGroup Label="GPU Dispatch">
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
     </ItemGroup>
 
     <ItemGroup Label="Model Runtime">
@@ -51,19 +32,39 @@
         <PackageReference Include="TorchSharp" />
     </ItemGroup>
 
-    <ItemGroup Label="Service Contracts">
-        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    <ItemGroup Label="Array Store">
+        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+        <PackageReference Include="PureHDF" />
+        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
+        <PackageReference Include="PureHDF.Filters.Lzf" />
     </ItemGroup>
 
-    <ItemGroup Label="Energy Simulation">
-        <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
-        <PackageReference Include="PollinationSDK" />
+    <ItemGroup Label="Remote Transport">
+        <PackageReference Include="Grpc.Net.Client.Web" />
+        <PackageReference Include="Grpc.Net.Common" />
     </ItemGroup>
 
-    <ItemGroup Label="Planar Geometry">
-        <PackageReference Include="Clipper2" />
-        <PackageReference Include="NetTopologySuite" />
+    <ItemGroup Label="Core Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Numeric Substrate">
+        <PackageReference Include="CSparse" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
+    </ItemGroup>
+
+    <!-- GPGPU dispatch binds the AppUi-minted device; the native wgpu binaries ride that peer's row, never one here. -->
+    <ItemGroup Label="GPU Device">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
     </ItemGroup>
 
     <ItemGroup Label="Geometry Interchange">
@@ -73,16 +74,24 @@
         <PackageReference Include="SharpGLTF.Toolkit" />
     </ItemGroup>
 
+    <ItemGroup Label="Planar Geometry">
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="NetTopologySuite" />
+    </ItemGroup>
+
+    <ItemGroup Label="Energy Simulation">
+        <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
+        <PackageReference Include="PollinationSDK" />
+    </ItemGroup>
+
     <ItemGroup Label="Data Substrate">
         <PackageReference Include="Apache.Arrow" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
     </ItemGroup>
 
-    <ItemGroup Label="Array Store">
-        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
-        <PackageReference Include="PureHDF" />
-        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
-        <PackageReference Include="PureHDF.Filters.Lzf" />
+    <ItemGroup Label="Service Contracts">
+        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
     <ItemGroup Label="Event Transport">
@@ -92,16 +101,13 @@
     </ItemGroup>
 
     <!-- rasm.compute.v1 is the corpus-homed suite source; this package compiles GrpcServices=Client while app roots compile the same file GrpcServices=Server, and ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
-    <ItemGroup Label="Mapping Wire">
+    <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
-        <PackageReference Include="Grpc.Net.Client.Web" />
-        <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
-        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/compute/v1/compute.proto"
                   ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
                   GrpcServices="Client" />

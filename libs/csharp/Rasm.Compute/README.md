@@ -1,6 +1,6 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the measured-execution engine and discipline-assessment authority over the `ElementGraph` — a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy — over a building-scale numeric substrate, an optimization and uncertainty spine over one evaluate oracle, a symbolic CAS lane, and the ONNX model plane. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
+`Rasm.Compute` is the measured-execution engine and discipline-assessment authority over the `ElementGraph`: a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
 
 One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary.
 
@@ -28,7 +28,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start and its per-bucket warm roster.
 - [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery, quantization posture, and the guaranteed floor.
 - [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, batching gate, tiled mosaic, stage-execution wire, and result cache.
-- [18]-[EMBEDDING](.planning/Model/embedding.md): Embedding-and-retrieval owner.
+- [18]-[EMBEDDING](.planning/Model/embedding.md): Retrieval half of the inference spine — encoding axis, metric axis, content-keyed vector carrier.
 - [19]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
 - [20]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
 
@@ -65,7 +65,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [44]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
 - [45]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
 - [46]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
-- [47]-[DAYLIGHT](.planning/Analysis/daylight.md): Solar-position kernel and sky-model daylight rows.
+- [47]-[DAYLIGHT](.planning/Analysis/daylight.md): Sun hours, shadow fraction, sky view, and Perez diffuse irradiance off the kernel almanac.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -74,36 +74,36 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [NUMERIC_KERNEL]:
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
 - `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
-- `cslsqp` — source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
-- `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
+- `cslsqp` — Source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
+- `HyperJet` — Hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
 
 [SOLVER_SEARCH]:
-- `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
+- `AngouriMath` — Managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
 - `Google.OrTools` — CP-SAT and MILP exact optimization lane.
-- `GeneticSharp` — evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
+- `GeneticSharp` — Evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
 - `Microsoft.Z3` — SMT rule satisfaction returning SAT/UNSAT and unsat-core, where CP-SAT optimizes.
 
 [MODEL_RUNTIME]:
 - `Microsoft.ML.OnnxRuntime` — ONNX inference session core.
-- `Microsoft.ML.OnnxRuntime.Extensions` — custom-op and string-tensor extension surface.
-- `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
-- `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
+- `Microsoft.ML.OnnxRuntime.Extensions` — Custom-op and string-tensor extension surface.
+- `Microsoft.ML.OnnxRuntimeGenAI` — Token-streaming generative run.
+- `TorchSharp` — Native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
 - `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
 
 [ARRAY_STORE]:
-- `PureHDF` — managed HDF5 behind the ONE `Runtime/codecs` archive owner; every consumer composes over that one session capsule.
-- `PureHDF.Filters.BZip2.SharpZipLib` — managed BZip2 codec registered on the HDF5 filter pipeline.
-- `PureHDF.Filters.Lzf` — managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
-- `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
+- `PureHDF` — Managed HDF5 behind the ONE `Runtime/codecs` archive owner; every consumer composes over that one session capsule.
+- `PureHDF.Filters.BZip2.SharpZipLib` — Managed BZip2 codec registered on the HDF5 filter pipeline.
+- `PureHDF.Filters.Lzf` — Managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
+- `Microsoft.IO.RecyclableMemoryStream` — Pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
 
 [REMOTE_TRANSPORT]:
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
-- `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
+- `Grpc.Net.Common` — Shared compression and connectivity vocabulary beneath the gRPC rails.
 - `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
 - `LanguageExt.Core`
@@ -116,13 +116,13 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance`
 - `System.Numerics.Tensors`
 - `UnitsNet` — `Analysis/energy` result-unit coercion; `Analysis/aggregator` ISO 6946 surface-film binding.
-- `QuikGraph` — adjacency, dependency, and partition graph algebra: traversal, condensation, contention colouring, and cut-minimizing bisection.
-- `Riok.Mapperly` — reader-free boundary transcription, every mapping compiler-proof under `RequiredMappingStrategy.Both`.
+- `QuikGraph` — Adjacency, dependency, and partition graph algebra: traversal, condensation, contention colouring, and cut-minimizing bisection.
+- `Riok.Mapperly` — Reader-free boundary transcription, every mapping compiler-proof under `RequiredMappingStrategy.Both`.
 
 [NUMERIC_SUBSTRATE]:
-- `CSparse` — managed sparse direct-factor terminal.
-- `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
-- `PeterO.Numbers` — exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
+- `CSparse` — Managed sparse direct-factor terminal.
+- `MathNet.Numerics` — Quadrature, distributions, and the MKL/OpenBLAS provider hooks.
+- `PeterO.Numbers` — Exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
@@ -130,29 +130,33 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [GEOMETRY_INTERCHANGE]:
 - `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.
-- `SharpGLTF.Toolkit` — mesh-building toolkit.
-- `SharpGLTF.Ext.3DTiles` — `Runtime/codecs#TILE_PARTITION` seats `Tiles3DExtensions.RegisterExtensions()` once at composition and emits no leaf body.
-- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings.
+- `SharpGLTF.Toolkit` — Mesh-building toolkit.
+- `SharpGLTF.Ext.3DTiles` — 3D Tiles extension registration the `Runtime/codecs` tile partition seats at composition.
 
-[PLANAR_GEOMETRY]:
-- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
-- `Clipper2` — corridor-clearance offset algebra at the same boundary.
+[MESH_PROCESSING]:
+- `Alimer.Bindings.MeshOptimizer` — Residency-pyramid simplification and cluster-LOD bindings.
+
+[PLANAR_GEOSPATIAL]:
+- `NetTopologySuite` — Isovist and visibility polygons at the circulation planar boundary.
+- `Clipper2` — Corridor-clearance offset algebra at the same boundary.
 
 [ENERGY_SIMULATION]:
-- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
+- `NREL.OpenStudio.macOS-arm64` — In-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
 - `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
 
 [DATA_SUBSTRATE]:
-- `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; the egress train stays Persistence-side.
-- `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
+- `Apache.Arrow` — Columnar `RecordBatch` construction for surrogate-training and billing egress; the egress train stays Persistence-side.
+- `Microsoft.Data.Sqlite` — Read-only eplusout.sql tabular reader.
 
 [SERVICE_CONTRACTS]:
-- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
-- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
+- `Microsoft.Extensions.Caching.Hybrid` — One `HybridCache` per cache lane.
+- `Microsoft.Extensions.AI` — `IChatClient` abstraction the AppHost provider binds; runtime `Microsoft.Extensions.AI.Abstractions`.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — envelope type the branch-owned MQTT 5.0 and NATS bindings raise; `Rasm/Domain/event` owns grammar, roster, and decode.
+- `CloudNative.CloudEvents` — Envelope type the branch-owned MQTT 5.0 and NATS bindings raise; `Rasm/Domain/event` owns grammar, roster, and decode.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
+
+[MACHINE_CONNECTIVITY]:
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
 [WIRE_CODEGEN]:
@@ -165,8 +169,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
-- `System.Text.Json` — generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt, descriptor, drift, and evidence lanes.
+- `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt, descriptor, drift, and evidence lanes.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`
-- `Microsoft.AspNetCore.TestHost` — in-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.
+- `Microsoft.AspNetCore.TestHost` — In-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.

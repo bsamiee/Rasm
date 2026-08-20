@@ -23,13 +23,11 @@
 - `Source._addressedAll` and `Glb.assetDir` seat sibling leaves under one set-keyed `assets/<digest>/` — a per-file digest splits one asset in half.
 - `rasm.*` instruments mint at the core convention owner alone — `@effect/opentelemetry` derives the exported unit from `Convention.wire.unit` alone.
 - `rasm.work.family` rides every actor message span, `rasm.work.shard` the lifetime span alone — `toLayer.spanAttributes` is a static record.
-- `Convention` reads answer the row's DECLARED wire form, not its storage state — a signed level stores as a counter, reading as a monotonic total.
 - Wasm modules are capability, never code — the folder-owned artifact acquires scoped behind a `Context.Tag`, and no linear-memory view escapes it.
 - Scalars cross a seam with typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
 - Isolation spells `tenancy` on every descriptor row — `residency`, `partition`, and `scope` name it nowhere, each staying live as its own concept.
 - Provider-native retry pins to ONE attempt and `value/fault#RETRY_BUDGET` owns every curve — a nested SDK schedule multiplies effective attempts.
 - Closed tenancy seats at `core/value/identity#IDENTITY_OWNER` — every stratum reads `Identity.tenancy` and no folder re-mints `none|single|multi`.
-- Descriptor `tenancy` cells carry the MECHANISM they separate by, never a closed-roster value — the axis selects the row, the cell explains it.
 - Backend-plane families key on `signals` alone; `admit` seats on the `_Plane` floor per family shape — re-declaring below forks one coordinate.
 - Durability derives from `topology` at BOTH planes through `Profile.recoveryOf` — a stored spec field forks the runner's target off the boot row's.
 - Recovery objectives cross STRUCTURALLY — an S2 grader reaches no S3 schema, and `Converge.Profile` naming a spec type refuses every foreign root.
@@ -43,6 +41,7 @@
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
 - `DateTime.distanceDuration` is ABSOLUTE — a lapsed instant reads as a positive window, so deadline checks take signed `distance` or `isPast`.
 - Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
+- Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.
 
 ## [03]-[COLLAPSE]
 

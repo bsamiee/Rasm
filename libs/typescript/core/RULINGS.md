@@ -4,22 +4,22 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- `@electric-sql/d2mini` and `@electric-sql/d2ts` both admit — mini runs the live incremental graph, d2ts's versioned `Index` IS the retained history.
+- `cbor-x` admits decode-only beside `@msgpack/msgpack` — cbor-x proves no producer map ordering, so encode stays the msgpack engine's alone.
 
 ## [02]-[SHAPE]
 
 - `Convention.mount` materializes an instrument row whole — no site selects the constructor, unit, ladder, or bounds its row declares.
-- `Evidence.Tally` counts done-against-total over an operation tree — the producer phase frame is `ProgressUpdateWire` and the two share no column.
 - `Wire` family keys name ONE shape estate-wide — two disjoint field sets under one key resolve by renaming the non-producer, never by widening.
 - `Clock.Hlc.physicalOf` scales its millisecond reading onto the tick axis — a stamp is an exact 10,000-tick multiple, never a raw millis half.
 - `Shape.vocabulary` snapshots the ordered tuple and exact rows every literal schema and guard derives from — a roster spelled beside it drifts.
 - `Convention.InstrumentKind` names the EXPORTED wire form — a row's kind is what a reader sums, rates, or buckets, never how it stores.
-- `Convention.Unit` spells UCUM `1` for a ratio alone — a counted level takes an annotation code naming the entity it measures.
+- `Convention.Unit` spells UCUM `1` for a ratio alone; counted levels take an annotation code — a count under `1` mis-scales every derived rate.
 - `Convention.Bounds` freezes at the instrument mint — an objective, budget, or ceiling moving an edge re-buckets every series already exported.
 - `Convention.Ladder` generates edges from its scalar law — `explicit` transcribes literals only where an external specification fixed the ladder.
-- `Convention.translated` renders receiver suffixes from target, unit, and kind; rows keep unsuffixed mint names.
-- One `Query` owner renders every backend from a target parameter and dialect-free expression data.
-- `Query.Target` contains metric-series backends only; trace selection compiles through wide-event residence.
+- `Convention.translated` renders receiver suffixes from target, unit, and kind; rows keep unsuffixed mint names — suffixing is a target property.
+- One `Query` owner renders every backend from a target parameter and dialect-free expression data — a panel authors one expression estate-wide.
+- `Query.Target` carries metric-series backends alone — trace selection compiles through wide-event residence, so no trace arm enters the family.
 - `Convention.dimensions` sources every governor allow-list from the mounted rows' declared fan — a roster folded from one consumer strips its peers.
 - `Wire` transcribes a peer vocabulary WHOLE beside its legality columns — every subset derives from those columns under a two-way guard.
 - Every `Panel` names the `source` key compilation binds `{ type, uid }` from — a panel inferring its plane renders against an unselected store.
@@ -37,8 +37,9 @@
 ## [03]-[COLLAPSE]
 
 - `Wire` and `Convention` columns deriving wholly from a sibling collapse into that derivation — a roster survives where a consumer spends its order.
-- `Fault.Class`, `Fault.Budget`, and `Fault.Degrade` remain distinct families sharing declaration machinery.
-- `Fault.Degrade` compiles local liveness policy; `Evidence.Availability` decodes peer evidence as a separate owner.
+- `Fault.Class`, `Fault.Budget`, and `Fault.Degrade` stay distinct families on one machinery — a fold erases which axis a consumer dispatches on.
+- `Fault.Degrade` compiles local liveness policy and `Evidence.Availability` decodes peer evidence — a fold grades peer claims on a local ladder.
+- `Evidence.Tally` counts done-against-total over an operation tree — the producer phase frame is `ProgressUpdateWire` and the two share no column.
 
 ## [04]-[STRUCTURE]
 

@@ -27,7 +27,7 @@ Every substantive pass runs as workflows, never one-off agents, fanned out acros
 
 DISCOVERY grounds every downstream stage as read-only reconnaissance, its one concession. It full-reads every targeted page and its folder, enumerates both `.api` tiers and the doctrine inventory from a source-of-truth listing, and resolves scope against disk. Its map carries per-page composed and underused capability with verified members, contextual seams, stacking guidance, and a hostile weak/strong call, never a verdict, phantom, or guess. Downstream stages re-read and exceed the map; it never licenses a skim.
 
-CRITIQUE, and RED-TEAM hold writer authority over their assigned planning territory. Each derives its verdict from current disk before prior claims; earlier reports provide navigation and refutation targets, never authority. Scope rows bound first look, while live concurrent ownership alone defers an otherwise in-scope repair.
+CRITIQUE and RED-TEAM hold writer authority over their assigned planning territory. Each derives its verdict from current disk before prior claims; earlier reports provide navigation and refutation targets, never authority. Scope rows bound first look, while live concurrent ownership alone defers an otherwise in-scope repair.
 
 New-owner or scope-expansion findings land as complete cards at the narrowest tier, and unreachable facts stay `[RESEARCH]` rows. Review returns an applied-fix receipt carrying each finding's exact disposition. Clean verdicts require the full named attack to find no violation, so writer authority never forces churn.
 
@@ -37,7 +37,7 @@ CRITIQUE agents WRITE every proven repair in place; their reads and notes serve 
 - Shape: collapse, owner, knob, aspect, rail, language, and entry-point laws hold; repeated structure folds into its algebraic owner.
 - Capability: bodies deliver every capability their names, cards, packages, and boundaries promise; CRITIQUE closes admitted omissions in place.
 - Truth: both `.api` tiers support every external member and capability claim; unverifiable members/usage are investigate, and fixed in place.
-- Ownership: strata, seams, and rulings agree at every touched end; CRITIQUE repairs duplicated, scattered, or sibling-interior concerns at their owner.
+- Ownership: strata, seams, and rulings agree at every touched end; CRITIQUE repairs duplicated, scattered, or sibling-interior concerns at the owner.
 
 RED-TEAM agents WRITE every proven rebuild in place; their reads and notes serve a predicate-negative terminal pre-mortem that reconstructs rather than annotates.
 
@@ -45,7 +45,7 @@ RED-TEAM agents WRITE every proven rebuild in place; their reads and notes serve
 - Growth: owner data absorbs the next case, dimension, modality, provider, or consumer; consumers stay untouched or fail loudly at type-check.
 - Long tail: runtime edge states and failure modes preserve the declared rails, parameterization, and boundaries.
 - Composition: RED-TEAM re-derives package choice, lower-stratum ownership, policy resolution, routing, lifecycle, and caller orchestration.
-- Integrity: RED-TEAM repairs downward dependency, duplicated ownership, host leakage, sibling-interior coupling, sprawl, and phantoms at every touched end.
+- Integrity: RED-TEAM repairs downward dependency, duplicated ownership, host leakage, sibling-interior coupling, sprawl, and phantoms at every end.
 - Generative consequence: existing owner grammars absorb admitted capability, while new owner families land as complete cards.
 - Cold close: RED-TEAM re-judges every CRITIQUE dimension against the rebuilt result before verdict.
 
@@ -53,7 +53,7 @@ VERIFY agents WRITE the improvement their proof exposes; adversarial never confi
 
 - Claims stay open only when genuinely unreachable from the files at hand, never to punt a strengthenable fix.
 - Status flips against evidence alone: a spike or gap marks finalized against a cited `.api` line or harness output.
-- `tools.assay` is that rail — `api` for member truth, `docs check` for fence-bearing pages, `provision` for Forge toolchain facts, `bridge` for live-host scenario facts.
+- `tools.assay` is that rail — `api` member truth, `docs check` fence-bearing pages, `provision` Forge toolchain facts, `bridge` live-host facts.
 
 INTEGRATE holds writer authority over the whole touched corpus, never the closing pass's own diff. It runs the full CRITIQUE attack and then the full RED-TEAM attack as two separate passes over every fence-bearing page the campaign touched, each grading the corpus as it now stands rather than as any pass found it; landings that graded clean alone still answer INTEGRATE for how they sit in the whole.
 
@@ -64,23 +64,23 @@ INTEGRATE holds writer authority over the whole touched corpus, never the closin
 - Unlocks: capability a landing freed but never wired, the unbound port or consumer-less row, wires here or lands as a complete card at its owner.
 - Cold close: INTEGRATE re-judges every VERIFY dimension against the integrated result before the campaign's verdict.
 
-All agents (main agent included) regardless of type (critique/redteam/other) always follow the same standards below:
+Every agent, the main agent included and every critique or red-team role alike, follows the standards below:
 - Naivety is a defect on three orthogonal axes, all intolerable — COVERAGE, APPROACH, and AUTHORITY.
 - COVERAGE naivety — a thin slice of the concept: three obvious fields where the domain carries fifteen, a two-case family for a twenty-case domain.
 - APPROACH naivety — hardcoded enumerated instances where a parameterized algorithmic owner generates the space.
-- AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package is treated as the semantic owner.
+- AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package treated as the semantic owner.
 - Claims land proved on a live rail: installed-tree reflection, throwaway harness apps, provisioned-host probes, whichever rail reaches the fact.
 - Blockers, research rows, and cards chase to full realization on the whole tool estate; a residual survives only on an observable no rail fires.
 - Ruling violations route as cards — IDEA at concept grain, TASK at landing grain — never inline workarounds.
 - Items formulated in isolation of their folder's ground-up code-doctrine integration are corrected or removed.
 - Cross-language ideas land at their right touchpoints the same turn; full ripple coverage and refactoring to the ENTIRE splash radius.
 - Collapse freedom: every enumerated collapse-signal list in a workflow prompt is a floor, never the complete set.
-- Audit tasks cover the central manifest and every folder README package registry against disk, every missing `.api/<package>.md` catalogue, every newer or stronger package, and the per-language testing and tooling gaps.
+- Audit tasks cover manifest and README registries against disk, missing `.api/` catalogues, stronger packages, and per-language tooling gaps.
 - Catalog-alignment law: a `.api/` catalogue never redirects — a folder-tier file that points at or duplicates a substrate-tier catalogue is deleted.
 - Every stage reads the owning folder, branch, cross-`libs/`, and touched `tests/` registries before re-deciding a settled question.
 - Card markers follow the file's own template comment.
 - Law lives in the ruling row; reviewer stages either repair a dossier finding at its existing owner or mint a card at the narrowest new owner.
-- Model policy assigns by veracity need, never over-granularizing: exploration, decompile reads, currency dossiers, and throwaway-harness authoring ride lighter lanes.
+- Model policy assigns by veracity need: exploration, decompile reads, currency dossiers, and throwaway-harness authoring ride lighter lanes.
 - Every authoring, red-team, merge, alignment, cross-cutting, and ideation lane rides the capable model.
 
 ## [04]-[SIBLING_BRANCHES]

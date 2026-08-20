@@ -9,28 +9,28 @@ iac/
 └── src/
     ├── program/          # Program shapes, arm dispatch, the Automation-API drive, and the bootstrap legs
     │   ├── spec.ts       # StackSpec, the Tier base with its privilege anchor, and both env-key catalogs
-    │   ├── provider.ts   # Capability-by-arm map and realizer over the shared k8s and docker estates
+    │   ├── provider.ts   # `_ARMS` capability record, its `_map` adjacency constraint, and the docker machine estate at container depth
     │   ├── automation.ts # Sole executor — the Automation-API driver with resilience and the fleet verbs
-    │   └── source.ts     # Source-control shells the Doppler mirror fills, with the distribution leg
+    │   └── source.ts     # `_FOLDERS` and `_DECODERS` rows with the `_TYPE_REPAIR` seam over the digest-addressed assets root
     ├── operate/          # Secrets, observability, policy, backend convergence, and hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
-    │   ├── observe.ts    # Store-row and residence families, collector ingest, dev estate, board compile
-    │   ├── policy.ts     # Guard policies, drift projection, the evidence sink spine, in-cluster PKO reconcile
-    │   ├── converge.ts   # Immutable generation construction, hydration, proof, cutover, and retention
-    │   └── cloud.ts      # Hosted control-plane twin set, gated on the cloud backend
-    └── kube/             # K8s estate tiers realized on either plane
-    │   ├── workload.ts   # Service and worker roles from one spec row, typed workload set, `_LIFE` anchor
-    │   ├── traffic.ts    # Gateway API edge with external-dns automation and the tunnel/WAF/vanity rows
-    │   ├── data.ts       # Typed CNPG data plane — object store, NATS, backups, pooler, replication
-    │   └── tenant.ts     # Isolation modes and the cross-stack platform seam
+    │   ├── observe.ts    # `_SOURCES` and residence row families, the `_PACKS` ingest arm, and the realized-backend projection seam
+    │   ├── policy.ts     # Evidence sink spine and the guard-pack row set asserting estate-authored resources
+    │   ├── converge.ts   # `_STAGED` rollout table and the atomic active-generation pointer write
+    │   └── cloud.ts      # `EscApi` rail, the twin resource set, and the one-clock seating constraint
+    └── kube/             # K8s estate `Tier` classes realized on either plane
+        ├── workload.ts   # `_LIFE` lifecycle anchor and the typed workload cell set every role row constructs
+        ├── traffic.ts    # `Edge` tagged family and the closed `_EDGES` vocabulary the gateway realizes
+        ├── data.ts       # CNPG `admit` rail with backup, pooler, and replication rows over the typed cluster set
+        └── tenant.ts     # Isolation modes and the cross-stack platform seam
 ```
 
 ## [02]-[STRATA]
 
-- S0 `program/spec` + `program/automation` — co-base pair composing mutually: spec reads `DeployFault`, automation reads `StackSpec`.
-- S1 `operate` + `program/source` — convergence consumes backend projections and produces retained evidence.
-- S2 `kube` — workload roles, data targets, traffic, and tenancy over `Tier` rows.
-- S3 `program/provider` — the `_estate` composition sink pulling every tier through the capability-by-arm map; nothing imports it.
+- S0 co-base — `spec` imports the fault family; `StackSpec` reaches `automation` as a caller value under a type-only import, so no cycle forms.
+- S1 merge — `secret`, `observe`, `policy`, `converge`, and `cloud` share one rank with no lateral import; `source` seats on its `Tier` read alone.
+- S2 split — `traffic` draws apart from the kube node because it alone reads the operate plane; the merged trio imports `Tier` and nothing else.
+- S3 `program/provider` — the `_estate` composition sink pulling every `Tier` through the capability-by-arm map; nothing imports it.
 
 ```mermaid
 ---
@@ -42,7 +42,7 @@ config:
 ---
 flowchart TB
     accTitle: Iac interior import strata
-    accDescr: Four strata — the provider sink over the kube estate over the operate plane onto the spec-automation co-base; imports point downward.
+    accDescr: How the provider sink, kube estate, and operate plane rank onto the spec-automation co-base, the StackSpec counter-edge a caller value.
     subgraph S3["S3 COMPOSITION SINK"]
         Provider[provider]
     end
@@ -58,19 +58,21 @@ flowchart TB
         Spec[spec]
         Automation[automation]
     end
-    Operate e1@-->|"[IMPORT]: Tier"| Spec
-    Operate e2@-->|"[IMPORT]: RunReceipt"| Automation
-    Source e3@-->|"[IMPORT]: Tier"| Spec
-    Kube e4@-->|"[IMPORT]: Tier"| Spec
-    Traffic e5@-->|"[IMPORT]: Tier"| Spec
-    Traffic e6@-->|"[IMPORT]: Certs"| Operate
-    Provider e7@-->|"[IMPORT]: StackOutputs"| Spec
-    Provider e8@-->|"[IMPORT]: DeployFault"| Automation
-    Provider e9@-->|"[IMPORT]: Workload"| Kube
-    Provider e10@-->|"[IMPORT]: Traffic"| Traffic
-    Provider e11@-->|"[IMPORT]: Lgtm"| Operate
-    Provider e12@-->|"[IMPORT]: Source"| Source
-    S0 f1@-->|"forbidden: upward import"| S3
+    Spec e1@-->|"[IMPORT]: DeployFault"| Automation
+    Spec e2@-.->|"[COUNTER]: StackSpec"| Automation
+    Operate e3@-->|"[IMPORT]: Tier"| Spec
+    Operate e4@-->|"[IMPORT]: RunReceipt"| Automation
+    Source e5@-->|"[IMPORT]: Tier"| Spec
+    Kube e6@-->|"[IMPORT]: Tier"| Spec
+    Traffic e7@-->|"[IMPORT]: Tier"| Spec
+    Traffic e8@-->|"[IMPORT]: Certs"| Operate
+    Provider e9@-->|"[IMPORT]: StackOutputs"| Spec
+    Provider e10@-->|"[IMPORT]: DeployFault"| Automation
+    Provider e11@-->|"[IMPORT]: Workload"| Kube
+    Provider e12@-->|"[IMPORT]: Traffic"| Traffic
+    Provider e13@-->|"[IMPORT]: Lgtm"| Operate
+    Provider e14@-->|"[IMPORT]: Source"| Source
+    Spec f1@-->|"forbidden: upward import"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -98,19 +100,20 @@ flowchart LR
     Program e1@-->|"[PORT]: StackOutputs"| Runtime
     Data e2@-->|"[SHAPE]: Pg.rows"| Kube
     Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
-    Data e14@-->|"[PROJECTION]: Backend.Projection"| Operate
-    Runtime e4@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
-    Runtime e5@-->|"[SHAPE]: Setting.life"| Kube
-    Core e7@-->|"[PROJECTION]: Board.DashboardModel/Board.Query"| Operate
-    Core e8@-->|"[PROJECTION]: Reliability.Alert.Spec"| Operate
-    Core e9@-->|"[PROJECTION]: Reliability.Objective"| Operate
-    Core e15@-->|"[SHAPE]: Convention"| Operate
+    Data e4@-->|"[PROJECTION]: Backend.Projection"| Operate
+    Runtime e5@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
+    Runtime e6@-->|"[SHAPE]: Setting.life"| Kube
+    Runtime e7@-->|"[TRANSPORT]: Export.live"| Program
+    Runtime e8@-->|"[TRANSPORT]: Profile.live"| Operate
+    Core e9@-->|"[PROJECTION]: Board.DashboardModel"| Operate
+    Core e10@-->|"[PROJECTION]: Board.Query"| Operate
+    Core e11@-->|"[PROJECTION]: Reliability.Alert.Spec"| Operate
+    Core e12@-->|"[PROJECTION]: Reliability.Objective"| Operate
+    Core e13@-->|"[PROJECTION]: Reliability.Filter"| Operate
+    Core e14@-->|"[SHAPE]: Convention"| Operate
+    Security e15@-->|"[BOUNDARY]: LeaseSpec"| Operate
     Operate e16@-->|"[PORT]: analytics residence"| Data
-    Operate e17@-->|"[PROJECTION]: Board.Query.Target"| Core
-    Runtime e10@-->|"[TRANSPORT]: Export.live"| Program
-    Runtime e11@-->|"[TRANSPORT]: Profile.live"| Operate
-    Core e12@-->|"[PROJECTION]: Reliability.Filter"| Operate
-    Security e13@-->|"[BOUNDARY]: LeaseSpec"| Operate
+    Operate e17@-->|"[SHAPE]: Board.Query.Target"| Core
 ```
 
 ## [04]-[INTERNAL]
@@ -133,8 +136,10 @@ flowchart LR
     Outputs[StackOutputs]
     Observe[operate/observe · collector + boards]
     Estate([running estate])
+    Fault[/DeployFault rail/]
     Spec e1@-->|"select: stack arm"| Program
     Providers e2@-->|"supply: capability rows"| Program
+    Program f1@-.->|"refuse: unproven coordinate"| Fault
     Program e3@-->|"realize: PulumiFn"| Deploy
     Deploy e4@-->|"publish: typed outputs"| Outputs
     Deploy e5@-->|"arm: reliability + board rules"| Observe
@@ -142,16 +147,16 @@ flowchart LR
     Observe e7@-->|"operate: signal plane"| Estate
 ```
 
-One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth. `automation` is the sole executor and internalizes resilience, retry, and per-run budgets.
+One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn`, so a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth.
 
-Growth is one row on the owning surface — a cloud, capability, credential, tenancy tier, or injected env fact — so promoting a metal cluster to a managed estate is one provider seam swap and finalizing a cloud is a spec value, never a lib edit. Deploy and drift evidence share one receipt vocabulary, so drift stays pure projection and cannot fork. Per-file wiring — tier rows, mirror fan-out, the reconcile loop — lives on the owning pages.
+Growth is one row on the owning surface (a cloud, capability, credential, tenancy `Tier`, or injected env fact), so promoting a metal cluster to a managed estate is one provider seam swap and finalizing a cloud is a spec value, never a lib edit. Deploy and drift evidence share one receipt vocabulary, so drift stays pure projection and cannot fork.
 
 ## [05]-[BOUNDARIES]
 
-- Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
+- Typed stack outputs read from env at boot are the one value crossing back; the runtime graph imports nothing from this package.
 - Coordinates publish and material never does: the output gate refuses any secret-flagged value.
 - One secret source of truth reaches external stores only as mirrors.
-- IaC builds unpublished generations and re-runs convergence on deployment fences; data admits the published generation read-only.
+- IaC builds unpublished generations and re-runs convergence on deployment gates; data admits the published generation read-only.
 - Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane.
 - Data planes bind the published door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
@@ -159,6 +164,3 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
 - Static distribution publishes caller-owned artifact rows on the `served` plane and carries no UI codec semantics.
-- Every leaf of a row lands under one lowercase `assets/<digest>/` directory beside the one served-header roster every arm reads.
-- Served addresses ARE object keys; every declared leaf proves present under the built directory before the dialect converges.
-- Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

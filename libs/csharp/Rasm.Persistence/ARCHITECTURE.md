@@ -1,62 +1,73 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-`Rasm.Persistence` maps the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record: one owner per sub-domain concern with closed cases, Marten the append substrate beneath the version-control engine that projects from its events, read lanes split by consistency demand, and the artifact object plane content-keyed. Depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
+`Rasm.Persistence` maps the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record: one owner per sub-domain concern with closed cases, Marten the append substrate beneath the version-control engine that projects from its events, read lanes split by consistency demand, and the artifact object plane content-keyed. Depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, references no sibling AEC-domain peer, so alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no sibling AEC peer; RhinoCommon-free
+Rasm.Persistence/            # One system of record; every sub-domain a closed-case owner over the append substrate
 ├── Element/                 # ElementGraph store-load roundtrip over Marten
-│   ├── Graph.cs             # Stream-per-model event store and inline authoritative projection
-│   ├── Codec.cs             # Content-address codec over canonical bytes and chunked snapshot tiers
-│   ├── Identity.cs          # Identity-row tier: tenancy, EF converters, PostGIS bounds, KMS custody
-│   └── Authority.cs         # Object-ACL algebra: deny-over-allow grant admission
+│   ├── Graph.cs             # ModelId-keyed Marten stream; GraphCreated/Revised/Retired events share one GraphDelta.ReplayOnto fold
+│   ├── Codec.cs             # SnapshotCodec axis with CompressionPolicy and HashPolicy pairs; ContentAddress minted over plaintext
+│   ├── Identity.cs          # ElementIdentity rows committing atomically with the Marten event in one IDocumentSession
+│   └── Authority.cs         # Grant wire-keyed vocabulary, GrantSet frozen-set algebra, the AclScope inheritance carrier
 ├── Version/                 # Version-control engine projecting FROM Marten events
-│   ├── Ledger.cs            # Op-log changefeed, HLC clock, CRDT merge dispatch, sync transports
-│   ├── Commits.cs           # Content-addressed commit-DAG and convergent CRDT algebra
-│   ├── TimeTravel.cs        # AS-OF reconstruct/diff/blame/bisect fold over the changefeed prefix
-│   ├── Merge.cs             # Three-way structural merge and base-addressed RFC 6902 edit egress
-│   ├── Provenance.cs        # W3C-PROV causal DAG and attested tamper-evidence ledger
-│   ├── Retention.cs         # Retention-class sweep and full-history reachability GC
-│   ├── Recovery.cs          # Backup-substrate routes and verified PITR choreography
+│   ├── Ledger.cs            # OpLogEntry feed projection; ColumnFamily merge stances, ReplayWindow bounds, the SyncMerge fold
+│   ├── Commits.cs           # CommitGraph refs and anti-entropy ranges; Crdt field algebra, CrdtWire encoding, the shared Hlc cell
+│   ├── TimeTravel.cs        # TimeCut unifying causal, instant, and stream-version bounds; RangeDiff, Blame, Scrub, Bisect evidence
+│   ├── Merge.cs             # StructuralMerge base-relative classification; EntityEdit tombstones over exact NodeWire ProtoJSON
+│   ├── Provenance.cs        # CausalDag PROV-O derivation; ProvNode/ProvClass/ProvRelation/ProvRole in one BidirectionalGraph
+│   ├── Retention.cs         # ArtifactKind deriving RetentionClass; RetentionCatalog admission, the conserved RetentionSweep verdict
+│   ├── Recovery.cs          # RecoveryRoutes timeline and LSN capture; PointInTimeRestore fence-verify-materialize choreography
 │   ├── Egress.cs            # CDC egress pump: one CloudEvents envelope with per-sink dedup and replay
-│   └── Ingress.cs           # Inbound CDC consume door: instrumented Kafka leg, content-key dedup, store-first offsets
+│   └── Ingress.cs           # CdcIngress consumer twins, rostered extension decode, (source, id) dedup, store-first offsets
 ├── Query/                   # Read lanes split by consistency demand
-│   ├── Lane.cs              # Read router: authoritative vs analytical over the selection algebra
-│   ├── Retrieval.cs         # ANN subsystem: fusion rank over the vector and text branches
-│   ├── Topology.cs          # In-process QuikGraph view and default synchronous traversal
-│   ├── Columnar.cs          # DuckDB analytical lane, flat-table projection, analytics residence family, receipt evidence plane
-│   ├── Cypher.cs            # Optional self-hosted openCypher and pgrouting lane
-│   ├── Cache.cs             # Compute-result reuse index with a benchmark gate and invalidation
-│   └── Federation.cs        # Substrait federation router lowering onto the selection algebra
+│   ├── Lane.cs              # Consistency-demand routing seat; selection algebra binds inline projection against the daemon lanes
+│   ├── Retrieval.cs         # Retrieval.Run entry over StoreProfile and RetrievalOp; VectorRoute coupling, RetrievalFault rail
+│   ├── Topology.cs          # Kind-filtered QuikGraph view memoized per read snapshot; the seam keeps the view vocabulary
+│   ├── Columnar.cs          # ColumnarSession posture anchor with Duplicate() lanes; Identifier and StorePath admissions
+│   ├── Lakehouse.cs         # Cold-tail owner: read-your-writes flat tables, encrypted Parquet generations, engine-free scan
+│   ├── Residence.cs         # Parameterized residence row set over ColumnType columns; one branch-owned provisioning emitter
+│   ├── Serving.cs           # ResidenceScope bounds, ResidencePlan dialect lowering, ResidenceReach dispatch, ResidenceLanding
+│   ├── Datasets.cs          # Custodian-declared dataset rows, distinct from every seam-handed dataset a producer owns
+│   ├── Cypher.cs            # CypherEnablement.SelfHosted gate; GraphQuery verbs and GraphDdl lifecycle over AGE and pgrouting
+│   ├── Cache.cs             # ArtifactIndexRow reuse index, recency owner, solver-memo band, benchmark-gated admission
+│   └── Federation.cs        # FederationPlan admission over three ingress forms; the FederationLowering preserved-semantics rail
 ├── Ingest/                  # File-codec ingress axis
-│   ├── Tabular.cs           # Delimited and spreadsheet source lane
-│   ├── Schedule.cs          # Schedule-file codec and durable task-relation DAG
-│   ├── Geospatial.cs        # Geospatial feature source lane
-│   ├── Issue.cs             # BCF issue-row seam and issue-cycle reconcile
-│   └── Pointcloud.cs        # E57/LAS/LAZ scan decode, chunked blob residence, per-region cells
+│   ├── Tabular.cs           # TabularSource owner; TabularSpec fixes format, source, sheet, header stance, and row window once
+│   ├── Schedule.cs          # ScheduleSource over the MPXJ interchange; the neutral ProjectFile graph through one format fold
+│   ├── Geospatial.cs        # GeoSource owner; the GeoFormat SmartEnum crossing the wire projections
+│   ├── Issue.cs             # Typed BCF rows alone: GlobalId correlation columns and cycle reconcile; container custody stays Bim
+│   └── Pointcloud.cs        # ScanSource owner over the scan codec pair; ScanFormat crossing, H3Cell region rows
 └── Store/                   # Durable-home and coordination substrate
-    ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
+    ├── BlobStore.cs         # ObjectStore SmartEnum provider axis behind BlobRemote; the credential-free Presigned grant row
+    ├── Residence.cs         # ObjectChecksum transport-versus-identity split and the sealed write-stance columns
+    ├── Redrive.cs           # RemoteStoreFault 540x band over the kernel RegistryFault floor; the re-drive currency mint
+    ├── BlobGc.cs            # BlobCatalogRow content-lineage rows; one reachability sweep, never a lane-local delete executor
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
-    ├── Provisioning.cs      # Verify-only extension tier and provider materializer rows
-    ├── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
-    └── Observability.cs     # Engine-stat and plan harvests, slot registry, hook rail, chargeback residence, instrument contributor, board pack
+    ├── Provisioning.cs      # Verification-first PostgreSQL read fold and the idempotent SQLite open ritual
+    ├── Coordination.cs      # Token-VALIDATING fenced-lease store behind the four AppHost port contracts
+    └── Observability.cs     # Engine-stat harvests, receipt-slot registry, hook rail, chargeback residence, contributor port
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects — and clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type: `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, read lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[STRATA]
 
-S0–S3 order the sub-domains; `Version` and `Store` co-seat as a coupled pair — retention classes flow down into blob GC while storage tiers flow back into retention facts — and the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload; every other consumption edge points down.
+S0–S3 order the sub-domains, and every consumption edge points down; the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload. Nodes stand at folder grain, and every drawn edge carries the one page-grounded type that crosses it.
 
-- S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec.
-- S0 `Element` — the `IdentityStore` one-transaction identity owner and the `GrantSet` ACL algebra.
-- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, `TaskRelation`, `ScanSource`, `ScanRegion`.
+- S0 `Element` — the system-of-record spine consumes no sibling, so every stratum grounds on one identity and codec truth.
+- S0 law — identity commits in the SAME `IDocumentSession` as the event, so no sibling stratum can own a second identity write.
+- S1 `Ingest` — file codecs land records onto the spine and nothing imports Ingest back, so a new codec is one page with zero consumer edits.
 - S1 law — the Bim sequencing DAG orders the `TaskRelation` rows.
-- S2 `Version` — `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass`, the coupled durable stratum's version half.
-- S2 `Store` — `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; the mutual retention-tier exchange stays same-stratum.
-- S3 `Query` — read lanes nothing composes: `FederationPlan`, `TopologyView`, `VectorCodebook`, `ArtifactIndexRow`.
-- S3 law — the `ArtifactIndexRow` reuse index pins reads at the Version `TimeCut`.
+- S2 co-seat — `Version` and `Store` couple at one rank: retention classes flow down into blob GC, storage tiers flow back as retention FACTS.
+- S2 law — the coupled exchange stays same-stratum and value-borne, so the pair adds no cycle and neither half imports the other's owners.
+- S2 law — `RemoteStoreFault` and `StoreRedrivePort` publish the re-drive currency; `BlobCatalogRow` carries blob-GC lineage.
+- S3 `Query` — read lanes nothing composes: the absent inbound edge is the lane split's standing guarantee.
+- S3 law — declaration, serving, cold-tail landing, and rostering stay separate owners, so an ordinal binds at exactly one analytics surface.
+- S3→S2 — federated reads pin at the Version `TimeCut`, so a cached artifact replays the as-of coordinate its plan named.
+- S3→S0 — `H3Cell` crosses as the identity tier's region vocabulary, value-read, never a query-side remint.
+- S2→S0 — `ContentAddress` crosses as the codec's minted identity, so storage re-derives no digest.
 
 ```mermaid
 ---
@@ -68,7 +79,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Persistence interior strata
-    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store stratum and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ReadAsOf TimeCut payload upward from Element to Version, and one forbidden upward edge styled red.
+    accDescr: Interior strata down to the element system-of-record spine; the dashed counter-edge carries the ReadAsOf TimeCut upward to Version.
     subgraph S3["S3 QUERY"]
         Query[Query]
     end
@@ -94,8 +105,6 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Seams split into two fences by counterpart group: the first binds the kernel and the AEC-domain peers through shape, content-key, wire, and projection contracts; the second binds the platform host and the cross-runtime peers through port, wire, contract, receipt, and import families. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
-
 ```mermaid
 ---
 config:
@@ -120,33 +129,34 @@ flowchart LR
     Materials([Rasm.Materials])
     Compute{{Rasm.Compute}}
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
-    RasmElement e12@-->|"[SHAPE]: GraphDelta"| Element
-    RasmElement e13@-->|"[CONTENT_KEY]: ContentAddress"| Element
-    RasmElement e25@-->|"[EVENT]: GraphCrossing"| Version
-    Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
-    Rasm e3@-->|"[CONTENT_KEY]: ContentHash"| Element
-    Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
-    Bim e5@-->|"[PROJECTION]: BimOpenSchema"| Query
-    Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Store
-    Bim e15@-->|"[CONTENT_KEY]: EnergyArtifact"| Store
-    Bim e16@<-->|"[CONTENT_KEY]: ArtifactKey"| Store
-    Bim e17@<-->|"[CONTENT_KEY]: CommitKey"| Version
-    Bim e18@-->|"[EVENT]: CloudEvents announcement"| Version
-    Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
-    Bim e14@-->|"[WIRE]: GeoWire"| Ingest
-    Ingest e30@<-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Bim
-    RasmElement e27@-->|"[WIRE]: AnalyticsSchema"| Query
-    Materials e19@-->|"[WIRE]: AnalyticsSchema"| Query
-    Materials e28@-->|"[CONTENT_KEY]: TextureSet"| Query
-    Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
-    Compute e29@-->|"[CONTENT_KEY]: ParityVerdict"| Version
-    Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
-    Compute e10@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
-    Compute e20@-->|"[CONTENT_KEY]: ShardPlan"| Query
-    Compute e21@-->|"[CONTENT_KEY]: CompiledExpr"| Query
-    Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
-    Compute e22@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Store
-    Compute e26@-->|"[WIRE]: LakeGeneration"| Query
+    RasmElement e2@-->|"[SHAPE]: GraphDelta"| Element
+    RasmElement e3@-->|"[CONTENT_KEY]: ContentAddress"| Element
+    RasmElement e4@-->|"[EVENT]: GraphCrossing"| Version
+    Ingest e5@-->|"[WIRE]: ElementGraph"| RasmElement
+    Rasm e6@-->|"[CONTENT_KEY]: ContentHash"| Element
+    Rasm e7@-->|"[CONTENT_KEY]: GeometryHash"| Version
+    Bim e8@-->|"[PROJECTION]: BimOpenSchema"| Query
+    Bim e9@-->|"[CONTENT_KEY]: RepresentationContentHash"| Store
+    Bim e10@-->|"[CONTENT_KEY]: EnergyArtifact"| Store
+    Bim e11@<-->|"[CONTENT_KEY]: ArtifactKey"| Store
+    Bim e12@<-->|"[CONTENT_KEY]: CommitKey"| Version
+    Bim e13@-->|"[EVENT]: CloudEvents announcement"| Version
+    Ingest e14@<-->|"[WIRE]: TaskRelation"| Bim
+    Bim e15@-->|"[WIRE]: GeoWire"| Ingest
+    Ingest e16@<-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Bim
+    RasmElement e17@-->|"[WIRE]: AnalyticsSchema"| Query
+    Materials e18@-->|"[WIRE]: MaterialsDataset"| Query
+    Materials e19@-->|"[CONTENT_KEY]: TextureSet"| Query
+    Compute e20@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
+    Compute e21@-->|"[CONTENT_KEY]: ParityVerdict"| Version
+    Compute e22@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
+    Compute e23@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
+    Compute e24@-->|"[CONTENT_KEY]: ShardPlan"| Query
+    Compute e25@-->|"[CONTENT_KEY]: CompiledExpr"| Query
+    Compute e26@<-->|"[CONTENT_KEY]: GeometryHash"| Store
+    Compute e27@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Store
+    Compute e28@-->|"[WIRE]: LakeGeneration"| Query
+    Compute e29@-->|"[SHAPE]: AnalyticsSchema + ColumnCell"| Query
 ```
 
 ```mermaid
@@ -159,7 +169,7 @@ config:
 ---
 flowchart LR
     accTitle: Persistence platform and cross-runtime seams
-    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, receipts, content keys, contracts, and one imported type with the app host, the app UI, and the Python and TypeScript runtimes, one edge per kind.
+    accDescr: Which ports, wires, projections, and keys cross between Persistence's owners, the app platform, and the runtime peers.
     subgraph persistence[RASM.PERSISTENCE]
         Element[Element store]
         Version[Version engine]
@@ -179,24 +189,27 @@ flowchart LR
     Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
     Data e5@-->|"[CONTENT_KEY]: ContentKey"| Version
     Query e6@<-->|"[WIRE]: SubstraitPlan"| Data
-    Query e16@-->|"[WIRE]: FlightTicket"| Data
-    Data e17@<-->|"[CONTENT_KEY]: ContentKey"| Query
-    Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
-    Version e8@<-->|"[PORT]: Hlc"| AppHost
-    Version e27@-->|"[IMPORT]: RecoveryObjective"| AppHost
-    AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
-    Query e11@<-->|"[PORT]: HybridCache"| AppHost
-    Store e12@<-->|"[PORT]: CoordinationOp"| AppHost
+    Query e7@-->|"[WIRE]: FlightTicket"| Data
+    Data e8@<-->|"[CONTENT_KEY]: ContentKey"| Query
+    Element e9@<-->|"[PORT]: ProjectionContext"| AppHost
+    Version e10@<-->|"[PORT]: Hlc"| AppHost
+    Query e11@-->|"[WIRE]: DocumentQuery + DocumentHit"| AppUi
+    Query e12@-->|"[PROJECTION]: StoreProfileRow"| AppUi
+    Store e13@-->|"[RECEIPT]: ReceiptEnvelope"| AppUi
+    Version e14@-->|"[SHAPE]: RecoveryObjective"| AppHost
+    AppHost e15@-->|"[PROJECTION]: ReplayWindow"| Version
+    Query e16@<-->|"[PORT]: HybridCache"| AppHost
+    Store e17@<-->|"[PORT]: CoordinationOp"| AppHost
     Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
     Store e19@-->|"[PORT]: PersistenceHooks"| AppHost
-    Store e13@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
-    Store e22@<-->|"[CONTRACT]: BackendContract"| Runtime
-    Store e23@<-->|"[CONTRACT]: BackendContract"| TsData
-    AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
-    AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
-    Query e24@-->|"[PROJECTION]: telemetry measure series"| AppUi
-    Query e25@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
-    Query e26@-->|"[WIRE]: DocumentQuery/DocumentHit"| AppUi
+    Store e20@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
+    Store e21@<-->|"[CONTRACT]: BackendContract"| Runtime
+    Store e22@<-->|"[CONTRACT]: BackendContract"| TsData
+    AppUi e23@-->|"[PROJECTION]: ReplayWindow"| Version
+    AppUi e24@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
+    Query e25@-->|"[PROJECTION]: telemetry measure series"| AppUi
+    Query e26@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
+    Query e27@-->|"[WIRE]: DocumentQuery/DocumentHit"| AppUi
 ```
 
 ## [04]-[INTERNAL]
@@ -211,26 +224,25 @@ config:
 ---
 flowchart LR
     accTitle: ElementGraph persistence flow
-    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed feeds the version engine and the analytical lanes; the artifact blob writes content-first and is referenced after.
-    Op([GraphStoreOp]) --> Session[(IDocumentSession)]
-    Session --> Inline[[inline GraphProjection]]
-    Session --> Changefeed[[ChangefeedSubscription]]
-    Inline --> Topology[[QuikGraph topology]]
-    Changefeed --> Engine[[Version engine]]
-    Changefeed --> Async[[analytical daemon]]
-    Changefeed --> Pump[[EgressPump]]
-    Cursor[(outbox cursor)] --> Pump
-    Op -.write-blob-first.-> Blob[(artifact blob)]
-    Blob -.reference hash.-> Session
-    Engine --> Retention[[retention GC]]
-    Retention --> Blob
+    accDescr: How a GraphStoreOp commit materializes the authoritative read, feeds the changefeed lanes, and lands the content-first artifact blob.
+    Op([GraphStoreOp]) e1@--> Session[(IDocumentSession)]
+    Session e2@--> Inline[[inline GraphProjection]]
+    Session e3@--> Changefeed[[ChangefeedSubscription]]
+    Inline e4@--> Topology[[QuikGraph topology]]
+    Changefeed e5@--> Engine[[Version engine]]
+    Changefeed e6@--> Async[[analytical daemon]]
+    Changefeed e7@--> Pump[[EgressPump]]
+    Cursor[(outbox cursor)] e8@--> Pump
+    Op e9@-.write-blob-first.-> Blob[(artifact blob)]
+    Blob e10@-.reference hash.-> Session
+    Engine e11@--> Retention[[retention GC]]
+    Retention e12@--> Blob
 ```
 
-One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Artifact blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
+One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Artifact blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction.
 
 ## [05]-[BOUNDARIES]
 
-- Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
 - Persistence depends upward on the `Rasm.Element` seam and the `Rasm` kernel alone.
 - Seam and content-keyed wire carry every sibling-domain and host alignment; no AEC peer or host-SDK type is referenced.
 - Public capability extends its sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.

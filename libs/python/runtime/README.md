@@ -1,37 +1,37 @@
 # [PY_RUNTIME]
 
-`runtime` is stratum zero of the Python branch — the standalone host-free execution foundation every sibling composes, one polymorphic owner per sub-domain minting Python's shared value shapes once. Siblings return through those mints instead of re-minting their own, and the module set stands alone: a Python application operates with no sibling installed and no foreign runtime or emitted bundle present.
+`runtime` is stratum zero of the Python branch: the standalone host-free execution foundation every sibling composes, one polymorphic owner per sub-domain minting Python's shared value shapes once. Siblings return through those mints instead of re-minting their own, and the module set stands alone, so a Python application operates with no sibling installed and no foreign runtime or emitted bundle present.
 
 ## [01]-[ROUTER]
 
 [OBSERVABILITY]:
 - [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, composition scope, and contributor port.
-- [02]-[LOGGING](.planning/observability/logging.md): `LogPipeline` chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
-- [03]-[METRICS](.planning/observability/metrics.md): `Metrics` spine — `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
+- [02]-[LOGGING](.planning/observability/logging.md): Structlog pipeline chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
+- [03]-[METRICS](.planning/observability/metrics.md): Metric spine: `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
 - [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job message envelope.
-- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner.
+- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner; every other observability surface assumes providers.
 - [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
 - [08]-[JOURNAL](.planning/observability/journal.md): Durable fact stream, retention classes, exact-decimal rating, and crypto-shredded erasure.
 
 [RELIABILITY]:
 - [09]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate.
-- [10]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy, failure window, and admission rate.
+- [10]-[RESILIENCE](.planning/reliability/resilience.md): One `RetryClass` policy table ruling every branch retry, failure window, and admission rate.
 
 [TRANSPORT]:
-- [11]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
+- [11]-[ROOTS](.planning/transport/roots.md): `ObjectStoreLane` one obstore dispatch surface with `RemoteEndpoint`/`HttpEndpoint` custody.
 - [12]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
 - [13]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
 - [14]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
 - [15]-[EVENT](.planning/transport/event.md): CloudEvents message envelope owner — attribute grammar, extension roster, and the format contract.
 - [16]-[BINDING](.planning/transport/binding.md): Protocol binding rows, the fact emitter, and the broker lane.
-- [17]-[FILTER](.planning/transport/filter.md): CESQL expression owner, the seven filter dialects, and the subscription resource.
+- [17]-[FILTER](.planning/transport/filter.md): CESQL expression owner, the closed `FilterDialect` family, and the subscription resource.
 
 [EXECUTION]:
 - [18]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, settings, and trust rows.
 - [19]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
 - [20]-[WORKERS](.planning/execution/workers.md): Worker crossing — closed kind family, kernel value, warm pools, the fenced work lease, supervision.
-- [21]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
+- [21]-[RECIPE](.planning/execution/recipe.md): `RecipeExecution` content-keyed recipe seat on the offload lane under the AGPL charter.
 
 [EVIDENCE]:
 - [22]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
@@ -47,10 +47,10 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `pydantic-settings`
 - `keyring`
 - `google-cloud-secret-manager` — GCP `SecretTier.cloud` read arm behind settings admission.
-- `google-crc32c` — secret-payload transport-integrity digest.
+- `google-crc32c` — Secret-payload transport-integrity digest.
 - `hvac` — HashiCorp Vault `SecretTier.cloud` read arm.
 - `azure-keyvault-secrets` — Azure Key Vault `SecretTier.cloud` read arm.
-- `azure-identity` — managed/workload `TokenCredential` chain the Azure Key Vault read arm constructs.
+- `azure-identity` — Managed/workload `TokenCredential` chain the Azure Key Vault read arm constructs.
 
 [TRANSPORT]:
 - `httpx`
@@ -62,34 +62,34 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `grpcio-health-checking`
 
 [OBSERVABILITY]:
-- `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
-- `opentelemetry-semantic-conventions` — released schema-url roster the one branch schema-url pin reads; a semconv bump moves that pin.
+- `opentelemetry-exporter-otlp-proto-grpc` — Daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
+- `opentelemetry-semantic-conventions` — Released schema-url roster the one branch schema-url pin reads; a semconv bump moves that pin.
 - `opentelemetry-instrumentation` — `BaseInstrumentor` lifecycle, dependency gate, and suppression scopes every train row below implements.
-- `opentelemetry-instrumentation-asyncio` — coroutine and `to_thread` context propagation on the train.
+- `opentelemetry-instrumentation-asyncio` — Coroutine and `to_thread` context propagation on the train.
 - `opentelemetry-instrumentation-dbapi` — PEP-249 wrap seam: db-semconv spans for duckdb and ADBC drivers without a dedicated instrumentor.
-- `opentelemetry-instrumentation-httpx` — client spans on the httpx transport legs.
-- `opentelemetry-instrumentation-jinja2` — template render, compile, and load spans on the train.
+- `opentelemetry-instrumentation-httpx` — Client spans on the httpx transport legs.
+- `opentelemetry-instrumentation-jinja2` — Template render, compile, and load spans on the train.
 - `opentelemetry-instrumentation-psycopg` — psycopg DBAPI spans the data query surfaces ride.
 - `opentelemetry-instrumentation-sqlite3` — stdlib sqlite3 DBAPI spans.
-- `opentelemetry-instrumentation-system-metrics` — system and interpreter-GC gauges under the train's slice.
-- `opentelemetry-instrumentation-threading` — cross-thread context propagation on the train.
-- `opentelemetry-processor-baggage` — baggage-to-span and baggage-to-log promotion pair behind the telemetry `PROMOTED_BAGGAGE` predicate.
+- `opentelemetry-instrumentation-system-metrics` — System and interpreter-GC gauges under the train's slice.
+- `opentelemetry-instrumentation-threading` — Cross-thread context propagation on the train.
+- `opentelemetry-processor-baggage` — Baggage-to-span and baggage-to-log promotion pair behind the telemetry `PROMOTED_BAGGAGE` predicate.
 - `opentelemetry-resource-detector-containerid` — `container.id` resource detector on the telemetry detector list.
-- `pyroscope-io` — native continuous-profiling push agent.
-- `pyroscope-otel` — continuous-profiling push and the root-span profile link.
+- `pyroscope-io` — Native continuous-profiling push agent.
+- `pyroscope-otel` — Continuous-profiling push and the root-span profile link.
 
 [EVIDENCE]:
 - `cryptography` — AEAD envelope and key-wrap primitives the journal's per-subject crypto-shredding seals under.
 
 [EXECUTION]:
-- `apscheduler` — one cron and interval scheduler owner.
-- `wasmtime` — in-process guest sandbox for the WASM worker kind.
+- `apscheduler` — One cron and interval scheduler owner.
+- `wasmtime` — In-process guest sandbox for the WASM worker kind.
 - `queenbee`
 - `lbt-recipes`
 - `pollination-handlers`
 
 [PARSING]:
-- `cyclopts` — typed CLI entrypoint grammar for the daemon.
+- `cyclopts` — Typed CLI entrypoint grammar for the daemon.
 - `lark` — CESQL grammar engine behind the `sql` filter dialect; geometry registers the same substrate for its selector grammar.
 - `tree-sitter`
 - `tree-sitter-python`
@@ -97,7 +97,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`
@@ -120,7 +120,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `psutil`
 
 [NUMERIC_SUBSTRATE]:
-- `numpy` — shared-memory span reconstruction at the worker crossing, deferred behind the wire axis.
+- `numpy` — Shared-memory span reconstruction at the worker crossing, deferred behind the wire axis.
 
 [IDENTITY]:
 - `xxhash`
@@ -129,13 +129,15 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `fsspec`
 - `obstore`
 - `universal-pathlib`
-- `cloudevents` — specification attribute algebra, JSON format, and four protocol bindings.
-- `confluent-kafka` — librdkafka client and the Schema Registry serializer family behind the Kafka binding row.
-- `nats-py` — NATS core and JetStream client behind the subject-addressed binding row.
-- `paho-mqtt` — MQTT client behind the two unprefixed binding rows.
-- `pika` — blocking AMQP 0-9-1 client behind the RabbitMQ binding row.
+
+[EVENT_FABRIC]:
+- `cloudevents` — Attribute algebra behind the runtime-owned mint boundary and format contract.
+- `confluent-kafka` — Kafka client behind the Kafka binding row and its registry serializers.
+- `nats-py` — Client behind the subject-addressed binding row.
+- `paho-mqtt` — MQTT client behind the unprefixed MQTT binding rows.
+- `pika` — Blocking AMQP 0-9-1 client behind the RabbitMQ binding row.
 - `fastavro` — Avro codec beneath the registry serializer and the branch-owned Avro format row.
-- `jsonschema` — payload validation against a foreign JSON Schema, beneath the registry JSON serializer and every `dataschema` a producer publishes.
+- `jsonschema` — Payload gate beneath the registry JSON serializer and every published `dataschema`.
 
 [COMPRESSION]:
 - `lz4`

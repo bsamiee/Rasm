@@ -4,9 +4,24 @@
 
 ## [01]-[ROUTER]
 
-- [01]-[PROGRAM](.planning/program/): `StackSpec` decode and the sole Automation-API executor; every coordinate proves on the `DeployFault` rail.
-- [02]-[OPERATE](.planning/operate/): Secret custody, observability, policy, and backend convergence over generated projections.
-- [03]-[KUBE](.planning/kube/): K8s workload roles, data targets, traffic, and tenancy; every workload remains digest-pinned.
+[PROGRAM]:
+- [01]-[SPEC](.planning/program/spec.md): Decoded deploy value — arm union, consumption rosters, capability profile; coordinates, never material.
+- [02]-[PROVIDER](.planning/program/provider.md): One dispatch keyed on the arm union — audit surface and realizer never drift apart.
+- [03]-[AUTOMATION](.planning/program/automation.md): Inline typed programs with no `Pulumi.yaml` anywhere; every workspace fact arrives as data.
+- [04]-[SOURCE](.planning/program/source.md): Bootstrap source-control shell — repository law, environment gates, deploy keys, distribution.
+
+[OPERATE]:
+- [05]-[SECRET](.planning/operate/secret.md): Deploy-plane material — provisioned secret hierarchy, epoch-bound credentials, certificates.
+- [06]-[OBSERVE](.planning/operate/observe.md): Observability realization — selected store rows, one collector seam, the dev estate, compiled boards.
+- [07]-[POLICY](.planning/operate/policy.md): Policy-plane verdicts — guard before apply, drift as projection, in-cluster reconcile.
+- [08]-[CONVERGE](.planning/operate/converge.md): Cutover as data — immutable generation construction, hydration, proof, and retention.
+- [09]-[CLOUD](.planning/operate/cloud.md): Hosted control-plane twins gated on the cloud backend — settings, schedules, RBAC, drift webhook.
+
+[KUBE]:
+- [10]-[WORKLOAD](.planning/kube/workload.md): Service and worker roles lowered from one spec row into typed pod, sizing, and hardening cells.
+- [11]-[TRAFFIC](.planning/kube/traffic.md): Network edge — certificate sink, Gateway API fronting, tunnel, WAF, and vanity rows.
+- [12]-[DATA](.planning/kube/data.md): K8s durability targets — conforming object engines, the JetStream door, CNPG postgres.
+- [13]-[TENANT](.planning/kube/tenant.md): Tenant isolation realized per separation mode through one handler record.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -39,13 +54,13 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 [REALIZATION]:
 - `@pulumiverse/grafana`
-- `@grafana/grafana-foundation-sdk` — typed dashboard builders compiling the core board model into the JSON the provider applies.
+- `@grafana/grafana-foundation-sdk` — Typed dashboard builders compiling the core board model into the JSON the provider applies.
 - `@pulumi/postgresql`
 - `@pulumi/github`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `effect`

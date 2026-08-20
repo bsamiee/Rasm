@@ -5,17 +5,17 @@
 ## [01]-[PACKAGES]
 
 - `@aws-sdk/client-s3`, `@aws-sdk/lib-storage`, `@aws-sdk/s3-request-presigner` share ONE pin — the presigner signs what the matched client builds.
-- `object/file.md` owns the ONE libvips the `sharp` override enforces — `@gltf-transform/cli` and `textureCompress` fork its policy and stay refused.
+- `object/file` owns the ONE libvips the `sharp` override enforces — `@gltf-transform/cli` and `textureCompress` fork its policy and stay refused.
 - `@effect/sql-mysql2` and `@effect/sql-mssql` stay read-only ingress — no statement arm carries a tenancy GUC, so a write path drops isolation.
-- `@qualithm/arrow-flight-client` grades refusals on `Hops`, bounded at the lane — its `FlightServerError.code` types `string` yet carries numbers.
+- `@qualithm/arrow-flight-client` grades refusals on `Hops`, lane-bounded — its `FlightServerError.code` types `string` yet carries numbers.
 - `@effect/sql-clickhouse` answers no query cost — evidence reads `system.query_log`, and `withQueryId` scopes the ONE statement `KILL QUERY` takes.
 - Object engines admit on conditional put (`If-None-Match: *`) — the key IS the content, so a plain-put engine races writers into silent overwrite.
 - `@effect-aws/client-s3` is DECLINED — its effect peer ceiling trails the workspace rail pin, and the store already owns the lift the wrapper sells.
-- KTX2 work is a CLI seam — `object/asset.md` spawns the provisioned `ktx` binary's whole `_VERBS` roster, and no npm encoder matches it at parity.
+- KTX2 work is a CLI seam — `object/asset` spawns the provisioned `ktx` binary's whole `_VERBS` roster, and no npm encoder matches it at parity.
 - `ktx-parse` composes READ-ONLY — its `write` rewrites `KTXwriter` and answers a different digest, silently re-keying an immutable object.
 - `ktx validate` settles Khronos conformance, `ktx-parse` DECLARATION AGREEMENT — the verdict reads the report's `valid` field, never exit status.
-- `DateTime.distanceDurationEither` splits at `> 0` — a same-instant pair lands `Left`, so a gate admitting zero reads signed `DateTime.distance`.
 - S3 Object Lock is refused whole — the key IS the content, so no version exists to lock; preservation rides the `legal_hold` ledger and `held` tag.
+- `DuckDBAppender` is refused as a residence fill — positional-only, node-only, and the volume path crosses no rows into JS.
 
 ## [02]-[SHAPE]
 
@@ -29,7 +29,6 @@
 - `_POINTS` enumerates the OTLP point model, never the mount roster — `_KIND` maps a subset and the unreached relations still hold foreign rows.
 - `_POINTS` keys scalars per instrument KIND — a histogram relation holds no value column its sum sibling has, so one shared column empties tiles.
 - Lake metrics fold the emitting process's live registry into `_POINTS` on a tick — that snapshot IS the cold tail a metrics store cannot retain.
-- Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so the hoist waits on a SECOND consumer.
 - `object_ref.owner` is the closed `_OWNERS` vocabulary — prefix union, brand, and encoding mint derive from it; a new prefix lands its row first.
 - `subject:` owners mint only at the custody key's own projection — caller-supplied `dsar`-role prefixes refuse at `ObjectStore.admit` on `owner`.
 - `held` is a store-plane tag, never a `Retain.Class` — a hold has no clock, so no lifecycle rule matches and the object freezes at its depth.
@@ -41,15 +40,16 @@
 - Derivative cascades heal on the ledger side — each sweep pass closes with the orphan census, re-probing the source at the engine before re-running.
 - Registered lane scans admit only a pre-pumped bounded source — `rowCount` 0 spells exhausted and nothing-yet alike; `Atomics.wait` blocks fibers.
 - Lane scans pin `supportsProjectionPushdown`; predicate pushdown does not exist — the source row's ceiling is the one bound a filtered read holds.
+- `DateTime.distanceDurationEither` splits at `> 0` — a same-instant pair lands `Left`, so a gate admitting zero reads signed `DateTime.distance`.
+- Table-function registration is undroppable, re-registration keeping the first mint — one name per source per handle, content resolved by name.
 
 ## [03]-[COLLAPSE]
 
 - Both embedded DuckDB drivers mint ONE `Olap.Handle` family — a second read entry beside `Olap.read` leaves the worker taking unbounded statements.
-- `CacheLane.lease` owns the pool's ONE held-level series — a consumer minting a second row publishes the lane's lease under a name only it reads.
+- `CacheLane.lease` owns the pool's ONE held-level series — a second row publishes the cache lane's lease under a name only its minter reads.
 - Driver divergence stays a ROW on `_DRIVERS` — result grain, bind vocabulary, and execution members ride columns, so no arm branches on a driver.
-- Table-function registration is undroppable, re-registration keeping the first mint — one name per source per handle, content resolved by name.
-- `DuckDBAppender` is refused as a residence fill — positional-only, node-only, and the volume path crosses no rows into JS.
 - One re-runnable subject slice serves the resume rail — tus finalize and the preservation port take one landing, so no coordinate drifts.
+- Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so the hoist waits on a SECOND consumer.
 
 ## [04]-[STRUCTURE]
 

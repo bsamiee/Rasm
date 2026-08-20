@@ -1,14 +1,12 @@
 # [APPHOST]
 
-`Rasm.AppHost` is the host-neutral runtime spine every app root folds. It owns the composition-root doctrine, the reproducibility kernel with its hash-chained command log, the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface, the industrial external-binding studio, fleet provisioning with supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: crash-durable claims cover node death, delivery honesty states per sink, and a replay claim survives process restarts against the durable store.
-
-It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders, holds no AEC-domain reference, and contributes only the `ProjectionContext` ingredients the app composition root assembles.
+`Rasm.AppHost` is the host-neutral runtime spine every app root folds, minting one owner per runtime axis from composition-root doctrine and the reproducibility kernel through the observability plane. Crash-durable claims cover node death, delivery states per sink, and replay survives process restarts against the durable store.
 
 ## [01]-[ROUTER]
 
 [RUNTIME]:
-- [01]-[PROFILES](.planning/Runtime/profiles.md): Host-variance profile axis with lifetime adapters and power/thermal fidelity.
-- [02]-[LIFECYCLE](.planning/Runtime/lifecycle.md): Total lifecycle/phase/drain/cancellation spine with fault-to-capture trigger.
+- [01]-[PROFILES](.planning/Runtime/profiles.md): Consumption-profile boot — `Resolve`-admitted axis row, identity fold, power-fidelity scaling.
+- [02]-[LIFECYCLE](.planning/Runtime/lifecycle.md): Lifecycle spine — phase transitions, fault traps, drain receipts, cancellation provenance.
 - [03]-[TIME](.planning/Runtime/time.md): Injected clock pair, deadline taxonomy, and the one scheduler.
 - [04]-[RESOURCES](.planning/Runtime/resources.md): Bounded resource lanes — hybrid cache, object pools, and drainable queues.
 - [05]-[MODULES](.planning/Runtime/modules.md): One composition root folding and freezing the service graph.
@@ -17,22 +15,22 @@ It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, an
 - [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package seam every peer crosses.
 - [09]-[DETERMINISM](.planning/Runtime/determinism.md): Reproducibility kernel — pinned RNG/float-mode and the hash-chained command log.
 - [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md): Crash-durable workflow and persistent-job owner over the command/event/schedule ports.
-- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): In-process `WorkLane` resilience governor — bulkhead, adaptive permits, load-shed, circuit health.
+- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): `WorkLane` resilience governor — bulkhead, adaptive permits, load-shed, circuit health.
 - [12]-[FEATURES](.planning/Runtime/features.md): Config-backed OpenFeature targeting and rollout minting the one `FlagVerdict` seam.
 
 [AGENT]:
 - [13]-[MCP](.planning/Agent/mcp.md): MCP-server projection of descriptors to tools, resources, and prompts.
 - [14]-[REASONING](.planning/Agent/reasoning.md): In-process agent loop with model-selection and content-filter governance.
-- [15]-[FEDERATION](.planning/Agent/federation.md): Folds external MCP servers into one registry as brokered descriptors.
-- [16]-[CAPABILITY](.planning/Agent/capability.md): Self-describing op catalog, command algebra, and fenced distributed quota.
+- [15]-[FEDERATION](.planning/Agent/federation.md): MCP-client federation — external servers folded into one registry as brokered descriptors.
+- [16]-[CAPABILITY](.planning/Agent/capability.md): Self-describing op catalog, command algebra, and the scoped grant broker metering admission.
 - [17]-[IDENTITY](.planning/Agent/identity.md): Authentication boundary — OIDC issuer-trust, rotating token validation, claims-policy gate.
 - [18]-[RUNTIME](.planning/Agent/runtime.md): One command-dispatch front door over the command algebra, tool adoption, and receipt.
 
 [WIRE]:
-- [19]-[OUTBOUND](.planning/Wire/outbound.md): Single outbound boundary with per-seam retry/cache and delivery fan-out.
+- [19]-[OUTBOUND](.planning/Wire/outbound.md): Outbound boundary — every external dispatch admitted on one `Fin` rail and exiting as a receipt.
 - [20]-[LIVEWIRE](.planning/Wire/livewire.md): Reactive bidirectional external-binding studio over the industrial-transport axis.
 - [21]-[COMPANION](.planning/Wire/companion.md): Multi-process modality axis and gRPC-over-UDS control-service host.
-- [22]-[TOPICS](.planning/Wire/topics.md): In-process event-bus topology with fan-out, join, and coalesce builders.
+- [22]-[TOPICS](.planning/Wire/topics.md): In-process event bus — every domain event fanned once and every declined offer accounted.
 - [23]-[OUTBOX](.planning/Wire/outbox.md): Transactional outbox and dead-letter relay over the watermark dispatch sweep.
 - [24]-[COORDINATION](.planning/Wire/coordination.md): Cluster membership, election, and distributed-lock over the fenced lease.
 
@@ -43,12 +41,13 @@ It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, an
 - [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Post-fetch self-update state machine over the staged fleet-roll axis.
 
 [OBSERVABILITY]:
-- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal telemetry, per-signal egress, and durable OTLP buffering.
-- [30]-[HEALTH](.planning/Observability/health.md): Resource-pressure health fold and degradation/alert rails over one atomic reading cell.
-- [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture.
+- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal composition with per-signal governance and conformance projection.
+- [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder, alerts off the grading table.
+- [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture — trigger vocabulary, frozen window, one zip.
 - [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
-- [33]-[HOOKS](.planning/Observability/hooks.md): Typed hook registry over the bus, lifecycle, and receipt seams.
+- [33]-[HOOKS](.planning/Observability/hooks.md): Extension-point roster and the closed fact family — delivery capability and trace plane as row data.
 - [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark receipt family, the corpus gate, and profile-linked capture rows.
+- [35]-[EGRESS](.planning/Observability/egress.md): Durable OTLP transport — blob queue, disposition ledger, mutual-auth mount, persistent handler.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -69,59 +68,65 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `FluentValidation`
 - `FluentValidation.DependencyInjectionExtensions`
 - `Scrutor`
-- `System.CommandLine` — projects the app-root verb table onto `CommandDispatch.Run`.
+- `System.CommandLine` — Projects the app-root verb table onto `CommandDispatch.Run`.
 - `Cronos`
 - `Microsoft.Extensions.ObjectPool`
-- `System.Threading.Tasks.Dataflow` — drainable-queue dataflow blocks; framework-provided, no manifest row.
+- `System.Threading.Tasks.Dataflow` — Drainable-queue dataflow blocks; framework-provided, no manifest row.
 
-[OBSERVABILITY]:
+[HEALTH_DIAGNOSTICS]:
 - `Microsoft.Extensions.Diagnostics` — `AddMetrics` mints the per-ALC `IMeterFactory` behind the plugin capsule provider.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — Windows and Linux process and container utilization instruments behind the pressure grade.
-- `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.
+- `Microsoft.Diagnostics.NETCore.Client` — Process-dump and EventPipe capture feeding the support-bundle fan.
 - `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture triage feeding support-bundle receipts.
-- `Microsoft.Diagnostics.Tracing.TraceEvent` — decodes the EventPipe event stream off the diagnostics session.
+- `Microsoft.Diagnostics.Tracing.TraceEvent` — Decodes the EventPipe event stream off the diagnostics session.
+- `Npgsql` — Pooled `NpgsqlDataSource` the store health driver row binds; the probe shares production pool pressure, never a second connection.
+- `Npgsql.OpenTelemetry` — `AddNpgsql` tracing and `AddNpgsqlInstrumentation` metrics registered once at the store-composing root.
 - `AspNetCore.HealthChecks.NpgSql`
 - `AspNetCore.HealthChecks.Redis`
 - `AspNetCore.HealthChecks.System`
 - `AspNetCore.HealthChecks.Uris`
 - `AspNetCore.HealthChecks.Kafka`
-- `AspNetCore.HealthChecks.Nats` — probes the NATS broker anchor over the pooled connection.
-- `Microsoft.Extensions.Http.Diagnostics` — outbound-request latency breakdown and redaction-aware extended client logging.
-- `Microsoft.Extensions.Telemetry` — composition-root log sampling, buffering, enrichment, redaction activation, and the latency ledger.
+- `AspNetCore.HealthChecks.Nats` — Probes the NATS broker anchor over the pooled connection.
+
+[TELEMETRY_SDK]:
+- `Microsoft.Extensions.Http.Diagnostics` — Outbound-request latency breakdown and redaction-aware extended client logging.
+- `Microsoft.Extensions.Telemetry` — Composition-root log sampling, buffering, enrichment, redaction activation, and the latency ledger.
 - `OpenTelemetry`
 - `OpenTelemetry.Extensions` — `BaggageActivityProcessor` cost-attribution baggage promotion; `RateLimitingSampler` per-second head cap.
 - `OpenTelemetry.Extensions.Hosting`
-- `OpenTelemetry.Instrumentation.AspNetCore` — service-root inbound request spans and the built-in hosting meters.
-- `OpenTelemetry.Instrumentation.GrpcNetClient` — client-span semconv over the `Grpc.Net.Client` hops.
+- `OpenTelemetry.Instrumentation.AspNetCore` — Service-root inbound request spans and the built-in hosting meters.
+- `OpenTelemetry.Instrumentation.GrpcNetClient` — Client-span semconv over the `Grpc.Net.Client` hops.
 - `OpenTelemetry.Instrumentation.Http`
-- `OpenTelemetry.Instrumentation.Process` — absolute process memory, `cpu.mode`-split CPU seconds, thread count, and uptime series.
+- `OpenTelemetry.Instrumentation.Process` — Absolute process memory, `cpu.mode`-split CPU seconds, thread count, and uptime series.
 - `OpenTelemetry.Instrumentation.Runtime`
-- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — Projects the OTLP exporter at the composition root.
 - `OpenTelemetry.PersistentStorage.FileSystem` — `FileBlobProvider` offline queue replaying failed OTLP batches on reconnect.
 - `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity seam.
 - `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity seam.
 - `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity seam.
 - `OpenTelemetry.Resources.Process` — `process.owner`/`process.pid`/`process.creation.time` resource detector.
 - `OpenTelemetry.Resources.ProcessRuntime` — `process.runtime.*` resource detector at the identity seam.
-- `Pyroscope` — native continuous-profiler agent; `Profiler.Instance` singleton the span processor writes profile ids into.
+- `Pyroscope` — Native continuous-profiler agent; `Profiler.Instance` singleton the span processor writes profile ids into.
 - `Pyroscope.OpenTelemetry`
+
+[LOG_SINKS]:
 - `Serilog`
 - `Serilog.Extensions.Hosting`
-- `Serilog.Sinks.Console` — composition-root sink projection.
-- `Serilog.Sinks.File` — composition-root sink projection.
+- `Serilog.Sinks.Console` — Composition-root sink projection.
+- `Serilog.Sinks.File` — Composition-root sink projection.
 
 [OUTBOUND_TRANSPORT]:
-- `CloudNative.CloudEvents.AspNetCore` — request and response extensions alone; `Wire/companion#EVENT_INGRESS` owns the abuse-protection handshake.
+- `CloudNative.CloudEvents.AspNetCore` — Request and response extensions alone; `Wire/companion#EVENT_INGRESS` owns the abuse-protection handshake.
 - `Microsoft.Extensions.Http.Resilience`
 - `Polly.Core`
 - `Polly.Extensions`
 - `Polly.RateLimiting`
 - `Microsoft.Extensions.ServiceDiscovery`
 - `Grpc.AspNetCore.HealthChecks`
-- `Grpc.HealthCheck` — transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
-- `Grpc.AspNetCore.Web` — `Runtime/ports` `[WIRE_CONTRACT]` defers it: no browser reaches the local UDS hop, so grpc-web lands only cross-origin.
-- `Microsoft.AspNetCore.App` — shared-framework capability (no manifest row) serving `CoHostedAssets` through `UseStaticFiles(StaticFileOptions)`
+- `Grpc.HealthCheck` — Transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
+- `Grpc.AspNetCore.Web` — Cross-origin grpc-web middleware row at the app root.
+- `Microsoft.AspNetCore.App` — Shared framework the gRPC host's transitive framework reference supplies; serves `CoHostedAssets` via `UseStaticFiles`.
 
 [CAPABILITY_AGENT]:
 - `ModelContextProtocol`
@@ -137,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.IdentityModel.JsonWebTokens`
 - `Microsoft.IdentityModel.Tokens`
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- `Microsoft.IdentityModel.Protocols` — drives the `ConfigurationManager<T>` refresh seam under OpenIdConnect.
+- `Microsoft.IdentityModel.Protocols` — `ConfigurationManager<T>` refresh seam; transitive under the OpenIdConnect sibling, centrally pinned.
 - `Sigstore`
 - `NuGet.Versioning`
 - `Velopack`
@@ -148,12 +153,12 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `OPCFoundation.NetStandard.Opc.Ua`
 - `OPCFoundation.NetStandard.Opc.Ua.PubSub`
 - `FluentModbus`
-- `BACnet` — backs the building-automation `bacnet` `ExternalTransport` row feeding twin calibration.
+- `BACnet` — Backs the building-automation `bacnet` `ExternalTransport` row feeding twin calibration.
 - `System.IO.Ports`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
 - `Generator.Equals` — `HostFingerprint` structural equality over its stamp map.
@@ -161,36 +166,39 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `LanguageExt.Core`
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
-- `QuikGraph` — adjacency, reachability, and topological order under the determinism recompute graph.
+- `QuikGraph` — Adjacency, reachability, and topological order under the determinism recompute graph.
+- `Riok.Mapperly` — Generator-only (`PrivateAssets`); one `[Mapper]` per wire seam owns every domain↔wire correspondence.
 - `System.IO.Hashing`
 - `System.Numerics.Tensors`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 
-[EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — message-envelope algebra the HTTP ingress admits and every outbox hop projects.
-- `MTConnect.NET-Common` — connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row.
-- `MQTTnet` — subscribe-shaped `mqtt` `ExternalTransport` row, its held client, and the consumer-kinded receive bracket.
+[SERVICE_CONTRACTS]:
+- `Microsoft.Extensions.AI.Abstractions`
+- `Microsoft.Extensions.AI` — Concrete builder and middleware owner behind the injected contracts.
+- `Microsoft.Extensions.Caching.Hybrid` — Stampede-guarded recency substrate the host composes once at the root.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry.Abstractions`
 - `Microsoft.Extensions.Compliance.Redaction`
 
-[AI_CONTRACTS]:
-- `Microsoft.Extensions.AI.Abstractions`
-- `Microsoft.Extensions.AI` — concrete builder and middleware owner behind the injected contracts.
-
 [WIRE_CODEGEN]:
-- `Google.Protobuf` — runtime for the control-verb request and reply messages the codegen emits.
+- `Google.Protobuf` — Runtime for the control-verb request and reply messages the codegen emits.
 - `Grpc.AspNetCore`
-- `Grpc.Core.Api` — `ControlService` descriptors, marshallers, and the per-call context the control rail binds.
+- `Grpc.Core.Api` — Control-rail binding seat.
 - `Grpc.Net.Client`
-- `Grpc.Tools` — build-only codegen over the Compute-owned control proto; its `<Protobuf>` item carries the mode.
+- `Grpc.Tools` — Build-only codegen over the Compute-owned control proto; its `<Protobuf>` item carries the mode.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- `NodaTime.Serialization.Protobuf` — carries `Duration` and `Instant` across the control-verb wire.
+- `NodaTime.Serialization.Protobuf` — Carries `Duration` and `Instant` across the control-verb wire.
 
-[RUNTIME_SUPPLY]:
-- `Microsoft.Extensions.Caching.Hybrid` — stampede-guarded recency tier the host composes once at the root.
-- `System.Net.Http` — handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
-- `System.Text.Json` — suite wire: merged source-generated contexts freeze into one options identity, with schema export off it.
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — Message-envelope algebra the HTTP ingress admits and every outbox hop projects.
+
+[MACHINE_CONNECTIVITY]:
+- `MTConnect.NET-Common` — Connectivity partition behind the machine-tool `mtconnect` `ExternalTransport` row.
+- `MQTTnet` — Subscribe-shaped `mqtt` `ExternalTransport` row, its held client, and the consumer-kinded receive bracket.
+
+[RUNTIME_INBOX]:
+- `System.Net.Http` — Handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
+- `System.Text.Json` — Suite wire: merged source-generated contexts freeze into one options identity, with schema export off it.

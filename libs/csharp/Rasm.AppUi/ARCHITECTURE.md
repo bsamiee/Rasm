@@ -1,89 +1,88 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand`. S4 seats it as the consuming leaf: it references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Materials, Rasm.Persistence}` downward, re-owns none of their capability, and never becomes the composition root.
+`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand`. S4 seats it as the consuming leaf: it references the platform peers downward, re-owns none of their capability, and never becomes the composition root.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.AppUi/
 ├── Shell/                # Host-mount axis and application shell spine
-│   ├── Navigation.cs     # Routing spine with typed deep-link grammar over dockable layouts
-│   ├── Screens.cs        # Screen catalog with ref-counted activation and OAPH-paced state
-│   ├── Hosts.cs          # Host-neutral surface mounting with seam delegate columns
-│   ├── Commands.cs       # Command vocabulary with availability algebra and total receipts
-│   ├── Controls.cs       # ControlIntent union materialized through one control factory
-│   ├── Solver.cs         # Layout-constraint Kiwi algebra solved by one custom panel
-│   ├── Virtualization.cs # One virtual-window owner over change-sets and an extent ledger
-│   ├── Dialogs.cs        # Two-stack dialog intents, derived topology, notification plane, activity inbox
-│   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, device drivers
-│   └── Accessibility.cs  # Automation identity, tab-order and trap law, one WCAG luminance gate
+│   ├── Navigation.cs     # NavRequest union over the ShellRoot router; ShellDockFactory folds DockableRow rows through RegionProgram
+│   ├── Screens.cs        # Frozen ScreenCatalog derivation table and the ScreenBase activation scopes with one screen fault fold
+│   ├── Hosts.cs          # SurfaceMount union beside the profile-stated host class; one seam record carries the mount
+│   ├── Commands.cs       # CommandIntent rows with payload union, the availability algebra seat, CommandDeck derivations
+│   ├── Controls.cs       # Closed ControlIntent [Union] where arity, provider, modality, and emphasis ride case columns
+│   ├── Solver.cs         # LayoutConstraint equality, inequality, and priority algebra; the Cassowary-backed panel seat
+│   ├── Virtualization.cs # VirtualWindow viewport-range realization at constant cost; control-recycling columns
+│   ├── Dialogs.cs        # DialogIntent union over per-root Interaction seams; StackOwner binding and Fin-railed results
+│   ├── Input.cs          # GesturePolicy chord derivation, behavior trigger and action rows, the frozen PanZoomRow family
+│   └── Accessibility.cs  # ScreenCatalogRow automation columns, KeyboardNavigation reachability, the luminance gate fold
 ├── Render/               # Pure GPU-viewport and temporal plane
-│   ├── Pipeline.cs       # Render-graph pass-DAG over per-backend GPU targets and the resolve ladder
-│   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
-│   ├── PathTrace.cs      # BVH, ReSTIR, ray-cone LOD, denoise oracle, and the resolved environment dome
-│   ├── Shading.cs        # Admitted shader roster, budgeted plane residency, and the layered-BSDF plus prefiltered-dome shade pass
-│   ├── Immersive.cs      # OpenXR session machine, stereo review, passthrough, and spatial anchors over the shared device
-│   ├── Reality.cs        # Gaussian-splat and point-cloud capture over the one residency carrier
-│   ├── Capture.cs        # Raster capsule, color-policy owner, vector-print arm, and encode rows
-│   ├── Drafting.cs       # Sheet drafting with hidden-line consumption and one DWG/DXF write leg
-│   └── Animation.cs      # Timeline keyframe-track union with 4D schedule playback
+│   ├── Pipeline.cs       # Pass-DAG over the leased GRContext; GpuBackend rows carry Target delegates over the GpuBinding union
+│   ├── Meshlets.cs       # ResidencyMeshlet descriptor reads; selection owner for bindless residency, prefetch, and instancing
+│   ├── PathTrace.cs      # BVH build-and-refit, ReSTIR reservoirs, progressive denoise; LayeredBsdf shading off the SlabStack product
+│   ├── Shading.cs        # ShaderAssetCache keyed per GpuBackend beside the byte-budgeted native texture-plane cache
+│   ├── Immersive.cs      # OpenXR session machine on the leased Wgpu device; ImmersiveMode carries immersive-versus-flat as a value
+│   ├── Reality.cs        # SplatSource and PointCloudSource decodes off the residency carrier; the CapturePass projection
+│   ├── Capture.cs        # DrawSource capsule with Fin-railed Use; SKImage materialization and content-hashed encode rows
+│   ├── Drafting.cs       # SheetSet templating and Viewport2D framing over the Fabrication hidden-line owner
+│   └── Animation.cs      # Track union, Keyframe value-plus-motion-token carrier, Timeline deterministic playhead
 ├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Dashboards.cs     # Chart series and axis rows with downsampled stream binding and brushing
-│   ├── Custom.cs         # Custom-visual Skia layout algebra with a keyed color-policy projection
-│   ├── Basemap.cs        # Tiled basemap with Bim-owned overlays and EditManager redlining beside the viewport
-│   ├── Telemetry.cs      # Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles
-│   └── Climate.cs        # AEC climate diagram folds — roses, sun paths, sky domes, comfort charts — and the polar split
+│   ├── Custom.cs         # CustomVisual frozen layout catalog binding one VisualPayload case per row
+│   ├── Basemap.cs        # Mapsui MapControl with BasemapSource tile rows and NTS overlay rows; EditManager Apply verbs
+│   ├── Telemetry.cs      # TelemetryBoard row pinning EvidenceFan, frame objectives, store-profile receipts, EvidenceJoin
+│   └── Climate.cs        # Declared diagram family lowering onto the chart plane; the polar-split verdict columns
 ├── Analysis/             # Sealed study results as a scene, a comparison, and one environmental coordinate
-│   ├── Layers.cs         # Result layers over one payload with the probe channel, adoption site, and bake verbs
-│   ├── Compare.cs        # Synced compare grid over option, analysis, and time under four shared channels
-│   └── Context.cs        # One temporal-and-climate axis beside the pre-solve compute-budget meter
+│   ├── Layers.cs         # ResultLayer stack with study, input-digest, and run-history columns; ResultDomain legend resolution
+│   ├── Compare.cs        # CompareAxis vocabulary; per-cell coordinate-triple binding under the shared channel set
+│   └── Context.cs        # AnalysisContext value: site, civil moment, grain, climate scenario; one scrub re-derives the scene
 ├── Editing/              # Typed-edit surfaces over the model
-│   ├── Inspector.cs      # Typed property inspection with ranked editor rows and diff3 conflict hunks
-│   ├── Tables.cs         # Tabular and hierarchical projection routed through the virtual window
-│   ├── Forms.cs          # Sectioned form schema and chrome capsule, pending-commit posture, study recipes, batch fold
-│   ├── History.cs        # Revertible-op inverse algebra over the recorder and a durable-ledger arm, and its scrubbable timeline surface
-│   ├── LiveData.cs       # Reactive data spine: sourcing cases, filter and view algebra, optimistic overlay, design options
-│   └── Graph.cs          # Node-editor parametric canvas with an admission gate and co-edit merge
+│   ├── Inspector.cs      # InspectorPolicy admission capsule, ranked EditorFactory rows, the EditFault/EditReceipt commit rail
+│   ├── Tables.cs         # TableColumnRow metadata family and the TableProjection fold across flat, tree, and grouped reads
+│   ├── Forms.cs          # FormSchema typed sections over PropertyModels; the multi-selection batch-edit seat
+│   ├── History.cs        # RevertDelta payloads with structural inverses over CancelableCommandRecorder and the ledger stream
+│   ├── LiveData.cs       # DataSource axis with pacing policy, the filter and view-state pair, operator rows, OverlayRank merge
+│   └── Graph.cs          # IDrawingNode/DrawingNodeEditor canvas, the QuikGraph cycle gate, LoroTree co-edit structure
 ├── Document/             # Reproducible document plane
-│   ├── Notebook.cs       # Capability-pinned cells composing the recompute graph; co-editing; replay
-│   ├── Media.cs          # Markdown blocks and codec rows for the one Surfaces.Mount crossing; transport, caption, gallery, diff seats
-│   ├── Export.cs         # Paginated flow reports, PDF security forms and outline, Office and print arms, support-bundle rows
-│   ├── Search.cs         # Typed search plane with ranked source-attributed results and its grouped results panel
-│   └── Board.cs          # Infinite board composing view frames, stat cards, and sheets into a publishable deliverable
+│   ├── Notebook.cs       # NotebookCell kind union with pinned capability fingerprints; code cells carry data only
+│   ├── Media.cs          # MarkdownRenderer over typography rows, MediaSurface codec rows, the one Surfaces.Mount crossing
+│   ├── Export.cs         # MigraDoc flow composition, PDFsharp policy hardening, OOXML writers, lcmsNET print-fidelity rows
+│   ├── Search.cs         # SearchQuery closed request shape and SearchSource coverage rows projecting the landed owners
+│   └── Board.cs          # BoardItem placement family: live frames with board-owned crop, stat cards, sheet frames, annotation
 ├── Collab/               # Live-collaboration plane over the durable Persistence spine
-│   ├── Sync.cs           # Live-merge authority and the typed edit-intent stream onto the durable ledger
-│   ├── Issues.cs         # openBIM issue board projection over the Bim BCF contract
-│   ├── Tour.cs           # Review tour as a camera-track projection with presenter-follow presence
-│   └── Session.cs        # Typed session governance gating edit-intent admission by role and membership
+│   ├── Sync.cs           # CollabDoc LoroDoc container forest as live authority; the typed intent stream stays durable truth
+│   ├── Issues.cs         # Issue composition of Viewpoint with the BCF topic; CommentLens, IssueRegister columns, IssueTile
+│   ├── Tour.cs           # ReviewTour ordered TourStop sequence binding saved Viewpoints with dwell and motion tokens
+│   └── Session.cs        # SessionRole rank rows, MembershipState lifecycle axis, MembershipOp verdict transitions
 ├── Diagnostics/          # Evidence, proof, dev loop, and quality governance
-│   ├── Evidence.cs       # Evidence-receipt union, telemetry spine and fan, correlation join, 6xxx fault registry
-│   ├── Proof.cs          # Capture lanes, headless proof matrix, frame-bench lanes, goldens, and a typed proof fault
-│   ├── DevLoop.cs        # Hot-reload knobs, inspector, HUD, flamegraph, solve scrub, and a REPL
-│   └── Governor.cs       # Perf-budget quality governor with timestamp attribution
+│   ├── Evidence.cs       # EvidenceReceipt case fold into the HLC-stamped sink; scope identity, dimension vocabulary, meter mount
+│   ├── Proof.cs          # Capture, check, variant-density, benchmark, and replay cells off live catalogs; CsCheck and Verify seal
+│   ├── DevLoop.cs        # Reload knob rows, the attach-config inspector row, HUD sample feed, FlameNode fold, solve scrub
+│   └── Governor.cs       # PerfBudget fold over the GovernorState cell; hysteresis steps passes, residency, motion, XR together
 ├── Vfx/                  # Owned effects plane over the one draw capsule
-│   ├── Material.cs       # Layer algebra, the sample-invalidation contract, and the per-draw filter rows
-│   ├── Shader.cs         # SkSL program roster, uniform frames, path patterns, byte-ceiling recorded tiles
-│   └── Compose.cs        # Closed composition slot vocabulary, keyframe mint, trigger maps, render-thread tick
+│   ├── Material.cs       # Layer capsule bracketing draws over a compositor-painted ground; filter-term rows, the sample contract
+│   ├── Shader.cs         # Compiled-once SkSL roster, the per-frame uniform frame, path-effect family, byte-ceiling tile cache
+│   └── Compose.cs        # Slot vocabulary keyed by compositor property names; keyframe mint under the duration floor, trigger maps
 └── Theme/                # Pure vocabulary: tokens, typography, motion, assets, locale
-    ├── Tokens.cs         # Seed-generated token ladder with variant-scoped emission and atomic theme swap
-    ├── Typography.cs     # Generated two-axis type table, capability-keyed face cabinet, itemizing shaping rail
-    ├── Motion.cs         # Motion tokens with spring algebra and a progress-to-token map
-    ├── Assets.cs         # Nameof-derived asset-key vocabulary with rank-fallback sourcing
-    └── Locale.cs         # Locale rows over Resx, ICU, calendars, collation, the mirroring law, measurement format
+    ├── Tokens.cs         # Appearance seed rows expanded by one pure fold into the TokenKey ladder; variant and density axes
+    ├── Typography.cs     # TypographyRole rhythm rungs with the orthogonal TypeAxis; the itemizing shaping rail seat
+    ├── Motion.cs         # MotionToken rows carrying one MotionTiming modality and a reduced-motion delegate each
+    ├── Assets.cs         # IconRow registry of kernel AssetOrigins; IconSurface composes IconRender with pose and filter chain
+    └── Locale.cs         # LocaleRow culture axis and the ResolvedLocale binding; per-script shaping, calendar-bound patterns
 ```
-
-`Shell` owns the host-mount axis and application spine — the mount precedes the shell, the shell precedes the screens it routes — and `Theme` is the pure vocabulary every literal traces to, with `Vfx` its executor: the effects plane draws what the token catalogue declares and owns no constant of its own. `Render` owns the GPU viewport and the temporal plane, `Document` the recompute graph and every paginated output, and `Diagnostics` the 6xxx fault registry, the proof matrix, the telemetry spine, and the quality governor. `Analysis` is the consuming leaf of that stack: it owns what a SEALED study becomes — a stacked result layer, a probed coordinate, a synced comparison, and the one environmental context every layer, diagram, and bound series reads — and computes no analysis value of its own, so `Rasm.Compute` stays the solver and this plane stays its reader. `Collab/sync` holds the one live-merge authority and the typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
 
 ## [02]-[STRATA]
 
-Four member-resolved strata order the interior; `Diagnostics/Evidence` is the reciprocal hub — every owner derives its fault codes through `AppUiFaultBand` while `EvidenceReceipt` nests every producer's receipt record — so the hub seats S0 and the nesting reads as co-ownership, never an upward import; every consumption edge points down.
+Member-resolved strata order the interior, and every consumption edge points down.
 
-- S0 substrate — `AppUiFaultBand` 6xxx codes and the `AppUiTelemetry` dimension slots (`Diagnostics/Evidence`) over the kernel signal capsule.
-- S0 vocabulary — pure `Theme` (`TokenKey`, `MotionToken`, `AssetKeys`); every visual literal traces here.
-- S1 spines — one owner per fabric: the `CommandIntent` verb table with its `CommandDeck`, and the `VirtualWindowSpec` windowing fabric.
-- S1 spines — the `LayoutSolver` constraint panel, the `EditReceipt` inspection rail, and the `RenderReceipt`/`RenderGraph` render spine.
-- S2 streams — `BehaviorRail` binding, the `EditIntent`/`IntentLedger` live-merge authority (`Collab/Sync`), and the `RevertibleOp` inverse algebra.
-- S3 surfaces — `ControlFactory` materializes every control over the spines and streams; `IssueBoard` projects over the intent ledger.
+- S0 hub — `Diagnostics/Evidence` seats lowest; `EvidenceReceipt` NESTS producer receipts as co-ownership, so the fan adds no upward import.
+- S0 substrate — every fault union in the package derives through its `AppUiFaultBand` row, so code ranges never collide across sub-domains.
+- S0 vocabulary — pure `Theme`: every visual literal traces to a generated `TokenRow`, and the swap re-seeds atomically.
+- S1 spines — one owner per fabric; a second command table, window fabric, constraint panel, or render spine is the forked-spine defect.
+- S1 law — spines consume S0 alone and never each other, so the rank holds no lateral edge.
+- S2 streams — streams fold spine facts into live authorities; `Collab/Sync` is the one concurrent-edit truth every surface reads.
+- S3 surfaces — materialization is total: no screen body spells a control outside the factory, so S3 adds consumers and never vocabulary.
 - S3 planes — notebook, export, screen, and analysis planes share the rungs; `ResultLayer` seats highest, reading spine, legend, and queue at once.
 
 ```mermaid
@@ -96,7 +95,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.AppUi interior strata
-    accDescr: Four member-resolved strata from the control and issue surfaces through the binding, intent, and revert streams and the one-owner spines onto the fault-band and theme substrate, every consumption edge downward and naming one sourced type.
+    accDescr: Which lower vocabulary each spine, stream, and surface owner consumes, and the EvidenceReceipt counter-edge the hub nests.
     subgraph S3["S3 SURFACES"]
         Factory[ControlFactory]
         Board[IssueBoard]
@@ -117,22 +116,24 @@ flowchart TB
         Fault[AppUiFaultBand]
         Token[TokenRow]
     end
-    Factory -->|"[IMPORT]: VirtualWindowSpec"| Virtual
-    Factory -->|"[IMPORT]: LayoutSolver"| Solver
-    Factory -->|"[IMPORT]: BehaviorRail"| Rail
-    Factory -->|"[IMPORT]: TokenRow"| Token
-    Board -->|"[IMPORT]: EditIntent"| Intent
-    Rail -->|"[IMPORT]: CommandIntent"| Command
-    Revert -->|"[IMPORT]: CommandIntent"| Command
-    Revert -->|"[IMPORT]: EditReceipt"| Inspect
-    Intent -->|"[IMPORT]: CommandIntent"| Command
-    Command -->|"[IMPORT]: AppUiFaultBand"| Fault
-    Graph -->|"[IMPORT]: AppUiFaultBand"| Fault
+    Factory e1@-->|"[IMPORT]: VirtualWindowSpec"| Virtual
+    Factory e2@-->|"[IMPORT]: LayoutSolver"| Solver
+    Factory e3@-->|"[IMPORT]: BehaviorRail"| Rail
+    Factory e4@-->|"[IMPORT]: TokenRow"| Token
+    Board e5@-->|"[IMPORT]: EditIntent"| Intent
+    Rail e6@-->|"[IMPORT]: CommandIntent"| Command
+    Revert e7@-->|"[IMPORT]: CommandIntent"| Command
+    Revert e8@-->|"[IMPORT]: EditReceipt"| Inspect
+    Intent e9@-->|"[IMPORT]: CommandIntent"| Command
+    Command e10@-->|"[IMPORT]: AppUiFaultBand"| Fault
+    Graph e11@-->|"[IMPORT]: AppUiFaultBand"| Fault
+    Fault e12@-.->|"[COUNTER]: EvidenceReceipt"| Factory
+    Fault f1@-->|"forbidden: hub upward"| S3
 ```
 
 ## [03]-[SEAMS]
 
-Two fences split the seam map by counterpart role: the first binds the same-branch AEC peers, the kernel, and the durable store; the second binds the platform host and the TypeScript peers. Each collapsed edge stands for every contract between that owner and that partner at the load-bearing kind; the owning pages enumerate the rest.
+Seam fences split by counterpart role: the first binds the same-branch AEC peers, the kernel, and the durable store; the second binds the platform host and the TypeScript peers. Each collapsed edge stands for every contract between that owner and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
 ```mermaid
 ---
@@ -144,7 +145,7 @@ config:
 ---
 flowchart LR
     accTitle: AppUi AEC-domain, render-source, and storage seams
-    accDescr: AppUi render, chart, collaboration, theme, and diagnostics owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
+    accDescr: Which projections, receipts, boundaries, and content keys cross between the AppUi owners and their C# peers.
     subgraph appui[RASM.APPUI]
         Render[Render plane]
         Charts[Chart planes]
@@ -159,28 +160,28 @@ flowchart LR
     Bim([Rasm.Bim])
     Rasm([Rasm])
     Persistence[(Rasm.Persistence)]
-    Compute -->|"[PROJECTION]: ResidencyPayload"| Render
-    Render <-->|"[SHAPE]: WgpuDevice"| Compute
-    Fabrication -->|"[RECEIPT]: HiddenLineResult"| Render
-    Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
-    Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
-    Rasm -->|"[SHAPE]: SunPosition"| Render
-    Rasm -->|"[PROJECTION]: DrawingProjection + HatchResult"| Render
-    Rasm -->|"[WIRE]: SpatialIndex"| Render
-    Rasm -->|"[BOUNDARY]: SpringShape"| Theme
-    Bim -->|"[SHAPE]: GeoTiles"| Charts
-    Bim -->|"[RECEIPT]: CostSchedule"| Charts
-    Bim -->|"[RECEIPT]: ScheduleNetwork"| Charts
-    Bim -->|"[RECEIPT]: EnergyResults"| Charts
-    Persistence -->|"[PROJECTION]: telemetry measure series"| Charts
-    Persistence -->|"[RECEIPT]: resident ReceiptEnvelope"| Diagnostics
-    Bim -->|"[PORT]: IssueBoard"| Collab
-    Collab -->|"[PROJECTION]: ReplayWindow"| Persistence
-    Collab -->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
-    Document -->|"[WIRE]: DocumentQuery/DocumentHit"| Persistence
-    Bim -->|"[RECEIPT]: ConstructionState"| Render
-    Bim -->|"[BOUNDARY]: BcfViewpoint"| Render
-    Bim -->|"[SHAPE]: GeoReference"| Render
+    Compute e1@-->|"[PROJECTION]: ResidencyPayload"| Render
+    Render e2@<-->|"[SHAPE]: WgpuDevice"| Compute
+    Fabrication e3@-->|"[RECEIPT]: HiddenLineResult"| Render
+    Materials e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
+    Rasm e5@-->|"[CONTENT_KEY]: ContentHash"| Render
+    Rasm e6@-->|"[SHAPE]: SunPosition"| Render
+    Rasm e7@-->|"[PROJECTION]: DrawingProjection + HatchResult"| Render
+    Rasm e8@-->|"[WIRE]: SpatialIndex"| Render
+    Rasm e9@-->|"[BOUNDARY]: SpringShape"| Theme
+    Bim e10@-->|"[SHAPE]: GeoTiles"| Charts
+    Bim e11@-->|"[RECEIPT]: CostSchedule"| Charts
+    Bim e12@-->|"[RECEIPT]: ScheduleNetwork"| Charts
+    Bim e13@-->|"[RECEIPT]: EnergyResults"| Charts
+    Persistence e14@-->|"[PROJECTION]: StoreProfileRow"| Charts
+    Persistence e15@-->|"[RECEIPT]: ReceiptEnvelope"| Diagnostics
+    Bim e16@-->|"[PORT]: IssueBoard"| Collab
+    Collab e17@-->|"[PROJECTION]: ReplayWindow"| Persistence
+    Collab e18@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
+    Persistence e19@-->|"[WIRE]: DocumentQuery + DocumentHit"| Document
+    Bim e20@-->|"[RECEIPT]: ConstructionState"| Render
+    Bim e21@-->|"[BOUNDARY]: BcfViewpoint"| Render
+    Bim e22@-->|"[SHAPE]: GeoReference"| Render
 ```
 
 ```mermaid
@@ -205,21 +206,20 @@ flowchart LR
     Rasm([Rasm])
     Core([typescript:core])
     Ui([typescript:ui])
-    Shell -->|"[WIRE]: CommandPayloadWire"| Core
-    Render -->|"[WIRE]: GeometryResidencyWire"| Core
-    Diagnostics -->|"[WIRE]: EvidenceTimelineWire"| Core
-    Shell -->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Ui
-    Render -->|"[RECEIPT]: RenderReceipt"| Ui
-    AppHost -->|"[PORT]: DeterminismContext"| Document
-    Diagnostics <-->|"[FAULT]: FaultBand"| AppHost
-    Rasm -->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| Diagnostics
-    AppHost -->|"[PORT]: HookRail"| Diagnostics
-    AppHost -->|"[PORT]: ProfileSampleSource"| Diagnostics
-    Collab <-->|"[TRANSPORT]: CollabWireContext"| AppHost
+    Shell e1@-->|"[WIRE]: CommandPayloadWire"| Core
+    Render e2@-->|"[WIRE]: GeometryResidencyWire"| Core
+    Diagnostics e3@-->|"[WIRE]: EvidenceTimelineWire"| Core
+    Shell e4@-->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Ui
+    AppHost e5@-->|"[PORT]: DeterminismContext"| Document
+    Diagnostics e6@<-->|"[FAULT]: FaultBand"| AppHost
+    Rasm e7@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| Diagnostics
+    AppHost e8@-->|"[PORT]: HookRail"| Diagnostics
+    AppHost e9@-->|"[PORT]: ProfileSampleSource"| Diagnostics
+    Collab e10@<-->|"[TRANSPORT]: CollabWireContext"| AppHost
 ```
 
 - `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` into `Render` — the appearance edge, VALUES only.
-- Materials lowers the layered BSDF and channel-value closure, presses or ingests the plane set, prefilters the dome, and resolves the solar disc.
+- Materials lowers the layered BSDF and channel closure, presses or ingests the texture-plane set, prefilters the dome, resolves the solar disc.
 - `Render/pathtrace` shades and draws the dome and its solar disc; `Render/shading` uploads planes and binds the prefiltered products.
 - Appearance semantics stay Materials-side; Render supplies the point, the UV, the mip level, and the device.
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
@@ -248,7 +248,41 @@ flowchart LR
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 
-## [04]-[BOUNDARIES]
+## [04]-[INTERNAL]
+
+One mount-then-route spine orders the interior: the mount precedes the shell, and the shell precedes the screens it routes.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Rasm.AppUi mount-to-receipt spine
+    accDescr: How a mounted surface routes through shell, screens, and controls onto the draw executor while faults converge on the band.
+    Mount(["SurfaceMount"]) e1@--> Route["ShellRoot routing"]
+    Route e2@--> Screen["ScreenCatalog activation"]
+    Screen e3@--> Control["ControlFactory materialization"]
+    Control e4@--> Draw["Vfx draw executor"]
+    Draw e5@--> Spine["AppUiTelemetry.Contribute"]
+    Spine e6@--> Sink(["ReceiptSinkPort"])
+    Route f1@-.->|"route fault"| Band[/AppUiFaultBand/]
+    Screen f2@-.->|"screen fault"| Band
+    Control f3@-.->|"edit fault"| Band
+    Band f4@--> Spine
+```
+
+- `Shell` owns the host-mount axis and application spine.
+- `Theme` is the pure vocabulary every visual literal traces to, and `Vfx` its executor — drawing what the catalogue declares, owning no constant.
+- `Render` owns the GPU viewport and the temporal plane; `Document` the recompute graph and every paginated output.
+- `Diagnostics` owns the fault registry, the proof matrix, the telemetry spine, and the quality governor.
+- `Analysis` owns what a SEALED study becomes and computes no value of its own — `Rasm.Compute` stays the solver and this plane its reader.
+- `Collab/sync` holds the one live-merge authority; typed `EditIntent` is durable truth on the Persistence ledger, and no Loro byte crosses it.
+
+## [05]-[BOUNDARIES]
 
 - Element selection enters as receipts scope-qualified at `Rasm.Bim` `Model/query` or `Rasm.Persistence` `Query/lane`; AppUi runs no query engine.
 - Cost and schedule dashboards consume the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as `Charts/dashboards` feed values.
@@ -277,7 +311,7 @@ flowchart LR
 - `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
 - Bim, the `Rasm` kernel, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
-- `Rasm.Materials` owns appearance whole — channel roster, plane storage, decode ladder, sampler reconstruction, set admission, prefiltered dome.
+- `Rasm.Materials` owns appearance whole — channel roster, texture-plane storage, decode ladder, set admission, prefiltered dome.
 - Render-side appearance machinery has no seam to enter; Render binds the values and holds the device.
 - Texture-plane VRAM budgets at `Render/shading` under the byte-ceiling law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM.
 - Every analysis value projects a sealed receipt — `Analysis` mounts, probes, compares, and bakes what a study produced, solving nothing itself.

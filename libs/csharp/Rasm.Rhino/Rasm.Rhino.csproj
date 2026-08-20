@@ -9,22 +9,27 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-    </ItemGroup>
-
-    <!-- rasm.organization.v1 is the corpus-homed source this boundary produces; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
-    <ItemGroup Label="Wire Transcription">
-        <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
-        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/organization/v1/organization.proto"
-                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
-                  GrpcServices="None" />
     </ItemGroup>
 
     <ItemGroup Label="Observability">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+    </ItemGroup>
+
+    <!-- rasm.organization.v1 and rasm.scene.v1 are the corpus-homed sources this boundary produces; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/organization/v1/organization.proto"
+                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
+                  GrpcServices="None" />
+        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/scene/v1/scene.proto"
+                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
+                  GrpcServices="None" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Usings">
@@ -55,5 +60,11 @@
         <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftReceipt" />
         <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockFact" />
         <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockReceipt" />
+        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody&gt;" Alias="LightFact" />
+        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody&gt;" Alias="LightReceipt" />
+        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody&gt;" Alias="MaterialFact" />
+        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody&gt;" Alias="MaterialReceipt" />
+        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody&gt;" Alias="HistoryFact" />
+        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody&gt;" Alias="HistoryReceipt" />
     </ItemGroup>
 </Project>

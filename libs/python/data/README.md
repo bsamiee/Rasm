@@ -1,6 +1,6 @@
 # [PY_DATA]
 
-`data` is the Python branch's host-free interchange plane — every AEC dataset crosses as a typed, content-keyed, Arrow-carried claim, graded on interchange trust: a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. It composes the runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` owners at the boundary and re-mints none, and peer branches meet it only through contract-conforming datasets and plans.
+`data` is the Python branch's host-free interchange plane, every AEC dataset crossing as a typed, content-keyed, Arrow-carried claim graded on interchange trust: a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. It composes the runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` owners at the boundary and re-mints none, and peer branches meet it only through contract-conforming datasets and plans.
 
 ## [01]-[ROUTER]
 
@@ -14,11 +14,11 @@
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
 - [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress receipt owner over the runtime store lane, keyed by content identity.
 - [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
-- [10]-[JOURNAL](.planning/tabular/journal.md): `Ledger` lands runtime audit and meter facts over the commit matrix and scan reader.
+- [10]-[JOURNAL](.planning/tabular/journal.md): `FactJournal` Ledger-port implementation landing audit and meter facts over commit and scan.
 
 [SPATIAL]:
 - [11]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
-- [12]-[SPATIAL_QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` rail.
+- [12]-[QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` rail.
 - [13]-[GRID](.planning/spatial/grid.md): Discrete-global-grid plane over `h3ronpy` vectorized cell algebra with the raster-cell bridge.
 - [14]-[CATALOG](.planning/spatial/catalog.md): Cloud-native STAC discovery over `pystac-client` folding asset hrefs into object-store egress.
 - [15]-[MESH](.planning/spatial/mesh.md): Mesh-file identity and topology owner with the LAS/LAZ/COPC point-cloud interchange row.
@@ -27,7 +27,7 @@
 [GRIDDED]:
 - [17]-[STORE](.planning/gridded/store.md): Dense chunked N-D tensor store over a `TensorBackend` axis with codec and region axes.
 - [18]-[VIRTUAL](.planning/gridded/virtual.md): Sole manifest-cube owner over `icechunk` virtual-chunk addressing and the per-variable manifest wire.
-- [19]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store over `awkward` with the zero-copy Arrow bridge to the interop carrier.
+- [19]-[RAGGED](.planning/gridded/ragged.md): `RaggedArray` variable-length nested-array owner over `awkward` with the zero-copy Arrow bridge.
 - [20]-[FIELD](.planning/gridded/field.md): CF field-dataset owner over `xarray` engines — flox reductions, the raw read leg, the ensemble corpus.
 - [21]-[ENSEMBLE](.planning/gridded/ensemble.md): Scenario-tree owner over `DataTree` hierarchies carrying multi-scenario families with group folds.
 
@@ -44,7 +44,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker in that manifest no supported interpreter satisfies, so its module resolves nowhere and its owning page refuses every selection naming it through an import-time `find_spec` row — admission stands, reach does not, and the mark keeps a gated row from reading as a live provider.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [FRAMES]:
 - `polars`
@@ -59,7 +59,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `dataframely`
 - `pointblank`
 - `pandera`
-- `pandas` — boundary-only external frame lowering.
+- `pandas` — Boundary-only external frame lowering.
 
 [LAKEHOUSE_QUERY]:
 - `deltalake`
@@ -70,14 +70,14 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `ibis-framework`
 - `sqlglot`
 - `datafusion`
-- `substrait` — typed plan admission IR.
+- `substrait` — Typed plan admission IR.
 - `connectorx` — FLOOR-GATED; `tabular/query#QUERY` refuses every `RemoteDriver.CONNECTORX` spec while the marker holds.
 - `adbc-driver-manager`
 - `adbc-driver-flightsql`
 - `adbc-driver-postgresql`
 - `adbc-driver-snowflake`
 - `adbc-driver-sqlite`
-- `obspec-utils` — multi-store object-store routing.
+- `obspec-utils` — Multi-store object-store routing.
 
 [DUCKDB_EXTENSIONS]: Loadable extensions backing the plan and table-format rows without a pip dependency, riding the one `DuckDbSession` rail and provisioned through the Forge DuckDB-extensions catalog.
 - `substrait`
@@ -87,8 +87,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `spatial`
 - `h3`
 - `aws` — `credential_chain` provider over the s3, gcs, and r2 secret types `httpfs` registers.
-- `azure` — azure blob protocol carrying its own `credential_chain` secret type.
-- `postgres_scanner` — operational-store attach joining evidence rows against live PostgreSQL in one statement.
+- `azure` — Azure blob protocol carrying its own `credential_chain` secret type.
+- `postgres_scanner` — Operational-store attach joining evidence rows against live PostgreSQL in one statement.
 - `delta` — `delta_scan` transaction-log reader binding the analytics evidence residence to the interactive query arm.
 
 [GEOSPATIAL]:
@@ -104,7 +104,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `geoarrow-rust-io` — GDAL-free geospatial file and object-store transport.
 - `h3ronpy`
 - `xarray-spatial`
-- `xvec` — geometry-indexed xarray data cubes.
+- `xvec` — Geometry-indexed xarray data cubes.
 - `pystac`
 - `pystac-client`
 - `stac-geoparquet`
@@ -122,7 +122,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `virtualizarr`
 - `h5py`
 - `netcdf4`
-- `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`.
+- `h5netcdf` — Pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`.
 
 [GRAPH_MESH]:
 - `rustworkx`
@@ -141,12 +141,12 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `bw2io` — Brightway LCI/LCIA import/export and the ecoinvent/EEIO bootstrap against the `bw2data` project.
 - `bw2analyzer` — Brightway contribution and comparison analysis on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate over COO triples.
-- `olca-ipc` — live openLCA IPC/REST client, carrying `olca-schema` as its wire model.
+- `olca-ipc` — Live openLCA IPC/REST client, carrying `olca-schema` as its wire model.
 - `premise` — FLOOR-GATED ecoinvent prospective-background transformer over IAM scenarios; gated, it refuses every build.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`
@@ -158,7 +158,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `anyio`
 
 [OBSERVABILITY]:
-- `opentelemetry-api` — one module tracer per measured leg across every plane.
+- `opentelemetry-api` — One module tracer per measured leg across every plane.
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`

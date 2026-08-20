@@ -5,117 +5,113 @@
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm/
-├── Domain/                  # Kernel substrate floor every sibling composes
-│   ├── Rails.cs             # Op-key, fault-band registry, re-drive, transition, resource, and validity rails
-│   ├── Context.cs           # Tolerance lane roster, its admitted carrier, and the immutable context bundle
-│   ├── Identity.cs          # Seed-zero content key, canonical preimage writer, and the deterministic draw
-│   ├── Validation.cs        # Readiness algebra, admission vocabulary, and the capability-set idiom
-│   ├── Normalization.cs     # Topology/kind taxonomy and coercion lattice
-│   ├── Evaluation.cs        # Closest-hit evaluation over frames, sampling, and signed distance
-│   ├── Stats.cs             # Carrier-generic moments, banded extrema, and exact order statistics
-│   ├── Hooks.cs             # Hook seats, the per-composition rail, ask-and-grant mounts, the frozen census
-│   ├── Frame.cs             # Package roster, trace planes, tenancy pair, receipt port, plugin identity
-│   ├── Instrument.cs        # Instrument specs, mounts, the write entry, and the tally read
-│   ├── Objective.cs         # Indicator family, burn table, board pack, and the bench-claim ledger
-│   ├── Telemetry.cs         # Signal fact union, causal span band, op-cost capsule, receipt tap, contributor port
-│   └── Event.cs             # CloudEvents message envelope, attribute grammar, and the extension roster
-├── Numerics/                # Exact-predicate floor and host-neutral-shaped numerics
-│   ├── Predicates.cs        # Exact geometric-predicate precision ladder
-│   ├── Faults.cs            # Consolidated geometry fault family over the kernel geometry band
-│   ├── Atoms.cs             # Vector-algebra primitive floor and projection dispatch
-│   ├── Matrix.cs            # Dense/sparse/complex solve and eigen kernel
-│   ├── Transform.cs         # Window taper, capability-typed interpolant, and the spectral tap fold
-│   ├── Integrate.cs         # Runge-Kutta integrator floor and field integrator
-│   ├── Spectral.cs          # Discrete-calculus DEC bundle and spectral algebra
-│   └── Calculus.cs          # Central-difference stencil, field-noise lattices, and the solar almanac
-├── Spatial/                 # Proximity, clouds, neighborhoods, transport, fields, and naming
-│   ├── Index.cs             # BVH/octree spatial index over the node store
-│   ├── Naming.cs            # Topological-name lineage and re-anchoring
-│   ├── Reconciliation.cs    # Geometry/naming content-hash reconcile fence
-│   ├── Support.cs           # Gated support projection over the support-space adapter
-│   ├── Cloud.cs             # Vector-cloud metric and PCA hull rail
-│   ├── Neighbors.cs         # One kNN/radius/graph proximity substrate
-│   ├── Transport.cs         # Log-domain Sinkhorn optimal-transport solver
-│   └── Fields.cs            # Scalar/vector/tensor field and SDF vocabulary
-├── Parametric/              # Vendored NURBS engine and host-neutral op rail
-│   ├── Nurbs.cs             # One vendored NURBS evaluation engine
-│   ├── Curve.cs             # Parametric curve-operation rail
-│   ├── Surface.cs           # Parametric surface-operation rail
-│   ├── Subdivide.cs         # Catmull-Clark/Loop subdivision fold
-│   ├── Develop.cs           # Guaranteed-isometric developable-strip solver
-│   ├── Panelize.cs          # Cross-field-guided surface panelization
-│   ├── Patternmap.cs        # Wallpaper pattern-to-surface instancing
-│   ├── Projections.cs       # Motion, easing, and monotonic-timing selectors
-│   └── Locate.cs            # Location algebra with curvature extrema
-├── Meshing/                 # Mesh substrate and construction lattice
-│   ├── Delaunay.cs          # Constrained Delaunay and tetrahedralization
-│   ├── Arrangement.cs       # Managed exact boolean/overlay cell complex
-│   ├── Intersect.cs         # Predicate-exact intersection lattice
-│   ├── Slice.cs             # Layered slicing fold and nesting forest
-│   ├── Offset.cs            # Wavefront offset, skeleton, and clearance family
-│   ├── Skeleton.cs          # Mean-curvature-flow curve-skeleton
-│   ├── Mesh.cs              # Mesh snapshot, Laplacian cache, and intrinsic mesh
-│   ├── Edit.cs              # Single-writer mesh build arena
-│   ├── Dec.cs               # Discrete-exterior-calculus operators and Hodge decomposition
-│   └── Reconstruct.cs       # Signed-heat surface-reconstruction spine
-├── Processing/              # Algorithm pipelines over the floors
-│   ├── Repair.cs            # Repair algebra and heal session fold
-│   ├── Receipts.cs          # Typed rebuild-receipt chain and manifold status
-│   ├── Decimate.cs          # Quadric-error mesh decimation
-│   ├── Remesh.cs            # Isotropic and cross-field remeshing rewrite
-│   ├── Flatten.cs           # UV-flattening parameterization over the DEC substrate
-│   ├── Intent.cs            # Vector-intent consumer projection rail
-│   ├── Sample.cs            # Sampling-kind domain dispatch
-│   ├── Extract.cs           # Contour and iso-surface extraction ingress
-│   ├── Flow.cs              # Dense-output flow tracing and Morse topology atlas
-│   ├── Register.cs          # ICP alignment dispatcher
-│   ├── Geodesics.cs         # Heat-method and MMP geodesics
-│   └── Segment.cs           # Descriptor-based mesh segmentation
-├── Solving/                 # Nonlinear least-squares owners over the matrix floor
-│   ├── Solver.cs            # One Gauss-Newton and constraint solver with island decomposition
-│   └── Fit.cs               # MLESAC primitive-fit and orthogonal-distance refine
-├── Drawing/                 # Kernel-quality 2D drawing-geometry producers
-│   ├── View.cs              # Predicate-exact hidden-line and silhouette projection
-│   ├── Hatch.cs             # Exact pattern-fill synthesis over the region complex
-│   ├── Pack.cs              # Canonical geometry-encoding lattice
-│   └── Sheet.cs             # Drawing standards: sheet series/sizes, frames, scales, naming grammars, linework, lettering, plot policy
-├── Analysis/                # Measured-query public entry
-│   ├── Query.cs             # Analysis-query request algebra and its verb roster
-│   ├── Measure.cs           # Mass-property, bounds, and conformance measures
-│   ├── Inspect.cs           # Topology and mesh-quality inspection folds
-│   ├── Select.cs            # Curve/face/point selection unions
-│   └── Relations.cs         # Rhino intersection lattice and classification
-└── Interaction/             # Host-boundary interaction machinery both boundary packages compose
-    ├── Dispatch.cs          # The one crossing into the control tree, its budget, and the UI fault band
-    ├── Clock.cs             # Leased repeating UI beat over the kernel timeline
-    ├── Transfer.cs          # Clipboard, drag, and drop payload algebra with symmetric custody
-    ├── Binding.cs           # Control-to-model fusion, its legality table, and keyed failure evidence
-    ├── Control.cs           # Recursive control-construction union and its owned receipt tree
-    ├── Chrome.cs            # Verb table into commands, menus, windows, prompts, and print
-    ├── Paint.cs             # Mark vocabulary, resource stock, surface lease, host-colour correspondence
-    ├── Platform.cs          # Backend seam, handler custody, native mount, theme grid
-    ├── Asset.cs             # Icon and asset origin family with pose, filter, and render
-    └── Input.cs             # Pointer, gesture, and pick evidence admitted at the host callback
+Rasm/                      # Kernel below the C# app strata: exact-arithmetic floor, operational geometry, interaction machinery
+├── Domain/                # Kernel substrate floor every sibling composes
+│   ├── Rails.cs           # `Fault`, `Op`, `Retriability`, `Transition`, and `Lease<T>`; every fallible surface compiles against this floor
+│   ├── Context.cs         # `ToleranceLane` rows bind `Band` and `BaseDimensions`; `Context.For(lane)` is the one read every gate threads
+│   ├── Identity.cs        # `CanonicalWriter`, `ContentHash`, and the `Deterministic` splitmix64 owner; neither surface is cryptographic
+│   ├── Validation.cs      # `OpAcceptance.ValidityOf` single validity oracle; `CapabilitySet<TCapability>` the one capability column
+│   ├── Normalization.cs   # Erased-geometry conversion owner: `Lease<GeometryBase>` admission and the typed coercion lattice
+│   ├── Evaluation.cs      # `ClosestHit` receipts over `Rhino.Geometry` values alone; document or view reach is the boundary violation
+│   ├── Stats.cs           # One Welford four-moment recurrence and one order-statistic reader serve every measured carrier
+│   ├── Hooks.cs           # `HookRail` capsule generic over each folder's `<Package>Point` roster; veto, observe, replay, and release law
+│   ├── Frame.cs           # `TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope` with its HLC mint, session-GUC namespace
+│   ├── Instrument.cs      # Declaration rows bind meters at mount; the backend-free tally answers a doctor verb with no exporter or store
+│   ├── Objective.cs       # `Sli` family, burn rows, `AlertSeverity` ladder, `PanelSpec`, `BoardPack`, and `BenchClaim` as policy data
+│   ├── Telemetry.cs       # `SignalFact`, `SpanBand`, `OpCost`, and `TelemetryContributorPort`; the port page tops the split, edges point down
+│   └── Event.cs           # Branch's one message-envelope algebra every stratum composes; announcements gain no authority over facts
+├── Numerics/              # Exact-predicate floor and host-neutral-shaped numerics
+│   ├── Predicates.cs      # `Sign` total over explicit and constructed points; defining-point carriage rounds once at the emission seam
+│   ├── Faults.cs          # `GeometryFault` `[Union]` and the `FaultCluster` stride taxonomy; `ToError()` lowers onto the LanguageExt rail
+│   ├── Atoms.cs           # Guard `Band`s, `PerceptualColor`, `AtomProjection` rows with the identity fallthrough, primitive vector types
+│   ├── Matrix.cs          # `MatrixKernel` partial with transform; receipts carry route, stop, residual — no raw `Matrix<double>` crosses
+│   ├── Transform.cs       # `WindowTaper` roster, `Interpolant<TCap>`, `SpectralArena` over the four MathNet layouts, both convolution routes
+│   ├── Integrate.cs       # `Step` is pure with no in-kernel reject loop; dense output localizes events on the solution curve
+│   ├── Spectral.cs        # Mesh-free DEC carrier layer and eigen filter surface; `Meshing/dec` owns the mesh-bound assembly above it
+│   └── Calculus.cs        # Sampler-generic differential operators and the closed-form site-and-instant almanac; no mesh type reaches here
+├── Spatial/               # Proximity, clouds, neighborhoods, transport, fields, and naming
+│   ├── Index.cs           # `SpatialIndex` `[Union]` kernels share one frozen `NodeStore`; primitive-AABB broad phase alone seats here
+│   ├── Naming.cs          # `TopoName` `UInt128` lineage identity orthogonal to content hash; `Track` and `Resolve` fold one `NamingOp` union
+│   ├── Reconciliation.cs  # `GeometryHash` and `TopoName` stay type-distinct so a cross-axis compare cannot compile
+│   ├── Support.cs         # `SupportSpace` `[Union]` discriminated once at admission by proximity regime; `Project<TOut>` capability-gates reads
+│   ├── Cloud.cs           # `VectorCloud` admission dedups by tolerance and renormalizes mass; metric rows name their `CloudKernel` fold
+│   ├── Neighbors.cs       # `NeighborIndex` and `NeighborKernel` serve bare-point neighborhoods; broad phase stays with the spatial index
+│   ├── Transport.cs       # One log-domain Sinkhorn iteration; balanced, unbalanced, and debiased marginals are policy columns, not bodies
+│   └── Fields.cs          # `ScalarField`, `VectorField`, and `TensorField` closed unions whose case payloads are their admission structure
+├── Parametric/            # Vendored NURBS engine and host-neutral op rail
+│   ├── Nurbs.cs           # `Nurbs.Of` one polymorphic admission; homogeneous control nets on `Point3d`/`Vector3d`/`Plane` carriers
+│   ├── Curve.cs           # `Parametric.Apply` folds ops over `NurbsForm.Curve` and the frame-local `PlanarPrimitive` run
+│   ├── Surface.cs         # `Tessellate` mints `UvTessellation`, the frozen per-vertex `(u, v)` column consumers admit by type
+│   ├── Subdivide.cs       # `SubdivisionScheme` stencil rows emit sparse operators; the Stam eigen lane makes limit evaluation mandatory
+│   ├── Develop.cs         # Per-strip `ddouble` isometry witness; a strip over budget faults rather than shipping approximate flattening
+│   ├── Panelize.cs        # `PanelFamily` rides the request as data; each panel leaves with origin, field-aligned x-axis, metric-true normal
+│   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted `InstanceStream` is the Generation plane's exact input
+│   ├── Projections.cs     # Selectors drain one `Project<TOut>` into `AtomProjection.Raw`; clock values stay branded to the injected timeline
+│   └── Locate.cs          # `Operation<TGeometry, TOut>` under `Eff<Env, Seq<TOut>>`; `AnalysisQuery.Location` is the sole public route in
+├── Meshing/               # Mesh substrate and construction lattice
+│   ├── Delaunay.cs        # `Tessellation.Build` over one `SimplexStore` arena; `Implicit` carriage keeps exact signs to `ToMesh`
+│   ├── Arrangement.cs     # `ArrangementOp` over subdivide, classify, keep, weld; four booleans are four data rows, `manifoldc` the companion
+│   ├── Intersect.cs       # `CrossKey` interns adjacent-face crossings by integer equality; chains walk that adjacency into oriented loops
+│   ├── Slice.cs           # `LayerPlan` generates the plane family as height-law data; crossing machinery composes the intersect owner
+│   ├── Offset.cs          # Aichholzer-Aurenhammer wavefront; reflex, split, and ring decisions read exact `Orient2D` signs over input
+│   ├── Skeleton.cs        # MCF contraction, collapse surgery to the 1D remnant, QuikGraph extraction; admission gates watertight manifolds
+│   ├── Mesh.cs            # `MeshSource` discriminant, `MeshDraft` accumulator, `LaplacianCache`, intrinsic-triangulation witnesses
+│   ├── Edit.cs            # Single-writer SoA arena and the `Kernels` weld/transform/diagonal primitives; publish is freeze into `MeshSpace`
+│   ├── Dec.cs             # Mesh-bound assembly of the spectral bundle under the `∂∂ = 0` gate; assembles, never re-derives
+│   └── Reconstruct.cs     # Each `ReconstructionPolicy` case builds a `fields` scalar field; native callbacks convert through `Op.Catch`
+├── Processing/            # Algorithm pipelines over the floors
+│   ├── Repair.cs          # Total over its input class: non-manifold and odd-Euler meshes heal rather than fail; mints no content hash
+│   ├── Receipts.cs        # `ManifoldStatus`, per-op `RebuildReceipt`, `HealSession`, `RebuildLog`; interior types crossing to the naming fold
+│   ├── Decimate.cs        # Exact `Orient3D` gate refuses flipped faces by construction; reversible vertex-split stream, Hausdorff budget
+│   ├── Remesh.cs          # One projected-convexity exact flip gate over a single `MeshEdit` arena; first-principles rewrite, no host echo
+│   ├── Flatten.cs         # Pinned solves eliminate boundary rows so the interior factors SPD; penalty forms are the refused class
+│   ├── Intent.cs          # One `Project<TOut>(Context, Op?)` egress, the frozen signature `Rasm.Rhino` Camera binds while owners re-derive
+│   ├── Sample.cs          # `PowerCcvtPolicy.Preset` mints tuning on the `Op` rail; every threshold reads its own tolerance row at the run
+│   ├── Extract.cs         # `ContourPolicy` routes each domain to its named owner: host adapters, crossing lattice, or the marching lane
+│   ├── Flow.cs            # `Termination` union decides every stop; `MorseAtlas.Of` folds the tracer into a frozen-column `MorseGraph`
+│   ├── Register.cs        # Two `VectorCloud` clusters in, one gated `Transform` out; the Procrustes lane adds scale under the policy record
+│   ├── Geodesics.cs       # Every solver runs against the shared `LaplacianCache`; `fields` case names delegate their bodies here
+│   └── Segment.cs         # Host restructure is CAPTURE; this page owns the native surface and never re-derives the first-principles tier
+├── Solving/               # Nonlinear least-squares owners over the matrix floor
+│   ├── Solver.cs          # One accept/reject λ-ladder folded by `Schedule.recurs`; rank deficiency routes `GeometryFault.SingularSystem`
+│   └── Fit.cs             # Truncated-cost robust consensus; `Kinds` arity alone separates a pinned fit from a multi-kind competition
+├── Drawing/               # Kernel-quality 2D drawing-geometry producers
+│   ├── View.cs            # Appel quantitative invisibility on exact signs; one QI solve over the part-roster offset union soup
+│   ├── Pack.cs            # `ToolpathPath` retains line and circular spans; arc centre and sense survive packing as content, never chords
+│   ├── Sheet.cs           # Series extents derive from each standard's own formula; frames, ladders, grammars publish beside host projections
+│   └── Hatch.cs           # Courses generate against the region's own extent, clipped by exact winding parity; motifs orbit the wallpaper set
+├── Analysis/              # Measured-query public entry
+│   ├── Query.cs           # Call arity recovers from the case through `Single`/`Pair`/`Service` dispatchers, never a suffix or knob
+│   ├── Measure.cs         # Every mass answer is a `(MassKind, MassProperty)` coordinate; conformance rides policy rows over one fold
+│   ├── Inspect.cs         # One `OnGeometry` gate lowers brep-coercible inputs through the leased brep form
+│   ├── Select.cs          # `EdgeDescriptor` data drives edge selection; `TopologyProjection` crosses under a leak-free transfer fold
+│   └── Relations.cs       # Type-pair lattice rows bind admission predicate, result shape, and host compute delegate over the query `Env`
+└── Interaction/           # Eto-shaped control, paint, transfer, and platform owners under the `[BoundaryAdapter]` carve
+    ├── Dispatch.cs        # Crossing modality is the union case; every crossing gauges its lane's declared budget and never swallows a `Fin`
+    ├── Clock.cs           # One leased clock over a host timer; the failure-posture row decides whether a failing tick halts or runs on
+    ├── Transfer.cs        # Payload slots are a closed family with total one-shot release; drag is a CASE, a write to a host-carried bundle
+    ├── Binding.cs         # Fusion legality is one closed source-flow-timing table; rigs answer a leased receipt owning refresh and unbind
+    ├── Control.cs         # Leaf cases carry exactly their host widget's payload; modality lives in role rows, never sibling cases
+    ├── Chrome.cs          # One verb ROW claims identity, gesture, availability, and every occurrence; the chromes project one row set
+    ├── Paint.cs           # One ordered mark run bounds, hit-tests, and replays onto live and printed surfaces without re-description
+    ├── Platform.cs        # Rows answer every platform question, never a scattered `IsMac`; seats capture and re-register prior factories
+    ├── Asset.cs           # Origin is WHERE bytes come from; pose and filter are orthogonal axes, so a rotated tinted glyph is data
+    └── Input.cs           # Raw device state crosses once at the seam as finiteness-admitted facts carrying both coordinate frames
 ```
 
 ## [02]-[STRATA]
 
-Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
+Strata rank the kernel interior; seating rows carry only the law the fence cannot show.
 
-- S0 `Domain` — seats `Op`, `FaultBand`, `Redrive`, `Transition`, `Context`, `CanonicalWriter`, and `HookRail` beside the causal frame.
-- S0 `Numerics` — seats `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the exact-predicate floor.
-- S0 reach — `Op` into integration and `AtomProjection` into evaluation stay same-stratum.
-- S1 `Spatial` — seats `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField`, composing the floor alone.
-- S1 `Meshing` — seats `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`.
-- S1 reach — intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
-- S2 `Processing` — seats `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind`, rails over the lattice.
-- S2 `Solving` — seats the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor stays same-stratum reach.
-- S3 `Parametric` — seats `NurbsForm`, `MonotonicTimeline`, `MotionDrive`, and `PanelField`; no lower stratum composes S3.
-- S3 reach — the `Drawing` hatch orbit reads `Patterning`'s wallpaper fold (`InstanceStream`), interior to the stratum.
-- S3 `Drawing` + `Analysis` — seat `DrawingProjection`, `HatchResult`, `EncodedGeometry`, the sheet-standards family, `AnalysisQuery`, and `Measure`.
-- S3 `Interaction` — seats `UiDispatch`, `ControlSpec`, `IntentTable`, `PaintProgram`, and `AssetOrigin`; no lower stratum composes it.
-- S3 reach — `Interaction` reads `MotionDrive` from `Parametric` and `SheetSize`/`SheetMargin` from `Drawing`, both interior to the stratum.
+- S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Op`, `Evaluation` reads `AtomProjection`, no module cycle.
+- S0 law — no floor file names an upper type; every upper stratum threads the exact-predicate ladder and the `Context` tolerance read.
+- S1 interior — `Intersect` reads the spatial index and `Reconciliation` the mesh store inside the rank, so the lattice stays one stratum.
+- S2 interior — the ICP registration optimizer instantiates the `Lm` functor inside the rank, so optimization mints no third stratum.
+- S3 interior — `Drawing` reads `Parametric`'s wallpaper fold and `Interaction` the `Drawing` sheet vocabulary; every interior edge stays in-rank.
+- S3 law — no lower stratum composes a terminal producer; the fence draws downward discriminating imports alone, and `f1` forbids the inversion.
+- S0→S3 — root-homed `GeometryFault` declares arms for upper-stratum discriminants; the union is data riding the one-assembly law, never a build edge.
+- S1→S3 — `TensorField.Curvature` carries the `Parametric` `SurfaceSpace` capsule, so the shape-operator owner stays `Projections.cs`.
+- S1→S2 — the `Meshing/Mesh.cs` overlay seats `Processing/Geodesics.cs` `WalkChart` in `EdgeOverlay` mode, so one chart kernel serves every mode.
 
 ```mermaid
 ---
@@ -127,7 +123,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm kernel interior strata
-    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward or a recorded same-stratum reach and solid naming one sourced type, and one forbidden upward edge marked.
+    accDescr: How each kernel stratum composes the ranks beneath it with no upward import.
     subgraph S3["S3 TERMINAL PRODUCERS"]
         Analysis[Analysis]
         Parametric[Parametric]
@@ -150,25 +146,23 @@ flowchart TB
     Drawing e2@-->|"[IMPORT]: VectorIntent"| Processing
     Parametric e3@-->|"[IMPORT]: MeshSpace"| Meshing
     Drawing e4@-->|"[IMPORT]: MeshSpace"| Meshing
-    Drawing e16@-->|"[IMPORT]: InstanceStream"| Parametric
     Drawing e5@-->|"[IMPORT]: ScalarField"| Spatial
     Parametric e6@-->|"[IMPORT]: SupportProjection"| Spatial
-    Parametric e22@-->|"[IMPORT]: Interpolant, Quadrature"| Numerics
-    Parametric e23@-->|"[IMPORT]: Stat, CapabilitySet"| Domain
-    Analysis e7@-->|"[IMPORT]: NeighborIndex"| Spatial
-    Analysis e8@-->|"[IMPORT]: ClosestHit"| Domain
-    Parametric e9@-->|"[IMPORT]: CurveForm"| Domain
-    Processing e10@-->|"[IMPORT]: MeshSpace"| Meshing
-    Processing e11@-->|"[IMPORT]: ScalarField"| Spatial
-    Solving e12@-->|"[IMPORT]: MatrixKernel"| Numerics
-    Solving e13@-->|"[IMPORT]: VectorCloud"| Spatial
-    Meshing e14@-->|"[IMPORT]: SparseMatrix"| Numerics
-    Meshing e21@-->|"[IMPORT]: ToleranceLane"| Domain
-    Spatial e15@-->|"[IMPORT]: Context"| Domain
-    Interaction e17@-->|"[IMPORT]: MotionDrive"| Parametric
-    Interaction e18@-->|"[IMPORT]: SheetSize, SheetMargin"| Drawing
-    Interaction e19@-->|"[IMPORT]: PerceptualColor"| Numerics
-    Interaction e20@-->|"[IMPORT]: HookRail"| Domain
+    Parametric e7@-->|"[IMPORT]: Interpolant"| Numerics
+    Parametric e8@-->|"[IMPORT]: Quadrature"| Numerics
+    Parametric e9@-->|"[IMPORT]: Stat"| Domain
+    Parametric e10@-->|"[IMPORT]: CapabilitySet"| Domain
+    Analysis e11@-->|"[IMPORT]: NeighborIndex"| Spatial
+    Analysis e12@-->|"[IMPORT]: ClosestHit"| Domain
+    Parametric e13@-->|"[IMPORT]: CurveForm"| Domain
+    Processing e14@-->|"[IMPORT]: MeshSpace"| Meshing
+    Processing e15@-->|"[IMPORT]: ScalarField"| Spatial
+    Solving e16@-->|"[IMPORT]: MatrixKernel"| Numerics
+    Solving e17@-->|"[IMPORT]: VectorCloud"| Spatial
+    Meshing e18@-->|"[IMPORT]: SparseMatrix"| Numerics
+    Meshing e19@-->|"[IMPORT]: ToleranceLane"| Domain
+    Spatial e20@-->|"[IMPORT]: Context"| Domain
+    Interaction e21@-->|"[IMPORT]: PerceptualColor"| Numerics
     Domain f1@-->|"forbidden: floor upward"| S3
 ```
 
@@ -184,7 +178,7 @@ config:
 ---
 flowchart LR
     accTitle: Kernel content-key and compute-plane seams
-    accDescr: Kernel owners federating content keys and handing compute, measure, and signal shapes, causal-frame ports, encoded wires, and drawing and atlas projections to same-branch and cross-runtime peers.
+    accDescr: Which content keys, shapes, ports, and wires the kernel owners hand to same-branch and cross-runtime peers.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -214,43 +208,44 @@ flowchart LR
     Spatial e7@<-->|"[CONTENT_KEY]: XxHash128"| Runtime
     Spatial e8@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Numerics e9@<-->|"[SHAPE]: DiscreteCalculus"| Compute
-    Numerics e16@-->|"[SHAPE]: Predicate"| Compute
-    Meshing e10@-->|"[SHAPE]: MeshAdjointSnapshot"| Compute
-    Meshing e11@-->|"[WIRE]: SliceStack"| Compute
-    Spatial e12@-->|"[WIRE]: SpatialIndex"| Compute
+    Numerics e10@-->|"[SHAPE]: Predicate"| Compute
+    Meshing e11@-->|"[SHAPE]: MeshAdjointSnapshot"| Compute
+    Meshing e12@-->|"[WIRE]: SliceStack"| Compute
+    Spatial e13@-->|"[WIRE]: SpatialIndex"| Compute
     Drawing e14@-->|"[WIRE]: EncodedGeometry"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
-    Drawing e24@-->|"[CONTRACT]: PackWireContext"| AppHost
+    Drawing e16@-->|"[CONTRACT]: PackWireContext"| AppHost
     Domain e17@-->|"[SHAPE]: TelemetrySink"| AppHost
     Domain e18@-->|"[WIRE]: BenchClaim"| AppHost
-    Domain e20@-->|"[SHAPE]: InstrumentSpec + AlertSeverity"| AppHost
-    Domain e21@-->|"[PORT]: ReceiptSinkPort + TenantContext"| AppHost
-    Domain e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
-    Domain e23@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
-    Analysis e19@-->|"[SHAPE]: GeometryMeasures"| Bim
-    Domain e30@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Element
-    Domain e31@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + HookPoint"| Bim
-    Domain e32@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + HookPoint"| Materials
-    Domain e33@-->|"[SHAPE]: BenchClaim + Deterministic"| Materials
-    Domain e34@-->|"[SHAPE]: BenchClaim"| Bim
-    Numerics e35@-->|"[SHAPE]: CellLattice"| Element
-    Numerics e36@-->|"[SHAPE]: RgbProfile + CellLattice"| Bim
-    Numerics e37@-->|"[SHAPE]: RgbProfile + CellLattice"| Materials
-    Numerics e25@-->|"[SHAPE]: SunPosition"| Compute
-    Numerics e26@-->|"[SHAPE]: SunPosition"| AppUi
-    Numerics e27@-->|"[SHAPE]: SunPosition"| Materials
-    Numerics e28@-->|"[SHAPE]: SpectralArena"| Materials
-    Numerics e46@-->|"[SHAPE]: TapSeries + TapBorder + TapWindow"| Materials
-    Numerics e47@-->|"[SHAPE]: SparseMatrix + CholeskySparse + SparsePreconditioner"| Materials
-    Numerics e29@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Compute
-    Drawing e38@-->|"[PROJECTION]: DrawingProjection + HatchResult"| AppUi
-    Parametric e39@-->|"[BOUNDARY]: SpringShape"| AppUi
-    Spatial e40@-->|"[WIRE]: SpatialIndex"| AppUi
-    Solving e41@-->|"[WIRE]: Lm.Minimize + DualModel"| Materials
-    Drawing e42@-->|"[SHAPE]: ChannelDtype"| Materials
-    Processing e43@-->|"[PROJECTION]: ChartAtlas"| Materials
-    Parametric e44@-->|"[WIRE]: PatternPlan + InstanceStream"| Materials
-    Drawing e45@-->|"[SHAPE]: ChannelDtype"| Bim
+    Domain e19@-->|"[SHAPE]: InstrumentSpec + AlertSeverity"| AppHost
+    Domain e20@-->|"[PORT]: ReceiptSinkPort + TenantContext"| AppHost
+    Domain e21@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
+    Domain e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
+    Analysis e23@-->|"[SHAPE]: GeometryMeasures"| Bim
+    Domain e24@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Element
+    Domain e25@-->|"[PORT]: ReceiptSinkPort"| Bim
+    Domain e26@-->|"[PORT]: ReceiptSinkPort"| Materials
+    Domain e27@-->|"[SHAPE]: BenchClaim"| Materials
+    Domain e28@-->|"[SHAPE]: BenchClaim"| Bim
+    Numerics e29@-->|"[SHAPE]: CellLattice"| Element
+    Numerics e30@-->|"[SHAPE]: RgbProfile"| Bim
+    Numerics e31@-->|"[SHAPE]: RgbProfile"| Materials
+    Numerics e32@-->|"[SHAPE]: SunPosition"| Compute
+    Numerics e33@-->|"[SHAPE]: SunPosition"| AppUi
+    Numerics e34@-->|"[SHAPE]: SunPosition"| Materials
+    Numerics e35@-->|"[SHAPE]: SpectralArena"| Materials
+    Numerics e36@-->|"[SHAPE]: TapSeries"| Materials
+    Numerics e37@-->|"[SHAPE]: SparseMatrix"| Materials
+    Numerics e38@-->|"[SHAPE]: FieldIntegrator"| Compute
+    Drawing e39@-->|"[PROJECTION]: DrawingProjection + HatchResult"| AppUi
+    Parametric e40@-->|"[BOUNDARY]: SpringShape"| AppUi
+    Spatial e41@-->|"[WIRE]: SpatialIndex"| AppUi
+    Solving e42@-->|"[WIRE]: DualModel"| Materials
+    Drawing e43@-->|"[SHAPE]: ChannelDtype"| Materials
+    Processing e44@-->|"[PROJECTION]: ChartAtlas"| Materials
+    Parametric e45@-->|"[WIRE]: PatternPlan + InstanceStream"| Materials
+    Parametric e46@-->|"[SHAPE]: MaterialSymmetry"| Materials
+    Drawing e47@-->|"[SHAPE]: ChannelDtype"| Bim
 ```
 
 ```mermaid
@@ -277,18 +272,19 @@ flowchart LR
     Fabrication{{Rasm.Fabrication}}
     Spatial e1@-->|"[SHAPE]: SpatialIndex"| Fabrication
     Numerics e2@-->|"[SHAPE]: Predicate"| Fabrication
-    Numerics e14@-->|"[SHAPE]: SpectralArena + CellLattice"| Fabrication
-    Meshing e3@-->|"[WIRE]: SliceStack"| Fabrication
-    Meshing e4@-->|"[WIRE]: CurveSkeleton"| Fabrication
-    Parametric e5@-->|"[WIRE]: ParametricOp"| Fabrication
-    Processing e6@-->|"[PROJECTION]: ChartAtlas"| Fabrication
-    Drawing e7@-->|"[PROJECTION]: DrawingProjection"| Fabrication
-    Meshing e8@-->|"[WIRE]: MeshSpace"| Fabrication
-    Parametric e9@-->|"[WIRE]: Development"| Fabrication
-    Processing e10@-->|"[WIRE]: VectorIntent"| Fabrication
-    Domain e11@-->|"[WIRE]: Stat"| Fabrication
-    Solving e12@-->|"[WIRE]: FitReceipt"| Fabrication
-    Fabrication e13@-->|"[WIRE]: ToolpathPath"| Drawing
+    Numerics e3@-->|"[SHAPE]: SpectralArena"| Fabrication
+    Numerics e4@-->|"[SHAPE]: CellLattice"| Fabrication
+    Meshing e5@-->|"[WIRE]: SliceStack"| Fabrication
+    Meshing e6@-->|"[WIRE]: CurveSkeleton"| Fabrication
+    Parametric e7@-->|"[WIRE]: ParametricOp"| Fabrication
+    Processing e8@-->|"[PROJECTION]: ChartAtlas"| Fabrication
+    Drawing e9@-->|"[PROJECTION]: DrawingProjection"| Fabrication
+    Meshing e10@-->|"[WIRE]: MeshSpace"| Fabrication
+    Parametric e11@-->|"[WIRE]: DevelopOp + DevelopmentResult"| Fabrication
+    Processing e12@-->|"[WIRE]: VectorIntent"| Fabrication
+    Domain e13@-->|"[WIRE]: Stat"| Fabrication
+    Solving e14@-->|"[WIRE]: FitReceipt"| Fabrication
+    Fabrication e15@-->|"[WIRE]: ToolpathPath"| Drawing
 ```
 
 ```mermaid
@@ -301,7 +297,7 @@ config:
 ---
 flowchart LR
     accTitle: Kernel host-UI boundary seams
-    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts, geometry wires, content keys, and the causal-frame port to the Rhino and Grasshopper host packages, every rail one-way down from the kernel.
+    accDescr: Which boundary contracts, wires, and keys the kernel hands one-way down to the Rhino and Grasshopper host packages.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -315,49 +311,57 @@ flowchart LR
     end
     Rhino([Rasm.Rhino])
     Grasshopper([Rasm.Grasshopper])
-    Numerics e8@-->|"[BOUNDARY]: PerceptualColor"| Rhino
-    Numerics e9@-->|"[BOUNDARY]: PerceptualColor"| Grasshopper
-    Domain e16@-->|"[BOUNDARY]: Context"| Rhino
-    Domain e17@-->|"[BOUNDARY]: ContentHash"| Rhino
-    Parametric e10@-->|"[BOUNDARY]: MonotonicTimeline"| Rhino
-    Parametric e11@-->|"[BOUNDARY]: MonotonicTimeline"| Grasshopper
-    Processing e12@-->|"[BOUNDARY]: VectorIntent"| Rhino
-    Analysis e13@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
-    Domain e14@-->|"[BOUNDARY]: ModelUnit"| Rhino
-    Numerics e15@-->|"[BOUNDARY]: VectorFrame"| Rhino
-    Drawing e18@-->|"[BOUNDARY]: ViewPose"| Rhino
-    Drawing e19@-->|"[WIRE]: EncodedGeometry"| Rhino
-    Meshing e20@-->|"[WIRE]: MeshSpace"| Rhino
-    Spatial e21@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
-    Parametric e22@-->|"[BOUNDARY]: MonotonicStamp"| Grasshopper
-    Parametric e23@-->|"[BOUNDARY]: SpringShape"| Grasshopper
-    Domain e24@-->|"[PORT]: Op + Lease + HookPoint + InstrumentSpec"| Grasshopper
-    Parametric e25@-->|"[BOUNDARY]: MotionDrive"| Rhino
-    Parametric e26@-->|"[BOUNDARY]: MotionDrive"| Grasshopper
-    Interaction e27@-->|"[BOUNDARY]: UiDispatch + ControlSpec + IntentTable"| Rhino
-    Interaction e28@-->|"[BOUNDARY]: UiDispatch + ControlSpec + IntentTable"| Grasshopper
+    Numerics e1@-->|"[BOUNDARY]: PerceptualColor"| Rhino
+    Numerics e2@-->|"[BOUNDARY]: PerceptualColor"| Grasshopper
+    Domain e3@-->|"[BOUNDARY]: Context"| Rhino
+    Domain e4@-->|"[BOUNDARY]: Context"| Grasshopper
+    Domain e5@-->|"[BOUNDARY]: ContentHash"| Rhino
+    Parametric e6@-->|"[BOUNDARY]: MonotonicTimeline"| Rhino
+    Parametric e7@-->|"[BOUNDARY]: MonotonicTimeline"| Grasshopper
+    Processing e8@-->|"[BOUNDARY]: VectorIntent"| Rhino
+    Analysis e9@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
+    Domain e10@-->|"[BOUNDARY]: ModelUnit"| Rhino
+    Numerics e11@-->|"[BOUNDARY]: VectorFrame"| Rhino
+    Drawing e12@-->|"[BOUNDARY]: ViewPose"| Rhino
+    Drawing e13@-->|"[WIRE]: EncodedGeometry"| Rhino
+    Meshing e14@-->|"[WIRE]: MeshSpace"| Rhino
+    Spatial e15@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
+    Parametric e16@-->|"[BOUNDARY]: MonotonicStamp"| Grasshopper
+    Parametric e17@-->|"[BOUNDARY]: SpringShape"| Grasshopper
+    Domain e18@-->|"[PORT]: Op + Lease + HookPoint + InstrumentSpec"| Grasshopper
+    Parametric e19@-->|"[BOUNDARY]: MotionDrive"| Rhino
+    Parametric e20@-->|"[BOUNDARY]: MotionDrive"| Grasshopper
+    Interaction e21@-->|"[BOUNDARY]: UiDispatch"| Rhino
+    Interaction e22@-->|"[BOUNDARY]: UiDispatch"| Grasshopper
 ```
 
-Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry AND the `CanonicalWriter` preimage every partner composes — `Spatial/Reconciliation` writes its frames through that one writer, holding byte parity with the Python and TypeScript peers so one content space addresses across runtimes. Second hashers, second byte emitters, and non-zero seeds are the named cross-folder drift.
+Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry AND the `CanonicalWriter` preimage every partner composes; `Spatial/Reconciliation` writes its frames through that one writer, holding byte parity with the Python and TypeScript peers so one content space addresses across runtimes. Second hashers, second byte emitters, and non-zero seeds are the named cross-folder drift.
 
-Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Invariants the graph cannot show:
-- `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it.
+## [04]-[INTERNAL]
+
+One crossing law rules the interior: identity mints once and everything downstream composes the mint.
+
+- `Domain/Identity` mints the seed-zero hash and `CanonicalWriter` preimage; every framing and content key composes that one writer.
 - `Drawing` encodes geometry once — one payload, `EncodedGeometry` to the sandbox host, wrapped as `EncodedTensor` for compute residency.
 - `PackSchema` columnar identity, `ContentHash`-derived, rides that same wire as the one schema authority storage adapters read.
 - Signal exits once: `Domain/Telemetry` owns the branch's OTel-free signal capsule, and every stratum composes it downward as instances.
+- Causal frame names the receipt seam for every emitting stratum without an upward reference.
+- `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it.
+- Every descriptor plane compiles one burn discipline and re-declares no panel row.
+
+## [05]-[BOUNDARIES]
+
 - `TelemetrySink` is the kernel's first-consumer arm the AppHost fan admits by name — `rasm.kernel` meter, `rasm.rasm.<domain>` sources.
 - Causal-frame vocabulary seats here: `TelemetrySource` `CorrelationId` `TenantId`/`TenantContext` `ReceiptEnvelope` `ReceiptSinkPort`.
-- Causal frame names the receipt seam for every emitting stratum without an upward reference.
 - OTel baggage store, foreign-source rows, and resource lacing register at the app platform as composition rows.
 - Objectives are policy, not signal: the indicator family, burn table, routing severity, panel vocabulary, and `BoardPack` carrier seat here.
-- Every descriptor plane compiles one burn discipline and re-declares no panel row.
 - Packs travel downward on `TelemetryContributorPort` beside the rows they name; the mounting root is the proving surface.
 - `BenchClaim` rows are the enumeration the telemetry corpus gate ingests.
 
-## [04]-[NAMESPACES]
+## [06]-[NAMESPACES]
 
-Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder, `Rasm.Interaction` included.
+Namespace mirrors folder path under `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder, `Rasm.Interaction` included.
 
-Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; three recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-stratum discriminants (`Numerics/Faults.cs`), `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`, and the `Meshing/Mesh.cs` common-subdivision overlay seating `Processing/Geodesics.cs` `WalkChart` in `EdgeOverlay` mode so the one chart-unfold kernel serves distance, log, exp, AND overlay rather than forking a second unfold at S1.
+Kernel compiles as ONE assembly, the single `Rasm.csproj`, so internal members cross the sub-domain namespaces with no build edge; recorded exceptions to strata direction ride that law as the `[02]-[STRATA]` cross-stratum rows.
 
-`Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.
+`Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision: kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

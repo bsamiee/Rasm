@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is a publication and print-production engine carrying a high-end AEC documentation engine on top, its pub/print plane composing under the AEC plane. It folds data, compute, geometry, and any structured payload into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`.
+`artifacts` is a publication and print-production engine carrying the AEC documentation plane on top. It folds data, compute, geometry, and any structured payload into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`.
 
 ## [01]-[ROUTER]
 
@@ -9,7 +9,7 @@
 - [02]-[EMIT](.planning/document/emit.md): Emission axis every PDF/Office/text backend lowers from the `DocumentNode` tree.
 - [03]-[LENS](.planning/document/lens.md): `DocumentLens` recover-to inverse from emitted container to node tree and the examination ops.
 - [04]-[EGRESS](.planning/document/egress.md): `DocumentEgress` encryption, outline, watermark, and redaction finishing over an emitted container.
-- [05]-[TAGGED](.planning/document/tagged.md): `Access` PDF/UA marked-content owner authoring and auditing the structure tree.
+- [05]-[TAGGED](.planning/document/tagged.md): `Access` PDF/UA structure, PDF/X preflight, and PDF/A archival close over one `AccessOp` union.
 - [06]-[REPORT](.planning/document/report.md): `ReportPlan` reproducible-report composition into the node tree from sections and notebooks.
 
 [VISUALIZATION]:
@@ -24,13 +24,13 @@
 - [15]-[DIAGRAM_SOLAR](.planning/visualization/diagram/solar.md): pvlib SPA solar-ephemeris and generated sun-path furniture owner.
 
 [DRAWING]:
-- [16]-[DRAWING_REGIME](.planning/drawing/regime.md): Closed drafting vocabulary and BIND substrate every drawing consumer reads; mints no receipt.
-- [17]-[DRAWING_STANDARD](.planning/drawing/standard.md): `Standard` ezdxf symbol-table lowering of the regime onto a DXF document.
-- [18]-[DRAWING_DIMENSION](.planning/drawing/dimension.md): `Dimension` ISO 129-1 + ISO 1101 GD&T dimensioning producer dual-lowered per target.
-- [19]-[DRAWING_SYMBOL](.planning/drawing/symbol.md): `Symbol` AEC drawing-symbol owner dual-lowered to drawsvg groups and ezdxf blocks.
-- [20]-[DRAWING_ANNOTATE](.planning/drawing/annotate.md): `Annotate` ISO 128-2 leader, keynote, note, and revision-cloud owner, dual-lowered.
-- [21]-[DRAWING_DETAIL](.planning/drawing/detail.md): `Detail` detail-callout owner over a content-keyed block store and the cross-reference DAG.
-- [22]-[DRAWING_SCHEDULE](.planning/drawing/schedule.md): `Schedule` AEC-schedule and BIM QTO owner lowering into the publication-table builder.
+- [16]-[REGIME](.planning/drawing/regime.md): Closed drafting vocabulary and BIND substrate every drawing consumer reads; mints no receipt.
+- [17]-[STANDARD](.planning/drawing/standard.md): `Standard` ezdxf symbol-table lowering of the regime onto a DXF document.
+- [18]-[DIMENSION](.planning/drawing/dimension.md): `Dimension` ISO 129-1 + ISO 1101 GD&T dimensioning producer dual-lowered per target.
+- [19]-[SYMBOL](.planning/drawing/symbol.md): `Symbol` AEC drawing-symbol owner dual-lowered to drawsvg groups and ezdxf blocks.
+- [20]-[ANNOTATE](.planning/drawing/annotate.md): `Annotate` ISO 128-2 leader, keynote, note, and revision-cloud owner, dual-lowered.
+- [21]-[DETAIL](.planning/drawing/detail.md): `Detail` detail-callout owner over a content-keyed block store and the cross-reference DAG.
+- [22]-[SCHEDULE](.planning/drawing/schedule.md): `Schedule` AEC-schedule and BIM QTO owner lowering into the publication-table builder.
 
 [SPECIFICATION]:
 - [23]-[SECTION](.planning/specification/section.md): `Spec` CSI SectionFormat 3-part producer authored into the `DocumentNode` tree.
@@ -39,7 +39,7 @@
 [DELIVERY]:
 - [25]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 container-register, sheet-index, and container-metadata owner.
 - [26]-[GATE](.planning/delivery/gate.md): `QualityGate` per-kind threshold fold grading every producer verdict a transmittal ships on.
-- [27]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` issue-for-construction orchestrator over imposition, archive, and sign.
+- [27]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` ISO 19650 issue-for-construction close folding one `TransmittalEvidence`.
 - [28]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` projection turning the issued transmittal fact into a message envelope.
 
 [GRAPHIC]:
@@ -69,7 +69,7 @@
 - [50]-[LAYOUT](.planning/typography/layout.md): `LineLayout` line-break, hyphenation, and Knuth-Plass paragraph-fit owner.
 
 [COMPOSITION]:
-- [51]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure and section placement owner emitting flat SVG.
+- [51]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure placement owner emitting flat SVG.
 - [52]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the `SheetSet` register-ready set owner.
 - [53]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up, booklet, and signature press-imposition owner.
 
@@ -81,13 +81,13 @@
 [EXCHANGE]:
 - [57]-[METADATA](.planning/exchange/metadata.md): `MetaCarrier` descriptive EXIF/IPTC/XMP/ICC read/write axis over raster, PDF, and media.
 - [58]-[CREDENTIAL](.planning/exchange/credential.md): `Provenance` content-credential sign/read/embed/ingredient-archive owner keyed by content.
-- [59]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` pyhanko PAdES sign/stamp/augment/audit owner folding one verdict.
+- [59]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` pyhanko PAdES sign/stamp/augment/reserve/audit owner folding one verdict.
 - [60]-[DETECT](.planning/exchange/detect.md): `Detect` format-identification gate over puremagic with a python-magic fallback.
 
 [MEDIA]:
 - [61]-[CONTAINER](.planning/media/container.md): `Media` container and codec spine from demux through adaptive-streaming egress.
 - [62]-[FILTERGRAPH](.planning/media/filtergraph.md): `FilterNode` capability-detected native-vs-substitute filter-routing core.
-- [63]-[AUDIO](.planning/media/audio.md): `_encode_audio` av audio-stream encode, resample, and master arm.
+- [63]-[AUDIO](.planning/media/audio.md): `Pcm` block audio arm — decode, encode, resample, layout, and mix over the av floor.
 - [64]-[TIMELINE](.planning/media/timeline.md): `Timeline` non-linear editing over the container and filtergraph spine.
 - [65]-[SUBTITLE](.planning/media/subtitle.md): `Subtitle` pysubs2 parse/convert/retime/restyle, passthrough-mux, and burn-in owner.
 - [66]-[ANALYSIS](.planning/media/analysis.md): `Analysis` read-side media measurement and thumbnail owner over the container spine.
@@ -115,7 +115,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`. FLOOR-GATED marks a row whose `python_version` marker no supported interpreter satisfies — admission stands, reach does not, and its composing arms rail a stated refusal until upstream publishes a floor wheel or the estate floor moves. OVERLAY inverts that: the marker holds while the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor. Cards naming host binaries carry no manifest row and state their provisioning lane instead.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [DOCUMENTS]:
 - `reportlab`
@@ -124,17 +124,17 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `pymupdf`
 - `pypdfium2`
 - `pdf-oxide` — Rust PDF extract/render/create/forms.
-- `pypdf` — assembly and outline/transform egress.
-- `pikepdf` — repair, encrypt, overlay, and structure-tree authoring.
+- `pypdf` — Assembly and outline/transform egress.
+- `pikepdf` — Repair, encrypt, overlay, and structure-tree authoring.
 - `python-docx`
 - `python-pptx`
 - `openpyxl`
-- `xlsxwriter` — write-only XLSX with charts and formats.
-- `python-calamine` — fast read-only XLSX/XLS/ODS ingest.
+- `xlsxwriter` — Write-only XLSX with charts and formats.
+- `python-calamine` — Fast read-only XLSX/XLS/ODS ingest.
 - `odfpy` — OpenDocument read/write.
-- `docxtpl` — jinja2 DOCX template render.
-- `msoffcrypto-tool` — encrypted Office decrypt at ingest.
-- `pdfplumber` — page text/table/word geometry extraction.
+- `docxtpl` — DOCX template render over jinja2.
+- `msoffcrypto-tool` — Encrypted Office decrypt at ingest.
+- `pdfplumber` — Page text/table/word geometry extraction.
 - `ocrmypdf` — OCR text layer over scanned PDF.
 - `lxml`
 - `ruamel-yaml`
@@ -142,61 +142,61 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `jinja2`
 - `papermill`
 - `nbclient`
-- `nbconvert` — notebook export to HTML/PDF/script.
-- `jupytext` — notebook/text round-trip.
+- `nbconvert` — Notebook export to HTML/PDF/script.
+- `jupytext` — Notebook/text round-trip.
 
 [VISUALIZATION]:
 - `altair`
 - `matplotlib`
 - `lets-plot` — FLOOR-GATED with no wheel, sdist, or nix route; second host-free chart engine whose `lets_plot` arms rail `<engine-unavailable>`.
-- `vl-convert-python` — primary host-free chart export.
-- `vegafusion` — chart export transform pre-pass.
-- `great-tables` — publication-table producer.
-- `polars` — first-class table and frame substrate.
+- `vl-convert-python` — Primary host-free chart export.
+- `vegafusion` — Chart export transform pre-pass.
+- `great-tables` — Publication-table producer.
+- `polars` — First-class table and frame substrate.
 
 [DIAGRAMS]:
-- `rustworkx` — graph layout, detail DAG, and plan producer graph.
-- `grandalf` — second Sugiyama layered-layout engine.
+- `rustworkx` — Graph layout, detail DAG, and plan producer graph.
+- `grandalf` — Second Sugiyama layered-layout engine.
 - `pyelk` — ELK layered/orthogonal/ports/nesting layout.
 - `fast-sugiyama` — Rust Sugiyama layered placement.
 - `kiwisolver` — Cassowary constraint-layout solver.
-- `ziafont` — glyph text-to-SVG-path outlining.
-- `ziamath` — math-to-SVG rendering.
+- `ziafont` — Glyph text-to-SVG-path outlining.
+- `ziamath` — Math-to-SVG rendering.
 - `latex2mathml` — LaTeX-to-MathML front-end ziamath drives; composed directly at the `commands.FUNCTIONS` operator registry.
-- `schemdraw` — native-SVG schematic diagrams.
-- `drawpyo` — draw.io editable export.
+- `schemdraw` — Native-SVG schematic diagrams.
+- `drawpyo` — Editable draw.io export.
 - `pvlib` — NREL solar-position ephemeris.
 
 [IMAGING]:
-- `pillow` — raster IO/transform/ICC, annotation, metadata.
-- `scikit-image` — measured scores, transforms, and registration; builds at the floor under the manifest's pythran metadata override.
-- `pyvips` — fused libvips decode/downscale/ICC/smartcrop.
+- `pillow` — Raster IO/transform/ICC, annotation, metadata.
+- `scikit-image` — Measured scores, transforms, and registration; builds at the floor under the manifest's pythran metadata override.
+- `pyvips` — Fused libvips decode/downscale/ICC/smartcrop.
 - `resvg-py` — SVG-to-raster render.
 - `tifffile` — TIFF container IO and layered-TIFF writer.
 - `psdtags` — Photoshop TIFF image resources.
-- `imagecodecs` — deep-pixel file and channel-byte codec rails, display-container array writes, ICC transform, BCn decode.
-- `openexr` — named-channel, multi-part, and tiled EXR documents.
-- `pyktx` — in-process KTX2 container with Basis/ASTC encode and block transcode.
+- `imagecodecs` — Deep-pixel file and channel-byte codec rails, display-container array writes, ICC transform, BCn decode.
+- `openexr` — Named-channel, multi-part, and tiled EXR documents.
+- `pyktx` — In-process KTX2 container with Basis/ASTC encode and block transcode.
 
 [IMAGING_TOOLS]: Host binaries the texture producers spawn.
-- `ktx` — unified KTX-Software CLI holding the KTX2 encode floor the python and C# branches spawn; TS consumes the produced bytes.
+- `ktx` — Unified KTX-Software CLI holding the KTX2 encode floor the python and C# branches spawn; TS consumes the produced bytes.
 
 [VECTOR_CAD]:
-- `svgelements` — pure-Python SVG geometry and parse.
-- `skia-pathops` — boolean/offset/stroke-to-outline.
-- `drawsvg` — hierarchical named-layer SVG authoring.
+- `svgelements` — Pure-Python SVG geometry and parse.
+- `skia-pathops` — Boolean/offset/stroke-to-outline.
+- `drawsvg` — Hierarchical named-layer SVG authoring.
 - `ezdxf` — DXF model, render backend, block store, symbol-table lowering.
 
 [MARKS]:
 - `segno` — QR/Micro-QR.
-- `python-barcode` — linear 1D symbologies.
+- `python-barcode` — Linear 1D symbologies.
 - `zxing-cpp` — 2D-matrix symbology encode/decode.
 
 [COLOR]:
 - `colour-science`
 - `coloraide` — CSS-space parse/interpolate/gamut-map.
 - `colour-cxf` — CxF3 spot/spectral color exchange.
-- `opencolorio` — config-driven transform graph, CPU/GPU processors, and the scene-linear working-space role.
+- `opencolorio` — Config-driven transform graph, CPU/GPU processors, and the scene-linear working-space role.
 
 [TYPOGRAPHY]:
 - `fonttools`
@@ -204,26 +204,26 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `blackrenderer` — COLRv1 color-glyph render.
 - `python-bidi` — UAX#9 bidirectional reorder.
 - `uniseg` — Unicode line/grapheme/word segmentation.
-- `pyphen` — language-aware soft-hyphenation.
-- `opentype-feature-freezer` — freeze OpenType features into the default set.
+- `pyphen` — Language-aware soft-hyphenation.
+- `opentype-feature-freezer` — Freezes OpenType features into the default set.
 - `vharfbuzz` — HarfBuzz shaping QA and buffer-diff.
 - `PyICU` — ICU line-break, bidi, and collation power path.
 
 [EXCHANGE]:
 - `pyhanko` — PAdES PDF signing and conformance.
 - `c2pa-python` — C2PA content-credential sign/verify.
-- `puremagic` — pure-Python format sniffer, default detect path.
-- `python-magic` — libmagic format-ID power path.
-- `pyexiftool` — cross-format descriptive-metadata read/write.
+- `puremagic` — Pure-Python format sniffer, default detect path.
+- `python-magic` — Format-ID power path over libmagic.
+- `pyexiftool` — Cross-format descriptive-metadata read/write.
 
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation.
-- `psd-tools` — sole native PSD/PSB owner — layered author, read/inspect, composite, and structural readback.
-- `pdfimpose` — saddle/wire/card/cut/fold/signature page-order.
+- `psd-tools` — Sole native PSD/PSB owner: layered author, read/inspect, composite, and structural readback.
+- `pdfimpose` — Saddle/wire/card/cut/fold/signature page-order.
 
 [MEDIA]:
 - `av` — PyAV container/codec/filtergraph.
-- `pysubs2` — subtitle parse/convert/retime/restyle.
+- `pysubs2` — Subtitle parse/convert/retime/restyle.
 
 [SCENE]:
 - `pyvista` — OVERLAY; the `scene/render_worker#WORKER` plotter surface.
@@ -233,15 +233,15 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 [COMPRESSION]:
 - `zstandard`
 - `brotli`
-- `zlib-ng` — accelerated gzip/zlib behind the GZIP codec.
+- `zlib-ng` — Accelerated gzip/zlib behind the GZIP codec.
 - `py7zr`
-- `stream-zip` — streaming ZIP emit.
-- `stream-unzip` — streaming ZIP ingest.
-- `detools` — binary diff/patch for delta bundles.
+- `stream-zip` — Streaming ZIP emit.
+- `stream-unzip` — Streaming ZIP ingest.
+- `detools` — Binary diff/patch for delta bundles.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`
@@ -256,8 +256,14 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `opentelemetry-api`
 - `structlog`
 
+[NUMERIC_SUBSTRATE]:
+- `numpy`
+
+[IDENTITY]:
+- `xxhash` — XXH3 digests behind the bundle, archive, and transmittal content preimages.
+
 [EVENT_FABRIC]:
 - `cloudevents`
 
-[NUMERIC_SUBSTRATE]:
-- `numpy`
+[COMPRESSION]:
+- `lz4` — `lz4.frame` codec row behind the compression producer and delta patch store.

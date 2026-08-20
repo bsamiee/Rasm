@@ -15,12 +15,10 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `GeoreferenceFact` decodes once at geometry's IFC band as the ONE model CRS source — a dataset's own file CRS stays a data-owned origin beside it.
 - Settled money is exact `decimal` in the runtime journal and observed spend `float` in data's cost plane — a charge admits no float, a gauge does.
 - Evidence bands close on every exit inside a FENCED `finally` with exit state — pricing in the `map` arm loses the refused and unwound crossings.
-- `Residence` names data's plane family and runtime's port spells `Ledger` — one name over a `Protocol` and a `StrEnum` resolves to the last import.
-- `Classification` grades admission sensitivity and `Scrub` names receipts' redaction — sharing a consumer, one spelling resolves to the last import.
+- One spelling per shared consumer — `Residence`/`Ledger` and `Classification`/`Scrub` split; two owners under one name resolve to last import.
 - `Classification` stays folder-local where no consumer reaches two — artifacts' ISO-12006 reference, texture-set result, and grade share no reader.
-- Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.
-- Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused branch-wide.
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
+- Floor gates refuse at import time through one `find_spec` map onto `BoundaryFault(import_=)` — every surface naming a gated coordinate binds it.
 
 ## [03]-[COLLAPSE]
 
@@ -35,6 +33,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 ## [04]-[STRUCTURE]
 
 - `trimesh` and `rustworkx` stay dual-registered — each entry is the role its own stratum holds, and a dedup sweep forces a cross-stratum import.
+- `lark` stays dual-registered — runtime's `[PARSING]` seat and geometry's `[IFC_BIM]` seat each hold their own stratum's role, never one shared row.
 - Native-gated workers cross the `workers` `shipped` gate under a `covered(module, names)` witness — a `getattr` twin defers misspellings to offload.
 - Import deferral is the module-top `lazy` proxy, never function-local — `banned-module-level-imports` bans EAGER, a floor gate leads dereference.
 - Function-local imports ride a marker comment naming their module-scope ban — AGPL isolation, or a call-seam side effect the import must fire.
@@ -47,3 +46,5 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Journal producers record at the nearest ASYNC fold and a synchronous receipt fold records nothing — the send suspends, so a sync leg can only shed.
 - Tenancy resolves at the `Journal` writer off `TENANT_BAGGAGE` and a fact arriving WITH it passes untouched — a re-read kills the on-behalf case.
 - Provider release seams are per-distribution and the `.api` catalog names each — `hvac.Client` releases through `client.adapter.close()` alone.
+- Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.
+- Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused branch-wide.

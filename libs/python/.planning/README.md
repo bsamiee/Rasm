@@ -2,25 +2,25 @@
 
 Python is an independently adoptable host-free platform for science, compute, data, geometry, IFC, and artifact production across peer packages held to the cross-language density bar. Python applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, requested and re-imported as data, never imported as code.
 
-One root `pyproject.toml` owns interpreter admission and dependency groups; this branch registry owns the substrate tiers every folder composes.
+One root `pyproject.toml` owns interpreter admission and dependency groups; this branch registry owns the substrate tiers every folder composes. FLOOR-GATED marks a folder registry row whose `python_version` marker no supported interpreter satisfies, so admission stands while reach waits on a floor wheel or a floor move; OVERLAY marks the inverse, where the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor; rows naming host binaries carry no manifest row and state their provisioning lane.
 
 ## [01]-[ROUTER]
 
-- [01]-[RUNTIME](../runtime/README.md): shared-rail minting foundation.
-- [02]-[COMPUTE](../compute/README.md): scientific-evidence graduation.
-- [03]-[DATA](../data/README.md): dataset movement and interchange.
-- [04]-[GEOMETRY](../geometry/README.md): geometry and IFC evidence production.
-- [05]-[ARTIFACTS](../artifacts/README.md): publication-grade output.
+- [01]-[RUNTIME](../runtime/README.md): Shared-rail minting foundation.
+- [02]-[COMPUTE](../compute/README.md): Scientific-evidence graduation.
+- [03]-[DATA](../data/README.md): Dataset movement and interchange.
+- [04]-[GEOMETRY](../geometry/README.md): Geometry and IFC evidence production.
+- [05]-[ARTIFACTS](../artifacts/README.md): Publication-grade output.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Every folder composes this cross-domain foundation. Each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery — the `opentelemetry-instrumentation-*` train, the `pyroscope-otel` push — homes folder-local to `runtime`.
+Every folder composes this cross-domain foundation. Each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery, the `opentelemetry-instrumentation-*` train and the `pyroscope-otel` push, homes folder-local to `runtime`.
 
 [TYPING_RAILS]:
 - `expression` — `Result`/`Option` carriers, do-notation builders, `pipe`/`compose`, and `Block`/`Map` immutable traversal.
 - `msgspec` — `Struct` wire codecs, `Meta` constraints, and the `convert` rename projection.
-- `beartype` — runtime boundary contracts, `vale` refinements, and `door` predicates.
-- `pydantic` — untrusted-ingress admission models and the `TypeAdapter` payload gate.
+- `beartype` — Runtime boundary contracts, `vale` refinements, and `door` predicates.
+- `pydantic` — Untrusted-ingress admission models and the `TypeAdapter` payload gate.
 
 [CONCURRENCY]:
 - `anyio` — Structured-concurrency surface: task groups, cancel scopes, offload arms, memory streams, portal bridge.
@@ -53,12 +53,13 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 - `universal-pathlib` — `UPath` path objects over every fsspec backend; one cross-store path currency.
 
 [EVENT_FABRIC]:
-- `cloudevents` — Specification attribute algebra, its validating event family, the JSON format, and four protocol bindings.
+- `cloudevents` — Specification attribute algebra, its validating event family, the JSON format, and the protocol bindings.
 - `confluent-kafka` — librdkafka client, cluster administration, and the Schema Registry stack with its magic-byte framing.
-- `nats-py` — NATS core and JetStream client: subject addressing, headers, streams, and the two bucket families.
+- `nats-py` — NATS core and JetStream client: subject addressing, headers, streams, and the KV and object-store bucket families.
 - `paho-mqtt` — MQTT protocol state machine, its 5.0 property vocabulary, reason codes, and topic-filter matching.
 - `pika` — AMQP 0-9-1 protocol: the blocking channel, the content-header vocabulary, topology verbs, and publisher confirms.
 - `fastavro` — Avro container and schemaless codecs, schema parse and fingerprinting, and logical-type dispatch.
+- `jsonschema` — Foreign JSON Schema validation across six draft validators, the payload gate beneath the registry JSON serializer.
 
 [MESH_INTERCHANGE]:
 - `meshio` — Neutral mesh read/write across solver formats.

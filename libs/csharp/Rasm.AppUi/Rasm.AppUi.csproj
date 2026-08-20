@@ -76,13 +76,6 @@
         <PackageReference Include="Svg.Skia" />
     </ItemGroup>
 
-    <!-- This folder mints the presented wgpu device every peer plane binds; the native binaries ride this row alone. -->
-    <ItemGroup Label="GPU Device">
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
-    </ItemGroup>
-
     <ItemGroup Label="XR Runtime">
         <PackageReference Include="Silk.NET.OpenXR" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
@@ -142,5 +135,12 @@
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="NetTopologySuite" />
+    </ItemGroup>
+
+    <!-- This folder mints the presented wgpu device every peer plane binds; the native binaries ride this row alone. -->
+    <ItemGroup Label="GPU Device">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
     </ItemGroup>
 </Project>

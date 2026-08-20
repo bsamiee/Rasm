@@ -9,8 +9,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Host Substrate">
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+        <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper Usings">
@@ -20,13 +21,11 @@
         <Using Include="Grasshopper2.Doc" />
         <Using Include="Grasshopper2.Parameters" />
         <Using Include="Grasshopper2.Parameters.Standard" />
-        <Using Include="Grasshopper2.UI" />
         <Using Include="Grasshopper2.UI.Canvas" />
         <Using Include="Grasshopper2.UI.Flex" />
     </ItemGroup>
 
     <ItemGroup Label="Eto Usings">
-        <Using Include="Eto.Drawing" />
         <Using Include="Eto.Forms" />
     </ItemGroup>
 </Project>

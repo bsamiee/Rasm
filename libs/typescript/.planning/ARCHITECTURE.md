@@ -1,17 +1,17 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-`libs/typescript` in dependency strata — capability domains, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph.
+`libs/typescript` in dependency strata: capability domains, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 libs/typescript/
-├── core/       # The acyclic branch law every folder composes — one authority per cross-language concept
-├── security/   # Identity and custody, stateless behind port Tags satisfied downstream
-├── data/       # The durable-persistence plane and record of truth; a backend is a guarantee row
-├── runtime/    # The execution substrate across both process planes and the browser condition
-├── ui/         # The browser product surface; viewer the spatial second Nx project, render-only
-└── iac/        # The deploy plane outside the runtime graph; nothing imports it at runtime
+├── core/       # One authority per cross-language concept — decode and vocabulary floor, zero serving or persistence
+├── security/   # Crypto mint, authn ceremonies, and access law behind stateless port Tags satisfied downstream
+├── data/       # Journal record of truth, byte planes, and read folds; engine names never leak upward
+├── runtime/    # Serve door, work economy, otel egress, and provider tables across process and browser planes
+├── ui/         # Two Nx projects — the app surface and the render-only spatial viewer
+└── iac/        # Pulumi programs realizing StackSpec into capability-admitted deployments; plane-distinct
 ```
 
 ## [02]-[STRATA]
@@ -23,7 +23,7 @@ libs/typescript/
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the ports it declares and the atom-bridge bindings.
 - S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
 
-Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root — `security` ports fill from `data`, `ui`'s `GlbViewport` fills from runtime `Depot` arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
+Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
 
 ```mermaid
 ---
@@ -35,7 +35,7 @@ config:
 ---
 flowchart TB
     accTitle: TypeScript branch import strata
-    accDescr: Five strata import toward core; dashed edges carry ports or returned values rather than imports.
+    accDescr: Import strata toward the core floor; dashed edges carry ports and counter-edge values rather than imports.
     subgraph S4["S4 APP + DEPLOY"]
         Ui[ui]
         Iac[iac]
@@ -52,22 +52,23 @@ flowchart TB
     subgraph S0["S0 CORE"]
         Core[core]
     end
-    Ui e1@-.->|"[PORT]: GlbViewport"| Runtime
-    Iac e12@-.->|"[BOUNDARY]: LeaseSpec"| Security
-    Iac e13@-.->|"[PORT]: StackOutputs"| Runtime
-    Iac e14@-.->|"[PORT]: analytics residence"| Data
-    Data e15@-.->|"[SHAPE]: Board.Query.Target"| Core
-    Iac e2@-->|"[IMPORT]: Pg.rows"| Data
-    Runtime e3@-->|"[IMPORT]: CookieSpec"| Security
-    Runtime e4@-->|"[IMPORT]: Embedder"| Data
-    Data e5@-->|"[IMPORT]: TenantScope"| Security
-    Ui e6@-->|"[IMPORT]: Feed.Document"| Core
-    Iac e7@-->|"[IMPORT]: Board.DashboardModel/Board.Query"| Core
-    Iac e11@-->|"[IMPORT]: Consumption.topologies"| Runtime
-    Runtime e8@-->|"[IMPORT]: Fault.Budget"| Core
-    Data e9@-->|"[IMPORT]: Digest.Key&lt;&quot;content&quot;&gt;"| Core
-    Security e10@-->|"[IMPORT]: Identity.Tenant"| Core
-    S0 f1@-->|"forbidden: upward import"| S3
+    Ui e1@-->|"[IMPORT]: Feed.Document"| Core
+    Ui e2@-.->|"[PORT]: GlbViewport"| Runtime
+    Iac e3@-->|"[IMPORT]: Board.DashboardModel"| Core
+    Iac e4@-->|"[IMPORT]: Board.Query"| Core
+    Iac e5@-->|"[IMPORT]: Pg.rows"| Data
+    Iac e6@-->|"[IMPORT]: Consumption.topologies"| Runtime
+    Iac e7@-.->|"[BOUNDARY]: LeaseSpec"| Security
+    Iac e8@-.->|"[COUNTER]: StackOutputs.sharding"| Runtime
+    Iac e9@-.->|"[PORT]: analytics residence"| Data
+    Runtime e10@-->|"[IMPORT]: Fault.Budget"| Core
+    Runtime e11@-->|"[IMPORT]: CookieSpec"| Security
+    Runtime e12@-->|"[IMPORT]: Embedder"| Data
+    Data e13@-->|"[IMPORT]: Digest.Key&lt;&quot;content&quot;&gt;"| Core
+    Data e14@-->|"[IMPORT]: TenantScope"| Security
+    Data e15@-.->|"[COUNTER]: Board.Query.Target"| Core
+    Security e16@-->|"[IMPORT]: Identity.Tenant"| Core
+    Core f1@-->|"forbidden: upward import"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -150,9 +151,9 @@ flowchart LR
     Serve e6@-->|"serve: resumable feed"| Surface
 ```
 
-One crossing law rules the spine: `core` mints `Digest.Key`, `Clock`, `Quantity`, and `Identity.App` exactly once, and every keying or stamping site delegates to that one mint. Wire octets enter at one boundary, the core interchange registry, each family landing whole into an owned vocabulary or a wire-owned decoded shape, so nothing downstream re-decodes. One fold algebra serves two altitudes — in-memory through the core state plane, durable through the data read lane — with wire-decoded and app-authored families as instances of one op vocabulary.
+One crossing law rules the spine: `core` mints `Digest.Key`, `Clock`, `Quantity`, and `Identity.App` exactly once, and every keying or stamping site delegates to that one mint. Wire octets enter at one boundary, the core interchange registry, each family landing whole into an owned vocabulary or a wire-owned decoded shape, so nothing downstream re-decodes. One fold algebra serves two altitudes, in-memory through the core state plane and durable through the data read lane, with wire-decoded and app-authored families as instances of one op vocabulary.
 
-Order crosses on `Clock.Hlc` with one `Fold.AsOf` replay coordinate; tenancy crosses as `Identity.Tenant.scope`, pinned by the single tenant write path and carried under `Convention.rasm.tenant`. Fault altitudes stay three — interchange reconstructs peer detail, folders raise local rails, and runtime alone projects outward. Exact per-stage wiring lives on the owning pages.
+Order crosses on `Clock.Hlc` with one `Fold.AsOf` replay coordinate; tenancy crosses as `Identity.Tenant.scope`, pinned by the single tenant write path and carried under `Convention.rasm.tenant`. Fault altitudes stay three: interchange reconstructs peer detail, folders raise local rails, and runtime alone projects outward. Exact per-stage wiring lives on the owning pages.
 
 ```mermaid
 ---
@@ -189,7 +190,7 @@ flowchart LR
 
 Domain code publishes typed facts through folder-owned registries composed from core Tap grammar, and a signal emitter is an observe handler over those facts, never an emit inside a domain fold. Runtime otel alone laces egress, while each folder mints instruments against core conventions; the JS-side name source holds name-level parity with OpenTelemetry, never a shared artifact.
 
-One folder owns each signal concept two folders both spell — whichever holds the platform surface producing it — and publishes the intake its peer taps rather than capturing a second time. Peer evidence rows carry whatever that platform surface leaves unmeasured.
+One folder owns each signal concept two folders both spell, whichever holds the platform surface producing it, and publishes the intake its peer taps rather than capturing a second time. Peer evidence rows carry whatever that platform surface leaves unmeasured.
 
 Boards and retention are deploy-plane facts `iac` realizes from the core-encoded models; the data journal fact stream settles spend and usage, and the OTel series stay its lossy health projection keyed by the same identity. Evidence outliving a store's series window lands in an analytics residence `data` custodies and `iac` arms as one spec axis, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
 

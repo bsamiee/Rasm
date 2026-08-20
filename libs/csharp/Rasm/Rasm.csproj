@@ -4,6 +4,21 @@
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
+    <ItemGroup Label="Numeric Floor">
+        <PackageReference Include="ExtendedNumerics.BigRational" />
+        <PackageReference Include="TYoshimura.DoubleDouble" />
+    </ItemGroup>
+
+    <ItemGroup Label="Computational Geometry">
+        <PackageReference Include="MIConvexHull" />
+        <PackageReference Include="Supercluster.KDTree.Net" />
+    </ItemGroup>
+
+    <ItemGroup Label="Event Format">
+        <PackageReference Include="CloudNative.CloudEvents.Avro" />
+        <PackageReference Include="CloudNative.CloudEvents.Protobuf" />
+    </ItemGroup>
+
     <ItemGroup Label="Core Substrate">
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
@@ -14,11 +29,6 @@
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
-    <ItemGroup Label="Numeric Floor">
-        <PackageReference Include="ExtendedNumerics.BigRational" />
-        <PackageReference Include="TYoshimura.DoubleDouble" />
-    </ItemGroup>
-
     <ItemGroup Label="Numeric Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="CSparse" />
@@ -27,29 +37,27 @@
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
-    <ItemGroup Label="Computational Geometry">
-        <PackageReference Include="MIConvexHull" />
-        <PackageReference Include="Supercluster.KDTree.Net" />
-    </ItemGroup>
-
     <ItemGroup Label="Event Envelope">
         <PackageReference Include="CloudNative.CloudEvents" />
-        <PackageReference Include="CloudNative.CloudEvents.Avro" />
-        <PackageReference Include="CloudNative.CloudEvents.Protobuf" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
     </ItemGroup>
 
-    <ItemGroup Label="Kernel Usings">
-        <!-- Eto.Drawing stays out: its Matrix collides with Rasm.Numerics.Matrix and its Point with the globally imported Rhino.Geometry.Point, so interaction fences alias it in their own prelude. -->
-        <Using Include="Eto.Forms" />
+    <ItemGroup Label="Rhino Usings">
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Intersect" />
+    </ItemGroup>
+
+    <ItemGroup Label="Eto Usings">
+        <!-- Eto.Drawing stays out: its Matrix collides with Rasm.Numerics.Matrix and its Point with the globally imported Rhino.Geometry.Point, so interaction fences alias it in their own prelude. -->
+        <Using Include="Eto.Forms" />
+    </ItemGroup>
+
+    <ItemGroup Label="System Usings">
         <Using Include="System.Collections.Immutable" />
         <Using Include="System.Globalization" />
         <Using Include="System.Runtime.CompilerServices" />
         <Using Include="System.Runtime.InteropServices" />
     </ItemGroup>
-
 </Project>

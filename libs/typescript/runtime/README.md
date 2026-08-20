@@ -1,16 +1,57 @@
 # [TS_RUNTIME]
 
-`runtime` is the branch's execution substrate — one body across the process plane, the distributed plane, and the browser condition, one package under one build flag. Every capability is a row, and only the boot module reads a concrete one.
+`runtime` is the branch's execution substrate: one body across the process plane, the distributed plane, and the browser condition, one package under one build flag. Every capability is a row, and only the boot module reads a concrete one.
 
 ## [01]-[ROUTER]
 
-- [01]-[PROC](.planning/proc/): Process substrate every plane boots on — runtime rows, resolve-once config, data-driven flags, one worker protocol.
-- [02]-[NET](.planning/net/): Outbound egress — HTTP lanes off the core budget, framed byte channels, engine-blind fanout and coordination ports.
-- [03]-[OTEL](.planning/otel/): OTLP wire half of observability — sole egress under the ambient redaction scrub; vocabulary stays core's.
-- [04]-[SERVE](.planning/serve/): Libs export route, verb, and group data; the app assembles one `HttpApi` and CLI root; faults leave as `Problem`s.
-- [05]-[WORK](.planning/work/): `WorkClass` economy pricing actors, workflows, queues under the sole DLQ owner, cron, and subscription filtering.
-- [06]-[AI](.planning/ai/): Provider families on one capability-asymmetry table with ranked fallback, chunk-and-embed, and Schema-typed MCP tools.
-- [07]-[BROWSER](.planning/browser/): Browser condition — one boot graph per document, the PWA shell, the typed router carrying `Vault`.
+[PROC]:
+- [01]-[EXEC](.planning/proc/exec.md): Runtimes as rows — a bun swap is one Layer selection and a child process a declarative value.
+- [02]-[CONFIG](.planning/proc/config.md): One ordered provider chain answering every read; the boot-validated contract resolves once.
+- [03]-[FLAG](.planning/proc/flag.md): Feature evaluation over the real OpenFeature SDK — targeting rules decoded and folded as data.
+- [04]-[LIFE](.planning/proc/life.md): Startup and health as one skeleton — each row runs under its own budget and grades one receipt.
+- [05]-[WORKER](.planning/proc/worker.md): Off-thread compute at full platform depth — a closed schema union speaks for every crossing.
+
+[NET]:
+- [06]-[CLIENT](.planning/net/client.md): One lane table for every branch egress — status admission, transient retry pulses, budgets inherited whole.
+- [07]-[CHANNEL](.planning/net/channel.md): Long-lived byte conversations framed once, whatever the transport carries them.
+- [08]-[PUBSUB](.planning/net/pubsub.md): Broadcast, replay, and blob handoff behind one engine-blind broker port.
+- [09]-[COORDINATE](.planning/net/coordinate.md): Distributed agreement beside the fanout plane — lease, elect, and guarded state as one port.
+
+[OTEL]:
+- [10]-[EMIT](.planning/otel/emit.md): OTLP egress as one policy value and one Layer beside the W3C continuation ingress.
+- [11]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
+- [12]-[METER](.planning/otel/meter.md): Durable-work evidence projected lossily onto Convention-keyed instruments.
+- [13]-[PROFILE](.planning/otel/profile.md): Continuous wall and heap profiling pushed from the node lane under one identity projection.
+- [14]-[VITAL](.planning/otel/vital.md): Browser RUM — the Core Web Vitals family measured whole, graded, and emitted once per document.
+
+[SERVE]:
+- [15]-[API](.planning/serve/api.md): Front-door assembly law — domain groups as data, one app-assembled `HttpApi`, derived secondary surfaces.
+- [16]-[ROUTE](.planning/serve/route.md): Routes as Layers — api mount, upload dispatch, and intake verify in one serving fold.
+- [17]-[LIVE](.planning/serve/live.md): Realtime SSE and WebSocket serving over branch feeds under resume-token and admission laws.
+- [18]-[PROBLEM](.planning/serve/problem.md): RFC 9457 outbound-fault law — every leaving fault renders itself.
+- [19]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
+
+[WORK]:
+- [20]-[ENTITY](.planning/work/entity.md): Cluster entities — sharded, per-id, single-writer identity over tiered mailboxes.
+- [21]-[FLOW](.planning/work/flow.md): Suspend-and-replay workflows — recorded activities never re-run their side effects.
+- [22]-[QUEUE](.planning/work/queue.md): Restart-surviving job families with keyed quotas spent through one store-backed counter.
+- [23]-[SCHEDULE](.planning/work/schedule.md): Calendar recurrence as cadence rows — timezone-intrinsic cron, misfire windows, catch-up.
+- [24]-[DELIVER](.planning/work/deliver.md): Mail and webhook egress as channel rows sharing one settlement receipt and one suppression.
+- [25]-[FILTER](.planning/work/filter.md): Every subscription dialect compiled into a single predicate shape, CESQL parsed in-house.
+- [26]-[REPORT](.planning/work/report.md): Document egress folded per format discriminant — each column owns its value projection.
+
+[AI]:
+- [27]-[MODEL](.planning/ai/model.md): Intelligence providers folded onto one asymmetry table, fallback ranked by the plan engine.
+- [28]-[EMBED](.planning/ai/embed.md): Retrieval-port satisfaction — one normalization anchor, cut lanes as policy rows.
+- [29]-[TOOL](.planning/ai/tool.md): Tools as typed data merged into toolkits, both MCP lanes gated by one safety owner.
+- [30]-[AGENT](.planning/ai/agent.md): Sealed agent altitude — a session's phase spine is a machine, its chat persists durably.
+
+[BROWSER]:
+- [31]-[BOOT](.planning/browser/boot.md): One boot per document minting the one managed runtime handle under the app-spec budget.
+- [32]-[SHELL](.planning/browser/shell.md): PWA manifest as a typed value the build encodes, with one update handshake.
+- [33]-[PERSIST](.planning/browser/persist.md): Local persistence — each concern maps to its own named IndexedDB store, residency graded.
+- [34]-[ROUTE](.planning/browser/route.md): Zero-package typed routing over the Navigation API, carrying the `Vault` session plane.
+- [35]-[FETCH](.planning/browser/fetch.md): Byte-flow policy over `Web`, `Fetch`, `Pool`, and `Depot` — worker decoding, generation-scoped residency.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -21,16 +62,16 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@effect/workflow`
 - `@effect/rpc`
 - `@nats-io/nats-core`
-- `@nats-io/transport-node` — native TCP/TLS `connect` for the node/bun lane; the browser lane rides `wsconnect`.
+- `@nats-io/transport-node` — Native TCP/TLS `connect` for the node/bun lane.
 - `@nats-io/jetstream`
 - `@nats-io/kv`
 - `@nats-io/obj`
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
-- `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
-- `mqtt` — `net/channel.md` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
-- `avsc` — `net/channel.md` mints the one `AvroCloudEvent` codec filling the empty arm `core/interchange/format`'s Avro media row leaves.
-- `chevrotain` — `work/filter.md` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
+- `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client` owns transport dispatch.
+- `mqtt` — `net/channel` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
+- `avsc` — `net/channel` mints the one `AvroCloudEvent` codec filling the empty arm `core/interchange/format`'s Avro media row leaves.
+- `chevrotain` — `work/filter` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -44,10 +85,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 [TELEMETRY]:
 - `@effect/opentelemetry` — Effect-signal bridge both export lanes compose; imported nowhere outside this folder.
 - `@opentelemetry/api`
-- `@opentelemetry/api-logs` — peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API.
+- `@opentelemetry/api-logs` — Peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API.
 - `@opentelemetry/core` — W3C propagator pair and composite the export lane registers globally for foreign libraries.
 - `@opentelemetry/context-async-hooks` — `AsyncLocalStorageContextManager`, the server condition's ambient context seat.
-- `@opentelemetry/otlp-exporter-base` — shared OTLP exporter config base carrying compression, timeout, and concurrency.
+- `@opentelemetry/otlp-exporter-base` — Shared OTLP exporter config base carrying compression, timeout, and concurrency.
 - `@opentelemetry/resources`
 - `@opentelemetry/resource-detector-aws`
 - `@opentelemetry/resource-detector-container`
@@ -55,29 +96,29 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@opentelemetry/opentelemetry-browser-detector`
 - `@opentelemetry/sdk-logs`
 - `@opentelemetry/sdk-metrics`
-- `@opentelemetry/host-metrics` — host and process series on the node lane's exposed meter provider.
+- `@opentelemetry/host-metrics` — Host and process series on the node lane's exposed meter provider.
 - `@opentelemetry/sdk-trace-base`
 - `@opentelemetry/sdk-trace-node` — `NodeSdk` facade substrate on the node lane; no direct import.
 - `@opentelemetry/sdk-trace-web`
-- `@opentelemetry/baggage-span-processor` — promotes admitted `rasm.*` baggage onto span attributes under the one promotion predicate.
+- `@opentelemetry/baggage-span-processor` — Admitted `rasm.*` baggage promoted onto span attributes under the one promotion predicate.
 - `@opentelemetry/exporter-trace-otlp-http`
-- `@opentelemetry/exporter-trace-otlp-proto` — protobuf span leg of the SDK bridge.
+- `@opentelemetry/exporter-trace-otlp-proto` — Protobuf span leg of the SDK bridge.
 - `@opentelemetry/exporter-metrics-otlp-http`
-- `@opentelemetry/exporter-metrics-otlp-proto` — protobuf metric leg of the SDK bridge.
+- `@opentelemetry/exporter-metrics-otlp-proto` — Protobuf metric leg of the SDK bridge.
 - `@opentelemetry/exporter-logs-otlp-http`
-- `@opentelemetry/exporter-logs-otlp-proto` — protobuf log leg of the SDK bridge.
+- `@opentelemetry/exporter-logs-otlp-proto` — Protobuf log leg of the SDK bridge.
 - `@opentelemetry/context-zone`
 - `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under both condition nodes.
-- `@opentelemetry/instrumentation-http` — inbound and outbound node HTTP spans covering foreign libraries the Effect seams never reach.
+- `@opentelemetry/instrumentation-http` — Inbound and outbound node HTTP spans covering foreign libraries the Effect seams never reach.
 - `@opentelemetry/instrumentation-undici` — `fetch` and undici client spans on the node condition under the parent-presence gate.
-- `@opentelemetry/instrumentation-pg` — PostgreSQL client spans under the parent-presence gate and the statement-capture posture row.
-- `@opentelemetry/instrumentation-runtime-node` — event-loop, GC, and V8 heap series on the node lane's meter provider.
+- `@opentelemetry/instrumentation-pg` — PostgreSQL client spans under the parent-presence gate and the statement-capture policy row.
+- `@opentelemetry/instrumentation-runtime-node` — Event-loop, GC, and V8 heap series on the node lane's meter provider.
 - `@opentelemetry/instrumentation-fetch`
 - `@opentelemetry/instrumentation-document-load`
 - `@opentelemetry/instrumentation-user-interaction`
 - `@opentelemetry/instrumentation-xml-http-request`
-- `@pyroscope/nodejs` — continuous-profiling push; `otel/profile.md` owns the lifecycle, composed only at the node root.
-- `web-vitals` — estate-wide Core Web Vitals source; `otel/vital.md` registers the enriched-build capture functions and owns the cutoff pairs.
+- `@pyroscope/nodejs` — Continuous-profiling push; `otel/profile` owns the lifecycle, composed only at the node root.
+- `web-vitals` — Estate-wide Core Web Vitals source; `otel/vital` registers the enriched-build capture functions and owns the cutoff pairs.
 
 [TERMINAL]:
 - `@effect/cli`
@@ -85,7 +126,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@effect/printer-ansi`
 
 [FLAGS]:
-- `@openfeature/server-sdk`
+- `@openfeature/server-sdk` — Server evaluation SDK the `proc/flag` Provider implements; targeting rules stay decoded data.
 
 [DOCUMENTS]:
 - `nodemailer`
@@ -104,7 +145,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `effect`
@@ -116,8 +157,8 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 - `@effect/platform-browser`
 - `@effect/experimental`
 
-[WIRE_ENVELOPE]:
-- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/channel.md` and `net/pubsub.md` own MQTT, NATS, and Kafka.
+[EVENT_FABRIC]:
+- `cloudevents` — HTTP, MQTT, NATS, and Kafka bindings riding the owning channel, fanout, delivery, and intake rows.
 
 [BENCH]:
-- `mitata` — `proc/exec.md` owns the trial-engine route.
+- `mitata` — `proc/exec` owns the trial-engine route.

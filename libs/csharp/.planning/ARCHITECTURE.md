@@ -15,16 +15,16 @@ libs/csharp/
 ├── Rasm.Compute/      # [APP_PLATFORM]   Measured tensor, model, and solver execution
 ├── Rasm.Persistence/  # [APP_PLATFORM]   Durable element, query, and version stores
 ├── Rasm.AppUi/        # [APP_PLATFORM]   Avalonia product UI shell
-├── Rasm.Generation/   # [APP_PLATFORM]   Layout, generation, and assembly orchestration onto kernel geometry
+├── Rasm.Generation/   # [APP_PLATFORM]   Target package — layout, generation, and assembly orchestration onto kernel geometry
 ├── Rasm.Rhino/        # [HOST_BOUNDARY]  RhinoCommon host APIs; references only Rasm
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY]  GH2 host APIs; references only Rasm
 ```
 
-Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto). `Rasm.Generation` is the branch's one target package — it turns a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry; the map seats it, `libs/.planning/planning-targets.md` registers it, and its folder lands with its first design page.
+Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto). `Rasm.Generation` is the branch's one target package, turning a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry; the map seats it, `libs/.planning/planning-targets.md` registers it, and its folder lands with its first design page.
 
 ## [02]-[STRATA]
 
-Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference — the app platform spreads across four ranks rather than wearing one label.
+Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference, which is why the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
 - S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
@@ -54,7 +54,7 @@ config:
 ---
 flowchart TB
     accTitle: C# branch package reference strata
-    accDescr: Five host-neutral ranks from the app-platform leaf down to the kernel beside a plane-distinct host boundary at the seam rank — every reference edge downward and solid, labeled edges naming one sourced type, no edge inside any rank, one forbidden host-neutral upward edge, and the target package seated edgeless until its first design page freezes the types it sources.
+    accDescr: Package reference strata from the app leaf down to the kernel, the host boundary plane-distinct at the seam rank.
     subgraph S4["S4 APP LEAF"]
         AppUi[Rasm.AppUi]
     end
@@ -79,31 +79,34 @@ flowchart TB
     subgraph S0["S0 KERNEL"]
         Rasm[Rasm]
     end
-    Rhino -->|"[IMPORT]: PerceptualColor"| Rasm
-    Grasshopper -->|"[IMPORT]: MonotonicTimeline"| Rasm
-    Element -->|"[IMPORT]: ContentHash"| Rasm
-    AppHost -->|"[IMPORT]: ContentHash"| Rasm
-    Persistence -->|"[IMPORT]: ElementGraph"| Element
-    Persistence -->|"[IMPORT]: ContentHash"| Rasm
-    Persistence -->|"[IMPORT]: RecoveryObjective"| AppHost
-    Materials -->|"[IMPORT]: IElementProjection"| Element
-    Materials -->|"[IMPORT]: Op"| Rasm
-    Materials -->|"[IMPORT]: BenchmarkGate"| AppHost
-    Bim -->|"[IMPORT]: GraphDelta"| Element
-    Bim -->|"[IMPORT]: GeometryMeasures"| Rasm
-    Fabrication -->|"[IMPORT]: IElementProjection"| Element
-    Fabrication -->|"[IMPORT]: MeshSpace"| Rasm
-    Compute -->|"[IMPORT]: ElementGraph"| Element
-    Compute -->|"[IMPORT]: ContentHash"| Rasm
-    Compute -->|"[IMPORT]: ShedVerdict"| AppHost
-    Compute -->|"[IMPORT]: ArtifactIndexRow"| Persistence
-    AppUi -->|"[IMPORT]: ContentHash"| Rasm
-    AppUi -->|"[IMPORT]: DeterminismContext"| AppHost
-    AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
-    AppUi -->|"[IMPORT]: LayeredBsdf/SurfaceShade/EnvironmentLight/TextureSet"| Materials
-    AppUi -->|"[IMPORT]: HiddenLineResult"| Fabrication
-    AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
-    Rasm -->|"forbidden: host-neutral upward"| HOST
+    Rhino e1@-->|"[IMPORT]: PerceptualColor"| Rasm
+    Grasshopper e2@-->|"[IMPORT]: MonotonicTimeline"| Rasm
+    Element e3@-->|"[IMPORT]: ContentHash"| Rasm
+    AppHost e4@-->|"[IMPORT]: ContentHash"| Rasm
+    Persistence e5@-->|"[IMPORT]: ElementGraph"| Element
+    Persistence e6@-->|"[IMPORT]: ContentHash"| Rasm
+    Persistence e7@-->|"[IMPORT]: RecoveryObjective"| AppHost
+    Materials e8@-->|"[IMPORT]: IElementProjection"| Element
+    Materials e9@-->|"[IMPORT]: Op"| Rasm
+    Materials e10@-->|"[IMPORT]: BenchmarkGate"| AppHost
+    Bim e11@-->|"[IMPORT]: GraphDelta"| Element
+    Bim e12@-->|"[IMPORT]: GeometryMeasures"| Rasm
+    Fabrication e13@-->|"[IMPORT]: IElementProjection"| Element
+    Fabrication e14@-->|"[IMPORT]: MeshSpace"| Rasm
+    Compute e15@-->|"[IMPORT]: ElementGraph"| Element
+    Compute e16@-->|"[IMPORT]: ContentHash"| Rasm
+    Compute e17@-->|"[IMPORT]: Admission"| AppHost
+    Compute e18@-->|"[IMPORT]: ArtifactIndexRow"| Persistence
+    AppUi e19@-->|"[IMPORT]: ContentHash"| Rasm
+    AppUi e20@-->|"[IMPORT]: DeterminismContext"| AppHost
+    AppUi e21@-->|"[IMPORT]: ResidencyPayload"| Compute
+    AppUi e22@-->|"[IMPORT]: LayeredBsdf"| Materials
+    AppUi e23@-->|"[IMPORT]: SurfaceShade"| Materials
+    AppUi e24@-->|"[IMPORT]: EnvironmentLight"| Materials
+    AppUi e25@-->|"[IMPORT]: TextureSet"| Materials
+    AppUi e26@-->|"[IMPORT]: HiddenLineResult"| Fabrication
+    AppUi e27@-->|"[IMPORT]: DuckProfileReceipt"| Persistence
+    Rasm f1@-->|"forbidden: upward import"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -120,7 +123,7 @@ config:
 ---
 flowchart LR
     accTitle: C# branch python seam registry
-    accDescr: C# packages exchanging kinded contract shapes with the python packages — data-bearing kinds and shape contracts as labeled edges — bidirectional peers as hexagons, one-way sources and sinks as stadiums.
+    accDescr: Which kinded contract shapes cross between the C# packages and their python counterparts.
     subgraph csharp[LIBS/CSHARP]
         Rasm[Rasm]
         Element[Rasm.Element]
@@ -136,22 +139,22 @@ flowchart LR
     PyCompute{{python:compute}}
     PyData{{python:data}}
     PyArtifacts([python:artifacts])
-    Rasm <-->|"[CONTENT_KEY]: XxHash128"| PyRuntime
-    Element <-->|"[WIRE]: GlbContentHash"| PyGeometry
-    Element <-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
-    Bim <-->|"[WIRE]: IfcWire"| PyGeometry
-    Bim -->|"[WIRE]: GeoWire"| PyData
-    Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| PyRuntime
-    PyArtifacts -->|"[WIRE]: AssetSetManifest"| Materials
-    Fabrication -->|"[WIRE]: GdtFrameWire"| PyArtifacts
-    AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
-    Compute <-->|"[WIRE]: ComputeService"| PyGeometry
-    Compute <-->|"[WIRE]: ProtoVocabulary"| PyRuntime
-    Compute -->|"[GRADUATION]: GraduationEvidence"| PyCompute
-    Compute -->|"[SHAPE]: DoeDataset"| PyData
-    Persistence <-->|"[WIRE]: OpLogEntry"| PyRuntime
-    PyArtifacts -->|"[CONTENT_KEY]: SignedArtifact"| Persistence
-    Persistence <-->|"[WIRE]: SubstraitPlan"| PyData
+    Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| PyRuntime
+    Element e2@<-->|"[WIRE]: GlbContentHash"| PyGeometry
+    Element e3@<-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
+    Bim e4@<-->|"[WIRE]: IfcWire"| PyGeometry
+    Materials e5@-->|"[WIRE]: MaterialWire"| PyRuntime
+    Materials e6@-->|"[WIRE]: TextureSetWire"| PyRuntime
+    PyArtifacts e7@-->|"[WIRE]: AssetSetManifest"| Materials
+    Fabrication e8@-->|"[WIRE]: GdtFrameWire"| PyArtifacts
+    AppHost e9@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
+    Compute e10@<-->|"[WIRE]: ComputeService"| PyGeometry
+    Compute e11@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
+    Compute e12@-->|"[GRADUATION]: GraduationEvidence"| PyCompute
+    Compute e13@-->|"[SHAPE]: DoeDataset"| PyData
+    Persistence e14@<-->|"[WIRE]: OpLogEntry"| PyRuntime
+    PyArtifacts e15@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
+    Persistence e16@<-->|"[WIRE]: SubstraitPlan"| PyData
 ```
 
 ```mermaid
@@ -164,7 +167,7 @@ config:
 ---
 flowchart LR
     accTitle: C# branch typescript seam registry
-    accDescr: C# packages producing kinded wires the typescript core, data, runtime, and ui domains decode — data-bearing wires, the backend contract, and the telemetry transport edge, labeled per kind — bidirectional peers as hexagons, one-way sinks as stadiums.
+    accDescr: Which kinded wires the C# packages produce for the typescript core, data, runtime, and ui domains to decode.
     subgraph csharp[LIBS/CSHARP]
         Rasm[Rasm]
         Element[Rasm.Element]
@@ -179,24 +182,30 @@ flowchart LR
     TsData{{typescript:data}}
     TsUi([typescript:ui])
     TsRuntime([typescript:runtime])
-    Rasm <-->|"[CONTENT_KEY]: XxHash128"| TsCore
-    Element <-->|"[WIRE]: rasm.element.v1"| TsCore
-    Compute <-->|"[WIRE]: QuantityFamily"| TsCore
-    Persistence -->|"[WIRE]: CrdtOpWire"| TsCore
-    Bim -->|"[WIRE]: IfcWire"| TsCore
-    Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| TsCore
-    AppUi -->|"[WIRE]: CommandPayloadWire"| TsCore
-    AppHost -->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
-    Persistence <-->|"[CONTRACT]: BackendContract"| TsData
-    Materials -->|"[WIRE]: OpenPbrGroupsWire"| TsUi
-    AppUi -->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| TsUi
-    AppHost -->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire + HostFingerprintWire"| TsUi
-    AppHost -->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| TsCore
+    Element e2@<-->|"[WIRE]: rasm.element.v1"| TsCore
+    Compute e3@<-->|"[WIRE]: QuantityFamily"| TsCore
+    Persistence e4@-->|"[WIRE]: CrdtOpWire"| TsCore
+    Bim e5@-->|"[WIRE]: IfcWire"| TsCore
+    Materials e6@-->|"[WIRE]: MaterialWire"| TsCore
+    Materials e7@-->|"[WIRE]: TextureSetWire"| TsCore
+    AppUi e8@-->|"[WIRE]: CommandPayloadWire"| TsCore
+    AppHost e9@-->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
+    Persistence e10@<-->|"[CONTRACT]: BackendContract"| TsData
+    Materials e11@-->|"[WIRE]: OpenPbrGroupsWire"| TsUi
+    AppUi e12@-->|"[WIRE]: ControlIntentWire"| TsUi
+    AppUi e13@-->|"[WIRE]: CommandGateWire"| TsUi
+    AppUi e14@-->|"[WIRE]: LayoutConstraintWire"| TsUi
+    AppHost e15@-->|"[WIRE]: BindingStatusWire"| TsUi
+    AppHost e16@-->|"[WIRE]: CoercedValueWire"| TsUi
+    AppHost e17@-->|"[WIRE]: WriteReceiptWire"| TsUi
+    AppHost e18@-->|"[WIRE]: HostFingerprintWire"| TsUi
+    AppHost e19@-->|"[TRANSPORT]: OtelExport"| TsRuntime
 ```
 
 ## [04]-[INTERNAL]
 
-`Rasm.Element`, `Rasm.Materials`, and `Rasm.Bim` meet at one seam — the `ElementGraph`: Element owns what a thing IS, Materials what a thing is MADE OF, Bim what a thing MEANS in IFC. Materials seeds and projects components onto the graph, Bim lowers foreign IFC onto it and re-authors IFC off it, and every cross-package fact travels as graph content — neither projector reaches into the other.
+`Rasm.Element`, `Rasm.Materials`, and `Rasm.Bim` meet at one seam, the `ElementGraph`: Element owns what a thing IS, Materials what a thing is MADE OF, Bim what a thing MEANS in IFC. Materials seeds and projects components onto the graph, Bim lowers foreign IFC onto it and re-authors IFC off it, and every cross-package fact travels as graph content, so neither projector reaches into the other.
 
 ```mermaid
 ---
@@ -208,7 +217,7 @@ config:
 ---
 flowchart LR
     accTitle: AEC triad projection spine
-    accDescr: Materials and Bim projecting onto the one ElementGraph seam, Bim exchanging IFC files, and the app-platform packages consuming the graph by receipt and content key.
+    accDescr: How Materials and Bim project onto the one ElementGraph seam and the app platform consumes the graph.
     Materials[Rasm.Materials]
     Bim[Rasm.Bim]
     Graph[(ElementGraph)]
@@ -223,13 +232,13 @@ flowchart LR
     Graph e6@-->|"content keys"| Persistence
 ```
 
-Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` (Materials' `ComponentProjector`, Bim's `SemanticProjector`) and `IGraphConstraint` (Bim's `IfcLegality`, rejecting an illegal delta at composition time). Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data, crossing from Bim's `ExportTypeCandidates` to Materials' `AdmitImported` under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own seam — Materials the deterministic Type node, Bim the per-ingest rooted id — and nothing re-mints a peer's.
+Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` for the two projectors and `IGraphConstraint` for composition-time delta legality. Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own seam and nothing re-mints a peer's: Materials the deterministic Type node, Bim the per-ingest rooted id.
 
 Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
 
-Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule and every stratum composes it as instances, per-folder fact unions are the only legitimate per-folder signal type, and `Rasm.AppHost` laces OTel, HLC, and baggage alone over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam. Folders re-spelling a capsule concept mint the twin the capsule exists to foreclose.
+Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule, every stratum composes it as instances with per-folder fact unions as the one per-folder signal type, and telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 
-Receipts outlive the series they project: every stratum seals its evidence through the kernel receipt port, `Rasm.Persistence` alone lands that stream in the branch analytics residence, and producers hand typed record-batch schemas across the seam rather than opening a folder-local columnar store. That residence is derived and rebuilds from the receipt stream, so it answers history while the metered series answers health.
+Receipts outlive the series they project: every stratum seals its evidence through the kernel receipt port, and the analytics residence is derived, rebuilding from the receipt stream, so it answers history while the metered series answers health.
 
 ```mermaid
 ---
@@ -241,7 +250,7 @@ config:
 ---
 flowchart LR
     accTitle: C# branch signal plane spine
-    accDescr: The kernel signal capsule composing as its own kernel rail and as per-folder fact-union instances, both emitting signal facts into the AppHost governance lacing and sealing receipts into the kernel receipt stream, the laced series leaving on the OtelExport transport seam while the receipt stream projects through the instrument fan and lands the derived analytics residence the columnar custodian holds.
+    accDescr: How composed signal instances emit into AppHost governance and seal receipts, and where the laced series and receipt stream each leave.
     Capsule[Rasm · signal capsule]
     KernelRail[Rasm · SignalRail]
     Folders[folder fact unions · composed instances]
@@ -264,32 +273,32 @@ Exact per-stage wiring lives on the owning implementation pages.
 
 ## [05]-[ROUTING]
 
-Every extension lands on a canonical owner — a row where possible, a compiler-forced arm on the one dispatch site otherwise. Each owner's page carries the full growth law; this table routes and never restates it.
+Every extension lands on a canonical owner: a row where possible, a compiler-forced arm on the one dispatch site otherwise. Each owner's page carries the full growth law; this table routes and never restates it.
 
-| [INDEX] | [CHANGE]                    | [OWNER_SURFACE]                          | [SHAPE_OF_THE_EDIT]                             |
-| :-----: | :-------------------------- | :--------------------------------------- | :---------------------------------------------- |
-|  [01]   | new component family        | `ComponentFamily` + one seed page        | one policy row + seed row table                 |
-|  [02]   | new section shape           | `SectionProfile` + `SectionSolver.Solve` | one union arm + one dispatch arm                |
-|  [03]   | new IFC entity or category  | emitter + `ClassIntroductions`           | regenerate + one overlay row                    |
-|  [04]   | new property or detail      | `DetailSchema`                           | one schema row                                  |
-|  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention                 |
-|  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                          |
-|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`      | one union case or one registry row              |
-|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                    |
-|  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row     |
-|  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism                 |
-|  [11]   | new reliability indicator   | kernel signal capsule (`Rasm`)           | one indicator, burn, severity, or panel row     |
-|  [12]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; the vocabulary stays S0     |
-|  [13]   | analytics residence or slot | `Rasm.Persistence` columnar custodian    | one row answering the estate residence floor    |
-|  [14]   | new columnar query end      | `Rasm.Persistence` `FederationFlight`    | one verb or ticket axis on the one Flight plane |
-|  [15]   | new tolerance lane          | `Rasm` `ToleranceLane`                   | one lane row carrying its band and dimension    |
-|  [16]   | new fault band              | `Rasm` `FaultBand`                       | one registry row; `Disjoint` proves it          |
-|  [17]   | new retriability class      | `Rasm` `Retriability`                    | one case plus one `Redrive` arm                 |
-|  [18]   | new hook mechanism          | `Rasm` `HookRail`                        | one member on the one mechanism                 |
-|  [19]   | new mesh source             | `Rasm` `MeshSource`                      | one case plus one admission arm                 |
-|  [20]   | new statistic               | `Rasm` `Stat<TCarrier>`                  | one slot plus one validity conjunct             |
-|  [21]   | new UI modality or control  | the owning `Rasm/Interaction` owner      | one case or one row                             |
-|  [22]   | new sheet size / standard   | `Rasm` `SheetSeries` / `Drawing/sheet`   | one series root or one declared table row       |
+| [INDEX] | [CHANGE]                    | [OWNER_SURFACE]                          | [SHAPE_OF_THE_EDIT]                           |
+| :-----: | :-------------------------- | :--------------------------------------- | :-------------------------------------------- |
+|  [01]   | new component family        | `ComponentFamily` + one seed page        | one policy row + seed row table               |
+|  [02]   | new section shape           | `SectionProfile` + `SectionSolver.Solve` | one union arm + one dispatch arm              |
+|  [03]   | new IFC entity or category  | emitter + `ClassIntroductions`           | regenerate + one overlay row                  |
+|  [04]   | new property or detail      | `DetailSchema`                           | one schema row                                |
+|  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention               |
+|  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                        |
+|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`      | one union case or one registry row            |
+|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                  |
+|  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row   |
+|  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism               |
+|  [11]   | new reliability indicator   | kernel signal capsule (`Rasm`)           | one indicator, burn, severity, or panel row   |
+|  [12]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; the vocabulary stays S0   |
+|  [13]   | analytics residence or slot | `Rasm.Persistence` `Query/residence`     | one row answering the estate residence floor  |
+|  [14]   | new columnar query end      | `Rasm.Persistence` `Query/serving`       | one `ResidenceReach` arm on the one read plan |
+|  [15]   | new tolerance lane          | `Rasm` `ToleranceLane`                   | one lane row carrying its band and dimension  |
+|  [16]   | new fault band              | `Rasm` `FaultBand`                       | one registry row; `Disjoint` proves it        |
+|  [17]   | new retriability class      | `Rasm` `Retriability`                    | one case plus one `Redrive` arm               |
+|  [18]   | new hook mechanism          | `Rasm` `HookRail`                        | one member on the one mechanism               |
+|  [19]   | new mesh source             | `Rasm` `MeshSource`                      | one case plus one admission arm               |
+|  [20]   | new statistic               | `Rasm` `Stat<TCarrier>`                  | one slot plus one validity conjunct           |
+|  [21]   | new UI modality or control  | the owning `Rasm/Interaction` owner      | one case or one row                           |
+|  [22]   | new sheet size / standard   | `Rasm` `SheetSeries` / `Drawing/sheet`   | one series root or one declared table row     |
 
 ## [06]-[ADMISSION_POLICY]
 
@@ -297,4 +306,4 @@ Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row
 
 Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference.
 
-`Rasm` is RhinoCommon- and Eto-aware by charter — it seats the interaction machinery both boundaries compose — while the host boundaries add the native platform handlers and the Grasshopper boundary alone adds Grasshopper2; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.
+`Rasm` is RhinoCommon- and Eto-aware by charter, seating the interaction machinery both boundaries compose, while the host boundaries add the native platform handlers and the Grasshopper boundary alone adds Grasshopper2; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.

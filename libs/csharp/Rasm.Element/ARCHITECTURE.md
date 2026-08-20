@@ -5,53 +5,58 @@
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry (geometry by content hash)
-├── Graph/                # Authoritative property graph and its mutation algebra
-│   ├── Element.cs        # Frozen property-graph spine and the memoized Bake fold every consumer reads flat
-│   ├── Delta.cs          # Live working-graph mutation algebra and the persistable GraphDelta body
-│   ├── Wire.cs           # Content-key-preserving rasm.element.v1 crossing every peer runtime decodes
-│   ├── Corpus.cs         # Deterministic GraphForge and the graded benchmark-and-parity corpus roster
-│   └── Table.cs          # Columnar row family projection and the AnalyticsSchema wire handoff
-├── Relations/            # Neutral objectified-edge algebra
-│   └── Relation.cs       # Closed neutral edge kinds plus a Generic passthrough so no foreign relation drops
-├── Classification/       # Neutral cross-cutting axes
-│   └── Classification.cs # Generic system-and-code classification pair and the shared discipline axis
-├── Properties/           # Typed property/quantity value vocabulary
-│   ├── Property.cs       # One PropertyValue union closing the IFC-value family with typed data, never strings
-│   └── Quantity.cs       # SI-exponent signature and the MeasureValue carrier with uncertainty bounds
-├── Composition/          # Material composition and intrinsic acoustic folds
-│   ├── Material.cs       # MaterialComposition family and the discipline-keyed engineering-property rows
-│   └── Acoustic.cs       # Banded acoustic carrier and the shared RatingContour contour-fit kernel
-├── Assessment/           # Generic analysis receipt and its measured-evidence sibling
-│   ├── Assessment.cs     # AssessmentPayload receipt keyed by discipline, route, and input content key
-│   └── Observation.cs    # ObservationSeries measured sensor evidence over a by-reference sample blob
-├── Geospatial/           # Georeferenced coverage and CRS
-│   ├── Coverage.cs       # By-ref raster-and-field coverage grid over the kernel CellLattice placement
-│   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
-└── Projection/           # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
-    ├── Projection.cs     # Projector and constraint floors, the assemble composition, and the ImportedGeometry lane carrier
-    ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
-    ├── Fault.cs          # Cross-federation FaultBand registry, the ElementFault union, and the AdmissionSlots slot algebra
-    ├── Observe.cs        # ElementHookRail typed fact tap, its band-bracketed decorations, and the GraphInstrument projection
-    └── Audit.cs          # ModelAudit coverage-and-integrity grade over one frozen snapshot, carrying zero authority
+Rasm.Element/              # Neutral thing-model seam over the kernel; geometry crosses by content hash alone
+├── Graph/                 # One authoritative graph, its mutation algebra, and the wire crossing
+│   ├── Element.cs         # `Header` + frozen node store + `Relationship` array + built-once incidence; `Bake(objectNode)` derives the element
+│   ├── Delta.cs           # `GraphMutation` `[Union]` through the generated total `Switch` onto a HAMT `WorkingGraph`; `Thaw` lowers, `Freeze` lifts
+│   ├── Wire.cs            # `ElementGraphWire`/`GraphDeltaWire` mirrors; decode legs re-admit hostile input on `Fin<T>`
+│   ├── WirePayload.cs     # `NodeWire` fold minting each node's content address, `RelationshipWire` arms, header family, object codecs
+│   ├── WireValue.cs       # Recursive `PropertyValue` fold under the `WireLimits` depth budget; decode legs re-mint through the `OfSi` gate
+│   ├── WireSubstance.cs   # Arms re-enter their accumulating `Of*` admissions; `ProfileRef` keys re-derive; `SectionColumns` one-table codec
+│   ├── WireEvidence.cs    # `PayloadContent` derives from flat wire columns through the owner's `Open` gate; `EvidenceRun` re-enters railed `Of`
+│   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one `ToRgb` quantizer the content key shares
+│   ├── Corpus.cs          # `CorpusProfile` closes density, depth, mix, cadence, and seed; `Mint` admits members through `GraphDelta.AdmitOnto`
+│   └── Table.cs           # `Tabulate` fold; a `TableRow` case IS the dataset and `TableFamily` carries columns, key, spine, rollup measure
+├── Query/                 # Boolean selection closure every peer algebra composes; evaluation stays with each consumer
+│   └── Predicate.cs       # Vocabulary and byte projection alone seat here; evaluation stays with each consuming folder
+├── Relations/             # Neutral objectified-edge algebra
+│   └── Relation.cs        # Typed `NodeId` endpoints under a neutral sub-kind discriminant `Bake` dispatches on; IFC names never enter
+├── Classification/        # Cross-cutting axes carrying identity alone; ancestry stays bSDD-resolved at the Bim peer
+│   └── Classification.cs  # `(System, Code, Edition)` identity with projector-resolved annotations; `Discipline` closes the vocabulary
+├── Properties/            # Typed property/quantity value vocabulary
+│   ├── Property.cs        # `PropertyValue` `[Union]` carries its data type; one `ValueBag<V>` generic, `InheritanceMode` merge
+│   └── Quantity.cs        # SI magnitude coerced at admission, optional canonical unit token, `Dimension` exponents; name beats dimension
+├── Composition/           # Material composition and intrinsic acoustic folds
+│   ├── Material.cs        # `MaterialId`-keyed nodes carrying one composition union and one `Discipline`-keyed property-set union
+│   └── Acoustic.cs        # One-third-octave `AcousticBand` spectra beside the material-intrinsic constants EN 12354 folds read
+├── Assessment/            # Generic analysis receipt and its measured-evidence sibling
+│   ├── Assessment.cs      # One payload the `Node.Assessment` case wraps; `AnalysisRoute` token and `UInt128` `InputKey` ride the key
+│   └── Observation.cs     # One series binds one deployed sensor to one observed aspect; `SensorId` identity beside the blob reference
+├── Geospatial/            # Georeferenced coverage and CRS
+│   ├── Coverage.cs        # Gridded data held by `BlobKey` into the seed-zero object store, never an inlined buffer; `CellLattice` places it
+│   └── Reference.cs       # Map-conversion state, axis scales, `GeodeticDatum`, and the `ProjectedCrs`/`VerticalCrs` identity pair
+└── Projection/            # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
+    ├── Projection.cs      # Two instance-interface floors peers implement without referencing each other; `Assemble` is the app-wired capability
+    ├── Address.cs         # Kernel-hashed canonical seam bytes; this file declares no writer and re-exports nothing
+    ├── Fault.cs           # Cases share one `(Op, Detail)` base deriving `Expected` on the kernel band; refusals gather on `AdmissionSlots`
+    ├── Observe.cs         # `ElementPoint` closes the `rasm.element.<domain>.<point>` roster on a modality column; `ElementFact` carries marks
+    └── Audit.cs           # Per-discipline coverage ratios and a graded integrity stream in one fold; Bim `ModelHealth` composes, never overlaps
 ```
-
-`Graph` is the spine every other sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and the `Graph/Element` `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns — the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
 
 ## [02]-[STRATA]
 
-Interior is one strongly-connected component at folder grain — `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling — so the ladder resolves member-first: five strata rank the owners, and each consumption edge points down.
+Interior is one strongly-connected component at folder grain, since `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling; the ladder therefore resolves member-first, and each consumption edge points down.
 
-- S0 substrate — `ElementFault` and `FaultBand` with the `AdmissionSlots` accumulating-slot algebra, the `CanonicalWriter` fold, and `NodeId`.
-- S0 reach — every stratum rails and keys through the substrate.
-- S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` record.
+- S0 substrate — `ElementFault`, the `AdmissionSlots` accumulating fold, and `NodeId`; the content codec seats at S4 with its contract siblings.
+- S0 law — no substrate file names an upper seam type, so every stratum rails and keys through it with no return edge.
+- S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` signature, `GeoReference`, and the `Query` predicate algebra.
+- S1 law — the predicate algebra seats vocabulary and byte projection alone; evaluation stays with each consuming folder.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, `CoverageGrid`.
 - S2 evidence — `AssessmentPayload` and `ObservationSeries` seat as the computed and measured sibling modalities.
-- S2 law — each value family folds vocabulary into node payloads.
-- S3 graph — `ElementGraph`, `GraphDelta`, and the `Relationship` edge algebra composing every value family.
-- S3 co-seat — `Relations`; objectified edges and the graph key each other mutually.
+- S3 spine — the `Wire*` codemap nodes realize ONE generated codec owner seated with the graph, so six files add no wire stratum.
+- S3 co-seat — `Relations` seats beside the graph: `ElementGraph` composes `Relationship` rows and edges reference nodes by `NodeId` alone, acyclic.
 - S4 contracts — `IElementProjection`, `IGraphConstraint`, and the `ContentAddress` codec seat above the graph they name and fold.
-- S4 observability — `ElementHookRail` and its `GraphInstrument` projection observe every lower stratum without entering one.
+- S4 observability — the `ElementHooks`-minted kernel rail and its `GraphInstrument` projection observe every lower stratum without entering one.
 - S4 corpus — `GraphForge` realizes whole graphs through the S3 admission rail it consumes.
 - S4 tabulation — `GraphTable` flattens the S3 snapshot into columnar row families and imports nothing above it.
 - S4 grade — `ModelAudit` folds the S3 snapshot through the S4 codec into a receipt, mutating nothing and minting no fault of its own.
@@ -66,12 +71,12 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Element interior strata
-    accDescr: Five member-resolved strata from the projection contracts and content codec through the element graph and its value and vocabulary families onto the fault-and-key substrate, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
+    accDescr: How the contract stratum reaches the graph, values, vocabulary, and substrate with no upward import.
     subgraph S4["S4 CONTRACTS"]
         IProjection[IElementProjection]
         IConstraint[IGraphConstraint]
         Address[ContentAddress]
-        HookRail[ElementHookRail]
+        HookRail[ElementHooks]
         Instrument[GraphInstrument]
         Forge[GraphForge]
         Table[GraphTable]
@@ -95,31 +100,29 @@ flowchart TB
     end
     subgraph S0["S0 SUBSTRATE"]
         Fault[ElementFault]
-        Writer[CanonicalWriter]
         NodeId[NodeId]
     end
-    IProjection -->|"[IMPORT]: ElementGraph"| ElementGraph
-    IConstraint -->|"[IMPORT]: GraphDelta"| Delta
-    HookRail -->|"[IMPORT]: GraphDelta"| Delta
-    HookRail -->|"[IMPORT]: ElementFault"| Fault
-    Instrument -->|"[IMPORT]: ElementFact"| HookRail
-    Forge -->|"[IMPORT]: GraphDelta"| Delta
-    Table -->|"[IMPORT]: ElementGraph"| ElementGraph
-    Audit -->|"[IMPORT]: ElementGraph"| ElementGraph
-    Address -->|"[IMPORT]: NodeId"| NodeId
-    ElementGraph -->|"[IMPORT]: PropertyValue"| Property
-    ElementGraph -->|"[IMPORT]: MaterialComposition"| Composition
-    ElementGraph -->|"[IMPORT]: AssessmentPayload"| Payload
-    ElementGraph -->|"[IMPORT]: ObservationSeries"| Series
-    Delta -->|"[IMPORT]: CanonicalWriter"| Writer
-    Relationship -->|"[IMPORT]: NodeId"| NodeId
-    Property -->|"[IMPORT]: MeasureValue"| Measure
-    Payload -->|"[IMPORT]: Discipline"| Classification
-    Composition -->|"[IMPORT]: Classification"| Classification
-    Classification -->|"[IMPORT]: ElementFault"| Fault
-    GeoReference -->|"[IMPORT]: ElementFault"| Fault
-    Measure -->|"[IMPORT]: ElementFault"| Fault
-    Fault -->|"forbidden: substrate upward"| S4
+    IProjection e1@-->|"[IMPORT]: ElementGraph"| ElementGraph
+    IConstraint e2@-->|"[IMPORT]: GraphDelta"| Delta
+    HookRail e3@-->|"[IMPORT]: GraphDelta"| Delta
+    HookRail e4@-->|"[IMPORT]: ElementFault"| Fault
+    Instrument e5@-->|"[IMPORT]: ElementFact"| HookRail
+    Forge e6@-->|"[IMPORT]: GraphDelta"| Delta
+    Table e7@-->|"[IMPORT]: ElementGraph"| ElementGraph
+    Audit e8@-->|"[IMPORT]: ElementGraph"| ElementGraph
+    Address e9@-->|"[IMPORT]: NodeId"| NodeId
+    ElementGraph e10@-->|"[IMPORT]: PropertyValue"| Property
+    ElementGraph e11@-->|"[IMPORT]: MaterialComposition"| Composition
+    ElementGraph e12@-->|"[IMPORT]: AssessmentPayload"| Payload
+    ElementGraph e13@-->|"[IMPORT]: ObservationSeries"| Series
+    Relationship e14@-->|"[IMPORT]: NodeId"| NodeId
+    Property e15@-->|"[IMPORT]: MeasureValue"| Measure
+    Payload e16@-->|"[IMPORT]: Discipline"| Classification
+    Composition e17@-->|"[IMPORT]: Classification"| Classification
+    Classification e18@-->|"[IMPORT]: ElementFault"| Fault
+    GeoReference e19@-->|"[IMPORT]: ElementFault"| Fault
+    Measure e20@-->|"[IMPORT]: ElementFault"| Fault
+    Fault f1@-->|"forbidden: substrate upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -134,7 +137,7 @@ config:
 ---
 flowchart LR
     accTitle: Element AEC-domain projection seams
-    accDescr: Element sub-domain owners exchanging projections and neutral shapes with the AEC peers Bim, Materials, and Fabrication and handing columnar row schemas to the Persistence custodian, one edge per contract family mirrored on the counterpart folder.
+    accDescr: Which projections and neutral shapes cross between Element's owners, the AEC peers, and the persistence custodian.
     subgraph element[RASM.ELEMENT]
         Graph[Graph spine]
         Projection[Projection contracts]
@@ -146,31 +149,28 @@ flowchart LR
     Materials{{Rasm.Materials}}
     Fabrication([Rasm.Fabrication])
     Persistence([Rasm.Persistence])
-    Bim -->|"[PROJECTION]: GraphDelta"| Graph
-    Materials -->|"[PROJECTION]: GraphDelta"| Graph
-    Graph -->|"[SHAPE]: ElementGraph"| Bim
-    Graph -->|"[SHAPE]: ElementGraph"| Fabrication
-    Graph -->|"[WIRE]: AnalyticsSchema"| Persistence
-    Bim -->|"[PORT]: IGraphConstraint"| Projection
-    Fabrication -->|"[PROJECTION]: GraphDelta"| Projection
-    Projection -->|"[SHAPE]: IElementProjection"| Materials
-    Projection -->|"[SHAPE]: IElementProjection"| Bim
-    Composition <-->|"[SHAPE]: MaterialComposition"| Bim
-    Composition <-->|"[SHAPE]: MaterialPropertySet"| Bim
-    Composition <-->|"[SHAPE]: ProfileRef"| Bim
-    Composition <-->|"[SHAPE]: ProfileRef"| Materials
-    Composition <-->|"[SHAPE]: MaterialPropertySet"| Materials
-    Composition <-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Fabrication
-    Materials -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
-    Bim -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
-    Properties <-->|"[SHAPE]: DetailSchema"| Bim
-    Properties <-->|"[SHAPE]: DetailSchema"| Materials
-    Properties <-->|"[SHAPE]: DetailSchema + PropertyCategory"| Fabrication
-    Properties -->|"[SHAPE]: StructuralRows"| Bim
-    Bim -->|"[PROJECTION]: GeoReference"| Geospatial
-    Geospatial <-->|"[SHAPE]: CoverageGrid"| Bim
-    Projection -->|"[SHAPE]: ImportedGeometry"| Bim
-    Projection -->|"[SHAPE]: ModelAudit"| Bim
+    Bim e1@-->|"[PROJECTION]: GraphDelta"| Graph
+    Materials e2@-->|"[PROJECTION]: GraphDelta"| Graph
+    Graph e3@-->|"[SHAPE]: ElementGraph"| Bim
+    Graph e4@-->|"[SHAPE]: ElementGraph"| Fabrication
+    Graph e5@-->|"[WIRE]: AnalyticsSchema"| Persistence
+    Bim e6@-->|"[PORT]: IGraphConstraint"| Projection
+    Fabrication e7@-->|"[PROJECTION]: GraphDelta"| Projection
+    Projection e8@-->|"[SHAPE]: IElementProjection"| Materials
+    Projection e9@-->|"[SHAPE]: IElementProjection"| Bim
+    Composition e10@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet + ProfileRef"| Bim
+    Composition e11@<-->|"[SHAPE]: ProfileRef + MaterialPropertySet"| Materials
+    Composition e12@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Fabrication
+    Materials e13@-->|"[CONTENT_KEY]: AppearanceSummary"| Graph
+    Bim e14@-->|"[CONTENT_KEY]: AppearanceSummary"| Graph
+    Properties e15@<-->|"[SHAPE]: DetailSchema"| Bim
+    Properties e16@<-->|"[SHAPE]: DetailSchema"| Materials
+    Properties e17@<-->|"[SHAPE]: DetailSchema + PropertyCategory"| Fabrication
+    Properties e18@-->|"[SHAPE]: StructuralRows"| Bim
+    Bim e19@-->|"[PROJECTION]: GeoReference"| Geospatial
+    Geospatial e20@<-->|"[SHAPE]: CoverageGrid"| Bim
+    Projection e21@-->|"[SHAPE]: ImportedGeometry"| Bim
+    Projection e22@-->|"[SHAPE]: ModelAudit"| Bim
 ```
 
 ```mermaid
@@ -183,13 +183,14 @@ config:
 ---
 flowchart LR
     accTitle: Element platform and cross-runtime wire seams
-    accDescr: Element sub-domain owners exchanging content keys, shapes, and wires with the kernel, app host, compute, persistence, and the Python and TypeScript peers, one edge per contract family mirrored on the counterpart folder.
+    accDescr: Which content keys, shapes, and wires cross between Element's owners, the kernel, the app platform, and the runtime peers.
     subgraph element[RASM.ELEMENT]
         Graph[Graph spine]
         Projection[Projection contracts]
         Composition[Composition folds]
         Properties[Property vocabulary]
         Assessment[Assessment receipt]
+        Geospatial[Geospatial coverage]
     end
     Rasm{{Rasm}}
     AppHost([Rasm.AppHost])
@@ -198,31 +199,33 @@ flowchart LR
     Geometry{{python:geometry}}
     Runtime{{python:runtime}}
     Core{{typescript:core}}
-    Projection <-->|"[CONTENT_KEY]: XxHash128"| Rasm
-    AppHost -->|"[PORT]: ProjectionContext"| Projection
-    AppHost -->|"[PORT]: InstrumentSet + SpanBand"| Projection
-    Projection -->|"[CONTENT_KEY]: ContentAddress"| Persistence
-    Graph -->|"[SHAPE]: ElementGraph"| Persistence
-    Graph -->|"[SHAPE]: GraphDelta"| Persistence
-    Graph -->|"[EVENT]: GraphCrossing"| Persistence
-    Persistence -->|"[WIRE]: ElementGraph"| Graph
-    Graph <-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
-    Composition -->|"[SHAPE]: AssemblyAggregator"| Compute
-    Composition <-->|"[SHAPE]: MaterialPropertySet"| Compute
-    Properties -->|"[SHAPE]: Dimension"| Compute
-    Assessment -->|"[SHAPE]: AssessmentPayload"| Compute
-    Assessment -->|"[SHAPE]: ObservationSeries"| Compute
-    Compute -->|"[PROJECTION]: GraphDelta"| Graph
-    Graph -->|"[SHAPE]: ElementGraph"| Compute
-    Projection -->|"[SHAPE]: ImportedGeometry"| Compute
-    Graph <-->|"[WIRE]: GlbContentHash"| Geometry
-    Projection <-->|"[CONTENT_KEY]: ContentAddress"| Runtime
-    Graph <-->|"[WIRE]: rasm.element.v1"| Core
+    Projection e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
+    AppHost e2@-->|"[PORT]: ProjectionContext"| Projection
+    AppHost e3@-->|"[PORT]: InstrumentSet + SpanBand"| Projection
+    Rasm e4@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Projection
+    Rasm e5@-->|"[SHAPE]: CellLattice"| Geospatial
+    Projection e6@-->|"[CONTENT_KEY]: ContentAddress"| Persistence
+    Graph e7@-->|"[SHAPE]: ElementGraph"| Persistence
+    Graph e8@-->|"[SHAPE]: GraphDelta"| Persistence
+    Graph e9@-->|"[EVENT]: GraphCrossing"| Persistence
+    Persistence e10@-->|"[WIRE]: ElementGraph"| Graph
+    Graph e11@<-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
+    Composition e12@-->|"[SHAPE]: AssemblyAggregator"| Compute
+    Composition e13@<-->|"[SHAPE]: MaterialPropertySet"| Compute
+    Properties e14@-->|"[SHAPE]: Dimension"| Compute
+    Assessment e15@-->|"[SHAPE]: AssessmentPayload"| Compute
+    Assessment e16@-->|"[SHAPE]: ObservationSeries"| Compute
+    Compute e17@-->|"[PROJECTION]: GraphDelta"| Graph
+    Graph e18@-->|"[SHAPE]: ElementGraph"| Compute
+    Projection e19@-->|"[SHAPE]: ImportedGeometry"| Compute
+    Graph e20@<-->|"[WIRE]: GlbContentHash"| Geometry
+    Projection e21@<-->|"[CONTENT_KEY]: ContentAddress"| Runtime
+    Graph e22@<-->|"[WIRE]: rasm.element.v1"| Core
 ```
 
-`[PROJECTION]` rows are inversion of control: every provider — GeometryGym, VividOrange, and peers — stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the seam and no second IFC stack forms.
+`[PROJECTION]` rows are inversion of control: every provider, GeometryGym and VividOrange and peers alike, stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the seam and no second IFC stack forms.
 
-Each provider mints its own `Object` identity under the owner-mints-its-identity law, so a minter never stamps a foreign projector's egress; per-provider Type and Occurrence minting lives on the owning pages. Acyclic strata holds: every AEC peer references `{Rasm, Rasm.Element}` as a shared lower stratum and peers never reference each other, and the live element assembly is an APP/HOST-BOUNDARY composition-root concern — the seam owns `Assemble`, the apps the wiring.
+Each provider mints its own `Object` identity under the owner-mints-its-identity law, so a minter never stamps a foreign projector's egress; per-provider Type and Occurrence minting lives on the owning pages. Acyclic strata holds: every AEC peer references `{Rasm, Rasm.Element}` as a shared lower stratum, and peers never reference each other.
 
 [CONTENT_KEY_IDIOM]:
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
@@ -233,4 +236,35 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
 - Rooted `Object` ids carry one regime with two `ObjectKind`-keyed seedings — Guid-v7 placement identity and the exclusion-seeded Type derivation.
-- Exact `NodeId.Content` mint, the `Verify` dual, and per-lane key derivations live on the owning implementation pages.
+- Exact `NodeId.Of(NodeSeed.Content)` mint, the `Verify` dual, and per-lane key derivations live on the owning implementation pages.
+
+## [04]-[INTERNAL]
+
+`Graph` is the spine every sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and `Graph/Element`'s `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns: the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Rasm.Element graph spine
+    accDescr: How a projected delta becomes the frozen graph every consumer bakes, tables, and wires with no second stored record.
+    Provider(["IElementProjection arm"]) e1@--> Admit[[GraphDelta admission]]
+    Admit e2@--> Working[[WorkingGraph apply]]
+    Working e3@--> Freeze[[Freeze into ElementGraph]]
+    Freeze e4@--> Bake[[Memoized Bake]]
+    Freeze e5@--> WireEg[/rasm.element.v1 encode/]
+    Freeze e6@--> TableEg[/Tabulate row families/]
+    Admit f1@-.->|"admission refusal"| Fault[/ElementFault rail/]
+    WireEg f2@-.->|"transcription fault"| Fault
+```
+
+## [05]-[BOUNDARIES]
+
+- `Rasm.Element` owns the neutral thing-model and its wire; `IElementProjection` inverts control, so provider types and host geometry never cross in.
+- Composition roots own live element assembly — the seam owns `Assemble`, the apps the wiring.
+- Each AEC peer owns its provider stack behind `IElementProjection`, and Persistence owns the system of record.

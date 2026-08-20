@@ -7,10 +7,10 @@
 ```text codemap
 ui/
 ├── src/
-│   ├── system/           # Component system: token, interaction, state-binding, locale, primitive owners
+│   ├── system/           # Component system floor the view and viewer strata instantiate
 │   │   ├── token.ts      # Design-token authority computing color and dimension as decode-gated data
 │   │   ├── act.ts        # Motion and interaction, discrete accessible events split from continuous gestures
-│   │   ├── atom.ts       # One state binding standing the app Layer graph behind the registry
+│   │   ├── atom.ts       # Atom registry seat with the persistence, SSR, and undo planes
 │   │   ├── cache.ts      # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
 │   │   ├── hook.ts       # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
 │   │   ├── vital.ts      # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
@@ -24,33 +24,23 @@ ui/
 │       ├── export.ts     # Export plane: one serializer matrix, content-minted parcels, one egress port
 │       ├── shell.ts      # Application chrome as data: region roster, navigation vocabulary, scaffold grammar
 │       ├── status.ts     # Feedback family: Result-derived postures, lease windows, skeleton wrapper, gauges
-│       ├── content.ts    # Prose plane and document editor: one block roster deriving schema, codec, DOM, wire
+│       ├── content.ts    # EditorView seat and the block-row dispatch fold behind one scoped acquisition
 │       ├── media.ts      # Byte-borne presentation: image, avatar, transport, and gallery as policy rows
-│       ├── canvas.ts     # Interactive canvas: node/flow edge adapter, worker layout proposals, temporal bands
-│       └── presence.ts   # Collaborative faces: anchor spaces, roster faces, live cursors, comment threads
-└── viewer/
-    └── src/              # Spatial tier, a second Nx project
+│       ├── canvas.ts     # Revision-stamped graph cell and the change-fold writer behind the engine mirror
+│       └── presence.ts   # Anchor spaces assembled as composition values over settled core verdicts
+└── viewer/               # Spatial stratum, the second Nx project
+    └── src/
         ├── scene.ts      # Content-keyed GLB residency and environment dome behind the GlbViewport port
-        ├── geo.ts        # Geospatial surface: one shared WebGL context as a pure layer value tree
-        ├── mark.ts       # GlobalId mark plane: one selection atom every pick pipeline folds into
-        ├── panel.ts      # Wire materializer rendering the shell control vocabularies through the owners
+        ├── geo.ts        # Camera authority and the Clock seat; layer values stay pure per backend adapter
+        ├── mark.ts       # Selection atom seat — BCF pin and board projections, one bounded echo channel
+        ├── panel.ts      # Livewire triple, CommandGate, ControlIntent, and LayoutProgram materializer seats
         ├── probe.ts      # Render evidence: benchmarks paired with wire-decoded receipts, never gating
-        └── review.ts     # Model review: Wire.ModelDiff and Wire.BcfTopic joined per GlobalId into board rows and echoes
+        └── review.ts     # Join fold over the decoded diff and issue wires; board-row and echo projections
 ```
 
 ## [02]-[STRATA]
 
-- S0 `system` — recipes, interaction, atom, hook, vital, and content-keyed residency form the capability floor.
-- S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`; `table` folds `TableState` on the one store.
-- S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
-- S1 `shell`, `status`, and `media` compose the floor whole — recipes, seal-keyed atoms, cache bands.
-- S1 `content` hosts the editor behind one scoped acquisition.
-- S1 `canvas` mirrors its engine through the edge adapter on the one store.
-- S1 `presence` assembles sibling anchor spaces as composition VALUES, never imports.
-- S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
-- S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
-- S2 `probe` renders its claim board through `view/chart` series; `panel` folds receipts on the store.
-- S2 evidence taps and long-frame evidence arrive through the `hook` and `vital` floor owners, `runtime`'s CWV owner over the same point.
+Strata rank the ui interior; seating rows carry only the law the fence cannot show.
 
 ```mermaid
 ---
@@ -62,7 +52,7 @@ config:
 ---
 flowchart TB
     accTitle: Ui interior import strata
-    accDescr: Three strata — the viewer project over the view surfaces onto the system floor; imports downward, one forbidden upward edge.
+    accDescr: How the viewer project and view surfaces rank onto the system floor, every import downward.
     subgraph S2["S2 VIEWER"]
         Scene["scene · geo · mark"]
         Board["panel · probe · review"]
@@ -74,6 +64,7 @@ flowchart TB
         Token["token · primitive"]
         Act[act]
         Atom[atom]
+        Cache[cache]
         Intl[intl]
         Hook[hook]
         Vital[vital]
@@ -82,19 +73,30 @@ flowchart TB
     View e2@-->|"[IMPORT]: Format"| Intl
     View e3@-->|"[IMPORT]: Theme"| Token
     View e4@-->|"[IMPORT]: Motion"| Act
-    View e12@-->|"[IMPORT]: Hook.publish"| Hook
-    Scene e5@--> Token
-    Scene e6@--> Act
-    Scene e7@--> Atom
-    Scene e13@--> Hook
-    Board e8@--> Atom
-    Board e9@--> Intl
-    Board e10@--> Token
-    Board e11@-->|"[IMPORT]: Grid"| View
-    Board e14@-->|"[IMPORT]: Vital.entryRows"| Vital
-    Board e15@--> Hook
-    S0 f1@-->|"forbidden: upward import"| S2
+    View e5@-->|"[IMPORT]: Points"| Hook
+    View e6@-->|"[IMPORT]: Cache.Band"| Cache
+    Scene e7@-->|"[IMPORT]: Theme"| Token
+    Scene e8@-->|"[IMPORT]: Motion"| Act
+    Scene e9@-->|"[IMPORT]: AtomRef"| Atom
+    Scene e10@-->|"[IMPORT]: Points"| Hook
+    Scene e11@-->|"[IMPORT]: Cache.Leaves"| Cache
+    Board e12@-->|"[IMPORT]: AtomRef"| Atom
+    Board e13@-->|"[IMPORT]: Format"| Intl
+    Board e14@-->|"[IMPORT]: Theme"| Token
+    Board e15@-->|"[IMPORT]: Grid"| View
+    Board e16@-->|"[IMPORT]: Vital.Entry"| Vital
+    Board e17@-->|"[IMPORT]: Points"| Hook
+    Atom f1@-->|"forbidden: upward import"| S2
 ```
+
+- S0 merge — `token · primitive` share one node; `primitive`'s `styled` recipes are the floor's one token consumer, so the merge hides no edge.
+- S0 `cache` — content-keyed residency seats on the floor; `media` bands and the viewer's `bvh` read-back compose it, and nothing feeds back.
+- S1 `view` merge — each surface is a single owner where variation lands as rows; `presence` assembles anchor spaces as values, never imports.
+- S1 `content` hosts the editor behind one scoped acquisition; `canvas` mirrors its engine through the edge adapter on the one store.
+- S2 `viewer` — the spatial Nx project atop both strata; `scene` rides `Machine` on the atom bridge.
+- S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
+- S2 `panel` folds receipts on the store; `probe`'s evidence stays render-side and gates nothing.
+- S2→S0 evidence crossings are publish-only — viewer taps and long-frame rows land at the floor owners, and no floor owner reads a viewer symbol.
 
 ## [03]-[SEAMS]
 
@@ -108,36 +110,37 @@ config:
 ---
 flowchart LR
     accTitle: UI package seam registry
-    accDescr: UI owners exchanging value, wire, port, and receipt contracts with core, runtime, and the C# packages; nodes classed by direction.
+    accDescr: Which value, wire, port, and receipt contracts cross between the ui owners and their core, runtime, and C# counterparts.
     subgraph ui[UI]
         System[System floor]
         View[View plane]
         Viewer[Viewer tier]
     end
     Core([core])
-    Runtime{{runtime}}
+    Runtime([runtime])
     Materials([Rasm.Materials])
-    AppHost([Rasm.AppHost])
     AppUi([Rasm.AppUi])
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
-    Core e18@-->|"[SHAPE]: Transition.Config/Actor"| View
-    Core e19@-->|"[SHAPE]: Presence.State/Op/Lease"| View
-    Core e12@-->|"[SHAPE]: Residency.Ledger"| Viewer
-    Core e16@-->|"[SHAPE]: Wire.ModelDiff/Wire.BcfTopic/Wire.BcfViewpoint/Wire.ControlIntent/Wire.LayoutProgram/Wire.CommandGate/Wire.EvidenceTimeline/Wire.GeoFeature/Wire.PbrGroups"| Viewer
-    Runtime e2@-->|"[PORT]: Atom.subscribable"| System
-    Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
-    Runtime e17@-->|"[PORT]: Vital.Report"| System
-    Runtime e4@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
-    Materials e5@-->|"[WIRE]: OpenPbrGroupsWire"| Viewer
-    AppHost e6@-->|"[WIRE]: BindingStatusWire/CoercedValueWire/WriteReceiptWire"| Viewer
-    AppHost e13@-->|"[WIRE]: BenchmarkClaimWire/HostFingerprintWire"| Viewer
-    AppUi e7@-->|"[WIRE]: ControlIntentWire/LayoutConstraintWire/CommandGateWire"| Viewer
-    Bim e9@-->|"[WIRE]: BcfTopicWire"| Viewer
-    Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
-    Bim e11@-->|"[WIRE]: ModelDiff"| Viewer
-    Core e15@-->|"[SHAPE]: Tap.Name/Modality/Handler/Veto/Breach"| System
+    Core e2@-->|"[SHAPE]: Transition.Config"| View
+    Core e3@-->|"[SHAPE]: Transition.Actor"| View
+    Core e4@-->|"[SHAPE]: Presence.State"| View
+    Core e5@-->|"[SHAPE]: Residency.Ledger"| Viewer
+    Core e6@-->|"[SHAPE]: Wire.ModelDiff"| Viewer
+    Core e7@-->|"[SHAPE]: Tap.Name"| System
+    Runtime e8@-->|"[PORT]: Atom.subscribable"| System
+    Runtime e9@-->|"[PORT]: GlbViewport"| Viewer
+    Runtime e10@-->|"[PORT]: Vital.Report"| System
+    Runtime e11@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
+    Runtime e12@-->|"[PORT]: Egress"| View
+    Materials e13@-->|"[WIRE]: OpenPbrGroupsWire"| Viewer
+    AppUi e14@-->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Viewer
+    Bim e15@-->|"[WIRE]: BcfTopicWire"| Viewer
+    Bim e16@-->|"[WIRE]: BcfViewpointWire"| Viewer
+    Bim e17@-->|"[WIRE]: ModelDiff"| Viewer
 ```
+
+Each seam edge collapses every contract between its endpoints at its labeled kind: the core wire, tap, and presence edges and the AppUi wire edge carry representative shapes, and the core codec registry census enumerates the full families.
 
 ## [04]-[INTERNAL]
 
@@ -166,13 +169,13 @@ flowchart LR
     Render e6@-->|"present: frame + evidence"| Surface
 ```
 
-`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart, export, shell, status, content, media, canvas, presence — each a single owner where variation is rows (columns, commands, field kinds, chart regimes, serializer cells, regions, postures, block kinds, media classes, node kinds, anchor spaces), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
+`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces, each a single owner where variation lands as rows, never sibling components; `viewer` is the spatial stratum as a separate Nx project consuming decoded wire and owning render alone.
 
-Every state fact binds through the one atom bridge, so a component projects and never runs an effect or mirrors domain state. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Color is one OKLCH artifact — gamut-fit and contrast-gated at decode — feeding the CSS plane and the viewer's linear render space as one object, and visualization data crosses zero-copy on one Arrow bus. Per-owner wiring lives on the owning implementation pages.
+Every state fact binds through the one atom bridge, so a component projects and never runs an effect or mirrors domain state. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Color is one OKLCH artifact (gamut-fit and contrast-gated at decode) feeding the CSS plane and the viewer's linear render space as one object, and visualization data crosses zero-copy on one Arrow bus. Per-owner wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
-- IFC semantics and geometry stay unowned.
+- `Rasm.Bim` and the core interchange plane own IFC semantics and geometry; this folder renders their decoded wire alone.
 - GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
 - Every GPU resource is scope-bracketed, so a lost context or torn-down surface releases its allocations through the same bracket that acquired them.
 - Browser composition roots — `GlbViewport` from Depot arrivals, host planes bound into atoms — are app composition, out of scope here.

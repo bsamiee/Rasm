@@ -2,19 +2,17 @@
 
 Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library estates, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first, parameterized for consumers that do not yet exist; a product shell declares intent, binds host edges, and emits output.
 
-Estates couple through defined contracts alone — no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; each branch and folder owns its own package roster, charters, and reference direction.
+Estates couple through defined contracts alone: no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; each branch and folder owns its own package roster, charters, and reference direction.
 
 ## [01]-[STRATA]
 
-Stratification is the law every branch answers: ranks run `S0` upward, the dependency edge runs strictly upward, the graph stays acyclic, and shared machinery seats at the lowest stratum every consumer reaches — seating above a consumer's reach manufactures per-folder twins. Each branch orders its own packages under that law at its `[02]-[STRATA]`, and that table is the roster a reader resolves.
+Stratification is the law every branch answers: ranks run `S0` upward, the dependency edge runs strictly upward, the graph stays acyclic, and shared machinery seats at the lowest stratum every consumer reaches, since seating above a consumer's reach manufactures per-folder twins. Each branch orders its own packages under that law at its `[02]-[STRATA]`, and that table is the roster a reader resolves.
 
-- Strata is the only rank vocabulary; wave, band, and tier never name a rank.
 - Dependency edges stay abstract — project reference, module import, composed layer, or root-bound port — and the upward law binds every spelling.
 - Cross-package coupling reaches a published boundary or a content-keyed wire, never a peer's interior.
 - Peers at one rank never reference each other; alignment travels seam contracts and the content-keyed wire, so each package stays usable alone.
 - Counter-edges carry a value the lower stratum consumes, never an owner it imports, and member-seating rows state that qualifier.
 - Plane-distinct members seat at a rank yet stay outside the runtime graph, carrying the same upward law.
-- Higher strata consume lower-stratum capability and re-own none of it.
 - Composition roots take host binding, port satisfaction, and cross-branch composition as the leaf, nowhere below.
 - Product shells compose a branch's top strata as consumers of the estate, never as a stratum of it.
 
@@ -46,17 +44,15 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 - Runtimes meet at content identity, the tessellation rail, and the appearance rail the manifest's appearance entries define.
 - Decoders at the tessellation and appearance rails compose the payload rather than re-deriving it.
 - Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
-- Each branch names its own runtime's owners.
 
 ## [05]-[PLANNING_LIFECYCLE]
 
 `.planning/` is a transient greenfield scaffold, not a permanent fixture. It exists to bring an under-developed folder to the decision-complete bar and dissolves as source lands; the eventual source tree is authored only when code is written.
 
 - Greenfield packages keep their design pages inside one `.planning/` at the package root, sub-domain sub-folders mirroring the eventual source tree.
-- Package roots carry the index docs and nothing else.
-- All planning lives under the single `.planning/`, never inside a real source sub-folder.
+- Package roots carry the index docs alone; all planning lives under the single `.planning/`, never inside a real source sub-folder.
 - Each package maps its full folder structure, planned page-less sub-domains included, so the map fuels ideas and tasks.
-- Mature folders with real code carry NO `.planning/`; the co-located source architecture note is the only design surface.
+- Mature folders with real code carry no `.planning/`; the co-located source architecture note is the only design surface.
 - Mature folders route open split, cleanup, and re-architect work to task cards in the branch `TASKLOG.md`.
 - One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
 - Host-boundary planning folders carry a folder `.api/` tier over host assemblies, its rows outside the branch build root under the host gate.
@@ -65,7 +61,7 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 
 Each branch is an independently adoptable library estate. Branch-local capability originates, composes, operates, and evolves from that branch's packages, manifests, generated bindings, and toolchain.
 
-- Each row names the domain its estate carries; rank, dependency, and a ceiling on what an estate may carry all sit outside the row.
+- Each row names the domain its estate carries; rank and dependency sit outside the row.
 - C# carries the host-bound AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
 - Python carries the host-free science, compute, data, geometry, exchange, and artifact domain.
 - TypeScript carries the host-free web, edge, runtime, persistence, security, UI, and deployment domain.
@@ -73,7 +69,7 @@ Each branch is an independently adoptable library estate. Branch-local capabilit
 - Cross-language composition adds peers to a complete branch; it never supplies a branch's missing operational base.
 - Domains widen at their owning branch under `[12]-[ADMISSION]`; the rows above carry no ceiling on what a branch admits next.
 
-Within each language the same organization principle holds: real higher-order domain folders (no weak or mini sibling — a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries and FP-ROP internals. Each branch re-derives its topology from the finalized owner set, never from a stale layout.
+Within each language one organization principle holds: real higher-order domain folders (a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries, and FP-ROP internals. Each branch re-derives its topology from the finalized owner set, never from a stale layout.
 
 ## [07]-[CROSS_LANGUAGE_WIRE]
 
@@ -93,9 +89,9 @@ Every shape crossing a branch boundary carries a `MANIFEST.md` entry; a conventi
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
-Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
+Four-signal telemetry (metrics, logs, traces, profiles) correlates across the runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
 
-Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVENTION` PROVES the three spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
+Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVENTION` proves the branch spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
 
 - Resource triple: `service.namespace` `rasm`, `service.name` the service row, `service.instance.id` a per-process mint.
 - Detector rows enrich the minted triple, never replace it; deployment-time resource overrides win the merge.
@@ -104,7 +100,7 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Runtimes serving one subject share the segment and `service.name` separates the emitters; a package spanning two subjects emits under both.
 - Subject test: subjects survive a second emitter, so a segment spelled like its package or host stands.
 - Segments two branches claim carry one subject spelling both transcribe byte-identical, so the roster reads as one vocabulary, never three.
-- Domain rows stay branch-declared at each conformance minter, since fixing the instances here re-anchors the vocabulary to today's segment set.
+- Domain rows stay branch-declared at each conformance minter; a Tier-0 instance roster re-anchors the vocabulary to one day's segment set.
 - Each row carries its segment beside the admitted subject.
 - Emitter rosters stay branch-local, earned where a branch's own module declaration closes them against drift.
 - Carve: estate identity dimensions are the one unsegmented spelling the grammar admits.
@@ -135,32 +131,18 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Absent entries on any sometimes-absent dimension — tenant, level-family, or substrate key — read as the untagged whole, never as a sentinel value.
 - Sometimes-absent keys stay rostered on every branch allow-list and census; an unrostered key strips from the entries that do carry it.
 - Keyed families whose key is the cell's own identity never construct the absent-key state; an unmeasured cell publishes nothing, spelling absence.
-- Receipts stay the truth: signals project from typed receipts through the per-branch owners `InstrumentFan`, `Metrics.record`, and `Pulse`.
+- Receipts stay the truth: signals project from typed receipts through each branch's one instrument owner.
 - Metrics minted beside a receipt fan are a second truth.
 
-[HOOK_PLANE]: domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime — the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap` — under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
+[HOOK_PLANE]: domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime (the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap`) under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
 
-[TENANT_COST_JOIN]: per-tenant cost attribution is one three-pin join — the C# grant spend family (`rasm.apphost.grant.spend.<unit>` off `GrantBroker` cost vectors through the instrument fan), the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the iac cost read (OpenCost against the selected store row, boards compiled into the default and tenant organizations). Past a store row's tenant series cap, attribution rides exemplar-sampled traces — trace-scoped spend evidence, never a second metering pipeline.
+[TENANT_COST_JOIN]: per-tenant cost attribution is one three-pin join: the C# grant-spend instrument family off the broker's cost vectors, the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the deploy plane's cost read against the selected store row. Past a store row's tenant series cap, attribution rides exemplar-sampled traces as trace-scoped spend evidence, never a second metering pipeline.
 
-[EVIDENCE_RESIDENCE]: telemetry is an analytics subject in every branch — signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` — `lake` the default cold tail, `clickhouse` the interactive escalation, `none` a declared evidence loss — so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
+[EVIDENCE_RESIDENCE]: telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
 
-[FLEET_ESCALATION]: every escalation row is OFF at estate scale by ruling; re-arming is the named coordinate flip against `typescript:iac/operate/observe`, never a re-design.
+[FLEET_ESCALATION]: every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
 
-| [INDEX] | [ESCALATION]           | [ARM_COORDINATE]                                                    | [STANDING_RULING]                     |
-| :-----: | :--------------------- | :------------------------------------------------------------------ | :------------------------------------ |
-|  [01]   | Mimir scale-out store  | `spec.profile.observe.store: "mimir"` + `Lgtm.Args.objects`         | `prometheus` row holds at estate load |
-|  [02]   | Broker-buffered leg    | `observe.buffer: "broker"` — the paired `kafka` pipeline rows       | `file_storage` queue owns durability  |
-|  [03]   | Tail-sampling gateway  | `observe.sampling: "tail"` — the traces `tail_sampling` row         | head sampling rides SDK parent ratios |
-|  [04]   | Per-app agent topology | `observe.topology: "agent"` — the daemonset row on the gateway door | one `deployment` gateway serves all   |
-
-[PROFILE_SWAP]: profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the three SDK trains; span-profile correlation processors, the Pyroscope store row, and every dashboard survive the swap unchanged. Swap-point owners: `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe`.
-
-| [INDEX] | [RUNTIME]  | [PUSH_ROW_TODAY]                                          | [SWAP_POINT]                                           |
-| :-----: | :--------- | :-------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | C#         | `AddProcessor<PyroscopeSpanProcessor>()` + agent env rows | OTLP profiles exporter row on the same otelExport arm  |
-|  [02]   | Python     | `Profiles.install` `pyroscope.configure` push             | one `EGRESS` profiles factory row + `SignalSpec` row   |
-|  [03]   | TypeScript | `Profile.live` push bracket over the node profiler        | a profiles lane row beside the `Export.live` exporters |
-|  [04]   | Collector  | `otlp_http/profiles` exporter + `profiles` pipeline       | already OTLP-shaped; the ingest door holds unchanged   |
+[PROFILE_SWAP]: profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
 
 ## [09]-[SCHEMA_STATE]
 
@@ -180,7 +162,7 @@ Schema state is an infrastructure contract: every branch composes its own schema
 
 ## [10]-[CONSUMPTION_MODEL]
 
-Every `libs/` package is an independently versioned library an unrelated application depends on exactly as it depends on any external package. One branch serves dozens of unrelated consumers at once — single-tenant and multi-tenant, in-host and headless, sidecar and companion and service and edge and CLI — so a package assumes no consumer, no sibling set, no deployment shape, and no lifecycle owner. Deployment shape arrives as data: the composition root supplies one profile row over the axis roster, and the package reads it.
+Every `libs/` package is an independently versioned library an unrelated application depends on exactly as it depends on any external package. One branch serves dozens of unrelated consumers at once (single-tenant and multi-tenant, in-host and headless, sidecar and companion and service and edge and CLI), so a package assumes no consumer, no sibling set, no deployment shape, and no lifecycle owner. Deployment shape arrives as data: the composition root supplies one profile row over the axis roster, and the package reads it.
 
 | [INDEX] | [AXIS]      | [FORM] | [VOCABULARY]                                                          |
 | :-----: | :---------- | :----- | :-------------------------------------------------------------------- |
@@ -193,7 +175,7 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 - Closed axes fix their value vocabulary here; an open axis fixes the descriptor shape alone, and each of its rows is capability one branch supplies.
 - Host integration lands as one descriptor row on the `host` axis, supplied by the branch whose runtime reaches that host.
-- Enumerating an open axis's instances here re-anchors the roster to whatever set exists — the anchoring defect the open form forecloses.
+- Open-axis instance rosters live at the supplying branch; a Tier-0 enumeration re-anchors the roster to whatever set exists.
 - Each branch spells the roster in its own types, and `tests/contracts/` `CONSUMPTION_PROFILE` proves parity like any other infrastructure contract.
 - Growth lands one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for a new value.
 - Open axes grow at their supplying branch alone.
@@ -202,15 +184,15 @@ Every `libs/` package is an independently versioned library an unrelated applica
 - Sibling presence rides an axis value — a package composes a sibling through a declared port the composition root binds.
 - Unbound ports read as a refused capability, never a crash.
 
-[CONSUMPTION_DESCRIPTOR]: one row shape serves every open-axis family, so a new family is a column set and a new engine is a row. Universal columns earn their seat by the whole-family test — every family already answers them — and a coordinate one family alone decides stays that family's extension.
+[CONSUMPTION_DESCRIPTOR]: one row shape serves every open-axis family, so a new family is a column set and a new engine is a row. Universal columns earn their seat by the whole-family test (every family already answers them), and a coordinate one family alone decides stays that family's extension.
 
 | [INDEX] | [COLUMN]   | [ANSWERS]                                                                   |
 | :-----: | :--------- | :-------------------------------------------------------------------------- |
 |  [01]   | `fits`     | the selection sentence a composition root picks this row on                 |
 |  [02]   | `admit`    | the entry that puts something in, named as the row's own member             |
-|  [03]   | `tenancy`  | the mechanism this row separates tenants BY, in its own vocabulary          |
+|  [03]   | `tenancy`  | the mechanism this row separates tenants by, in its own vocabulary          |
 |  [04]   | `lifetime` | how long what entered survives, and which owner ends it — one alone is half |
-|  [05]   | `degrade`  | what the row GIVES UP against the coordinates its family names              |
+|  [05]   | `degrade`  | what the row gives up against the coordinates its family names              |
 
 - Each branch transcribes the columns in its own casing law, and a family renaming one forks the coordinate a reader crosses families to compare.
 - Column values are the row's own vocabulary, so a value never re-mints a closed axis's roster and a mechanism never earns a column of its own name.
@@ -265,7 +247,7 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [13]-[APPEARANCE]
 
-Surface appearance crosses the runtimes as TWO domain documents under ONE frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition and `tests/contracts/MANIFEST.md` `[01]-[LEDGER]` states what it carries; each branch TRANSCRIBES that definition in its own casing law and validates its own projection against it, and the two corpus entries reference it with neither restating a row.
+Surface appearance crosses the runtimes as two domain documents under one frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition and `tests/contracts/MANIFEST.md` `[01]-[LEDGER]` states what it carries; each branch transcribes that definition in its own casing law and validates its own projection against it, and the two corpus entries reference it, neither restating a row.
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |
@@ -277,19 +259,19 @@ Surface appearance crosses the runtimes as TWO domain documents under ONE frozen
 |  [06]   | `csharp:Rasm`                       | the analytic and raster atoms both compose | holds no channel vocabulary            |
 
 - Two documents, two producers, one vocabulary: each producer owns its own document and `domain` entry, and routes a kind it lacks to the peer entry.
-- Capability overlaps freely and DOCUMENTS do not — both producers derive geometric channels and both encode containers.
+- Capability overlaps freely and documents do not — both producers derive geometric channels and both encode containers.
 - Producers emitting the peer's document class commit the second-producer defect the `domain` class forecloses.
 - Consumption is never production, and a branch decoding both documents mints neither.
 - Deriving one appearance field from another at a consumer forks the semantic model its producer owns.
 - Appearance identity rides content addressing whole: every plane of one set publishes under that set's key, so one directory carries the whole set.
 - Persisted appearance bytes mint on the deterministic lane alone, since a second lane keying one preimage forks the address.
 - Accelerator lanes produce preview products that carry no key.
-- Ingest CLASSIFIES and never infers, so an unclaimed name accumulates as recorded residue.
+- Ingest classifies and never infers, so an unclaimed name accumulates as recorded residue.
 - Defaulted conventions commit the silent-inversion defect the frozen alias table forecloses.
 
 ## [14]-[EVENT_FABRIC]
 
-Domain facts cross the runtimes as CloudEvents message envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Message envelopes ANNOUNCE a fact and never gain authority over it — the producing receipt stays the evidence truth and the announcement projects it — so a consumer routes on attributes without opening the payload.
+Domain facts cross the runtimes as CloudEvents message envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Message envelopes announce a fact and never gain authority over it: the producing receipt stays the evidence truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
 
 [AUTHORITY]: the specification is the semantic owner and an SDK is an admitted acceleration. Every binding, format, filter, and extension row derives from the specification, delegating to an SDK member where one exists and standing branch-owned where none does. Package surfaces narrower than the specification state a fact about that package, never a ceiling on what the estate carries.
 
@@ -303,16 +285,16 @@ Domain facts cross the runtimes as CloudEvents message envelopes under one attri
 
 [GRAMMAR]: one row per attribute, spelled in each branch's own casing law.
 
-| [INDEX] | [ATTRIBUTE]       | [CARRIES]                                |
-| :-----: | :---------------- | :--------------------------------------- |
-|  [01]   | `type`            | `rasm.<domain>.<subject>.<fact>.v<N>`    |
-|  [02]   | `source`          | the producing capability's URI-reference |
-|  [03]   | `subject`         | the payload's content key                |
-|  [04]   | `id`              | the producer's operation identity        |
-|  [05]   | `time`            | the occurrence instant, RFC 3339         |
-|  [06]   | `recordedtime`    | the receiver's ingest instant            |
-|  [07]   | `dataschema`      | the registry subject and version         |
-|  [08]   | `datacontenttype` | the serdes arrow's own row data          |
+| [INDEX] | [ATTRIBUTE]       | [CARRIES]                                 |
+| :-----: | :---------------- | :---------------------------------------- |
+|  [01]   | `type`            | `rasm.<domain>.<subject>.<fact>.v<N>`     |
+|  [02]   | `source`          | the producing capability's URI-reference  |
+|  [03]   | `subject`         | the payload's content key                 |
+|  [04]   | `id`              | the producer's operation identity         |
+|  [05]   | `time`            | the occurrence instant, RFC 3339          |
+|  [06]   | `recordedtime`    | the receiver's ingest instant             |
+|  [07]   | `dataschema`      | the registry subject and version          |
+|  [08]   | `datacontenttype` | the serdes arrow's own row data           |
 |  [09]   | extension names   | lowercase `[a-z0-9]` within 20 characters |
 
 - `<domain>` is the capability subject `[08]-[OBSERVABILITY_CONFORMANCE]` fixes for metric names, so a board and a subscription join one vocabulary.
@@ -321,11 +303,11 @@ Domain facts cross the runtimes as CloudEvents message envelopes under one attri
 - `source` names the producing capability, never a host, package, or deployment, since a redeployment re-authors the identity consumers keyed on.
 - `id` is operation identity and never a content digest, and `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
 - `time` mints at the branch clock owner and `recordedtime` at the receiver, so the pair measures the queue that collapsing them erases.
-- `subject` carries the content key in ONE spelling, the same spelling `dataref` publishes where the payload externalizes.
+- `subject` carries the content key in one spelling, the same spelling `dataref` publishes where the payload externalizes.
 - Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
 - Extension-map digests read a canonical order the message-envelope owner publishes, under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
 
-[EXTENSION_ROSTER]: the roster is spelled once per branch and handed at construction and at every decode, since a decoder without it reads a declared extension as an unknown string. Where an SDK helper owns a row the branch composes that helper's own `AllAttributes`, never a hand-spelled twin beside it.
+[EXTENSION_ROSTER]: each branch spells the roster once and hands it at construction and at every decode, since a decoder without it reads a declared extension as an unknown string. Where an SDK helper owns a row the branch composes that helper's own `AllAttributes`, never a hand-spelled twin beside it.
 
 | [INDEX] | [EXTENSION]                | [CARRIES]                                    |
 | :-----: | :------------------------- | :------------------------------------------- |
@@ -348,7 +330,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under one attri
 
 [VARIATION]: format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
 
-[DATAREF]: one policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` IS the digest under `docs/laws/patterns.md` `[CONTENT_KEY]`, published under the addressing law `[13]-[APPEARANCE]` states for a content-keyed set.
+[DATAREF]: one policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` is the digest under `docs/laws/patterns.md` `[CONTENT_KEY]`, published under the addressing law `[13]-[APPEARANCE]` states for a content-keyed set.
 
 | [INDEX] | [COLUMN]    | [ANSWERS]                               |
 | :-----: | :---------- | :-------------------------------------- |
@@ -365,21 +347,21 @@ Domain facts cross the runtimes as CloudEvents message envelopes under one attri
 [BATCH]:
 - Batches settle per event, and the receipt carries accepted beside matched-duplicate as separate halves.
 - `sequence` survives batching, and no re-batch reorders events inside one `source`.
-- Framing reads the batch media-type PREFIX, so a format's batch sibling needs no second dispatch.
+- Framing reads the batch media-type prefix, so a format's batch sibling needs no second dispatch.
 - Batches past the transport budget split at the producer, since a relay re-framing one cannot re-sign it.
 
-[HOOK_ORDER]: a message-envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold — `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
+[HOOK_ORDER]: a message-envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold; `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
 
 [AXIS_REFUSAL]: a binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
 
-[SECURITY]: signing is DSSE over SHA-256 digests of the core and extension attribute sets, carried in the `dssematerial` binary extension — the format registry carries no JWS member, so a signature travels as an attribute or not at all.
-- Webhook legs sign the encoded bytes ONCE, before any reserialization, since a re-encode respells what the signer never saw.
-- Abuse protection is the HTTP `OPTIONS` handshake: `WebHook-Request-Origin` required, `WebHook-Request-Callback` and `WebHook-Request-Rate` optional.
+[SECURITY]: signing is DSSE over SHA-256 digests of the core and extension attribute sets, carried in the `dssematerial` binary extension; the format registry carries no JWS member, so a signature travels as an attribute or not at all.
+- Webhook legs sign the encoded bytes once, before any reserialization, since a re-encode respells what the signer never saw.
+- Abuse protection rides the HTTP `OPTIONS` handshake — `WebHook-Request-Origin` required, `WebHook-Request-Callback` and `-Rate` optional.
 - Targets answer `WebHook-Allowed-Origin` beside `WebHook-Allowed-Rate`, and a target handling `OPTIONS` while declining validation answers 405.
 - `WebHook-Request-Origin` rides every delivery request, so a target re-reads the claimed origin per message rather than trusting one handshake.
 - Authorization uses the specification's own header field or query parameter, since a third scheme forks what every peer target implements.
-- Ingress ADMITS through the tenancy owner and inherits nothing, so a decoded message envelope carries no authority its transport happened to hold.
-- `source` and `authcontext` are producer CLAIMS verified against the trust row before any routing decision reads them.
+- Ingress admits through the tenancy owner and inherits nothing, so a decoded message envelope carries no authority its transport happened to hold.
+- `source` and `authcontext` are producer claims verified against the trust row before any routing decision reads them.
 - `dataclassification` gates which binding a fact crosses, so a classification a binding cannot honor refuses at that binding.
 
 [EVOLUTION]:

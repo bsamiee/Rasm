@@ -1,6 +1,6 @@
 # [TS_CORE_ARCHITECTURE]
 
-`core` is the branch's S0 vocabulary-and-law package: `value`, `state`, `interchange`, and `observe` meet through one content identity, one clock law, one fault vocabulary, and one keyed-decode wire registry. Core owns decode, vocabulary, and the capability dial — never serving or persistence. `value` roots the internal graph — every other sub-domain composes it and none feeds back.
+`core` is the branch's S0 vocabulary-and-law package: `value`, `state`, `interchange`, and `observe` meet through one content identity, one clock law, one fault vocabulary, and one keyed-decode wire registry. Core owns decode, vocabulary, and the capability dial, never serving or persistence. `value` roots the internal graph: every other sub-domain composes it and none feeds back.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -21,18 +21,18 @@ core/
     │   ├── commit.ts     # Content-keyed commit graph, branch heads, and Merkle summaries
     │   ├── machine.ts    # Transition invocation, data-driven statechart, and host-neutral restore
     │   ├── evidence.ts   # Decoded outcomes, receipts, progress, and Evidence.Availability verdicts
-    │   ├── feed.ts       # Clock.Hlc-ordered, tenant-keyed evidence timeline and its column band
+    │   ├── feed.ts       # Feed.Entry union and the Feed.Document column band under one Clock.Hlc order
     │   └── presence.ts   # Actor-presence CRDT over proven merge rows
     ├── interchange/      # Contract wire plane — generated bindings, codecs, and the capability dial; never serving
     │   ├── format.ts     # Byte-dialect engines behind one decode transform
-    │   ├── codec.ts      # Wire families over one keyed-decode registry and the closed family census
+    │   ├── codec.ts      # Wire families over one keyed-decode registry and the closed family roster
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and residency under Shape.Ingress ceilings
-    │   ├── contract.ts   # Descriptor-drift diff into graded verdicts
-    │   ├── carrier.ts    # W3C propagation-context value with its total folds, the closed per-transport dialect table, and the message envelope
+    │   ├── contract.ts   # Descriptor-set drift diff into graded verdicts
+    │   ├── carrier.ts    # Carrier.Context total parse/print folds, transport dialect rows, and the extension-slot seat
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
         ├── convention.ts # Typed semconv, metric, and event vocabulary with wire-name translation, the metric-plane roster, and one instrument mount
-        ├── slo.ts        # Reliability objective, SLI, SLO, filter, and burn-rate alert algebra
+        ├── slo.ts        # Reliability owner — Objective schema class, Sli union, burn and severity tables, Alert.Spec compile
         ├── board.ts      # Dashboard model, the query algebra with its render targets, pack dispatch, metric snapshot
         └── tap.ts        # Hook-point name rows, the veto/observe/replay modality table, and the tap contract
 ```
@@ -43,10 +43,11 @@ core/
 - S1 `state` — pure algebra over the value floor; the merge↔fold cycle never forms: `Fold.run` arrives as a caller parameter, never an import.
 - S1 `commit` rides beside `causal` on `Digest.Key`; `presence` rides beside `merge`; `machine` composes no interior sibling.
 - S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
-- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`.
+- S1 depth law — interior chains rank by lowest shared consumer, never path length, so a five-deep import rail still seats one stratum.
+- S2 `interchange` — `codec` is the one decode seat; siblings consume decoded `Wire` values and re-parse no bytes.
 - S2 `carrier` takes the same census union type-only, so its typed-metadata roster closes against the wire families with no value edge.
 - S2 `carrier` also seats the message envelope, since its extension slot IS a carrier frame and a second seat forks one attribute record.
-- S2 `format` reads the `Shape.Ingress` ceiling its framed lane applies to every admitted message.
+- S2 `format` holds the ingress ceiling universal — every admitted message passes one bound, and no lane mints a private cap.
 
 ```mermaid
 ---
@@ -58,7 +59,7 @@ config:
 ---
 flowchart TB
     accTitle: Core interior import strata
-    accDescr: Three interior strata — interchange over the state and observe peers onto the value floor; imports downward, one forbidden upward edge.
+    accDescr: How the interior sub-domains rank onto the value floor, every import downward.
     subgraph S2["S2 INTERCHANGE"]
         Invoke[invoke]
         CarrierP[carrier]
@@ -87,39 +88,38 @@ flowchart TB
         Schema[schema]
         Fault[fault]
     end
-    Codec i1@--> Format
-    Frame e1@-->|"[IMPORT]: Wire"| Codec
-    Contract i2@--> Codec
-    Invoke i3@--> Codec
-    Invoke i12@--> CarrierP
-    CarrierP e19@-.->|"[TYPE]: Wire.Family"| Codec
-    Format e20@-->|"[IMPORT]: Shape.Ingress"| Schema
-    CarrierP e18@-->|"[IMPORT]: Identity.Tenant"| Identity
-    CarrierP e30@-->|"[IMPORT]: Digest.codecs"| Digest
-    CarrierP e31@-->|"[IMPORT]: Fault.Class"| Fault
-    CarrierP e32@-->|"[IMPORT]: Reliability.Alert.Severity"| Reliability
+    Codec e1@-->|"[IMPORT]: Format.Arm"| Format
     Codec e2@-->|"[IMPORT]: Tally"| Evidence
-    Invoke e3@-->|"[IMPORT]: Convention"| Convention
+    Frame e3@-->|"[IMPORT]: Wire"| Codec
     Frame e4@-->|"[IMPORT]: Shape.Ingress"| Schema
-    Causal e5@-->|"[IMPORT]: Clock.Hlc"| Clock
-    Causal i4@--> Merge
-    Causal e6@-->|"[IMPORT]: Digest.Key"| Digest
-    Fold i5@--> Causal
-    Evidence i6@--> Fold
-    Evidence e7@-->|"[IMPORT]: Identity.Tenant"| Identity
-    Feed i7@--> Evidence
-    Feed e8@-->|"[IMPORT]: Quantity.Dimension"| Quantity
-    Transition e21@-->|"[IMPORT]: Fault.Class"| Fault
-    Reliability i8@--> Convention
-    Tap i12@--> Convention
-    Board i9@--> Reliability
-    Convention e9@-->|"[IMPORT]: Identity.App"| Identity
-    Tap e10@-->|"[IMPORT]: Fault.Class"| Fault
-    Tap e11@-->|"[IMPORT]: Identity.App"| Identity
-    Identity i10@--> Schema
-    Fault i11@--> Schema
-    Invoke ~~~ Board
-    S0 f1@-->|"forbidden: upward import"| S2
+    Contract e5@-->|"[IMPORT]: Wire"| Codec
+    Invoke e6@-->|"[IMPORT]: Wire"| Codec
+    Invoke e7@-->|"[IMPORT]: Carrier.promote"| CarrierP
+    Invoke e8@-->|"[IMPORT]: Convention"| Convention
+    CarrierP e9@-->|"[IMPORT]: Wire.Family"| Codec
+    CarrierP e10@-->|"[IMPORT]: Identity.Tenant"| Identity
+    CarrierP e11@-->|"[IMPORT]: Digest.codecs"| Digest
+    CarrierP e12@-->|"[IMPORT]: Fault.Class"| Fault
+    CarrierP e13@-->|"[IMPORT]: Reliability.Alert.Severity"| Reliability
+    Format e14@-->|"[IMPORT]: Shape.Ingress"| Schema
+    Causal e15@-->|"[IMPORT]: Clock.Hlc"| Clock
+    Causal e16@-->|"[IMPORT]: Merge.Instance"| Merge
+    Causal e17@-->|"[IMPORT]: Digest.Key"| Digest
+    Fold e18@-->|"[IMPORT]: Causal.Stamped"| Causal
+    Evidence e19@-->|"[IMPORT]: Fold.Cell"| Fold
+    Evidence e20@-->|"[IMPORT]: Identity.Tenant"| Identity
+    Feed e21@-->|"[IMPORT]: Evidence.ReceiptEnvelope"| Evidence
+    Feed e22@-->|"[IMPORT]: Quantity.Dimension"| Quantity
+    Transition e23@-->|"[IMPORT]: Fault.Class"| Fault
+    Reliability e24@-->|"[IMPORT]: Convention.Metric"| Convention
+    Tap e25@-->|"[IMPORT]: Convention.mount"| Convention
+    Tap e26@-->|"[IMPORT]: Fault.Class"| Fault
+    Tap e27@-->|"[IMPORT]: Identity.App"| Identity
+    Board e28@-->|"[IMPORT]: Reliability.Filter"| Reliability
+    Convention e29@-->|"[IMPORT]: Identity.App"| Identity
+    Identity e30@-->|"[IMPORT]: Shape.Refined"| Schema
+    Fault e31@-->|"[IMPORT]: Shape.Refined"| Schema
+    Schema f1@-->|"forbidden: upward import"| S2
 ```
 
 ## [03]-[SEAMS]
@@ -153,23 +153,24 @@ flowchart LR
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
     Compute e2@<-->|"[WIRE]: QuantityFamily"| Quantity
-    Compute e3@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
+    Compute e3@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Wire
     Element e4@<-->|"[WIRE]: rasm.element.v1"| Wire
     Persistence e5@-->|"[WIRE]: CrdtOpWire"| Wire
     Persistence e6@-->|"[WIRE]: SnapshotHeader"| Wire
     Bim e7@-->|"[WIRE]: IfcWire"| Frame
     Bim e8@-->|"[WIRE]: BcfTopicWire"| Wire
-    Bim e20@-->|"[WIRE]: PredicateWire"| Wire
+    Bim e9@-->|"[WIRE]: PredicateWire"| Wire
     Materials e10@-->|"[WIRE]: MaterialWire"| Wire
-    Materials e18@-->|"[WIRE]: TextureSetWire"| Wire
-    Artifacts e19@-->|"[WIRE]: AssetSetManifest"| Wire
-    AppUi e11@-->|"[WIRE]: CommandPayloadWire"| Invoke
-    AppUi e12@-->|"[WIRE]: GeometryResidencyWire"| Frame
-    AppUi e13@-->|"[WIRE]: EvidenceTimelineWire"| Wire
-    AppHost e14@-->|"[WIRE]: DescriptorPinWire"| Invoke
-    AppHost e15@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
-    AppHost e16@-->|"[WIRE]: CommandAvailabilityWire"| Wire
-    AppHost e17@-->|"[WIRE]: BindingStatusWire"| Wire
+    Materials e11@-->|"[WIRE]: TextureSetWire"| Wire
+    Artifacts e12@-->|"[WIRE]: AssetSetManifest"| Wire
+    AppUi e13@-->|"[WIRE]: CommandPayloadWire"| Invoke
+    AppUi e14@-->|"[WIRE]: GeometryResidencyWire"| Frame
+    AppUi e15@-->|"[WIRE]: EvidenceTimelineWire"| Wire
+    AppHost e16@-->|"[WIRE]: DescriptorPinWire"| Invoke
+    AppHost e17@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
+    AppHost e18@-->|"[WIRE]: CommandAvailabilityWire"| Wire
+    AppHost e19@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Wire
+    AppHost e20@-->|"[WIRE]: HostFingerprintWire"| Wire
 ```
 
 ```mermaid
@@ -182,7 +183,7 @@ config:
 ---
 flowchart LR
     accTitle: Core TypeScript sibling seam registry
-    accDescr: Core sends value, state, wire, observe, and carrier shapes; data and IaC return Board.Query targets.
+    accDescr: Which core-owned shapes each sibling folder consumes, and which query targets the olap and operate owners hand back to Board.
     subgraph core[CORE]
         Digest[Digest]
         Wire[Wire families]
@@ -200,7 +201,7 @@ flowchart LR
         Transition[Statechart machine]
         Presence[Actor presence]
     end
-    Runtime{{runtime}}
+    Runtime([runtime])
     Data[(data)]
     Ui([ui])
     Security([security])
@@ -208,38 +209,43 @@ flowchart LR
     Digest e1@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Data
     Digest e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Runtime
     Wire e3@-->|"[SHAPE]: FlagVerdict"| Runtime
-    Fold e4@-->|"[SHAPE]: Fold.Plan"| Data
-    Feed e5@-->|"[SHAPE]: Feed.Document"| Ui
-    Identity e6@-->|"[SHAPE]: Identity.Tenant"| Security
-    Identity e7@-->|"[SHAPE]: Identity.Tenant"| Data
-    Identity e8@-->|"[SHAPE]: Identity.App"| Runtime
-    Fault e9@-->|"[SHAPE]: Fault.Budget"| Runtime
-    Convention e10@-->|"[SHAPE]: Convention"| Runtime
-    Convention e12@-->|"[SHAPE]: Convention"| Data
-    Convention e13@-->|"[SHAPE]: Convention"| Security
-    Convention e22@-->|"[SHAPE]: Convention"| Iac
-    Board e11@-->|"[PROJECTION]: Board.DashboardModel/Board.Query"| Iac
-    Reliability e14@-->|"[PROJECTION]: Reliability.Alert.Spec"| Iac
-    Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
-    Wire e21@-->|"[SHAPE]: Wire.ModelDiff/Wire.BcfTopic/Wire.BcfViewpoint/Wire.ControlIntent/Wire.LayoutProgram/Wire.CommandGate/Wire.EvidenceTimeline/Wire.GeoFeature/Wire.PbrGroups/Wire.TextureSet/Wire.AssetSetManifest"| Ui
-    Reliability e16@-->|"[PROJECTION]: Reliability.Objective"| Iac
-    Reliability e29@-->|"[PROJECTION]: Reliability.Filter"| Iac
-    Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
-    Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime
-    Tap e19@-->|"[SHAPE]: Tap.Point"| Data
-    Tap e20@-->|"[SHAPE]: Tap.Name/Modality/Handler/Veto/Breach"| Ui
-    Tap e23@-->|"[SHAPE]: Tap.Name/Modality/Handler"| Security
-    Board e24@-->|"[SHAPE]: Board.Query.Residence"| Data
-    Wire e25@-->|"[SHAPE]: Hops"| Data
-    Wire e32@-->|"[SHAPE]: Wire.TextureSet"| Data
-    Data e26@-->|"[SHAPE]: Board.Query.Target"| Board
-    Board e27@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Data
-    Iac e28@-->|"[PROJECTION]: Board.Query.Target"| Board
-    Event e30@-->|"[EVENT]: Event.Fact"| Data
-    Event e31@-->|"[EVENT]: Event.Fact"| Runtime
-    Transition e33@-->|"[SHAPE]: Transition.Config/Actor"| Ui
-    Presence e34@-->|"[SHAPE]: Presence.State/Op/Lease"| Ui
+    Wire e4@-->|"[SHAPE]: Wire.ModelDiff"| Ui
+    Wire e5@-->|"[SHAPE]: Hops"| Data
+    Wire e6@-->|"[SHAPE]: Wire.TextureSet"| Data
+    Fold e7@-->|"[SHAPE]: Fold.Plan"| Data
+    Feed e8@-->|"[SHAPE]: Feed.Document"| Ui
+    Identity e9@-->|"[SHAPE]: Identity.Tenant"| Security
+    Identity e10@-->|"[SHAPE]: Identity.Tenant"| Data
+    Identity e11@-->|"[SHAPE]: Identity.App"| Runtime
+    Fault e12@-->|"[SHAPE]: Fault.Budget"| Runtime
+    Convention e13@-->|"[SHAPE]: Convention"| Runtime
+    Convention e14@-->|"[SHAPE]: Convention"| Data
+    Convention e15@-->|"[SHAPE]: Convention"| Security
+    Convention e16@-->|"[SHAPE]: Convention"| Iac
+    Board e17@-->|"[PROJECTION]: Board.DashboardModel"| Iac
+    Board e18@-->|"[PROJECTION]: Board.Query"| Iac
+    Board e19@-->|"[SHAPE]: Board.Query.Residence"| Data
+    Board e20@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Data
+    Reliability e21@-->|"[PROJECTION]: Reliability.Alert.Spec"| Iac
+    Reliability e22@-->|"[PROJECTION]: Reliability.Objective"| Iac
+    Reliability e23@-->|"[PROJECTION]: Reliability.Filter"| Iac
+    Frame e24@-->|"[SHAPE]: Residency.Ledger"| Ui
+    Tap e25@-->|"[SHAPE]: Tap.Registry"| Runtime
+    Tap e26@-->|"[SHAPE]: Tap.Point"| Data
+    Tap e27@-->|"[SHAPE]: Tap.Name"| Ui
+    Tap e28@-->|"[SHAPE]: Tap.Name"| Security
+    Carrier e29@-->|"[SHAPE]: Carrier.Context"| Runtime
+    Carrier e30@-->|"[SHAPE]: Carrier.Context"| Data
+    Event e31@-->|"[EVENT]: Event.Fact"| Data
+    Event e32@-->|"[EVENT]: Event.Fact"| Runtime
+    Transition e33@-->|"[SHAPE]: Transition.Config"| Ui
+    Transition e34@-->|"[SHAPE]: Transition.Actor"| Ui
+    Presence e35@-->|"[SHAPE]: Presence.State"| Ui
+    Data e36@-->|"[SHAPE]: Board.Query.Target"| Board
+    Iac e37@-->|"[SHAPE]: Board.Query.Target"| Board
 ```
+
+Each sibling edge collapses every contract between its endpoints at its labeled kind: the `Wire`, `Tap`, and `Presence` edges toward `ui` and `security` carry representative shapes, and the consuming folder's own seam registry enumerates the full family.
 
 ## [04]-[INTERNAL]
 
@@ -268,9 +274,9 @@ flowchart LR
     Interchange e6@-->|"emit: typed contracts"| Output
 ```
 
-One authority per concept and growth-as-row is the organization law: `value` mints each floor primitive exactly once and everything above composes it settled, `state` stays pure algebra whose one `AsOf` coordinate forbids a second replay vocabulary, `interchange` lands a new contract family as one census row with its landing row — never a page — and `observe` owns vocabulary and derivation only.
+One authority per concept and growth-as-row is the organization law: `value` mints each floor primitive exactly once and everything above composes it settled, `state` stays pure algebra whose one `AsOf` coordinate forbids a second replay vocabulary, `interchange` lands a new contract family as one census row with its landing row and never a page, and `observe` owns vocabulary and derivation only.
 
-Growth is one edit at the owner: a wire family is a census row, a fault class a table entry, an identity dimension one static. Exact delegating sites and per-owner wiring live on the owning implementation pages.
+Exact delegating sites and per-owner wiring live on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 

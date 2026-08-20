@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- Helm charts earn no README package card — a card binds a touch-point set a `pnpm-workspace.yaml` row anchors, and no manifest row names a chart.
 
 ## [02]-[SHAPE]
 
@@ -20,7 +20,7 @@
 - Render coordinates seal beside `_urls` — translation, histogram shape, and armed residence — so packs and rules spell ONE series grammar.
 - `fullnameOverride` nesting is a per-row projection — a chart defining the collapse helper but invoking it nowhere leaves the flat key inert.
 - Deploy-plane credential material reaches a chart through `secretKeyRef`, never a values literal — values render into a ConfigMap every stack ships.
-- Estate-stamp guard rows narrow on the `rasm:iac:` URN token — `helm.v4.Chart` hands the analyzer upstream manifests as tier-authored resources.
+- Estate-stamp guard rows narrow on the `rasm:iac:` URN token — `helm.v4.Chart` hands the analyzer upstream manifests as `Tier`-authored resources.
 - Network fences select PODS through `podSelector`, never the namespace — one namespace seats the app beside its pooler, JetStream door, and egress.
 - Workload injection carries `DOPPLER_TOKEN` alone — that scoped token embeds project and config, so `doppler run --` needs no second coordinate row.
 - Default-on census proves against a chart's whole default set, seats included — a `scrapeConfigs` seat installs a plane no subchart toggle shows.
@@ -38,6 +38,12 @@
 - Datasource request headers ride the provider's `httpHeaders` member alone — both encoded documents refuse the indexed pair by name.
 - Residence dialing rides a scoped user row masked to the pod network — the chart's loopback default leaves widening to the access-managing user.
 - Stateful chart rows whose claim ships armed record the SIZE — arming is the chart's own default, so the inherited size is the row's one coordinate.
+- Chart rows prove no-defaults compliance against their OWN default-on inventory — a `helm.v4.Chart` row silent on what it inherited is uncheckable.
+- Postures and variable rosters shared by two `Tier` classes seat at the `Tier` base — the first-class seat forces an import or a twin.
+- Workloads holding state no apply re-lands declare their `persistence` claim — the board server's tokens live in its store; a reschedule drops them.
+- Row leaves land under one lowercase `assets/<digest>/` directory with the one served-header roster — a per-arm layout forks the served address.
+- Served addresses ARE object keys — an address computed apart from the key 404s the moment either derivation moves.
+- Every declared leaf proves present under the built directory before the dialect converges — a missing leaf ships as a dead published address.
 
 ## [03]-[COLLAPSE]
 
@@ -46,10 +52,6 @@
 ## [04]-[STRUCTURE]
 
 - Helm charts and config documents catalogue at this folder's `.api/` tier — a values-key fence claims a verifiable member like any package fence.
-- Helm charts earn no README package card — a card binds a touch-point set a `pnpm-workspace.yaml` row anchors, and no manifest row names a chart.
-- Chart rows prove no-defaults compliance against their OWN default-on inventory — a `helm.v4.Chart` row silent on what it inherited is uncheckable.
-- Postures and variable rosters two tiers both hold seat at the `Tier` base — seating at the tier that needed it first forces an import or a twin.
-- Workloads holding state no apply re-lands declare their `persistence` claim — the board server's tokens live in its store; a reschedule drops them.
 - CRD estates no chart here installs earn a folder-tier `.api` catalogue — the cluster's controller owns the definitions fences verify against.
 
 ## [05]-[PROCESS]

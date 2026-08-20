@@ -14,7 +14,6 @@
         <PackageReference Include="Cronos" />
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
         <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
@@ -31,7 +30,7 @@
         <PackageReference Include="System.CommandLine" />
     </ItemGroup>
 
-    <ItemGroup Label="Observability">
+    <ItemGroup Label="Health Diagnostics">
         <PackageReference Include="AspNetCore.HealthChecks.Kafka" />
         <PackageReference Include="AspNetCore.HealthChecks.Nats" />
         <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
@@ -41,14 +40,16 @@
         <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
         <PackageReference Include="Microsoft.Diagnostics.Runtime" />
         <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
-        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Microsoft.Extensions.Diagnostics" />
         <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
         <PackageReference Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="Npgsql.OpenTelemetry" />
+    </ItemGroup>
+
+    <ItemGroup Label="Telemetry SDK">
         <PackageReference Include="Microsoft.Extensions.Http.Diagnostics" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry" />
-        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
         <PackageReference Include="OpenTelemetry.Extensions" />
@@ -66,6 +67,9 @@
         <PackageReference Include="OpenTelemetry.Resources.ProcessRuntime" />
         <PackageReference Include="Pyroscope" />
         <PackageReference Include="Pyroscope.OpenTelemetry" />
+    </ItemGroup>
+
+    <ItemGroup Label="Log Sinks">
         <PackageReference Include="Serilog" />
         <PackageReference Include="Serilog.Extensions.Hosting" />
         <PackageReference Include="Serilog.Sinks.Console" />
@@ -73,12 +77,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Outbound Transport">
-        <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.AspNetCore" />
         <PackageReference Include="Grpc.AspNetCore.HealthChecks" />
         <PackageReference Include="Grpc.AspNetCore.Web" />
-        <PackageReference Include="Grpc.Core.Api" />
-        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
         <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
         <PackageReference Include="Polly.Core" />
@@ -87,8 +88,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Capability Agent">
-        <PackageReference Include="Microsoft.Extensions.AI" />
-        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="Microsoft.ML.Tokenizers" />
         <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" />
         <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" />
@@ -112,9 +111,6 @@
     <ItemGroup Label="Sandbox Live Wire">
         <PackageReference Include="BACnet" />
         <PackageReference Include="FluentModbus" />
-        <PackageReference Include="MQTTnet" />
-        <PackageReference Include="MTConnect.NET-Common" />
-        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" />
         <PackageReference Include="System.IO.Ports" />
@@ -125,16 +121,41 @@
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
+    <ItemGroup Label="Event Transport">
+        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="MQTTnet" />
+        <PackageReference Include="MTConnect.NET-Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Observability">
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+    </ItemGroup>
+
+    <ItemGroup Label="AI Contracts">
+        <PackageReference Include="Microsoft.Extensions.AI" />
+        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
+    </ItemGroup>
+
+    <ItemGroup Label="Runtime Supply">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
 </Project>

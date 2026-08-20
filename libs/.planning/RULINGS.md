@@ -15,27 +15,21 @@
 
 - Infrastructure planes take shape from the category algebra, never the first consumer — the occasioning domain enters as a ROW like every later one.
 - Branch-interior wires mint no `MANIFEST.md` entry — the `[WIRE]` pair at both folder `[03]-[SEAMS]` maps IS the whole registration.
-- Each branch composes its backend contract from its own artifacts and mints its own generation — a shared minter re-imposes the removed prerequisite.
 - Branch prose states its own domain and never a peer's ceiling — a graduation rail names what crosses and leaves policy to whoever reads it.
 - PostgreSQL extension rosters stay branch-owned deployment state — no corpus entry defines the set, so a parity demand manufactures meaning.
 - Backend artifact dependency validation homes at each branch's projection funnel, never its sort — artifact key order is the whole wire order.
 - Library tiers stay app-neutral — instrumentation binds the API surface alone, and no exporter, broker, or sink enters below the composition root.
 - Columnar-lake query ends ride ONE Flight plane per runtime, Flight SQL layered as a dialect — a sidecar transport re-derives admission and typing.
 - Retrieval fusion stays host-local — each end folds reciprocal-rank fusion in one database statement, and no cross-runtime projection exists.
-- Reliability-indicator vocabulary is one algebra spelled twice — `Sli`, burn row, severity, and panel kind land in BOTH branch spellings.
 - Success share rides one tag-partitioned counter as an indicator case — a twin carrying the numerator strands its denominator on any emission edit.
-- Telemetry and event domain segments name capability subjects and stay branch-declared — a segment minted per emitter forks the series a board joins.
-- Telemetry conformance proves through `TELEMETRY_CONVENTION` alone — parity across the three mints IS the proof; naming similarity gates nothing.
 - OTLP is the ONE metrics-store ingest door and remote-write is declined estate-wide — a second leg forks the ingest contract per store.
 - Analytics-residence families add no descriptor column and foreclose `cap` — unbounded dimensionality is exactly what a cardinality budget destroys.
-- Descriptor families extend with what their own plane decides — a plane answering a coordinate it decides nothing about answers by guess.
 - Transport families extend the descriptor columns with `deliver`, `order`, `settle`, `replay`, `bound`, and `refuse` — six an engine decides alone.
 - Transport families foreclose `retry` — each row names its retry owner, since one owner holds every schedule and a row carrying one forks it.
 - `order` carries the ordering domain beside the key member selecting it — a partition key IS that member, never a column standing beside it.
 - Transports state a missing coordinate on `degrade` — replay, backpressure, and settlement each go absent on engines the estate already ships.
-- Operation identity derives apart from payload identity — equal payloads stay distinct operations, so a causal log never keys an entry on content.
+- Operation identity derives apart from payload identity — equal payloads stay distinct operations, so causal logs key and dedup on it, never content.
 - Wires pinning divergent schema or `dataschema` generations refuse at the CONSUMER — proto3 files a retired field to the unknown set, never a raise.
-- One descriptor source carries ONE minter — a peer's messages seated in another family couple two release cadences under one breaking gate.
 - Host-boundary producers name their family for the host-free concept — a host-spelled family binds every peer's generated bindings to that host.
 - Every branch shipping a diagnostic archive carries a BACKEND-FREE read plane — an archive is pulled exactly when the egress is what failed.
 - Unmeasured instruments read UNMEASURED, never zero — a fabricated zero and a dead producer are the two states an operator needs separated.
@@ -48,16 +42,12 @@
 - Pulled levels bind to their OWNER's lifetime, never a name — a dead owner's last value otherwise freezes into a level reading as live.
 - Columnar DDL plants at the tier that installs the residence and whose writer fills the relation — the planter leads its sort key with tenant.
 - Reliability rendering rides the deploy tier's realized backend projection — an objective naming a residence is a contradicting second selection.
-- HLC carriage is per-branch and only the layout is shared — the packed `physical_ticks<<64 | logical` `UInt128` and the composed attribute slots.
 - Shared byte layouts fix their UNIT — the HLC physical half is 100-ns ticks, so a minter reading milliseconds SCALES rather than transcribes.
 - Layout value domains bind at the MINT, not the cell — the HLC physical half is I63 inside a `uint64` slot, and the cell admits what none writes.
 - Cross-package references to a twice-carried name scope-qualify at the reference site — the ambiguity is the citation's defect, never the owner's.
 - Producing folders declare a fact's `Retain` CLASS and never a window, ledger, or groom — the plane arrives bound at the composition root.
 - Append-only log planes own truth and derived planes carry zero authority — a crossing shape names its truth plane and its rebuild route.
-- Registered member rosters claim what their fences must honor — zero call sites repairs to a consumer or a recorded negative, never removal.
 - Vector clocks encode with slots SORTED by origin — bucket order gives one causal position a digest per runtime, unfreezing every fixture over it.
-- Causal-log replay dedups on operation IDENTITY — a content test reads a second edit of identical bytes as redelivery and discards it.
-- Commutation is ONE `Ordered | Commutative | Semilattice` triple per mutation kind — a lone convergent flag counts a lost total order as convergence.
 - Compaction admits only where the entry's causal context DOMINATES its declared horizon — a state fold holds no frontier and refuses nothing.
 - Op-log entries carry no descriptor family — the msgpack roster IS canonical, and a proto message envelope over opaque payload bytes types nothing.
 - Scene descriptors and event payloads REFERENCE bulk bodies by key — re-carrying the octets mints a second producer for the entry that owns them.
@@ -73,23 +63,22 @@
 - Composite identities cross WHOLE, discriminating components beside the digest — a digest-only join merges two identities minted over equal bytes.
 - Framed-binary wires frame an `Option` as a count of 0 or 1 — presence on the collection rule leaves an absent field no second spelling to fork on.
 - Kind-discriminated payload tails carry NO arm tag — the discriminant in hand fixes the tail, and a second spelling of it can contradict the first.
-- One message-envelope owner per branch mints the attribute map — a second mint in one branch is the `[07]` drift defect the corpus class forecloses.
 - Formats admit JSON, Protobuf, and Avro — `-batch` rides the first two, since Avro defines none; CBOR, XML, and avro-compact bind no decoder.
 - CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house message-envelope legs — no spec binding names them.
 - Subscriptions and all seven filter dialects land, `sql` being CESQL — reading CESQL as the filter concept collapses six dialects into one arm.
 - CESQL evaluation is TOTAL — every operator returns a value beside an accumulated error list, so the rail accumulates rather than short-circuits.
 - CESQL parses through a parser-combinator or table-driven expression owner — recursive descent over mutable state and downloading codegen refuse.
-- Signing is DSSE over the attribute digests, never JWS — the format registry carries no JWS member, so a signed event rides a type nothing resolves.
-- Event identity rides `id` and content identity `subject` and `dataref` — `(source, id)` is the uniqueness composite, so no dedup keys on bytes.
 - `subject` and `dataref` carry the content key as 32 LOWERCASE hex — an upper-spelling branch maps at the envelope edge, re-casing no shared codec.
 - `ContentAddress` is a bare digest and `ContentKey` a kind-discriminated composite — neither renames onto the other, and a citation scope-qualifies.
-- `dataschema` binds the registry subject and version, `datacontenttype` is row data off the serdes arrow — a literal content type forks codec choice.
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
 - Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
 
 ## [03]-[COLLAPSE]
 
-- (none)
+- Reliability-indicator vocabulary is one algebra spelled twice — `Sli`, burn row, severity, and panel kind land in BOTH branch spellings.
+- One descriptor source carries ONE minter — a peer's messages seated in another family couple two release cadences under one breaking gate.
+- HLC carriage is per-branch and only the layout is shared — the packed `physical_ticks<<64 | logical` `UInt128` and the composed attribute slots.
+- Commutation is ONE `Ordered | Commutative | Semilattice` triple per mutation — a lone convergent flag counts a lost total order as convergence.
 
 ## [04]-[STRUCTURE]
 
@@ -109,3 +98,4 @@
 - `[BLOCKED]` is the TERMINAL hold naming a live upstream blocker beside its arms and route — a corpus at zero open work still carries it.
 - Holds close by re-running their own route — deleting one discards the probe that reverses it, and the next pass re-derives the blocker.
 - Blockers an in-pass probe clears were never holds — the card re-marks `[QUEUED]` and lands in that same pass.
+- Registered member rosters claim what their fences must honor — zero call sites repairs to a consumer or a recorded negative, never removal.
