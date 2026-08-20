@@ -167,6 +167,12 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Word-match sweeps order edits onto same-spelled foreign members — an SDK mirror, a factory case, a domain rank — and break what they touch.
 - Boundary: Census verdicts date to their read — a zero-hit taken after a repair refutes nothing about the order that preceded it.
 
+[ASYMMETRIC_EVIDENCE_BAR]:
+- Law: Claims of one structural kind settle on ONE evidence bar, fixed before the sweep and applied to every member alike.
+- Law: Refusals scoped to one arm, overload, or family member refute that member alone and leave the shape standing for every other consumer.
+- Trigger: Sweeps seat a thin claim and refute a thicker one in one pass, each verdict reading sound alone while the pair contradicts.
+- Boundary: Proof grade IS the bar — a declared package row, a named call site, a full signature — and grades mixed across one sweep name the defect.
+
 [FAULT_BUILT_BEFORE_VERDICT]:
 - Law: Refusal payloads — fault values, detail strings, evidence scans — construct on the failing arm alone; gates take deferred constructors.
 - Law: Passing paths price zero refusal work, so a scan only a refusal reads runs after the verdict and costs failures alone.
