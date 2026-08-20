@@ -187,13 +187,15 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [02]   | `OrtValue.CreateTensorValueFromMemory<T>(OrtMemoryInfo, Memory<T>, long[])` | factory  | binds device-pinned memory           |
 |  [03]   | `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>(Tensor<T>)`    | factory  | binds `System.Numerics.Tensors`      |
 |  [04]   | `OrtValue.CreateFromStringTensor(Tensors.Tensor<string>)`                   | factory  | binds ONNX-owned string tensor       |
-|  [05]   | `NamedOnnxValue.CreateFromTensor<T>(string, Tensor<T>)`                     | factory  | named value from tensor              |
-|  [06]   | `SessionOptions.RegisterCustomOpLibrary(string)`                            | instance | loads custom operators               |
-|  [07]   | `SessionOptions.RegisterCustomOpLibraryV2(string, out nint)`                | instance | custom ops, caller-owned handle      |
-|  [08]   | `SessionOptions.RegisterOrtExtensions()`                                    | instance | loads extension ops                  |
-|  [09]   | `SessionOptions.{EnableMemoryPattern, EnableProfiling, EnableCpuMemArena}`  | property | `bool` reuse/profiling/arena toggles |
-|  [10]   | `RunOptions.AddRunConfigEntry(string, string)`                              | instance | sets a run config entry              |
+|  [05]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])`               | factory  | allocates an empty string tensor     |
+|  [06]   | `NamedOnnxValue.CreateFromTensor<T>(string, Tensor<T>)`                     | factory  | named value from tensor              |
+|  [07]   | `SessionOptions.RegisterCustomOpLibrary(string)`                            | instance | loads custom operators               |
+|  [08]   | `SessionOptions.RegisterCustomOpLibraryV2(string, out nint)`                | instance | custom ops, caller-owned handle      |
+|  [09]   | `SessionOptions.RegisterOrtExtensions()`                                    | instance | loads extension ops                  |
+|  [10]   | `SessionOptions.{EnableMemoryPattern, EnableProfiling, EnableCpuMemArena}`  | property | `bool` reuse/profiling/arena toggles |
+|  [11]   | `RunOptions.AddRunConfigEntry(string, string)`                              | instance | sets a run config entry              |
 
+- [04]/[05]-[STRING_TENSOR]: `CreateTensorWithEmptyStrings` allocates the ONNX-owned string tensor a run then fills; `CreateFromStringTensor` binds one already built. The string row admits at the model boundary alone (`Tensor/vocabulary#TENSOR_VOCABULARY` `Reach.ModelBoundary`) and never enters a span kernel.
 - `RegisterCustomOpLibrary` maps to `OrtRegisterCustomOpsLibrary_V2`: ONNX Runtime owns the library lifetime and frees it when the options and every session release — the leak-free spelling that tracks no caller handle. `RegisterCustomOpLibraryV2` maps to `OrtRegisterCustomOpsLibrary` returning a caller-owned handle: a discarded `out _` never unloads and leaks the library.
 - `RegisterOrtExtensions` loads the `libortextensions` native asset shipped by `Microsoft.ML.OnnxRuntime.Extensions`; an absent asset throws `OnnxRuntimeException(ErrorCode.NoSuchFile)`.
 
@@ -509,7 +511,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 [STACKING]:
 - `api-onnxruntimegenai`(`.api/api-onnxruntimegenai.md`): the genai `Config.AppendProvider`/`SetProviderOption`/`SetDecoderProviderOptionsHardware*` surface selects from this EP roster and binds to devices this page's `OrtEpDevice`/`OrtHardwareDevice` discovery enumerates; genai native co-locates per RID beside this runtime.
 - boot rail: `OrtThreadingOptions` reads the AppHost `CpuBudget`, folds into `EnvironmentCreationOptions`, and `OrtEnv.CreateInstanceWithOptions(ref)` boots once behind `OrtEnv.IsCreated`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals.
-- session rail: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, ModelFingerprint.Of(SessionPolicy.SessionRows(ep)))`.
+- session rail: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, SessionPolicy.Fingerprint(ep))`.
 - warm rail: both warm artifacts — the compiled EP-context blob and the managed `OptimizedModelFilePath` graph — content-address through one device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type`, carrying the form's suffix with `GetVersionString()` on the compat-info-free managed form, and cross to the Persistence blob lane as one `ArtifactIndexRow`.
 - load rail: `SetLoadCancellationFlag(true)` registered off the caller's cancellation token is the ONLY bound on session construction — the load-time counterpart of `RunOptions.Terminate` — so the registration is owned beside the `SessionOptions` it arms and released before them.
 - provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns as one polymorphic `Register`, and the two-step compatibility enum verdict is read once and consumed into the warm-start branch.

@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_LIBTORCH_CPU]
 
-`libtorch-cpu` is the LibTorch native CPU runtime floor: the ATen/c10 dense-compute engine every `TorchSharp.torch.*` call P/Invokes through `libLibTorchSharp` at native init. It ships no managed assembly and no public type — an MSBuild import pair and a per-RID native `dependencies` fan-out are the whole payload — so `api-torchsharp.md` owns the managed `torch.*` surface while this owner pins the per-RID, ABI, OpenMP, and CPU-vs-CUDA contract the osx-arm64 `Tensor/blas` and `Stats/estimator` rails build on.
+`libtorch-cpu` is the LibTorch native CPU runtime floor: the ATen/c10 dense-compute engine every `TorchSharp.torch.*` call P/Invokes through `libLibTorchSharp` at native init. It ships no managed assembly and no public type — an MSBuild import pair and a per-RID native `dependencies` fan-out are the whole payload — so `api-torchsharp.md` owns the managed `torch.*` surface while this owner pins the per-RID, ABI, OpenMP, and CPU-vs-CUDA contract the osx-arm64 `Tensor/blas` and `Stats/families` rails build on.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - assembly: NONE — `lib/netstandard2.0/_._/empty.txt` empty placeholder carries zero managed IL, zero public type, and no `lib/<tfm>` asset, so the `[API_TFM_RESOLUTION]` hazard cannot apply
 - asset: `buildTransitive/netstandard2.0/libtorch-cpu.{props,targets}` import pair with a per-RID native `dependencies` group pulling the matching `libtorch-cpu-<rid>` sub-package
 - depends: `libtorch-cpu-linux-x64`, `libtorch-cpu-osx-arm64`, `libtorch-cpu-win-x64` — the native dylib/so/dll carriers; only these three RIDs ship a CPU payload
-- rail: compute — `[CLASSICAL_ML_BLAS]` native floor for `Tensor/blas` and `Stats/estimator`
+- rail: compute — `[CLASSICAL_ML_BLAS]` native floor for `Tensor/blas` and `Stats/families`
 
 ## [02]-[NATIVE_ABI_FLOOR]
 
@@ -42,5 +42,5 @@
 [RAIL_LAW]:
 - Package: `libtorch-cpu` (native meta-package; assembly NONE)
 - Owns: the LibTorch native CPU ATen/c10 runtime floor per-RID for `osx-arm64`/`linux-x64`/`win-x64`, the bundled `libomp` OpenMP pool, and the `CheckOneTorchSharpRuntime` CPU-vs-CUDA guard — the substrate every `TorchSharp.torch.*` call P/Invokes through `libLibTorchSharp`
-- Accept: a single CPU-runtime pin co-admitted with `TorchSharp` for the osx-arm64 `[CLASSICAL_ML_BLAS]` dual leg — native dense LA for `Tensor/blas` and the iterative-estimator engine for `Stats/estimator` — thread count tuned through the managed OpenMP knobs `api-torchsharp.md` owns
+- Accept: a single CPU-runtime pin co-admitted with `TorchSharp` for the osx-arm64 `[CLASSICAL_ML_BLAS]` dual leg — native dense LA for `Tensor/blas` and the iterative-estimator engine for `Stats/families` — thread count tuned through the managed OpenMP knobs `api-torchsharp.md` owns
 - Reject: any direct managed reference to this package; a `libtorch-cuda` co-pin; a `torch.*` call on `linux-arm64`/`win-arm64`/`osx-x64` where no CPU payload ships; the managed `torch.*` surface `api-torchsharp.md` owns

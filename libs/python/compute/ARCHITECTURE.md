@@ -28,7 +28,7 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   ├── array.py            # ArrayPayload admission floor every producer stratum composes
 │   ├── jit.py              # JitBackend capture table; experiments and quadrature compose it
 │   ├── interval.py         # IntervalOp dispatch whose receipt names the certifying Floor and the ball width
-│   ├── quantity.py         # UncertainQuantity; interior owner beneath the C#-spelled QuantityFamily wire
+│   ├── quantity.py         # UncertainQuantity; correlated unit-bearing uncertainty on one owner
 │   └── statistics.py       # TestIntent hypothesis routes and MLE fit; report keys intent-owned over sample bytes
 ├── analysis/               # Classical-math evidence producers
 │   ├── signal.py           # SignalOp folds; artifacts hands SignalOp shapes across the seam
@@ -104,7 +104,7 @@ config:
 ---
 flowchart LR
     accTitle: Compute package seam registry
-    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, and the Kernel port with peers.
+    accDescr: Compute sub-domain owners exchanging graduation evidence, content keys, and the Kernel port with peers.
     subgraph compute[COMPUTE]
         Graduation[Graduation rail]
         Solvers[Solve receipt]
@@ -122,26 +122,25 @@ flowchart LR
     Compute e2@-->|"[GRADUATION]: GraduationEvidence"| Graduation
     Experiments e3@-->|"[WIRE]: GraduationEnvelope"| Compute
     Solvers e4@<-->|"[WIRE]: SparseExchange"| Compute
-    Numerics e5@<-->|"[WIRE]: QuantityFamily"| Compute
-    Geometry e6@-->|"[GRADUATION]: GeometryHandoff"| Graduation
-    Artifacts e7@-->|"[GRADUATION]: HandoffAxis"| Graduation
-    Artifacts e8@-->|"[SHAPE]: SignalOp"| Analysis
-    Runtime e9@-->|"[CONTENT_KEY]: ParityReceipt"| Numerics
-    Runtime e10@-->|"[BOUNDARY]: ResourceRef"| Experiments
-    Data e11@-->|"[SHAPE]: FrameAdmission"| Experiments
-    Experiments e12@-->|"[PROJECTION]: BenchmarkReceipt"| Runtime
-    Graduation e13@-->|"[SHAPE]: Fact"| Runtime
-    Experiments e14@-->|"[SHAPE]: Fact"| Runtime
-    Solvers e15@-->|"[SHAPE]: Fact"| Runtime
-    Runtime e16@-->|"[PORT]: Kernel"| Solvers
-    Runtime e17@-->|"[PORT]: measured"| Graduation
-    Runtime e18@-->|"[PORT]: Hooks"| Graduation
-    Runtime e19@-->|"[PORT]: Kernel"| Experiments
-    Runtime e20@-->|"[PORT]: Kernel"| Analysis
-    Runtime e21@-->|"[PORT]: Kernel"| Optimization
+    Geometry e5@-->|"[GRADUATION]: GeometryHandoff"| Graduation
+    Artifacts e6@-->|"[GRADUATION]: HandoffAxis"| Graduation
+    Artifacts e7@-->|"[SHAPE]: SignalOp"| Analysis
+    Runtime e8@-->|"[CONTENT_KEY]: ParityReceipt"| Numerics
+    Runtime e9@-->|"[BOUNDARY]: ResourceRef"| Experiments
+    Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
+    Experiments e11@-->|"[PROJECTION]: BenchmarkReceipt"| Runtime
+    Graduation e12@-->|"[SHAPE]: Fact"| Runtime
+    Experiments e13@-->|"[SHAPE]: Fact"| Runtime
+    Solvers e14@-->|"[SHAPE]: Fact"| Runtime
+    Runtime e15@-->|"[PORT]: Kernel"| Solvers
+    Runtime e16@-->|"[PORT]: measured"| Graduation
+    Runtime e17@-->|"[PORT]: Hooks"| Graduation
+    Runtime e18@-->|"[PORT]: Kernel"| Experiments
+    Runtime e19@-->|"[PORT]: Kernel"| Analysis
+    Runtime e20@-->|"[PORT]: Kernel"| Optimization
 ```
 
-`ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg spells the owner's `GraduationEvidence`, landed interior as `EvidenceBundle`, and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire. `experiments/model#ENVELOPE` rides the forward model crossing as the `GraduationEnvelope` copy the C# identity gate ingests, `solvers/linear#EXCHANGE` pairs the sparse containers with the C# factor lane, and each collapsed edge stands for every contract at its kind, per-contract wiring on the owning pages.
+`ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, and the graduation reverse leg spells the owner's `GraduationEvidence`, landed interior as `EvidenceBundle`. `experiments/model#ENVELOPE` rides the forward model crossing as the `GraduationEnvelope` copy the C# identity gate ingests, `solvers/linear#EXCHANGE` pairs the sparse containers with the C# factor lane, and each collapsed edge stands for every contract at its kind, per-contract wiring on the owning pages.
 
 Every leg admitting, writing, or consuming a countable population records through the runtime `Journal` writer on the `[SHAPE]: Fact` durable half, whose `Ledger` a composition root binds and this package never implements. Producing legs are awaitable by law, so a synchronous entrypoint reaches the plane through its own twin. `Resource.COMPUTE` charges once per dispatch at the resource band's async close, and each `Fact` edge carries the evidence its own fold owns.
 

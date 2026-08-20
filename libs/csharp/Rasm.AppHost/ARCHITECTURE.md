@@ -220,7 +220,7 @@ flowchart LR
 
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.
 
-`Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows (BACnet, Modbus, MQTT), so Bim names no live transport and the livewire axis names no ontology.
+`Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows, so Bim names no live transport and the livewire axis names no ontology. That same seam carries Bim's national design regime, elected once at this package's `Runtime/modules#MODULE_LEDGER` seat because no Bim type is nameable here.
 
 ## [04]-[INTERNAL]
 

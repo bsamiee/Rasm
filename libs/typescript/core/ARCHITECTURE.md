@@ -152,25 +152,24 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
-    Compute e2@<-->|"[WIRE]: QuantityFamily"| Quantity
-    Compute e3@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Wire
-    Element e4@<-->|"[WIRE]: rasm.element.v1"| Wire
-    Persistence e5@-->|"[WIRE]: CrdtOpWire"| Wire
-    Persistence e6@-->|"[WIRE]: SnapshotHeader"| Wire
-    Bim e7@-->|"[WIRE]: IfcWire"| Frame
-    Bim e8@-->|"[WIRE]: BcfTopicWire"| Wire
-    Bim e9@-->|"[WIRE]: PredicateWire"| Wire
-    Materials e10@-->|"[WIRE]: MaterialWire"| Wire
-    Materials e11@-->|"[WIRE]: TextureSetWire"| Wire
-    Artifacts e12@-->|"[WIRE]: AssetSetManifest"| Wire
-    AppUi e13@-->|"[WIRE]: CommandPayloadWire"| Invoke
-    AppUi e14@-->|"[WIRE]: GeometryResidencyWire"| Frame
-    AppUi e15@-->|"[WIRE]: EvidenceTimelineWire"| Wire
-    AppHost e16@-->|"[WIRE]: DescriptorPinWire"| Invoke
-    AppHost e17@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
-    AppHost e18@-->|"[WIRE]: CommandAvailabilityWire"| Wire
-    AppHost e19@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Wire
-    AppHost e20@-->|"[WIRE]: HostFingerprintWire"| Wire
+    Compute e2@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Wire
+    Element e3@<-->|"[WIRE]: rasm.element.v1"| Wire
+    Persistence e4@-->|"[WIRE]: CrdtOpWire"| Wire
+    Persistence e5@-->|"[WIRE]: SnapshotHeader"| Wire
+    Bim e6@-->|"[WIRE]: IfcWire"| Frame
+    Bim e7@-->|"[WIRE]: BcfTopicWire"| Wire
+    Bim e8@-->|"[WIRE]: PredicateWire"| Wire
+    Materials e9@-->|"[WIRE]: MaterialWire"| Wire
+    Materials e10@-->|"[WIRE]: TextureSetWire"| Wire
+    Artifacts e11@-->|"[WIRE]: AssetSetManifest"| Wire
+    AppUi e12@-->|"[WIRE]: CommandPayloadWire"| Invoke
+    AppUi e13@-->|"[WIRE]: GeometryResidencyWire"| Frame
+    AppUi e14@-->|"[WIRE]: EvidenceTimelineWire"| Wire
+    AppHost e15@-->|"[WIRE]: DescriptorPinWire"| Invoke
+    AppHost e16@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
+    AppHost e17@-->|"[WIRE]: CommandAvailabilityWire"| Wire
+    AppHost e18@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Wire
+    AppHost e19@-->|"[WIRE]: HostFingerprintWire"| Wire
 ```
 
 ```mermaid

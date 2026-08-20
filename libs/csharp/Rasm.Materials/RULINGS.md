@@ -15,7 +15,7 @@
 - Grade identity is ONE `MaterialGrade` row over closed `GradeProperties` — a per-family owner forks the authority axis and re-opens the name clash.
 - Code-REGISTERED characteristics cross `Published.Exact` — exactness is the zero-width band; an AUTHORED transcription carries a relative band.
 - `SectionCapacity` cases cut by structural FAMILY and MODALITY — a code-named case forks the closed `GoverningAction`/`Utilisation` vocabulary.
-- `DesignBasis` MEMBER keys share one KEY SET with `Rasm.Compute/Analysis/structural#DESIGN_CHECK` — a key minted alone forks the set.
+- `DesignBasis` MEMBER keys share one KEY SET with `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` — a key minted alone forks the set.
 - γM2 has ONE authority — the `DesignBasis` partial-factor column; a family-page copy is the deleted form, and a φ-format basis REFUSES the read.
 - Glazing, connection, anchorage, and fatigue keys are the DECLARED section-and-load-path carve — no member-check counterpart exists or crosses.
 - `Demand` MODALITY columns bind their OWN case — unit shear to `LateralPanel`, range/count to `Fatigue`; member arms neither resist nor read them.

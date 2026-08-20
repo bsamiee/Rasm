@@ -8,8 +8,8 @@
 
 ## [02]-[SHAPE]
 
-- `Model/inference` mirrors the `Rasm.Materials` wire records and no roster — a mirrored vocabulary makes every admitted model a Compute edit.
-- `LicenseClass` alone re-declares at the executing end — a grant enforced solely where the request is built trusts the caller's word.
+- `Model/stage` mirrors the `Rasm.Materials` wire records and no VOCABULARY roster — a mirrored vocabulary makes every admitted model a Compute edit.
+- `LicenseClass` alone re-declares at the executing end (`Model/stage`) — a grant enforced solely where the request is built trusts the caller's word.
 - `StageSession` binds tensor lanes to ROLE keys and the request carries no output roster — ordinal binding couples two versioned rosters.
 - ONE `TilePlan` grid carries every product a forward pass emits — a flow per output name re-infers the whole image once per produced plane.
 - `Model/providers#EP_AXIS` rows own each wire spelling as a `WireKey` column — a later row crosses by declaring one string, never a translation map.
@@ -40,6 +40,13 @@
 - Integration's floor is the kernel's and Compute holds only the layer above — the adaptive driver, the scaled error norm, the receipt projection.
 - Kernel `Norm` reads the delta alone, so scale rides a carrier re-minted per accept — one minted from the initial state reverts to absolute control.
 - `ElementClass` declares a reference domain and integration ORDER, not a rule constant — `ReferenceElement` elects the smallest rule at or above it.
+- Numeric posture is a `CapabilitySet` under a corner law — three adjacent bools left five products representable that no runtime executes.
+- Device identity seats at `Model/providers#EP_AXIS` `ProviderSnapshot.Fingerprint` — a second derivation lets one adapter answer two identities.
+- `MatMulNBits` support rides the Quantized posture corner alone, never a per-row column.
+- `ModelSessions.Faulted` holds its exception roster INSIDE the classifier — a call-site roster decides what escapes, never how a fault reads.
+- Interval enclosure spells `Enclosure`/`EnclosureVerdict` over the kernel's bare `Interval` — a declined enclosure propagates as ABSENCE.
+- One recyclable-stream pool per COMPOSITION — the composing root holds it, and this tier holds no static and no ambient locator.
+- Expression evaluation runs the scalar `CompiledExpr.Invoke` loop — `ColumnProgram` retired at zero readers and re-enters WITH a columnar consumer.
 
 ## [03]-[COLLAPSE]
 
@@ -48,6 +55,10 @@
 - Cache tags reach `HybridCache` only through `CacheLane.Tag`, drift purging by model tag — a checksum stamped at a write is a tag no lane minted.
 - Dense factorization runs TWO funnels — kernel `MatrixKernel` stays `internal` while `DenseRoute` funnels the `DenseSubstrate` axis it cannot serve.
 - Least squares runs TWO funnels — kernel `Lm.Minimize` over exact `Dual<T>`, this lane's `HyperJet` arm beside the black-box oracle full FE needs.
+- Digital filtering is an INGESTED corpus — python-fitted banks arrive through the field codec, and a local design lane deletes onto it.
+- Hypothesis testing owns no Compute seat — the CDF-read kernels retired at zero consumers, and a rule needing one re-enters WITH its consumer.
+- One residual ring: `ResidualWindow` is the folder's bounded residual carrier — a `TwinWindow`-class local ring beside it is the deleted form.
+- Estimator selection spells `CriterionPolicy` — the receipt axis `SelectionMode` keeps the selection word, `SelectionPolicy` retired.
 
 ## [04]-[STRUCTURE]
 

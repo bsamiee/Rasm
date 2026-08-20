@@ -171,7 +171,6 @@ flowchart LR
     subgraph csharp[LIBS/CSHARP]
         Rasm[Rasm]
         Element[Rasm.Element]
-        Compute[Rasm.Compute]
         Persistence[Rasm.Persistence]
         Bim[Rasm.Bim]
         Materials[Rasm.Materials]
@@ -184,23 +183,22 @@ flowchart LR
     TsRuntime([typescript:runtime])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| TsCore
     Element e2@<-->|"[WIRE]: rasm.element.v1"| TsCore
-    Compute e3@<-->|"[WIRE]: QuantityFamily"| TsCore
-    Persistence e4@-->|"[WIRE]: CrdtOpWire"| TsCore
-    Bim e5@-->|"[WIRE]: IfcWire"| TsCore
-    Materials e6@-->|"[WIRE]: MaterialWire"| TsCore
-    Materials e7@-->|"[WIRE]: TextureSetWire"| TsCore
-    AppUi e8@-->|"[WIRE]: CommandPayloadWire"| TsCore
-    AppHost e9@-->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
-    Persistence e10@<-->|"[CONTRACT]: BackendContract"| TsData
-    Materials e11@-->|"[WIRE]: OpenPbrGroupsWire"| TsUi
-    AppUi e12@-->|"[WIRE]: ControlIntentWire"| TsUi
-    AppUi e13@-->|"[WIRE]: CommandGateWire"| TsUi
-    AppUi e14@-->|"[WIRE]: LayoutConstraintWire"| TsUi
-    AppHost e15@-->|"[WIRE]: BindingStatusWire"| TsUi
-    AppHost e16@-->|"[WIRE]: CoercedValueWire"| TsUi
-    AppHost e17@-->|"[WIRE]: WriteReceiptWire"| TsUi
-    AppHost e18@-->|"[WIRE]: HostFingerprintWire"| TsUi
-    AppHost e19@-->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Persistence e3@-->|"[WIRE]: CrdtOpWire"| TsCore
+    Bim e4@-->|"[WIRE]: IfcWire"| TsCore
+    Materials e5@-->|"[WIRE]: MaterialWire"| TsCore
+    Materials e6@-->|"[WIRE]: TextureSetWire"| TsCore
+    AppUi e7@-->|"[WIRE]: CommandPayloadWire"| TsCore
+    AppHost e8@-->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
+    Persistence e9@<-->|"[CONTRACT]: BackendContract"| TsData
+    Materials e10@-->|"[WIRE]: OpenPbrGroupsWire"| TsUi
+    AppUi e11@-->|"[WIRE]: ControlIntentWire"| TsUi
+    AppUi e12@-->|"[WIRE]: CommandGateWire"| TsUi
+    AppUi e13@-->|"[WIRE]: LayoutConstraintWire"| TsUi
+    AppHost e14@-->|"[WIRE]: BindingStatusWire"| TsUi
+    AppHost e15@-->|"[WIRE]: CoercedValueWire"| TsUi
+    AppHost e16@-->|"[WIRE]: WriteReceiptWire"| TsUi
+    AppHost e17@-->|"[WIRE]: HostFingerprintWire"| TsUi
+    AppHost e18@-->|"[TRANSPORT]: OtelExport"| TsRuntime
 ```
 
 ## [04]-[INTERNAL]

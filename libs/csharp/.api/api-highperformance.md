@@ -169,18 +169,21 @@
 
 Every `ParallelHelper` entry takes a `struct TAction` — `default`-constructed per partition in the no-seed form, or copied from an `in TAction` carrying captured state — so the invoker allocates nothing and inlines. `minimumActionsPerThread` lower-bounds per-thread work, parallelism clamps to `Environment.ProcessorCount`, and a single partition invokes inline on the calling thread.
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]   | [CAPABILITY]              |
-| :-----: | :------------------------------------------------------------ | :-------- | :------------------------ |
-|  [01]   | `ParallelHelper.For<TAction>(int, int)`                       | static    | partition an index range  |
-|  [02]   | `ParallelHelper.For<TAction>(Range)`                          | static    | partition a `Range`       |
-|  [03]   | `ParallelHelper.For2D<TAction>(int, int, int, int)`           | static    | partition explicit bounds |
-|  [04]   | `ParallelHelper.For2D<TAction>(Rectangle)`                    | static    | partition a rectangle     |
-|  [05]   | `ParallelHelper.For2D<TAction>(Range, Range)`                 | static    | partition paired ranges   |
-|  [06]   | `ParallelHelper.ForEach<TItem, TAction>(Memory<T>)`           | static    | mutate items by ref       |
-|  [07]   | `ParallelHelper.ForEach<TItem, TAction>(ReadOnlyMemory<T>)`   | static    | read items by ref         |
-|  [08]   | `ParallelHelper.ForEach<TItem, TAction>(Memory2D<T>)`         | static    | mutate a plane by ref     |
-|  [09]   | `ParallelHelper.ForEach<TItem, TAction>(ReadOnlyMemory2D<T>)` | static    | read a plane by ref       |
-|  [10]   | `SpinLockExtensions.Enter(ref SpinLock)`                      | extension | `using`-scoped spin lock  |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]   | [CAPABILITY]              |
+| :-----: | :------------------------------------------------------------------- | :-------- | :------------------------ |
+|  [01]   | `ParallelHelper.For<TAction>(int, int)`                              | static    | partition an index range  |
+|  [02]   | `ParallelHelper.For<TAction>(Range)`                                 | static    | partition a `Range`       |
+|  [03]   | `ParallelHelper.For<TAction>(int, int, in TAction, int)`             | static    | seed state, floor the cut |
+|  [04]   | `ParallelHelper.For2D<TAction>(int, int, int, int)`                  | static    | partition explicit bounds |
+|  [05]   | `ParallelHelper.For2D<TAction>(Rectangle)`                           | static    | partition a rectangle     |
+|  [06]   | `ParallelHelper.For2D<TAction>(Range, Range)`                        | static    | partition paired ranges   |
+|  [07]   | `ParallelHelper.For2D<TAction>(int, int, int, int, in TAction)`      | static    | seed state over bounds    |
+|  [08]   | `ParallelHelper.For2D<TAction>(int, int, int, int, in TAction, int)` | static    | the same, floored cut     |
+|  [09]   | `ParallelHelper.ForEach<TItem, TAction>(Memory<T>)`                  | static    | mutate items by ref       |
+|  [10]   | `ParallelHelper.ForEach<TItem, TAction>(ReadOnlyMemory<T>)`          | static    | read items by ref         |
+|  [11]   | `ParallelHelper.ForEach<TItem, TAction>(Memory2D<T>)`                | static    | mutate a plane by ref     |
+|  [12]   | `ParallelHelper.ForEach<TItem, TAction>(ReadOnlyMemory2D<T>)`        | static    | read a plane by ref       |
+|  [13]   | `SpinLockExtensions.Enter(ref SpinLock)`                             | extension | `using`-scoped spin lock  |
 
 [ENTRYPOINT_SCOPE]: word-level bit and mask operations
 
@@ -238,7 +241,7 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 - `Microsoft.Extensions.Caching.Hybrid`(`.api/api-hybrid-cache.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>` serialize target, and its `WrittenMemory` feeds the paired deserialize read, so an L2 payload never materializes an intermediate array.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `MemoryOwner<byte>.DangerousGetArray` hands its rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap`, and the owner disposes after the send it backs.
 - `System.IO.Hashing`(`.api/api-hashing.md`): `XxHash128.HashToUInt128(writer.WrittenSpan)` fingerprints a committed payload straight off the pooled writer.
-- `Rasm.Compute` `Model/inference`: the tiled-mosaic fold rents one `MemoryOwner<float>` per role — accumulation plane, weight plane, tile staging, and the per-row weight scratch — with `AllocationMode.Clear` on the two the overlap-add reads back, and the mosaic capsule transfers the accumulation rental outward so its `Dispose` is the release point rather than the fold's exit.
+- `Rasm.Compute` `Model/tiling`: the tiled-mosaic fold rents one `MemoryOwner<float>` per role — accumulation plane, weight plane, tile staging, and the per-row weight scratch — with `AllocationMode.Clear` on the two the overlap-add reads back, and the mosaic capsule transfers the accumulation rental outward so its `Dispose` is the release point rather than the fold's exit.
 - Staging rail: one `MemoryOwner<T>` rental backs a `Memory2D<T>` plane, `ParallelHelper.ForEach` partitions that plane over a state-carrying `IRefAction<T>`, and the same rental emits through `ArrayPoolBufferWriter<byte>` into the codec, so one allocation spans compute and emit.
 
 [LOCAL_ADMISSION]:

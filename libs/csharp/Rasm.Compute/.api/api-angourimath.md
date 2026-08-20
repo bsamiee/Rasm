@@ -78,6 +78,33 @@
 - `entity.Compile`: typed generic overloads (arity 1..8, `Linq.Expressions` IL) are the fast lane; the non-generic `FastExpression` interpreter (`Call(Complex[])`) is the variadic fall.
 - `entity.Evaled`: leaves an unbound symbol symbolic where `EvalNumerical()` throws.
 
+[ENTRYPOINT_SCOPE]: node children — the positional record members every tree fold binds
+
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------------------------------ | :------- | :-------------------------------------------------- |
+|  [01]   | `Entity.Sumf(Entity Augend, Entity Addend)`                         | record   | addition children in declaration order              |
+|  [02]   | `Entity.Minusf(Entity Subtrahend, Entity Minuend)`                  | record   | subtraction children — names INVERT the math sense  |
+|  [03]   | `Entity.Mulf(Entity Multiplier, Entity Multiplicand)`               | record   | product children                                    |
+|  [04]   | `Entity.Divf(Entity Dividend, Entity Divisor)`                      | record   | quotient children                                   |
+|  [05]   | `Entity.Powf(Entity Base, Entity Exponent)`                         | record   | power base and exponent                             |
+|  [06]   | `Entity.Logf(Entity Base, Entity Antilogarithm)`                    | record   | logarithm base and argument                         |
+|  [07]   | `Entity.Absf(Entity Argument)` / `Entity.Signumf(Entity Argument)`  | record   | unary `Argument` beside `IUnaryNode.NodeChild`      |
+|  [08]   | `Entity.CalculusOperator(Entity Expression, Entity Var)`            | abstract | the shared base of the three deferred-analytic residues |
+|  [09]   | `Entity.Derivativef(Entity Expression, Entity Var, int Iterations)` | record   | deferred derivative with its order                  |
+|  [10]   | `Entity.Integralf(Entity Expression, Entity Var, (Entity from, Entity to)? Range)` | record | deferred integral with its optional bounds |
+|  [11]   | `Entity.Limitf(Entity Expression, Entity Var, Entity Destination, ApproachFrom ApproachFrom)` | record | deferred limit with direction |
+|  [12]   | `Entity.Providedf(Entity Expression, Entity Predicate)`             | record   | one regime case                                     |
+|  [13]   | `Entity.Piecewise.Cases` -> `IEnumerable<Providedf>`                | property | regime-case census                                  |
+|  [14]   | `Entity.Set.FiniteSet.Elements` -> `IEnumerable<Entity>`            | property | the ONE enumerable solve-result projection          |
+|  [15]   | `Entity.Variable.Name` -> `string`                                  | property | free-symbol name                                    |
+|  [16]   | `ApproachFrom` — `BothSides` / `Left` / `Right`                     | enum     | limit direction, `AngouriMath.Core`                 |
+
+- `Entity.Minusf` — TRAP, verified on the installed assembly: the FIRST positional child is named `Subtrahend` and the second `Minuend`, the reverse of the mathematical sense. `a - b` binds `Subtrahend = a`, `Minuend = b` — `InnerDifferentiate` returns `Subtrahend' - Minuend'` and `NodeFirstChild => Subtrahend` — so a fold reading the names as mathematics sign-flips every subtraction it walks.
+- `Entity.Derivativef`/`Integralf`/`Limitf`: each derives `CalculusOperator(Expression, Var)`, so `n is Entity.CalculusOperator` is the ONE residue test over all three; the extra positional slots are the per-case payload.
+- `Entity.Piecewise` is NOT a positional record — `Cases` is a property over `Providedf` rows, so its census reads the property and its predicates read `Providedf.Predicate`.
+- `Entity.Set.FiniteSet.Elements` is the only enumerable set projection; `Interval` and `ConditionalSet` carry no element census, which is what makes a set-kind discriminant load-bearing at any solve harvest.
+- Every row above verified against the installed `AngouriMath` assembly through `assay api query --key AngouriMath` (fidelity: decompiled; the pin lives in the owning manifest).
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:

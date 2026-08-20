@@ -92,7 +92,6 @@ flowchart LR
     end
     Rasm{{Rasm}}
     Element{{Rasm.Element}}
-    Compute{{Rasm.Compute}}
     Persistence[(Rasm.Persistence)]
     Bim([Rasm.Bim])
     Materials([Rasm.Materials])
@@ -101,7 +100,6 @@ flowchart LR
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Element e2@<-->|"[WIRE]: rasm.element.v1"| Core
-    Compute e3@<-->|"[WIRE]: QuantityFamily"| Core
     Persistence e4@-->|"[WIRE]: CrdtOpWire"| Core
     Persistence e14@<-->|"[CONTRACT]: BackendContract"| Data
     Bim e6@-->|"[WIRE]: IfcWire"| Core

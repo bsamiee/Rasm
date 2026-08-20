@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_TORCHSHARP]
 
-`TorchSharp` mirrors PyTorch's LibTorch C++ ATen runtime as a lower-cased `torch.*` surface over one `Tensor` handle, owning the managed `[CLASSICAL_ML_BLAS]` leg: `torch.linalg` dense factorization over Apple Accelerate BLAS/LAPACK, and `torch.optim`/`torch.autograd` minimizing the lasso-L1 and canonical-link GLM-deviance `EstimatorKind` losses. Every `torch` op folds through a `DisposeScope`, freeing intermediate ATen allocations at scope exit, never on GC finalization. `torch.nn` training never enters a Compute owner; native RID/ABI facts defer to the `libtorch-cpu` floor.
+`TorchSharp` mirrors PyTorch's LibTorch C++ ATen runtime as a lower-cased `torch.*` surface over one `Tensor` handle, owning the managed `[CLASSICAL_ML_BLAS]` leg: `torch.linalg` dense factorization over Apple Accelerate BLAS/LAPACK, and `torch.optim`/`torch.autograd` minimizing the lasso-L1 and canonical-link GLM-deviance `EstimatorKind` losses `Stats/families` binds as row columns. Every `torch` op folds through a `DisposeScope`, freeing intermediate ATen allocations at scope exit, never on GC finalization. `torch.nn` training never enters a Compute owner; native RID/ABI facts defer to the `libtorch-cpu` floor.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - namespace: `TorchSharp` — the `torch` static class hosts `nn`/`linalg`/`optim`/`autograd`/`fft`/`special` as `TorchSharp.torch.*`; element types `BFloat16`/`Float16` and lifetime types `DisposeScope`/`DisposeScopeManager` sit at the root; the no-grad scope enters through the `torch.inference_mode()`/`no_grad()` factory, never the `internal` `InferenceMode` guard it returns
 - asset: managed P/Invoke shim with a per-RID native shim (`libLibTorchSharp.{dylib,so,dll}`) bridging to the LibTorch native floor; osx-arm64 loads `libLibTorchSharp.dylib`
 - depends: build-time `buildTransitive/net8.0/TorchSharp.{props,targets}` (no managed package deps); the native runtime floor is `libtorch-cpu`, whose per-RID ABI/OpenMP/CUDA-guard facts `api-libtorch-cpu.md` owns
-- rail: compute — `Tensor/blas` native substrate with the `Stats/estimator` iterative engine
+- rail: compute — `Tensor/blas` native substrate with the `Stats/families` iterative engine
 
 ## [02]-[LIFETIME_AND_RUNTIME]
 
@@ -74,6 +74,7 @@
 - [04]-[TOTENSOR]: `TensorExtensionMethods.ToTensor<T>(this T[] raw, long[] dims, doCopy, requires_grad)`; `ToTensor<T>(this T scalar, Device?, requires_grad)` for a 0-d tensor.
 - [05]-[READCPU]: `ReadCpuDouble/Single/Int32/Int64/Byte/Bool/Float16/BFloat16(long i)` — the scalar egress for a fitted coefficient / metric.
 - [07]-[PIN]: `PinnedArray<T>` holds the zero-copy native handoff on the residency hot path.
+- [01]-[ELEMENTWISE]: the `Tensor` INSTANCE arithmetic every autograd loss composes, catalogued here because the `torch.*` static rows above cover the GEMM and factory surface alone — binary `add`/`sub`/`mul`/`div`/`pow` each taking a `Tensor` or a `Scalar` right operand, unary `neg`/`abs`/`exp`/`log`/`log1p`/`sqrt`/`reciprocal`, and the reductions `mean()`/`sum()`/`max()`/`min()` with their `(dim, keepdim, ScalarType?)` arities. Every one returns a NEW tensor the enclosing `DisposeScope` reclaims, and each has an in-place `*_` twin the autograd graph refuses on a leaf that requires grad — so a loss body composes the out-of-place form exclusively. `Stats/families#FAMILY_ROWS` `GlmFamily.Kernel` binds this family and nothing else: each θ-dependent unit deviance is one chain of these members over the link's own tensor inverse.
 
 [ENTRYPOINT_SCOPE]: `torch` creation and core dense ops — the `Tensor/blas` GEMM surface; the `zeros/ones/empty/eye/arange/linspace` factories share the tail `(…, ScalarType?, Device?, requires_grad, names)` and admit rank-1..4 with `long[]`/`ReadOnlySpan<long>` overloads
 
@@ -85,9 +86,11 @@
 |  [04]   | `torch.zeros/ones/empty/eye/arange/linspace(…)`                     | factory | shaped allocation families                      |
 |  [05]   | `torch.randn/rand/randint(…, Generator?, …)`                        | factory | RNG-backed allocation (seeded by `manual_seed`) |
 |  [06]   | `torch.cat(IList<Tensor>, dim)` / `torch.stack(IList<Tensor>, dim)` | static  | concatenation / new-axis stacking               |
+|  [07]   | `torch.cholesky_solve(Tensor input, Tensor input2, bool upper)`     | static  | triangular solve against a held Cholesky factor |
 
 - [01]-[GEMM]: `matmul`/`mm` are the native ATen GEMM the `Tensor/blas` dense lane dispatches to (Accelerate BLAS on osx-arm64).
 - [03]-[EINSUM]: `einsum` contracts the `quadrature`/tensor-network paths without hand-rolling index loops.
+- [07]-[CHOLESKY_SOLVE]: lives on `torch`, not `torch.linalg` — `input` is the right-hand side and `input2` the factor, mirrored by the instance form `Tensor.cholesky_solve(Tensor input2, bool upper)`. It is the structure-preserving partner to `linalg.cholesky_ex` that `linalg.solve_ex` discards.
 - [05]-[RNG]: `randn`/`rand`/`randint` source the `Sampling` lane and the estimator init (GMM means, NMF factors).
 
 ## [04]-[LINEAR_ALGEBRA]
@@ -196,7 +199,7 @@
 - Every intermediate tensor is reclaimed at `DisposeScope` exit and proven by `DisposeScopeManager.Statistics`; a `Tensor` never escapes the Compute boundary — only its CLR-array projection crosses onto the wire.
 - `_ex` `info` status tensors map non-zero numerical status to a typed `FactorFault`; native exceptions never control solver flow.
 - Boot pins `torch.set_num_threads`, `torch.manual_seed`, and `set_default_dtype(Float64)` once for ATen concurrency, deterministic init, and estimator precision; forward-only BLAS runs inside `torch.inference_mode(true)` and estimator fitting owns the only grad-enabled region.
-- `Stats/estimator` minimizes lasso L1 under `Adam` and canonical-link GLM deviances under `LBFGS`; genuine kernels own k-means, EM, NMF, DBSCAN, and linkage, while `LevenbergMarquardt` with HyperJet owns ARMA, Holt, and state-space fits.
+- `Stats/families` minimizes lasso L1 under `Adam` and canonical-link GLM deviances under `LBFGS`; genuine kernels own k-means, EM, NMF, DBSCAN, and linkage, while `LevenbergMarquardt` with HyperJet owns ARMA, Holt, and state-space fits. Every one of those folds answers a `Convergence` verdict, so a spent `torch.optim` budget reports `Exhausted` rather than a converged-shaped carrier.
 
 [STACKING]:
 - `Tensor/blas` dispatches osx-arm64 dense factor rows to `torch.linalg.*` and folds a torch loss under a `DisposeScope`, egressing surviving coefficient tensors through `ReadCpu*`/`ToArray()` into a typed `EstimatorModel` carrying route, iteration, final-loss, and `Statistics` evidence.
@@ -213,6 +216,6 @@
 
 [RAIL_LAW]:
 - Package: `TorchSharp` (assembly `TorchSharp`; native floor `libtorch-cpu`)
-- Owns: the managed `torch.*` mirror — `Tensor` + `DisposeScope` deterministic native-memory lifetime, `torch.linalg` native dense factorization (the osx-arm64 `Tensor/blas` substrate), `torch.optim` + `torch.autograd` iterative optimization (the `Stats/estimator` torch-loss engine), `torch.fft`/`torch.special` torch-interior spectral and GLM math, and the ATen thread/seed/dtype runtime knobs
+- Owns: the managed `torch.*` mirror — `Tensor` + `DisposeScope` deterministic native-memory lifetime, `torch.linalg` native dense factorization (the osx-arm64 `Tensor/blas` substrate), `torch.optim` + `torch.autograd` iterative optimization (the `Stats/families` torch-loss engine), `torch.fft`/`torch.special` torch-interior spectral and GLM math, and the ATen thread/seed/dtype runtime knobs
 - Accept: the `[CLASSICAL_ML_BLAS]` dual leg — native dense LA dispatched from `Tensor/blas` with `_ex` status-tensor fault mapping, and the smooth-convex `EstimatorKind` rows folded to a `Tensor` loss minimized under a `DisposeScope` and egressed to a typed `EstimatorModel`, every intermediate reclaimed by scope exit
 - Reject: the `torch.nn.Module` deep-learning training stack, `torch.utils.data` pipelines, `torch.jit` TorchScript, and `torch.utils.tensorboard` (ONNX owns inference, MathNet/CSparse own the managed/sparse LA terminals); a `Tensor` crossing the Compute boundary onto the wire; GC finalization for native-tensor reclamation; and any `libtorch-cpu` native RID/ABI/OpenMP/CUDA-guard restatement

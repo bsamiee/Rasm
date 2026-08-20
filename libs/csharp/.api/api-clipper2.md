@@ -40,7 +40,7 @@
 
 - `ClipType`: `NoClip` returns the subject untouched; `Intersection`, `Union`, `Difference`, and `Xor` are the overlay arms.
 - `FillRule`: `EvenOdd` fills by crossing parity, `NonZero` by non-zero winding, `Positive` and `Negative` by signed winding sense.
-- `JoinType`: `Miter` holds the sharp corner to `MiterLimit`, `Square` caps at an angle, `Bevel` cuts flat, `Round` arcs.
+- `JoinType`: `Miter` holds the sharp corner to `MiterLimit` AND falls back to a squared cut once the extension exceeds it — a measured offset at a sharp re-entrant corner is the limit's function, not the geometry's; `Square` caps at an angle, `Bevel` cuts flat, `Round` arcs.
 - `EndType`: `Polygon` offsets a closed ring, `Joined` closes an open run before offsetting, `Butt` ends flat, `Square` extends, `Round` caps semicircular.
 - `PathType`: `Subject` and `Clip` assign the role of every path handed to a stateful engine.
 - `PointInPolygonResult`: `IsOn` is `0`, `IsInside` is `1`, `IsOutside` is `2`.
@@ -91,7 +91,7 @@
 | [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                   |
 | :-----: | :----------------------------------------------------------------------------- | :------ | :----------------------------- |
 |  [01]   | `Clipper.InflatePaths(Paths64, double, JoinType, EndType, double, double)`     | static  | int64 inflate                  |
-|  [02]   | `Clipper.InflatePaths(PathsD, double, JoinType, EndType, double, int, double)` | static  | double inflate                 |
+|  [02]   | `Clipper.InflatePaths(PathsD, double, JoinType, EndType, double, int, double)` | static  | double inflate — trailing DEFAULTS `miterLimit = 2.0`, `precision = 2`, `arcTolerance = 0.0`: precision 2 quantizes to 10^-2 units, so a metre-unit caller omitting it works at 10 mm and a sub-centimetre bisection starves silently; double-coordinate work names its precision once |
 |  [03]   | `Clipper.RectClip(Rect64, Paths64)`                                            | static  | int64 set clipped to a rect    |
 |  [04]   | `Clipper.RectClip(Rect64, Path64)`                                             | static  | int64 ring clipped to a rect   |
 |  [05]   | `Clipper.RectClip(RectD, PathsD, int)`                                         | static  | double set clipped to a rect   |

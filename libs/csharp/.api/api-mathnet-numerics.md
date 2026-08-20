@@ -119,6 +119,8 @@
 [PRECONDITIONER_CTOR]: `MILU0Preconditioner(bool modified = true)` exposing `UseModified` · `ILUTPPreconditioner()` and `ILUTPPreconditioner(double fillLevel, double dropTolerance, double pivotTolerance)` over defaults `200.0`/`1e-4`/`0.0`, pivoting off at zero.
 [STOP_CRITERION]: `IterationCountStopCriterion<T>` `ResidualStopCriterion<T>` `DivergenceStopCriterion<T>` `FailureStopCriterion<T>` `DelegateStopCriterion<T>` — `DelegateStopCriterion<T>(Func<int, Vector<T>, Vector<T>, Vector<T>, IterationStatus> determine)` mirrors `Iterator<T>.DetermineStatus` exactly; `Reset()` clears only its held status, so a criterion closing over an absolute start instant survives a per-rung reset.
 [COMPOSITE_LADDER]: `CompositeSolver.Solve` runs the setups in enumeration order under ONE shared `Iterator<T>` it `Reset()`s per rung — `Converged` copies out and returns, `StoppedWithoutConvergence` copies out and CONTINUES, every other verdict restores the input and continues, and a thrown rung is swallowed, so an all-rungs-failed ladder returns no exception and `Iterator.Status` carries only the LAST rung's verdict; the ctor's `preconditioner` argument is dead — a null setup preconditioner substitutes `UnitPreconditioner<T>`, so a fallback preconditioner never fires.
+[TRY_SOLVE_ITERATIVE]: `IIterativeSolver<T>.Solve` returns `void` and leaves the verdict on `Iterator<T>.Status`, but the `MatrixExtensions.TrySolveIterative` family RETURNS `IterationStatus` directly — the `Iterator<T>` and `IPreconditioner<T>` tails default to `null`, and two further `params IIterationStopCriterion<T>[]` overloads build the iterator for the caller. A consumer reading the verdict off a member it also passed the iterator to is reading one fact twice.
+[KRONECKER_PRODUCT]: the product is an inherited `Matrix<T>` member, so a `SparseMatrix` operand builds through the `new SparseMatrix(storage)` ctor and rides it — `SparseMatrix.OfStorage` is a phantom spelling. The result-writing overload is `virtual` and the allocating one delegates to it, matching the `Solve` pair's shape.
 [SOLVER_SETUP]: `IIterativeSolverSetup<T>` — `SolverType` `PreconditionerType` `SolutionSpeed` `Reliability` `CreateSolver()` `CreatePreconditioner()`; MathNet ships NO concrete implementation — `SolverSetup<T>.LoadFromAssembly(Assembly, bool, params Type[])` reflection-scans for them and orders by `SolutionSpeed / Reliability`, and a consumer authoring its own setups reads neither figure.
 
 ## [03]-[ENTRYPOINTS]
@@ -348,8 +350,52 @@
 |  [16]   | `Svd<T>.ConditionNumber` / `Svd<T>.Rank`            | property | conditioning witness on the factorization handle  |
 |  [17]   | `Vector<T>.L2Norm()`                                | instance | Euclidean norm                                    |
 |  [18]   | `Vector<T>.Enumerate()`                             | instance | lazy element walk carrying the finiteness probe   |
+|  [19]   | `MatrixBuilder<T>.OfStorage(MatrixStorage<T>)`      | instance | wrap prepared storage as the dense/sparse carrier |
+|  [20]   | `VectorBuilder<T>.OfStorage(VectorStorage<T>)`      | instance | the vector half of the same admission             |
+|  [21]   | `VectorBuilder<T>.DenseOfArray(T[])`                | instance | dense vector over a caller buffer                 |
+|  [22]   | `Vector<T>.AsArray() -> T[]`                        | instance | the backing buffer where dense, else `null`       |
+|  [23]   | `Matrix<T>.AsArray() -> T[,]` / `ToArray()`         | instance | backing rectangle where dense; `ToArray` copies   |
+|  [24]   | `Matrix<T>.Multiply(Matrix<T>)` / `Multiply(Vector<T>)` / `Multiply(T)` | instance | allocating product over each right operand |
+|  [25]   | `Matrix<T>.Transpose() -> Matrix<T>`                | instance | allocating transpose                              |
+|  [26]   | `Matrix<T>.Column(int)` / `Column(int, int, int)`   | instance | one column, whole or as a row-bounded slice       |
+|  [27]   | `Matrix<T>.IsSymmetric() -> bool`                   | instance | EXACT elementwise symmetry test                   |
+|  [28]   | `Matrix<T>.Inverse()` / `PseudoInverse()`           | instance | full inverse and its rank-deficient counterpart   |
+|  [29]   | `Matrix<T>.Storage` / `Vector<T>.Storage`           | property | the underlying `MatrixStorage<T>`/`VectorStorage<T>` |
+|  [30]   | `Cholesky<T>.Factor -> Matrix<T>`                   | property | the standing lower triangular factor              |
+|  [31]   | `LU<T>.Solve(Matrix<T>)` / `LU<T>.Inverse()`        | instance | multi-right-hand-side solve and the full inverse  |
+|  [32]   | `Evd<T>.EigenValues -> Vector<Complex>` / `.EigenVectors -> Matrix<T>` | property | spectrum and its modal matrix   |
+|  [33]   | `Cholesky<T>.DeterminantLn`                         | property | log determinant off the SPD factor                |
+|  [34]   | `LU<T>.Determinant`                                 | property | determinant off the pivoted factor                |
+|  [35]   | `Svd<T>.S` / `.U` / `.VT` / `.W`                    | property | singular values and the factor triple             |
+|  [36]   | `Svd<T>.L2Norm`                                     | property | spectral norm off the standing factorization      |
+|  [37]   | `Evd<T>.D` / `.Rank` / `.IsFullRank`                | property | block-diagonal spectrum and the rank verdict      |
+|  [38]   | `Matrix<T>.ToColumnMajorArray()` / `ToRowMajorArray()` | instance | flat copy in either storage order                 |
+|  [39]   | `Matrix<T>.FrobeniusNorm()`                         | instance | entrywise L2 norm                                 |
+|  [40]   | `Matrix<T>.SetColumn(int, Vector<T>)` / `SetRow(...)` | instance | write one column or row in place                  |
+|  [41]   | `Matrix<T>.Diagonal() -> Vector<T>`                 | instance | the diagonal as a vector                          |
+|  [42]   | `Matrix<T>.PointwiseMultiply(Matrix<T>)`            | instance | Hadamard product                                  |
+|  [43]   | `Matrix<T>.Multiply(Vector<T>, Vector<T>)`          | instance | GEMV into a caller-owned result                   |
+|  [44]   | `Vector<T>.DotProduct(Vector<T>) -> T`              | instance | inner product                                     |
+|  [45]   | `Vector<T>.InfinityNorm()`                          | instance | max-magnitude norm                                |
+|  [46]   | `Vector<T>.PointwiseMultiply(Vector<T>)`            | instance | elementwise product                               |
+|  [47]   | `Vector<T>.Add`/`Subtract`(_, `Vector<T>` result)   | instance | the same two into a caller-owned result           |
+|  [48]   | `MatrixBuilder<T>.Dense(int, int, T[])`             | instance | dense matrix over a COLUMN-MAJOR flat buffer      |
+|  [49]   | `MatrixBuilder<T>.DenseOfColumns(IEnumerable<...>)` | instance | dense matrix from column sequences                |
+|  [50]   | `MatrixBuilder<T>.DenseOfDiagonalVector(Vector<T>)` | instance | dense carrier with the vector on its diagonal     |
+|  [51]   | `MatrixBuilder<T>.DiagonalOfDiagonalVector(Vector<T>)` | instance | diagonal-STORAGE carrier from the same vector     |
+|  [52]   | `VectorBuilder<T>.Dense(int)`                       | instance | zeroed dense vector at a length                   |
+|  [53]   | `Matrix<T>.KroneckerProduct(Matrix<T>) -> Matrix<T>` | instance | allocating tensor product over the two operands   |
+|  [54]   | `Matrix<T>.KroneckerProduct(Matrix<T>, Matrix<T>)`  | instance | the same product into a caller-owned result, `virtual` |
+|  [55]   | `MatrixExtensions.TrySolveIterative(Vector<T>, Vector<T>, …)` | extension | Krylov solve, RETURNS `IterationStatus` |
+|  [56]   | `MatrixExtensions.TrySolveIterative(Matrix<T>, Matrix<T>, …)` | extension | the multi-RHS shape of the same solve  |
 
 - Every factorization owner mirrors the four `Solve` shapes; the allocating forms are `virtual` over the `abstract` result-writing pair, so a hot loop reuses one result carrier.
+- `Matrix<T>.Inverse()` is `virtual` and routes `LU().Inverse()` on the base implementation, so an "inverse of a Cholesky factor" densely LU-inverts a triangular matrix — the triangular solve the factor admits is the cheaper spelling and the one a reduction congruence wants.
+- `Matrix<T>.IsSymmetric()` compares elements by exact inequality, so an accumulated block that is symmetric to round-off FAILS it; a reduction handing a pencil to a symmetric terminal symmetrizes first rather than asserting.
+- `AsArray()` returns the BACKING buffer for a dense carrier and `null` for every other storage, where `ToArray()` always copies — a caller reading `AsArray()` off a sparse or diagonal carrier reads absence, not an empty rectangle.
+- `Evd<T>.EigenValues` is `Vector<Complex>` on every plane including the symmetric one, so a real spectrum reads `.Real` per entry and a consumer typing it as `Vector<double>` does not compile.
+- `Vector<T>.Multiply` and `Divide` take a SCALAR right operand only — their result-writing forms are `(T scalar, Vector<T> result)`, never a vector pair — so an elementwise product or quotient spells `PointwiseMultiply`/`PointwiseDivide`; only `Add` and `Subtract` carry both scalar and `Vector<T>` operands. `Matrix<T>.Multiply(Vector<T>, Vector<T>)` IS the GEMV-into-a-result form and `TransposeThisAndMultiply` mirrors it on the transpose.
+- `MatrixBuilder<T>.Dense(int, int, T[])` binds a COLUMN-MAJOR flat buffer and `DenseOfDiagonalVector`/`DiagonalOfDiagonalVector` differ by STORAGE, not by value — the first materializes a dense rectangle, the second keeps diagonal storage, so `AsArray()` reads absence off the second.
 
 [ENTRYPOINT_SCOPE]: sparse ingestion and Krylov solve — `SparseCompressedRowMatrixStorage<T>` (namespace `MathNet.Numerics.LinearAlgebra.Storage`) is the one storage form, and each `Of*` static converts its layout into it
 
@@ -379,6 +425,10 @@
 
 [STATISTICS]: `Mean` `Variance` `StandardDeviation` `PopulationVariance` `Covariance` `Skewness` `Kurtosis` `Median` `Quantile` `QuantileCustom` `Percentile` `InterquartileRange` `FiveNumberSummary` `Ranks` `QuantileRank` `EmpiricalCDF` `EmpiricalInvCDF` `RootMeanSquare` `GeometricMean` `HarmonicMean` `Entropy` `MovingAverage` `OrderStatistic`
 [STATISTICS_OWNER]: `Statistics` `ArrayStatistics` `SortedArrayStatistics` `StreamingStatistics` `DescriptiveStatistics` `WeightedDescriptiveStatistics` `RunningStatistics` `RunningWeightedStatistics` `MovingStatistics` `Correlation` `Histogram` `KernelDensity` `GoodnessOfFit`
+
+[CORRELATION]: `MathNet.Numerics.Statistics.Correlation` — `Pearson(IEnumerable<double>, IEnumerable<double>)`, `Spearman(IEnumerable<double>, IEnumerable<double>)`; matrix forms take an ARRAY OF SERIES: `PearsonMatrix(double[][])` / `PearsonMatrix(IEnumerable<double[]>)`, `SpearmanMatrix(double[][])` / `SpearmanMatrix(IEnumerable<double[]>)` — each inner array is one data vector, the result the square correlation matrix over them (shipped-XML-doc verified, 6.0.0-beta2); `Rasm.Compute/Stats/signal` `DependenceKind` rows bind the `double[][]` arity through a collection expression.
+
+[KERNEL_DENSITY]: `MathNet.Numerics.Statistics.KernelDensity` — argument ORDER is `(double x, double bandwidth, IList<double> samples)`: `EstimateGaussian` / `EstimateEpanechnikov` / `EstimateUniform` / `EstimateTriangular`, plus the kernel-taking `Estimate(double x, double bandwidth, IList<double> samples, Func<double, double> kernel)` (shipped-XML-doc verified, 6.0.0-beta2); `Rasm.Compute/Stats/signal` `DensityKernel` rows bind the four named-kernel method groups whole.
 
 [SORTED_ARRAY_STATISTICS]: `MathNet.Numerics.Statistics.SortedArrayStatistics` — every member takes ASCENDING-sorted data, O(1) after the sort, `double[]` and `float[]` overload pairs
 

@@ -22,7 +22,7 @@
 |  [03]   | `DDScalar`                      | struct        | dynamic-heap model, arbitrary runtime size and order — the generality terminal   |
 |  [04]   | `Kernel`                        | class         | flat-buffer sizing: `GetDataLength`, `GetSizeFromDataLength`                     |
 |  [05]   | `Vector3D<T>`                   | struct        | generic 3D vector; `Dot`/`Cross`/`Length`/`Normalize`, `+`/`-` operators         |
-|  [06]   | `HyperJetMath`                  | class         | static transcendental surface (`Sin`/`Cos`/`Tan`/`Asin`/…) over the DD types     |
+|  [06]   | `HyperJetMath`                  | class         | static transcendental surface over `DDScalar` and `DDScalar2<double>`            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -41,7 +41,30 @@
 - `DDScalarSpan` sizes its buffer with `Kernel.GetDataLength(size, order)`.
 - `f.GetGradient(Span<double>)` writes the gradient in place, zero-alloc.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [04]-[OPERATOR_SURFACE]
+
+[OPERATOR_SCOPE]: `DDScalar`'s own arithmetic — the dynamic model publishes a complete `in`-taking operator set, so a wrapper struct forwards rather than reconstructing the derivative algebra
+
+| [INDEX] | [SURFACE]                                                                                           | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `-(in DDScalar)`                                                                                    | operator | unary negate                 |
+|  [02]   | `+`/`-`/`*`/`/` `(in DDScalar, in DDScalar)`                                                        | operator | scalar-scalar arithmetic     |
+|  [03]   | `+`/`-`/`*`/`/` `(in DDScalar, double)` and `(double, in DDScalar)`                                 | operator | `double / DDScalar` included |
+|  [04]   | `==`/`!=`/`<`/`>`/`<=`/`>=` over `(DDScalar, DDScalar)`, `(DDScalar, double)`, `(double, DDScalar)` | operator | value-plane ordering         |
+
+[HYPERJET_MATH_ROSTER]: verified against the installed `HyperJet` `0.2.0` `net10.0` assembly on the assay decompile rail — every member is published TWICE, once over `DDScalar2<double>` and once over `DDScalar`, except the four the dynamic model alone carries.
+
+| [INDEX] | [SURFACE]                                            | [SHAPE] | [CAPABILITY]                                                   |
+| :-----: | :--------------------------------------------------- | :------ | :------------------------------------------------------------- |
+|  [01]   | `Sin` `Cos` `Tan` `Asin` `Acos` `Atan` `Atan2(y, x)` | static  | trigonometric, both models                                     |
+|  [02]   | `Exp` `Log` `Log10` `Pow(a, double b)`               | static  | exponential family, both models                                |
+|  [03]   | `Sqrt(in DDScalar)`                                  | static  | exact-derivative root; the hand Newton-halving loop is deleted |
+|  [04]   | `Hypot(a, b)` `Abs`                                  | static  | magnitude family, both models                                  |
+|  [05]   | `Sinh` `Cosh` `Tanh` `Cbrt` `Log2`                   | static  | `DDScalar` ONLY — absent on `DDScalar2<double>`                |
+
+- Every member takes its operand `in` and returns by value; a fixed-iteration hand root over these operators is a `FORGED_ZERO`-shaped claim, because it reports convergence without testing a residual while an exact member stands one call away.
+
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `HyperJet` is the hyperdual leg of the one `Sensitivity`/`Chain` family, beside the `Tensor/dispatch` geometry-adjoint tape and the `Symbolic/lowering` symbolic tape; a general smooth scalar objective folds here.
@@ -49,7 +72,7 @@
 
 [STACKING]:
 - `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): folder marshalling lifts HyperJet's `double[]` gradient and `double[,]` Hessian into MathNet `Vector`/`Matrix` for the numeric-spine factorization and solve owners.
-- `Stats/estimator`: ARMA-MLE, `HoltFilter`, and `StateSpaceFilter` recursions author once over `DDScalar` (`Constant` data reads, `Variables(theta, order: 1)` parameters), so each `LevenbergMarquardt.Minimize` fit takes a machine-exact gradient.
+- `Stats/families`: ARMA-MLE, `HoltFilter`, and `StateSpaceFilter` recursions author once over `DDScalar` (`Constant` data reads, `Variables(theta, order: 1)` parameters), so each `LevenbergMarquardt.Minimize` fit takes a machine-exact gradient.
 - `Solver/uncertainty`: FORM/SORM limit-state gradient joins beside the finite-difference row — an owned smooth limit-state takes exact HyperJet AD, a caller-supplied black-box oracle stays on finite differences.
 - `Tensor/blas#DENSE_ALGEBRA`: HyperJet is the canonical Jacobian provider — each residual row's `GetGradient()` assembles the exact Jacobian the normal-equation step consumes.
 

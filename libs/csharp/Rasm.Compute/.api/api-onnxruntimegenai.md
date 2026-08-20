@@ -12,7 +12,7 @@
 - depends: `Microsoft.ML.OnnxRuntime` — the genai native payload co-locates per-RID beside the base `libonnxruntime` payload; `api-onnxruntime` owns the base ABI matrix and EP roster
 - depends: `Microsoft.Extensions.AI.Abstractions` — the managed facade's `OnnxRuntimeGenAIChatClient` implements its `IChatClient`; `libs/csharp/.api/api-extensions-ai.md` owns that contract surface whole
 - rail: model
-- verification: the package resolves NO assay `--key` (probe: `api query Generator` returns `status:unsupported`), exactly as the base `api-onnxruntime` key does, so every member here verifies against this catalog or the published API reference, never the decompile rail
+- verification: the package resolves NO assay `--key` (probe: `api query Generator` returns `status:unsupported`), exactly as the base `api-onnxruntime` key does. The MANAGED surface verifies by IL decompile of `Microsoft.ML.OnnxRuntimeGenAI.dll`; the managed layer holds no vocabulary at all — every `SetSearchOption` and `SetGuidance` string marshals straight through — so the NATIVE vocabularies verify only against the shipped `libonnxruntime-genai` payload's own parser, disassembled, and the string-typed key and guidance rosters below carry that evidence per table
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -188,23 +188,48 @@
 |  [04]   | `StreamingProcessor.SetOption(string, string)`         | instance | sets a processor option           |
 |  [05]   | `StreamingProcessor.GetOption(string) -> string`       | instance | gets a processor option value     |
 
-[ENTRYPOINT_SCOPE]: recognized `SetSearchOption` key strings
+[ENTRYPOINT_SCOPE]: recognized `SetSearchOption` key strings — COMPLETE
+- note: both overloads funnel into ONE native parser (`Generators::SetSearchNumber` and `SetSearchBool` each tag a variant and call `Generators::Search_Element::OnValue`), which is the same element that parses the `search` block of `genai_config.json`. The roster is therefore shared: a key is not numeric-only or bool-only at dispatch, and the VALUE type is checked afterward by the native `JSON::Get<double>`/`JSON::Get<bool>` selector the table's `[VALUE_TYPE]` column names. Defaults are the runtime's own, not a consumer's policy seed.
+- evidence: disassembly of the shipped `libonnxruntime-genai` native payload for the host RID, corroborated 18-for-18 against the upstream `struct Search` at the matching source tag. Half the keys carry NO `.cstring` literal — they compile to inline immediate compares — so a `strings` sweep UNDER-REPORTS this roster and is not a usable probe.
 
-| [INDEX] | [KEY_STRING]         | [VALUE_TYPE] | [CAPABILITY]                               |
-| :-----: | :------------------- | :----------- | :----------------------------------------- |
-|  [01]   | `num_beams`          | `double`     | beam count for beam-search decoding        |
-|  [02]   | `length_penalty`     | `double`     | penalty applied to sequence length         |
-|  [03]   | `repetition_penalty` | `double`     | penalty for repeated tokens                |
-|  [04]   | `top_k`              | `double`     | top-K sampling limit                       |
-|  [05]   | `top_p`              | `double`     | nucleus sampling probability mass          |
-|  [06]   | `temperature`        | `double`     | logit temperature scaling                  |
-|  [07]   | `do_sample`          | `bool`       | enables stochastic sampling                |
-|  [08]   | `max_length`         | `double`     | maximum generated sequence length          |
-|  [09]   | `min_length`         | `double`     | minimum generated sequence length          |
-|  [10]   | `early_stopping`     | `bool`       | halts beam search when all beams reach EOS |
-|  [11]   | `batch_size`         | `double`     | staged batch width; MANDATORY on every run |
+| [INDEX] | [KEY_STRING]                | [VALUE_TYPE] | [DEFAULT]              | [CAPABILITY]                                        |
+| :-----: | :-------------------------- | :----------- | :--------------------- | :-------------------------------------------------- |
+|  [01]   | `max_length`                | `double`     | `0` -> context length  | total sequence length; `0` faults at search start   |
+|  [02]   | `min_length`                | `double`     | `0`                    | minimum generated sequence length                   |
+|  [03]   | `batch_size`                | `double`     | `1`                    | staged batch width; MANDATORY on every run          |
+|  [04]   | `num_beams`                 | `double`     | `1`                    | beam count; `1` disables beam search                |
+|  [05]   | `num_return_sequences`      | `double`     | `1`                    | finished sequences a beam search returns            |
+|  [06]   | `top_k`                     | `double`     | `50`                   | top-K sampling limit; `0` or greater, `<= vocab`    |
+|  [07]   | `top_p`                     | `double`     | `0`                    | nucleus mass in `[0.0, 1.0]`; `0` disables          |
+|  [08]   | `temperature`               | `double`     | `1.0`                  | logit temperature scaling                           |
+|  [09]   | `repetition_penalty`        | `double`     | `1.0`                  | repeated-token penalty; `1.0` disables              |
+|  [10]   | `length_penalty`            | `double`     | `1.0`                  | `> 0` favors longer, `< 0` shorter                  |
+|  [11]   | `no_repeat_ngram_size`      | `double`     | `0`                    | bans a repeated n-gram; `0` disables                |
+|  [12]   | `diversity_penalty`         | `double`     | `0`                    | RECOGNIZED AND INERT — upstream marks it unused     |
+|  [13]   | `random_seed`               | `double`     | `-1`                   | `-1` seeds from the random device; else seeds RNG   |
+|  [14]   | `chunk_size`                | `double`     | unset                  | prefill chunking; active when present and positive  |
+|  [15]   | `blank_penalty`             | `double`     | `0`                    | CTC/RNNT blank-token logit penalty                  |
+|  [16]   | `do_sample`                 | `bool`       | `false`                | enables stochastic sampling                         |
+|  [17]   | `early_stopping`            | `bool`       | `true`                 | halts beam search when all beams reach EOS          |
+|  [18]   | `past_present_share_buffer` | `bool`       | `false`                | KV in-place reuse; the runtime may force either way |
 
-- Row [11] is not optional: staging without it faults `input sequences count does not match batch size`, and its value is the staged sequence count — one for a single prompt, the `EncodeBatch` sequence count for a batch.
+- Row [03] is not optional: staging without it faults `input sequences count does not match batch size`, and its value is the staged sequence count — one for a single prompt, the `EncodeBatch` sequence count for a batch.
+- Rows typed `double` but integral natively (`max_length`, `min_length`, `batch_size`, `num_beams`, `num_return_sequences`, `top_k`, `no_repeat_ngram_size`, `random_seed`, `chunk_size`) cross `Generators::SafeDoubleToInt`, which throws `<key> is not an integer` on a fractional value; the float-typed rows do not.
+- Row [13] settles replayability: a seeded sampled run reproduces, and `GetSearchNumber("random_seed")` round-trips the value. The spellings `seed`, `min_p`, and `num_hypotheses` are NOT recognized.
+- An unrecognized key raises `JSON::unknown_value_error` from the parser tail. That exception carries NO message and enumerates nothing, so a literal key is undiagnosable at the call site — the consumer's key vocabulary must be closed. The only related strings belong to the GETTERS: `<name> is an invalid name for GetSearchNumber.` and `<name> is an invalid name for GetSearchBool.`
+
+[ENTRYPOINT_SCOPE]: recognized `SetGuidance` type strings — COMPLETE
+
+| [INDEX] | [TYPE_STRING]  | [CAPABILITY]                                     |
+| :-----: | :------------- | :----------------------------------------------- |
+|  [01]   | `json_schema`  | constrains decoding to a JSON schema             |
+|  [02]   | `regex`        | constrains decoding to a regular expression      |
+|  [03]   | `lark_grammar` | constrains decoding to a Lark-syntax grammar     |
+
+- evidence: the runtime's own refusal closes the set — `Unsupported guidance type: <type> (only json_schema, regex, and lark_grammar are supported)`. There is no `choice` type; an enumerated choice rides a `json_schema` enum or a `regex` alternation.
+- `SetGuidance` VALIDATES NEITHER the type nor the pairing. It stores type and data and screens one model type (`whisper`); the type check fires later, at `Generator` construction, inside the native LLGuidance constraint initializer. A bad type therefore fails a whole acquire chain rather than its own call.
+- Type and data are inseparable: supplying one alone raises `Guidance type and data must be provided together`.
+- The `llguidance` crate's own vocabulary (`lark`, `substring_words`, `substring_chars`, and the `TopLevelGrammar`/`GrammarWithLexer` serde field names) also appears in the payload but is INTERNAL to the vendored constraint engine and unreachable through the `type` parameter — a fourth row transcribed from it names something no call site can select.
 
 [ENTRYPOINT_SCOPE]: GPU device and native-log control (`Utils`)
 - note: `Utils` is static process-global; the GPU device id selects the CUDA/DML device before model load, and the log toggles drive the native ORT logger.
@@ -243,7 +268,7 @@
 - Every GenAI type wraps a native handle and disposes; `using` order is LIFO with `OgaHandle` outermost for process-global init/teardown. `Adapters : SafeHandle` releases through `OgaDestroyAdapters` at the GC boundary AND answers `Dispose()`, so an adapter set is released deterministically with the model it was created against rather than left to finalization.
 - `Config(modelDir)` opens `{modelDir}/genai_config.json`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)`, never per generation.
 - `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction and across the generation loop; a missing or malformed model directory faults it at construction.
-- `SetSearchOption` takes `double` or `bool` only, with no string overload and no `TrySetSearchOption`; an unrecognized key is unvalidated managed-side and faults `OnnxRuntimeGenAIException` from the native layer.
+- `SetSearchOption` takes `double` or `bool` only, with no string overload and no `TrySetSearchOption`; both overloads reach ONE native parser, so `[03]`'s key roster is shared between them and the overload choice selects only how the value is read. An unrecognized key is unvalidated managed-side and surfaces as an `OnnxRuntimeGenAIException` wrapping a MESSAGELESS native `unknown_value_error` — no key name, no roster — so a consumer that cannot name the recognized set has no diagnostic at all.
 - `Generator.GetSequence(ulong)` and `GetNextTokens()` return `ReadOnlySpan<int>` views over native memory owned by the live `Generator`; the newest token copies out before the next step and never retains past the loop.
 - `TokenizerStream` comes only from `Tokenizer.CreateStream()`; `TokenizerStream.Decode(int)` decodes one token, distinct from `Tokenizer.Decode(ReadOnlySpan<int>)` over a full span.
 - `Generator.AppendTokens`/`AppendTokenSequences` re-feed the tool-call arm's typed results, `RewindTo(ulong)` rewinds a partial turn, and `Generator.SetActiveAdapter` hot-swaps a LoRA adapter mid-generation over an `Adapters` set loaded per name.
@@ -256,7 +281,8 @@
 - `Generator.GetSequence(ulong)` performs NO range check — an index past the batch width returns sequence 0 rather than throwing — so every read gates the index against the staged width first.
 - `Generator.IsDone()` answers the whole BATCH: a sequence emitting EOS leaves it false while any other sequence runs, and a finished sequence then emits the pad token at full batch width on every remaining step, so per-sequence stop is caller-owned state.
 - `Generator.TokenCount()` is one batch-wide scalar, and `RewindTo` on a batch wider than one admits only `0` while a restart faults, so a multi-sequence run has no rewind or restart rail at all.
-- `GeneratorParams.SetGuidance(type, data, enableFFTokens)` with fast-forward ENABLED commits tokens `GetNextTokens()` never surfaces, so a streamed decode loses spans the committed sequence holds; under any guidance, `Generator.AppendTokens` admits only spans the grammar derives and rejects free text with a parser error.
+- `GeneratorParams.SetGuidance(type, data, enableFFTokens)` with fast-forward ENABLED commits tokens `GetNextTokens()` never surfaces, so a streamed decode loses spans the committed sequence holds; under any guidance, `Generator.AppendTokens` admits only spans the grammar derives and rejects free text with a parser error. The call itself validates NEITHER the type against `[03]`'s roster nor the type-plus-data pairing — both refuse at `Generator` construction instead — so a guidance defect surfaces one acquire chain later than the call that caused it.
+- Structured output is a SEARCH-TIME constraint, never a post-hoc validation: `random_seed` fixes the sampler's draw and guidance fixes the admissible token set, and the two compose — a seeded, guided run is reproducible token for token.
 - `Tokenizer.ApplyChatTemplate` takes the tools argument as raw JSON text and the native template pass rejects malformed input; a template carrying no tools block ignores the argument entirely, so a roster passed to such a template is silently inert rather than faulted.
 - `Images.Load`/`Audios.Load` FAULT on an empty path array, so a media-side call dispatches on which side carries paths; `NamedTensors` is opaque — it publishes `Dispose()` alone and no element or shape read.
 - `MultiModalProcessor` binds only a model type registered as multimodal and `StreamingProcessor` binds only the speech-stream type; either constructed against another model type faults, so a consumer gates on `Model.GetModelType()` before construction.
@@ -268,7 +294,7 @@
 - `api-recyclable-stream`(`.api/api-recyclable-stream.md`): `Tensor.GetData<T>()` and `Generator.GetSequence(ulong)` native-backed `ReadOnlySpan<T>` views copy into a rented `RecyclableMemoryStream` at the edge, never ad hoc arrays.
 - `api-extensions-ai`(`.api/api-extensions-ai.md`): `IChatClient`, `ChatResponse`, `ChatResponseUpdate`, `ChatMessage`, and `ChatOptions` resolve there, and `OnnxRuntimeGenAIChatClient` implements `IChatClient` over the same handle chain, so a second managed chat-message model beside `ChatMessage` never enters.
 - `api-protobuf`(`.api/api-protobuf.md`): a structured generative artifact crossing the wire is a `Runtime/wire#PROTO_VOCABULARY` message, never a managed DTO.
-- `Model` rail `GENERATIVE_RUN`: token streaming folds the LIFO handle chain as a run mode, and the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary rather than a per-call catch.
+- `Model` rail `GENERATIVE_RUN`: token streaming folds the LIFO handle chain as a run mode, and the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary rather than a per-call catch. The `SearchKey` and `GuidanceKind` rosters on that page are the typed projection of `[03]`'s two verified vocabularies — key strings, value types, and integrality gates read HERE and are never re-transcribed there — while each row's policy SEED is that page's own product posture and deliberately diverges from this catalog's `[DEFAULT]` column where stated.
 
 [LOCAL_ADMISSION]:
 - Token streaming is a run mode on the owned model lane, and grammar-constrained structured output is enforced at generation through `SetGuidance`; a `GenerativeService`/`ChatClient`/`Conversation`/`PromptService` wrapper or a managed JSON-schema output validator is the rejected form.
@@ -278,4 +304,4 @@
 - Package: `Microsoft.ML.OnnxRuntimeGenAI`
 - Owns: generative token-streaming runtime, multimodal encoding, streaming audio, `Utils` GPU-device/native-log control, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
 - Accept: model-dir generative runs over the LIFO handle chain; `Images`/`Audios` + `MultiModalProcessor` multimodal pipelines; incremental `StreamingProcessor` audio; M.E.AI streaming through the three admitted ctors staged onto the `api-recyclable-stream` pool
-- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with the GenAI `Tensor`; a model run with no matching native RID payload
+- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with the GenAI `Tensor`; a model run with no matching native RID payload; a search-option key or guidance type outside `[03]`'s verified rosters, and a `strings`-only re-derivation of either (half the key roster carries no literal)

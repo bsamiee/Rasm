@@ -19,42 +19,60 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 ├── Symbolic/              # Closed symbolic-expression CAS and unit boundary
 │   ├── Expression.cs      # `SymbolicExpr` `[ComplexValueObject]` whose identity is the simplified normal-form content key ALONE
 │   ├── Dimensional.cs     # `DimensionMonomial` as one `Seq<ERational>` of exponents; `DimensionProof` accumulates every compound mismatch
-│   ├── Lowering.cs        # One IL-compiling lower per simplified expression; analytic-Jacobian arm, interval enclosure, column programs
+│   ├── Lowering.cs        # One IL-compiling lower per simplified expression; analytic-Jacobian arm, `Enclosure` interval pre-gate
 │   └── Units.cs           # Frozen `QuantityFamily` rows admit unit-bearing input once and emit the seam conversion receipt
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # `ModelIdentity` checksum, `SlotShape` trees, and provenance; `ModelSource` folds the acquisition arms
 │   ├── Sessions.cs        # One `InferenceSession` per policy-complete `ResidentKey`; capped shape buckets carry measured warm evidence
 │   ├── Providers.cs       # `ExecutionProvider` rows select registration through host-gated discovery over one frozen runtime snapshot
-│   ├── Inference.cs       # `RunOps` over one shared session with bracketed native ownership; `BatchGate`, `TilePlan`, `StageRun`, `CacheOps`
+│   ├── Run.cs             # `RunOps` over one shared session with bracketed native ownership; `BatchGate`, `CacheOps`
+│   ├── Tiling.cs          # One `TilePlan` grid per forward pass; taper weights, border and blend rows
+│   ├── Stage.cs           # Stage-execution wire — decode-only Materials mirror, `StagePorts`, plan construction
 │   ├── Embedding.cs       # `VectorEncoding` axis, `VectorScore` metric axis, and the content-keyed `EmbeddingVector` over SIMD primitives
 │   ├── Generative.cs      # One polymorphic `GenerationEvent` stream — `Piece`, `ToolInvoked`, terminal `Completed` with the run tally
 │   └── Extension.cs       # `CustomOps` folds registration into session admission and reads the non-tensor model boundary
 ├── Solver/                # Discretize-solve-optimize-sweep solve spine
-│   ├── Discretization.cs  # `MeshKernel` tet/hex/boundary-layer generation with adaptive h/p/hp refinement; `ElementClass` topology axis
-│   ├── Contract.cs        # `PhysicsKind`×`BoundaryCondition`×`ElementClass` admits every problem as uniform `SolveProblem` rows
+│   ├── Element.cs         # `ElementClass` isoparametric axis over kernel `CellTopology`; `CellQuality`; the 12-DOF `FrameKernel`
+│   ├── Discretization.cs  # `MeshLane` tet/hex/boundary-layer generation over kernel `Tessellation`; Dörfler adaptive refinement
+│   ├── Field.cs           # `DiscreteMesh` frozen carrier with its proven rule; `FieldSpace`
+│   ├── Contract.cs        # Solve admission + dispatch: physics axis, `SolveRoute`/`Convergence`, `LanePolicy`, `SolveSession`
+│   ├── Assembly.cs        # Operator assembly — cell fold, DOF constraints, lumped inertia
+│   ├── Route.cs           # Eight route bodies, recovery ladder, solve archive, coupled fields
 │   ├── Constitutive.cs    # `ConstitutiveModel` stress-update `[Union]` and `ContactConstraint` regularized normal enforcement
 │   ├── Optimizer.cs       # One `Optimize` entry dispatches by `OptimizerKind` row to a kernel owning its own budget and adaptation
+│   ├── Exact.cs           # `ExactLane` — CP-SAT/MILP/vehicle-routing rails, shadow prices, bound streams
 │   ├── Sweep.cs           # `SweepGrid` DOE orchestration emitting a queryable `ParetoFront` with the sensitivity tornado
 │   ├── Clash.cs           # `ClashScale` narrow-phase confirmation over the geometry-owned broad-phase wire; `DigitalTwin` scores live signals
 │   ├── Uncertainty.cs     # `UncertaintyMethod` axis with a keyless `UqStrategy` driver and its own draw lane
 │   └── Satisfy.cs         # Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES; every `ComplianceRule` lowers to assertions from the CAS
 ├── Stats/                 # Classical statistics, statistical learning, and DSP
-│   ├── Estimator.cs       # One `Fit`/`Predict` contract across the statistical families; `EstimatorPolicy` and the injected clock
+│   ├── Estimator.cs       # One `Fit`/`Predict` contract — carriers, admission, dispatch, validation, selection, receipt
+│   ├── Families.cs        # Estimator family rows — rosters, generators, row-bound kernels, `IterativeEngine`
 │   ├── Signal.cs          # `SpectralTransform` rows carry transform and inverse delegates; `IO<Fin<T>>` keeps effect and fault distinct
 │   └── Monitor.cs         # `StreamMonitor` stateful capsules advanced per sample by `MonitorLane`; every verdict a typed fact
 ├── Runtime/               # Admit-to-receipt boundary
 │   ├── Admission.cs       # `ComputeIntent` union under the spine `Spec` policy; the `Substrate` axis routes with total dispatch
 │   ├── Scheduling.cs      # Bounded `WorkLane` channel rows behind one `LaneRuntime` capsule; drops emit correlated `Backpressure` receipts
 │   ├── Progress.cs        # Monotonic `ProgressPhase` family; `ProgressCell` commits marks under rank and terminal-dominance guards
-│   ├── Receipts.cs        # `ComputeReceipt` is the only fact vocabulary; fingerprint-gated claims decide performance-motivated routes
+│   ├── Receipts.cs        # `ComputeReceipt` the only fact vocabulary — payload spine, telemetry projection, folds
+│   ├── Claims.cs          # Fingerprint-gated benchmark claims, profile evidence, host forecast
+│   ├── Ledger.cs          # Cost algebra, rate policy, tenant chargeback egress
+│   ├── Board.cs           # Fact selection, SLO objectives, panel projection, hook-point rail
 │   ├── Wire.cs            # Proto vocabulary with `minted`/`unminted` state, evolution law, and the fault projection; client-side compile
-│   ├── Transport.cs       # `RemoteTransport` dial axis warmed by its row's `WarmProbe`; one `GrpcChannelPolicy` every options site reads
-│   ├── Codecs.cs          # Field, result, waveform, and delta codecs; the companion hop, octree partitioning, and the one HDF5 session
+│   ├── Channels.cs        # `RemoteTransport` dial axis warmed by its row's `WarmProbe`; one `GrpcChannelPolicy`; the artifact-frame law
+│   ├── Ingest.cs          # ONE broker pump over the `BrokerBinding` rows (MQTT 5.0, NATS) and the bSDD REST ingest
+│   ├── Observation.cs     # Observation lane folding decoded sensor streams into content-keyed series chunks and one `GraphDelta`
+│   ├── Codecs.cs          # Geometry delta, shared quantization, content addressing, columnar lake landing
+│   ├── Archive.cs         # One HDF5 session, filter seat, chunk grid, declared-write capsule
+│   ├── Field.cs           # Chunked field codec, HDF5 interop, scientific ingest
+│   ├── Tiles.cs           # `CompanionRequest` family, 3D-Tiles octree, tileset manifest
 │   └── Payload.cs         # Four encode arms on one `ResidencyKind` axis; cone-cullable clusters and level-clamped quantization
 └── Analysis/              # C#-first discipline-assessment rail over the ElementGraph
-    ├── Assessment.cs      # `AssessmentRequest` routes over the seam `Discipline` axis; the reconciler applies content-keyed deltas
+    ├── Assessment.cs      # Route/request/fact algebra, commissioning, `AnalysisReads` planar owner
+    ├── Dispatch.cs        # Assess/cached/write-back dispatch, content keys, supersede, sweep, closure
     ├── Aggregator.cs      # `AssemblyAggregator` folds a seam composition into layered-construction physics; analysis, never authoring
-    ├── Structural.cs      # Frame solve reading the concrete graph; the M7-resolved section properties and projected structural edges
+    ├── Frame.cs           # Frame idealization and the owned-spine solve; M7-resolved section properties, projected structural edges
+    ├── Capacity.cs        # `(DesignCode, LimitState)` capacity table with generator-built cells; the response-spectrum seismic route
     ├── Physics.cs         # One `BuildingPhysics` kernel collapses the thermal, acoustic, and fire arms as closed-form ISO/EN folds
     ├── Energy.cs          # In-process OpenStudio `Model` build from the graph; local and cloud runs converge on the one `SqlFile` fold
     ├── Lifecycle.cs       # EN 15978 embodied-carbon takeoff and cost rollup folding the aggregator over seam compositions
@@ -95,7 +113,7 @@ flowchart TB
     end
     subgraph S3["S3 SOLVER"]
         Sweep[SweepLane]
-        Mesh[MeshKernel]
+        Mesh[MeshLane]
         Optimizer[OptimizerKind]
         Clash[ClashScale]
     end
@@ -171,6 +189,7 @@ flowchart LR
     Solver e15@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
     Symbolic e16@-->|"[CONTENT_KEY]: CompiledExpr"| Persistence
     Analysis e17@-->|"[CONTENT_KEY]: AssessmentPayload"| Persistence
+    Analysis e30@-->|"[SHAPE]: SeriesPoint + AssessmentRow"| Persistence
     Runtime e18@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Persistence
     Runtime e19@<-->|"[CONTENT_KEY]: GeometryHash"| Persistence
     Runtime e20@-->|"[WIRE]: LakeGeneration"| Persistence
@@ -214,7 +233,6 @@ flowchart LR
         Tensor[Tensor core]
         Solver[Solve spine]
         Runtime[Runtime plane]
-        Symbolic[Symbolic CAS]
     end
     AppHost{{Rasm.AppHost}}
     AppUi{{Rasm.AppUi}}
@@ -238,14 +256,12 @@ flowchart LR
     Runtime e13@-->|"[WIRE]: XxHash128"| PyRuntime
     Compute e14@-->|"[GRADUATION]: HandoffAxis"| Runtime
     Model e15@-->|"[GRADUATION]: GraduationEvidence"| Compute
-    Symbolic e16@<-->|"[WIRE]: QuantityFamily"| Compute
-    Solver e17@-->|"[SHAPE]: DoeDataset"| Data
-    Data e18@-->|"[SHAPE]: GeoArrow"| Runtime
-    Runtime e19@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Core
-    Symbolic e20@<-->|"[WIRE]: QuantityFamily"| Core
-    Runtime e21@-->|"[WIRE]: FieldContainer"| Data
-    Compute e22@-->|"[WIRE]: GraduationEnvelope"| Model
-    Tensor e23@<-->|"[WIRE]: SparseExchange"| Compute
+    Solver e16@-->|"[SHAPE]: DoeDataset"| Data
+    Data e17@-->|"[SHAPE]: GeoArrow"| Runtime
+    Runtime e18@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Core
+    Runtime e19@-->|"[WIRE]: FieldContainer"| Data
+    Compute e20@-->|"[WIRE]: GraduationEnvelope"| Model
+    Tensor e21@<-->|"[WIRE]: SparseExchange"| Compute
 ```
 
 ## [04]-[INTERNAL]
@@ -326,9 +342,10 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
 - `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
 - Every ledger fold reads the kernel `TenantContext` stamped on the message envelope as its tenant partition, never a Compute-minted tenancy.
-- `Runtime/transport` owns both broker pumps whole; neither pump opens a span, and parent adoption stays the kernel causal-frame band's.
+- `Runtime/ingest` owns ONE pump over both `BrokerBinding` rows; the pump opens no span, and parent adoption stays the kernel causal-frame band's.
 - `Runtime/codecs` owns the ONE HDF5 archive session; every composing cluster reaches the library through it and opens no `H5File` of its own.
 - Archive artifacts egress content-keyed through `ArtifactIndexRow.Admit`; the Persistence retention owner classes them by `ArtifactKind`.
 - `Runtime/codecs` builds every columnar `RecordBatch` Compute produces over the kernel encode.
-- Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
+- Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; `Query/lakehouse#FLAT_TABLE_EGRESS` `Land` redeems the batch.
+- Row-major lake arms COMPOSE Persistence `Query/residence#COLUMN_VOCABULARY` `ArrowLanding.Build`; geometry alone borrows the kernel arena verbatim.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.

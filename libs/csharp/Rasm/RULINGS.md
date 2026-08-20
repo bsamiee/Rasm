@@ -101,6 +101,8 @@ Every reopen predicate rides the license gate.
 - `Evidence<T>` is the ONE probe receipt — `Measured(T)`/`Refused(Error)`/`Absent` — `Quality` grades trust on a PRESENT reading, never occurrence.
 - Semantic `IClock` and `MonotonicTimeline` never fuse — no joint invariant binds a wall instant to a monotonic mark, so a crossing takes both.
 - QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
+- `QuadratureRule` prism and conical rows derive order from the WEAKER leg — a wedge or pyramid rung is earned only by raising that leg.
+- `QuantileSketch` markers ride the `[InlineArray(5)]` `MarkerRow` pair with hand-written all-slot equality — the ValueType path reads slot 0 alone.
 
 ## [03]-[COLLAPSE]
 

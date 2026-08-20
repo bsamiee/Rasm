@@ -135,7 +135,7 @@
 
 [STACKING]:
 - `SharpGLTF`(`api-sharpgltf.md`): every Tiles3D extension registers on the `SharpGLTF.Core` `ExtensionsFactory` and mutates the same `ModelRoot`/`MeshPrimitive`/`Node` Core authors — Core owns the glTF schema, this surface overlays the 3D Tiles metadata on the shared target.
-- `Rasm.Compute` `Runtime/codecs#TILE_PARTITION`: seats `Tiles3DExtensions.RegisterExtensions()` ONCE at its composition root and emits no leaf body — per-tile `EXT_structural_metadata` emit lowers through the codec after `Rasm.Bim` `Exchange/export#TILE_METADATA` authors the schema and feature bindings, so the registration is that lane's whole reach into this surface.
+- `Rasm.Compute` `Runtime/tiles#TILE_PARTITION`: seats `Tiles3DExtensions.RegisterExtensions()` ONCE at its composition root and emits no leaf body — per-tile `EXT_structural_metadata` emit lowers through the codec after `Rasm.Bim` `Exchange/export#TILE_METADATA` authors the schema and feature bindings, so the registration is that lane's whole reach into this surface.
 - `Rasm.Bim` tessellation emit: composes the metadata, storage, and feature-ID folds to author per-tile 3D Tiles metadata on the tessellated `ModelRoot` before Compute lowers it.
 
 [LOCAL_ADMISSION]:

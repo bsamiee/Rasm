@@ -84,11 +84,17 @@
 - `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
 - Host-enum reads resolve a `[SmartEnum]` row through `Op.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
 - `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed receipt renames `KeySelection`, both over the seam `Selection<TKey>`.
+- `Rasm.Element` `Predicate<ElementLeaf>` is the ONE class-selection closure — `NodeClassSelector` admits through `All(ByKind, ByClassification)`.
 - `Rasm.Element` owns `SectionProperties`, the measure-columned cross-section algebra — `Rasm.Fabrication` `Forming/tube`'s mm-basis record renames.
 - `Rasm.Element` `EvidenceRun` owns the solver-run audit and retires the name `Provenance` branch-wide — a sourcing or capture record renames.
 - `Rasm.Element`'s `[Mapper]` family owns `WireCodec` — `Rasm.Materials`' serialization owner and `Rasm.Bim`'s converter set each rename.
 - `AttestationRole` is the ONE attestation-role vocabulary branch-wide — a folder-local role roster deletes onto its report-family roster.
 - `SolutionAudit` is `Rasm.Grasshopper`'s completion-audit noun and `RunEvidence` is `Rasm.Fabrication`'s — one name means one thing estate-wide.
+- `ComputeEndpoint` is `Rasm.Compute`'s dispatch-endpoint name alone — `Rasm.Rhino`'s host roster renames to `HostEndpoint`/`HostEndpoints`.
+- Kernel `Solving` `ObjectiveSense` is the ONE objective-direction vocabulary — `Sign` folds a maximizing objective onto the minimizing kernel.
+- `Rasm.Persistence` `ColumnCell.Absent` is the ONE landing absence spelling — `ColumnRow.Admits` proves it against `TableColumn.Nullable`.
+- `Rasm.Persistence` `ContentBlobPort` is the ONE key-minting object-plane byte seam — derived off `BlobRemote`, bound at the composition root.
+- Kernel `MeasureBundle` is the ONE multi-kind takeoff carrier over `(MassKind, Magnitude)` rows — `GeometryMeasures` stays the single-domain bundle.
 
 ## [03]-[COLLAPSE]
 
@@ -111,6 +117,11 @@
 - `CanonicalWriter` at `Rasm/Domain/identity` is the ONE preimage writer — peers compose it and re-export nothing, so one framing keys the estate.
 - `HookRail<TPoint,TFact,TOwner>` is the ONE hook mechanism — a folder declares its `<Package>Point` roster and closed fact union alone.
 - `ToleranceLane` rows are the ONE branch tolerance vocabulary, each carrying its own `Band` — Fabrication GD&T stackup composes them as scalars.
+- Kernel `Custody` at `Domain/rails` is the ONE release algebra — `Rollback` releases the failure arm alone, `Bracket` disposes unconditionally.
+- Kernel `SparseMatrix.Transpose()` is the ONE materialized CSR transpose — an APPLIED transpose stays `Multiply` under `OperatorSense`.
+- Kernel `Ranked` at `Domain/stats` is the ONE bounded top-K selection — cost-scheduled queues and best-first frontiers keep `PriorityQueue`.
+- `TilePlan` stays plural by receiver — Compute's inference mosaic and Materials' texture tiling share no closure, the wire ceding `InferenceTiling`.
+- `WireFault` stays plural by transport — AppHost holds `FaultBand.LiveWire`, Compute `FaultBand.Wire`, a crossing fault re-classifying at the seam.
 
 ## [04]-[STRUCTURE]
 

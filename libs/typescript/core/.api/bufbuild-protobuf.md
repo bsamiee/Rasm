@@ -155,7 +155,7 @@
 |  [16]   | `scalarEquals` / `scalarZeroValue` / `isScalarZeroValue` | static  | scalar default + equality in the drift walk |
 
 [ENTRYPOINT_SCOPE]: extensions + well-known types — `Any` packing, time bridges, the `Struct` codec
-- `./wkt` schema consts (`FileDescriptorSetSchema`/`StructSchema`/`ValueSchema`/`ListValueSchema`/`AnySchema`/`TimestampSchema`/`DurationSchema` …) decode the descriptor set and bridge a `JsonValue` through `Struct`/`Value`; custom options carry the `FaultDetail` and SI-scalar `QuantityFamily` annotation hooks `interchange/format` reads.
+- `./wkt` schema consts (`FileDescriptorSetSchema`/`StructSchema`/`ValueSchema`/`ListValueSchema`/`AnySchema`/`TimestampSchema`/`DurationSchema` …) decode the descriptor set and bridge a `JsonValue` through `Struct`/`Value`; custom options carry the `FaultDetail` annotation hooks `interchange/format` reads.
 
 | [INDEX] | [SURFACE]                                          | [SHAPE] | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------- | :------ | :-------------------------------------- |

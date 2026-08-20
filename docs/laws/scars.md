@@ -16,6 +16,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: Drains span every retired-surface kind — a tool-manifest row, a renamed member, a deleted flat property, a strata-banned parameter type.
 - Boundary: Anchor and finding lists serve navigation, never the drain boundary.
 - Boundary: Zero-occurrence proofs cover every spelling the language admits — a `new X(` grep passes the target-typed `X x = new(` survivor green.
+- Boundary: Registry-bound existence adjudicates at the contracts manifest row, never a symbol grep — in-process encoders freeze no instance to hit.
 
 [BLOCKER_HYPOTHESIS]:
 - Law: Recorded blockers re-prove on their verification rail before gating any work; the marker states a hypothesis, never a constraint.

@@ -73,7 +73,7 @@ Rasm/                      # Kernel below the C# app strata: exact-arithmetic fl
 │   ├── Geodesics.cs       # Every solver runs against the shared `LaplacianCache`; `fields` case names delegate their bodies here
 │   └── Segment.cs         # Host restructure is CAPTURE; this page owns the native surface and never re-derives the first-principles tier
 ├── Solving/               # Nonlinear least-squares owners over the matrix floor
-│   ├── Solver.cs          # One accept/reject λ-ladder folded by `Schedule.recurs`; rank deficiency routes `GeometryFault.SingularSystem`
+│   ├── Solver.cs          # One λ-ladder under `Schedule.recurs`, rank deficiency typed; `ObjectiveSense` the branch direction rows
 │   └── Fit.cs             # Truncated-cost robust consensus; `Kinds` arity alone separates a pinned fit from a multi-kind competition
 ├── Drawing/               # Kernel-quality 2D drawing-geometry producers
 │   ├── View.cs            # Appel quantitative invisibility on exact signs; one QI solve over the part-roster offset union soup
@@ -82,7 +82,7 @@ Rasm/                      # Kernel below the C# app strata: exact-arithmetic fl
 │   └── Hatch.cs           # Courses generate against the region's own extent, clipped by exact winding parity; motifs orbit the wallpaper set
 ├── Analysis/              # Measured-query public entry
 │   ├── Query.cs           # Call arity recovers from the case through `Single`/`Pair`/`Service` dispatchers, never a suffix or knob
-│   ├── Measure.cs         # Every mass answer is a `(MassKind, MassProperty)` coordinate; conformance rides policy rows over one fold
+│   ├── Measure.cs         # Every mass answer is a `(MassKind, MassProperty)` coordinate; `MeasureBundle` the kind-keyed multi-domain takeoff
 │   ├── Inspect.cs         # One `OnGeometry` gate lowers brep-coercible inputs through the leased brep form
 │   ├── Select.cs          # `EdgeDescriptor` data drives edge selection; `TopologyProjection` crosses under a leak-free transfer fold
 │   └── Relations.cs       # Type-pair lattice rows bind admission predicate, result shape, and host compute delegate over the query `Env`
@@ -246,6 +246,9 @@ flowchart LR
     Parametric e45@-->|"[WIRE]: PatternPlan + InstanceStream"| Materials
     Parametric e46@-->|"[SHAPE]: MaterialSymmetry"| Materials
     Drawing e47@-->|"[SHAPE]: ChannelDtype"| Bim
+    Analysis e48@-->|"[SHAPE]: MeasureBundle"| Compute
+    Analysis e49@-->|"[SHAPE]: MeasureBundle"| Bim
+    Solving e50@-->|"[SHAPE]: ObjectiveSense"| Compute
 ```
 
 ```mermaid
@@ -285,6 +288,7 @@ flowchart LR
     Domain e13@-->|"[WIRE]: Stat"| Fabrication
     Solving e14@-->|"[WIRE]: FitReceipt"| Fabrication
     Fabrication e15@-->|"[WIRE]: ToolpathPath"| Drawing
+    Solving e16@-->|"[SHAPE]: ObjectiveSense"| Fabrication
 ```
 
 ```mermaid

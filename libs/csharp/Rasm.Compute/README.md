@@ -27,45 +27,63 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity with acquisition, schema-snapshot, and drift-sentinel evidence.
 - [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start and its per-bucket warm roster.
 - [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery, quantization posture, and the guaranteed floor.
-- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, batching gate, tiled mosaic, stage-execution wire, and result cache.
-- [18]-[EMBEDDING](.planning/Model/embedding.md): Retrieval half of the inference spine — encoding axis, metric axis, content-keyed vector carrier.
-- [19]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
-- [20]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
+- [17]-[RUN](.planning/Model/run.md): Run-mode inference fold, batching gate, and the fingerprint-gated result cache.
+- [18]-[TILING](.planning/Model/tiling.md): Tiled mosaic — one `TilePlan` grid, taper weights, border and blend rows.
+- [19]-[STAGE](.planning/Model/stage.md): Stage-execution wire — the decode-only Materials mirror and the plan construction.
+- [20]-[EMBEDDING](.planning/Model/embedding.md): Retrieval half of the inference spine — encoding axis, metric axis, content-keyed vector carrier.
+- [21]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
+- [22]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
 
 [SOLVER]:
-- [21]-[DISCRETIZATION](.planning/Solver/discretization.md): Volumetric meshing with adaptive refinement and exact-predicate gates.
-- [22]-[CONTRACT](.planning/Solver/contract.md): Physics-by-boundary-condition solve fold with adaptive recovery.
-- [23]-[CONSTITUTIVE](.planning/Solver/constitutive.md): Per-Gauss-point stress-update axis and contact enforcement.
-- [24]-[OPTIMIZER](.planning/Solver/optimizer.md): Design-space search axis with surrogate duality.
-- [25]-[SWEEP](.planning/Solver/sweep.md): N-dim DOE sweep grid and sensitivity analysis.
-- [26]-[CLASH](.planning/Solver/clash.md): Collision compute, occlusion rays, and the digital-twin loop.
-- [27]-[UNCERTAINTY](.planning/Solver/uncertainty.md): Forward-UQ and reliability over the shared evaluate oracle.
-- [28]-[SATISFY](.planning/Solver/satisfy.md): SMT rule satisfaction with witness and unsat-core explanation.
+- [23]-[ELEMENT](.planning/Solver/element.md): `ElementClass` isoparametric axis over kernel `CellTopology`; cell quality; the 12-DOF frame kernel.
+- [24]-[DISCRETIZATION](.planning/Solver/discretization.md): `MeshLane` volumetric generation with Dörfler adaptive refinement.
+- [25]-[FIELDSPACE](.planning/Solver/field.md): `DiscreteMesh` frozen carrier with its proven rule; `FieldSpace`.
+- [26]-[CONTRACT](.planning/Solver/contract.md): Solve admission and dispatch over the physics axis and its lane policy.
+- [27]-[ASSEMBLY](.planning/Solver/assembly.md): Operator assembly — cell fold, boundary conditions, lumped inertia.
+- [28]-[ROUTE](.planning/Solver/route.md): Route bodies, the recovery ladder, solve archive sessions, and coupled fields.
+- [29]-[CONSTITUTIVE](.planning/Solver/constitutive.md): Per-Gauss-point stress-update axis and contact enforcement.
+- [30]-[OPTIMIZER](.planning/Solver/optimizer.md): Design-space search axis with surrogate duality.
+- [31]-[EXACT](.planning/Solver/exact.md): CP-SAT/MILP exact lane — shadow prices, bound streams, and the vehicle-routing rail.
+- [32]-[SWEEP](.planning/Solver/sweep.md): N-dim DOE sweep grid and sensitivity analysis.
+- [33]-[CLASH](.planning/Solver/clash.md): Collision compute, occlusion rays, and the digital-twin loop.
+- [34]-[UNCERTAINTY](.planning/Solver/uncertainty.md): Forward-UQ and reliability over the shared evaluate oracle.
+- [35]-[SATISFY](.planning/Solver/satisfy.md): SMT rule satisfaction with witness and unsat-core explanation.
 
 [STATS]:
-- [29]-[ESTIMATOR](.planning/Stats/estimator.md): One Fit/Predict estimator axis across the statistical families.
-- [30]-[SIGNAL](.planning/Stats/signal.md): Spectral-transform axis and filter design.
-- [31]-[MONITOR](.planning/Stats/monitor.md): Streaming monitor capsules — EWMA limits, P² quantile sketch, detector rows, drift verdict.
+- [36]-[ESTIMATOR](.planning/Stats/estimator.md): One Fit/Predict contract — carriers, admission, dispatch, validation, selection, and the receipt.
+- [37]-[FAMILIES](.planning/Stats/families.md): Estimator family rows — rosters, generators, row-bound kernels, and the iterative engine.
+- [38]-[SIGNAL](.planning/Stats/signal.md): Spectral-transform axis and filter design.
+- [39]-[MONITOR](.planning/Stats/monitor.md): Streaming monitor capsules — EWMA limits, P² quantile sketch, detector rows, drift verdict.
 
 [RUNTIME]:
-- [32]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
-- [33]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
-- [34]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
-- [35]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union projecting instruments, benchmarks, hooks, cost, alerts.
-- [36]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
-- [37]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
-- [38]-[CODECS](.planning/Runtime/codecs.md): Field, result, waveform-interchange, and geometry-delta codecs and the tessellation bridge.
-- [39]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
+- [40]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
+- [41]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
+- [42]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
+- [43]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union — the payload spine, telemetry projection, and fold projections.
+- [44]-[CLAIMS](.planning/Runtime/claims.md): Fingerprint-gated benchmark claims, profile evidence, and the host forecast.
+- [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
+- [46]-[BOARD](.planning/Runtime/board.md): Fact selection, SLO objectives, panel projection, and the hook-point rail.
+- [47]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
+- [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
+- [49]-[INGEST](.planning/Runtime/ingest.md): One broker pump over the binding rows and the bSDD REST ingest.
+- [50]-[OBSERVATION](.planning/Runtime/observation.md): Observation lane — decoded sensor streams into content-keyed series chunks.
+- [51]-[CODECS](.planning/Runtime/codecs.md): Geometry-delta codec, the shared quantization law, content addressing, and the columnar lake landing.
+- [52]-[ARCHIVE](.planning/Runtime/archive.md): ONE HDF5 container session owning the filter seat, chunk grid, and declared-write capsule.
+- [53]-[FIELD](.planning/Runtime/field.md): Chunked simulation-field codec, HDF5 interop, and the scientific-ingest dispatch.
+- [54]-[TILES](.planning/Runtime/tiles.md): Companion-rpc request family and the 3D-Tiles octree partition with its tileset manifest.
+- [55]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
 
 [ANALYSIS]:
-- [40]-[ASSESSMENT](.planning/Analysis/assessment.md): Lifecycle-aware assessment spine and reconciler.
-- [41]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
-- [42]-[STRUCTURAL](.planning/Analysis/structural.md): Frame solve and the design-code capacity table.
-- [43]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
-- [44]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
-- [45]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
-- [46]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
-- [47]-[DAYLIGHT](.planning/Analysis/daylight.md): Sun hours, shadow fraction, sky view, and Perez diffuse irradiance off the kernel almanac.
+- [56]-[ASSESSMENT](.planning/Analysis/assessment.md): Assessment route/request/fact algebra, commissioning, and the `AnalysisReads` planar owner.
+- [57]-[DISPATCH](.planning/Analysis/dispatch.md): Assess/cached/write-back dispatch, content keys, supersede, sweep, and closure.
+- [58]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
+- [59]-[FRAME](.planning/Analysis/frame.md): Frame idealization and the owned-spine solve.
+- [60]-[CAPACITY](.planning/Analysis/capacity.md): Design-code capacity table and the response-spectrum route.
+- [61]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
+- [62]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
+- [63]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
+- [64]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
+- [65]-[DAYLIGHT](.planning/Analysis/daylight.md): Sun hours, shadow fraction, sky view, and Perez diffuse irradiance off the kernel almanac.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -74,12 +92,11 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [NUMERIC_KERNEL]:
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
 - `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
-- `cslsqp` — Source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
 - `HyperJet` — Hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
 
 [SOLVER_SEARCH]:
 - `AngouriMath` — Managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
-- `Google.OrTools` — CP-SAT and MILP exact optimization lane.
+- `Google.OrTools` — CP-SAT, MILP, and vehicle-routing exact rails the `Solver/exact` lane binds.
 - `GeneticSharp` — Evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
 - `Microsoft.Z3` — SMT rule satisfaction returning SAT/UNSAT and unsat-core, where CP-SAT optimizes.
 
@@ -122,6 +139,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [NUMERIC_SUBSTRATE]:
 - `CSparse` — Managed sparse direct-factor terminal.
 - `MathNet.Numerics` — Quadrature, distributions, and the MKL/OpenBLAS provider hooks.
+- `MathNet.Numerics.Data.Text` — MatrixMarket `.mtx` sparse-exchange leg the `tests/contracts` `[02.29]` factor quartet binds.
 - `PeterO.Numbers` — Exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 
 [GPU_DEVICE]:
@@ -137,7 +155,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Alimer.Bindings.MeshOptimizer` — Residency-pyramid simplification and cluster-LOD bindings.
 
 [PLANAR_GEOSPATIAL]:
-- `NetTopologySuite` — Isovist and visibility polygons at the circulation planar boundary.
+- `NetTopologySuite` — Isovist/visibility polygons and the hole-carrying `AnalysisReads.Planar` footprint projection at the analysis planar boundary.
 - `Clipper2` — Corridor-clearance offset algebra at the same boundary.
 
 [ENERGY_SIMULATION]:
