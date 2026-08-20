@@ -481,9 +481,12 @@ public sealed record EditHistory(
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(RevertedInstrument, "{edit}", "undo reverts by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Count(RedoneInstrument, "{edit}", "redo replays by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Count(ScrubbedInstrument, "{edit}", "timeline steps applied per scrub", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot));
+            InstrumentSpec.Create(RevertedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{edit}",
+                "undo reverts by surface", Seq(AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(RedoneInstrument, InstrumentKind.Count, MeasureForm.Whole, "{edit}",
+                "redo replays by surface", Seq(AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(ScrubbedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{edit}",
+                "timeline steps applied per scrub", Seq(AppUiTelemetry.SurfaceSlot), None, None, None));
 }
 
 // ONE row per RevertDirection and one scrub row: the intent key derives from the direction's own key — the

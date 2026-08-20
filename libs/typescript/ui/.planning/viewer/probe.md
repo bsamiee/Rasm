@@ -142,19 +142,19 @@ const _host = (
   adapter: Option.Option<{ readonly vendor: string; readonly architecture: string }>,
 ): Board.Claim.Host =>
   pipe(
-    Option.getOrElse(adapter, () => ({ vendor: "<unavailable>", architecture: "<unavailable>" })),
+    Option.getOrElse(adapter, () => ({ vendor: "unreachable", architecture: "unreachable" })),
     (info) =>
-      // Browsers expose no operating-system name through a stable surface, so `os` takes the same
-      // declared-unavailable sentinel the absent adapter facts take, and `stamps` stays empty here
+      // Browsers expose no operating-system name through a stable surface, so `os` takes the seam's one
+      // `unreachable` sentinel (frozen with the C# minter at [02.15]), and `stamps` stays empty here
       // because every host fact this probe reaches already fills a column of its own.
       new Board.Claim.Host({
         print,
         machine: info.vendor,
-        os: "<unavailable>",
+        os: "unreachable",
         arch: info.architecture,
         processors: Number.max(1, globalThis.navigator.hardwareConcurrency),
         runtime: globalThis.navigator.userAgent,
-        stamps: {},
+        stamps: [],
       }),
   )
 ```

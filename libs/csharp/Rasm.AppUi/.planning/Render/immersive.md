@@ -310,11 +310,14 @@ public sealed record ImmersiveSession(
     // per launch. Every declared dimension below is written by the projection beside it.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(ResolvedInstrument, "{session}", "XR sessions resolved against an advertised runtime", MeasureForm.Whole),
-            InstrumentSpec.Count(AbsentInstrument, "{session}", "XR session absences by cause", MeasureForm.Whole, AppUiTelemetry.OutcomeSlot),
-            InstrumentSpec.Count(DemotedInstrument, "{session}", "XR sessions demoted to flat by cause", MeasureForm.Whole,
-                AppUiTelemetry.OutcomeSlot),
-            InstrumentSpec.Count(EventInstrument, "{event}", "XR runtime events drained by kind", MeasureForm.Whole, AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(ResolvedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{session}",
+                "XR sessions resolved against an advertised runtime", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(AbsentInstrument, InstrumentKind.Count, MeasureForm.Whole, "{session}",
+                "XR session absences by cause", Seq(AppUiTelemetry.OutcomeSlot), None, None, None),
+            InstrumentSpec.Create(DemotedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{session}",
+                "XR sessions demoted to flat by cause", Seq(AppUiTelemetry.OutcomeSlot), None, None, None),
+            InstrumentSpec.Create(EventInstrument, InstrumentKind.Count, MeasureForm.Whole, "{event}",
+                "XR runtime events drained by kind", Seq(AppUiTelemetry.SourceSlot), None, None, None));
 
     // Two projections, two moments, because the availability value and the frame answer are the two shapes that
     // carry these facts and neither is recoverable from the other. Composition binds the mode arm at

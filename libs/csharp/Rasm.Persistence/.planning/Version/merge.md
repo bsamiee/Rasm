@@ -119,6 +119,8 @@ public abstract partial record EditOp {
     public string Axis => this.Map(match: static _ => "", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "content", move: static _ => "parent", reorder: static _ => "ordinal", retype: static _ => "role");
 }
 
+// DISTINCT-BY-DESIGN (E-P6 allowlist): CRDT node-merge conflict cells (`NodeId`+`Hlc`+actor) — zero shared columns
+// with Bim `Review/versioning`'s reviewer sign-off MergeConflict; the MergeOutcome pair rides the same verdict.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record MergeConflict {
     private MergeConflict() { }

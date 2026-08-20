@@ -137,7 +137,8 @@ public sealed record PerfBudget {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Level(TierInstrument, "1", "active quality tier rank", MeasureForm.Whole));
+            InstrumentSpec.Create(TierInstrument, InstrumentKind.Level, MeasureForm.Whole, "1",
+                "active quality tier rank", Seq<string>(), None, None, None));
 
     // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes
     // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame. The FIRST
@@ -399,7 +400,8 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Advised(DivergenceInstrument, "1", "per-pass projected-to-measured GPU divergence ratio", MeasureForm.Real, Buckets.DivergenceRatio));
+            InstrumentSpec.Create(DivergenceInstrument, InstrumentKind.Distribution, MeasureForm.Real, "1",
+                "per-pass projected-to-measured GPU divergence ratio", Seq<string>(), Some(Buckets.DivergenceRatio), None, None));
 
     public Seq<double> DivergenceRatios() =>
         Passes.Bind(static pass => pass.Measured.Map(gpu => pass.Projected > Duration.Zero

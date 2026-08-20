@@ -255,7 +255,7 @@ public static partial class Dialect {
 - Owner: `Dialect` owns the byte projection, while `PostImage` carries the exact records, bytes, kind, key, and physical-record count.
 - Law: lowering dispatches through the GENERATED `Switch` over `GNode` and reads the family row inside each arm, so a new node case cannot compile without an arm and a new family cannot fall silently to an unsupported discard.
 - Entry: `Dialect.Emit` is the one public operation and consumes a complete `CutProgram` with `EmitPolicy`.
-- Auto: `GCommand.Admits` discharges the command row's own declared `Requires` and `Modalities` against the dialect, so emission gates only what the parameters decide — rotary addresses, compensation kind, revolution dwell, and arc representation. `GWord.Render` frames and counts only its returned `RenderReceipt.Lines`, so macro assignments, dialect-cycle parameters, subprogram definitions, additive records, and NC1 records cannot escape `BlockCap`.
+- Auto: `GCommand.Admits` discharges the command row's own declared `Requires` and `Modalities` against the dialect, so emission gates only what the parameters decide — rotary addresses, compensation kind, revolution dwell, and arc representation. `GWord.Render` frames and counts only its returned `ProgramRender.Lines`, so macro assignments, dialect-cycle parameters, subprogram definitions, additive records, and NC1 records cannot escape `BlockCap`.
 - Receipt: subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
 - Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
 
@@ -403,7 +403,7 @@ public static partial class Dialect {
 
     private static Fin<GWord> Address(PostDialect dialect, GNode.Word word, Arr<GParam> admitted) =>
         word.Command == GCommand.Wcs || word.Command == GCommand.WcsExtended
-        ? WcsWord(dialect, admitted, word.Command == GCommand.WcsExtended)
+        ? WcsWord(dialect, admitted, word.Command)
         : Fin.Succ<GWord>(new GWord.Address(
             Word(dialect, word.Command.Key),
             word.Command.Group,
@@ -748,13 +748,15 @@ public static partial class Dialect {
         GParam.Number('Y', Math.Round(frame.Origin.Y, dialect.Decimals), ProgramUnits.Metric),
         GParam.Number('Z', Math.Round(frame.Origin.Z, dialect.Decimals), ProgramUnits.Metric));
 
-    private static Fin<GWord> WcsWord(PostDialect dialect, Arr<GParam> words, bool extended) =>
+    // The COMMAND row carries the base-or-extended discriminant, so the selection reads the value it already holds
+    // rather than a mode flag a caller could set against the command it passed.
+    private static Fin<GWord> WcsWord(PostDialect dialect, Arr<GParam> words, GCommand command) =>
         words.Find(static parameter => parameter.Address == 'P')
             .Bind(static parameter => parameter.Value.Scalar)
             .Filter(static value => value is > 0.0 and <= int.MaxValue && value == Math.Truncate(value))
             .Map(static value => checked((int)value))
             .Match(
-                Some: value => extended
+                Some: value => command == GCommand.WcsExtended
                     ? Spelling(dialect, CommandKeys.WcsExtended, WcsSubject).Bind(code => Extended(dialect, code, value))
                     : Base(dialect, value),
                 None: () => Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, WcsSubject)));
@@ -853,7 +855,7 @@ internal static partial class Nc1Map {
 public static class Nc1Canonical {
     private const string Indent = "  ";
 
-    public static GWord Word(SteelImportReceipt receipt) => new GWord.Nc1(Render(receipt.Part), receipt.Key);
+    public static GWord Word(Receipt<SteelImportEvidence> receipt) => new GWord.Nc1(Render(receipt.Evidence.Part), receipt.Key);
 
     public static Seq<string> Render(SteelPart part) =>
         Seq(SteelBlockKind.St.Key)
@@ -889,7 +891,7 @@ public static class Nc1Canonical {
 
 ## [08]-[DELIVERY]
 
-- Owner: `ProgramDelivery` binds a posted `PostImage` to one `CellDriveReceipt`: image key, transferred key, controller, upload state, drive log, operator, record count, and instant.
+- Owner: `ProgramDelivery` binds a posted `PostImage` to one `CellDelivery`: image key, transferred key, controller, upload state, drive log, operator, record count, and instant.
 - Law: `Of` derives controller identity from the RECEIPT and rejects any non-upload, absent payload, or absent controller; `Verified` requires uploaded state, controller identity, and kind-plus-digest equality, so an acknowledgement that transferred a different artifact reads as unverified rather than as a hand-off.
 - Auto: `Of` fires `FabricationFact.Delivery.Of` onto `rasm.fabrication.delivery.programs` through `Process/telemetry` as kind `delivery`; operator classification redacts shop identity.
 - Receipt: `Documentation/traveler` reads `Verified` as hold evidence.
@@ -912,7 +914,7 @@ public sealed record ProgramDelivery(
 
     public static Fin<ProgramDelivery> Of(
         PostImage image,
-        CellDriveReceipt drive,
+        CellDelivery drive,
         Instant at,
         FabricationTap? tap = null,
         Option<string> operatorId = default) =>

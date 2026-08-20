@@ -246,10 +246,9 @@ public static class SloTiles {
     // ticket-slow one raised the same toast and the tile badge, which reads the WORST live crossing, could no
     // longer tell which of them was paging.
     static Fin<ChartSeverity> Inked(BurnRow row) =>
-        ChartSeverity.TryGet(row.Severity.Tone, out ChartSeverity? found) && found is not null
+        ChartSeverity.TryGet(row.Severity.Posture.Key, out ChartSeverity? found) && found is not null
             ? Fin.Succ(found)
-            : Fin.Fail<ChartSeverity>(new ChartFault.SpecRejected(
-                $"burn/{row.Key}: tone {row.Severity.Tone} names no chart severity"));
+            : Fin.Fail<ChartSeverity>(new ChartFault.SpecRejected($"burn/{row.Key}: posture {row.Severity.Posture.Key} names no chart severity"));
 
     // The gauge's fill steps are the SAME crossing the watch rule arms on, expressed as a percentage of the
     // gauge's own doubled range: the arc changes colour exactly where the alert fires, so a viewer reading a

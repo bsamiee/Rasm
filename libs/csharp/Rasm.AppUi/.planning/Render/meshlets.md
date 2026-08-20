@@ -589,10 +589,12 @@ public sealed record ResidencyBudget(
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Level(EvictInstrument, "{page}", "tiles the current plan marked for eviction", MeasureForm.Whole),
-            InstrumentSpec.Level(PrefetchInstrument, "{page}", "tiles the current plan queued for prefetch", MeasureForm.Whole),
-            InstrumentSpec.Levels(PoolInstrument, "By", "planned VRAM bytes by residency pool",
-                MeasureForm.Whole, AppUiTelemetry.PoolSlot));
+            InstrumentSpec.Create(EvictInstrument, InstrumentKind.Level, MeasureForm.Whole, "{page}",
+                "tiles the current plan marked for eviction", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(PrefetchInstrument, InstrumentKind.Level, MeasureForm.Whole, "{page}",
+                "tiles the current plan queued for prefetch", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(PoolInstrument, InstrumentKind.Levels, MeasureForm.Whole, "By",
+                "planned VRAM bytes by residency pool", Seq<string>(), None, Some(AppUiTelemetry.PoolSlot), None));
 
     // Levels beside their writer: `Render/pipeline#RENDER_GRAPH` `RenderGraph.Observe` is the one call site — it
     // takes the frame's accepted plan beside the receipt it just sealed and chains this fold, so the gauges and

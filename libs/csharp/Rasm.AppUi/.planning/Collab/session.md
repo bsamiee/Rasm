@@ -379,10 +379,10 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
     // the keyed family, so a session that empties surfaces as a falling gauge rather than a stale count.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(AdmissionInstrument, "{admission}", "session admissions by document and outcome",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot, AppUiTelemetry.OutcomeSlot),
-            InstrumentSpec.Levels(MembersInstrument, "{peer}", "joined session members by document",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot));
+            InstrumentSpec.Create(AdmissionInstrument, InstrumentKind.Count, MeasureForm.Whole, "{admission}",
+                "session admissions by document and outcome", Seq(AppUiTelemetry.DocSlot, AppUiTelemetry.OutcomeSlot), None, None, None),
+            InstrumentSpec.Create(MembersInstrument, InstrumentKind.Levels, MeasureForm.Whole, "{peer}",
+                "joined session members by document", Seq<string>(), None, Some(AppUiTelemetry.DocSlot), None));
 
     // The composition-bound Observe modality: the gate holds the typed verdict in hand, so the fact enters
     // here rather than through a receipt-fan arm minted to carry it. The tag keys and the declared Dimensions

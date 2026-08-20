@@ -552,7 +552,7 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 |  [12]   | closable tag                | admitted  | `Chip` removable posture — the dismiss command is the tag's own        |
 |  [13]   | skeleton                    | admitted  | `Progress` skeleton form — shimmer standing in for absent content      |
 |  [14]   | inline banner               | admitted  | `Banner` — the persistent condition strip a transient note cannot own  |
-|  [15]   | badge                       | refused   | a WRAPPER whose host type is not the intent's — the pool key would lie |
+|  [15]   | badge                       | refused   | WRAPPER host type diverges from the intent's — the pool key lies |
 |  [16]   | busy overlay and its glyph  | refused   | in-control progress IS the icon slot's pending key                     |
 |  [17]   | inline-markdown text block  | refused   | its parser reaches inline spans alone; document markdown owns the rest |
 |  [18]   | message box                 | refused   | duplicates the `Shell/dialogs` confirm session under a second stack    |
@@ -615,8 +615,10 @@ public static partial class ControlFactory {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(MaterializedInstrument, "{control}", "controls materialized by intent case", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{control}", "control intents rejected", MeasureForm.Whole));
+            InstrumentSpec.Create(MaterializedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{control}",
+                "controls materialized by intent case", Seq(AppUiTelemetry.IntentSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{control}",
+                "control intents rejected", Seq<string>(), None, None, None));
 
     // Composition binds this projection beside the context's Evidence column, so both counts derive
     // from the one materialize fold outcome and no dispatch arm touches the meter.

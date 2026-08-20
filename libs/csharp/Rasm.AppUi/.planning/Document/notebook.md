@@ -358,8 +358,8 @@ public static class NotebookReplay {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(MismatchInstrument, "{mismatch}", "replay digest mismatches by notebook",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot));
+            InstrumentSpec.Create(MismatchInstrument, InstrumentKind.Count, MeasureForm.Whole, "{mismatch}",
+                "replay digest mismatches by notebook", Seq(AppUiTelemetry.DocSlot), None, None, None));
 
     // The declared row's FIRE SITE: composition binds this projection at the `Verify` outcome so the
     // mismatch count reaches the mounted series off the verification the caller already ran, and the

@@ -511,9 +511,10 @@ public static class DocumentSearch {
     // spells, the Dimensions each row declares, and the slot each description names are one vocabulary.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(HitInstrument, "{hit}", "search hits by source", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Advised(LatencyInstrument, "s", "search fold duration by source", MeasureForm.Real,
-                Buckets.InteractionSeconds, AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(HitInstrument, InstrumentKind.Count, MeasureForm.Whole, "{hit}",
+                "search hits by source", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(LatencyInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "search fold duration by source", Seq(AppUiTelemetry.SourceSlot), Some(Buckets.InteractionSeconds), None, None));
 
     // The composition-bound Observe modality: the run holds the typed result set in hand, so the fact
     // enters here rather than through a receipt-fan arm minted to carry it. A scoped source that matched

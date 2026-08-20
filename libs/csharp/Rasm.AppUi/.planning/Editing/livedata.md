@@ -1212,20 +1212,20 @@ public static class LiveDataOps {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(ChangesInstrument, "{change}", "live change-set operations by slot and change kind", MeasureForm.Whole,
-                AppUiTelemetry.SlotSlot, AppUiTelemetry.ChangeSlot),
-            InstrumentSpec.Count(FaultsInstrument, "{fault}", "live-data faults by slot and fault code", MeasureForm.Whole,
-                AppUiTelemetry.SlotSlot, AppUiTelemetry.FaultSlot),
+            InstrumentSpec.Create(ChangesInstrument, InstrumentKind.Count, MeasureForm.Whole, "{change}",
+                "live change-set operations by slot and change kind", Seq(AppUiTelemetry.SlotSlot, AppUiTelemetry.ChangeSlot), None, None, None),
+            InstrumentSpec.Create(FaultsInstrument, InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+                "live-data faults by slot and fault code", Seq(AppUiTelemetry.SlotSlot, AppUiTelemetry.FaultSlot), None, None, None),
             // Both standing facts are PUSHED gauges rather than pulled level families: each arrives on an Rx
             // emission the projection below writes at, and each carries dimensions the pulled family's one
             // key cannot express — a keyed family declares a tag beside its dimensions and its cells are read
             // through the level entry, so declaring these there would leave the health facet unwritable and
             // route every write onto the pushed-row refusal, which reports a rail that carried while the
             // series stays permanently empty.
-            InstrumentSpec.Reading(AgeInstrument, "s", "live feed age since last delivery by slot and health", MeasureForm.Real,
-                AppUiTelemetry.SlotSlot, AppUiTelemetry.SeveritySlot),
-            InstrumentSpec.Reading(PendingInstrument, "{mutation}", "optimistic mutations awaiting acknowledgment by slot", MeasureForm.Whole,
-                AppUiTelemetry.SlotSlot));
+            InstrumentSpec.Create(AgeInstrument, InstrumentKind.Reading, MeasureForm.Real, "s",
+                "live feed age since last delivery by slot and health", Seq(AppUiTelemetry.SlotSlot, AppUiTelemetry.SeveritySlot), None, None, None),
+            InstrumentSpec.Create(PendingInstrument, InstrumentKind.Reading, MeasureForm.Whole, "{mutation}",
+                "optimistic mutations awaiting acknowledgment by slot", Seq(AppUiTelemetry.SlotSlot), None, None, None));
 
     // The one `Action<Error>` rail IS the producer this row's description names: composition binds the
     // projection at the capsule's fault edge, so every LiveDataFault the Rx-to-rail fold raises counts once

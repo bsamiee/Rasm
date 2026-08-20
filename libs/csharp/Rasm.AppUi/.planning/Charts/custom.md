@@ -669,10 +669,12 @@ public static partial class CustomVisuals {
     // direct around Layout, where the measured fold value is in hand.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(RenderedInstrument, "{render}", "custom-visual tiles rendered", MeasureForm.Whole),
-            InstrumentSpec.Advised(LayoutInstrument, "s", "custom-visual layout-fold duration", MeasureForm.Real, Buckets.InteractionSeconds),
-            InstrumentSpec.Count(SuppressedInstrument, "{label}", "custom-visual labels the declutter fold dropped",
-                MeasureForm.Whole, AppUiTelemetry.IntentSlot));
+            InstrumentSpec.Create(RenderedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{render}",
+                "custom-visual tiles rendered", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(LayoutInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "custom-visual layout-fold duration", Seq<string>(), Some(Buckets.InteractionSeconds), None, None),
+            InstrumentSpec.Create(SuppressedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{label}",
+                "custom-visual labels the declutter fold dropped", Seq(AppUiTelemetry.IntentSlot), None, None, None));
 
     // The suppressed-label projection binds at the SEALED RECORD, which is the one place the count exists,
     // and carries the kind on the declared slot so an over-dense sankey and an over-dense treemap stay two

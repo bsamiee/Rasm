@@ -817,8 +817,10 @@ public static class MediaSurfaces {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(MountedInstrument, "{mount}", "media surfaces mounted by codec", MeasureForm.Whole, AppUiTelemetry.CodecSlot),
-            InstrumentSpec.Count(FailedInstrument, "{mount}", "media mounts failed by codec", MeasureForm.Whole, AppUiTelemetry.CodecSlot));
+            InstrumentSpec.Create(MountedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{mount}",
+                "media surfaces mounted by codec", Seq(AppUiTelemetry.CodecSlot), None, None, None),
+            InstrumentSpec.Create(FailedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{mount}",
+                "media mounts failed by codec", Seq(AppUiTelemetry.CodecSlot), None, None, None));
 
     // The one codec dispatch: EVERY arm completes its intake on the rail, so a receipt reports what actually
     // resolved, and the receipt seals mounted and failed alike through the composition-bound sink.
@@ -1437,10 +1439,10 @@ public static class CaptionTrack {
     // number that names no source to go fix.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CueInstrument, "{cue}", "caption cues emitted by media source",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot),
-            InstrumentSpec.Count(LowConfidenceInstrument, "{cue}", "caption cues below the confidence floor by media source",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot));
+            InstrumentSpec.Create(CueInstrument, InstrumentKind.Count, MeasureForm.Whole, "{cue}",
+                "caption cues emitted by media source", Seq(AppUiTelemetry.DocSlot), None, None, None),
+            InstrumentSpec.Create(LowConfidenceInstrument, InstrumentKind.Count, MeasureForm.Whole, "{cue}",
+                "caption cues below the confidence floor by media source", Seq(AppUiTelemetry.DocSlot), None, None, None));
 
     // A cue below this probability is counted rather than dropped: a low-confidence caption is still better
     // than a gap, and the count is what tells an operator the model or the audio is wrong.

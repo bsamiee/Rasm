@@ -192,9 +192,10 @@ public static class CompareCells {
     // over unrun coordinates reads as a real signal rather than as an unexplained empty surface.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Level(CellsInstrument, "{cell}", "compare cells mounted", MeasureForm.Whole),
-            InstrumentSpec.Count(BoundInstrument, "{cell}", "compare cells resolving a sealed result",
-                MeasureForm.Whole, AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(CellsInstrument, InstrumentKind.Level, MeasureForm.Whole, "{cell}",
+                "compare cells mounted", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(BoundInstrument, InstrumentKind.Count, MeasureForm.Whole, "{cell}",
+                "compare cells resolving a sealed result", Seq(AppUiTelemetry.SourceSlot), None, None, None));
 
     // The plane's ONE observation, so a declared instrument cannot stand without a producer: the mounted depth
     // as a LEVEL and the cells that resolved a sealed result as a COUNT keyed by the grid that walked them. A

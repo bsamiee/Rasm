@@ -1050,12 +1050,16 @@ public sealed record LiveWire(
     // a stale count.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(AppliedInstrument, "{merge}", "collab merges applied by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{merge}", "collab merges rejected by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
-            InstrumentSpec.Count(DeltasInstrument, "{delta}", "collab deltas imported by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
-            InstrumentSpec.Count(SizeInstrument, "By", "collab delta payload size imported by document", MeasureForm.Whole, AppUiTelemetry.DocSlot),
-            InstrumentSpec.Levels(PendingInstrument, "{span}", "pending collab spans awaiting merge by document",
-                MeasureForm.Whole, AppUiTelemetry.DocSlot));
+            InstrumentSpec.Create(AppliedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{merge}",
+                "collab merges applied by document", Seq(AppUiTelemetry.DocSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{merge}",
+                "collab merges rejected by document", Seq(AppUiTelemetry.DocSlot), None, None, None),
+            InstrumentSpec.Create(DeltasInstrument, InstrumentKind.Count, MeasureForm.Whole, "{delta}",
+                "collab deltas imported by document", Seq(AppUiTelemetry.DocSlot), None, None, None),
+            InstrumentSpec.Create(SizeInstrument, InstrumentKind.Count, MeasureForm.Whole, "By",
+                "collab delta payload size imported by document", Seq(AppUiTelemetry.DocSlot), None, None, None),
+            InstrumentSpec.Create(PendingInstrument, InstrumentKind.Levels, MeasureForm.Whole, "{span}",
+                "pending collab spans awaiting merge by document", Seq<string>(), None, Some(AppUiTelemetry.DocSlot), None));
 
     // Each local delta frames with the injected W3C carrier before it reaches the transport, so the
     // broadcast is a CollabFrame (carrier + bytes), never bare bytes; the injection reads the ambient frame

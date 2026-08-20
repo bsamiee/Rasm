@@ -1297,8 +1297,10 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CommittedInstrument, "{commit}", "form commits applied by schema", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{commit}", "form commits rejected by schema", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot));
+            InstrumentSpec.Create(CommittedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{commit}",
+                "form commits applied by schema", Seq(AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{commit}",
+                "form commits rejected by schema", Seq(AppUiTelemetry.SurfaceSlot), None, None, None));
 
     // Every marked field contributes one `Set` delta carrying the committed value it displaced, so the
     // composite inverts field by field without re-reading a snapshot the apply already superseded. An absent
@@ -1325,8 +1327,10 @@ public static class BatchEdit {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(AppliedInstrument, "{batch}", "batch edits applied by verb intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{batch}", "batch edits rejected by verb intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot));
+            InstrumentSpec.Create(AppliedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{batch}",
+                "batch edits applied by verb intent", Seq(AppUiTelemetry.IntentSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{batch}",
+                "batch edits rejected by verb intent", Seq(AppUiTelemetry.IntentSlot), None, None, None));
 
     // The ONE command-outcome admission every fold on this page takes. `CommandIntent.Run` is TOTAL — its
     // catch rail seals a receipt for a rejected, cancelled, and faulted execution exactly as it does for a

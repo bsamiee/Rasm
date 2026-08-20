@@ -545,8 +545,15 @@ public static class ThemeCatalog {
 
     const double EmphasisFalloff = 0.82d;
 
+    // The tonal crossing is fallible at the kernel — a degenerate-chroma seed carries no HCT hue — so a rung the
+    // owner refuses fails the whole ramp rather than landing a substituted colour the roster cannot attribute.
     static Fin<Seq<(TokenKey Key, Color Value)>> Sweep(PaintRole role, Color anchor, Seq<UnitInterval> tones, RampPolicy ramp, VariantProjection projection) =>
-        Admit(anchor).Map(origin => tones.Map((tone, rung) => (role.At(rung), Avalonia(Chroma(origin.Tone(tone), projection), ramp.Gamut))));
+        from origin in Admit(anchor)
+        from swept in tones.Map(static (tone, rung) => (Tone: tone, Rung: rung))
+            .Traverse(step => origin.Tone(tone: step.Tone)
+                .Map(colour => (role.At(step.Rung), Avalonia(Chroma(colour, projection), ramp.Gamut))))
+            .As()
+        select swept;
 
     static Seq<UnitInterval> Ordered(Seq<UnitInterval> ladder, VariantProjection projection) =>
         projection.Ascending ? ladder.Rev() : ladder;

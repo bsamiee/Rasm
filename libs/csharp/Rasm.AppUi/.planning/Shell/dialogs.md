@@ -995,12 +995,12 @@ public static class ToastGate {
     // both onto one dimension key would count a shown note twice under values no board could separate.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(PresentedInstrument, "{toast}", "toast admissions by outcome and surface", MeasureForm.Whole,
-                AppUiTelemetry.OutcomeSlot, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Count(DismissedInstrument, "{dismissal}", "presented toasts by close cause and surface", MeasureForm.Whole,
-                AppUiTelemetry.CauseSlot, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Levels(UnreadInstrument, "{entry}", "unread activity entries by source", MeasureForm.Whole,
-                AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(PresentedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{toast}",
+                "toast admissions by outcome and surface", Seq(AppUiTelemetry.OutcomeSlot, AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(DismissedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{dismissal}",
+                "presented toasts by close cause and surface", Seq(AppUiTelemetry.CauseSlot, AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(UnreadInstrument, InstrumentKind.Levels, MeasureForm.Whole, "{entry}",
+                "unread activity entries by source", Seq<string>(), None, Some(AppUiTelemetry.SourceSlot), None));
 
     // The cause IS the discriminant, so one total projection serves both writes and neither counts the
     // other's receipts: an admission carries no cause and a seal carries exactly one.

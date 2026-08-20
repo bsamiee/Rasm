@@ -14,7 +14,7 @@
 - Entry: `CurveAlgebra.Apply(CurveOp)` is the sole public operation, and every case carries its own `Op?` key — the kernel entry's own provenance shape, taken verbatim at the boundary it crosses.
 - Law: `Narrowed` is the ONE kernel-union narrowing gate. Narrowing asks one question — is the returned case the requested one — so a generated total `Switch` whose every other arm returns the same refusal spells that question once per case; the type test spells it once per CALL, and a kernel union gaining a case grows this page by nothing.
 - Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
-- Receipt: `CurveAdmissionReceipt` retains sample cardinality or the complete arc bridge receipt. `CurveLoweringReceipt` discriminates chord-only and recovered-arc evidence without an optional recovery field.
+- Receipt: `CurveAdmissionReceipt` retains sample cardinality or the complete arc bridge evidence. `CurveLoweringReceipt` discriminates chord-only and recovered-arc evidence without an optional recovery field.
 - Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed rails; `Thinktecture` generates every closed request, result, and value owner.
 - Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
@@ -90,8 +90,8 @@ public abstract partial record CurveOp {
 [Union]
 public abstract partial record CurveAdmissionReceipt {
     public sealed record Samples(int Input, int FitSamples, SampleClosure Closure) : CurveAdmissionReceipt;
-    public sealed record Outline(DensifyReceipt Receipt) : CurveAdmissionReceipt;
-    public sealed record Chords(RecoverReceipt Receipt) : CurveAdmissionReceipt;
+    public sealed record Outline(DensifyEvidence Evidence) : CurveAdmissionReceipt;
+    public sealed record Chords(RecoverEvidence Evidence) : CurveAdmissionReceipt;
 }
 
 [Union]
@@ -102,7 +102,7 @@ public abstract partial record CurveLoweringReceipt {
     public sealed record Recovered(
         ParametricResult.Division Division,
         double MaximumMidpointDeviation,
-        RecoverReceipt Recovery) : CurveLoweringReceipt;
+        RecoverEvidence Recovery) : CurveLoweringReceipt;
 }
 
 [Union]
@@ -132,7 +132,7 @@ public static class CurveAlgebra {
             select fitted,
         outline: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Lower(request.Profile, request.ChordError))
-            from receipt in trace.DensifiedReceipt.ToFin(
+            from receipt in trace.Lowering(
                 new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:outline"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
@@ -145,9 +145,7 @@ public static class CurveAlgebra {
         chords: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 request.Profile, request.FitError, request.ProbeFloor))
-            // `ArcTrace` publishes one projection — the densified receipt — so the recovery case reads its own
-            // arm directly rather than a symmetric projection its owner deliberately refused to mint.
-            from receipt in (trace is ArcTrace.Recovered recovered ? Some(recovered.Receipt) : None).ToFin(
+            from receipt in trace.Recovery(
                 new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:chords"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
@@ -184,7 +182,7 @@ public static class CurveAlgebra {
                 row.Chords,
                 lowering.Error,
                 lowering.ProbeFloor))
-            from receipt in (trace is ArcTrace.Recovered recovered ? Some(recovered.Receipt) : None).ToFin(
+            from receipt in trace.Recovery(
                 new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-lower:recover"))
             select (CurveTrace)new CurveTrace.Lowered(
                 receipt.Result,

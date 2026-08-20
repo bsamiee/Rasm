@@ -641,6 +641,7 @@ const Residency: {
 - Law: Serialization and container stay separate axes whose product is SPARSE on both crossings — a wrapper names the serializations it carries and never the text inside them, so `zip` admits STEP and XML alone, and each serialization names the releases it publishes for, so `Ifc.published` refuses an unpublished pair by row where a cross product admits a document no schema validates.
 - Law: `IFC4X3` publishes under no serialization — the ISO-approved 4.3 line carries the `IFC4X3_ADD2` identifier and every published 4.3 artifact spells it, so the roster keeps the token to NAME that refusal rather than failing an unknown literal at decode.
 - Law: `ifcx` is IFC5's own encoding rather than a `json` release — a document there carries its release at `header.ifcxVersion` where ifcJSON reads `schemaIdentifier`, so folding IFC5 onto the JSON row forks two vocabularies into one member read; that `json` row itself publishes against a community-maintained schema where `step` and `xml` publish against the ISO editions, a weaker claim its consumers price at the seam.
+- Law: The C# producer of record — `libs/csharp/Rasm.Bim/.planning/Projection/wireform.md` `IfcWireForm` — crosses the same two axes and DECLARES `ifcx` a refusal it identifies but never authors, its release map giving IFC5 no writer, so a document on that row arrives from a foreign producer and never from this estate. The refusal is a stated row on both ends rather than a shape one end silently lacks.
 - Law: Each serialization declares the header member carrying its release, so admission reads a named member rather than guessing.
 - Law: `sniff` prices the release read, and an inflating container raises its serialization's extent to the whole document.
 - Law: Rows decide selection, admission, and `degrade` alone — a wire form realizes no tenancy and ends no lifetime.
@@ -687,6 +688,8 @@ const _ifcRows = {
     releases: ["IFC4"],
     degrade: "<release-unknown-before-whole-document>",
   },
+  // Read-only against this estate: the C# producer declares this row a refusal it names rather than a form it
+  // writes, so a payload here is foreign in origin and the decoder is its only end.
   ifcx: {
     extension: ".ifcx",
     header: "header.ifcxVersion",

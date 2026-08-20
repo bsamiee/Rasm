@@ -1009,12 +1009,12 @@ public static class CommitSurface {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CommitInstrument, "{commit}", "grid commits by intent and outcome", MeasureForm.Whole,
-                AppUiTelemetry.IntentSlot, AppUiTelemetry.OutcomeSlot),
-            InstrumentSpec.Count(PasteInstrument, "{cell}", "pasted cells by intent and outcome", MeasureForm.Whole,
-                AppUiTelemetry.IntentSlot, AppUiTelemetry.OutcomeSlot),
-            InstrumentSpec.Count(ExportInstrument, "{export}", "tabular exports by destination and outcome", MeasureForm.Whole,
-                AppUiTelemetry.SlotSlot, AppUiTelemetry.OutcomeSlot));
+            InstrumentSpec.Create(CommitInstrument, InstrumentKind.Count, MeasureForm.Whole, "{commit}",
+                "grid commits by intent and outcome", Seq(AppUiTelemetry.IntentSlot, AppUiTelemetry.OutcomeSlot), None, None, None),
+            InstrumentSpec.Create(PasteInstrument, InstrumentKind.Count, MeasureForm.Whole, "{cell}",
+                "pasted cells by intent and outcome", Seq(AppUiTelemetry.IntentSlot, AppUiTelemetry.OutcomeSlot), None, None, None),
+            InstrumentSpec.Create(ExportInstrument, InstrumentKind.Count, MeasureForm.Whole, "{export}",
+                "tabular exports by destination and outcome", Seq(AppUiTelemetry.SlotSlot, AppUiTelemetry.OutcomeSlot), None, None, None));
 
     // Every projection binds where the typed disposition is already in hand — the gate outcome at the edit
     // hook, the plan outcome at the paste fold, the delivery outcome at the export fold — so each contributed

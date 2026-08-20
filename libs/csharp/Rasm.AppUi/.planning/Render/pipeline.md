@@ -683,10 +683,12 @@ public sealed class RenderGraph(
     // bare strands the pack with no carrier, leaving a reliability policy no mount ever admits.
     public static TelemetryContributorPort TelemetryRow(string version, FrameBudget budget) =>
         AppUiTelemetry.Contribute(version, ViewportObjectives.Pack(budget),
-            InstrumentSpec.Advised(FrameInstrument, "s", "frame wall duration", MeasureForm.Real, Buckets.UiFrameSeconds, AppUiTelemetry.BackendSlot),
-            InstrumentSpec.Advised(GpuInstrument, "s", "measured GPU duration per frame", MeasureForm.Real, Buckets.UiFrameSeconds,
-                AppUiTelemetry.PassSlot, AppUiTelemetry.UnmeasuredSlot),
-            InstrumentSpec.Count(OverrunInstrument, "{frame}", "frames exceeding the frame budget", MeasureForm.Whole));
+            InstrumentSpec.Create(FrameInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "frame wall duration", Seq(AppUiTelemetry.BackendSlot), Some(Buckets.UiFrameSeconds), None, None),
+            InstrumentSpec.Create(GpuInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "measured GPU duration per frame", Seq(AppUiTelemetry.PassSlot, AppUiTelemetry.UnmeasuredSlot), Some(Buckets.UiFrameSeconds), None, None),
+            InstrumentSpec.Create(OverrunInstrument, InstrumentKind.Count, MeasureForm.Whole, "{frame}",
+                "frames exceeding the frame budget", Seq<string>(), None, None, None));
 
     // Frame timing rides the direct rail: composition binds this projection at the retire site where the typed
     // receipt AND the frame's accepted residency plan are both in hand, so the per-frame path never serializes an

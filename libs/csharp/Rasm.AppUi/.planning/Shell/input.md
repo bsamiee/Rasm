@@ -640,11 +640,16 @@ public static class InputDrivers {
     // tag counts a lie no board can then separate.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(ResolvedInstrument, "{device}", "input devices resolved by driver case", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(AbsentInstrument, "{device}", "input devices absent at open", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{sample}", "device reports refused at decode", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(ArmedInstrument, "{device}", "device actuators armed by driver case", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(UnarmedInstrument, "{device}", "device actuators absent at arm", MeasureForm.Whole, AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(ResolvedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{device}",
+                "input devices resolved by driver case", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(AbsentInstrument, InstrumentKind.Count, MeasureForm.Whole, "{device}",
+                "input devices absent at open", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{sample}",
+                "device reports refused at decode", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(ArmedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{device}",
+                "device actuators armed by driver case", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(UnarmedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{device}",
+                "device actuators absent at arm", Seq(AppUiTelemetry.SourceSlot), None, None, None));
 
     // The two legs of one capsule family: Open owns the source side, Arm the actuator side, and a backend
     // carrying only one of them seals BindingRejected on the other rather than exposing a half surface.

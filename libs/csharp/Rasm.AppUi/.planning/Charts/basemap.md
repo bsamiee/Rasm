@@ -427,11 +427,12 @@ public sealed record BasemapSurface(MapControl Control) {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(LayersInstrument, "{rebuild}", "layer-set rebuilds swapped onto the mounted map", MeasureForm.Whole),
-            InstrumentSpec.Count(NavigatedInstrument, "{navigation}", "camera moves by verb case", MeasureForm.Whole,
-                AppUiTelemetry.IntentSlot),
-            InstrumentSpec.Count(TileHealthInstrument, "{transition}", "tile fetch-state transitions by state", MeasureForm.Whole,
-                AppUiTelemetry.OutcomeSlot));
+            InstrumentSpec.Create(LayersInstrument, InstrumentKind.Count, MeasureForm.Whole, "{rebuild}",
+                "layer-set rebuilds swapped onto the mounted map", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(NavigatedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{navigation}",
+                "camera moves by verb case", Seq(AppUiTelemetry.IntentSlot), None, None, None),
+            InstrumentSpec.Create(TileHealthInstrument, InstrumentKind.Count, MeasureForm.Whole, "{transition}",
+                "tile fetch-state transitions by state", Seq(AppUiTelemetry.OutcomeSlot), None, None, None));
 }
 ```
 
@@ -439,7 +440,7 @@ public sealed record BasemapSurface(MapControl Control) {
 
 - Owner: `GeoOverlayRow` — the per-feature overlay row carrying the Bim-owned `GeoFeature` WHOLE (geometry, attribute table, declared `SourceCrs`) plus its display label and its source-layer key; `GeoOverlay` — the projection fold from Bim geospatial output to a Mapsui vector layer, and the choropleth seam projecting the theme colormap vocabulary onto the package's own gradient thematics; `GeoTileProvider` — the Bim MVT pyramid as one ordinary `IProvider`, decoding each covering tile through the seam codec into the same row shape a resident overlay carries.
 - Entry: `public static Fin<ILayer> Layer(BasemapLayerRow.Overlay overlay)` — one fold; each row's consumed feature wraps as `Mapsui.Nts.GeometryFeature`, styles resolve from the row's `Symbology` selector, and the layer mounts as one provider-decorated `Layer`; `public static Fin<ILayer> Layer(BasemapLayerRow.Vectors vectors)` — the same mount over the tiled provider, so a resident set and a pyramid differ by their source alone; `public static Fin<Func<IFeature, Viewport, IStyle?>> Choropleth(Colormap map, string column, double floor, double ceiling, int steps)` — the graduated selector, the colormap's own sampled stops handed to the package's `GradientTheme` through one `ColorBlend`.
-- Auto: features ARRIVE as Bim-owned `GeoFeature` rows carrying their `GeoReference` lineage (the `GeoReferenceProjector` IfcMapConversion/IfcProjectedCRS lowering) already reprojected to WGS-84 by Bim's `GeoFeature.Reproject` — the declared seam, both sides (`Rasm.Bim` Semantics/geospatial -> AppUi Charts) — so the row's `SourceCrs`/SRID state IS the CRS evidence the gate reads; AppUi's ONLY reprojection is WGS-84 lon/lat -> EPSG:3857 through `SphericalMercator.FromLonLat` under `ProjectionDefaults.Projection` at the layer-build edge.
+- Auto: features ARRIVE as Bim-owned `GeoFeature` rows carrying their `GeoReference` lineage (the `GeoReferenceProjector` IfcMapConversion/IfcProjectedCRS lowering) already reprojected to WGS-84 by Bim's `GeoFeature.Reproject` — the declared seam, both sides (`Rasm.Bim` Semantics/feature -> AppUi Charts) — so the row's `SourceCrs`/SRID state IS the CRS evidence the gate reads; AppUi's ONLY reprojection is WGS-84 lon/lat -> EPSG:3857 through `SphericalMercator.FromLonLat` under `ProjectionDefaults.Projection` at the layer-build edge.
 - Receipt: an overlay row whose feature still declares a projected frame (or a non-4326 SRID) folds to `ChartFault.CrsUnresolved` — the ingress law enforced as a typed fault, never a silent draw at wrong coordinates.
 - Packages: Mapsui.Avalonia12, Mapsui.Nts, BruTile, Rasm.Bim (project), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new overlay family (site boundary, utility run, parcel, analysis heat cells) is a seq of rows on one Overlay layer row, and attribute-driven symbology within a family is one `Symbology` selector reading the consumed `GeoFeature` attribute table — never a layer per attribute value; a new tiled vector source is one `Vectors` row naming its schema and its fetch; a new graduated thematic is one `Colormap` row and one `Choropleth` call, never a per-class style roster; zero new surface.
@@ -454,7 +455,7 @@ public sealed record BasemapSurface(MapControl Control) {
 // shape serves both ingresses and neither needs a family of its own.
 public sealed record GeoOverlayRow(
     string FeatureId,
-    Rasm.Bim.Semantics.GeoFeature Feature,
+    Rasm.Bim.GeoFeature Feature,
     Option<string> Label,
     Option<string> Source);
 
@@ -480,7 +481,7 @@ public sealed class GeoTileProvider(
         Seq<TileInfo> covering = toSeq(schema.GetTileInfos(info.Extent.ToExtent(), info.Resolution)).Strict();
         IFeature[][] tiles = await Task.WhenAll(covering.Map(async tile => {
             ReadOnlyMemory<byte> bytes = await fetch(tile);
-            return Rasm.Bim.Semantics.GeoTiles
+            return Rasm.Bim.GeoTiles
                 .Decode(bytes, tile.Index.Col, tile.Index.Row, tile.Index.Level, Op.Of(name: "basemap-mvt"))
                 .Map(rows => rows.Map((row, ordinal) => new GeoOverlayRow(
                     $"{tile.Index.Level}/{tile.Index.Col}/{tile.Index.Row}/{ordinal}", row.Feature, None, Some(row.Layer))))
@@ -1166,8 +1167,8 @@ public sealed record RedlineSurface(
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(GestureInstrument, "{gesture}", "redline gestures by disposition", MeasureForm.Whole,
-                AppUiTelemetry.OutcomeSlot));
+            InstrumentSpec.Create(GestureInstrument, InstrumentKind.Count, MeasureForm.Whole, "{gesture}",
+                "redline gestures by disposition", Seq(AppUiTelemetry.OutcomeSlot), None, None, None));
 }
 ```
 

@@ -298,8 +298,10 @@ public static partial class InspectorSurface {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CommittedInstrument, "{edit}", "edits committed by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot),
-            InstrumentSpec.Count(RejectedInstrument, "{edit}", "edits rejected by surface", MeasureForm.Whole, AppUiTelemetry.SurfaceSlot));
+            InstrumentSpec.Create(CommittedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{edit}",
+                "edits committed by surface", Seq(AppUiTelemetry.SurfaceSlot), None, None, None),
+            InstrumentSpec.Create(RejectedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{edit}",
+                "edits rejected by surface", Seq(AppUiTelemetry.SurfaceSlot), None, None, None));
 }
 ```
 

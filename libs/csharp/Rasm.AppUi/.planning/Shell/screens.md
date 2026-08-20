@@ -342,10 +342,12 @@ public abstract partial class ScreenBase : ReactiveObject, IActivatableViewModel
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(ActivatedInstrument, "{activation}", "screen activations by screen id", MeasureForm.Whole, AppUiTelemetry.ScreenSlot),
-            InstrumentSpec.Count(SuspendedInstrument, "{suspension}", "screen suspensions by trigger", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Levels(DisposablesInstrument, "{disposable}", "live disposables by screen id",
-                MeasureForm.Whole, AppUiTelemetry.ScreenSlot));
+            InstrumentSpec.Create(ActivatedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{activation}",
+                "screen activations by screen id", Seq(AppUiTelemetry.ScreenSlot), None, None, None),
+            InstrumentSpec.Create(SuspendedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{suspension}",
+                "screen suspensions by trigger", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(DisposablesInstrument, InstrumentKind.Levels, MeasureForm.Whole, "{disposable}",
+                "live disposables by screen id", Seq<string>(), None, Some(AppUiTelemetry.ScreenSlot), None));
 
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend("drain")).As().Map(static _ => unit));
@@ -1434,10 +1436,14 @@ public static class RunQueueSurface {
         AppUiTelemetry.Contribute(version,
             // Depth is a bare level with NO keyed family, so it takes `Level` — `Levels` demands the tag its
             // panels break on, and a keyed factory called with no key is a family that declares nothing.
-            InstrumentSpec.Level(DepthInstrument, "{run}", "runs awaiting or in flight", MeasureForm.Whole),
-            InstrumentSpec.Count(CompletedInstrument, "{run}", "runs completed by job intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
-            InstrumentSpec.Count(FailedInstrument, "{run}", "runs failed by job intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
-            InstrumentSpec.Count(RetriedInstrument, "{run}", "runs retried by job intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot));
+            InstrumentSpec.Create(DepthInstrument, InstrumentKind.Level, MeasureForm.Whole, "{run}",
+                "runs awaiting or in flight", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(CompletedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{run}",
+                "runs completed by job intent", Seq(AppUiTelemetry.IntentSlot), None, None, None),
+            InstrumentSpec.Create(FailedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{run}",
+                "runs failed by job intent", Seq(AppUiTelemetry.IntentSlot), None, None, None),
+            InstrumentSpec.Create(RetriedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{run}",
+                "runs retried by job intent", Seq(AppUiTelemetry.IntentSlot), None, None, None));
 
     // The one verb key the card's single action button carries. A status naming no verb refuses here rather
     // than rendering a dead button, so the absence is a value the body reads and never a disabled control.

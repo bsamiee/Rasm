@@ -1,6 +1,6 @@
 # [PY_RUNTIME_CLOCK]
 
-One logical-time owner serves the whole branch: the `Hlc` two-half cell, the sign-carrying `Ordering` verdict, the content-stable `ElementId`, the `Tenant` partition, the `SLOTS` slot/attribute vocabulary table, and the `CausalFrame` inbound frame. This owner stamps the branch's own causal frames under the `hlc-two-half` corpus layout — physical half first, logical half second — so it mints the layout in its own types rather than reading a peer's, decodes an inbound stamp on the `reliability/faults#FAULT` rail, and holds the compare/merge/successor algebra interior code reads; parity against `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME` and the typescript peer is the conformance, never a mint ranking.
+One logical-time owner serves the whole branch: the `Hlc` two-half cell, the sign-carrying `Ordering` verdict, the content-stable `ElementId`, the `Tenant` partition, the `SLOTS` slot/attribute vocabulary table, and the `CausalFrame` inbound frame. This owner stamps the branch's own causal frames under the `hlc-two-half` corpus layout — physical half first, logical half second — so it mints the layout in its own types rather than reading a peer's, decodes an inbound stamp on the `reliability/faults#FAULT` rail, and holds the compare/merge/successor algebra interior code reads; parity against `csharp:Rasm/Domain/frame#RECEIPT_PORT` and the typescript peer is the conformance, never a mint ranking.
 
 Carriage is per-branch and only the layout and the kernel-owned attribute slots are shared. `packed` COMPOSES the kernel `Hlc` layout — `physical_ticks << 64 | logical` as one UInt128, bit-identical — and the dotted `rasm.tenant` attribute COMPOSES the kernel `TenantContext.TenantSlot` spelling rather than re-minting it, so both halves of the stamp answer one estate law. The hyphenated `SLOTS` carrier keys are this branch's own transport dialect and bind no peer, exactly as the C# stamp rides its receipt envelope and the typescript stamp rides typed `-bin` metadata. `sealed` is that drift gate and it proves the SHARED half alone — the packed layout arithmetic and the composed attribute slots, whose shared-law column is `[CAUSAL_CARRIAGE]` at `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` — reading no peer header spelling at all, because freezing one branch's transport dialect as estate law is what the co-equal minters the `hlc-two-half` roster names exist to foreclose.
 
@@ -80,7 +80,7 @@ class Ordering:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The untagged whole, composing `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME` `TenantContext.Root` — the estate's one
+# The untagged whole, composing `csharp:Rasm/Domain/frame#TENANCY` `TenantContext.Root` — the estate's one
 # single-tenant ambient default and the partition every peer already answers for an unadopted wire tenancy. A
 # branch-minted literal beside it would name a partition no peer holds, which is a worse absence than none.
 ROOT_TENANT: Final[Tenant] = Tenant("root")

@@ -448,7 +448,7 @@ from rasm.runtime.wire import WireProtoCodec, codec
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type CostUnitKey = Literal["cpu-millis", "wall-millis", "bytes-egress", "model-tokens", "calls"]
-type CostVector = dict[CostUnitKey, int]
+type MeterVector = dict[CostUnitKey, int]
 type CommandTxnKind = Literal["committed", "rolled_back", "compensated", "refused"]
 type WireDispatch = Callable[[str, bytes], Awaitable[RuntimeRail[bytes]]]
 
@@ -465,7 +465,7 @@ class DiscoveryResult(Struct, frozen=True, rename="camel"):
     surface: str
     effect: Literal["pure", "read", "write", "external", "irreversible"]
     idempotency: Literal["idempotent", "keyed", "single-shot", "non-idempotent"]
-    estimated: CostVector
+    estimated: MeterVector
     scope_hash: str
     input_schema: Raw = Raw(b"{}")
 
@@ -473,7 +473,7 @@ class DiscoveryResult(Struct, frozen=True, rename="camel"):
 class CommandReceipt(Struct, frozen=True, rename="camel"):
     descriptor: str
     txn: CommandTxn
-    charged: CostVector
+    charged: MeterVector
     elapsed: str
     correlation: str
 

@@ -1,9 +1,13 @@
 # [CORE_SLO]
 
+`Reliability` grades service objectives from data alone: schema-gated `Objective` rows bind one `Sli` case over the minted metric vocabulary, the burn table prices error spend across paired windows, `evaluate` folds readings into one routable `Verdict`, and `Alert.of` compiles every objective onto the burn rows as routing-input specs the board and deploy plane consume. Its module is `core/src/observe/slo.ts`.
+
 ## [01]-[INDEX]
 
-- [03]-[BURN_ROWS]: the multi-window multi-burn-rate table and its derivations.
-- [04]-[ALGEBRA]: burn/budget/share arithmetic and the windowed verdict fold.
+- [02]-[OBJECTIVE]: schema-gated objective rows binding one `Sli` case over the minted metric vocabulary; `Reliability.Objective`.
+- [03]-[BURN_ROWS]: multi-window burn-rate table and its wire-keyed severity rows; `Reliability.Slo.Burn`.
+- [04]-[ALGEBRA]: burn, budget, and share arithmetic under the windowed verdict fold; `Reliability.Slo`.
+- [05]-[ALERT_SPECS]: per-burn alert-spec compile carrying routing inputs alone; `Reliability.Alert`.
 
 ## [02]-[OBJECTIVE]
 

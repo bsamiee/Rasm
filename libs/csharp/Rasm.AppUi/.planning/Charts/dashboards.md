@@ -3177,13 +3177,20 @@ public static class BoardTelemetry {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Advised(RenderInstrument, "s", "board and chart render wall duration", MeasureForm.Real, Buckets.InteractionSeconds),
-            InstrumentSpec.Count(FrameSizeInstrument, "By", "encoded board-frame payload size", MeasureForm.Whole),
-            InstrumentSpec.Count(OverlaySwapsInstrument, "{swap}", "live geo-overlay land swaps", MeasureForm.Whole),
-            InstrumentSpec.Count(OverlayLandsInstrument, "{land}", "land records folded per overlay swap", MeasureForm.Whole),
-            InstrumentSpec.Count(FilterAppliesInstrument, "{brush}", "cross-filter brush applications by source tile", MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(FilterTilesInstrument, "{tile}", "tiles re-filtered per brush application", MeasureForm.Whole),
-            InstrumentSpec.Count(WatchCrossingsInstrument, "{crossing}", "watch-rule crossings raised by severity", MeasureForm.Whole, AppUiTelemetry.SeveritySlot));
+            InstrumentSpec.Create(RenderInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "board and chart render wall duration", Seq<string>(), Some(Buckets.InteractionSeconds), None, None),
+            InstrumentSpec.Create(FrameSizeInstrument, InstrumentKind.Count, MeasureForm.Whole, "By",
+                "encoded board-frame payload size", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(OverlaySwapsInstrument, InstrumentKind.Count, MeasureForm.Whole, "{swap}",
+                "live geo-overlay land swaps", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(OverlayLandsInstrument, InstrumentKind.Count, MeasureForm.Whole, "{land}",
+                "land records folded per overlay swap", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(FilterAppliesInstrument, InstrumentKind.Count, MeasureForm.Whole, "{brush}",
+                "cross-filter brush applications by source tile", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(FilterTilesInstrument, InstrumentKind.Count, MeasureForm.Whole, "{tile}",
+                "tiles re-filtered per brush application", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(WatchCrossingsInstrument, InstrumentKind.Count, MeasureForm.Whole, "{crossing}",
+                "watch-rule crossings raised by severity", Seq(AppUiTelemetry.SeveritySlot), None, None, None));
 
     // Composition binds each projection onto the fold that already holds the typed fact — the proof-lane
     // RenderReceipt, the GeoLandFold change-set fold, the CrossFilter FilterState push, and the watch raise.

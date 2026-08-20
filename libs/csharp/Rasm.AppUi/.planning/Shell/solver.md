@@ -720,10 +720,12 @@ public sealed class LayoutSolver(
     // panels relaxing one each are different systems and a per-pass tick reads them identically.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Advised(SolveInstrument, "s", "constraint solve wall duration per panel", MeasureForm.Real, Buckets.InteractionSeconds, AppUiTelemetry.PanelSlot),
-            InstrumentSpec.Count(RelaxedInstrument, "{constraint}", "soft constraints left unmet by the solve, per panel", MeasureForm.Whole, AppUiTelemetry.PanelSlot),
-            InstrumentSpec.Count(FaultInstrument, "{fault}", "layout passes refused, by panel and fault code", MeasureForm.Whole,
-                AppUiTelemetry.PanelSlot, AppUiTelemetry.FaultSlot));
+            InstrumentSpec.Create(SolveInstrument, InstrumentKind.Distribution, MeasureForm.Real, "s",
+                "constraint solve wall duration per panel", Seq(AppUiTelemetry.PanelSlot), Some(Buckets.InteractionSeconds), None, None),
+            InstrumentSpec.Create(RelaxedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{constraint}",
+                "soft constraints left unmet by the solve, per panel", Seq(AppUiTelemetry.PanelSlot), None, None, None),
+            InstrumentSpec.Create(FaultInstrument, InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+                "layout passes refused, by panel and fault code", Seq(AppUiTelemetry.PanelSlot, AppUiTelemetry.FaultSlot), None, None, None));
 
     // Composition binds the panel's `evidence` column to BOTH legs of one minted receipt — the screen
     // evidence seal and this projection — so both instruments derive from the pass that produced them and

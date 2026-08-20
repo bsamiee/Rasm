@@ -690,11 +690,12 @@ public static class AnalysisLayers {
     // than one undifferentiated broadcast count.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Level(MountedInstrument, "{layer}", "result layers mounted on the scene", MeasureForm.Whole),
-            InstrumentSpec.Count(AdoptedInstrument, "{layer}", "sealed study outputs adopted as layers",
-                MeasureForm.Whole, AppUiTelemetry.SourceSlot),
-            InstrumentSpec.Count(ProbedInstrument, "{reading}", "probe readings answered by layer",
-                MeasureForm.Whole, AppUiTelemetry.SourceSlot));
+            InstrumentSpec.Create(MountedInstrument, InstrumentKind.Level, MeasureForm.Whole, "{layer}",
+                "result layers mounted on the scene", Seq<string>(), None, None, None),
+            InstrumentSpec.Create(AdoptedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{layer}",
+                "sealed study outputs adopted as layers", Seq(AppUiTelemetry.SourceSlot), None, None, None),
+            InstrumentSpec.Create(ProbedInstrument, InstrumentKind.Count, MeasureForm.Whole, "{reading}",
+                "probe readings answered by layer", Seq(AppUiTelemetry.SourceSlot), None, None, None));
 
     // The `analysis.layer.adopt` handler — the ONE construction site for what a sealed study becomes. The
     // queue raised the verb naming its `OutputRow`; this fold re-proves the seal, resolves the kind by the
