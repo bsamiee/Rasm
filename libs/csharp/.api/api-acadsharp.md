@@ -43,7 +43,7 @@
 |  [06]   | `CadObjectCollection<T>`          | collection    | `IEnumerable<T>` + `Count`/`this[int]` (NOT `List<T>`) — enumerate via `toSeq`      |
 |  [07]   | `CadDocument.Layers`              | layer table   | `LayersTable` — complete declared-layer census, including layers with zero entities |
 |  [08]   | `CadSystemVariable`               | class         | drawing header variable                                                             |
-|  [09]   | `ACadVersion`                     | enum          | drawing format version; the DWG write version-policy row                            |
+|  [09]   | `ACadVersion`                     | enum          | drawing format version; the DWG write version-policy row — write-relevant members `AC1021` (R2007), `AC1027` (R2013), `AC1032` (R2018), the roster `CadVersionPolicy` curates |
 
 [PUBLIC_TYPE_SCOPE]: mesh-bearing entity types — the Bim triangle-soup surface
 

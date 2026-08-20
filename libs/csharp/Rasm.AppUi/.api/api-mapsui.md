@@ -208,6 +208,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 |  [04]   | `HttpTileSource.Attribution`                                                   | property | settable `Attribution` credit       |
 |  [05]   | `HttpTileSource.ConfigureHttpRequestMessage`                                   | property | per-request header hook             |
 |  [06]   | `new Attribution(string Text = "", string Url = "")`                           | ctor     | credit value                        |
+|  [07]   | `ITileSchema.GetTileInfos(Extent, int level)`                                  | method   | the tile roster an extent covers at one level — the pyramid prefetch walk |
 |  [07]   | `new GlobalSphericalMercator(format, YAxis, minZoomLevel, maxZoomLevel, name)` | ctor     | EPSG:3857 tile schema               |
 |  [08]   | `new FileCache(string directory, string format, TimeSpan cacheExpireTime)`     | ctor     | on-disk persistent tile cache       |
 |  [09]   | `NullCache`                                                                    | class    | the no-op default cache             |

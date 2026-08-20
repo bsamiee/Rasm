@@ -569,6 +569,12 @@
           "Splat": "20.2.0"
         }
       },
+      "Riok.Mapperly": {
+        "type": "Direct",
+        "requested": "[4.3.1, )",
+        "resolved": "4.3.1",
+        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
+      },
       "Semi.Avalonia": {
         "type": "Direct",
         "requested": "[12.1.0.1, )",
@@ -764,9 +770,9 @@
       },
       "System.IO.Hashing": {
         "type": "Direct",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "eE839zyWZD/UBZYzP2lu9fhHX6RWe63/jz3Jxf+JumzO/db+Vc2s7CMiDwxk9ti2NTUft2tdRx31Rw2OjKbecA=="
+        "requested": "[10.0.11, )",
+        "resolved": "10.0.11",
+        "contentHash": "OzKDcIRkeNJeC8qAsbn8yJXnfTLP1dtkWILe+T56Gf/z+IkAASi7sMqLqJQat08j5z/mRN5xVtoAwbkMNMoBUQ=="
       },
       "System.Reactive": {
         "type": "Direct",
@@ -2019,15 +2025,6 @@
           "Microsoft.Extensions.Primitives": "10.0.10"
         }
       },
-      "Microsoft.Extensions.Compliance.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.8.0",
-        "contentHash": "7I0DXMTCqpXpXg+SLLDlfedtv6DN5Lgiv+PR3MclzqKPOHNB17YP42KMNI61ckSrffh0xsuIqQyCIjvWc6vUuw==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10",
-          "Microsoft.Extensions.ObjectPool": "10.0.10"
-        }
-      },
       "Microsoft.Extensions.Configuration.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -2254,6 +2251,11 @@
         "type": "Transitive",
         "resolved": "1.1.0",
         "contentHash": "kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A=="
+      },
+      "Microsoft.Win32.SystemEvents": {
+        "type": "Transitive",
+        "resolved": "10.0.11",
+        "contentHash": "WXGazuzGf3eX24z1qgiGwP2df3t2T28QeZvMjlRqdjNuewQyLfbOb6rEXmk6Xs++gOQClmw90pkjPd9j/hNWDw=="
       },
       "NATS.Extensions.Microsoft.DependencyInjection": {
         "type": "Transitive",
@@ -3072,8 +3074,9 @@
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
-          "System.IO.Hashing": "[10.0.10, )",
-          "System.Numerics.Tensors": "[10.0.10, )",
+          "System.Drawing.Common": "[10.0.11, )",
+          "System.IO.Hashing": "[10.0.11, )",
+          "System.Numerics.Tensors": "[10.0.11, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -3151,6 +3154,8 @@
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
+          "Npgsql": "[10.0.3, )",
+          "Npgsql.OpenTelemetry": "[10.0.3, )",
           "NuGet.Versioning": "[7.6.0, )",
           "OPCFoundation.NetStandard.Opc.Ua": "[1.5.378.156, )",
           "OPCFoundation.NetStandard.Opc.Ua.PubSub": "[1.5.378.156, )",
@@ -3185,9 +3190,9 @@
           "Serilog.Sinks.File": "[7.0.0, )",
           "Sigstore": "[0.5.0, )",
           "System.CommandLine": "[2.0.10, )",
-          "System.IO.Hashing": "[10.0.10, )",
+          "System.IO.Hashing": "[10.0.11, )",
           "System.IO.Ports": "[10.0.10, )",
-          "System.Numerics.Tensors": "[10.0.10, )",
+          "System.Numerics.Tensors": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "Velopack": "[1.2.0, )",
@@ -3219,6 +3224,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.2.0.1603, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "MathNet.Numerics.Data.Text": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "Microsoft.Data.Sqlite": "[10.0.10, )",
@@ -3249,8 +3255,8 @@
           "SharpGLTF.Toolkit": "[1.0.6, )",
           "Silk.NET.WebGPU": "[2.23.0, )",
           "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",
-          "System.IO.Hashing": "[10.0.10, )",
-          "System.Numerics.Tensors": "[10.0.10, )",
+          "System.IO.Hashing": "[10.0.11, )",
+          "System.Numerics.Tensors": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "TorchSharp": "[0.107.0, )",
@@ -3267,11 +3273,12 @@
           "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Microsoft.Extensions.Compliance.Abstractions": "[10.8.0, )",
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "System.IO.Hashing": "[10.0.10, )",
+          "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "UnitsNet": "[5.75.1, )"
@@ -3303,8 +3310,8 @@
           "RectangleBinPack.CSharp": "[1.0.4, )",
           "Rhino3dm": "[8.32.0, )",
           "Robots": "[2.2.5, )",
-          "System.IO.Hashing": "[10.0.10, )",
-          "System.Numerics.Tensors": "[10.0.10, )",
+          "System.IO.Hashing": "[10.0.11, )",
+          "System.Numerics.Tensors": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "UnitsNet": "[5.75.1, )",
@@ -3449,8 +3456,8 @@
           "Speckle.Sdk": "[2026.6.0, )",
           "StackExchange.Redis": "[3.1.13, )",
           "System.Formats.Cbor": "[10.0.10, )",
-          "System.IO.Hashing": "[10.0.10, )",
-          "System.Numerics.Tensors": "[10.0.10, )",
+          "System.IO.Hashing": "[10.0.11, )",
+          "System.Numerics.Tensors": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -4296,6 +4303,15 @@
           "Weasel.Storage": "9.23.2"
         }
       },
+      "MathNet.Numerics.Data.Text": {
+        "type": "CentralTransitive",
+        "requested": "[6.0.0-beta2, )",
+        "resolved": "6.0.0-beta2",
+        "contentHash": "LrV/wXbGdklCijkM5Im+tBvzrtzogmSiJimtXPzx4D+eEpjqWvuJwcJp5yh8vmZToIdYpB6f+Wd63ISwUw5kvQ==",
+        "dependencies": {
+          "MathNet.Numerics": "6.0.0-beta2"
+        }
+      },
       "MathNet.Numerics.Providers.MKL": {
         "type": "CentralTransitive",
         "requested": "[6.0.0-beta2, )",
@@ -4501,6 +4517,16 @@
           "Microsoft.Extensions.Logging.Abstractions": "10.0.10",
           "Microsoft.Extensions.Options": "10.0.10",
           "StackExchange.Redis": "2.7.27"
+        }
+      },
+      "Microsoft.Extensions.Compliance.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.8.0, )",
+        "resolved": "10.8.0",
+        "contentHash": "7I0DXMTCqpXpXg+SLLDlfedtv6DN5Lgiv+PR3MclzqKPOHNB17YP42KMNI61ckSrffh0xsuIqQyCIjvWc6vUuw==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10",
+          "Microsoft.Extensions.ObjectPool": "10.0.10"
         }
       },
       "Microsoft.Extensions.Compliance.Redaction": {
@@ -6013,6 +6039,15 @@
           "System.Security.Cryptography.ProtectedData": "10.0.10"
         }
       },
+      "System.Drawing.Common": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.11, )",
+        "resolved": "10.0.11",
+        "contentHash": "Schxw0FzXMAwa+If/oVxqjrmmiyUbw9KUAeqJOPnjsdAzkmUZXSZWNRLHZye2boFYlbMRkeBY6dba5hs8Mu4OQ==",
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "10.0.11"
+        }
+      },
       "System.Formats.Cbor": {
         "type": "CentralTransitive",
         "requested": "[10.0.10, )",
@@ -6045,9 +6080,9 @@
       },
       "System.Numerics.Tensors": {
         "type": "CentralTransitive",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "9Ildb4Y9maDztB0ZRGxsNShbpCQ2Tjv2dr4IjskBxpTGhH7aIz1+oC+Hl833ASs/htWwsH6myNe+sRpeyCzeMQ=="
+        "requested": "[10.0.11, )",
+        "resolved": "10.0.11",
+        "contentHash": "4jNNt67NhCqf3bf2FN0mrsC+EH60L7Sny6poqVeiviB27Kw7TQzMmgn8HIaPc8E9EcuGusUyfeu21gLfzcBpDA=="
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",
@@ -6545,6 +6580,11 @@
         "type": "Transitive",
         "resolved": "1.7.0",
         "contentHash": "vIzndj0MoWW2Mp/iztUSKvmR9vZTqOVQ6PBvwA57+CDoiz7eUMU15rrAX+/QA0bkmwQ08GRibFBB9LNOl0EiBA=="
+      },
+      "Microsoft.Win32.SystemEvents": {
+        "type": "Transitive",
+        "resolved": "10.0.11",
+        "contentHash": "WXGazuzGf3eX24z1qgiGwP2df3t2T28QeZvMjlRqdjNuewQyLfbOb6rEXmk6Xs++gOQClmw90pkjPd9j/hNWDw=="
       },
       "Onigwrap": {
         "type": "Transitive",
