@@ -121,7 +121,7 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 [STACKING]:
 - `MaxRev.Gdal.Core`(`.api/api-maxrev-gdal`): the OGR `KML` driver reads coordinates but drops style and extended data, so SharpKml owns the styled authoring leg and GDAL the universal-geometry-ingest leg; a `MaxRev.Gdal.Core` COG/ortho drapes as a `GroundOverlay` (`Icon` + `LatLonBox` `Bounds`, or `GXLatLonQuad` for a rotated footprint) packaged with `doc.kml` through `KmzFile.AddFile`.
 - `ProjNET`(`.api/api-projnet`): a projected-frame geometry reprojects to EPSG:4326 through the geodetic transform BEFORE the coordinate bridge runs, KML being geographic by construction.
-- within-lib: the `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoFeature` (NTS `Geometry` + `AttributesTable`) projects to a styled `Placemark` — the coordinate bridge walks `Coordinate[]` into a `CoordinateCollection`/`Point`, `AttributesTable` `GetNames`/`GetValues` fold onto `ExtendedData` `Data`/`SchemaData`, and a `GeoClassifier`/`IfcClass`-keyed `Style` supplies symbology, the whole site model one `Document`.
+- within-lib: the `Semantics/vector#KML_CODEC` `GeoFeature` (NTS `Geometry` + `AttributesTable`) projects to a styled `Placemark` — the coordinate bridge walks `Coordinate[]` into a `CoordinateCollection`/`Point`, `AttributesTable` `GetNames`/`GetValues` fold onto `ExtendedData` `Data`/`SchemaData`, and a `GeoClassifier`/`IfcClass`-keyed `Style` supplies symbology, the whole site model one `Document`.
 - within-lib: the `Planning/schedule#CRITICAL_PATH` activity network projects to a `gx:Tour` (`Playlist` of `FlyTo`+`AnimatedUpdate` keyed on task `Interval`s) or a per-element `gx:Track`, the time-stamped construction sequence as a self-contained playback.
 
 [LOCAL_ADMISSION]:

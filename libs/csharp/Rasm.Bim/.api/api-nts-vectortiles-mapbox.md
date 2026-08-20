@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_VECTORTILES_MAPBOX]
 
-`NetTopologySuite.IO.VectorTiles.Mapbox` is the protobuf wire codec for the `NetTopologySuite.IO.VectorTiles` tile model (`.api/api-nts-vectortiles`): `MapboxTileWriter` encodes a `VectorTileTree`/`VectorTile` to MVT protobuf — an `{z}/{x}/{y}.mvt` directory pyramid or a single `Stream` — `MapboxTileReader` decodes one MVT `Stream` back to a `VectorTile` of `IFeature` rows, and `VectorTileSource`/`VectorLayer` are the TileJSON descriptor a renderer discovers the pyramid through. It is the byte-emitting half of the MVT pair the `Semantics/geospatial#GEOSPATIAL_SEAM` web-tile leg feeds.
+`NetTopologySuite.IO.VectorTiles.Mapbox` is the protobuf wire codec for the `NetTopologySuite.IO.VectorTiles` tile model (`.api/api-nts-vectortiles`): `MapboxTileWriter` encodes a `VectorTileTree`/`VectorTile` to MVT protobuf — an `{z}/{x}/{y}.mvt` directory pyramid or a single `Stream` — `MapboxTileReader` decodes one MVT `Stream` back to a `VectorTile` of `IFeature` rows, and `VectorTileSource`/`VectorLayer` are the TileJSON descriptor a renderer discovers the pyramid through. It is the byte-emitting half of the MVT pair the `Semantics/model#TILE_PYRAMID` web-tile leg feeds.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -58,7 +58,7 @@
 [STACKING]:
 - `NetTopologySuite.IO.VectorTiles`(`.api/api-nts-vectortiles`): the sibling builds the `VectorTileTree` (`tree.Add(features, router)`) this codec writes (`tree.Write(path, MapboxTileWriter.DefaultMinLinealExtent, MapboxTileWriter.DefaultMinPolygonalExtent, 4096)`) — the sibling owns the object model and tile algebra, this package owns the bytes; `tree.GetExtents(out bounds, out minZoom, out maxZoom)` supplies the `VectorTileSource` TileJSON, the pyramid with its catalog in one emit.
 - `protobuf-net`: `Serializer.Deserialize<Tile>`/`Serialize` drives the wire round-trip over the generated `Tile` DTOs.
-- geospatial seam: the `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoFeature` `IFeature` rows the site model produces feed the tree, and the `GeoModel` `STRtree` holds the same rows the tree slices.
+- geospatial seam: the `Semantics/model#TILE_PYRAMID` `GeoFeature` `IFeature` rows the site model produces feed the tree, and the `GeoModel` `STRtree` holds the same rows the tree slices.
 - coordinate-frame law: geometry MUST be EPSG:4326 before tiling — the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET`/OSR leg reprojects `GeoFeature` geometry BEFORE `tree.Add`, never inside the codec.
 - wire-store seam: `VectorTile.Write(Stream, …)` is the per-tile form the `Rasm.Persistence/Store/store#OBJECT_STORE` PUT or the `Rasm.AppHost` tile endpoint streams, distinct from the filesystem pyramid `tree.Write(path, …)`.
 

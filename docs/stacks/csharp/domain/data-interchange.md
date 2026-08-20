@@ -125,7 +125,7 @@ public static class BulkLane {
 ## [03]-[ARTIFACT_PROJECTION]
 
 [EGRESS_ROWS]:
-- Law: one `COPY (SELECT) TO` statement owns engine-mediated egress, and format, destination collision, and compression are closed `[SmartEnum<string>]` vocabularies whose `.Key` IS the COPY token — `Format.Parquet`/`Csv`/`Json`, `Collision.Overwrite`/`OverwriteOrIgnore`/`Append`, `Codec.Zstd`/`Snappy` interpolate beside the shared destination, the JSON case carrying its one `ARRAY` row selecting array-of-records versus newline-delimited — so a mistyped `OVERWRITE_OR_INGORE` is unrepresentable rather than a runtime SQL parse error, a second export path per format is the rejected form, a new format or posture is one static row, and a new flow is one instance of attach, read, project, copy.
+- Law: one `COPY (SELECT) TO` statement owns engine-mediated egress, and format, destination mode, and compression are closed `[SmartEnum<string>]` vocabularies whose `.Key` IS the COPY token — `Format.Parquet`/`Csv`/`Json`, `CopyMode.Overwrite`/`OverwriteOrIgnore`/`Append`, `Codec.Zstd`/`Snappy` interpolate beside the shared destination, the JSON case carrying its one `ARRAY` row selecting array-of-records versus newline-delimited — so a mistyped `OVERWRITE_OR_INGORE` is unrepresentable rather than a runtime SQL parse error, a second export path per format is the rejected form, a new format or posture is one static row, and a new flow is one instance of attach, read, project, copy. Each vocabulary is named for the COPY CLAUSE it fills, never for the hazard it handles: a name borrowed from a hazard reads as that hazard's owner wherever the assembly's other domains also collide.
 - Law: the engine COPY rail is the SQL-mediated lane, not the egress monopoly — a zero-copy in-process columnar handoff and a direct managed file-codec are distinct lanes a COPY `FORMAT` token cannot express, so the lane is the artifact class's outer discriminant and a non-SQL egress lands as a sibling lane beside the COPY family, never as a `FORMAT` row; the rejected form is a `FORMAT` value stretched to name a transport the engine never performs.
 - Law: row-group geometry is the unit of scan parallelism and zonemap pruning — `ROW_GROUP_SIZE` composes with `ROW_GROUP_SIZE_BYTES`, `ROW_GROUPS_PER_FILE`, and `FILE_SIZE_BYTES` as one geometry axis — groups near the default row count prune well, and tiny groups are the signature of append-per-batch exporters: batch through a staging table and export once.
 - Law: partitioning is a pruning instrument, never a uniqueness scheme — `Append` writes new files beside existing generations, `PARTITION_BY` moves keys into hive directories with `FILENAME_PATTERN` naming the leaves, and the instrument prunes at cardinality in the tens to low thousands; partition columns are bare names, never expressions, so a derived partition key materializes as a projected column first.
@@ -140,10 +140,10 @@ public sealed partial class Codec {
 }
 
 [SmartEnum<string>]
-public sealed partial class Collision {
-    public static readonly Collision Overwrite = new("OVERWRITE");
-    public static readonly Collision OverwriteOrIgnore = new("OVERWRITE_OR_IGNORE");
-    public static readonly Collision Append = new("APPEND");
+public sealed partial class CopyMode {
+    public static readonly CopyMode Overwrite = new("OVERWRITE");
+    public static readonly CopyMode OverwriteOrIgnore = new("OVERWRITE_OR_IGNORE");
+    public static readonly CopyMode Append = new("APPEND");
 }
 
 [SmartEnum<string>]
@@ -156,15 +156,15 @@ public sealed partial class Format {
     public bool Grouped { get; }
 }
 
-public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int RowGroup, Option<string> PartitionKey, Collision Collision) {
-    public static readonly ArtifactClass Ledger = new("<class-a>", Format.Parquet, Codec.Zstd, 122_880, None, Collision.Overwrite);
-    public static readonly ArtifactClass Feed = new("<class-b>", Format.Json, Codec.Snappy, 122_880, Some("<key-a>"), Collision.Append);
+public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int RowGroup, Option<string> PartitionKey, CopyMode Mode) {
+    public static readonly ArtifactClass Ledger = new("<class-a>", Format.Parquet, Codec.Zstd, 122_880, None, CopyMode.Overwrite);
+    public static readonly ArtifactClass Feed = new("<class-b>", Format.Json, Codec.Snappy, 122_880, Some("<key-a>"), CopyMode.Append);
 
     public string Egress(string projection, string destination, string stamp) =>
         $"COPY ({projection}) TO '{destination}' ({string.Join(", ",
             Seq(Some($"FORMAT {Format.Key}"), Some($"COMPRESSION {Codec.Key}"),
                 Format.Grouped ? Some($"ROW_GROUP_SIZE {RowGroup}") : Option<string>.None, Format.ArrayRow,
-                PartitionKey.Map(static key => $"PARTITION_BY ({key})"), Some(Collision.Key),
+                PartitionKey.Map(static key => $"PARTITION_BY ({key})"), Some(Mode.Key),
                 Some($"KV_METADATA {{ stamp: '{stamp}' }}")).Somes())})";
 }
 

@@ -111,5 +111,5 @@
 [RAIL_LAW]:
 - Package: `FlatGeobuf`
 - Owns: the cloud-optimized streaming FGB vector codec over NTS features — header-bbox and Packed-Hilbert-R-tree index, streaming/async read with bbox push-down, the `FlatGeobufCoordinateSequence` packed layout, random-access range query, and the GeoJSON-text↔FGB bridge.
-- Accept: a `Semantics/geospatial#VECTOR_INGEST` managed FGB arm over the canonical NTS `GeoFeature`, a `rect` Packed-R-tree bbox read, and a `StreamSearch` remote streaming read over a byte-range `ReadNode`.
+- Accept: a `Semantics/vector#VECTOR_FOLD` managed FGB arm over the canonical NTS `GeoFeature`, a `rect` Packed-R-tree bbox read, and a `StreamSearch` remote streaming read over a byte-range `ReadNode`.
 - Reject: routing FGB through the GDAL OGR driver where the managed NTS-native codec reads it; a vendor feature type where `IFeature` exchanges directly; a client-side `Envelope.Intersects` filter after a whole-file decode where the `rect` push-down applies; downloading a whole remote `.fgb` where `StreamSearch` range-reads the window; emitting `.fgb` on the cross-runtime wire where `GeoWire` is canonical; a boolean op inside this codec where `NetTopologySuite` owns the planar algebra.

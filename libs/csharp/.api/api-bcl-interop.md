@@ -100,23 +100,24 @@
 
 [ENTRYPOINT_SCOPE]: zero-copy projection
 
-| [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                   |
-| :-----: | :----------------------------------------------------------------------------- | :------ | :----------------------------- |
-|  [01]   | `MemoryMarshal.Cast<TFrom, TTo>(Span<TFrom>) -> Span<TTo>`                     | static  | re-types a span element        |
-|  [02]   | `MemoryMarshal.AsBytes<T>(Span<T>) -> Span<byte>`                              | static  | views a span as raw bytes      |
-|  [03]   | `MemoryMarshal.CreateSpan<T>(ref T, int) -> Span<T>`                           | static  | spans a bare reference         |
-|  [04]   | `MemoryMarshal.GetReference<T>(Span<T>) -> ref T`                              | static  | first-element reference        |
-|  [05]   | `MemoryMarshal.GetArrayDataReference<T>(T[]) -> ref T`                         | static  | array data reference           |
-|  [06]   | `MemoryMarshal.TryRead<T>(ReadOnlySpan<byte>, out T) -> bool`                  | static  | decodes one struct from bytes  |
-|  [07]   | `MemoryMarshal.TryWrite<T>(Span<byte>, in T) -> bool`                          | static  | encodes one struct to bytes    |
-|  [08]   | `MemoryMarshal.TryGetArray<T>(ReadOnlyMemory<T>, out ArraySegment<T>) -> bool` | static  | recovers the backing array     |
-|  [09]   | `MemoryMarshal.CreateFromPinnedArray<T>(T[]?, int, int) -> Memory<T>`          | static  | memory over a pinned array     |
-|  [10]   | `CollectionsMarshal.AsSpan<T>(List<T>?) -> Span<T>`                            | static  | spans list backing storage     |
-|  [11]   | `CollectionsMarshal.SetCount<T>(List<T>, int)`                                 | static  | resizes without element writes |
-|  [12]   | `CollectionsMarshal.GetValueRefOrAddDefault(Dictionary, TKey, out bool)`       | static  | one-probe insert-or-update ref |
-|  [13]   | `CollectionsMarshal.GetValueRefOrNullRef(Dictionary, TKey) -> ref TValue`      | static  | one-probe lookup ref           |
-|  [14]   | `ImmutableCollectionsMarshal.AsImmutableArray<T>(T[]?) -> ImmutableArray<T>`   | static  | wraps an array without copying |
-|  [15]   | `ImmutableCollectionsMarshal.AsArray<T>(ImmutableArray<T>) -> T[]?`            | static  | unwraps to the backing array   |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :-------------------------------------------------------------------------------- | :------ | :----------------------------- |
+|  [01]   | `MemoryMarshal.Cast<TFrom, TTo>(Span<TFrom>) -> Span<TTo>`                        | static  | re-types a span element        |
+|  [02]   | `MemoryMarshal.AsBytes<T>(Span<T>) -> Span<byte>`                                 | static  | views a span as raw bytes      |
+|  [03]   | `MemoryMarshal.CreateSpan<T>(ref T, int) -> Span<T>`                              | static  | spans a bare reference         |
+|  [04]   | `MemoryMarshal.GetReference<T>(Span<T>) -> ref T`                                 | static  | first-element reference        |
+|  [05]   | `MemoryMarshal.GetArrayDataReference<T>(T[]) -> ref T`                            | static  | array data reference           |
+|  [06]   | `MemoryMarshal.TryRead<T>(ReadOnlySpan<byte>, out T) -> bool`                     | static  | decodes one struct from bytes  |
+|  [07]   | `MemoryMarshal.TryWrite<T>(Span<byte>, in T) -> bool`                             | static  | encodes one struct to bytes    |
+|  [08]   | `MemoryMarshal.TryGetArray<T>(ReadOnlyMemory<T>, out ArraySegment<T>) -> bool`    | static  | recovers the backing array     |
+|  [09]   | `MemoryMarshal.CreateFromPinnedArray<T>(T[]?, int, int) -> Memory<T>`             | static  | memory over a pinned array     |
+|  [10]   | `MemoryMarshal.CreateReadOnlySpanFromNullTerminated(byte*) -> ReadOnlySpan<byte>` | static  | spans a C string to its NUL    |
+|  [11]   | `CollectionsMarshal.AsSpan<T>(List<T>?) -> Span<T>`                               | static  | spans list backing storage     |
+|  [12]   | `CollectionsMarshal.SetCount<T>(List<T>, int)`                                    | static  | resizes without element writes |
+|  [13]   | `CollectionsMarshal.GetValueRefOrAddDefault(Dictionary, TKey, out bool)`          | static  | one-probe insert-or-update ref |
+|  [14]   | `CollectionsMarshal.GetValueRefOrNullRef(Dictionary, TKey) -> ref TValue`         | static  | one-probe lookup ref           |
+|  [15]   | `ImmutableCollectionsMarshal.AsImmutableArray<T>(T[]?) -> ImmutableArray<T>`      | static  | wraps an array without copying |
+|  [15]   | `ImmutableCollectionsMarshal.AsArray<T>(ImmutableArray<T>) -> T[]?`               | static  | unwraps to the backing array   |
 
 - `CollectionsMarshal.AsSpan` and `GetValueRefOrAddDefault`: the span and the ref die on the next structural edit of their collection.
 - `MemoryMarshal.GetReference`: yields a compare-only reference over an empty span, never a dereferenceable one.

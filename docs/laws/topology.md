@@ -86,6 +86,13 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Decode-only mirrors carry the producer's column set arm for arm and re-census against its whole roster on every move, never a routed delta.
 - Law: Refusals seated at a consumer obligate the producer to publish the column that refusal reads in the same pass.
 
+[APPEARANCE_WIRE_MIRROR]:
+- Surface: `MaterialWire`, `TextureSetWire`, and `OpenPbrGroupsWire` with their payload families at `csharp:Rasm.Materials/Appearance/interchange`.
+- Obligates: both `tests/contracts/` appearance entries and the `python:runtime/transport/shapes` and `typescript:core/interchange/codec` decoders.
+- Law: No compiler spans these surfaces, so a column, key-number, or order move lands every one in the same change, quoted verbatim.
+- Law: Schema authority is the producer's positional `[Key(n)]` roster — declaration order tracks it except where an append spells out of order.
+- Law: Peer decoders declare at their own branch pages; a fence beside the producer transcribes one under its owner's name and mints nothing.
+
 [GRADUATION_WIRE_MIRROR]:
 - Surface: Geometry's `GeometrySubject` union and `GeometryHandoff.wire()` field shape at `python:geometry/graduation`.
 - Obligates: Compute's `GEOMETRY_SUBJECTS` frozenset, `_GeometryWire` struct, and `rasm.link.kind` trace fold at `python:compute/graduation/handoff`.

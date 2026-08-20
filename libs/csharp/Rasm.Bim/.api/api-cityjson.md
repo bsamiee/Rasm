@@ -122,7 +122,7 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 - within-lib: `CityJsonDocument.ToFeatures(lod)` composes the full decode in one fold — walking `CityObjects`, applying `Transform` per `CoordinateZ`, triangulating each `Geometry` through `PolygonCreator` into a `MultiPolygon`, and packing `CityObject.Attributes` into the NTS `AttributesTable`.
 
 [LOCAL_ADMISSION]:
-- import enters through Newtonsoft deserialization into `CityJsonDocument` (or `CityJsonSeqReader.ReadCityJsonSeq` for the streaming form), dequantizes via `Transform`, and maps each `CityObject` onto a canonical `BimElement` with an `ElementPredicate`-classified `IfcClass`; `CityJSON.*` types never cross the codec boundary.
+- import enters through Newtonsoft deserialization into `CityJsonDocument` (or `CityJsonSeqReader.ReadCityJsonSeq` for the streaming form), dequantizes via `Transform`, and maps each `CityObject` onto a canonical `BimElement` with a `BimLeaf`-classified `IfcClass`; `CityJSON.*` types never cross the codec boundary.
 - export enters through a canonical build into `CityJsonDocument` (vertex pooling and boundary index encoding) then `CityJsonWriter.Write*` or `CityJsonSeqWriter.WriteCityJsonSeq`.
 
 [RAIL_LAW]:

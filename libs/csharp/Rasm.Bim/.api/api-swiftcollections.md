@@ -105,7 +105,7 @@ Each backing collection holds the member→AABB mapping under stable integer han
 
 [STACKING]:
 - `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): `SwiftBVH`/`SwiftOctree` own the 3D AABB volumetric broad-phase while the NTS `STRtree<TItem>`/`Quadtree<TItem>` own the 2D planar Simple-Features index — the `Model/systems#INTERFERENCE` owner routes element-vs-element clash to the 3D index and footprint/site predicates to the NTS 2D index, neither reimplementing the other's dimension.
-- `Smino.Bcf.Toolkit`(`.api/api-smino-bcf-toolkit`): the `ClashProposal` fold consumes the `Query` candidate set, runs the narrow-phase exact test, and authors one `BcfTopic` per confirmed clash through `BcfBuilder.AddMarkup` → `Build` → `Worker.ToBcf` — broad-phase, narrow-phase, and issue exchange meet at the candidate set and the `ElementPredicate` algebra.
+- `Smino.Bcf.Toolkit`(`.api/api-smino-bcf-toolkit`): the `ClashProposal` fold consumes the `Query` candidate set, runs the narrow-phase exact test, and authors one `BcfTopic` per confirmed clash through `BcfBuilder.AddMarkup` → `Build` → `Worker.ToBcf` — broad-phase, narrow-phase, and issue exchange meet at the candidate set and the `BimLeaf` term algebra.
 - within-lib: `Model/systems#INTERFERENCE` retains TWO structures over one `SwiftBucket` handle space — the `SwiftBVH` tight-volume tree answering hard overlap through `Query` and the `SwiftSpatialHash` answering the clearance modality through `QueryNeighborhood` — and refits both through `UpdateEntryBounds` so a `ModelDiff` `moved` arm re-clashes incrementally against the handles the registry gates.
 
 [LOCAL_ADMISSION]:

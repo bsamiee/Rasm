@@ -26,6 +26,10 @@
 |  [10]   | `ExecutionValidator`                    | policy      | refuse failed executions                                                       |
 |  [11]   | `JitOptimizationsValidator`             | policy      | refuse Debug/unoptimized assemblies                                            |
 |  [12]   | `JsonExporter` / `MarkdownExporter`     | exporter    | `JsonExporter.Full` emits the `-full` report the gate decodes                  |
+|  [13]   | `Measurement`                           | model       | `Operations`/`Nanoseconds`/`IterationStage` per iteration                      |
+|  [14]   | `GcStats`                               | model       | per-op allocation via `GetBytesAllocatedPerOperation`                          |
+|  [15]   | `PercentileValues`                      | model       | `P90`/`P95`/`P100` off `Statistics.Percentiles`                                |
+|  [16]   | `BenchmarkRunInfo` / `DefaultConfig`    | entry       | pre-resolved run graph for `Run`; implicit config when `Run` gets no `IConfig` |
 
 ## [03]-[ENTRYPOINTS]
 

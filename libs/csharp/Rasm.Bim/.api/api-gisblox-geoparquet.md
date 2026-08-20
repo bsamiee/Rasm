@@ -1,6 +1,6 @@
 # [RASM_BIM_API_GISBLOX_GEOPARQUET]
 
-`GISBlox.IO.GeoParquet` mints the managed OGC-GeoParquet columnar codec: a `.parquet` whose geometry column carries WKB/WKT payloads and whose file-level `geo` metadata names the primary column, its encoding, and its bbox, read and written over a `System.Data.DataTable` carrying `GeoFileMetadata`/`GeoColumnMetadata` — never an NTS `IFeature` collection, so the geometry-algebra bridge stays the consumer's. It feeds the `Semantics/geospatial#VECTOR_INGEST` fold as the managed columnar arm, the no-new-native-runtime counterpart of the row-oriented FGB/shapefile codecs and the GDAL OGR driver.
+`GISBlox.IO.GeoParquet` mints the managed OGC-GeoParquet columnar codec: a `.parquet` whose geometry column carries WKB/WKT payloads and whose file-level `geo` metadata names the primary column, its encoding, and its bbox, read and written over a `System.Data.DataTable` carrying `GeoFileMetadata`/`GeoColumnMetadata` — never an NTS `IFeature` collection, so the geometry-algebra bridge stays the consumer's. It feeds the `Semantics/vector#VECTOR_FOLD` fold as the managed columnar arm, the no-new-native-runtime counterpart of the row-oriented FGB/shapefile codecs and the GDAL OGR driver.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - namespace: `GISBlox.IO.GeoParquet` (`GeoParquetReader`/`GeoParquetWriter`), `.Common` (the `geo` metadata model, `GeometryFormat`/`Edges`), `.Extensions` (the `DataTable`/`DataColumn` geo-schema surface)
 - depends: `NetTopologySuite`, `ParquetSharp`
 - abi: the `ParquetSharp` transitive carries the `runtimes/osx-arm64/native/libparquet` dylib, so the codec inherits ParquetSharp's RID-keyed native runtime
-- rail: `Semantics/geospatial#VECTOR_INGEST` managed columnar-geo arm
+- rail: `Semantics/vector#VECTOR_FOLD` managed columnar-geo arm
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -85,7 +85,7 @@
 [STACKING]:
 - `ParquetSharp`(`.api/api-parquetsharp`, `Rasm.Persistence`): a GeoParquet file IS a ParquetSharp file — this codec composes the native `libparquet` columnar engine that lane already admits, inheriting its `runtimes/osx-arm64/native/libparquet` asset, and adds only the OGC `geo` metadata + geometry-encoding leg on top
 - `NetTopologySuite`(`.api/api-nettopologysuite`): the geo-column WKB cell bridges to the canonical `GeoFeature` `Geometry` through `WKBReader.Read(byte[])` and `WKBWriter.Write(Geometry) -> byte[]` seeded from `GeoServices.Factory` — the same WKB bridge the GDAL OGR arm crosses, so a `DataTable` geo column and an OGR feature land the identical NTS geometry, and `GeoFeature.Attributes` maps to/from the non-geo columns
-- `Semantics/geospatial#VECTOR_INGEST`: this fold composes GeoParquet as the managed columnar `GeoVectorSource` arm — `ReadAll`/`ReadColumns` over the `ObjectStore.Fetch` bytes yields a `DataTable`, each geo column WKB-decodes into a `GeoFeature`, and the write leg projects `Seq<GeoFeature>` back to a `DataTable`; `ReadColumns(filePath, names)` is the attribute push-down for a wide web dataset, the columnar analog of the FGB bbox row filter
+- `Semantics/vector#VECTOR_FOLD`: this fold composes GeoParquet as the managed columnar `GeoVectorSource` arm — `ReadAll`/`ReadColumns` over the `ObjectStore.Fetch` bytes yields a `DataTable`, each geo column WKB-decodes into a `GeoFeature`, and the write leg projects `Seq<GeoFeature>` back to a `DataTable`; `ReadColumns(filePath, names)` is the attribute push-down for a wide web dataset, the columnar analog of the FGB bbox row filter
 
 [LOCAL_ADMISSION]:
 - GeoParquet read/write enters through `GeoParquetReader`/`GeoParquetWriter` over a `DataTable`; the geo column WKB-bridges to the canonical `GeoFeature` at the seam and the `GISBlox.*` types stay inside the `GeoVector` fold per the boundary-mapping law
@@ -94,5 +94,5 @@
 [RAIL_LAW]:
 - Package: `GISBlox.IO.GeoParquet`
 - Owns: the managed OGC-GeoParquet columnar codec — `DataTable`↔`.parquet` read/write with WKB/WKT geometry columns, the `geo` file-metadata model, batched column projection, and the geo-column schema tagging
-- Accept: a `Semantics/geospatial#VECTOR_INGEST` managed columnar arm reading/writing a `DataTable` whose geo column WKB-bridges to the canonical `GeoFeature` via the NTS `WKBReader`/`WKBWriter`, with `ReadColumns` column push-down and `ReadGeoMetadata` metadata-first reads, composing the `ParquetSharp` native engine
+- Accept: a `Semantics/vector#VECTOR_FOLD` managed columnar arm reading/writing a `DataTable` whose geo column WKB-bridges to the canonical `GeoFeature` via the NTS `WKBReader`/`WKBWriter`, with `ReadColumns` column push-down and `ReadGeoMetadata` metadata-first reads, composing the `ParquetSharp` native engine
 - Reject: routing GeoParquet through the GDAL OGR `"Parquet"` driver where this managed codec reads it; a second Parquet engine beside `ParquetSharp`; treating the `DataTable` geo column as canonical geometry instead of bridging it to the NTS `GeoFeature`; a whole-table `ReadAll` where a known column subset projects via `ReadColumns`; a boolean op inside the codec where `NetTopologySuite` owns the planar algebra

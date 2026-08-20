@@ -1,6 +1,6 @@
 # [RASM_BIM_API_VIVIDORANGE_CASES]
 
-`VividOrange.Cases` (concrete) over `VividOrange.ICases` (contract) owns the Eurocode EN 1990 load-case-and-combination algebra: it folds typed `VividOrange.Loads` `ILoad` actions into design cases, then synthesizes the ULS/SLS combination set with the partial-safety (`γ`) and combination (`ψ`) factors a `NationalAnnex` selects. `Model/structural#STRUCTURAL_PROJECTION` composes it to PRODUCE a load-combination group's neutral rows — the generated `Definition` beside the `GetFactoredLoads()` design actions. It feeds the `load-case` rail.
+`VividOrange.Cases` (concrete) over `VividOrange.ICases` (contract) owns the Eurocode EN 1990 load-case-and-combination algebra: it folds typed `VividOrange.Loads` `ILoad` actions into design cases, then synthesizes the ULS/SLS combination set with the partial-safety (`γ`) and combination (`ψ`) factors a `NationalAnnex` selects. `Model/eurocode#EUROCODE_ALGEBRA` composes it to PRODUCE a load-combination group's neutral rows — the generated `Definition` beside the `GetFactoredLoads()` design actions. It feeds the `load-case` rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -121,7 +121,7 @@
 - with `LanguageExt.Core`: an uncovered `NationalAnnex` faults at the boundary — the EN `ψ`/`γ` singletons throw `NotImplementedException` and `IStandard.Title`'s kernel throws `MissingNationalAnnexException` (`.api/api-vividorange-istandards`); Bim ingest captures both (and a bare `Exception` for an unrecognised case type) into `Fin<T>` via `.ToError()`, lowering onto `Model/faults` `BimFault.CapabilityMiss`, never propagating into the fold
 
 [LOCAL_ADMISSION]:
-- the canonical in-graph carrier is the neutral `PropertyName`→`PropertyValue` row set `Model/structural#STRUCTURAL_PROJECTION` stamps; VividOrange `ILoadCase`/`ILoadCombination` are the Eurocode engine that PRODUCES those rows and never a type re-exported across the seam
+- the canonical in-graph carrier is the neutral `PropertyName`→`PropertyValue` row set `Model/eurocode#EUROCODE_ALGEBRA` stamps; VividOrange `ILoadCase`/`ILoadCombination` are the Eurocode engine that PRODUCES those rows and never a type re-exported across the seam
 - every `ψ`/`γ` factor is a `Ratio`, never a bare `double`; the `IDesignSituation` `double` partial-factor reads are wrapped in `Ratio.FromDecimalFractions` at the boundary before factoring
 - a national deviation is a `NationalAnnex` table row passed to `GetProperties`/the factory, never a per-country code branch; `RecommendedValues` is the EN fallback when no annex applies
 - concrete `PermanentCase`/`VariableCase`/`DesignSituation` are MUTABLE settable-property carriers — the Eurocode authoring surface; project the produced combination set onto the immutable Bim records

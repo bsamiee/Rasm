@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_VECTORTILES]
 
-`NetTopologySuite.IO.VectorTiles` owns the in-memory Mapbox-Vector-Tile authoring model over the NTS `Feature` shape and the WebMercator XYZ tile algebra its slicing keys on: `VectorTileTree.Add` folds a feature stream into a `{z}/{x}/{y}` tile pyramid under a fixed or per-feature `(zoom, layerName)` policy. It is the format-neutral half of the MVT pair — the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox` (`.api/api-nts-vectortiles-mapbox`) — feeding the `Semantics/geospatial` web-tile leg, distinct from the 3D-Tiles glTF stack.
+`NetTopologySuite.IO.VectorTiles` owns the in-memory Mapbox-Vector-Tile authoring model over the NTS `Feature` shape and the WebMercator XYZ tile algebra its slicing keys on: `VectorTileTree.Add` folds a feature stream into a `{z}/{x}/{y}` tile pyramid under a fixed or per-feature `(zoom, layerName)` policy. It is the format-neutral half of the MVT pair — the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox` (`.api/api-nts-vectortiles-mapbox`) — feeding the `Semantics/model#TILE_PYRAMID` web-tile leg, distinct from the 3D-Tiles glTF stack.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -72,7 +72,7 @@
 [STACKING]:
 - `NetTopologySuite.IO.VectorTiles.Mapbox`(`.api/api-nts-vectortiles-mapbox`): `MapboxTileWriter.Write` emits the `VectorTileTree` as a `{z}/{x}/{y}.mvt` pyramid, `GetExtents` feeds the `VectorTileSource` TileJSON, and `MapboxTileReader.Read(stream, new Tile(z, x, y))` round-trips a stored tile — the pair is always composed, this package never reaches bytes alone.
 - `NetTopologySuite`/`NetTopologySuite.Features`(`.api/api-nettopologysuite`): internal tilers cut against the global `NtsGeometryServices` EPSG:4326 `GeometryFactory`, so the tile clip inherits the canonical `PrecisionModel`; features arrive as `IFeature`/`FeatureCollection` rows.
-- `Semantics/geospatial`: `GeoFeature` geometry+attributes rows the `GeoModel` `STRtree` already indexes feed `VectorTileTree.Add` under a `ToFeatureZoomAndLayerFunc` routing zoom/layer by `IfcClass`/scale; `ProjNET`/OSR reprojects to EPSG:4326 BEFORE tiling, never inside it.
+- `Semantics/model#TILE_PYRAMID`: `GeoFeature` geometry+attributes rows the `GeoModel` `STRtree` already indexes feed `VectorTileTree.Add` under a `ToFeatureZoomAndLayerFunc` routing zoom/layer by `IfcClass`/scale; `ProjNET`/OSR reprojects to EPSG:4326 BEFORE tiling, never inside it.
 - 3D-Tiles is orthogonal: the 2D `.mvt` pyramid (MapLibre/Mapbox-GL basemaps) and the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles`) coexist as distinct delivery stacks.
 
 [LOCAL_ADMISSION]:
