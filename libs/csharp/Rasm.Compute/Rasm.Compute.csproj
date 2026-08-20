@@ -58,6 +58,7 @@
     <ItemGroup Label="Numeric Substrate">
         <PackageReference Include="CSparse" />
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="MathNet.Numerics.Data.Text" />
         <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
