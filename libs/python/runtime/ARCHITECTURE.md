@@ -25,7 +25,7 @@ runtime/
 │   ├── wire.py         # WireProtoCodec, the MIRROR_* vocabulary checks, and the WireU64/Hlc two-half encode
 │   ├── event.py        # MessageEnvelope mint, Uniqueness composite, Content modes, and the NUMERIC_EXTENSIONS carve
 │   ├── binding.py      # BINDINGS row table, the CLASSIFICATION_ROWS gate, and BrokerLane's one connection owner
-│   └── filter.py       # Cesql compiled expression, the closed FilterDialect family, and the Subscription resource
+│   └── filter.py       # Cesql lowered closures over the LALR grammar; FilterDialect pushdown rows and the Subscription seat
 ├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
 │   ├── admission.py    # RuntimeContext/RuntimeProfile owners, SecretBoundary and SettingsAdmission, TenantAdoption
 │   ├── lanes.py        # LanePolicy/Admit task groups and StagePlan; capacity projects from the profile row

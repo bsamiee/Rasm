@@ -40,6 +40,7 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 - Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
 - `[<KIND>]: <shape>`; `KIND = WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
+- Page filenames are their codemap node name language appropriate cased, so card, page, and node resolve as one name and a rename moves consistently.
 
 [RULINGS]:
 - `RULINGS.md` settles decisions at its tier and guards re-litigation; with `README.md` and `ARCHITECTURE.md` it forms the folder's core.

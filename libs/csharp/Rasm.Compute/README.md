@@ -28,16 +28,16 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start and its per-bucket warm roster.
 - [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery, quantization posture, and the guaranteed floor.
 - [17]-[RUN](.planning/Model/run.md): Run-mode inference fold, batching gate, and the fingerprint-gated result cache.
-- [18]-[TILING](.planning/Model/tiling.md): Tiled mosaic — one `TilePlan` grid, taper weights, border and blend rows.
+- [18]-[TILING](.planning/Model/tiling.md): Planes larger than any admitted session shape, run as one gather-run-scatter pass proving their coverage.
 - [19]-[STAGE](.planning/Model/stage.md): Stage-execution wire — the decode-only Materials mirror and the plan construction.
 - [20]-[EMBEDDING](.planning/Model/embedding.md): Retrieval half of the inference spine — encoding axis, metric axis, content-keyed vector carrier.
 - [21]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
 - [22]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
 
 [SOLVER]:
-- [23]-[ELEMENT](.planning/Solver/element.md): `ElementClass` isoparametric axis over kernel `CellTopology`; cell quality; the 12-DOF frame kernel.
+- [23]-[ELEMENT](.planning/Solver/element.md): One Vandermonde mechanism under twelve continuum types, beside the owned two-node member family.
 - [24]-[DISCRETIZATION](.planning/Solver/discretization.md): `MeshLane` volumetric generation with Dörfler adaptive refinement.
-- [25]-[FIELDSPACE](.planning/Solver/field.md): `DiscreteMesh` frozen carrier with its proven rule; `FieldSpace`.
+- [25]-[FIELDSPACE](.planning/Solver/field.md): Seam where generation freezes and assembly reads out, so no consumer re-elects a rule already proven.
 - [26]-[CONTRACT](.planning/Solver/contract.md): Solve admission and dispatch over the physics axis and its lane policy.
 - [27]-[ASSEMBLY](.planning/Solver/assembly.md): Operator assembly — cell fold, boundary conditions, lumped inertia.
 - [28]-[ROUTE](.planning/Solver/route.md): Route bodies, the recovery ladder, solve archive sessions, and coupled fields.
@@ -50,8 +50,8 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [35]-[SATISFY](.planning/Solver/satisfy.md): SMT rule satisfaction with witness and unsat-core explanation.
 
 [STATS]:
-- [36]-[ESTIMATOR](.planning/Stats/estimator.md): One Fit/Predict contract — carriers, admission, dispatch, validation, selection, and the receipt.
-- [37]-[FAMILIES](.planning/Stats/families.md): Estimator family rows — rosters, generators, row-bound kernels, and the iterative engine.
+- [36]-[ESTIMATOR](.planning/Stats/estimator.md): Uniform statistical-learning contract holding while every row keeps its own mechanism.
+- [37]-[FAMILIES](.planning/Stats/families.md): Roster of which estimators exist, what each parameterizes, and how each fits — one row per family.
 - [38]-[SIGNAL](.planning/Stats/signal.md): Spectral-transform axis and filter design.
 - [39]-[MONITOR](.planning/Stats/monitor.md): Streaming monitor capsules — EWMA limits, P² quantile sketch, detector rows, drift verdict.
 
@@ -60,13 +60,13 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [41]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
 - [42]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
 - [43]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union — the payload spine, telemetry projection, and fold projections.
-- [44]-[CLAIMS](.planning/Runtime/claims.md): Fingerprint-gated benchmark claims, profile evidence, and the host forecast.
+- [44]-[CLAIMS](.planning/Runtime/claims.md): Measured gate on every performance-motivated route — a winning claim whose fingerprint and class match.
 - [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
-- [46]-[BOARD](.planning/Runtime/board.md): Fact selection, SLO objectives, panel projection, and the hook-point rail.
+- [46]-[BOARD](.planning/Runtime/board.md): One dashboard-and-reliability pack travelling to the composing root as data rows, never as rendered JSON.
 - [47]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
 - [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
-- [49]-[INGEST](.planning/Runtime/ingest.md): One broker pump over the binding rows and the bSDD REST ingest.
-- [50]-[OBSERVATION](.planning/Runtime/observation.md): Observation lane — decoded sensor streams into content-keyed series chunks.
+- [49]-[INGEST](.planning/Runtime/ingest.md): Foreign-delivery boundary for sensor and dictionary material — bytes this process never controls.
+- [50]-[OBSERVATION](.planning/Runtime/observation.md): Durable half of the sensor wire — metered streams as graph evidence, sole reach to `Node`.
 - [51]-[CODECS](.planning/Runtime/codecs.md): Geometry-delta codec, the shared quantization law, content addressing, and the columnar lake landing.
 - [52]-[ARCHIVE](.planning/Runtime/archive.md): ONE HDF5 container session owning the filter seat, chunk grid, and declared-write capsule.
 - [53]-[FIELD](.planning/Runtime/field.md): Chunked simulation-field codec, HDF5 interop, and the scientific-ingest dispatch.
@@ -75,15 +75,15 @@ One intent rail admits every execution request once, a substrate axis routes it 
 
 [ANALYSIS]:
 - [56]-[ASSESSMENT](.planning/Analysis/assessment.md): Assessment route/request/fact algebra, commissioning, and the `AnalysisReads` planar owner.
-- [57]-[DISPATCH](.planning/Analysis/dispatch.md): Assess/cached/write-back dispatch, content keys, supersede, sweep, and closure.
+- [57]-[DISPATCH](.planning/Analysis/dispatch.md): One pass from request to landed verdict, with redrive posture and retirement of a stale answer.
 - [58]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
-- [59]-[FRAME](.planning/Analysis/frame.md): Frame idealization and the owned-spine solve.
+- [59]-[FRAME](.planning/Analysis/frame.md): Structural idealization that never learns a design code — capacity reads its per-combination response.
 - [60]-[CAPACITY](.planning/Analysis/capacity.md): Design-code capacity table and the response-spectrum route.
 - [61]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
 - [62]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
 - [63]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
 - [64]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
-- [65]-[DAYLIGHT](.planning/Analysis/daylight.md): Sun hours, shadow fraction, sky view, and Perez diffuse irradiance off the kernel almanac.
+- [65]-[DAYLIGHT](.planning/Analysis/daylight.md): `Discipline.Daylight` at each target's reference plane; a weather-less run takes an explicit site.
 
 ## [02]-[DOMAIN_PACKAGES]
 

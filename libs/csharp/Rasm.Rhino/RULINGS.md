@@ -66,6 +66,9 @@
 - Vocabulary rank is the kernel's derived declaration-order member — a hand-kept `rank:` column restating it is the deleted second authority.
 - `FormatDial` closes on its private root constructor and carries no `[Union]` — a generated dispatch surface nothing reads is decoration.
 
+- Kernel motion crosses as `MotionDrive` alone — `SpringShape`, `DecayShape`, and `SpringState` ride `MotionScript`/`MotionSample` cases.
+- Kernel hooks cross as `HookRail` — this boundary composes the rail over its own `RhinoPoint` roster and names no bare `HookPoint` seat.
+
 ## [03]-[COLLAPSE]
 
 - `RhinoInstrumentPartition` and `RhinoInstruments` stay separate — declared projection data against contributed meter rows; the fold erases both.
@@ -82,6 +85,9 @@
 - `CPlaneGrid`/`CPlanePalette`/`CPlaneTrait` seat ONCE at `Persistence/presets`, the lowest stratum both reach, and `Viewport/camera` composes them.
 - `Rasm.Rhino.Modeling` holds DETACHED geometry alone — `ParentRhinoObject()` is unreachable here, and the attached counterpart seats at `Document/`.
 - `ContentValue`, `FieldValue`, and `FormulaValue` split the payload word across Render, Interaction, and Annotation — no `global::` qualification.
+
+- Package rows cite a member's DECLARING page — `Lease<T>` is kernel `Domain/rails` and `Placement.Build` kernel `Numerics/atoms`.
+- `Placement` is twice-carried — the kernel builds transforms, `Blocks/model` unions block instances, and every citation qualifies which.
 
 ## [05]-[PROCESS]
 

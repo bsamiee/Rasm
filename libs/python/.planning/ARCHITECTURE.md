@@ -115,7 +115,7 @@ flowchart LR
     RasmCompute e12@-->|"[SHAPE]: DoeDataset"| Data
     Data e13@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Data e14@-->|"[WIRE]: Environmental"| Materials
-    Bim e15@-->|"[WIRE]: GeoFeatureWire"| Data
+    Bim e15@-->|"[PROJECTION]: GeoWire"| Data
     Artifacts e16@-->|"[WIRE]: AssetSetManifest"| Materials
     Artifacts e17@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Fabrication e18@-->|"[WIRE]: GdtFrameWire"| Artifacts

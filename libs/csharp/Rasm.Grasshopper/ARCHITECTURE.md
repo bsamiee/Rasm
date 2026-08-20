@@ -26,10 +26,9 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   └── Solution.cs     # One solution owner over the host SolutionServer in every posture the server admits
 ├── Eto/                # Platform residue of the kernel interaction plane; nothing else seats here
 │   └── Runtime.cs      # Platform-timer lease and pace producer; the timer cannot rise with its kernel-floor consumers
-├── Platform/           # Composition root, Eto.Mac bridge law, CoreAnimation compositor, capture, AppKit gate
+├── Platform/           # Composition root, CoreAnimation compositor, capture recorder, and the AppKit admission gate
 │   ├── Capture.cs      # Leased ScreenCaptureKit recording — kernel-drain frames, one-shot still, paint proof
 │   ├── Composition.cs  # One in-package composition seam nothing deeper composes; PackageIdentity resolve, broker registry
-│   ├── Handlers.cs     # Eto.Mac bridge-law census — registered AppKit contracts, conversion owners, refused members
 │   ├── Layers.cs       # CoreAnimation graph custody; every layer write rides the transaction fence, Display-P3 colour
 │   └── Native.cs       # MacGate platform admission precondition; managed-to-AppKit extraction, input monitors
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
@@ -101,7 +100,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting receipts and drives home-side. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, and `AssetOrigin` names every icon. Command receipts seal home-side from an injected timeline, so no contract flows back down.
+Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting receipts and drives home-side. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, and `AssetOrigin` names every icon. Command receipts seal home-side from an injected timeline, so no contract flows back down.
 
 `GhTelemetry` admits the app root's `IMeterFactory` and `ILoggerFactory` the same way: capability in, `rasm.grasshopper.*` instrument writes out, zero provider reference inside the boundary.
 
@@ -133,7 +132,7 @@ flowchart LR
     Rasm e4@-->|"[BOUNDARY]: SpringShape"| Canvas
     Rasm e5@-->|"[BOUNDARY]: MotionDrive"| Canvas
     Rasm e6@-->|"[BOUNDARY]: PerceptualColor"| Canvas
-    Rasm e7@-->|"[BOUNDARY]: PaintProgram"| Canvas
+    Rasm e7@-->|"[BOUNDARY]: PaintProgram + Mark"| Canvas
     Rasm e8@-->|"[BOUNDARY]: IntentTable"| Canvas
     Rasm e9@-->|"[BOUNDARY]: MonotonicTimeline"| Document
     Rasm e10@-->|"[BOUNDARY]: MonotonicTimeline"| Eto
@@ -141,7 +140,7 @@ flowchart LR
     Rasm e12@-->|"[BOUNDARY]: PerceptualColor"| Shell
     Rasm e13@-->|"[BOUNDARY]: UiDispatch"| Shell
     Rasm e14@-->|"[BOUNDARY]: AssetOrigin"| Shell
-    Rasm e15@-->|"[PORT]: Op + Lease + HookPoint + InstrumentSpec"| Shell
+    Rasm e15@-->|"[PORT]: Op + Lease + HookRail + InstrumentSpec"| Shell
     Rasm e16@-->|"[BOUNDARY]: MonotonicTimeline"| Platform
     Rasm e17@-->|"[BOUNDARY]: PerceptualColor"| Platform
     Rasm e18@-->|"[BOUNDARY]: MotionDrive"| Platform

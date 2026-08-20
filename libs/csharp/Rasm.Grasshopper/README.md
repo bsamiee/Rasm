@@ -31,19 +31,18 @@
 [PLATFORM]:
 - [17]-[CAPTURE](.planning/Platform/capture.md): `SessionCapture` publishes ScreenCaptureKit frames into the kernel drain, proving paint claims.
 - [18]-[COMPOSITION](.planning/Platform/composition.md): `PlatformRoot` mints plugin identity, the session clock, brokers, and the mount roster.
-- [19]-[HANDLERS](.planning/Platform/handlers.md): `IMacViewHandler` and `IMacWindow` census registered AppKit contracts and refused members.
-- [20]-[LAYERS](.planning/Platform/layers.md): `Compose` holds CoreAnimation graph custody, transaction fences, and display-link motion.
-- [21]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
+- [19]-[LAYERS](.planning/Platform/layers.md): `Compose` holds CoreAnimation graph custody, transaction fences, and display-link motion.
+- [20]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
 
 [SHELL]:
-- [22]-[CHROME](.planning/Shell/chrome.md): `Chrome` applies toolbar, input-panel, tooltip, and button intent onto GH2 hosts; `Mount` seats chrome.
-- [23]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, swings toggle capabilities, settles `GateReceipt<ShellFacts>`.
-- [24]-[EVENTS](.planning/Shell/events.md): `GhFact` closes the folder fact band; GH2 source rows ride kernel `UiEvents` subscription and drains.
-- [25]-[HOOKS](.planning/Shell/hooks.md): `GrasshopperPoint` realizes the kernel `HookRail` roster, every row naming its live fire site.
-- [26]-[ICONS](.planning/Shell/icons.md): `IconOwner.Mint` materializes kernel asset origins into `IIcon` values; `IconCatalog` is the inventory.
-- [27]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts into stamped per-document partitions with export.
-- [28]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts over the injected session clock.
-- [29]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and projects receipts into attributed instruments.
+- [21]-[CHROME](.planning/Shell/chrome.md): `Chrome` applies toolbar, input-panel, tooltip, and button intent onto GH2 hosts; `Mount` seats chrome.
+- [22]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, swings toggle capabilities, settles `GateReceipt<ShellFacts>`.
+- [23]-[EVENTS](.planning/Shell/events.md): `GhFact` closes the folder fact band; GH2 source rows ride kernel `UiEvents` subscription and drains.
+- [24]-[HOOKS](.planning/Shell/hooks.md): `GrasshopperPoint` realizes the kernel `HookRail` roster, every row naming its live fire site.
+- [25]-[ICONS](.planning/Shell/icons.md): `IconOwner.Mint` materializes kernel asset origins into `IIcon` values; `IconCatalog` is the inventory.
+- [26]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts into stamped per-document partitions with export.
+- [27]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts over the injected session clock.
+- [28]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and projects receipts into attributed instruments.
 
 ## [02]-[DOMAIN_PACKAGES]
 

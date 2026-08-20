@@ -105,6 +105,8 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
+`Rasm.Compute`'s analysis rail hands two typed row streams over one shape seam. `SeriesLane.Ingest` lands the temporal leg — this package's own `Query/datasets#SERIES_ROSTER` `SeriesPoint` — under the `SeriesKind.Assessment` row, while the neutral `AssessmentRow` result estate stays Compute-owned vocabulary crossing as producer-handed row data, so this package declares no result-row twin.
+
 ```mermaid
 ---
 config:
@@ -157,6 +159,7 @@ flowchart LR
     Compute e27@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Store
     Compute e28@-->|"[WIRE]: LakeGeneration"| Query
     Compute e29@-->|"[SHAPE]: AnalyticsSchema + ColumnCell"| Query
+    Compute e30@-->|"[SHAPE]: SeriesPoint + AssessmentRow"| Query
 ```
 
 ```mermaid
@@ -194,22 +197,19 @@ flowchart LR
     Element e9@<-->|"[PORT]: ProjectionContext"| AppHost
     Version e10@<-->|"[PORT]: Hlc"| AppHost
     Query e11@-->|"[WIRE]: DocumentQuery + DocumentHit"| AppUi
-    Query e12@-->|"[PROJECTION]: StoreProfileRow"| AppUi
-    Store e13@-->|"[RECEIPT]: ReceiptEnvelope"| AppUi
-    Version e14@-->|"[SHAPE]: RecoveryObjective"| AppHost
-    AppHost e15@-->|"[PROJECTION]: ReplayWindow"| Version
-    Query e16@<-->|"[PORT]: HybridCache"| AppHost
-    Store e17@<-->|"[PORT]: CoordinationOp"| AppHost
-    Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
-    Store e19@-->|"[PORT]: PersistenceHooks"| AppHost
-    Store e20@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
-    Store e21@<-->|"[CONTRACT]: BackendContract"| Runtime
-    Store e22@<-->|"[CONTRACT]: BackendContract"| TsData
-    AppUi e23@-->|"[PROJECTION]: ReplayWindow"| Version
-    AppUi e24@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
-    Query e25@-->|"[PROJECTION]: telemetry measure series"| AppUi
-    Query e26@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
-    Query e27@-->|"[WIRE]: DocumentQuery/DocumentHit"| AppUi
+    Query e12@-->|"[PROJECTION]: SeriesBucket"| AppUi
+    Version e13@-->|"[SHAPE]: RecoveryObjective"| AppHost
+    AppHost e14@-->|"[PROJECTION]: ReplayWindow"| Version
+    Query e15@<-->|"[PORT]: HybridCache"| AppHost
+    Store e16@<-->|"[PORT]: CoordinationOp"| AppHost
+    Store e17@<-->|"[PORT]: TelemetryContributorPort"| AppHost
+    Store e18@-->|"[PORT]: PersistenceHooks"| AppHost
+    Store e19@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
+    Store e20@<-->|"[CONTRACT]: BackendContract"| Runtime
+    Store e21@<-->|"[CONTRACT]: BackendContract"| TsData
+    AppUi e22@-->|"[PROJECTION]: ReplayWindow"| Version
+    AppUi e23@-->|"[CONTENT_KEY]: CollabSnapshot"| Store
+    Query e24@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
 ```
 
 ## [04]-[INTERNAL]

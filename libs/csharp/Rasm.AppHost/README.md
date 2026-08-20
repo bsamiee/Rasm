@@ -15,8 +15,8 @@
 - [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package seam every peer crosses.
 - [09]-[DETERMINISM](.planning/Runtime/determinism.md): Reproducibility kernel — pinned RNG/float-mode and the hash-chained command log.
 - [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md): Crash-durable workflow and persistent-job owner over the command/event/schedule ports.
-- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): `WorkLane` resilience governor — bulkhead, adaptive permits, load-shed, circuit health.
-- [12]-[FEATURES](.planning/Runtime/features.md): Config-backed OpenFeature targeting and rollout minting the one `FlagVerdict` seam.
+- [11]-[LANEGUARD](.planning/Runtime/laneguard.md): Keyed Polly pipeline per work lane, resizable permits, and the shed verdict `Rasm.Compute` reads.
+- [12]-[FEATURES](.planning/Runtime/features.md): Variant targeting per subject — which variant, for whom, at what exposure — and the kill-switch.
 
 [AGENT]:
 - [13]-[MCP](.planning/Agent/mcp.md): MCP-server projection of descriptors to tools, resources, and prompts.
@@ -38,14 +38,14 @@
 - [25]-[ADMISSION](.planning/Sandbox/admission.md): One supply-chain admission gate — offline Sigstore, SLSA provenance, SemVer contract.
 - [26]-[ISOLATION](.planning/Sandbox/isolation.md): Capability-brokered WASM and process plugin isolation with unified call mediation.
 - [27]-[SOLVER](.planning/Sandbox/solver.md): Solver-plugin contract with canonical-representation negotiation.
-- [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Post-fetch self-update state machine over the staged fleet-roll axis.
+- [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Every update phase after the fetch — release-ring feeds, drain-before-swap, fleet waves.
 
 [OBSERVABILITY]:
 - [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal composition with per-signal governance and conformance projection.
 - [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder, alerts off the grading table.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture — trigger vocabulary, frozen window, one zip.
 - [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
-- [33]-[HOOKS](.planning/Observability/hooks.md): Extension-point roster and the closed fact family — delivery capability and trace plane as row data.
+- [33]-[HOOKS](.planning/Observability/hooks.md): Spine seams a rider governs or watches, each advertising the guard its mechanism runs.
 - [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark receipt family, the corpus gate, and profile-linked capture rows.
 - [35]-[EGRESS](.planning/Observability/egress.md): Durable OTLP transport — blob queue, disposition ledger, mutual-auth mount, persistent handler.
 

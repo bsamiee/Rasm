@@ -39,7 +39,7 @@
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- Condition modules carrying a row roster earn a codemap node and a page; one-row seats (`otel/dev.ts`, `proc/worker.main.ts`) ride strata prose.
 
 ## [05]-[PROCESS]
 

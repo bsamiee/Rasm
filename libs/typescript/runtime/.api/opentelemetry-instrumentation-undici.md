@@ -49,7 +49,7 @@
 - `opentelemetry-instrumentation.md` `registerInstrumentations`: the row joins one array with an explicit `tracerProvider`; construction policy lives here, activation there.
 - `opentelemetry-instrumentation-http.md`: two rows split the client surface — `node:http` traffic on that row, undici and `fetch` on this one — so a single outbound hop is never traced twice.
 - `opentelemetry-context-async-hooks.md`: `requireParentforSpans` reads `context.active()`, so without an installed manager every client call reads orphan and the gate drops every span.
-- `otel/emit` `[07]-[INSTRUMENT]`: the server registration node constructs the row from the export policy — origin self-exclusion against the collector and the parent gate off `policy.server.orphan`.
+- `otel/server` `[02]-[REGISTRATION]`: the server registration node constructs the row from the export policy — origin self-exclusion against the collector and the parent gate off `policy.server.orphan`.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer.

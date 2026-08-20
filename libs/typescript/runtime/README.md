@@ -19,39 +19,41 @@
 
 [OTEL]:
 - [10]-[EMIT](.planning/otel/emit.md): OTLP egress as one policy value and one Layer beside the W3C continuation ingress.
-- [11]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
-- [12]-[METER](.planning/otel/meter.md): Durable-work evidence projected lossily onto Convention-keyed instruments.
-- [13]-[PROFILE](.planning/otel/profile.md): Continuous wall and heap profiling pushed from the node lane under one identity projection.
-- [14]-[VITAL](.planning/otel/vital.md): Browser RUM — the Core Web Vitals family measured whole, graded, and emitted once per document.
+- [11]-[SERVER](.planning/otel/server.md): Node auto-instrumentation rows over the async-local manager — self-egress excluded, engine series bound.
+- [12]-[INSTRUMENT](.planning/otel/instrument.md): Document instrumentation rows over the zone manager; interaction admission gates span cardinality.
+- [13]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
+- [14]-[METER](.planning/otel/meter.md): Durable-work evidence projected lossily onto Convention-keyed instruments.
+- [15]-[PROFILE](.planning/otel/profile.md): Continuous wall and heap profiling pushed from the node lane under one identity projection.
+- [16]-[VITAL](.planning/otel/vital.md): Browser RUM — the Core Web Vitals family measured whole, graded, and emitted once per document.
 
 [SERVE]:
-- [15]-[API](.planning/serve/api.md): Front-door assembly law — domain groups as data, one app-assembled `HttpApi`, derived secondary surfaces.
-- [16]-[ROUTE](.planning/serve/route.md): Routes as Layers — api mount, upload dispatch, and intake verify in one serving fold.
-- [17]-[LIVE](.planning/serve/live.md): Realtime SSE and WebSocket serving over branch feeds under resume-token and admission laws.
-- [18]-[PROBLEM](.planning/serve/problem.md): RFC 9457 outbound-fault law — every leaving fault renders itself.
-- [19]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
+- [17]-[API](.planning/serve/api.md): Front-door assembly law — domain groups as data, one app-assembled `HttpApi`, derived secondary surfaces.
+- [18]-[ROUTE](.planning/serve/route.md): Routes as Layers — api mount, upload dispatch, and intake verify in one serving fold.
+- [19]-[LIVE](.planning/serve/live.md): Realtime SSE and WebSocket serving over branch feeds under resume-token and admission laws.
+- [20]-[PROBLEM](.planning/serve/problem.md): RFC 9457 outbound-fault law — every leaving fault renders itself.
+- [21]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
 
 [WORK]:
-- [20]-[ENTITY](.planning/work/entity.md): Cluster entities — sharded, per-id, single-writer identity over tiered mailboxes.
-- [21]-[FLOW](.planning/work/flow.md): Suspend-and-replay workflows — recorded activities never re-run their side effects.
-- [22]-[QUEUE](.planning/work/queue.md): Restart-surviving job families with keyed quotas spent through one store-backed counter.
-- [23]-[SCHEDULE](.planning/work/schedule.md): Calendar recurrence as cadence rows — timezone-intrinsic cron, misfire windows, catch-up.
-- [24]-[DELIVER](.planning/work/deliver.md): Mail and webhook egress as channel rows sharing one settlement receipt and one suppression.
-- [25]-[FILTER](.planning/work/filter.md): Every subscription dialect compiled into a single predicate shape, CESQL parsed in-house.
-- [26]-[REPORT](.planning/work/report.md): Document egress folded per format discriminant — each column owns its value projection.
+- [22]-[ENTITY](.planning/work/entity.md): Cluster entities — sharded, per-id, single-writer identity over tiered mailboxes.
+- [23]-[FLOW](.planning/work/flow.md): Suspend-and-replay workflows — recorded activities never re-run their side effects.
+- [24]-[QUEUE](.planning/work/queue.md): Restart-surviving job families with keyed quotas spent through one store-backed counter.
+- [25]-[SCHEDULE](.planning/work/schedule.md): Calendar recurrence as cadence rows — timezone-intrinsic cron, misfire windows, catch-up.
+- [26]-[DELIVER](.planning/work/deliver.md): Mail and webhook egress as channel rows sharing one settlement receipt and one suppression.
+- [27]-[FILTER](.planning/work/filter.md): Every subscription dialect compiled into a single predicate shape, CESQL parsed in-house.
+- [28]-[REPORT](.planning/work/report.md): Document egress folded per format discriminant — each column owns its value projection.
 
 [AI]:
-- [27]-[MODEL](.planning/ai/model.md): Intelligence providers folded onto one asymmetry table, fallback ranked by the plan engine.
-- [28]-[EMBED](.planning/ai/embed.md): Retrieval-port satisfaction — one normalization anchor, cut lanes as policy rows.
-- [29]-[TOOL](.planning/ai/tool.md): Tools as typed data merged into toolkits, both MCP lanes gated by one safety owner.
-- [30]-[AGENT](.planning/ai/agent.md): Sealed agent altitude — a session's phase spine is a machine, its chat persists durably.
+- [29]-[MODEL](.planning/ai/model.md): Intelligence providers folded onto one asymmetry table, fallback ranked by the plan engine.
+- [30]-[EMBED](.planning/ai/embed.md): Retrieval-port satisfaction — one normalization anchor, cut lanes as policy rows.
+- [31]-[TOOL](.planning/ai/tool.md): Tools as typed data merged into toolkits, both MCP lanes gated by one safety owner.
+- [32]-[AGENT](.planning/ai/agent.md): Sealed agent altitude — a session's phase spine is a machine, its chat persists durably.
 
 [BROWSER]:
-- [31]-[BOOT](.planning/browser/boot.md): One boot per document minting the one managed runtime handle under the app-spec budget.
-- [32]-[SHELL](.planning/browser/shell.md): PWA manifest as a typed value the build encodes, with one update handshake.
-- [33]-[PERSIST](.planning/browser/persist.md): Local persistence — each concern maps to its own named IndexedDB store, residency graded.
-- [34]-[ROUTE](.planning/browser/route.md): Zero-package typed routing over the Navigation API, carrying the `Vault` session plane.
-- [35]-[FETCH](.planning/browser/fetch.md): Byte-flow policy over `Web`, `Fetch`, `Pool`, and `Depot` — worker decoding, generation-scoped residency.
+- [33]-[BOOT](.planning/browser/boot.md): One boot per document minting the one managed runtime handle under the app-spec budget.
+- [34]-[SHELL](.planning/browser/shell.md): PWA manifest as a typed value the build encodes, with one update handshake.
+- [35]-[PERSIST](.planning/browser/persist.md): Local persistence — each concern maps to its own named IndexedDB store, residency graded.
+- [36]-[ROUTE](.planning/browser/route.md): Zero-package typed routing over the Navigation API, carrying the `Vault` session plane.
+- [37]-[FETCH](.planning/browser/fetch.md): Byte-flow policy over `Web`, `Fetch`, `Pool`, and `Depot` — worker decoding, generation-scoped residency.
 
 ## [02]-[DOMAIN_PACKAGES]
 

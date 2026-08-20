@@ -24,6 +24,8 @@
 - Pin identity is `PinKey` under `[ValidationError<PinKeyError>]` through `AcceptValidated<TVO, TError>` — a bare key skips the typed refusal.
 - `ChromeTag` and `IconTag` mint chrome, editor, and icon identity as `[ValueObject<string>]` owners, so no raw string key stands beside them.
 - Boolean flag families ride `ICapability` vocabularies, the law stated on the owner: `Open` unless a corner is illegal.
+- Kernel hooks cross as `HookRail` over the `GrasshopperPoint` roster; the bare `HookPoint` seat has no site here.
+- `Mark` crosses beside `PaintProgram` — `GhMark.Kernel` carries the kernel vocabulary whole and the host cases carry only what GH2 draws.
 
 ## [03]-[COLLAPSE]
 
@@ -33,7 +35,8 @@
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- `Platform/Handlers.cs` does NOT re-enter — a foreign-SDK member census is catalogue content, homing at `.api/api-eto-platform.md`.
+- Eto.Mac members reach through their consuming owner — extraction at `Platform/native`, conversion at `Platform/layers` — never a bridge file.
 
 ## [05]-[PROCESS]
 

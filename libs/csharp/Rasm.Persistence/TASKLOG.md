@@ -20,7 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[ASSESSMENT_ROW_RESIDENCE]-[QUEUED]: Neutral analysis result rows seat as a queryable custodian dataset instead of dying on an unbound egress leg.
+- Capability: a producer-handed typed result stream seats as a first-class dataset, so a discipline's row estate answers what the blob lane cannot.
+- Shape: `libs/csharp/Rasm.Persistence/.planning/Query/datasets.md` — a fourth declared dataset beside the Series, Fleet, and receipt rosters.
+- Unlocks: the `Rasm.Compute` `Analysis/dispatch#DISPATCH_WRITEBACK` `AssessmentSink.Rows` leg binds a landing rather than the refusing `None`.
+- Anchors: `Query/residence#SEAM_ADMISSION` `AnalyticsSeam.Admit`/`Seat`, `Query/serving#SERVING_PLANE` `ResidenceLanding.Stage`, the Series roster.
+- Tension: `Facets` arity is per-discipline while a residence fixes its columns once — one wide facet path or a per-discipline row is the bet.
 
 ## [02]-[CLOSED]
 

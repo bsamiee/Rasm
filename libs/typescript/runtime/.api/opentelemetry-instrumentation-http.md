@@ -51,7 +51,7 @@
 - `opentelemetry-instrumentation.md` `registerInstrumentations`: the row joins one array with an explicit `tracerProvider`; construction policy lives here, activation there.
 - `opentelemetry-context-async-hooks.md`: without an installed context manager every patched callback reads ROOT, so an inbound span never parents the outbound call it triggers.
 - `opentelemetry-instrumentation-undici.md`: undici and `fetch` bypass `node:http` entirely, so the two rows split the client surface with no overlap and neither double-traces the other's transport.
-- `otel/emit` `[07]-[INSTRUMENT]`: the server registration node constructs the row from the export policy — the outbound hook matched against the collector host and port its `_authority` projection normalizes out of the parsed options, the inbound hook against the policy's own path roster, the parent-presence gate off `policy.server.orphan`, and the redaction roster off `policy.server.redact`.
+- `otel/server` `[02]-[REGISTRATION]`: the server registration node constructs the row from the export policy — the outbound hook matched against the collector host and port its `_authority` projection normalizes out of the parsed options, the inbound hook against the policy's own path roster, the parent-presence gate off `policy.server.orphan`, and the redaction roster off `policy.server.redact`.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer, and Effect's own `Effect.withSpan` seams remain the primary span source.

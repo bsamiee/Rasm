@@ -20,7 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[CHART_SOLAR_SEAM]-[QUEUED]: the kernel solar crossing into the chart planes carries a registered seam edge like every other kernel shape.
+- Capability: the seam registry stays a complete census — a kernel shape a plane spells at its own fences owns an edge naming that plane.
+- Shape: `ARCHITECTURE.md` `[03]-[SEAMS]` first fence — one `[SHAPE]` edge from the kernel to `Charts`, joining the collapse group already there.
+- Unlocks: a reader tracing solar geometry reaches the consuming signature from the fence alone, without re-censusing the package for spellings.
+- Anchors: `Charts/climate.md` spells `SunPosition` in its packages row and its `Sun` fold; `Render` and `Analysis` already carry their own edges.
+- Atomic: one edge and one pool renumber; the surrounding fence needs no re-derivation.
 
 ## [02]-[CLOSED]
 

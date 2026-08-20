@@ -51,7 +51,7 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [38]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its golden vectors.
 
 [PROPERTIES]:
-- [39]-[PROPERTIES](.planning/Properties/properties.md): Published-physics catalogue per `MaterialId`; `Admit` lowers rows onto the seam cases.
+- [39]-[PROPERTIES](.planning/Properties/properties.md): Published engineering data per material, the fib durability table, and the mix-design fold.
 - [40]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
 - [41]-[ASSESSMENT](.planning/Properties/assessment.md): Dated declaration records and the assessed-over-published resolution law.
 

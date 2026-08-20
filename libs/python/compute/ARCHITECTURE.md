@@ -27,7 +27,7 @@ compute/                    # Offline scientific evidence, graduating outward th
 ├── numerics/               # Numeric substrate every sub-domain admits through
 │   ├── array.py            # ArrayPayload admission floor every producer stratum composes
 │   ├── jit.py              # JitBackend capture table; experiments and quadrature compose it
-│   ├── interval.py         # IntervalOp dispatch whose receipt names the certifying Floor and the ball width
+│   ├── interval.py         # IntervalOp union over the module-probed Floor rows; Certificate and the width/refuted/vacuous bars
 │   ├── quantity.py         # UncertainQuantity; correlated unit-bearing uncertainty on one owner
 │   └── statistics.py       # TestIntent hypothesis routes and MLE fit; report keys intent-owned over sample bytes
 ├── analysis/               # Classical-math evidence producers

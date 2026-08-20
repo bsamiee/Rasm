@@ -20,11 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[OTEL_REGISTRATION_PAGES]-[QUEUED]: Every telemetry registration plane owns a decision-complete design page.
-- Capability: Browser, server, and dev planes each own their instrumentation rows, self-exclusion policy, and context-manager bracket at page grain.
-- Shape: new pages `otel/instrument.md`, `otel/server.md`, `otel/dev.md` in `libs/typescript/runtime/.planning/`, split from `emit.md`'s clusters.
-- Unlocks: router-to-codemap bijection at page grain across otel — every otel codemap node resolving to one page and one router card is the bar.
-- Anchors: `otel/emit.md` registration clusters, `Convention` instrument rows, the `@opentelemetry/instrumentation*` catalogs, the `./dev` gauge.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -32,6 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[OTEL_REGISTRATION_PAGES]-[COMPLETE]: `otel/server.md` and `otel/instrument.md` carve out of `emit.md`, each owning its condition's row roster, context-manager bracket, self-egress exclusion, and one `registerInstrumentations` activation; `otel/dev.ts` holds one `DevTools.layer` row and no concept, so it keeps its seat at `emit.md` `[08]-[DEV]` and a strata row rather than a codemap node, matching `proc/worker.main.ts`. otel now reads one page per node.
 [AVRO_EVENT_ARM]-[COMPLETE]: `Format.event.fill` seats the host-bound seam at core; `net/channel`'s `Avro` mints the one codec both intakes consume, closing the zero-call-site `avsc` registration.
 [FAULT_CLASS_CONFORMANCE]-[COMPLETE]: every runtime fault family mints through `FaultClass.family` with `class` as a projection of `reason` — the three named pre-ruling holdouts converged (`browser/route.md` `_routeFamily`/`_flowFamily`, `browser/persist.md` `_kvFamily`, `proc/exec.md` `_exec`), and the residual literal-asserted pair at `serve/cli.md` collapsed into one two-reason `OpsFault`; no local rank, retry, or halting column survives anywhere in the folder. Mirrors `ui`/`data`/`iac`, whose sibling cards close on their own corpora.
 [CONSUMPTION_AXIS_RECORD]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
@@ -44,7 +41,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [HOST_METRICS_BINDING]-[COMPLETE]: already realized — `emit.md`'s server registration node binds `HostMetrics` on the raw `Hooks.Meter` provider, `_placed` arms container/aws/gcp detectors, `_rum` folds `browserDetector`, and the browser node carries the XHR row under the shared self-exclusion policy.
 [PROFILE_PAGE_MINT]-[COMPLETE]: `otel/profile.md` minted — `Profile.Policy` off `Setting.otel.profile`, the init and per-sampler arm bracket with `SourceMapper.create([...roots])` and `StripFilenamesMode`, `Convention.profiled` store labels, rank-91 `Life` drain, and the region band carrying the span-profile stamp; the pyroscope catalog gained the verified declarations.
 [PUBSUB_CARRIER_INJECTION]-[COMPLETE]: `pubsub.md` local, tab, NATS, and Kafka publish rows inject `Propagation.current` through matching core `Carrier` dialects, and each consume row extracts the same dialect before `Propagation.ingress`.
-[NODE_RUNTIME_INSTRUMENTATION]-[COMPLETE]: already realized — `emit.md` `[07]-[INSTRUMENT]`'s server node registers `RuntimeNodeInstrumentation` in its one `registerInstrumentations` call and `meter.md` `[05]-[VIEWS]` contributes the `createDenyListAttributesProcessor` row.
+[NODE_RUNTIME_INSTRUMENTATION]-[COMPLETE]: already realized — `server.md` `[02]-[REGISTRATION]` registers `RuntimeNodeInstrumentation` in its one `registerInstrumentations` call and `meter.md` `[05]-[VIEWS]` contributes the `createDenyListAttributesProcessor` row.
 [BAGGAGE_PROMOTION]-[COMPLETE]: already realized — `emit.md` `_sdk` wires `BaggageSpanProcessor(_admitted(policy.promote))` and `config.md` admits the `Setting.otel.promote` prefix row.
 [WIRE_EXPORTER_DISPATCH]-[COMPLETE]: already realized — `emit.md` `_wire` binds the `-http` and `-proto` exporter families for all three signals and each `_lanes` row fixes its framing, so `_transport` carries one compression, timeout, and concurrency row across every signal.
 [NATS_KAFKA_ROWS]-[COMPLETE]: landed — `exec.md` runtime rows carry `nats: connect` (`@nats-io/transport-node`) consumed by `Broker.live(dial)`, and `pubsub.md` `[07]-[KAFKA_ROW]` lands the Kafka engine with honest dedup/replay/blob degradation columns.

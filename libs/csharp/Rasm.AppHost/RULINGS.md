@@ -68,6 +68,7 @@
 
 - `AddApplicationLogEnricher` does NOT re-enter — its unqualified `service.name` and `deployment.environment` break record-to-series joins.
 - MCP serves the stateless revision — every session-rail capability is `[Obsolete]` at the installed SDK, so sampling and frame replay delete whole.
+- Router rows stay noun-led fragments — the row-grammar test reads CAD-host boundary, which a gRPC mount and an ASP.NET pipeline never cross.
 
 ## [05]-[PROCESS]
 

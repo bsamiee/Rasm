@@ -8,19 +8,19 @@
 security/
 └── src/
     ├── crypt/             # Crypto authority the folder's every ceremony composes
-    │   ├── sign.ts        # `Crypto`/`Jwt`/`SingleUse`/`AccessClaims` owners and the sealed-envelope shredder
-    │   ├── verify.ts      # `Verify`, `Intake`, and `IntakeRoute` owners; every spine member imports `Reject`
-    │   └── secret.ts      # DopplerSDK custody behind `Layer.scoped` — download, targeted read, name census
+    │   ├── sign.ts        # Crypto/Jwt/SingleUse/AccessClaims owners and the sealed-envelope shredder
+    │   ├── verify.ts      # Verify, Intake, and IntakeRoute owners; every spine member imports Reject
+    │   └── secret.ts      # DopplerSDK custody behind Layer.scoped — download, targeted read, name census
     ├── authn/             # Authentication ceremonies feeding one identity spine
-    │   ├── session.ts     # `Token` mint and port seats; egress projections declared for the runtime browser plane
+    │   ├── session.ts     # Token mint and port seats; egress projections declared for the runtime browser plane
     │   ├── credential.ts  # Entropy-classed material table; argon2 and SHA-256 compare arms behind one resolve
-    │   ├── oauth.ts       # openid-client `Configuration` seat and the code-exchange fold; `SingleUse` stash per leg pair
+    │   ├── oauth.ts       # openid-client Configuration seat and the code-exchange fold; SingleUse stash per leg pair
     │   ├── webauthn.ts    # Exports-map subpath split; zero shared runtime code between the halves
-    │   └── workload.ts    # `GrantRequest` closed family; reaches the sign and verify owners, never session
+    │   └── workload.ts    # GrantRequest closed family; reaches the sign and verify owners, never session
     └── access/            # Authorization decisions and their evidence plane
-        ├── claim.ts       # Verdict fold composing `AccessClaims` and `TenantScope`; flag verdicts join through `FlagGate`
-        ├── tenant.ts      # `TenantScope` reference owner and the GUC coordinate vocabulary the data stratum enforces
-        └── audit.ts       # `SecurityFact` union, class-routed drain lanes, and the `Pseudonym` mask
+        ├── claim.ts       # Verdict fold composing AccessClaims and TenantScope; flag verdicts join through FlagGate
+        ├── tenant.ts      # TenantScope reference owner and the GUC coordinate vocabulary the data stratum enforces
+        └── audit.ts       # SecurityFact union, class-routed drain lanes, and the Pseudonym mask
 ```
 
 ## [02]-[STRATA]

@@ -18,11 +18,10 @@ runtime/
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex, SSE, and MQTT v5 over one frame vocabulary
     │   ├── pubsub.ts          # Broker port with Fanout.Replayed pairs; in-process, BroadcastChannel, and jetstream rows
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
-    ├── otel/                  # OTLP wire: egress, W3C continuation, crash capture, browser RUM
+    ├── otel/                  # OTLP wire: egress, W3C continuation, condition registration, crash capture, browser RUM
     │   ├── emit.ts            # One OTLP egress Layer and the W3C continuation ingress under the redaction scrub
-    │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
-    │   ├── instrument.ts      # Browser-condition registration node: request, document, and interaction rows over the zone manager
-    │   ├── server.ts          # Server-condition registration node: engine vitals and http/undici/pg rows over the async-local manager
+    │   ├── server.ts          # AsyncLocalStorage manager seat; the node _rows roster and the _egress/_authority exclusion pair
+    │   ├── instrument.ts      # Zone manager seat; the document _rows roster and one anchored RegExp per self-egress origin
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
     │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
     │   ├── profile.ts         # Pyroscope pprof lifecycle bracket, sample labels, and the effectful long-lived-region arm
@@ -62,7 +61,8 @@ Strata rank the runtime interior; seating rows carry only the law the fence cann
 - S1 `proc` merge — `exec`, `life`, and `worker` mint their rails floor-free; only `config` and `flag` reach the net floor.
 - S1 `worker.main.ts` hands `Report.worker` in as composition-root code, never a stratum import.
 - S2 lateral — every lateral edge points at `otel`, and `otel` reads no S2 sibling back, so the shared rank closes no cycle.
-- S2 `otel` merge — the three registration nodes are condition-gated composition seats; `emit` alone owns egress, hiding no interior import.
+- S2 `otel` merge — the two condition nodes are registration seats the exports map resolves; `emit` alone owns egress, hiding no interior import.
+- S2 `otel/dev.ts` composes the `plane:dev` DevTools layer at a dev composition root, never a stratum import.
 - S2 `work` merge — `deliver` drains under the queue verdict vocabulary, `filter` verdicts ride dialect rows; no member opens a second store.
 - S2 `browser` merge — `boot` alone mints the runtime handle, and its siblings compose that handle once per document.
 - S2 `browser` stands parallel to the server plane, importing none of serve, work, or ai.
@@ -85,7 +85,7 @@ flowchart TB
     end
     subgraph S2["S2 CARRIERS + WORK"]
         Fanout["pubsub · coordinate"]
-        Otel["emit · dev · instrument · server · crash · meter · profile · vital"]
+        Otel["emit · server · instrument · crash · meter · profile · vital"]
         Browser["boot · shell · persist · route · fetch"]
         Work["entity · flow · queue · schedule · deliver · filter · report"]
     end

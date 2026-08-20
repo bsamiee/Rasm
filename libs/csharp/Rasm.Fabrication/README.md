@@ -9,7 +9,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 [PROCESS]:
 - [01]-[OWNER](.planning/Process/owner.md): Content keys, the policy family, the receipt carrier, and the polymorphic `Run` dispatch.
 - [02]-[ATOMS](.planning/Process/atoms.md): Acyclic atoms floor — arc-native profile geometry, admitted motion, decoded equipment, and plan carriers.
-- [03]-[FAMILY](.planning/Process/family.md): Generated vocabulary floor — `Machine.Admit` equipment generation and the `PostDialect` grammar binding.
+- [03]-[FAMILY](.planning/Process/family.md): Generated vocabulary floor — `Machine.Admit` equipment generation and `PostDialect` grammar binding.
 - [04]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [05]-[FAULTS](.planning/Process/faults.md): `FabricationFault` typed-rejection registry partitioned by owning concern.
 - [06]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
@@ -26,7 +26,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [13]-[CURVES](.planning/Geometry2D/curves.md): Free-form curve admission and witnessed lowering under one `CurveAlgebra.Apply`.
 
 [INGRESS]:
-- [14]-[PROFILE](.planning/Ingress/profile.md): DXF/DWG census, profile-lane resolution, arc-preserving contour healing, and the `Ingress.Admit` fold.
+- [14]-[PROFILE](.planning/Ingress/profile.md): DXF/DWG census, profile-lane resolution, arc-preserving contour healing, and `Ingress.Admit`.
 - [15]-[SOLID](.planning/Ingress/solid.md): STEP/IGES/STL/3DM/3MF unit-resolved admission with conditioning and repair evidence.
 - [16]-[STEEL](.planning/Ingress/steel.md): DSTV/NC1 admission into typed steel features and arc-aware contours.
 - [17]-[ELEMENT](.planning/Ingress/element.md): `ElementGraph` admission into component, connection, relationship, and fact receipts.
@@ -92,7 +92,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 
 [FORMING]:
 - [59]-[SHEET](.planning/Forming/sheet.md): One unfold owner and the `FormSource` modality family the run spine dispatches forming through.
-- [60]-[BRAKE](.planning/Forming/brake.md): Best-first bend-sequence planning over tooling, back-gauge, springback, and clearance evidence.
+- [60]-[BRAKE](.planning/Forming/brake.md): Executable press-brake plan from an unfolded pattern to ordered instructions under one admitted policy.
 - [61]-[TUBE](.planning/Forming/tube.md): Tube-forming algebra — discrete bending, axis-specific section roll curving, and cope projection.
 
 [JOINING]:

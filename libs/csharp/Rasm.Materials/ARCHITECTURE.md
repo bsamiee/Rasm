@@ -9,55 +9,55 @@
 ```text codemap
 Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost}; VividOrange in-folder; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
-│   ├── Component.cs       # `Component` record, closed `SectionProfile` algebra, `MaterialGrade` rows, and the `ComponentSeed` traverse and gates
-│   ├── Masonry.cs         # `ComponentFamily.Masonry` policy row and the bond algebra; a unit is a `Component` row, never a `Brick` type
-│   ├── Steel.cs           # `SteelSeed.Roster` spans the registered domains beside the generated cold-formed lattice; `SteelSeed.Law` binds it
-│   ├── Cmu.cs             # `CmuSeed.Roster`/`Law` under the block policy row; ASTM and TMS cells ride as published data
-│   ├── Timber.cs          # `TimberSeed.Roster`/`Law` over EN strength-class tables; members and cross-laminated panels are each one row
-│   ├── Glazing.cs         # IGU rows as `SectionProfile.Layered` with `PlyRole` panes, interlayers, and cavities; performance derives from physics
-│   ├── Reinforcement.cs   # `ReinforcementRow` roster and the host-neutral `RcSection` assembler; bars and tendons are each one row
-│   ├── Fastener.cs        # `StockRow.Threaded` pairs `ThreadRow` with a grade; `StockRow.Plain` carries published nail, dowel, and rivet data
+│   ├── Component.cs       # Component record, closed SectionProfile algebra, MaterialGrade rows, and the ComponentSeed traverse and gates
+│   ├── Masonry.cs         # ComponentFamily.Masonry policy row and the bond algebra; a unit is a Component row, never a Brick type
+│   ├── Steel.cs           # SteelSeed.Roster spans the registered domains beside the generated cold-formed lattice; SteelSeed.Law binds it
+│   ├── Cmu.cs             # CmuSeed.Roster/Law under the block policy row; ASTM and TMS cells ride as published data
+│   ├── Timber.cs          # TimberSeed.Roster/Law over EN strength-class tables; members and cross-laminated panels are each one row
+│   ├── Glazing.cs         # IGU rows as SectionProfile.Layered with PlyRole panes, interlayers, and cavities; performance derives from physics
+│   ├── Reinforcement.cs   # ReinforcementRow roster and the host-neutral RcSection assembler; bars and tendons are each one row
+│   ├── Fastener.cs        # StockRow.Threaded pairs ThreadRow with a grade; StockRow.Plain carries published nail, dowel, and rivet data
 │   ├── Connector.cs       # Evaluation-report cells with directional allowables; every cell carries its issuing report and safety basis
 │   ├── Joint.cs           # Continuous weld/adhesive/stud vocabulary; no thread or bar section, so nothing folds into the fastener family
-│   ├── Panel.cs           # Board geometry as `SectionProfile.Layered` over the shared bounded `PlyRole`; deck geometry rides its own profile
-│   ├── Concrete.cs        # `ConcreteSeed.Roster`/`Law` over the CIP policy row; exposure classes drive the cover regime
-│   ├── Precast.cs         # `PrecastSeed.Roster`/`Law`; a plank, tee, or panel is one catalogued product row
+│   ├── Panel.cs           # Board geometry as SectionProfile.Layered over the shared bounded PlyRole; deck geometry rides its own profile
+│   ├── Concrete.cs        # ConcreteSeed.Roster/Law over the CIP policy row; exposure classes drive the cover regime
+│   ├── Precast.cs         # PrecastSeed.Roster/Law; a plank, tee, or panel is one catalogued product row
 │   ├── Aluminum.cs        # EN 1999 characteristic bands beside the authored die roster; section truth is die-owned, the inverse of steel's
 │   ├── Insulation.cs      # Non-board thermal forms under the covering token; the board split law routes rigid boards to the panel family
 │   ├── Finishes.cs        # TWO family rows over ONE algebra; each shape states once and the family column carries the split
 │   ├── Pipework.cs        # Pressure-pipe product rows across the material systems; shared dimension rules state once
 │   ├── Ductwork.cs        # SMACNA product rows: pressure-class ladder, gauges, seal and liner classes, geometry
 │   ├── Electrical.cs      # Conductor product rows with NEC/IEC ampacity cells as RATING rows beside the containment vocabularies
-│   └── Capacity.cs        # `SectionCapacity` `[Union]` and the `Check` fold; one `Demand` against one capacity is the typed `Utilisation`
+│   └── Capacity.cs        # SectionCapacity [Union] and the Check fold; one Demand against one capacity is the typed Utilisation
 ├── Appearance/            # Measured appearance engine — node graph, BSDF lobe family, and the material wire
-│   ├── Bsdf.cs            # `BsdfLobe` `[Union]` under one `Evaluate`/`Sample`/`Pdf` contract; `Microfacet<T>` generic GGX/Smith/Fresnel kernel
-│   ├── Graph.cs           # `AppearanceNode` `[Union]` over typed `PortValue` channels; `Compile` orders the DAG once on the QuikGraph substrate
-│   ├── Surface.cs         # `SpectralUpsample`, the `ToneMap` operator table, and the OpenPBR construction half the wire and library drive
-│   ├── Texture.cs         # `TextureSource` sampling under `AddressMode`/`FilterMode` bands; `ProceduralNoise` seeds over the `NoiseBasis` band
-│   ├── Photometric.cs     # `PhotometricQuantity` band rows each carrying one closed `Coercion` discriminant; the 683 lm/W efficacy divide
-│   ├── Weathering.cs      # `WeatheringEffect` policy rows drive a library row along `AgeParameter`, so a row carries its trajectory
-│   ├── Acquisition.cs     # `Acquisition.Import` produces `AcquiredMaterial` with its `CaptureProvenance` receipt and admitted plane set
-│   ├── Finish.cs          # `Finish.Resolve` over a pigment-weight vector and coat stack; spectrally-grounded `BaseColor`, measured provenance
-│   ├── Interchange.cs     # One resolved library row crosses in three reconciled shapes keyed by ONE content hash; `CorpusBorne` states the entry
-│   ├── Environment.cs     # `SkyModel` `[Union]`, `EnvironmentMap` admission, and the IBL prefilter; scene-linear radiance end to end
-│   └── Neural.cs          # `ModelCard` frozen registry keyed by `ModelCardId`; stage, licence, weights, tensor contract, provider ladder as DATA
+│   ├── Bsdf.cs            # BsdfLobe [Union] under one Evaluate/Sample/Pdf contract; Microfacet<T> generic GGX/Smith/Fresnel kernel
+│   ├── Graph.cs           # AppearanceNode [Union] over typed PortValue channels; Compile orders the DAG once on the QuikGraph substrate
+│   ├── Surface.cs         # SpectralUpsample, the ToneMap operator table, and the OpenPBR construction half the wire and library drive
+│   ├── Texture.cs         # TextureSource sampling under AddressMode/FilterMode bands; ProceduralNoise seeds over the NoiseBasis band
+│   ├── Photometric.cs     # PhotometricQuantity band rows each carrying one closed Coercion discriminant; the 683 lm/W efficacy divide
+│   ├── Weathering.cs      # WeatheringEffect policy rows drive a library row along AgeParameter, so a row carries its trajectory
+│   ├── Acquisition.cs     # Acquisition.Import produces AcquiredMaterial with its CaptureProvenance receipt and admitted plane set
+│   ├── Finish.cs          # Finish.Resolve over a pigment-weight vector and coat stack; spectrally-grounded BaseColor, measured provenance
+│   ├── Interchange.cs     # One resolved library row crosses in three reconciled shapes keyed by ONE content hash; CorpusBorne states the entry
+│   ├── Environment.cs     # SkyModel [Union], EnvironmentMap admission, and the IBL prefilter; scene-linear radiance end to end
+│   └── Neural.cs          # ModelCard frozen registry keyed by ModelCardId; stage, licence, weights, tensor contract, provider ladder as DATA
 ├── Raster/                # Texture-map generation — the plane substrate, the bake engine, and its container estate
-│   ├── Plane.cs           # `TexturePlane` typed-texel pooled arena over the kernel lattice seat; storage, transfer, primaries, alpha, range
-│   ├── Codec.cs           # `RasterFormat` `[SmartEnum<string>]` rows carry extension, magic claim, alpha association, capability, engine case
-│   ├── Filter.cs          # `PlaneOp` `[Union]` under one `Apply` that PLANS shapes, SCHEDULES stages by dependency class, then rents outputs
-│   ├── Tile.cs            # `TileStrategy` `[SmartEnum<string>]` closes the tiling algebra; `TileProof.Grade` is the one tileability mint
-│   ├── Set.cs             # `TextureChannel` `[SmartEnum<string>]` rows carry group, components, transfer, neutral; `SetBind` re-binds the library
-│   ├── Press.cs           # `TexturePress.Press` drives a `PressSubject` across a `PressPlan`; the content-identity veto guards every mint
-│   └── Gpu.cs             # `PressDevice` headless adapter with per-kernel compiled pipelines behind one cache; the only `Silk.NET.WebGPU` speller
+│   ├── Plane.cs           # TexturePlane typed-texel pooled arena over the kernel lattice seat; storage, transfer, primaries, alpha, range
+│   ├── Codec.cs           # RasterFormat [SmartEnum<string>] rows carry extension, magic claim, alpha association, capability, engine case
+│   ├── Filter.cs          # PlaneOp [Union] under one Apply that PLANS shapes, SCHEDULES stages by dependency class, then rents outputs
+│   ├── Tile.cs            # TileStrategy [SmartEnum<string>] closes the tiling algebra; TileProof.Grade is the one tileability mint
+│   ├── Set.cs             # TextureChannel [SmartEnum<string>] rows carry group, components, transfer, neutral; SetBind re-binds the library
+│   ├── Press.cs           # TexturePress.Press drives a PressSubject across a PressPlan; the content-identity veto guards every mint
+│   └── Gpu.cs             # PressDevice headless adapter with per-kernel compiled pipelines behind one cache; the only Silk.NET.WebGPU speller
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
-│   ├── Properties.cs      # `MaterialPropertyCatalogue` keys published physics per `MaterialId`; `Admit` lowers rows into the seam's typed cases
-│   ├── Sustainability.cs  # `SustainabilityCatalogue` in exact roster parity with its engineering sibling; `Lower` mints the seam cases
-│   └── Assessment.cs      # `AssessmentSet.Of` resolves dated declarations over the curated catalogues; `DeclarationWire.Decode` admits the wire
+│   ├── Properties.cs      # MaterialPropertyCatalogue rows, the MechanicalSource vendor-delegation axis, and Published<T> the shared ingress carrier
+│   ├── Sustainability.cs  # SustainabilityCatalogue in exact roster parity with its engineering sibling; Lower mints the seam cases
+│   └── Assessment.cs      # AssessmentSet.Of resolves dated declarations over the curated catalogues; DeclarationWire.Decode admits the wire
 └── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
-    ├── Component.cs       # `Project` folds payload-complete `Substance` and `Type` cases onto `Fin<GraphDelta>` behind the `ProjectionGate` veto
-    ├── Observability.cs   # `MaterialsPoint` roster over the kernel `IHookRoster` floor; `MaterialsHooks.Live` mints the one folder rail
-    ├── Benchmarks.cs      # `BenchKernel` rows pin `BenchInput` and resolved content keys, so content changes fork lineage, never row spellings
-    └── Analytics.cs       # Dataset rows and projection folds; column types, residences, dialects, and DDL home at `Rasm.Persistence`
+    ├── Component.cs       # Project folds payload-complete Substance and Type cases onto Fin<GraphDelta> behind the ProjectionGate veto
+    ├── Observability.cs   # MaterialsPoint roster over the kernel IHookRoster floor; MaterialsHooks.Live mints the one folder rail
+    ├── Benchmarks.cs      # BenchKernel rows pin BenchInput and resolved content keys, so content changes fork lineage, never row spellings
+    └── Analytics.cs       # Dataset rows and projection folds; column types, residences, dialects, and DDL home at Rasm.Persistence
 ```
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.

@@ -1,6 +1,6 @@
 # [APPUI]
 
-`Rasm.AppUi` is the one Avalonia product surface, shell to viewport, drafting, analysis, collaboration, and diagnostics: every plane the router seats reads the receipt spine as settled product vocabulary, the theme vocabulary traces every visual literal, every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
+`Rasm.AppUi` is the one Avalonia product surface, shell to viewport: every plane the router seats reads the receipt spine as settled vocabulary, every visual literal traces to the theme vocabulary, every screen windows through one virtualization fabric, every fault crosses one typed envelope, and every collaborative surface converges through one merge authority.
 
 Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute receipts inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
@@ -9,76 +9,91 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [SHELL]:
 - [01]-[NAVIGATION](.planning/Shell/navigation.md): Routing spine with a typed deep-link grammar over dockable layouts.
 - [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog with ref-counted activation and OAPH-paced state.
-- [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting through seam delegate columns.
+- [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting under the host class a supplied profile row states.
 - [04]-[COMMANDS](.planning/Shell/commands.md): One command rail — every menu, hotkey, palette, and remote verb derives from one intent table.
-- [05]-[CONTROLS](.planning/Shell/controls.md): `ControlIntent` union materialized through one control factory.
-- [06]-[SOLVER](.planning/Shell/solver.md): Layout-constraint Kiwi algebra solved by one custom panel.
-- [07]-[VIRTUALIZATION](.planning/Shell/virtualization.md): One virtual-window owner over change-sets and an extent ledger.
-- [08]-[DIALOGS](.planning/Shell/dialogs.md): Two stack owners over derived topology, with the notification plane and activity inbox.
-- [09]-[INPUT](.planning/Shell/input.md): Command-derived hotkeys, behavior rows, and the pan-zoom device fabric.
-- [10]-[ACCESSIBILITY](.planning/Shell/accessibility.md): Automation identity, tab-order and trap law, one WCAG luminance gate.
+- [05]-[PALETTE](.planning/Shell/palette.md): Command palette and shortcut editor presenting the one intent table.
+- [06]-[QUEUE](.planning/Shell/queue.md): Job, run, and step surface whose sealed outputs hand off to the analysis plane.
+- [07]-[CONTROLS](.planning/Shell/controls.md): Declarative control materialization — a screen body is an intent stream, never a XAML literal.
+- [08]-[SOLVER](.planning/Shell/solver.md): Responsive, self-sizing, and adaptive layout resolved from typed constraints.
+- [09]-[VIRTUALIZATION](.planning/Shell/virtualization.md): Constant-cost realization of arbitrary lists, trees, grids, and canvases.
+- [10]-[DIALOGS](.planning/Shell/dialogs.md): Two stack owners over derived topology, with the notification plane and activity inbox.
+- [11]-[INPUT](.planning/Shell/input.md): Gesture mechanics for every admitted surface — chords, pointers, pens, and devices.
+- [12]-[ACCESSIBILITY](.planning/Shell/accessibility.md): Automation identity, tab-order and trap law, one WCAG luminance gate.
 
 [RENDER]:
-- [11]-[PIPELINE](.planning/Render/pipeline.md): Render-graph pass-DAG with per-backend targets and a resolve ladder.
-- [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption under the cull ladder and the hysteresis LOD cut.
-- [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, ray-cone LOD, and denoise oracle over the light rig and its resolved dome.
-- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted texture-plane residency under the layered-BSDF shade pass.
-- [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo review, session-state machine, passthrough, FB spatial anchors on the shared device.
-- [16]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
-- [17]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, and vector-print encode rows.
-- [18]-[DRAFTING](.planning/Render/drafting.md): Sheet drafting consuming the hidden-line receipt with one DWG/DXF write leg.
-- [19]-[ANIMATION](.planning/Render/animation.md): Timeline keyframe-track union with track-owned interpolation.
+- [13]-[PIPELINE](.planning/Render/pipeline.md): Render-graph pass-DAG with per-backend targets and a resolve ladder.
+- [14]-[VIEWPOINT](.planning/Render/viewpoint.md): Viewpoint codec, visibility channel, and the named-view registry over the BCF correspondence.
+- [15]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption under the cull ladder and the hysteresis LOD cut.
+- [16]-[PATHTRACE](.planning/Render/pathtrace.md): Global illumination for the infinite viewport over the light rig and its sun study.
+- [17]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted texture-plane residency under the layered-BSDF shade pass.
+- [18]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo review with passthrough, spatial anchors, and the immersive deck.
+- [19]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
+- [20]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, thumbnail variants, and vector-print encode rows.
+- [21]-[MEASURE](.planning/Render/measure.md): Measurement plane — snap ladder, dimension chains, and the section-state readout.
+- [22]-[DRAFTING](.planning/Render/drafting.md): 2D documentation from 3D geometry over the kernel drawing-standards owners.
+- [23]-[CADWRITE](.planning/Render/cadwrite.md): Drawing sets serialized to DWG, DXF, and SVG from one authored document.
+- [24]-[ANIMATION](.planning/Render/animation.md): Timeline keyframe-track union with track-owned interpolation and the transport grammar.
 
 [CHARTS]:
-- [20]-[DASHBOARDS](.planning/Charts/dashboards.md): Layered chart grammar over one paint resolver, transform chain, threshold family, tile state.
-- [21]-[CUSTOM](.planning/Charts/custom.md): Custom-visual Skia layout algebra with a keyed color-policy projection.
-- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, redlining, and camera verbs beside the viewport.
-- [23]-[TELEMETRY](.planning/Charts/telemetry.md): Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles.
-- [24]-[CLIMATE](.planning/Charts/climate.md): AEC climate diagrams — roses, sun paths, sky domes, comfort charts — and the polar split.
+- [25]-[GRAMMAR](.planning/Charts/grammar.md): Chart declarations admitted once — encodings, layers, the kind catalog, axes, legends.
+- [26]-[INK](.planning/Charts/ink.md): Chart paint resolved once from theme, with the severity ladder and the fault family.
+- [27]-[STREAMS](.planning/Charts/streams.md): Every reshape between a live feed and a rendered series, planning receipts included.
+- [28]-[TILES](.planning/Charts/tiles.md): Dashboards that monitor — one tile family bound to one aggregate spine with alerting.
+- [29]-[BOARDS](.planning/Charts/boards.md): Board-lifetime state every tile reads — variables, ranges, deep links, linked brushing.
+- [30]-[CUSTOM](.planning/Charts/custom.md): Every diagram and geo layer the chart package structurally cannot supply, drawn on Skia.
+- [31]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, redlining, and camera verbs beside the viewport.
+- [32]-[TELEMETRY](.planning/Charts/telemetry.md): Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles.
+- [33]-[CLIMATE](.planning/Charts/climate.md): AEC climate diagrams — roses, sun paths, sky domes, comfort charts — and the polar split.
 
 [ANALYSIS]:
-- [25]-[LAYERS](.planning/Analysis/layers.md): Sealed study outputs as stacking result layers with one probe channel and the bake verbs.
-- [26]-[COMPARE](.planning/Analysis/compare.md): Synced compare grid over option, analysis, and time under four shared channels.
-- [27]-[CONTEXT](.planning/Analysis/context.md): One environmental time-and-scenario axis beside the pre-solve compute-budget meter.
+- [34]-[LAYERS](.planning/Analysis/layers.md): Sealed study outputs as stacking result layers with one probe channel and the bake verbs.
+- [35]-[COMPARE](.planning/Analysis/compare.md): Synced compare grid over option, analysis, and time under four shared channels.
+- [36]-[CONTEXT](.planning/Analysis/context.md): One environmental time-and-scenario axis beside the pre-solve compute-budget meter.
 
 [EDITING]:
-- [28]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
-- [29]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
-- [30]-[FORMS](.planning/Editing/forms.md): Schema-driven forms — sectioned layout, dimensioned entry, pending commits, batch edits on one fold.
-- [31]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder, the durable-ledger arm, and its scrubbable timeline.
-- [32]-[LIVEDATA](.planning/Editing/livedata.md): Reactive data spine — sourcing cases, one filter/view algebra, optimistic overlay, design options.
-- [33]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas — typed graph edits admitted through one gate and merged live.
+- [37]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection and value editing under the preview-versus-commit law.
+- [38]-[CONFLICT](.planning/Editing/conflict.md): Merge-conflict surface over the diff3 hunks with per-hunk election verbs.
+- [39]-[CODEPANE](.planning/Editing/codepane.md): Code editor plane — folding, rulers, TextMate grammars, and the session cells.
+- [40]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
+- [41]-[FORMS](.planning/Editing/forms.md): Schema-driven forms — sectioned layout, dimensioned entry, pending commits, batch edits.
+- [42]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder, the durable-ledger arm, and its timeline.
+- [43]-[LIVEDATA](.planning/Editing/livedata.md): Every change-set pipeline between a data source and a screen, optimistic overlay included.
+- [44]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas — typed graph edits admitted through one gate and merged live.
 
 [DOCUMENT]:
-- [34]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
-- [35]-[MEDIA](.planning/Document/media.md): Markdown blocks, codec rows, playback transport, captions, gallery, and the diff seat.
-- [36]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, Office and print arms, and the support-bundle rows.
-- [37]-[SEARCH](.planning/Document/search.md): Typed search plane with ranked source-attributed results and its grouped results panel.
-- [38]-[BOARD](.planning/Document/board.md): Infinite board composing live view frames, stat cards, and sheets into a publishable deliverable.
+- [45]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
+- [46]-[MEDIA](.planning/Document/media.md): Markdown blocks, codec rows, playback transport, captions, gallery, and the diff seat.
+- [47]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, Office and print arms, and support-bundle rows.
+- [48]-[SEARCH](.planning/Document/search.md): Typed search plane with ranked source-attributed results and its grouped results panel.
+- [49]-[BOARD](.planning/Document/board.md): Infinite board composing live view frames, stat cards, and sheets into a deliverable.
 
 [COLLAB]:
-- [39]-[SYNC](.planning/Collab/sync.md): Live-merge authority, typed edit-intent stream onto the durable ledger, presence chrome, compare session.
-- [40]-[ISSUES](.planning/Collab/issues.md): openBIM issue board over the Bim BCF contract, its durable triage register, and typed redline tools.
-- [41]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence and presenter/audience chrome.
-- [42]-[SESSION](.planning/Collab/session.md): Typed session governance gating edit-intent admission by role and membership, with the session chrome.
+- [50]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
+- [51]-[PRESENCE](.planning/Collab/presence.md): Everything a co-edit session broadcasts and nothing it persists.
+- [52]-[COMPARE](.planning/Collab/compare.md): Two read-only rails over historical cuts, reverting through the one commit rail.
+- [53]-[ISSUES](.planning/Collab/issues.md): openBIM issue board over the Bim BCF contract, its triage register, and typed redline tools.
+- [54]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence and its chrome.
+- [55]-[SESSION](.planning/Collab/session.md): Typed session governance gating edit-intent admission by role and membership.
 
 [DIAGNOSTICS]:
-- [43]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, 6xxx faults.
-- [44]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, headless proof matrix, frame-bench lanes, and the golden/package-skew guard registry.
-- [45]-[DEVLOOP](.planning/Diagnostics/devloop.md): Debug-profile dev surface — live inspection, profiling, and the solve scrub beside the shell.
-- [46]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution and its operator readout.
+- [56]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, wire context.
+- [57]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, headless proof matrix, frame-bench lanes, and the guard registries.
+- [58]-[DEVLOOP](.planning/Diagnostics/devloop.md): Debug-profile dev surface — live inspection, profiling, and the solve scrub beside the shell.
+- [59]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution and its operator readout.
 
 [VFX]:
-- [47]-[MATERIAL](.planning/Vfx/material.md): Layer algebra, the sample-invalidation contract, and the per-draw filter rows.
-- [48]-[SHADER](.planning/Vfx/shader.md): SkSL program roster, per-frame uniform frames, path patterns, byte-ceiling tiles.
-- [49]-[COMPOSE](.planning/Vfx/compose.md): Closed composition slot vocabulary, keyframe mint, trigger maps, render-thread tick.
+- [60]-[MATERIAL](.planning/Vfx/material.md): Layer algebra, the sample-invalidation contract, and the per-draw filter rows.
+- [61]-[SHADER](.planning/Vfx/shader.md): SkSL program roster, per-frame uniform frames, path patterns, byte-ceiling tiles.
+- [62]-[COMPOSE](.planning/Vfx/compose.md): Closed composition slot vocabulary, keyframe mint, trigger maps, render-thread tick.
 
 [THEME]:
-- [50]-[TOKENS](.planning/Theme/tokens.md): Seed-generated token ladder with variant-scoped emission and atomic theme swap.
-- [51]-[TYPOGRAPHY](.planning/Theme/typography.md): Two-axis generated type table, capability-keyed face cabinet, one itemizing shaping rail.
-- [52]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
-- [53]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing, pointer rows, and one budgeted cache.
-- [54]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, calendars, and collation with mirroring and measurement law.
+- [63]-[TOKENS](.planning/Theme/tokens.md): Every visual constant in the package resolved through one generated token catalogue.
+- [64]-[SEMI](.planning/Theme/semi.md): Shipped Semi and Dock design tokens bound to the generated catalogue, carves stated.
+- [65]-[EMISSION](.planning/Theme/emission.md): Resolved token generation turned into the live application surface.
+- [66]-[TYPOGRAPHY](.planning/Theme/typography.md): Every text appearance generated from two axes and shaped through one itemizing rail.
+- [67]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
+- [68]-[ASSETS](.planning/Theme/assets.md): Kernel asset vocabulary composed with rank-fallback sourcing, pointer rows, one budgeted cache.
+- [69]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, calendars, and collation with mirroring and measurement law.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -193,8 +208,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `NodaTime`
 - `System.IO.Hashing`
 - `UnitsNet`
-- `CommunityToolkit.HighPerformance` — Word-level bit reads and writes inside the cross-filter dimension index.
-- `QuikGraph` — Acyclicity proof and topological order behind every dependency closure this folder admits.
+- `CommunityToolkit.HighPerformance` — Word-level bit reads in the cross-filter index and pooled `SpanOwner` scratch on the decode paths.
+- `QuikGraph` — Acyclicity proof and topological order behind every dependency closure this folder admits, and the render-graph pass DAG.
+- `Riok.Mapperly` — Generates every wire and projection seam mapper this folder declares.
+- `System.Threading.Channels` — Bounded lanes carrying every live transport this folder opens.
 - `Wacton.Unicolour` — Selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
 
 [NUMERIC_SUBSTRATE]:

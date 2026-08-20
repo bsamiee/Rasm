@@ -126,7 +126,7 @@ flowchart LR
     Core e3@-->|"[SHAPE]: Transition.Actor"| View
     Core e4@-->|"[SHAPE]: Presence.State"| View
     Core e5@-->|"[SHAPE]: Residency.Ledger"| Viewer
-    Core e6@-->|"[SHAPE]: Wire.ModelDiff"| Viewer
+    Core e6@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature"| Viewer
     Core e7@-->|"[SHAPE]: Tap.Name"| System
     Runtime e8@-->|"[PORT]: Atom.subscribable"| System
     Runtime e9@-->|"[PORT]: GlbViewport"| Viewer

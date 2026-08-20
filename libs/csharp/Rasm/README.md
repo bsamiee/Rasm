@@ -86,7 +86,7 @@
 - [63]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
 - [64]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
 - [65]-[SHEET](.planning/Drawing/sheet.md): Drawing-standards owner — derived sheet series, frames, scale ladders, naming grammars, and plot policy.
-- [66]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — `HatchOp` clipped by exact winding parity to the region complex, SoA hatch wire.
+- [66]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — course and dash band rows, per-region policy, and the census receipt.
 
 [ANALYSIS]:
 - [67]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one request algebra and its verb roster.

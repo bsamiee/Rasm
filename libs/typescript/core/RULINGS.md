@@ -33,6 +33,7 @@
 - Families owning no descriptor source ride their LANDED carriage arm — a descriptor minted to satisfy the registry forks the producer's own encoder.
 - Caller-defined magnitudes ride the wide event, never a metric row — a summed series folds disparate units into a code no UCUM row spells.
 - `Convention` families with a caller-keyed remainder declare ONE rendered payload row — nested shapes and instants flatten into no closed roster.
+- `Wire.GeoFeature` stays OUT of the family roster — the Bim crossing is raw GeoJSON text and WKB bytes, so no producer row or parity gate seats it.
 
 ## [03]-[COLLAPSE]
 

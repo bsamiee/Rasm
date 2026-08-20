@@ -7,60 +7,60 @@
 ```text codemap
 Rasm.Bim/                  # Host-neutral openBIM owner; sole GeometryGym/IFC surface, no AEC peer reference
 ├── Model/                 # Host-neutral BIM object model and analytical model
-│   ├── Elements.cs        # Generated `IfcClass` `[SmartEnum<string>]` region committed by the offline emitter at full published-schema breadth
-│   ├── Emitter.cs         # `IfcVocabularyEmitter` reflects the pinned assembly closure and INTERSECTS it with published EXPRESS schemas
-│   ├── Query.cs           # `BimLeaf` wraps the seam leaf in one arm beside IFC-vocabulary leaves; `ElementQuery` binds one `Selection<NodeId>`
-│   ├── Spatial.cs         # `SpatialStructure` VIEW derived from neutral `Compose` edges; ancestry resolves under Contain-then-Aggregate
-│   ├── Zones.cs           # `BimZone` grouping VIEW derived from neutral `Assign`/`Compose` edges; `BimZoneKind` closes the vocabulary
+│   ├── Elements.cs        # Generated IfcClass [SmartEnum<string>] region committed by the offline emitter at full published-schema breadth
+│   ├── Emitter.cs         # IfcVocabularyEmitter reflects the pinned assembly closure and INTERSECTS it with published EXPRESS schemas
+│   ├── Query.cs           # BimLeaf wraps the seam leaf in one arm beside IFC-vocabulary leaves; ElementQuery binds one Selection<NodeId>
+│   ├── Spatial.cs         # SpatialStructure VIEW derived from neutral Compose edges; ancestry resolves under Contain-then-Aggregate
+│   ├── Zones.cs           # BimZone grouping VIEW derived from neutral Assign/Compose edges; BimZoneKind closes the vocabulary
 │   ├── Systems.cs         # MEP connectivity VIEW over the seam graph; the projector already lowered every distribution entity
-│   ├── Structural.cs      # `StructuralProjection` lowers analysis entities onto neutral attribute bags a Compute frame reads
-│   ├── Eurocode.cs        # `AnnexRegime` national bridge, the `EurocodePolicy` composition value, and the psi mint per action
-│   ├── Faults.cs          # `ModelRejected`, `UnmappedClass`, `DanglingReference`, and `CodecReject` arms code by `BimCategory` offset
-│   └── Observability.cs   # `BimPoint` roster onto the kernel `IHookRoster` floor; `BimTelemetry` projects facts as a rail subscriber
+│   ├── Structural.cs      # StructuralProjection lowers analysis entities onto neutral attribute bags a Compute frame reads
+│   ├── Eurocode.cs        # AnnexRegime national bridge, the EurocodePolicy composition value, and the psi mint per action
+│   ├── Faults.cs          # ModelRejected, UnmappedClass, DanglingReference, and CodecReject arms code by BimCategory offset
+│   └── Observability.cs   # BimPoint roster onto the kernel IHookRoster floor; BimTelemetry projects facts as a rail subscriber
 ├── Semantics/             # Element-bound semantic enrichment
-│   ├── Properties.cs      # Offline `Xbim.Properties` template floor: schema-versioned, scope-selected, network-free; bSDD types the classifier
-│   ├── Classification.cs  # `ClassificationSystem` `[SmartEnum<string>]` beside a `Project` row whose identity arrives as composition data
-│   ├── Composition.cs     # `MaterialProjection.Project` discriminates the relating-material entity across layer, profile, constituent arms
-│   ├── Appearance.cs      # `AppearanceProjection.Project` extracts front-face surface styles onto the neutral summary the seam node holds
+│   ├── Properties.cs      # Offline Xbim.Properties template floor: schema-versioned, scope-selected, network-free; bSDD types the classifier
+│   ├── Classification.cs  # ClassificationSystem [SmartEnum<string>] beside a Project row whose identity arrives as composition data
+│   ├── Composition.cs     # MaterialProjection.Project discriminates the relating-material entity across layer, profile, constituent arms
+│   ├── Appearance.cs      # AppearanceProjection.Project extracts front-face surface styles onto the neutral summary the seam node holds
 │   ├── Connection.cs      # Whole realizing-element surface, fasteners to accessories, lowered onto seam detail bags
-│   ├── GeoReference.cs    # `GeoReferenceProjector.Project` switches the one `HasCoordinateOperation` onto `Header` and `Coverage`
-│   ├── Feature.cs         # `GeoFeature` row: NTS `Geometry`, attributes, seam CRS, typed `IsValidOp` verdict, on-shape `Anchor`, H3 `Cell`
-│   ├── Model.cs           # `GeoModel` set over one precision/SRID root and one `STRtree` broad phase; DGGS buckets key bit-for-bit with the store
-│   ├── Vector.cs          # `GeoVectorSource` rows carry `decode`/`encode` codec pairs; managed codecs beside the OGR universal reader
+│   ├── GeoReference.cs    # GeoReferenceProjector.Project switches the one HasCoordinateOperation onto Header and Coverage
+│   ├── Feature.cs         # GeoFeature row: NTS Geometry, attributes, seam CRS, typed IsValidOp verdict, on-shape Anchor, H3 Cell
+│   ├── Model.cs           # GeoModel set over one precision/SRID root and one STRtree broad phase; DGGS buckets key bit-for-bit with the store
+│   ├── Vector.cs          # GeoVectorSource rows carry decode/encode codec pairs; managed codecs beside the OGR universal reader
 │   └── Raster.cs          # Windowed multi-band reads re-anchor the affine to the pixel window; band schema and DEM legs ride the dataset
 ├── Planning/              # 4D/5D/6D delivery network
-│   ├── Schedule.cs        # `ScheduleNetwork` record: `ConstructionTask` rows fold `IfcTaskTime` onto NodaTime `Interval`s over the work calendar
-│   ├── Progress.cs        # `Compare` joins a reconstruction-authored graph to the as-designed graph and the schedule into one report
-│   └── Cost.cs            # `CostItem` lines join applied rates to takeoff `MeasureValue`s resolved at projection from element quantity bags
+│   ├── Schedule.cs        # ScheduleNetwork record: ConstructionTask rows fold IfcTaskTime onto NodaTime Intervals over the work calendar
+│   ├── Progress.cs        # Compare joins a reconstruction-authored graph to the as-designed graph and the schedule into one report
+│   └── Cost.cs            # CostItem lines join applied rates to takeoff MeasureValues resolved at projection from element quantity bags
 ├── Exchange/              # Universal interchange codec
-│   ├── Format.cs          # `InterchangeFormat` rows carry a `CapabilitySet<InterchangeCapability>` joined by codec-and-extension columns
-│   ├── Import.cs          # `BimIo` lowers each format row to its canonical carrier: pooled geometry, live `DatabaseIfc`, STEP model, display graph
-│   ├── Export.cs          # `BimExport.Export` folds one TOTAL codec `Switch` over `ExportPayload`: `Soup` triangles or content-keyed `Scene`
-│   ├── Tessellation.cs    # `TessellationRequest` crosses to the IfcOpenShell companion; the outcome receipt carries dual keys and mesh evidence
-│   ├── Reconstruct.cs     # `ReconstructionProjector` lowers a segmented cloud into occurrence nodes carrying typed `Pset_Reconstruction` bags
-│   ├── Saf.cs             # `SafCodec` validates and executes both workbook directions, realizing imports as authored GeometryGym entities
-│   ├── Wire.cs            # One raw artifact: format key, IFC bytes, schema key, `ContentAddress.OfGraph`, mint instant
+│   ├── Format.cs          # InterchangeFormat rows carry a CapabilitySet<InterchangeCapability> joined by codec-and-extension columns
+│   ├── Import.cs          # BimIo lowers each format row to its canonical carrier: pooled geometry, live DatabaseIfc, STEP model, display graph
+│   ├── Export.cs          # ExportPayload seals every emit; Author mints the GlbScene GlobalId→Node index TileMetadata and AnimateSchedule bind
+│   ├── Tessellation.cs    # TessellationRequest crosses to the IfcOpenShell companion; the outcome receipt carries dual keys and mesh evidence
+│   ├── Reconstruct.cs     # ReconstructionProjector lowers a segmented cloud into occurrence nodes carrying typed Pset_Reconstruction bags
+│   ├── Saf.cs             # SafCodec validates and executes both workbook directions, realizing imports as authored GeometryGym entities
+│   ├── Wire.cs            # One raw artifact: format key, IFC bytes, schema key, ContentAddress.OfGraph, mint instant
 │   └── Events.cs          # Announcement roster and host-free payloads; an observe subscription projects fired facts onto the kernel mint
 ├── Energy/                # Building-energy-model exchange
-│   ├── Exchange.cs        # `EnergyExchange.Apply(EnergyOp)` raises documents onto the graph and lowers graph content to the authoring schemas
+│   ├── Exchange.cs        # EnergyExchange.Apply(EnergyOp) raises documents onto the graph and lowers graph content to the authoring schemas
 │   ├── Projector.cs       # Five decode arms converge on ONE projection the Compute energy runner simulates
-│   ├── Derive.cs          # `EnergyDerive` folds `IfcSpace` nodes to honeybee rooms; `EnergyTranslate` runs the frozen `(source, target)` matrix
-│   └── Results.cs         # `EnergyResults.Admit` lands the run receipt as producer-authored `Pset_EnergyResults` bags bound per subject
+│   ├── Derive.cs          # EnergyDerive folds IfcSpace nodes to honeybee rooms; EnergyTranslate runs the frozen (source, target) matrix
+│   └── Results.cs         # EnergyResults.Admit lands the run receipt as producer-authored Pset_EnergyResults bags bound per subject
 ├── Review/                # Model-checking and coordination
-│   ├── Validation.cs      # Seam `ModelAudit` composes WHOLE by value; stored receipts compare structurally, so a re-load reads as no change
-│   ├── Issues.cs          # `BcfFile`/`BcfTopic`/`BcfComment`/`BcfViewpoint` family at full schema surface, anchored on IFC GlobalIds
-│   ├── Diff.cs            # `ModelDiff` carries baseline and revision graph identities; `ElementChange` arms join by stored GlobalId
+│   ├── Validation.cs      # Seam ModelAudit composes WHOLE by value; stored receipts compare structurally, so a re-load reads as no change
+│   ├── Issues.cs          # BcfFile/BcfTopic/BcfComment/BcfViewpoint family at full schema surface, anchored on IFC GlobalIds
+│   ├── Diff.cs            # ModelDiff carries baseline and revision graph identities; ElementChange arms join by stored GlobalId
 │   ├── Coordination.cs    # If-X-then-Y rule engine, clash-resolution proposal fold, A/B impact report, and the BCF sign-off state machine
-│   └── Versioning.cs      # `BimCommit` identity IS its `ElementFingerprint` set; `BimRepository` threads the DAG by `ParentKey`
+│   └── Versioning.cs      # BimCommit identity IS its ElementFingerprint set; BimRepository threads the DAG by ParentKey
 └── Projection/            # IFC arm of the Rasm.Element seam
-    ├── Semantic.cs        # INGRESS half: a live `DatabaseIfc` lowers to a seam delta; `IfcLegality` decides relationship legality
-    ├── Foreign.cs         # Deserialized dotbim and Speckle trees lower per host object; `Reingest` reconciles against a prior snapshot
-    ├── Fidelity.cs        # Drop facts return BESIDE values on the `WriterT<FidelityLog, Fin, A>` carrier, never as side effects
-    ├── Wireform.cs        # `IfcSerialization` × `IfcContainer` with the published `(form, release)` matrix and the byte-level release sniff
-    ├── Value.cs           # No `IfcValue` or dataType string crosses the seam signature; both narrowing halves live here
+    ├── Semantic.cs        # INGRESS half: a live DatabaseIfc lowers to a seam delta; IfcLegality decides relationship legality
+    ├── Foreign.cs         # Deserialized dotbim and Speckle trees lower per host object; Reingest reconciles against a prior snapshot
+    ├── Fidelity.cs        # Drop facts return BESIDE values on the WriterT<FidelityLog, Fin, A> carrier, never as side effects
+    ├── Wireform.cs        # IfcSerialization × IfcContainer with the published (form, release) matrix and the byte-level release sniff
+    ├── Value.cs           # No IfcValue or dataType string crosses the seam signature; both narrowing halves live here
     ├── Raise.cs           # Exact inverse of the property lowering; every typed case re-authors into the IFC entity that carried it
-    ├── Relations.cs       # `IfcRelKind` rows carry relating/related inverse names and the neutral edge constructor each lowers through
-    └── Egress.cs          # `SemanticProjector.Emit` re-authors the graph into IFC bytes at the named wire form behind railed release gates
+    ├── Relations.cs       # IfcRelKind rows carry relating/related inverse names and the neutral edge constructor each lowers through
+    └── Egress.cs          # SemanticProjector.Emit re-authors the graph into IFC bytes at the named wire form behind railed release gates
 ```
 
 Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads the one seam `ElementGraph`, consuming the `Model/Query` `BimLeaf` term algebra and the `Semantics/Classification` axis as settled vocabulary, with residual and verdict state carried forward as input, never a return edge. Per-page wiring each projector composes lives on the owning implementation pages.
@@ -171,7 +171,7 @@ flowchart LR
     Projection e12@-->|"[SHAPE]: TypeCandidate"| Materials
     Semantics e13@-->|"[SHAPE]: TextureRoster"| Materials
     Materials e14@-->|"[SHAPE]: DetailSchema"| Semantics
-    Rasm e15@-->|"[SHAPE]: GeometryMeasures"| Semantics
+    Rasm e15@-->|"[SHAPE]: MeasureBundle"| Semantics
     Rasm e16@-->|"[SHAPE]: CellLattice"| Semantics
     Rasm e17@-->|"[SHAPE]: ChannelDtype"| Semantics
     Rasm e18@-->|"[SHAPE]: RgbProfile"| Semantics
@@ -203,7 +203,7 @@ config:
 ---
 flowchart LR
     accTitle: Bim cross-runtime, presentation, and host seams
-    accDescr: Which kinded wires cross between Bim's owners and the cross-runtime peers, the app platform, and the host boundary.
+    accDescr: Which kinded contracts cross between Bim's owners and the cross-runtime peers, the app platform, and the host boundary.
     subgraph bim[RASM.BIM]
         Model[Object model]
         Semantics[Semantic enrichment]
@@ -236,15 +236,14 @@ flowchart LR
     Model e15@-->|"[WIRE]: BrickGraph"| AppHost
     Exchange e16@-->|"[EVENT]: CloudEvents announcement"| AppHost
     Host e17@-->|"[BOUNDARY]: GlobalId"| Exchange
-    Semantics e18@-->|"[WIRE]: GeoFeatureWire"| Data
+    Semantics e18@-->|"[PROJECTION]: GeoWire"| Data
     Model e19@-->|"[WIRE]: PredicateWire"| Core
     Exchange e20@-->|"[WIRE]: IfcWire"| Core
     Review e21@-->|"[WIRE]: BcfTopicWire"| Core
-    Semantics e22@-->|"[WIRE]: GeoFeatureWire"| Core
+    Semantics e22@-->|"[PROJECTION]: GeoWire"| Core
     Review e23@-->|"[WIRE]: BcfTopicWire"| Ui
     Review e24@-->|"[WIRE]: BcfViewpointWire"| Ui
-    Semantics e25@-->|"[WIRE]: GeoFeatureWire"| Ui
-    Review e26@-->|"[WIRE]: ModelDiff"| Ui
+    Review e25@-->|"[WIRE]: ModelDiff"| Ui
 ```
 
 Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary carry cross-runtime wire, presentation, and host interchange.
@@ -253,7 +252,9 @@ Two fences partition by counterpart role: the same-branch AEC peers with Compute
 
 That same root owns the `BrickGraph` leg's other half: it supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport axis, so `Rasm.Bim` mints the operations topology and names no live transport.
 
-`GeoFeatureWire` is the registered corpus name of the cross-runtime `GeoFeature` crossing; `tests/contracts/MANIFEST.md` carries the row with the family's ABSENCE recorded, because the producer emits raw GeoJSON text the Python and TypeScript peers decode rather than a frozen family. Persistence's geo-store persists the GeoPackage blob leg without a runtime crossing, so it stays under the interior `GeoWire` projector that mints both `GeoFeature` wire forms; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
+`GeoWire` produces every `GeoFeature` crossing, its `ToGeoJson` text and `ToGpkgBlob` blob the only two wire forms `Semantics/feature` publishes, so each cross-runtime geo edge carries `[PROJECTION]` and never `[WIRE]`: `tests/contracts/MANIFEST.md` `[02.23]` records `GeoFeatureWire` ABSENT because no typed family crosses, and an edge naming that family claims a decoder roster, a parity gate, and a producer row no fence on either side holds.
+
+`typescript:core` decodes that projection behind its own `interchange/codec` `WkbParser` port over raw bytes and mints a `Wire.GeoFeature` landing its family roster excludes; `typescript:ui` reaches the landing through `@rasm/ts/core` alone, so no geo edge runs from here to it. Persistence's geo-store takes the GeoPackage blob leg without a runtime crossing, and `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 
 Every `[CONTENT_KEY]` edge derives its typed `UInt128` through `ContentHash.Of` over the seam `CanonicalWriter` fold, joining the Compute content-addressing space; per-page key tuples live on the owning implementation pages.
 

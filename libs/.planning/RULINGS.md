@@ -72,6 +72,7 @@
 - `ContentAddress` is a bare digest and `ContentKey` a kind-discriminated composite — neither renames onto the other, and a citation scope-qualifies.
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
 - Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
+- Untyped crossings ride `[PROJECTION]` spelled from the producing projector — `[WIRE]` asserts a registered family a manifest ABSENCE row denies.
 
 ## [03]-[COLLAPSE]
 

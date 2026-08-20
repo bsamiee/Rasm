@@ -37,6 +37,7 @@
 - Arity proves against `ResidenceLanding.Supplied`, never `Payload` — the custodian's tenant and landing instant are cells a producer cannot send.
 - `ArrowLanding.Build` derives batches from the DECLARED schema, reading `ColumnType`'s own Arrow type and builder — a positional list forks it.
 - Producer admission at a residence seam ACCUMULATES every offending column — a producer refused on the first never sees the second.
+- Compute's `AssessmentRow` crosses IN as producer-handed row data — a Persistence-declared result-row twin re-mints vocabulary its owner closes.
 - `ReadRouter.Observed` and the read receipt answer DISJOINT questions — where reads spend versus how one resolved; a lifted phase twins one number.
 - CRDT payload equality rides `CrdtBytes` on `ReadOnlyMemory<byte>` — an `ImmutableArray<byte>` swap re-types the `CrdtWire.Decode` zero-copy seam.
 - `TimeSpine` rides the DECLARATION — `Admit` faults a category its columns contradict, since one inferred from `time` re-dates event facts.

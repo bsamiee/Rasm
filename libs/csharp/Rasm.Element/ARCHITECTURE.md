@@ -7,40 +7,40 @@
 ```text codemap
 Rasm.Element/              # Neutral thing-model seam over the kernel; geometry crosses by content hash alone
 ├── Graph/                 # One authoritative graph, its mutation algebra, and the wire crossing
-│   ├── Element.cs         # `Header` + frozen node store + `Relationship` array + built-once incidence; `Bake(objectNode)` derives the element
-│   ├── Delta.cs           # `GraphMutation` `[Union]` through the generated total `Switch` onto a HAMT `WorkingGraph`; `Thaw` lowers, `Freeze` lifts
-│   ├── Wire.cs            # `ElementGraphWire`/`GraphDeltaWire` mirrors; decode legs re-admit hostile input on `Fin<T>`
-│   ├── WirePayload.cs     # `NodeWire` fold minting each node's content address, `RelationshipWire` arms, header family, object codecs
-│   ├── WireValue.cs       # Recursive `PropertyValue` fold under the `WireLimits` depth budget; decode legs re-mint through the `OfSi` gate
-│   ├── WireSubstance.cs   # Arms re-enter their accumulating `Of*` admissions; `ProfileRef` keys re-derive; `SectionColumns` one-table codec
-│   ├── WireEvidence.cs    # `PayloadContent` derives from flat wire columns through the owner's `Open` gate; `EvidenceRun` re-enters railed `Of`
-│   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one `ToRgb` quantizer the content key shares
-│   ├── Corpus.cs          # `CorpusProfile` closes density, depth, mix, cadence, and seed; `Mint` admits members through `GraphDelta.AdmitOnto`
-│   └── Table.cs           # `Tabulate` fold; a `TableRow` case IS the dataset and `TableFamily` carries columns, key, spine, rollup measure
+│   ├── Element.cs         # Header + frozen node store + Relationship array + built-once incidence; Bake(objectNode) derives the element
+│   ├── Delta.cs           # GraphMutation [Union] through the generated total Switch onto a HAMT WorkingGraph; Thaw lowers, Freeze lifts
+│   ├── Wire.cs            # ElementGraphWire/GraphDeltaWire mirrors; decode legs re-admit hostile input on Fin<T>
+│   ├── WirePayload.cs     # NodeWire fold minting each node's content address, RelationshipWire arms, header family, object codecs
+│   ├── WireValue.cs       # Recursive PropertyValue fold under the WireLimits depth budget; decode legs re-mint through the OfSi gate
+│   ├── WireSubstance.cs   # Arms re-enter their accumulating Of* admissions; ProfileRef keys re-derive; SectionColumns one-table codec
+│   ├── WireEvidence.cs    # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters railed Of
+│   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one ToRgb quantizer the content key shares
+│   ├── Corpus.cs          # CorpusProfile closes density, depth, mix, cadence, and seed; Mint admits members through GraphDelta.AdmitOnto
+│   └── Table.cs           # Tabulate fold; a TableRow case IS the dataset and TableFamily carries columns, key, spine, rollup measure
 ├── Query/                 # Boolean selection closure every peer algebra composes; evaluation stays with each consumer
 │   └── Predicate.cs       # Vocabulary and byte projection alone seat here; evaluation stays with each consuming folder
 ├── Relations/             # Neutral objectified-edge algebra
-│   └── Relation.cs        # Typed `NodeId` endpoints under a neutral sub-kind discriminant `Bake` dispatches on; IFC names never enter
+│   └── Relation.cs        # Typed NodeId endpoints under a neutral sub-kind discriminant Bake dispatches on; IFC names never enter
 ├── Classification/        # Cross-cutting axes carrying identity alone; ancestry stays bSDD-resolved at the Bim peer
-│   └── Classification.cs  # `(System, Code, Edition)` identity with projector-resolved annotations; `Discipline` closes the vocabulary
+│   └── Classification.cs  # (System, Code, Edition) identity with projector-resolved annotations; Discipline closes the vocabulary
 ├── Properties/            # Typed property/quantity value vocabulary
-│   ├── Property.cs        # `PropertyValue` `[Union]` carries its data type; one `ValueBag<V>` generic, `InheritanceMode` merge
-│   └── Quantity.cs        # SI magnitude coerced at admission, optional canonical unit token, `Dimension` exponents; name beats dimension
+│   ├── Property.cs        # PropertyValue [Union] carries its data type; one ValueBag<V> generic, InheritanceMode merge
+│   └── Quantity.cs        # SI magnitude coerced at admission, optional canonical unit token, Dimension exponents; name beats dimension
 ├── Composition/           # Material composition and intrinsic acoustic folds
-│   ├── Material.cs        # `MaterialId`-keyed nodes carrying one composition union and one `Discipline`-keyed property-set union
-│   └── Acoustic.cs        # One-third-octave `AcousticBand` spectra beside the material-intrinsic constants EN 12354 folds read
+│   ├── Material.cs        # MaterialId-keyed nodes carrying one composition union and one Discipline-keyed property-set union
+│   └── Acoustic.cs        # One-third-octave AcousticBand spectra beside the material-intrinsic constants EN 12354 folds read
 ├── Assessment/            # Generic analysis receipt and its measured-evidence sibling
-│   ├── Assessment.cs      # One payload the `Node.Assessment` case wraps; `AnalysisRoute` token and `UInt128` `InputKey` ride the key
-│   └── Observation.cs     # One series binds one deployed sensor to one observed aspect; `SensorId` identity beside the blob reference
+│   ├── Assessment.cs      # One payload the Node.Assessment case wraps; AnalysisRoute token and UInt128 InputKey ride the key
+│   └── Observation.cs     # One series binds one deployed sensor to one observed aspect; SensorId identity beside the blob reference
 ├── Geospatial/            # Georeferenced coverage and CRS
-│   ├── Coverage.cs        # Gridded data held by `BlobKey` into the seed-zero object store, never an inlined buffer; `CellLattice` places it
-│   └── Reference.cs       # Map-conversion state, axis scales, `GeodeticDatum`, and the `ProjectedCrs`/`VerticalCrs` identity pair
+│   ├── Coverage.cs        # Gridded data held by BlobKey into the seed-zero object store, never an inlined buffer; CellLattice places it
+│   └── Reference.cs       # Map-conversion state, axis scales, GeodeticDatum, and the ProjectedCrs/VerticalCrs identity pair
 └── Projection/            # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
-    ├── Projection.cs      # Two instance-interface floors peers implement without referencing each other; `Assemble` is the app-wired capability
+    ├── Projection.cs      # Two instance-interface floors peers implement without referencing each other; Assemble is the app-wired capability
     ├── Address.cs         # Kernel-hashed canonical seam bytes; this file declares no writer and re-exports nothing
-    ├── Fault.cs           # Cases share one `(Op, Detail)` base deriving `Expected` on the kernel band; refusals gather on `AdmissionSlots`
-    ├── Observe.cs         # `ElementPoint` closes the `rasm.element.<domain>.<point>` roster on a modality column; `ElementFact` carries marks
-    └── Audit.cs           # Per-discipline coverage ratios and a graded integrity stream in one fold; Bim `ModelHealth` composes, never overlaps
+    ├── Fault.cs           # Cases share one (Op, Detail) base deriving Expected on the kernel band; refusals gather on AdmissionSlots
+    ├── Observe.cs         # ElementPoint closes the rasm.element.<domain>.<point> roster on a modality column; ElementFact carries marks
+    └── Audit.cs           # Per-discipline coverage ratios and a graded integrity stream in one fold; Bim ModelHealth composes, never overlaps
 ```
 
 ## [02]-[STRATA]

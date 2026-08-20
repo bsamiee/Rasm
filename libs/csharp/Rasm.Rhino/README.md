@@ -129,6 +129,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `CommunityToolkit.HighPerformance` — Pooled span rentals behind snapshot staging.
 - `QuikGraph` — Transient block-graph topology, reachability, and source-first ordering.
 - `Riok.Mapperly` — Existing-target policy transcription onto host option objects and wire lowering.
+- `Generator.Equals` — Structural equality on the command option, selection, acquisition, preset, and snapshot value families.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`

@@ -16,7 +16,7 @@
 
 [RELIABILITY]:
 - [09]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union, its exception-to-fault projector, and the versioned scope coordinate.
-- [10]-[RESILIENCE](.planning/reliability/resilience.md): One `RetryClass` policy table ruling every branch retry, failure window, and admission rate.
+- [10]-[RESILIENCE](.planning/reliability/resilience.md): `RetryClass` policy table ruling every branch retry, failure window, and admission rate.
 
 [TRANSPORT]:
 - [11]-[ROOTS](.planning/transport/roots.md): `ObjectStoreLane` one obstore dispatch surface with `RemoteEndpoint`/`HttpEndpoint` custody.
@@ -25,7 +25,7 @@
 - [14]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
 - [15]-[EVENT](.planning/transport/event.md): CloudEvents message envelope owner — attribute grammar, extension roster, and the format contract.
 - [16]-[BINDING](.planning/transport/binding.md): Protocol binding rows, the fact emitter, and the broker lane.
-- [17]-[FILTER](.planning/transport/filter.md): CESQL expression owner, the closed `FilterDialect` family, and the subscription resource.
+- [17]-[FILTER](.planning/transport/filter.md): Delivery predicates deciding subscription reach — pure reads whose faults accumulate beside a value.
 
 [EXECUTION]:
 - [18]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, settings, and trust rows.

@@ -205,7 +205,7 @@ flowchart LR
     Rasm e4@-->|"[BOUNDARY]: Placement"| Document
     Rasm e5@-->|"[BOUNDARY]: Requirement"| Document
     Rasm e6@-->|"[BOUNDARY]: Lease"| Document
-    Rasm e7@-->|"[BOUNDARY]: HookPoint"| Document
+    Rasm e7@-->|"[BOUNDARY]: HookRail"| Document
     Rasm e8@-->|"[BOUNDARY]: InstrumentSpec"| Document
     Rasm e9@-->|"[BOUNDARY]: Dimension"| Document
     Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Document
@@ -222,8 +222,8 @@ flowchart LR
     Rasm e21@-->|"[BOUNDARY]: PerceptualColor"| Display
     Rasm e22@-->|"[BOUNDARY]: AnalysisQuery"| Display
     Rasm e23@-->|"[BOUNDARY]: PerceptualColor"| Render
-    Rasm e24@-->|"[BOUNDARY]: PerceptualColor + Context + SpringShape + DecayShape + ViewPose"| Viewport
-    Rasm e25@-->|"[BOUNDARY]: PerceptualColor + ModelUnit + Lease + ValidationError"| Annotation
+    Rasm e24@-->|"[BOUNDARY]: PerceptualColor + Context + ViewPose"| Viewport
+    Rasm e25@-->|"[BOUNDARY]: PerceptualColor + ModelUnit + Lease"| Annotation
     Rasm e26@-->|"[BOUNDARY]: LineWidth"| Annotation
     Rasm e27@-->|"[BOUNDARY]: Context"| Blocks
     Rasm e28@-->|"[BOUNDARY]: ModelUnit + ContentHash + Dimension + UnitInterval + PerceptualColor + EpsilonPolicy"| Exchange
@@ -237,7 +237,7 @@ flowchart LR
     Objects e36@-->|"[WIRE]: rasm.scene.v1"| PyGeometry
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints: one `[BOUNDARY]` rail per consuming sub-domain, each edge naming one member its owner consumes. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction, and the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints: each `[BOUNDARY]` edge names the members its consuming sub-domain spells at its own fences, so a kernel shape reached only as a case payload of an already-registered carrier rides that carrier's edge and mints none of its own. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction, and the kernel seam registry mirrors each edge from its producing side.
 
 - `AnalysisQuery` rides the Document, Commands, and Display rails — `AnalysisOverlay` drives false-colour off `Analyze.In(...).Run`.
 - `PerceptualColor` is the one colour crossing on every rail carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.

@@ -9,19 +9,19 @@ iac/
 └── src/
     ├── program/          # Program shapes, arm dispatch, the Automation-API drive, and the bootstrap legs
     │   ├── spec.ts       # StackSpec, the Tier base with its privilege anchor, and both env-key catalogs
-    │   ├── provider.ts   # `_ARMS` capability record, its `_map` adjacency constraint, and the docker machine estate at container depth
+    │   ├── provider.ts   # _ARMS capability record, its _map adjacency constraint, and the docker machine estate at container depth
     │   ├── automation.ts # Sole executor — the Automation-API driver with resilience and the fleet verbs
-    │   └── source.ts     # `_FOLDERS` and `_DECODERS` rows with the `_TYPE_REPAIR` seam over the digest-addressed assets root
+    │   └── source.ts     # _FOLDERS and _DECODERS rows with the _TYPE_REPAIR seam over the digest-addressed assets root
     ├── operate/          # Secrets, observability, policy, backend convergence, and hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
-    │   ├── observe.ts    # `_SOURCES` and residence row families, the `_PACKS` ingest arm, and the realized-backend projection seam
+    │   ├── observe.ts    # _SOURCES and residence row families, the _PACKS ingest arm, and the realized-backend projection seam
     │   ├── policy.ts     # Evidence sink spine and the guard-pack row set asserting estate-authored resources
-    │   ├── converge.ts   # `_STAGED` rollout table and the atomic active-generation pointer write
-    │   └── cloud.ts      # `EscApi` rail, the twin resource set, and the one-clock seating constraint
-    └── kube/             # K8s estate `Tier` classes realized on either plane
-        ├── workload.ts   # `_LIFE` lifecycle anchor and the typed workload cell set every role row constructs
-        ├── traffic.ts    # `Edge` tagged family and the closed `_EDGES` vocabulary the gateway realizes
-        ├── data.ts       # CNPG `admit` rail with backup, pooler, and replication rows over the typed cluster set
+    │   ├── converge.ts   # _STAGED rollout table and the atomic active-generation pointer write
+    │   └── cloud.ts      # EscApi rail, the twin resource set, and the one-clock seating constraint
+    └── kube/             # K8s estate Tier classes realized on either plane
+        ├── workload.ts   # _LIFE lifecycle anchor and the typed workload cell set every role row constructs
+        ├── traffic.ts    # Edge tagged family and the closed _EDGES vocabulary the gateway realizes
+        ├── data.ts       # CNPG admit rail with backup, pooler, and replication rows over the typed cluster set
         └── tenant.ts     # Isolation modes and the cross-stack platform seam
 ```
 

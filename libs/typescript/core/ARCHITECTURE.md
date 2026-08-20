@@ -170,6 +170,7 @@ flowchart LR
     AppHost e17@-->|"[WIRE]: CommandAvailabilityWire"| Wire
     AppHost e18@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Wire
     AppHost e19@-->|"[WIRE]: HostFingerprintWire"| Wire
+    Bim e20@-->|"[PROJECTION]: GeoWire"| Wire
 ```
 
 ```mermaid
@@ -208,7 +209,7 @@ flowchart LR
     Digest e1@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Data
     Digest e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Runtime
     Wire e3@-->|"[SHAPE]: FlagVerdict"| Runtime
-    Wire e4@-->|"[SHAPE]: Wire.ModelDiff"| Ui
+    Wire e4@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature"| Ui
     Wire e5@-->|"[SHAPE]: Hops"| Data
     Wire e6@-->|"[SHAPE]: Wire.TextureSet"| Data
     Fold e7@-->|"[SHAPE]: Fold.Plan"| Data

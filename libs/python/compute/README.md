@@ -28,7 +28,7 @@
 [NUMERICS]:
 - [16]-[ARRAY](.planning/numerics/array.md): `ArrayPayload` admitting any backend array through namespace dispatch.
 - [17]-[JIT](.planning/numerics/jit.md): `JitBackend` compiling the numba LLVM, ufunc, C-ABI, and XLA routes over one capture table.
-- [18]-[INTERVAL](.planning/numerics/interval.md): `IntervalNumerics` certified enclosures whose receipt names the certifying `Floor` and width.
+- [18]-[INTERVAL](.planning/numerics/interval.md): `IntervalNumerics` certifying, refining, and root-isolating enclosures over the floor ladder.
 - [19]-[QUANTITY](.planning/numerics/quantity.md): `UncertainQuantity` threading correlated uncertainty through unit algebra.
 - [20]-[STATISTICS](.planning/numerics/statistics.md): `TestIntent` routing in-memory hypothesis tests and MLE distribution fit.
 

@@ -17,8 +17,8 @@ Rasm.AppHost/
 │   ├── Ports.cs         # Port-record family under the cardinality invariant, the boot tenancy mint, the suite JSON wire law
 │   ├── Determinism.cs   # DeterminismContext, ChainHash log entries, replay-verify rail, macro engine, recompute graph, chaos gate
 │   ├── Orchestration.cs # Workflow and job state machines persisted through the store ports; replay survives restart
-│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead, adaptive concurrency, load-shed, circuit health
-│   └── Features.cs      # Config-backed OpenFeature targeting and rollout with sticky bucketing; one FlagVerdict seam
+│   ├── LaneGuard.cs     # WorkLane roster with LanePolicy rows, the LaneGuard.Runtime seat map, LanePermits resizer, and the Admission union
+│   └── Features.cs      # FlagDefinition rows over the TargetingRule union, Bucketing off ContentHash, and the FlagVerdict carrier
 ├── Agent/               # Bidirectional agent surface over the capability registry
 │   ├── Mcp.cs           # CapabilityDescriptor-to-AIFunction projection; McpAdoptedTool pairs MCP registration with reasoning
 │   ├── Reasoning.cs     # ReasoningSession loop, SemanticDiscovery ranking, ModelGovernance draw owner, ReasoningTranscript receipt
@@ -37,13 +37,13 @@ Rasm.AppHost/
 │   ├── Admission.cs     # SupplyChainGate.Admit fold, AdmissionSubject union, TrustPolicy rows, SupplyChainFault band
 │   ├── Isolation.cs     # WASM and process capsules behind one call broker; GrantBroker cost vectors meter every crossing
 │   ├── Solver.cs        # SolverKind category rows with representation and effect-ceiling columns; manifest, negotiation, hosted load
-│   └── Provisioning.cs  # Post-fetch self-update state machine over the canary, blue-green, and linear-wave roll axis
+│   └── Provisioning.cs  # UpdateRail phase machine over the UpdateOutcome union; FleetRoll walks MembershipView.Serving under one RollStrategy
 └── Observability/       # Telemetry composition, health grading, and redacted support capture
     ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, TelemetrySignal governance rows, ConformanceRow projection
     ├── Health.cs        # Pressure grades folded in one atomic cell; store probes ride the production pool
     ├── Bundles.cs       # SupportTrigger union, contributed artifact ports, dump custody, manifest keys, capped zip receipts
     ├── Instruments.cs   # AppHostMeasure/AppHostSlot rosters, ReceiptKind instrument writes, the ProviderProgram both providers bind
-    ├── Hooks.cs         # AppHostPoint roster and closed AppHostFact family; delivery capability and trace plane ride row data
+    ├── Hooks.cs         # AppHostPoint roster with modality and plane columns; AppHostFact union seats one payload per point; FactSink egress
     ├── Benchmarks.cs    # BenchmarkReceipt fold rows, the gate-anchor seat, span-linked deep-capture columns
     └── Egress.cs        # Disposition vocabulary, queue-arming policy row, blob queue, mutual-auth mount, dual-leg handler
 ```

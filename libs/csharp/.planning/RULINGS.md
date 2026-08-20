@@ -134,6 +134,10 @@
 - `[Union]` record roots carry only positional members — a hidden field poisons synthesized equality, so a universal cell rides a base column.
 - `[Union]`/`Switch` case-collapse projects near-zero net LOC — a LOC ceiling falls by unifying repeated helpers, never by case discrimination.
 - Projection seam rows enter an `ARCHITECTURE.md` seams map only on a live consumer fence — the row re-enters the moment a consuming page names it.
+- `ICapability<TSelf>` rosters ranked by declaration order carry `[NoReorder]` — a reorder restrides every rank, and a domain-fact override unpins.
+- Seam edges collapse to ONE per home owner, counterpart, kind, and direction — members join ` + `; a both-ends mint keeps its own arrow.
+- Seam labels name shapes DECLARED at the producing package's own fences — a substrate or BCL type sharing the spelling rides no seam edge.
+- Seam labels name a member the CONSUMING package spells at its own fence too — a producer declaration alone registers reach, never a crossing.
 
 ## [05]-[PROCESS]
 

@@ -50,7 +50,7 @@
 - `opentelemetry-instrumentation.md` `registerInstrumentations`: the row joins one array with an explicit `tracerProvider`; construction policy lives here, activation there.
 - `opentelemetry-context-async-hooks.md`: `requireParentSpan` reads `context.active()`, so without an installed manager every query reads orphan and the gate drops every span.
 - `effect-sql-pg` (data lane): the branch's own statements ride the SQL client under `Effect.withSpan`, so this row exists for foreign libraries reaching `pg` directly and its parent gate is what keeps the two from double-spanning one statement.
-- `otel/emit` `[07]-[INSTRUMENT]`: the server registration node constructs the row from the export policy — statement capture off `policy.server.statement`, the SQLCommenter comment off `policy.server.comment`, the session stamp off its own `policy.server.session` so its round-trip cost is priced apart, the acquisition span off `policy.server.connect`, and the parent gate off `policy.server.orphan`.
+- `otel/server` `[02]-[REGISTRATION]`: the server registration node constructs the row from the export policy — statement capture off `policy.server.statement`, the SQLCommenter comment off `policy.server.comment`, the session stamp off its own `policy.server.session` so its round-trip cost is priced apart, the acquisition span off `policy.server.connect`, and the parent gate off `policy.server.orphan`.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer.

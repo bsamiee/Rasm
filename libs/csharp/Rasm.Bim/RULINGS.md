@@ -57,6 +57,9 @@
 - `AnnexRegime` rows KEY on the SAF `ExcelNationalCode` member name — a second annex-to-code table re-decides a correspondence the roster carries.
 - Governing-body `IGovernance.Country` is the BODY's registration — an international seat read as project nation keys onto that seat's annex.
 - Foreign-schema wire columns cross VERBATIM — a BCF `isExternal`, glTF wrap flag, or IFC token folded into house vocabulary forks the standard.
+- Takeoff folds read the kernel `MeasureBundle` — one `Qto_*` set declares three dimensions, so a one-kind bundle derives one and re-pays the rest.
+- `QuantityDerivation.Demand` is the ONE ceiling a bundle mint runs under — `CapabilitySet<MassKind>.All` refuses a solid whole on the length solve.
+- Cross-runtime geo edges carry `[PROJECTION]: GeoWire` — `GeoFeatureWire` types nothing at either end, so `[WIRE]` claims a roster none holds.
 
 ## [03]-[COLLAPSE]
 

@@ -21,7 +21,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Capability a surface reaches is its own declared ROW, never a foreign `Has*` probe — `SvgLease`'s presence read and its scene read run one build.
 - Capabilities ELECTED off a foreign face are APPLIED to what the renderer reads — `FaceInstance.Palette` rides the typeface Skia rasterizes through.
 - Raster shading READS a resolved `EnvironmentLight` and integrates none — SH run, GGX ladder, LUT, and equirect cross as data on one level ladder.
-- Values arriving both locally and off a store wire have ONE construction site — the local leg builds `SearchDocument` and decodes through its gate.
+- Values arriving both locally and off a store wire have ONE construction site — the local leg builds `DocumentHit` and decodes through its gate.
 - Unions a foreign backend closes carry no open arm — `PdfAnnotation`'s silent-drop path makes that arm a no-op wearing a capability's name.
 - `OptionsInspector<TDraft, TValue>` splits draft from record — one type parameter leaves "persist the rebuild, never the draft" unenforceable.
 - Editors receive their write channel BOUND from `EditorRowFactory` — the factory path carries the command mint, veto edge, and undo enqueue.
@@ -79,7 +79,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `OverlayShape` is the DISPATCH SHAPE, never a member name — void fire shapes add a plain layer and EVERY awaited overload a masked one.
 - Timers `ToastPlane` must pause, restart, or re-tint are the PRODUCT's — the package's show-time copy expresses no hover pause.
 - Package folds constrained to `IQuantity` are unreachable from an erased face — the answer is that fold's projection, never a reflection.
-- One policy row over package-SIBLING types (`WindowChrome`) constrains at their shared framework base — per-sibling rows fork one chrome law.
+- One policy row over package-SIBLING types (`WindowRow`) constrains at their shared framework base — per-sibling rows fork one chrome law.
 - Packages owning a geometry across their OWN item tree receive it once at the host — `FormGeometry` republishes to descendants by ancestor walk.
 - Verbs whose subject is a ROW of a runtime-compiled surface are never `CommandDeck` rows — the deck freezes at boot and a run-time schema has none.
 - `SectionChrome` rows selecting a state their control never DECLARES style nothing — a shipped control sets only its declared metadata roster.
@@ -121,7 +121,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - READ-ONLY seats over a shared editing chrome bind `HunkBands.Attach` to a NAVIGATION arrow — taking the caller's opens a mutation channel inward.
 - Tiled payloads ride the carrier their PAYLOAD ARITY admits — a raster tile layer answers ONE `GeoOverlayRow` per tile and drops every attribute.
 - `RedlineStyle` names a vocabulary ROW, never its key as text — the generated keyed owner stamps its converter, so a dead row refuses at build.
-- Conditions a sibling `AppUiFaultBand` owns never mirror into a second, and an unraised case REPAIRS by binding its fence — a cut deletes the claim.
+- Conditions a sibling already raises never mirror into a second `FaultBand` family — an unraised case binds its fence, and a cut deletes the claim.
 - Capsules own the PER-DRAW natives they built — `SKPaint.Dispose` releases neither shader, image filter, colour filter, nor path effect.
 - Presence probes over a foreign block answering its DECLARED schema prove nothing about CONTENT — `SKRuntimeEffectUniforms.Contains` tests names.
 - `LayerGround` and every MOUNT-varying value is a mount parameter, never a column on the vocabulary the mount names — hosts and windows differ.
@@ -144,6 +144,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Vocabularies a boot-frozen registry reads declare on a NON-GENERIC owner like `ConflictIntent` — the freeze precedes every receipt type.
 - `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the seam.
 - Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
+- Composition timing reduces and bounds ONCE — `KeyFrameAnimation.Duration` validates the field it OVERWRITES, so a zero poisons every later write.
 
 ## [03]-[COLLAPSE]
 
@@ -185,7 +186,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `FilterLink` serves a shareable link and a durable checkpoint — the codec carries no type tag because the consuming SCHEMA declares each domain.
 - Optimistic mutations are a MERGE leg outranking the authoritative one — `OverlayRank` republishes, so acknowledgment and rollback are one drop.
 - `FeedPace` COALESCES and never drops — a rate limiter discards whole deltas and strands the collection on a state no producer published.
-- Bounded axes over generated candidates are `FilterOperator` rows over a projected `OptionKpi` — a min/max vocabulary is a second grammar.
+- Bounded axes over generated candidates are `FilterSense` rows over a projected `OptionKpi` — a min/max vocabulary is a second grammar.
 - Vocabularies owning a `GraphRegister` carry BOTH legs of the correspondence — an inlined leg forks the correspondence the register holds.
 - `EditIntent` SEQUENCES are ordinal-keyed mergeable cells and SETS a keyed map — one replaced leaf lets the later concurrent edit erase the earlier.
 - `CollabEcho` has ONE producer, the merge authority holding both evidence shapes — a timer reports a convergence the authority never reached.

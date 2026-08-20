@@ -20,7 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[SEAM_FENCE_COLLAPSE]-[QUEUED]: the Grasshopper kernel-boundary fence collapses to one edge per owner-kind pair and re-homes every mis-attributed member.
+- Capability: each edge names the sub-domain whose own fences spell the member, so a reader reaches the consuming signature in one hop.
+- Shape: `ARCHITECTURE.md` `[03]-[SEAMS]` — the kernel fence re-derived and its `e<N>@` pool renumbered once the collapse lands.
+- Unlocks: `IDEAS.md [SEAM_FENCE_AS_CENSUS]` — a mirrored registry a later pass diffs against the kernel end instead of re-censusing members.
+- Anchors: `Platform/layers.md` `SprungCase` holds the only `SpringShape` signature and `Platform`/`Shell` the only `MonotonicStamp` ones.
+- Ripple: mirrors `Rasm.Rhino` `[SEAM_FENCE_COLLAPSE]`; the kernel end is frozen, so a retired label routes as a kernel-side card.
 
 ## [02]-[CLOSED]
 

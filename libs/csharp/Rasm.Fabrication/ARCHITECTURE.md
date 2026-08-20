@@ -79,7 +79,7 @@ Rasm.Fabrication/
 │   └── Passport.cs          # QualityReport.Seal quorum gate; credentialed signers proven against published attestation demands
 ├── Forming/                 # Sheet-stock, tube, and roll forming
 │   ├── Sheet.cs             # FlatPattern neutral-axis development; FormPolicy admission, bend topology, relief census
-│   ├── Brake.cs             # BendSequence best-first search; tooling, back-gauge, springback, and clearance evidence govern
+│   ├── Brake.cs             # BendSequence owns the finite search; BrakePolicy admits catalog, limits, and budget once; BendStep the instruction
 │   └── Tube.cs              # TubeSection, RollSection, TubeTool, and TubePolicy admissions over one TubeProgram algebra
 └── Joining/                 # Weld engineering
     ├── Deposition.cs        # WeldRuleSet code bands, WeldFactorTable seats, the measured arc-fit gate feeding WeldPolicy
@@ -235,7 +235,7 @@ config:
 ---
 flowchart LR
     accTitle: Fabrication kernel and platform seams
-    accDescr: Which contracts cross between Fabrication, the kernel geometry, and the app-platform UI, one labeled edge per family.
+    accDescr: Which contracts cross between Fabrication, the kernel substrate, and the app-platform UI, one labeled edge per family.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Ingress[Ingress admission]
@@ -268,6 +268,7 @@ flowchart LR
     Rasm e14@-->|"[SHAPE]: SpatialIndex"| Toolpath
     Rasm e15@-->|"[SHAPE]: CellLattice + SpectralArena"| Additive
     Rasm e16@-->|"[SHAPE]: CellLattice"| Geometry2D
+    Rasm e17@-->|"[SHAPE]: ObjectiveSense"| Additive
 ```
 
 ## [04]-[INTERNAL]

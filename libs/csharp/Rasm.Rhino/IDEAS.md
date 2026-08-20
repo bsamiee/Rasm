@@ -19,7 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[SEAM_FENCE_AS_CENSUS]-[QUEUED]: the kernel-boundary seam registry reads as a derived census of proved crossings, never a hand-kept roster.
+- Capability: one edge per home owner, counterpart, kind, and direction, each member declared at the kernel and spelled at a fence here.
+- Shape: `ARCHITECTURE.md` `[03]-[SEAMS]`, whose eleven separate kernel-to-`Document` boundary edges are the widest breach of the collapse ruling.
+- Unlocks: a member added or retired at either end moves one edge, so the producing kernel fence and this consuming fence stay provably mirrored.
+- Anchors: the branch collapse and declared-shape rulings; `libs/csharp/Rasm/ARCHITECTURE.md`'s frozen host-UI fence as the producing end.
+- Tension: collapse at the one `Rasm` node overruns the column bound at 179, so the node splits by kernel sub-domain or the bound moves.
 
 ## [02]-[CLOSED]
 

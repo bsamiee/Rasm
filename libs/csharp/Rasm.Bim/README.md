@@ -38,7 +38,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 [EXCHANGE]:
 - [24]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
 - [25]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
-- [26]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one total codec switch over scene, IFC, COBie, and tile targets.
+- [26]-[EXPORT](.planning/Exchange/export.md): Artifact emit rail over glTF, 3D-Tiles, COBie and SAF targets, with the round-trip fidelity witness.
 - [27]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/STEP/IGES/native geometry hop to the Compute companion rail.
 - [28]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): Scan-to-BIM folding segmented clouds into seam occurrences over the LAS/LAZ ingest front.
 - [29]-[SAF](.planning/Exchange/saf.md): SAF XLSX interchange codec — workbook I/O, correspondence spine, graph lowering, and import authoring.

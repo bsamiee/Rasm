@@ -10,11 +10,11 @@ Every AEC peer projects its foreign source through `IElementProjection`, Persist
 - [01]-[GRAPH](.planning/Graph/element.md): Property-graph spine — the frozen graph and the memoized `Bake` every consumer reads flat.
 - [02]-[DELTA](.planning/Graph/delta.md): Mutation algebra — the live working graph, the edge law, and the persistable `GraphDelta` body.
 - [03]-[WIRE](.planning/Graph/wire.md): Proto-first `rasm.element.v1` graph crossing — valid values lower, hostile input re-admits on `Fin<T>`.
-- [04]-[WIRE_PAYLOAD](.planning/Graph/payload.md): Node and edge envelope folds beside the header and object payload transcription arms.
-- [05]-[WIRE_VALUE](.planning/Graph/value.md): Recursive value, measure, bag, and evidence-envelope transcription arms.
-- [06]-[WIRE_SUBSTANCE](.planning/Graph/substance.md): Material composition, usage, and engineering-property transcription arms.
-- [07]-[WIRE_EVIDENCE](.planning/Graph/evidence.md): Assessment and observation evidence transcription arms.
-- [08]-[WIRE_RASTER](.planning/Graph/raster.md): Coverage, lattice, and georeference transcription arms.
+- [04]-[WIRE_PAYLOAD](.planning/Graph/wirepayload.md): Node and edge envelope folds beside the header and object payload transcription arms.
+- [05]-[WIRE_VALUE](.planning/Graph/wirevalue.md): Recursive value, measure, bag, and evidence-envelope transcription arms.
+- [06]-[WIRE_SUBSTANCE](.planning/Graph/wiresubstance.md): Material composition, usage, and engineering-property transcription arms.
+- [07]-[WIRE_EVIDENCE](.planning/Graph/wireevidence.md): Assessment and observation evidence transcription arms.
+- [08]-[WIRE_RASTER](.planning/Graph/wireraster.md): Coverage, lattice, and georeference transcription arms.
 - [09]-[CORPUS](.planning/Graph/corpus.md): Deterministic synthetic models — `CorpusProfile` closes the graded roster benchmarks and parity share.
 - [10]-[TABLE](.planning/Graph/table.md): Columnar row family projection of the frozen snapshot and its `AnalyticsSchema` wire handoff.
 
