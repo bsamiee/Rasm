@@ -50,6 +50,7 @@
 |  [13]   | `BooleanResult<O,T>`           | result carrier | Boolean result      |
 |  [14]   | `BooleanResultPline<O,T>`      | result carrier | result loop         |
 |  [15]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
+|  [16]   | `IPlineIntersectVisitor<T>`    | visit contract | intersection callback |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
 - note: `StaticAABB2DIndex<T>` is a flatbush packed-Hilbert R-tree built once from a polyline's segment AABBs; the offset and Boolean engines consume it to prune the self-intersection scan. Both visitor contracts bind a plain `struct`, never a `ref struct`. `Core` structs are the value-type math floor.
@@ -180,6 +181,7 @@
 
 [ENTRYPOINT_SCOPE]: Boolean and containment — `PlineBoolean` / `PlineContains` / `PlineIntersects`, a slice-and-stitch pipeline keyed on `BooleanOp` operating in exact arc-space
 - shape: static
+- visitor: the self-intersection walks take `IPlineIntersectVisitor<T>` — an INTERFACE, not the `where V : struct` slot the index visitors bind, so a struct visitor boxes here — whose `bool VisitBasicIntr(PlineBasicIntersect<T>)` and `bool VisitOverlappingIntr(PlineOverlappingIntersect<T>)` return `false` to stop the descent; both entrypoints propagate that stop out as their own `false`, so a first-hit predicate is native rather than a materialized list read for `.Count`.
 
 | [INDEX] | [SURFACE]                                                                    | [CAPABILITY]          |
 | :-----: | :--------------------------------------------------------------------------- | :-------------------- |
@@ -190,9 +192,10 @@
 |  [05]   | `PruneSlices<T>(...) -> PrunedSlices<T>`                                     | selected slices       |
 |  [06]   | `StitchSlicesIntoClosedPolylines<O,T>(...) -> List<BooleanResultPline<O,T>>` | closed result loops   |
 |  [07]   | `PolylineContains<T>(...) -> PlineContainsResult`                            | containment verdict   |
-|  [08]   | `VisitLocalSelfIntersects<T>(...)`                                           | local scan            |
-|  [09]   | `VisitGlobalSelfIntersects<T>(...)`                                          | indexed global scan   |
+|  [08]   | `VisitLocalSelfIntersects<T>(src, visitor, T) -> bool`                       | local scan            |
+|  [09]   | `VisitGlobalSelfIntersects<T>(src, index, visitor, T) -> bool`               | indexed global scan   |
 |  [10]   | `AllSelfIntersectsAsBasic<T>(...) -> List<PlineBasicIntersect<T>>`           | materialized scan     |
+|  [11]   | `ScanForIntersect<T>(src, src, FindIntersectsOptions<T>) -> bool`            | pair first-hit scan   |
 
 [ENTRYPOINT_SCOPE]: multi-loop shape offset — `Shape<T>` over `IndexedPolyline<T>` loops, each loop caching its own index so a repeated offset pass rebuilds none
 - shape: instance unless marked; `Shape<T>` splits CCW outer from CW hole loops and holds one index over both sets
@@ -244,6 +247,7 @@
 - difference through `PlineBoolean.PolylineBoolean<Polyline<double>, double>(p1, p2, op, options)` keyed on `BooleanOp { Or, And, Not, Xor }`; `Not` is the kerf-inflated arc-space remnant the `Nesting/nfp` `Remnant` producer consumes.
 - clear a pocket with islands through `Shape<T>.FromPlines(loops).ParallelOffset(offset, ShapeOffsetOptions<T>)`, offsetting CCW outer and CW hole loops together; a per-loop `PlineOffset.ParallelOffset` loses the hole nesting. Each loop travels as an `IndexedPolyline<T>` carrying its own approximate index, so a multi-pass adaptive walk re-offsets through `ParallelOffsetForShape` with no index rebuild, and `OffsetLoop<T>.ParentLoopIdx` is the island lineage the next pass reads.
 - build the `StaticAABB2DIndex<T>` once via `CreateAabbIndex()` and thread it through `PlineOffsetOptions<T>.AabbIndex` / `PlineBooleanOptions<T>.Pline1AabbIndex`, reusing it across the repeated inward offsets of an adaptive-clearing pass.
+- ask WHETHER a loop self-intersects through `VisitLocalSelfIntersects` AND `VisitGlobalSelfIntersects` under one `IPlineIntersectVisitor<T>` returning `false` at the first hit; both are required, because the local walk alone answers adjacent-span pairs and a closed two-vertex loop's opposed bulges while the global walk skips exactly those — `AllSelfIntersectsAsBasic` is those two walks over an accumulating visitor, so it is the COUNT form and reading `.Count == 0` off it pays for every hit past the first.
 - traverse the index with a plain `readonly struct V : IQueryVisitor` whose `bool Visit(int indexPos)` returns `false` at the first blocker, so the descent stops inside the tree rather than materializing the candidates behind it; the visitor slot is `where V : struct` with no `allows ref struct`, so a `ref struct` visitor is a compile rejection and a span-carrying probe copies into owned fields first.
 - lend the traversal state: `VisitQueryWithStack`/`VisitNeighborsWithQueue` take the caller's own `List<int>`/`PriorityQueue`, so one pooled stack serves every test in a pass, while the `Func<int,bool>` overload and `DelegateQueryVisitor` are the allocating convenience forms.
 - sample lead-in and feed points through `FindPointAtPathLength(targetPathLength)`, whose result carries the segment index and accumulated length as true arc parameters.
