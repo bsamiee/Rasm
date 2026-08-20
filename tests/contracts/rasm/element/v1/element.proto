@@ -55,7 +55,17 @@ message HeaderWire {
   double tolerance = 4;
   google.protobuf.Timestamp at = 5; // Instant via NodaTime ToTimestamp/ToInstant
   StepHeaderWire step = 6;
-  map<string, string> unit_scheme = 7; // UnitScheme: QuantityType token -> registry unit-enum member name; empty = SI
+  map<string, string> unit_scheme = 7; // UnitScheme.Overrides: QuantityType token -> registry unit-enum member name; empty = SI
+  repeated UnitAxisWire axes = 8; // UnitScheme.Axes — the DimensionAxis-keyed affine regime; empty = SI
+  string culture = 9; // UnitScheme.CultureName; blank = invariant
+  string format = 10; // UnitScheme.Format; blank = "G"
+}
+
+message UnitAxisWire {
+  sint32 axis = 1; // DimensionAxis int key
+  double factor = 2;
+  double offset = 3;
+  string token = 4;
 }
 
 // --- [NODE_WIRE] -------------------------------------------------------------------------
@@ -253,7 +263,7 @@ message PropertySetWire {
   string set_name = 1;
   map<string, PropertyValueWire> values = 2;
   string inheritance = 3; // InheritanceMode key
-  sint32 source_rank = 4; // PropertySource int key (10/20/30/40)
+  sint32 source_rank = 4; // EvidenceGrade int key (10/15/20/25/30/40)
 }
 
 message QuantitySetWire {
@@ -320,6 +330,10 @@ message VoidWire {
 }
 
 message GenericWire {
+  // wire_name is roster-gated at the producer: a `Relationship.Generic` mints its name from one of the thirty-two
+  // `IfcRelKind` rows and nowhere else, so a name no row declares is unconstructable on the producing side. The
+  // string stays open here because the roster is the producer's vocabulary, not this schema's; a decoder that must
+  // refuse an unrostered name re-quotes that roster at its own decode edge.
   string wire_name = 1;
   string relating_id = 2;
   string related_id = 3;
@@ -333,7 +347,7 @@ message RelationshipParticipantWire {
   optional sint32 ordinal = 3;
 }
 
-// MaterialUsage.None is an explicit arm; an unset oneof is malformed foreign input.
+// The none field decodes to the MaterialUsage.Unbound arm; an unset oneof is malformed foreign input.
 message MaterialUsageWire {
   oneof usage {
     LayerSetUsageWire layer_set = 1;
@@ -470,8 +484,18 @@ message MaterialPropertySetWire {
 
 message PropertyEvidenceWire {
   string source = 1;
-  string reference = 2;
+  string reference = 2; // blank crosses as unset — the seam carries Option<string>
   optional string valid_until = 3;
+  optional sint32 grade = 4; // EvidenceGrade int key (the SourceRank vocabulary); absent (elder payload) decodes Catalogue
+  optional AttestationWire attested = 5;
+  optional ProvenanceWire run = 6; // the EvidenceRun audit link — the ProvenanceWire columns ARE its columns
+}
+
+message AttestationWire {
+  string role = 1; // AttestationRole key
+  string credential = 2;
+  bytes payload = 3; // 16-byte BE — the attested document's content key
+  google.protobuf.Timestamp at = 4;
 }
 
 // The factor-vs-°C temperature-reduction curves (EN 1993-1-2 kE,θ/ky,θ, EN 1992-1-2 kc(θ)) ride beside the 20 °C
@@ -681,6 +705,15 @@ message SeriesStatisticsWire {
   optional MeasureValueWire maximum = 4;
   optional MeasureValueWire mean = 5;
   optional MeasureValueWire total = 6;
+  // The kernel Stat moment columns (Pebay fold state) — appended so the receipt round-trips WHOLE: min/max/mean
+  // scalars alone cannot re-found variance/skewness/kurtosis. Presence on stat_mass gates the group: an elder
+  // payload without it decodes a figure-less summary, never a fabricated moment set.
+  optional sint32 stat_count = 7;
+  optional sint32 stat_rejected = 8;
+  optional double stat_mass = 9;
+  optional double stat_m2 = 10;
+  optional double stat_m3 = 11;
+  optional double stat_m4 = 12;
 }
 
 // --- [COVERAGE_WIRE] ---------------------------------------------------------------------
@@ -695,13 +728,8 @@ message CoverageWire {
   repeated OverviewLevelWire overviews = 6; // the Coarsen chain in decimation order — position IS the level ordinal
   sint32 base_block_x = 7;
   sint32 base_block_y = 8;
-  repeated TimeSliceWire slices = 9;
+  reserved 9; // retired TimeSliceWire slices — a temporal axis returns only with its producer
   CellLatticeWire grid = 10;
-}
-
-message TimeSliceWire {
-  google.protobuf.Timestamp at = 1;
-  bytes raster_key = 2;
 }
 
 // The kernel CellLattice placement: the TWELVE index-to-world affine coefficients in row-major order (the fourth
