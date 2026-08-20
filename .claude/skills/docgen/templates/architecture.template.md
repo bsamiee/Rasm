@@ -24,13 +24,14 @@
 <!-- source-only: tier-0 voice — a section states the invariant and its extension rule, never a branch's member roster, package registry, or file names; the narrowest tier owning a fact keeps it, and Tier-0 keeps only what spans branches. -->
 
 <!-- source-only: diagrams — every committed fence carries exactly one frontmatter `config:` block setting `layout: elk` and `flowchart: {curve: linear, padding: 25}`; themeVariables, themeCSS, theme, classDef, style, linkStyle, and `%%{init}%%` never appear. accTitle and accDescr ride every fence; accDescr states one sentence under 150 columns naming the diagram's question, never its edge or node roster.
-  STRATA   `flowchart TB` — one subgraph per stratum, every edge downward labeled `[IMPORT]: SourcedType` (one sourced type per edge), one `forbidden:` edge naming the rejected upward direction. Ruled counter-edges draw dotted `-.->` labeled `[COUNTER]: PayloadType`, earning a seat only where the payload is a value the lower stratum consumes rather than an owner it imports, so the type graph stays acyclic.
+  STRATA   `flowchart TB` — one subgraph per stratum under a bare `S<N>` id, every edge downward labeled `[IMPORT]: SourcedType` (one sourced type per edge), one `forbidden:` edge drawn floor-node to top-stratum subgraph under the reserved id `f1`. Ruled counter-edges draw dotted `-.->` labeled `[COUNTER]: PayloadType`, earning a seat only where the payload is a value the lower stratum consumes rather than an owner it imports, so the type graph stays acyclic; the accDescr names each counter-edge.
+  EDGE_IDS every fence draws its own `e<N>@` pool, numbered in reading order with no gaps and no reuse across fences; `[04]-[INTERNAL]` fault-convergence edges take `f<N>@` beside the happy-path `e<N>@` pool.
   SEAM     `flowchart LR` — home owners in one subgraph, one node per counterpart, edges `[KIND]: shape-name` spelled verbatim from the owning endpoint. Node shape carries the counterpart's ROLE — `{{x}}` bidirectional peer, `([x])` one-way source or sink, `[(x)]` store — while the arrow carries the CONTRACT's direction: a single-headed arrow projects toward the consumer, a double-headed arrow marks a shape both ends mint. Each seam edge collapses every contract between its endpoints at that kind, an instance stating per-edge exceptions only.
   INTERNAL `flowchart TB|LR` — stage or owner nodes in flow order, edge labels naming the carried fact or verb, a subsystem spine reading entry -> transform -> egress. -->
 
 ## [01]-[DOMAIN_MAP]
 
-<!-- source-only: codemap — one node per eventual source file in the language's folder and file casing, each `#` tail naming the concept that file owns; tails align within a block under the 150-column cap, carrying no method chain, type roster, or design detail, and a tail that cannot fit aligned trims to its load-bearing concept. -->
+<!-- source-only: codemap — one node per eventual source file in the language's folder and file casing, each `#` tail naming the concept that file owns; tails align within a block under the 150-column cap, carrying no method chain, type roster, or design detail, and a tail that cannot fit aligned trims to its load-bearing concept. Tails state what the fence OWNS — types, spines, seating constraints — while README router rows state what the page delivers, and the two never share a phrase. Tails open capitalised unless the first token is a code identifier in its own spelling. Node order mirrors the README router's concern order exactly, alphabetical only where the router holds no order; every router card has its codemap node and every node its card. -->
 
 ```text codemap
 core/
@@ -43,7 +44,7 @@ core/
 
 ## [02]-[STRATA]
 
-<!-- source-only: keys run `S0` upward; strata is the only rank vocabulary — wave, band, and tier never name a rank. Member-seating is a flat bullet list: every row keyed `S<N>` (a banded rank `S<N>–S<M>`), one seating decision per row under 150 columns, a stratum carrying more decisions taking sibling keyed rows; rows carry only law the fence cannot show — merged-node resolutions, absent-edge law, cycle prevention, cross-stratum seatings — an edge the diagram labels never restates in a row, and nesting or a prose block never carries a seating. Every tier carries this section. -->
+<!-- source-only: keys run `S0` upward; strata is the only rank vocabulary — wave, band, and tier never name a rank. Member-seating is a flat bullet list: every row keyed `S<N>` (a banded rank `S<N>–S<M>` where a transitive-reduced rail makes depth path-dependent, a cross-stratum edge classification `S<N>→S<M>` where the row types one drawn crossing), one seating decision per row under 150 columns, a stratum carrying more decisions taking sibling keyed rows; rows carry only law the fence cannot show — merged-node resolutions, absent-edge law, cycle prevention, cross-stratum seatings — an edge the diagram labels never restates in a row, and nesting or a prose block never carries a seating; diagram-reading conventions ride the accDescr or fence-adjacent prose, never a keyed row. Every tier carries this section. -->
 
 <strata-graph diagram per the STRATA archetype>
 

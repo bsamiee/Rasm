@@ -7,7 +7,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `rail`: Carries a computation's success and failure channels as one typed value, so domain logic returns outcomes rather than throwing.
 - `receipt`: Records how a computation resolved — route, status, sampling, solver, host evidence — as typed fields consumers read, never re-derive.
     - [NOT]: Purchase and delivery receipts; only computation evidence carries this word.
-- `fold`: Reduces a structure to one value through a single owner, replacing accumulation across call sites.
+- `fold`: Routes a structure or case family through one owning body — a reduction or a dispatch — so branching never spreads across call sites.
 - `arm`: Handles one case of a closed family inside a dispatch, and adding a case breaks every dispatch site loudly.
     - [NOT]: ARM instruction sets; match-branch ownership earns the word.
 - `case`: Names one member of a closed vocabulary a discriminant selects.
@@ -30,7 +30,6 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `anti-corruption layer`: Isolates a foreign model behind a translation boundary so its vocabulary never leaks inward.
     - [NOT]: No surface wears this name; boundary adapters at declared ports carry the concern.
 - `composition root`: Binds every port, host edge, and cross-branch peer in one leaf place no lower owner reaches.
-- `capability descriptor`: Carries one open-axis value as a data row the supplying branch shapes, so the axis grows without re-anchoring its roster.
 
 ## [03]-[ALGEBRA]
 

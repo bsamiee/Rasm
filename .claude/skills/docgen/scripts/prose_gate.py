@@ -308,7 +308,7 @@ EM_DASH_ASCII = re.compile(r"(?<=\s)-{2,3}(?=\s)")
 # `.md` extension pins a physical path a move invalidates, and a path pointer whose anchor is not an
 # UPPERCASE_SNAKE section token, reaching for a code symbol or a slug the target renumbers away. Extensionless
 # `<path>/<page>#SECTION_TOKEN` names a public section header, the one cross-owner form, so it stays legal beside a bare owner mention.
-STRATA_ROW_KEY = re.compile(r"^- S\d+(?:\u2013S?\d+)?\s")
+STRATA_ROW_KEY = re.compile(r"^- S\d+(?:(?:\u2013|-)S?\d+|\u2192S\d+)?\s")
 POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9_]*(?![\w-]))[\w.-]+\b")
 # Deictic freshness and permission verbs warn: both admit context-legal uses review adjudicates.
 # Hyphen lookarounds spare compound terms — `least-recently-touched` names an eviction policy, not freshness.

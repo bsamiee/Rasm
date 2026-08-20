@@ -42,7 +42,7 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 [GATE_ROUTING]:
 - Law: Rules a formatter, analyzer, or gate enforces route to that gate, never to a doctrine page.
 - Law: Constitution facts land at their one acting reader.
-- Law: Reviewer rules mirror across all three reviewer configs.
+- Law: Reviewer rules mirror across every reviewer config.
 
 [RE_PROVING]:
 - Law: Heavy workflow runs re-prove every row against the live tree; no row archives.

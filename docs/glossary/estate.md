@@ -14,8 +14,9 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `cross-cutting concern`: Names what all owners need and none owns — identity, telemetry, faults, policy — woven at definition or composition time.
     - [NOT]: Aspect weaving, which each branch doctrine owns as an attachment mechanism.
 - `capability`: Names what an owner does for a consumer, stated as present-tense owned fact and never gated on consumer arrival.
-    - [NOT]: `Capability` declarations naming folder-local axes — geometry reads, machine reach — each ride their own `ICapability<TSelf>` roster, never one shared enum.
+    - [NOT]: Folder-local `Capability` axes — geometry reads, machine reach — each riding its own `ICapability<TSelf>` roster, never one shared enum.
 - `tier`: Ranks one level of ownership breadth — cross-libs core, branch, folder, page — and the narrowest tier holding a fact owns it.
+    - [NOT]: Deploy-branch `Tier`, the program-base code type its own spec page owns.
 - `grain`: Fixes the resolution a fact is stated at: concept grain for an idea, landing grain for a task, member grain for a catalog.
     - [NOT]: Orleans virtual actors and warehouse fact-table grain; neither names a runtime entity here.
 - `altitude`: Names one level of a layered surface a fact can sit at, from an interior body up through the published wire.
@@ -23,10 +24,10 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 
 ## [02]-[RANK_AND_PLANE]
 
-- `stratum`: Ranks one dependency layer inside a branch, and every edge leaving it runs strictly upward.
-- `strata`: Orders a branch's whole rank set, seating shared machinery at the lowest rank every consumer reaches.
+- `stratum`: Ranks one dependency layer inside a branch or package, and every edge leaving it runs strictly upward.
+- `strata`: Orders a rank set — branch packages or package sub-domains — seating shared machinery at the lowest rank every consumer reaches.
     - [NOT]: Wave and band, neither of which ranks anything, and `tier`, which ranks ownership breadth rather than dependency.
-- `plane`: Names one horizontal concern band cutting across strata rank, whose members seat at a rank yet stay outside the runtime graph.
+- `plane`: Names one horizontal concern band cutting across strata rank, each member seated at its own rank.
     - [NOT]: Network control and data planes, geometric `Plane` values, and texel-raster `texture plane`, each owned by its own domain.
 - `type plane`: Carries the compile-time half of a declaration, where a name exists for the checker alone.
 - `value plane`: Carries the runtime half of a declaration, where a name exists as a live value.
@@ -83,14 +84,15 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 
 Words carrying live senses no context disambiguates refuse bare use, and every site spells one qualified form.
 
-- `lane`: Refuses bare use.
+- `lane`: Refuses bare use; a qualified `<qualifier> lane` names one selected route through a bounded alternative set, minted at one owning surface.
 - `dispatch lane`: Routes one class of agent work through a workflow under its own model, authority, and read scope.
 - `offload lane`: Keys one isolation arm a blocking or CPU-bound body runs on, each bounded by its own capacity limiter.
 - `transaction lane`: Separates a serialized writing path from an unwrapped analytical read path over one engine.
 - `cache lane`: Keys one cache topology a resolver resolves by lane key, so each lane reads its own second-level store.
 - `signal lane`: Carries one telemetry signal's exporter and pipeline rows through egress.
 - `descriptor`: Refuses bare use.
-- `capability descriptor`: Rows an open consumption axis — key, supplied capability, reached isolation — filled by its supplying branch alone.
+- `consumption descriptor`: Rows an open consumption axis — selection, admission, tenancy, lifetime, forfeit — filled by its supplying branch alone.
+- `capability descriptor`: Rows one plugin or agent command's capability — representation, channel demand, ops, request policy — at the agent axis.
 - `descriptor set`: Snapshots a proto source's compiled form beside it as the drift gate's per-source baseline.
 - `frame budget`: Refuses bare use.
 - `viewport frame budget`: Bounds one rendered frame's spend — time, draws, residency — so a breach names its axis and degrades the frame alone.
@@ -116,4 +118,5 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `operating envelope`: Bounds the conditions one machine or process admits, so a demand outside it refuses rather than degrades.
 - `swept envelope`: Encloses the volume a moving body occupies across its whole motion, and a clearance test runs against that solid.
 - `bounding envelope`: Brackets a geometry inside the axis-aligned extent an index compares first, so an exact predicate runs on candidates alone.
+- `sealed envelope`: Carries one encryption's IV and ciphertext as opaque bytes behind a wrapped key, so a payload crosses and rests unreadable.
 - `typed envelope`: Carries an operational rail's whole outcome — value beside failure — so no sentinel rides inside a data row.

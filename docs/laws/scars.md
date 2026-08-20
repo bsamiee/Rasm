@@ -15,6 +15,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Stale spellings beyond the finding set resurface silently.
 - Boundary: Drains span every retired-surface kind — a tool-manifest row, a renamed member, a deleted flat property, a strata-banned parameter type.
 - Boundary: Anchor and finding lists serve navigation, never the drain boundary.
+- Boundary: Zero-occurrence proofs cover every spelling the language admits — a `new X(` grep passes the target-typed `X x = new(` survivor green.
 
 [BLOCKER_HYPOTHESIS]:
 - Law: Recorded blockers re-prove on their verification rail before gating any work; the marker states a hypothesis, never a constraint.
@@ -22,6 +23,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: Re-probes run the owning rail — assay decompile, venv reflection, `node_modules` read — and a surviving blocker keeps its Arms row.
 - Boundary: Lane findings, alignment rows, and charter text inherit this law, so a report claim with no disk re-probe stays a hypothesis.
 - Boundary: Dispatch premises re-prove both ways — `blocked` and `already landed` alike — and a prose-read spelling re-reads at its owning fence.
+- Boundary: Receipt rows and census counts are dispatch premises — a receipted landing and a tally sizing a rebuild alike re-prove on disk first.
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
 - Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
 
@@ -37,6 +39,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Measures an arm may not take ride an optional slot; a required slot with a zero, `inf`, or `nan` default is a type defect spelling no absence.
 - Law: Multiplicative scores fan each measured component onto its own dimension and COUNT refusals on their own series, never into the distribution.
 - Law: Policy and preset rows never carry a slot only a mount can measure; the measured slot is a required argument on a mount-time factory.
+- Law: Receipt-family membership proves every spine column real at the source; converting a canon-only value mints a key or stamp no producer took.
 - Trigger: Zero-fallback reads, retired-owner slots republishing a last value, and zero-filled receipts each read as a measurement no producer took.
 - Boundary: `libs/.planning/RULINGS.md` `[02]-[SHAPE]` owns the diagnostic-plane UNMEASURED shape, and this scar binds every other construction.
 - Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.
@@ -52,6 +55,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [UNREAD_KEY_ROW]:
 - Law: Policy, config, and provisioning rows prove their consumer reads the keys they spell, and a row keyed past that read governs nothing.
 - Law: Keys accepted and discarded fail worse than rejected ones; a conformance or capability table is decoration until a boot refuses on it.
+- Law: Admitting applicators return the verdict as their value; a `Unit` return lets every call site `_`-discard the rows the body dropped.
 - Law: Write vocabularies register as a projection of the recording row set, strict-name armed; an unregistered name drops its writes silently.
 - Trigger: Governance rows bind keys no deploy plane publishes, a chart reads a key name its secret never spells, a driver ignores its row's field.
 - Boundary: Proof runs the consumer's own read path — chart template, options binder, driver config — never the key's presence in documentation.
@@ -155,3 +159,14 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Rules validate and report healthy while denying nothing and admitting every unnamed registry; a `[]` allowlist denies its whole tenant.
 - Boundary: Proof reads default-action and absence semantics at the engine's own evaluator, never the roster shape or admission success.
 - Boundary: Every rule engine carrying a default verb falls under it — admission webhooks, policy packs, row-level predicates, network fences.
+
+[RESPELL_WITHOUT_RECEIVER]:
+- Law: Respell, rename, and conversion orders bind each site's receiver at its owning declaration; foreign owners lawfully share a spelling.
+- Law: Censuses sizing a conversion discriminate site kind — parameter, local, property, generated column — before any count drives an order.
+- Trigger: Word-match sweeps order edits onto same-spelled foreign members — an SDK mirror, a factory case, a domain rank — and break what they touch.
+- Boundary: Census verdicts date to their read — a zero-hit taken after a repair refutes nothing about the order that preceded it.
+
+[FAULT_BUILT_BEFORE_VERDICT]:
+- Law: Refusal payloads — fault values, detail strings, evidence scans — construct on the failing arm alone; gates take deferred constructors.
+- Law: Passing paths price zero refusal work, so a scan only a refusal reads runs after the verdict and costs failures alone.
+- Trigger: Gates taking pre-built faults charge every success allocation and formatting nothing reads, up to a corpus scan per passing row.
