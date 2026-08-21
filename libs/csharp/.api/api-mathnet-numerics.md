@@ -330,64 +330,66 @@
 
 [ENTRYPOINT_SCOPE]: dense factorization and solve — every factorization is a `Matrix<T>` instance member, every solve a factorization instance member, and every construction a builder-handle member
 
-| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                      |
-| :-----: | :-------------------------------------------------- | :------- | :------------------------------------------------ |
-|  [01]   | `Matrix<T>.QR(QRMethod)`                            | instance | QR, `Thin` by default                             |
-|  [02]   | `Matrix<T>.Cholesky() -> Cholesky<T>`               | instance | SPD factorization                                 |
-|  [03]   | `Matrix<T>.LU() -> LU<T>`                           | instance | pivoted LU                                        |
-|  [04]   | `Matrix<T>.GramSchmidt() -> GramSchmidt<T>`         | instance | modified Gram-Schmidt QR                          |
-|  [05]   | `Matrix<T>.Svd(bool computeVectors)`                | instance | singular values, vectors optional                 |
-|  [06]   | `Matrix<T>.Evd(Symmetricity)`                       | instance | eigen decomposition under a symmetry hint         |
-|  [07]   | `QR<T>.Solve(Vector<T>) -> Vector<T>`               | instance | least-squares solve allocating the result         |
-|  [08]   | `QR<T>.Solve(Vector<T>, Vector<T>)`                 | instance | the same solve into a caller-owned result         |
-|  [09]   | `QR<T>.Solve(Matrix<T>)` / `Solve(Matrix, Matrix)`  | instance | multi-right-hand-side pair                        |
-|  [10]   | `QR<T>.Q` / `.R` / `.Determinant`                   | property | the standing factors and the determinant          |
-|  [11]   | `Matrix<T>.TransposeThisAndMultiply(Matrix<T>)`     | instance | Gram product with no explicit transpose allocated |
-|  [12]   | `Matrix<T>.Build` / `Vector<T>.Build`               | static   | root handle every builder factory hangs off       |
-|  [13]   | `MatrixBuilder<T>.Dense(int, int, Func<int,int,T>)` | instance | dense matrix off an index projection              |
-|  [14]   | `MatrixBuilder<T>.DenseOfArray(T[,])`               | instance | dense matrix over a rectangular buffer            |
-|  [15]   | `VectorBuilder<T>.Dense(int, Func<int,T>)`          | instance | dense vector off an index projection              |
-|  [16]   | `Svd<T>.ConditionNumber` / `Svd<T>.Rank`            | property | conditioning witness on the factorization handle  |
-|  [17]   | `Vector<T>.L2Norm()`                                | instance | Euclidean norm                                    |
-|  [18]   | `Vector<T>.Enumerate()`                             | instance | lazy element walk carrying the finiteness probe   |
-|  [19]   | `MatrixBuilder<T>.OfStorage(MatrixStorage<T>)`      | instance | wrap prepared storage as the dense/sparse carrier |
-|  [20]   | `VectorBuilder<T>.OfStorage(VectorStorage<T>)`      | instance | the vector half of the same admission             |
-|  [21]   | `VectorBuilder<T>.DenseOfArray(T[])`                | instance | dense vector over a caller buffer                 |
-|  [22]   | `Vector<T>.AsArray() -> T[]`                        | instance | the backing buffer where dense, else `null`       |
-|  [23]   | `Matrix<T>.AsArray() -> T[,]` / `ToArray()`         | instance | backing rectangle where dense; `ToArray` copies   |
-|  [24]   | `Matrix<T>.Multiply(Matrix<T>)` / `Multiply(Vector<T>)` / `Multiply(T)` | instance | allocating product over each right operand |
-|  [25]   | `Matrix<T>.Transpose() -> Matrix<T>`                | instance | allocating transpose                              |
-|  [26]   | `Matrix<T>.Column(int)` / `Column(int, int, int)`   | instance | one column, whole or as a row-bounded slice       |
-|  [27]   | `Matrix<T>.IsSymmetric() -> bool`                   | instance | EXACT elementwise symmetry test                   |
-|  [28]   | `Matrix<T>.Inverse()` / `PseudoInverse()`           | instance | full inverse and its rank-deficient counterpart   |
-|  [29]   | `Matrix<T>.Storage` / `Vector<T>.Storage`           | property | the underlying `MatrixStorage<T>`/`VectorStorage<T>` |
-|  [30]   | `Cholesky<T>.Factor -> Matrix<T>`                   | property | the standing lower triangular factor              |
-|  [31]   | `LU<T>.Solve(Matrix<T>)` / `LU<T>.Inverse()`        | instance | multi-right-hand-side solve and the full inverse  |
-|  [32]   | `Evd<T>.EigenValues -> Vector<Complex>` / `.EigenVectors -> Matrix<T>` | property | spectrum and its modal matrix   |
-|  [33]   | `Cholesky<T>.DeterminantLn`                         | property | log determinant off the SPD factor                |
-|  [34]   | `LU<T>.Determinant`                                 | property | determinant off the pivoted factor                |
-|  [35]   | `Svd<T>.S` / `.U` / `.VT` / `.W`                    | property | singular values and the factor triple             |
-|  [36]   | `Svd<T>.L2Norm`                                     | property | spectral norm off the standing factorization      |
-|  [37]   | `Evd<T>.D` / `.Rank` / `.IsFullRank`                | property | block-diagonal spectrum and the rank verdict      |
-|  [38]   | `Matrix<T>.ToColumnMajorArray()` / `ToRowMajorArray()` | instance | flat copy in either storage order                 |
-|  [39]   | `Matrix<T>.FrobeniusNorm()`                         | instance | entrywise L2 norm                                 |
-|  [40]   | `Matrix<T>.SetColumn(int, Vector<T>)` / `SetRow(...)` | instance | write one column or row in place                  |
-|  [41]   | `Matrix<T>.Diagonal() -> Vector<T>`                 | instance | the diagonal as a vector                          |
-|  [42]   | `Matrix<T>.PointwiseMultiply(Matrix<T>)`            | instance | Hadamard product                                  |
-|  [43]   | `Matrix<T>.Multiply(Vector<T>, Vector<T>)`          | instance | GEMV into a caller-owned result                   |
-|  [44]   | `Vector<T>.DotProduct(Vector<T>) -> T`              | instance | inner product                                     |
-|  [45]   | `Vector<T>.InfinityNorm()`                          | instance | max-magnitude norm                                |
-|  [46]   | `Vector<T>.PointwiseMultiply(Vector<T>)`            | instance | elementwise product                               |
-|  [47]   | `Vector<T>.Add`/`Subtract`(_, `Vector<T>` result)   | instance | the same two into a caller-owned result           |
-|  [48]   | `MatrixBuilder<T>.Dense(int, int, T[])`             | instance | dense matrix over a COLUMN-MAJOR flat buffer      |
-|  [49]   | `MatrixBuilder<T>.DenseOfColumns(IEnumerable<...>)` | instance | dense matrix from column sequences                |
-|  [50]   | `MatrixBuilder<T>.DenseOfDiagonalVector(Vector<T>)` | instance | dense carrier with the vector on its diagonal     |
-|  [51]   | `MatrixBuilder<T>.DiagonalOfDiagonalVector(Vector<T>)` | instance | diagonal-STORAGE carrier from the same vector     |
-|  [52]   | `VectorBuilder<T>.Dense(int)`                       | instance | zeroed dense vector at a length                   |
-|  [53]   | `Matrix<T>.KroneckerProduct(Matrix<T>) -> Matrix<T>` | instance | allocating tensor product over the two operands   |
-|  [54]   | `Matrix<T>.KroneckerProduct(Matrix<T>, Matrix<T>)`  | instance | the same product into a caller-owned result, `virtual` |
-|  [55]   | `MatrixExtensions.TrySolveIterative(Vector<T>, Vector<T>, …)` | extension | Krylov solve, RETURNS `IterationStatus` |
-|  [56]   | `MatrixExtensions.TrySolveIterative(Matrix<T>, Matrix<T>, …)` | extension | the multi-RHS shape of the same solve  |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]   | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------ | :-------- | :----------------------------------------------------- |
+|  [01]   | `Matrix<T>.QR(QRMethod)`                                      | instance  | QR, `Thin` by default                                  |
+|  [02]   | `Matrix<T>.Cholesky() -> Cholesky<T>`                         | instance  | SPD factorization                                      |
+|  [03]   | `Matrix<T>.LU() -> LU<T>`                                     | instance  | pivoted LU                                             |
+|  [04]   | `Matrix<T>.GramSchmidt() -> GramSchmidt<T>`                   | instance  | modified Gram-Schmidt QR                               |
+|  [05]   | `Matrix<T>.Svd(bool computeVectors)`                          | instance  | singular values, vectors optional                      |
+|  [06]   | `Matrix<T>.Evd(Symmetricity)`                                 | instance  | eigen decomposition under a symmetry hint              |
+|  [07]   | `QR<T>.Solve(Vector<T>) -> Vector<T>`                         | instance  | least-squares solve allocating the result              |
+|  [08]   | `QR<T>.Solve(Vector<T>, Vector<T>)`                           | instance  | the same solve into a caller-owned result              |
+|  [09]   | `QR<T>.Solve(Matrix<T>)` / `Solve(Matrix, Matrix)`            | instance  | multi-right-hand-side pair                             |
+|  [10]   | `QR<T>.Q` / `.R` / `.Determinant`                             | property  | the standing factors and the determinant               |
+|  [11]   | `Matrix<T>.TransposeThisAndMultiply(Matrix<T>)`               | instance  | Gram product with no explicit transpose allocated      |
+|  [12]   | `Matrix<T>.Build` / `Vector<T>.Build`                         | static    | root handle every builder factory hangs off            |
+|  [13]   | `MatrixBuilder<T>.Dense(int, int, Func<int,int,T>)`           | instance  | dense matrix off an index projection                   |
+|  [14]   | `MatrixBuilder<T>.DenseOfArray(T[,])`                         | instance  | dense matrix over a rectangular buffer                 |
+|  [15]   | `VectorBuilder<T>.Dense(int, Func<int,T>)`                    | instance  | dense vector off an index projection                   |
+|  [16]   | `Svd<T>.ConditionNumber` / `Svd<T>.Rank`                      | property  | conditioning witness on the factorization handle       |
+|  [17]   | `Vector<T>.L2Norm()`                                          | instance  | Euclidean norm                                         |
+|  [18]   | `Vector<T>.Enumerate()`                                       | instance  | lazy element walk carrying the finiteness probe        |
+|  [19]   | `MatrixBuilder<T>.OfStorage(MatrixStorage<T>)`                | instance  | wrap prepared storage as the dense/sparse carrier      |
+|  [20]   | `VectorBuilder<T>.OfStorage(VectorStorage<T>)`                | instance  | the vector half of the same admission                  |
+|  [21]   | `VectorBuilder<T>.DenseOfArray(T[])`                          | instance  | dense vector over a caller buffer                      |
+|  [22]   | `Vector<T>.AsArray() -> T[]`                                  | instance  | the backing buffer where dense, else `null`            |
+|  [23]   | `Matrix<T>.AsArray() -> T[,]` / `ToArray()`                   | instance  | backing rectangle where dense; `ToArray` copies        |
+|  [24]   | `Matrix<T>.Multiply(Matrix<T>)` / `Multiply(Vector<T>)`       | instance  | allocating product over a matrix or vector             |
+|  [25]   | `Matrix<T>.Multiply(T)`                                       | instance  | allocating scalar scale                                |
+|  [26]   | `Matrix<T>.Transpose() -> Matrix<T>`                          | instance  | allocating transpose                                   |
+|  [27]   | `Matrix<T>.Column(int)` / `Column(int, int, int)`             | instance  | one column, whole or as a row-bounded slice            |
+|  [28]   | `Matrix<T>.IsSymmetric() -> bool`                             | instance  | EXACT elementwise symmetry test                        |
+|  [29]   | `Matrix<T>.Inverse()` / `PseudoInverse()`                     | instance  | full inverse and its rank-deficient counterpart        |
+|  [30]   | `Matrix<T>.Storage` / `Vector<T>.Storage`                     | property  | the underlying `MatrixStorage<T>`/`VectorStorage<T>`   |
+|  [31]   | `Cholesky<T>.Factor -> Matrix<T>`                             | property  | the standing lower triangular factor                   |
+|  [32]   | `LU<T>.Solve(Matrix<T>)` / `LU<T>.Inverse()`                  | instance  | multi-right-hand-side solve and the full inverse       |
+|  [33]   | `Evd<T>.EigenValues -> Vector<Complex>`                       | property  | the spectrum as complex values                         |
+|  [34]   | `Evd<T>.EigenVectors -> Matrix<T>`                            | property  | the modal matrix                                       |
+|  [35]   | `Cholesky<T>.DeterminantLn`                                   | property  | log determinant off the SPD factor                     |
+|  [36]   | `LU<T>.Determinant`                                           | property  | determinant off the pivoted factor                     |
+|  [37]   | `Svd<T>.S` / `.U` / `.VT` / `.W`                              | property  | singular values and the factor triple                  |
+|  [38]   | `Svd<T>.L2Norm`                                               | property  | spectral norm off the standing factorization           |
+|  [39]   | `Evd<T>.D` / `.Rank` / `.IsFullRank`                          | property  | block-diagonal spectrum and the rank verdict           |
+|  [40]   | `Matrix<T>.ToColumnMajorArray()` / `ToRowMajorArray()`        | instance  | flat copy in either storage order                      |
+|  [41]   | `Matrix<T>.FrobeniusNorm()`                                   | instance  | entrywise L2 norm                                      |
+|  [42]   | `Matrix<T>.SetColumn(int, Vector<T>)` / `SetRow(...)`         | instance  | write one column or row in place                       |
+|  [43]   | `Matrix<T>.Diagonal() -> Vector<T>`                           | instance  | the diagonal as a vector                               |
+|  [44]   | `Matrix<T>.PointwiseMultiply(Matrix<T>)`                      | instance  | Hadamard product                                       |
+|  [45]   | `Matrix<T>.Multiply(Vector<T>, Vector<T>)`                    | instance  | GEMV into a caller-owned result                        |
+|  [46]   | `Vector<T>.DotProduct(Vector<T>) -> T`                        | instance  | inner product                                          |
+|  [47]   | `Vector<T>.InfinityNorm()`                                    | instance  | max-magnitude norm                                     |
+|  [48]   | `Vector<T>.PointwiseMultiply(Vector<T>)`                      | instance  | elementwise product                                    |
+|  [49]   | `Vector<T>.Add`/`Subtract`(_, `Vector<T>` result)             | instance  | the same two into a caller-owned result                |
+|  [50]   | `MatrixBuilder<T>.Dense(int, int, T[])`                       | instance  | dense matrix over a COLUMN-MAJOR flat buffer           |
+|  [51]   | `MatrixBuilder<T>.DenseOfColumns(IEnumerable<...>)`           | instance  | dense matrix from column sequences                     |
+|  [52]   | `MatrixBuilder<T>.DenseOfDiagonalVector(Vector<T>)`           | instance  | dense carrier with the vector on its diagonal          |
+|  [53]   | `MatrixBuilder<T>.DiagonalOfDiagonalVector(Vector<T>)`        | instance  | diagonal-STORAGE carrier from the same vector          |
+|  [54]   | `VectorBuilder<T>.Dense(int)`                                 | instance  | zeroed dense vector at a length                        |
+|  [55]   | `Matrix<T>.KroneckerProduct(Matrix<T>) -> Matrix<T>`          | instance  | allocating tensor product over the two operands        |
+|  [56]   | `Matrix<T>.KroneckerProduct(Matrix<T>, Matrix<T>)`            | instance  | the same product into a caller-owned result, `virtual` |
+|  [57]   | `MatrixExtensions.TrySolveIterative(Vector<T>, Vector<T>, …)` | extension | Krylov solve, RETURNS `IterationStatus`                |
+|  [58]   | `MatrixExtensions.TrySolveIterative(Matrix<T>, Matrix<T>, …)` | extension | the multi-RHS shape of the same solve                  |
 
 - Every factorization owner mirrors the four `Solve` shapes; the allocating forms are `virtual` over the `abstract` result-writing pair, so a hot loop reuses one result carrier.
 - `Matrix<T>.Inverse()` is `virtual` and routes `LU().Inverse()` on the base implementation, so an "inverse of a Cholesky factor" densely LU-inverts a triangular matrix — the triangular solve the factor admits is the cheaper spelling and the one a reduction congruence wants.

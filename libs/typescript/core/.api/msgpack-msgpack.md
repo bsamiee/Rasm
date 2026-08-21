@@ -45,7 +45,7 @@
 |  [05]   | `decodeAsync(streamLike, options?): Promise<unknown>`              | async one      | one large frame arriving in chunks               |
 |  [06]   | `new Decoder({ extensionCodec, context, useBigInt64, ...limits })` | configured     | reused decoder: `Hlc` ext + interner context     |
 |  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | contract 16-byte `Hlc` ext → kernel `Hlc`        |
-|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; a view onto the live buffer  |
+|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; a view onto the live buffer |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

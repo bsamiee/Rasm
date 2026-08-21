@@ -5,7 +5,7 @@
 ## [01]-[ROUTER]
 
 [GRADUATION]:
-- [01]-[GRADUATION](.planning/graduation.md): S0 evidence spine every producer composes into a content-keyed graduation receipt.
+- [01]-[GRADUATION](.planning/graduation.md): S0 evidence spine and raise-leg roster every producer composes into a content-keyed receipt.
 
 [SCAN]:
 - [02]-[INGESTION](.planning/scan/ingestion.md): Source-discriminated raw-scan preprocessing into a registration-ready point cloud.
@@ -16,7 +16,7 @@
 [IFC]:
 - [06]-[ANALYSIS](.planning/ifc/analysis.md): IFC quantity, Pset, IDS, clash, and BCF analysis minting the `bim-compliance` subject.
 - [07]-[COSTING](.planning/ifc/costing.md): 5D/4D model-lifecycle owner — quantity take-off, cost rollup, scheduling, and revision diff.
-- [08]-[SELECTOR](.planning/ifc/selector.md): Validated selector grammar admitting a structured query before element filtering.
+- [08]-[SELECTOR](.planning/ifc/selector.md): Validated selector grammar admitting a structured query, seating the band-wide `IfcFault` family.
 - [09]-[AUTHORING](.planning/ifc/authoring.md): IFC spatial, element, and geometry authoring under the `@transactional`/`@stamped` fold.
 - [10]-[STRUCTURAL](.planning/ifc/structural.md): Section-property integrals over `IfcProfileDef` and the warping/plastic/shear FE tier.
 

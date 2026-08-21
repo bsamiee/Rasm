@@ -33,7 +33,10 @@
 |  [13]   | `DuckDBTableFunctionInitInfo`  | class         | projection roster, thread cap, init data                |
 |  [14]   | `DuckDBDataChunk`              | class         | the vector-width write surface a scan fills per call    |
 |  [15]   | `DuckDBAppender`               | class         | typed row append into an existing relation              |
+|  [16]   | `DuckDBType`                   | union         | the engine's own logical type; `DuckDBTypeId` its tag   |
 
+- `DuckDBType` closes over one `BaseDuckDBType<DuckDBTypeId>` subclass per engine type, each scalar published as a module constant (`BOOLEAN`, `UTINYINT`, `UINTEGER`, `UBIGINT`, `DOUBLE`, `VARCHAR`, `TIMESTAMP_NS`, `BLOB`, `UUID`, and the remaining width and temporal rows) and each parameterized one as a factory — `LIST(value)`, `MAP(key, value)`, `ARRAY(value, length)`, `STRUCT(entries)`, `UNION(members)`, `DECIMAL(width, scale)`, `ENUM(values)`.
+- `DuckDBType.toString()` renders the type's own SQL spelling — `VARCHAR`, `MAP(VARCHAR, VARCHAR)`, `TIMESTAMP_NS[]`, `DOUBLE[]` — so DDL text derives from the same value the bind seam declares and no hand-spelled type string stands beside the type a scan binds; `typeForValue(value)` answers the type of a held cell, and `toLogicalType()` crosses to the native handle.
 - `DuckDBValue` opens on `null | boolean | number | bigint | string` beside the wrapper classes — `DuckDBArrayValue`, `DuckDBBitValue`, `DuckDBBlobValue`, `DuckDBDateValue`, `DuckDBDecimalValue`, `DuckDBGeometryValue`, `DuckDBIntervalValue`, `DuckDBListValue`, `DuckDBMapValue`, `DuckDBStructValue`, the four `DuckDBTimestamp*Value` widths beside `DuckDBTimestampTZValue`, `DuckDBTime*Value`, `DuckDBUnionValue`, `DuckDBUUIDValue`, `DuckDBVariantValue` — so a `VARCHAR` column reads as a JS `string` and a wrapper class carries every type JS holds no primitive for.
 - `getRowObjects(): Record<string, DuckDBValue>[]` keys each row by column name; `convertRowObjects<T>(converter)`, `getRowObjectsJS()`, and `getRowObjectsJson()` are the converted twins, and `getRows`/`getColumns`/`getColumnsObject` carry the same four-way conversion family.
 - `EXPLAIN ANALYZE` under `PRAGMA enable_profiling='json'` answers exactly ONE row of two `VARCHAR` columns — `explain_key` reading `analyzed_plan` and `explain_value` carrying the profile JSON — so a harvest reads the second cell as a string and parses it.
@@ -65,11 +68,14 @@
 |  [13]   | `readValue(Value) -> DuckDBValue`                         | static   | one engine value to a typed cell         |
 |  [14]   | `quotedString(input)`                                     | static   | injection-safe string literal splice     |
 |  [15]   | `quotedIdentifier(input)`                                 | static   | injection-safe identifier splice         |
+|  [16]   | `listValue(items)` / `mapValue(entries)`                  | factory  | container cells a chunk write carries    |
+|  [17]   | `timestampNanosValue(nanos)`                              | factory  | one `TIMESTAMP_NS` cell from `bigint`    |
 
 - `DuckDBScalarFunction.create`: `{name, mainFunction, returnType}` are required; `bindFunction`, `parameterTypes`, `varArgsType`, `specialHandling`, `volatile`, and `extraInfo` refine it, and every key has a `set*`/`add*` mutator for assembly in parts.
 - `DuckDBTableFunction.create`: `{name, bindFunction, initFunction, mainFunction}` are required; `localInitFunction`, `parameterTypes`, `namedParameterTypes`, `supportsProjectionPushdown`, and `extraInfo` refine it.
 - `readValue`: covers the two places the engine hands back a value rather than a vector — table-function parameters and `duckdb_get_table_names` — and costs roughly a microsecond per scalar, so a per-row path reads its vector instead.
 - `registerTableFunction` and `registerScalarFunction` are SYNCHRONOUS and return `void`, so both lift through `Effect.try`; `createAppender` alone answers a promise, and it resolves an attached catalog through its third argument where a bare table name resolves against `main` and refuses.
+- `DuckDBDataChunk.setColumns(columns)` takes column-major `DuckDBValue` arrays, so a container cell arrives as its own carrier — `listValue(items)` for every `LIST` column, `mapValue(entries)` for every `MAP`, `timestampNanosValue(nanos)` for `TIMESTAMP_NS` — and a bare JS array or object reaches the value converter as an unrepresentable cell.
 - Column declaration rides `addResultColumn(name, type)` at the bind seam, arity rides `setCardinality(count, isExact)` (a `number`, never a `bigint`), and parameters read through `getParameter(index)` beside `getNamedParameter(name)`, which answers `null` for an unsupplied name and refuses an undeclared one at the binder; the bind function fires TWICE per statement, so it declares and never advances.
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -93,6 +99,7 @@
 - `@effect/sql-clickhouse`(`.api/effect-sql-clickhouse.md`): the at-scale OLAP row this engine hands off to past the embedded ceiling, joined on the same Arrow IPC wire.
 - `lane/olap`: its kernel wraps `create`/`connect` in `Effect.acquireRelease` and lifts every `run`/`stream`/`prepare` call through `Effect.tryPromise`, the boundary rail this raw promise API never carries.
 - `lane/olap`: `registerTableFunction` projects a PRE-PUMPED lane source into SQL as a scan — `addResultColumn(name, type)` declares the columns at the bind seam, the main function fills chunks off a residency the handle holds by name, and `setError` folds a source refusal into the query's own fault instead of a materialize-then-load hop.
+- `lane/olap`: `_COLUMN` keys one row per column token carrying its `DuckDBType`, so `String(type)` renders every plant statement's DDL spelling and the same value declares the scan's bound column — one type per token, read twice, never a spelling asserted beside the type it names.
 
 [LOCAL_ADMISSION]:
 - Analytical accelerator, never a record of truth — journal facts in, verdicts out.
@@ -102,6 +109,6 @@
 
 [RAIL_LAW]:
 - Package: `@duckdb/node-api`
-- Owns: the embedded single-node analytical engine — instance/connect lifecycle, run/read/stream/prepared execution, extension SQL admission, scalar and table user-defined functions, the typed appender
-- Accept: scoped acquire-release wrap, `tryPromise` lifts for the promise members and `Effect.try` for the synchronous registrations, Arrow IPC interchange, `httpfs`/`ATTACH`/DuckLake as statements, a RESIDENT lane source exposed to SQL as one instance-scoped table function whose bind resolves content by name
-- Reject: the standalone `duckdb` callback binding, OLAP-in-OLTP transaction coupling, a second hand-rolled analytical client, unscoped instance leaks, a per-lease registration name, a scan over a source pulled lazily inside `main`, a per-scan closure standing in for the bind and init data slots, a scan writing the bound roster without the projection opt-in
+- Owns: the embedded single-node analytical engine — instance/connect lifecycle, run/read/stream/prepared execution, the `DuckDBType` logical-type algebra and its value carriers, extension SQL admission, scalar and table user-defined functions, the typed appender
+- Accept: scoped acquire-release wrap, `tryPromise` lifts for the promise members and `Effect.try` for the synchronous registrations, Arrow IPC interchange, `httpfs`/`ATTACH`/DuckLake as statements, `DuckDBType` as the one owner of both a bound column's type and its DDL spelling, a RESIDENT lane source exposed to SQL as one instance-scoped table function whose bind resolves content by name
+- Reject: the standalone `duckdb` callback binding, OLAP-in-OLTP transaction coupling, a second hand-rolled analytical client, unscoped instance leaks, a per-lease registration name, a scan over a source pulled lazily inside `main`, a per-scan closure standing in for the bind and init data slots, a scan writing the bound roster without the projection opt-in, a hand-spelled SQL type string beside the `DuckDBType` that renders it

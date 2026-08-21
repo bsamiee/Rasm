@@ -14,7 +14,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [05]-[LAYERS](.planning/Document/layers.md): `Layers.Commit` folds the managed layer domain and lowers the kernel drafting standards onto it.
 - [06]-[FACTS](.planning/Document/facts.md): `FactStream` accumulates commit-scoped consequences under an undo stamp behind the readable kind gate.
 - [07]-[COMMIT](.planning/Document/commit.md): `DocumentCommit.Sealed` frames every host mutation over `UndoBracket` custody and redraw compensation.
-- [08]-[LIFETIME](.planning/Document/lifetime.md): `LifecycleGate`, `Subscription`, and `ReleaseFold` mint the package-wide lifetime primitives.
+- [08]-[LIFETIME](.planning/Document/lifetime.md): `LifecycleGate` and `Subscription` own Rhino lifecycle admission and host-thread release.
 
 [PERSISTENCE]:
 - [09]-[DICTIONARY](.planning/Persistence/dictionary.md): `ArchiveMap` closes the typed-value dictionary as one union with a detach/mint round trip.
@@ -140,5 +140,5 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Grpc.Tools` — Build-only `<Protobuf>` compile of the corpus-homed organization and scene sources.
 
 [DEPENDENCY_FLOORS]:
-- `Microsoft.Extensions.Compliance.Abstractions` — Transitive `DataClassification` attribute surface; no direct manifest row.
+- `Microsoft.Extensions.Compliance.Abstractions` — Transitive `DataClassification` attribute surface over kernel `Sensitivity` values.
 - `System.Drawing.Common` — Compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.

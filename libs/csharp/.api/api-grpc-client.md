@@ -253,7 +253,7 @@
 - Every call shape resolves through `CreateCallInvoker`, so `CallInvokerExtensions.Intercept` is the single seam policy layers at and an interceptor never reaches into the channel.
 - `CallOptions` is an immutable struct: each `With*` returns a fresh copy, so per-call policy threads forward with no shared state.
 - `ServiceConfig` is data: retry, hedging, throttling, and balancing each resolve as a `ConfigObject` row the channel reads, never a call-site branch.
-- Every remote fault leaves as `RpcException`, so `Status`, `StatusCode`, and `Trailers` fold at one point onto the typed fault rail.
+- Every remote fault leaves as `RpcException` and enters `Op.Catch` before the one `WireFault` decoder reads `Status`, `StatusCode`, and `Trailers`: one valid numeric `FaultDetail` becomes opaque `RemoteFault` evidence, while zero recognized details use the caused local transport classifier.
 
 [STACKING]:
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): `ICompressionProvider` rows register on `GrpcChannelOptions.CompressionProviders`, the per-call `grpc-internal-encoding-request` metadata key selects one by `EncodingName`, `ConnectivityState` is the vocabulary `GrpcChannel.State` reports, and `IAsyncStreamReader<T>.ReadAllAsync` drains a server-streaming response.
@@ -264,7 +264,7 @@
 - `Grpc.Net.Client.Web`(`Rasm.Compute/.api/api-grpc-client-web.md`): `GrpcWebHandler` is a `DelegatingHandler` wrapping the `SocketsHttpHandler` handed to `GrpcChannelOptions.HttpHandler`, so gRPC-Web composes over the transport instead of replacing it.
 - `OpenTelemetry.Instrumentation.GrpcNetClient`(`.api/api-otel-instrumentation-grpcnetclient.md`): client RPC spans emit off the channel with zero interceptor code, and `SuppressDownstreamInstrumentation` collapses the HTTP-transport span so one call is one span.
 - `Microsoft.Extensions.ServiceDiscovery`(`Rasm.AppHost/.api/api-service-discovery.md`): balancing enters through the `AddServiceDiscovery` integration's `dns`/`static` factory config, so the `Resolver`/`LoadBalancer`/`Subchannel` extensibility surface stays that package's own — never a hand-subclassed resolver or balancer on the call path.
-- `LanguageExt.Core`(`.api/api-languageext.md`): a caught `RpcException` folds to `Fin<A>.Fail` keyed on `StatusCode`, and a fan-in over several calls accumulates through `Validation<Error, A>` where `Fin` short-circuits.
+- `LanguageExt.Core`(`.api/api-languageext.md`): `Op.Catch` preserves the raised `RpcException` before the shared wire decoder admits a valid detail or classifies residual `StatusCode`; a fan-in over several calls accumulates through `Validation<Error, A>` where `Fin` short-circuits.
 - Within-library: one warm channel per endpoint — `ForAddress` with the full options record, `ConnectAsync` before the first deadline-bearing call, `CreateCallInvoker` wrapped once by `Intercept`, and `CallOptions.With*` threading deadline, cancellation, headers, and credentials per call.
 - `Rasm.AppHost`: dials two warm channels — a companion discovery-attach whose `SocketsHttpHandler.ConnectCallback` dials the Unix domain socket under a nominal `http://localhost` address, and a `ServiceDiscovery`-resolved cluster election-and-lock channel — with keepalive and reconnect backoff riding channel policy, never a second handler.
 
@@ -277,4 +277,4 @@
 - Package: `Grpc.Net.Client`
 - Owns: the client channel, its transport policy, the invoker chain, and the client-side service-config algebra
 - Accept: one warm channel per endpoint, one interceptor chain, a per-call `CallOptions` copy, and `ServiceConfig` rows as data
-- Reject: a hand-rolled retry loop, a channel minted per call, and a bespoke status-to-fault map beside `RpcException`
+- Reject: a hand-rolled retry loop, a channel minted per call, and a per-call status/detail map beside the shared `WireFault` decoder

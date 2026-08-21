@@ -165,49 +165,100 @@ export { gated, partitioned, raced, rescued, sealed, SlotFault, split };
 
 ## [03]-[FAULT_ARCHITECTURE]
 
-A surface owns one reason-discriminated fault family whose policy lives in one value table. Routing, recovery, severity, and quarantine are all projections of that table — no arm of the program branches on a reason the table already maps.
+Each surface owns one reason-discriminated fault family whose policy lives in one value table. Routing, recovery band, re-offer route, severity, and quarantine project from that table — no arm branches on a reason the table already maps — and a producer-stated window rides the raised value, never a column.
 
 [FAMILY_SIZING]:
-- Law: the family is sized by routing, not by cause — a class per distinct payload-and-recovery route, one `catchTag` arm each, and a `reason` row per cause inside it. A class per cause turns `catchTags` into a switch over causes; one class with a free-string reason is unroutable and unfoldable — both are the named defects, and the declaration mechanics of the classes are `shapes.md`'s.
-- Law: one `as const` policy table is the policy's single source of truth — rows carry rank, retry, and quarantine, `keyof typeof` derives the `Reason` union, the contract check is placed by the anchor's export reach, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states, and a new cause lands as one row plus zero new branches.
+- Law: routing sizes the family, never cause — one class per distinct payload-and-recovery route with one `catchTag` arm each, and one `reason` row per cause inside it. Class-per-cause turns `catchTags` into a switch over causes; one class under a free-string reason is unroutable and unfoldable — both are the named defects, and the declaration mechanics of the classes are `shapes.md`'s.
+- Law: one `as const` policy table is the policy's single source of truth — rows carry rank, recovery band, re-offer route, quarantine, and detail text, `keyof typeof` derives the `Reason` union, the contract check is placed by the anchor's export reach, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states.
+- Law: retriability is two columns, never one bit — `recovery` bands what a re-drive reaches (`throttled`, `transient`, `terminal`) and `reoffer` names the route the next offer takes (`wait` re-invokes identically, `restart` re-takes the dependency handle, `rescope` narrows the offer the caller re-authors) — so the elected representative carries its band and its route whole, and the route record closes over the column.
+- Law: `retryable` survives only as the derived projection `recovery !== "terminal"` — a stored retry column beside the band is a second authority that drifts, and a consumer owed the band reads the band, never the bit that erased it.
+- Law: `throttled` alone admits a producer-stated window, and that window rides the raised value as an `Option<Duration>` — the schedule re-seats its base from it per refusal, so no row holds a slot only a raise can fill and a refusal measuring none spends the blind curve unchanged.
+- Law: three altitudes carry one window under three words — wire `retry_after`, class band `throttled`, value `after` — each answering its own producer, lifetime, and reader, so one shared spelling claims a single authority where three answer.
+- Law: the row states its detail — a free-string `detail` field on the raise re-opens the axis `reason` already closed, and `message` derives as the row's text over the subject the raise carries, never a template a class hand-writes per reason.
 - Law: a fault no consumer arm can act on is a defect, not a channel member — `Effect.die` and `Effect.orDie` escalate it at the routing seam so `E` stays total over actionable faults and no handler carries a dead arm.
 
 [ROUTING_AND_FOLDS]:
 - Law: `catchTag` and `catchTags` route between classes; behavior inside a class reads policy fields — the handler record is the routing table, attached inline at the recovery seam, and a partial record leaves the remaining tags on the channel.
 - Law: `Effect.catchAll` is a whole-channel fold, never routing — lawful only where one fault inhabits the channel or every tag deliberately converges on one continuation; a blanket `catchAll` or a reflex `Effect.ignore` over a tagged channel buries every tag the family declares, and the deliberate discard is `Effect.ignoreLogged`, or `Effect.ignore` under the owner's stated rule that the outcome is irrelevant — a decision the declaration carries, never a call-site reflex.
 - Law: an accumulated fault set collapses to one representative through the rank lattice — `Order.mapInput` projects the table's rank, `Array.max` folds the `NonEmptyArray` the accumulating forms mint, and the instance with its fold ride the family class as statics so policy arrives through the owner's one import; an if-ladder comparing tags, or a loose comparator const beside the class, re-implements the order the table already declares.
+- Law: accumulating admission mints one census carrier off that same roster — `issues` holds the `NonEmptyArray` those forms yield, the dominant issue elects on the rank lattice, and the tag doubles as the message prefix `catchTag` already discriminates on; re-declaring `{ issues, class, message }` at a second owner forks one taxonomy into two.
 - Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the rail proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
 
 ```typescript conceptual
-import { Array, Data, Effect, Either, Function, Option, Order } from "effect";
+import { Array, Data, Duration, Effect, Either, Function, Option, Order, Schedule } from "effect";
 
 const FaultPolicy = {
-    // exported anchor: plain as const keeps every literal; the merged guard carries the contract
-    malformed: { rank: 4, retry: false, quarantine: true },
-    contention: { rank: 2, retry: true, quarantine: false },
-    exhausted: { rank: 3, retry: true, quarantine: false },
-    breached: { rank: 5, retry: false, quarantine: false },
+    // exported anchor: plain as const keeps every literal; the merged guard carries the contract, and each row states its own detail
+    malformed: { rank: 4, recovery: "terminal", reoffer: "rescope", quarantine: true, detail: "<undecodable>" },
+    contention: { rank: 2, recovery: "transient", reoffer: "restart", quarantine: false, detail: "<lost-cas>" },
+    exhausted: { rank: 3, recovery: "throttled", reoffer: "wait", quarantine: false, detail: "<quota>" },
+    breached: { rank: 5, recovery: "terminal", reoffer: "restart", quarantine: false, detail: "<invariant>" },
 } as const;
 
 declare namespace FaultPolicy {
     type Reason = keyof typeof FaultPolicy; // discriminant lives in the hub: one import qualifies the reason union everywhere
-    type Row = { readonly rank: number; readonly retry: boolean; readonly quarantine: boolean };
+    type Row = {
+        readonly rank: number;
+        readonly recovery: "throttled" | "transient" | "terminal"; // the band: what a re-drive reaches
+        readonly reoffer: "wait" | "restart" | "rescope"; // the route: what the next offer is made from
+        readonly quarantine: boolean;
+        readonly detail: string;
+    };
     type _Rows<T extends Record<Reason, Row> = typeof FaultPolicy> = T;
 }
 
 class SurfaceFault extends Data.TaggedError("SurfaceFault")<{
     readonly reason: FaultPolicy.Reason;
     readonly surface: string;
-    readonly detail: string;
+    readonly after: Option.Option<Duration.Duration>; // the stated window is measured at the raise: it rides the value, never a row slot
 }> {
-    static readonly byRank: Order.Order<SurfaceFault> = Order.mapInput(Order.number, (fault: SurfaceFault) => fault.policy.rank); // the rank lattice rides the owner: one import carries fault, order, and fold
+    // one import carries fault, order, and fold: the rank lattice rides the owner
+    static readonly byRank: Order.Order<SurfaceFault> = Order.mapInput(Order.number, (fault: SurfaceFault) => fault.policy.rank);
     static readonly dominant = (faults: Array.NonEmptyReadonlyArray<SurfaceFault>): SurfaceFault => Array.max(faults, SurfaceFault.byRank);
+    static readonly retryable = (fault: SurfaceFault): boolean => fault.policy.recovery !== "terminal"; // derived, never stored
     get policy(): (typeof FaultPolicy)[FaultPolicy.Reason] {
         return FaultPolicy[this.reason];
+    }
+    override get message(): string {
+        return `${this.policy.detail} ${this.surface}`;
+    }
+}
+
+class SurfaceCensus extends Data.TaggedError("SurfaceCensus")<{ readonly issues: Array.NonEmptyReadonlyArray<SurfaceFault> }> {
+    // one carrier off the same roster: admission seals here, the dominant issue elects on the rank lattice, the tag prefixes the message
+    static readonly sealed = <A, R>(work: ReadonlyArray<Effect.Effect<A, SurfaceFault, R>>): Effect.Effect<ReadonlyArray<A>, SurfaceCensus, R> =>
+        Effect.mapError(Effect.validateAll(work, Function.identity), (issues) => new SurfaceCensus({ issues }));
+    get dominant(): SurfaceFault {
+        return SurfaceFault.dominant(this.issues);
+    }
+    override get message(): string {
+        return `<SurfaceCensus:refused> ${Array.join(Array.map(this.issues, (issue) => issue.message), "; ")}`;
     }
 }
 
 class PermitFault extends Data.TaggedError("PermitFault")<{ readonly permit: string }> {}
+
+const _budget = (fault: SurfaceFault): Schedule.Schedule<[Duration.Duration, number], SurfaceFault> =>
+    // band selects and the value times: a stated window re-seats the base, none spends the blind curve, and the gate refuses every terminal band
+    Schedule.exponential(Option.getOrElse(fault.after, () => Duration.millis(40)), 2).pipe(
+        Schedule.jittered,
+        Schedule.intersect(Schedule.recurs(4)),
+        Schedule.whileInput(SurfaceFault.retryable),
+    );
+
+const reoffered = <A, R>(
+    work: Effect.Effect<A, SurfaceFault, R>,
+    restarted: Effect.Effect<A, SurfaceFault, R>,
+    rescoped: (fault: SurfaceFault) => Effect.Effect<A, SurfaceFault, R>,
+): Effect.Effect<A, SurfaceFault, R> =>
+    // one fault inhabits the channel, so the whole-channel fold is lawful; the route record closes over the column, and a fourth route breaks it
+    Effect.catchAll(work, (fault) =>
+        ({
+            wait: Effect.retry(work, _budget(fault)),
+            restart: Effect.retry(restarted, _budget(fault)),
+            rescope: rescoped(fault),
+        })[fault.policy.reoffer],
+    );
 
 const salvaged: {
     (
@@ -243,7 +294,7 @@ const routed = <A, R>(work: Effect.Effect<A, SurfaceFault | PermitFault, R>, flo
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { FaultPolicy, PermitFault, routed, salvaged, SurfaceFault };
+export { FaultPolicy, PermitFault, reoffered, routed, salvaged, SurfaceCensus, SurfaceFault };
 ```
 
 ## [04]-[RESOURCE_BRACKET]

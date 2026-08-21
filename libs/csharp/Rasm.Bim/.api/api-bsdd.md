@@ -141,7 +141,7 @@ Optional query parameters, keyed to the rows above:
 [LOCAL_ADMISSION]:
 - `BsddResolution.Resolve` issues the request over the INJECTED `Rasm.Compute/Runtime/ingest#REST_INGEST` transport bound as `BsddPort`; `Rasm.Bim` is AEC-domain and depends strictly upward, so the live leg rides Compute and a transport minted inside `Rasm.Bim` is the named seam violation.
 - `BsddClass.Of` reads ONLY the fields enumerated here; the wire is `additionalProperties: false`, so an unexpected member signals contract drift, not a new capability, and a field absent from this catalog is a phantom the seam never deserializes.
-- A transport miss degrades to the row's local code-shape policy (`LocalShape`); only a MALFORMED published-class shape routes `Model/faults#FAULT_BAND` `BimFault.CodecReject` — an unreachable service is a degrade, a corrupt response is a fault.
+- A transport miss degrades to the row's local code-shape policy (`LocalShape`); only a MALFORMED published-class shape routes `Model/faults#FAULT_BAND` `BimFault.Refused` under `BimScope.Semantics`/`BimReason.Codec` — an unreachable service is a degrade, a corrupt response is a fault.
 - Memoization keyed by the dictionary class URI rides Compute's transport cache; a durable classification cache is the calling app-platform's concern at the seam.
 
 [RAIL_LAW]:

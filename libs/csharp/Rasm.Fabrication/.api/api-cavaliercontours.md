@@ -33,23 +33,23 @@
 - config: `PlineOffsetOptions<T>` carries `AabbIndex`, `HandleSelfIntersects`, `PosEqualEps`, `SliceJoinEps`, `OffsetDistEps`; `PlineBooleanOptions<T>` carries `Pline1AabbIndex`, `PosEqualEps`, `CollapsedAreaEps`.
 - verdicts: `BooleanResultInfo` carries `InvalidInput`, `Pline1InsidePline2`, `Pline2InsidePline1`, `Disjoint`, `Overlapping`, `Intersected`; `PlineContainsResult` carries the same set minus `Overlapping`.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]        |
-| :-----: | :----------------------------- | :------------- | :------------------ |
-|  [01]   | `PlineOffset`                  | static facade  | parallel offset     |
-|  [02]   | `PlineBoolean`                 | static facade  | polyline Boolean    |
-|  [03]   | `PlineContains`                | static facade  | pair containment    |
-|  [04]   | `PlineIntersects`              | static facade  | intersection visits |
-|  [05]   | `BooleanOp`                    | enum           | set operation       |
-|  [06]   | `PlineContainsResult`          | enum           | containment verdict |
-|  [07]   | `BooleanResultInfo`            | enum           | Boolean relation    |
-|  [08]   | `PlineOffsetOptions<T>`        | options record | offset policy       |
-|  [09]   | `PlineBooleanOptions<T>`       | options record | Boolean policy      |
-|  [10]   | `PlineContainsOptions<T>`      | options record | containment policy  |
-|  [11]   | `FindIntersectsOptions<T>`     | options record | intersection policy |
-|  [12]   | `PlineSelfIntersectOptions<T>` | options record | self-scan policy    |
-|  [13]   | `BooleanResult<O,T>`           | result carrier | Boolean result      |
-|  [14]   | `BooleanResultPline<O,T>`      | result carrier | result loop         |
-|  [15]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]          |
+| :-----: | :----------------------------- | :------------- | :-------------------- |
+|  [01]   | `PlineOffset`                  | static facade  | parallel offset       |
+|  [02]   | `PlineBoolean`                 | static facade  | polyline Boolean      |
+|  [03]   | `PlineContains`                | static facade  | pair containment      |
+|  [04]   | `PlineIntersects`              | static facade  | intersection visits   |
+|  [05]   | `BooleanOp`                    | enum           | set operation         |
+|  [06]   | `PlineContainsResult`          | enum           | containment verdict   |
+|  [07]   | `BooleanResultInfo`            | enum           | Boolean relation      |
+|  [08]   | `PlineOffsetOptions<T>`        | options record | offset policy         |
+|  [09]   | `PlineBooleanOptions<T>`       | options record | Boolean policy        |
+|  [10]   | `PlineContainsOptions<T>`      | options record | containment policy    |
+|  [11]   | `FindIntersectsOptions<T>`     | options record | intersection policy   |
+|  [12]   | `PlineSelfIntersectOptions<T>` | options record | self-scan policy      |
+|  [13]   | `BooleanResult<O,T>`           | result carrier | Boolean result        |
+|  [14]   | `BooleanResultPline<O,T>`      | result carrier | result loop           |
+|  [15]   | `ClosestPointResult<T>`        | result struct  | closest projection    |
 |  [16]   | `IPlineIntersectVisitor<T>`    | visit contract | intersection callback |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)

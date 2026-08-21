@@ -41,6 +41,18 @@
 
 - `ArpackNoConvergence`: raised by `eigsh`/`eigs`/`svds(solver='arpack')` past `maxiter`, carrying partial `.eigenvalues`/`.eigenvectors`.
 
+[PUBLIC_TYPE_SCOPE]: raise surface the boundary `catch=` sets name
+
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]         | [CAPABILITY]                                                    |
+| :-----: | :------------------------------- | :-------------------- | :-------------------------------------------------------------- |
+|  [01]   | `numpy.linalg.LinAlgError`       | `ValueError`          | singular, non-convergent, or ill-shaped factorization and solve |
+|  [02]   | `io.mmread` -> `ValueError`      | builtin               | malformed Matrix Market header, banner, or entry count          |
+|  [03]   | `io.mmread` -> `OSError`         | builtin               | absent or unreadable path (`FileNotFoundError` subclass)        |
+|  [04]   | `io._fortran.FortranEOFError`    | `TypeError`+`OSError` | truncated unformatted-Fortran record                            |
+|  [05]   | `optimize._nonlin.NoConvergence` | `Exception`           | non-convergent Newton-Krylov root find                          |
+
+`scipy` mints NO package-wide exception root: rows [02]/[03] are builtins the callers narrow on, and rows [01]/[04]/[05] are the only non-builtin classes the admitted surface raises. A `catch` tuple over the `io` lane is `(ValueError, OSError)`; over the `linalg`/`optimize` lane it leads with `LinAlgError`.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `scipy.fft` pocketfft discrete Fourier and trigonometric transforms
@@ -109,11 +121,11 @@
 - `mmread(source, *, spmatrix=False)` returns a `coo_array`; the bare default returns the legacy `coo_matrix` and is never taken.
 - `mmwrite(target, a, comment, field, precision, symmetry='AUTO')` — `symmetry` accepts `general`/`symmetric`/`skew-symmetric`/`hermitian`.
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RESULT]                                             |
-| :-----: | :-------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `io.mmread(source, *, spmatrix=False)`        | exchange read  | sparse `coo_array` from a `.mtx` source              |
-|  [02]   | `io.mmwrite(target, a, symmetry)`             | exchange write | `.mtx` emission with explicit symmetry               |
-|  [03]   | `io.mminfo(source)`                           | exchange probe | `(rows, cols, entries, format, field, symmetry)`     |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RESULT]                                         |
+| :-----: | :------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `io.mmread(source, *, spmatrix=False)` | exchange read  | sparse `coo_array` from a `.mtx` source          |
+|  [02]   | `io.mmwrite(target, a, symmetry)`      | exchange write | `.mtx` emission with explicit symmetry           |
+|  [03]   | `io.mminfo(source)`                    | exchange probe | `(rows, cols, entries, format, field, symmetry)` |
 
 [ENTRYPOINT_SCOPE]: `scipy.optimize` root-find and minimize
 - carry: local/least-squares/root `(fun, x0, method, jac, bounds, constraints)`, constraints via `Bounds`/`LinearConstraint`/`NonlinearConstraint`, results carry `OptimizeResult`.

@@ -18,12 +18,12 @@
 - [09]-[FRAME](.planning/Domain/frame.md): Causal frame — package roster, trace planes, tenancy pair, receipt port, plugin identity.
 - [10]-[INSTRUMENT](.planning/Domain/instrument.md): Measurement plane — instrument specs, mounts, the write entry, and the tally read.
 - [11]-[OBJECTIVE](.planning/Domain/objective.md): Reliability policy — indicator family, burn table, board pack, and the bench claim ledger.
-- [12]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal capsule — fact union, span band, op-cost capsule, tap, and contributor port.
+- [12]-[TELEMETRY](.planning/Domain/telemetry.md): Signal capsule — bounded fault observation, fact union, span band, cost tap, contributor port.
 - [13]-[EVENT](.planning/Domain/event.md): CloudEvents message-envelope owner — mint boundary, attribute grammar, extension roster, format contract.
 
 [NUMERICS]:
 - [14]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
-- [15]-[FAULTS](.planning/Numerics/faults.md): Consolidated geometry fault union every geometry rail routes through, band-relative and strided.
+- [15]-[FAULTS](.planning/Numerics/faults.md): Consolidated fault union every geometry rail routes through, with compact generated identities.
 - [16]-[ATOMS](.planning/Numerics/atoms.md): Typed scalar, transform, vector, and output-projection algebra floor every higher concern composes.
 - [17]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex solve and eigen owner — one kernel funnels every factorization.
 - [18]-[TRANSFORM](.planning/Numerics/transform.md): Transform band — window taper, the capability-typed interpolant, and the spectral tap fold.
@@ -59,7 +59,7 @@
 - [42]-[SLICE](.planning/Meshing/slice.md): Slice-stack owner — the section fold over a generated plane family into the `SliceStack` SoA wire.
 - [43]-[OFFSET](.planning/Meshing/offset.md): Predicate-exact offsetting — `OffsetOp` over the wavefront with loop assembly via arrangement.
 - [44]-[SKELETON](.planning/Meshing/skeleton.md): MCF skeleton owner — contraction and collapse into `CurveSkeleton` wire and clearance family.
-- [45]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — the `MeshSource` admission, the frozen `MeshSpace` form, and intrinsic triangulation.
+- [45]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — `MeshSource` admission, the frozen `MeshSpace` form, and intrinsic triangulation.
 - [46]-[EDIT](.planning/Meshing/edit.md): Mutable-arena owner — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
 - [47]-[DEC](.planning/Meshing/dec.md): Mesh-bound DEC assembly owner — connection heat, holonomy, and the Hodge decomposition family.
 - [48]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — `Reconstruct` over signed-heat, mesh-SDF, and iso rails.

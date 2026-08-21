@@ -17,13 +17,14 @@ Challengers displace an admitted package only by owning the full concern under t
 - Cell cycle time reads `Program.Duration` off the look-ahead planner — `MotionDynamics` answers no serial chain, so the ledger sums one clock.
 - Swept solids prove only planar sweeps — a `MoveOrientation` carrier takes a typed refusal, since a verdict over an approximated cut proves nothing.
 - Abandonment raises `FabricationFault.RunAbandoned` on the abandoning folder's `FabConcern` — a `GeometryFault` borrow names geometry no run fills.
+- `WitnessMalformed` serves witness-kind admission only — domain refusals use typed cases; impossible operation/result pairings remain invariants.
 - Kernel folds whose rejected arm succeeds EMPTY read through their whole carrier — a bare `CloudVoronoiResult` cells row equals an ask for no depth.
 - Hold points seat with the DECLARING plan — `InspectionTestPlan.Unreleased` publishes the ROSTER, so `Documentation/traveler` gates on ONE read.
 - `Documentation/passport` owns signed egress — release gate, quorum, crypto boundary — `Documentation/report` admits evidence and seals nothing.
 - Projections carry the issued sheet whole as one `PlotPolicy` column — a free `Ratio` scale or a local projection-angle table is the deleted form.
 - Drawing tag reconciliation reads an `AttributeTag` COLUMN — a const row name beside a hand pair list at the fold puts one vocabulary at two sites.
-- `HoldKind` demands one `CapabilitySet<ComplianceTrait>` — parallel bools grow satisfaction clauses and a refusal shedding `Missing` names no repair.
-- `ProcedureReceipt` stays whole — `Receipt<TEvidence>` carries no generated member comparer, so wrapping erases the revision paths a WPS audit reads.
+- `HoldKind` demands one `CapabilitySet<ComplianceTrait>` — parallel bools grow satisfaction clauses and a refusal without `Missing` names no repair.
+- `ProcedureReceipt` stays whole — `Receipt<TEvidence>` carries no generated member comparer, so a wrap erases the revision paths a WPS audit reads.
 - `ArcFitPolicy` is ADMITTED or ABSENT — `Option` presence routes the gate, and a disabled row publishes three zero columns no reader may trust.
 - `Joining/deposition` owns weld physics and `WeldPolicy`, `Joining/weld` joint, pass, and plan — the seam runs both ways and names at both ends.
 - Distortion fields carry every load family MOVING the part — one solve spans shrinkage, preload, and release, or spring-back names an unfreed part.
@@ -35,7 +36,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - Datum labels admit the ISO 5459 class alone — `I`, `O`, and `Q` read as digits, and a producer-widened class crosses as a consumer refusal.
 - Serial inverse runs TWO LM funnels — `Lm.Minimize` carries no bound column for a HARD joint-travel box, so MathNet iterates the `Dual<T>` chain.
 - `Receipt<TEvidence>` is the ONE settled-receipt carrier — an output carrying no content key, evidence, band, or stamp takes no `*Receipt` name.
-- `*Receipt` survives on a closed EVIDENCE CASE FAMILY — the union IS the `TEvidence` a carrier seats; a single measurement record takes its own noun.
+- `*Receipt` survives on a closed EVIDENCE CASE FAMILY — the union IS the `TEvidence` a carrier seats; a lone measurement record takes its own noun.
 - Closed families answer their own TOTAL projection at the OWNER — an `is <Case>` test at a caller reads a widened family as a legitimate refusal.
 - Request-indexed folds answer the case their demand seats — `ISpecDemand<TReceipt>` binds the correspondence at compile time.
 - Payload-free closed vocabularies are `[SmartEnum]` row families — `[Union]` mints two record types and a conversion plane to say what a row says.
@@ -93,7 +94,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - Quality-record producers address their request, never findings — the key folds into ancestry, so two runs over one request read as one check.
 - Additive build policy is `AdditiveBuild` — kernel `Rasm.Spatial.BuildPolicy` keeps the bare name; no page qualifies a kernel type to dodge a twin.
 - Open-contour law rides `ShellPolicy` as a column — rejecting the stack and tracing a single wall are both wall behaviour.
-- `Process/atoms` is the ONE atoms floor — a plane declaring its own profile, motion, equipment, or plan carrier forks a vocabulary every plane reads.
+- `Process/atoms` is the ONE atoms floor — a plane declaring its own profile, motion, equipment, or plan carrier forks the shared vocabulary.
 
 ## [05]-[PROCESS]
 

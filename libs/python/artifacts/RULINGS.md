@@ -27,6 +27,7 @@
 - Receipt facts MEASURE the delivered product — a re-probe of the muxed bytes, since an echoed request knob attests the input and never the artifact.
 - Batch admission accumulates every casualty through an associative fault monoid — first-failure abort hides the sibling casualties the refusal owes.
 - Producer heads split on ORIGIN — a typed-union normalizer raises through the folder conf, an untrusted admitter returning `Result[Self, Fault]`.
+- Fences spell ONE raise subject and ride the request infix on a slot or the crossing token — a per-op subject leaves the coordinates unenumerable.
 - Folds offloading caller-programmable input rail the builder's `ValueError` as `invalid` — a raise from a public case payload is caller data.
 - Worker offload rides the producer's own `lane: LanePolicy` field through `self.lane.offload` — a class-qualified call carries no bound instance.
 - Codec capability rides ONE row per container with a writer column per engine — mode and frame-clock facts are CLOSED vocabularies, never booleans.
@@ -61,6 +62,7 @@
 - Durable records never seat in a worker-process callback — no custody binds there, so evidence returns as data and records at the async fold.
 - Wire announcements SUBSCRIBE to a fired fact — a producer calling a wire owner off-rail inverts the direction and hand-rolls registry isolation.
 - Facts fire at the fold holding settled evidence — a per-kind fire in a roster-generic projection announces a case narrower than its producer holds.
+- Hook custody keys on the COMPOSITION, a per-call id riding as a payload field — a correlation id as scope key mints a point table per call.
 
 ## [05]-[PROCESS]
 

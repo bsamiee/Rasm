@@ -28,7 +28,7 @@
 - Transport families foreclose `retry` — each row names its retry owner, since one owner holds every schedule and a row carrying one forks it.
 - `order` carries the ordering domain beside the key member selecting it — a partition key IS that member, never a column standing beside it.
 - Transports state a missing coordinate on `degrade` — replay, backpressure, and settlement each go absent on engines the estate already ships.
-- Operation identity derives apart from payload identity — equal payloads stay distinct operations, so causal logs key and dedup on it, never content.
+- Operation identity derives apart from payload identity — equal payloads stay distinct operations, so causal logs key and dedup on it.
 - Wires pinning divergent schema or `dataschema` generations refuse at the CONSUMER — proto3 files a retired field to the unknown set, never a raise.
 - Host-boundary producers name their family for the host-free concept — a host-spelled family binds every peer's generated bindings to that host.
 - Every branch shipping a diagnostic archive carries a BACKEND-FREE read plane — an archive is pulled exactly when the egress is what failed.
@@ -73,6 +73,10 @@
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
 - Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
 - Untyped crossings ride `[PROJECTION]` spelled from the producing projector — `[WIRE]` asserts a registered family a manifest ABSENCE row denies.
+- Fault envelopes cross one numeric `code` beside presentation, context, and typed recovery — owner and case remain local derivations.
+- Spec-stage fault-envelope deletions compact every producer and consumer — no reserve, alias, legacy field, or dual decoder preserves dead shape.
+- Recognized-but-malformed details refuse TYPED at admission — an unknown detail type and an unknown code stay opaque evidence nobody guesses at.
+- Remote domain codes drive no topology — transport outcomes alone elect failover, keeping each branch taxonomy local.
 
 ## [03]-[COLLAPSE]
 
@@ -90,6 +94,7 @@
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
 - `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/MANIFEST.md` is the one federation index, pin authority, and fixture registry.
+- Proto generation seats in the root `buf.gen.yaml`, one row per consumer whose build drives no protoc — a build already driving it keeps it.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
 - Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
 

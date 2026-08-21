@@ -213,7 +213,7 @@
 - `Playback` schedules against the native `MidiClock`; `Track`-prefixed state replays accumulated controller/program/pitch state after a seek so the synth never desyncs, and `NoteCallback`/`EventCallback` rewrite or suppress events live.
 
 [STACKING]:
-- `api-silk-input.md` / `api-silk-sdl.md` / `api-hidsharp.md`: the `Midi` case joins `Gamepad`/`Haptic`/`Hid` in the `DeviceDriver` `[Union]`; all four capsules bind delegate columns on the single `InputFabric` edge that folds every device onto the one `CommandIntent` table, so a MIDI control surface raises the existing parameter intents through that shared fold, never a parallel MIDI device->intent edge.
+- `api-silk-input.md` / `api-silk-sdl.md` / `api-hidsharp.md`: the `Midi` case joins `Gamepad`/`Haptic`/`Hid` in the `DeviceDriver` `[Union]`; all four capsules bind delegate columns on the single `InputFabric` edge that folds every device onto the one `CommandRow` table, so a MIDI control surface raises the existing parameter intents through that shared fold, never a parallel MIDI device->intent edge.
 - DryWetMidi carries its own native multimedia clock and no SDL2 dependency, so the `Midi` capsule shares no native bundle with the SDL2 `Gamepad`/`Haptic` pair; its only shared surface is the canonical fold at the edge.
 - within-lib: `MidiFile.Read` -> `GetObjects(ObjectType.Note, ...)` -> `TempoMapManagingUtilities.GetTempoMap` chains file bytes into a timed note model, and the `Quantizer`/`Splitter`/`Merger`/`Resizer`/`Repeater` tools fold over one `ObjectType` selection against that `TempoMap`, so grid-snap, length-scale, split, merge, and repeat replace hand-rolled tick math.
 

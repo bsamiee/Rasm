@@ -10,21 +10,21 @@ Choose the owner form before writing any field. The most specific matching row w
 
 [FORM_INDEX]:
 
-| [INDEX] | [CONCEPT_SIGNATURE]                                  | [OWNER_FORM]                            | [WIRE]            | [IDENTITY] |
-| :-----: | :--------------------------------------------------- | :-------------------------------------- | :---------------- | :--------- |
-|  [01]   | named product; invariants, behavior, or 2+ consumers | `Schema.Class`                          | encoded derives   | structural |
-|  [02]   | field block embedded in one owner                    | inline `Schema.Struct` record           | inherited         | structural |
-|  [03]   | closed case family crossing a wire                   | `Schema.Union` of tagged case owners    | per-case          | `_tag`     |
-|  [04]   | closed case family, process-local                    | `Data.taggedEnum`                       | none              | `_tag`     |
-|  [05]   | fault crossing a wire, logging, or joining a union   | `Schema.TaggedError`                    | encoded derives   | `_tag`     |
-|  [06]   | fault living and dying in-process                    | `Data.TaggedError`                      | none              | `_tag`     |
-|  [07]   | computation outcome crossing a wire                  | `Schema.Exit` / `Schema.Cause`          | per-channel       | `_tag`     |
-|  [08]   | request carrying its own reply contract              | `Schema.TaggedRequest` case owner       | per-channel       | `_tag`     |
-|  [09]   | scalar invariant                                     | brand-in-field refinement               | inherited         | value      |
-|  [10]   | self-referential product or family                   | host form + `Schema.suspend` reference  | encoded derives   | structural |
-|  [11]   | foreign class instance at the seam                   | `Schema.instanceOf` / `Schema.declare`  | none (`FromSelf`) | reference  |
-|  [12]   | one concept, N systematic storage or wire views      | `VariantSchema.make` field family       | per-variant       | structural |
-|  [13]   | patch, intake, or view of an owner                   | derived projection, never declared      | derives           | inherited  |
+| [INDEX] | [CONCEPT_SIGNATURE]                                  | [OWNER_FORM]                           | [WIRE]            | [IDENTITY] |
+| :-----: | :--------------------------------------------------- | :------------------------------------- | :---------------- | :--------- |
+|  [01]   | named product; invariants, behavior, or 2+ consumers | `Schema.Class`                         | encoded derives   | structural |
+|  [02]   | field block embedded in one owner                    | inline `Schema.Struct` record          | inherited         | structural |
+|  [03]   | closed case family crossing a wire                   | `Schema.Union` of tagged case owners   | per-case          | `_tag`     |
+|  [04]   | closed case family, process-local                    | `Data.taggedEnum`                      | none              | `_tag`     |
+|  [05]   | fault crossing a wire, logging, or joining a union   | `Schema.TaggedError`                   | encoded derives   | `_tag`     |
+|  [06]   | fault living and dying in-process                    | `Data.TaggedError`                     | none              | `_tag`     |
+|  [07]   | computation outcome crossing a wire                  | `Schema.Exit` / `Schema.Cause`         | per-channel       | `_tag`     |
+|  [08]   | request carrying its own reply contract              | `Schema.TaggedRequest` case owner      | per-channel       | `_tag`     |
+|  [09]   | scalar invariant                                     | brand-in-field refinement              | inherited         | value      |
+|  [10]   | self-referential product or family                   | host form + `Schema.suspend` reference | encoded derives   | structural |
+|  [11]   | foreign class instance at the seam                   | `Schema.instanceOf` / `Schema.declare` | none (`FromSelf`) | reference  |
+|  [12]   | one concept, N systematic storage or wire views      | `VariantSchema.make` field family      | per-variant       | structural |
+|  [13]   | patch, intake, or view of an owner                   | derived projection, never declared     | derives           | inherited  |
 
 [OWNER_SELECTION]:
 - Law: named products take `Schema.Class` regardless of wire exposure — the class costs one identifier string over the `Data.Class` form and gains decode, encode, `make` validation, and the whole derived-surface family the moment any consumer needs them; `Data.Class` and `Data.Case` are rejected product forms because a second product paradigm buys nothing the Schema form lacks.
@@ -155,9 +155,9 @@ A closed family is one owner under one name; the `_tag` is simultaneously the ru
 [FAULT_DECLARATION]:
 - Use: `Schema.TaggedError<Self>()(tag, fields)` for a fault that crosses a wire, logs structurally, or joins a decoded union — one class is the fault value, the fault schema, and the `_tag` catch key, and the instance is yieldable on the rail.
 - Law: the in-process fault is `Data.TaggedError("<tag>")<Fields>` — the same `_tag` catch key and yieldable instance at zero codec cost; the wire test is the one case families answer, and promotion to the Schema form rewrites only the declaration, because `new Fault({ ... })` construction is identical on both.
-- Law: fields carry evidence as data — the refused key, the stage, retryability, severity — typed so policy reads them; `message` is a derived `override get` computed from fields and never a stored field, because a message field is denormalized evidence that drifts from what the fields prove.
+- Law: fields carry evidence as data — the refused key, the stage, severity, the producer-stated window — typed so policy reads them; `message` is a derived `override get` computed from fields and never a stored field, because a message field is denormalized evidence that drifts from what the fields prove.
 - Boundary: fault-family architecture — the family-per-surface partition, reason discriminants, policy folds, catch routing — is `rails-and-effects.md`'s; this page owns the declaration form.
-- Reject: `class Fault extends Error`; evidence baked into message strings; a fault union assembled from untagged shapes.
+- Reject: `class Fault extends Error`; evidence baked into message strings; a stored `retryable` bit the recovery band already derives; a fault union assembled from untagged shapes.
 
 ```typescript conceptual
 import { Schema } from "effect";
@@ -191,7 +191,7 @@ type Beat = typeof Beat.Type;
 class ShapeFault extends Schema.TaggedError<ShapeFault>()("ShapeFault", {
     key: Schema.NonEmptyString,
     stage: Schema.Literal(..._Stage),
-    retryable: Schema.Boolean,
+    after: Schema.optionalWith(Schema.Duration, { as: "Option" }),
 }) {
     override get message(): string {
         return `<${this.stage}> refused ${this.key}`;
@@ -280,7 +280,7 @@ import { ParseResult, Schema } from "effect";
 
 class GradeFault extends Schema.TaggedError<GradeFault>()("GradeFault", {
     key: Schema.NonEmptyString,
-    retryable: Schema.Boolean,
+    after: Schema.optionalWith(Schema.Duration, { as: "Option" }),
 }) {}
 
 class Grade extends Schema.Class<Grade>("Grade")({

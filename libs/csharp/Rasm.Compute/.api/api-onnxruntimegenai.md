@@ -192,26 +192,26 @@
 - note: both overloads funnel into ONE native parser (`Generators::SetSearchNumber` and `SetSearchBool` each tag a variant and call `Generators::Search_Element::OnValue`), which is the same element that parses the `search` block of `genai_config.json`. The roster is therefore shared: a key is not numeric-only or bool-only at dispatch, and the VALUE type is checked afterward by the native `JSON::Get<double>`/`JSON::Get<bool>` selector the table's `[VALUE_TYPE]` column names. Defaults are the runtime's own, not a consumer's policy seed.
 - evidence: disassembly of the shipped `libonnxruntime-genai` native payload for the host RID, corroborated 18-for-18 against the upstream `struct Search` at the matching source tag. Half the keys carry NO `.cstring` literal — they compile to inline immediate compares — so a `strings` sweep UNDER-REPORTS this roster and is not a usable probe.
 
-| [INDEX] | [KEY_STRING]                | [VALUE_TYPE] | [DEFAULT]              | [CAPABILITY]                                        |
-| :-----: | :-------------------------- | :----------- | :--------------------- | :-------------------------------------------------- |
-|  [01]   | `max_length`                | `double`     | `0` -> context length  | total sequence length; `0` faults at search start   |
-|  [02]   | `min_length`                | `double`     | `0`                    | minimum generated sequence length                   |
-|  [03]   | `batch_size`                | `double`     | `1`                    | staged batch width; MANDATORY on every run          |
-|  [04]   | `num_beams`                 | `double`     | `1`                    | beam count; `1` disables beam search                |
-|  [05]   | `num_return_sequences`      | `double`     | `1`                    | finished sequences a beam search returns            |
-|  [06]   | `top_k`                     | `double`     | `50`                   | top-K sampling limit; `0` or greater, `<= vocab`    |
-|  [07]   | `top_p`                     | `double`     | `0`                    | nucleus mass in `[0.0, 1.0]`; `0` disables          |
-|  [08]   | `temperature`               | `double`     | `1.0`                  | logit temperature scaling                           |
-|  [09]   | `repetition_penalty`        | `double`     | `1.0`                  | repeated-token penalty; `1.0` disables              |
-|  [10]   | `length_penalty`            | `double`     | `1.0`                  | `> 0` favors longer, `< 0` shorter                  |
-|  [11]   | `no_repeat_ngram_size`      | `double`     | `0`                    | bans a repeated n-gram; `0` disables                |
-|  [12]   | `diversity_penalty`         | `double`     | `0`                    | RECOGNIZED AND INERT — upstream marks it unused     |
-|  [13]   | `random_seed`               | `double`     | `-1`                   | `-1` seeds from the random device; else seeds RNG   |
-|  [14]   | `chunk_size`                | `double`     | unset                  | prefill chunking; active when present and positive  |
-|  [15]   | `blank_penalty`             | `double`     | `0`                    | CTC/RNNT blank-token logit penalty                  |
-|  [16]   | `do_sample`                 | `bool`       | `false`                | enables stochastic sampling                         |
-|  [17]   | `early_stopping`            | `bool`       | `true`                 | halts beam search when all beams reach EOS          |
-|  [18]   | `past_present_share_buffer` | `bool`       | `false`                | KV in-place reuse; the runtime may force either way |
+| [INDEX] | [KEY_STRING]                | [VALUE_TYPE] | [DEFAULT]             | [CAPABILITY]                                        |
+| :-----: | :-------------------------- | :----------- | :-------------------- | :-------------------------------------------------- |
+|  [01]   | `max_length`                | `double`     | `0` -> context length | total sequence length; `0` faults at search start   |
+|  [02]   | `min_length`                | `double`     | `0`                   | minimum generated sequence length                   |
+|  [03]   | `batch_size`                | `double`     | `1`                   | staged batch width; MANDATORY on every run          |
+|  [04]   | `num_beams`                 | `double`     | `1`                   | beam count; `1` disables beam search                |
+|  [05]   | `num_return_sequences`      | `double`     | `1`                   | finished sequences a beam search returns            |
+|  [06]   | `top_k`                     | `double`     | `50`                  | top-K sampling limit; `0` or greater, `<= vocab`    |
+|  [07]   | `top_p`                     | `double`     | `0`                   | nucleus mass in `[0.0, 1.0]`; `0` disables          |
+|  [08]   | `temperature`               | `double`     | `1.0`                 | logit temperature scaling                           |
+|  [09]   | `repetition_penalty`        | `double`     | `1.0`                 | repeated-token penalty; `1.0` disables              |
+|  [10]   | `length_penalty`            | `double`     | `1.0`                 | `> 0` favors longer, `< 0` shorter                  |
+|  [11]   | `no_repeat_ngram_size`      | `double`     | `0`                   | bans a repeated n-gram; `0` disables                |
+|  [12]   | `diversity_penalty`         | `double`     | `0`                   | RECOGNIZED AND INERT — upstream marks it unused     |
+|  [13]   | `random_seed`               | `double`     | `-1`                  | `-1` seeds from the random device; else seeds RNG   |
+|  [14]   | `chunk_size`                | `double`     | unset                 | prefill chunking; active when present and positive  |
+|  [15]   | `blank_penalty`             | `double`     | `0`                   | CTC/RNNT blank-token logit penalty                  |
+|  [16]   | `do_sample`                 | `bool`       | `false`               | enables stochastic sampling                         |
+|  [17]   | `early_stopping`            | `bool`       | `true`                | halts beam search when all beams reach EOS          |
+|  [18]   | `past_present_share_buffer` | `bool`       | `false`               | KV in-place reuse; the runtime may force either way |
 
 - Row [03] is not optional: staging without it faults `input sequences count does not match batch size`, and its value is the staged sequence count — one for a single prompt, the `EncodeBatch` sequence count for a batch.
 - Rows typed `double` but integral natively (`max_length`, `min_length`, `batch_size`, `num_beams`, `num_return_sequences`, `top_k`, `no_repeat_ngram_size`, `random_seed`, `chunk_size`) cross `Generators::SafeDoubleToInt`, which throws `<key> is not an integer` on a fractional value; the float-typed rows do not.
@@ -220,11 +220,11 @@
 
 [ENTRYPOINT_SCOPE]: recognized `SetGuidance` type strings — COMPLETE
 
-| [INDEX] | [TYPE_STRING]  | [CAPABILITY]                                     |
-| :-----: | :------------- | :----------------------------------------------- |
-|  [01]   | `json_schema`  | constrains decoding to a JSON schema             |
-|  [02]   | `regex`        | constrains decoding to a regular expression      |
-|  [03]   | `lark_grammar` | constrains decoding to a Lark-syntax grammar     |
+| [INDEX] | [TYPE_STRING]  | [CAPABILITY]                                 |
+| :-----: | :------------- | :------------------------------------------- |
+|  [01]   | `json_schema`  | constrains decoding to a JSON schema         |
+|  [02]   | `regex`        | constrains decoding to a regular expression  |
+|  [03]   | `lark_grammar` | constrains decoding to a Lark-syntax grammar |
 
 - evidence: the runtime's own refusal closes the set — `Unsupported guidance type: <type> (only json_schema, regex, and lark_grammar are supported)`. There is no `choice` type; an enumerated choice rides a `json_schema` enum or a `regex` alternation.
 - `SetGuidance` VALIDATES NEITHER the type nor the pairing. It stores type and data and screens one model type (`whisper`); the type check fires later, at `Generator` construction, inside the native LLGuidance constraint initializer. A bad type therefore fails a whole acquire chain rather than its own call.

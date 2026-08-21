@@ -22,7 +22,7 @@
 |  [02]   | `Validation<F, A>` | abstract record | accumulating verdict over `F : Monoid<F>` |
 |  [03]   | `Option<A>`        | readonly struct | presence with nullable lift               |
 |  [04]   | `Either<L, R>`     | abstract record | disjoint union crossing to `Fin`          |
-|  [05]   | `Try<A>`           | record          | `Func<Fin<A>>` exception trap             |
+|  [05]   | `Try<A>`           | record          | `Func<Fin<A>>` exception normalization    |
 |  [06]   | `Eff<A>`           | record          | runtime-free deferred effect              |
 |  [07]   | `Eff<RT, A>`       | record          | reader-runtime deferred effect            |
 |  [08]   | `IO<A>`            | abstract record | terminal effect with bracket and schedule |
@@ -65,7 +65,7 @@
 |  [24]   | `IOptional`                   | interface       | presence surface every `Option<A>` implements           |
 
 - The `LanguageExt.Traits.Domain` axis layer is the algebraic value-trait tier over generated admission, and its inheritance arity is the trap: `Amount`, `VectorSpace`, `Locus`, and `Identifier` all inherit the arity-ONE marker `DomainType<SELF>`, which declares NO members, while the admission and egress pair lives on `DomainType<SELF, REPR>` alone. An owner declaring only its axis therefore compiles with no bridge at all and the omission is silent — every axis owner names BOTH (`: Amount<Offset, double>, DomainType<Offset, double>`), and every constraint consuming the bridge names both too.
-- The bridge's fault currency is forced: the default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so `Fin.Fail` refuses it and `From` cannot type-check until `[ValidationError<TFault>]` makes the generated `Validate` return an `Expected` subtype. The axis layer therefore composes the branch's one fault family, which must itself carry `IValidationError<TFault>` and a `static TFault Create(string)`.
+- The default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so each `DomainType.From` maps generated admission evidence to `KernelFault.InvalidValue` before returning `Fin<SELF>`; package fault unions never become message-only validation factories.
 - `DomainType<SELF, REPR>` declares exactly three members and the middle one is derived: `static abstract Fin<SELF> From(REPR)`, `static virtual SELF FromUnsafe(REPR)` whose default body is `From(repr).ThrowIfFail()`, and the instance `REPR To()`. `FromUnsafe` is the ONLY host-boundary escape the axis publishes, and overriding it is how a hot constructor skips the rail where the caller already proved the invariant.
 - Each axis is a bundle of `System.Numerics` generic-math constraints, not a member set — every one declares zero members of its own and earns its algebra from what it inherits, so an owner satisfies an axis by writing the OPERATORS, not by implementing methods. `Identifier<SELF>` carries `IEquatable<SELF>` and `IEqualityOperators`; `VectorSpace<SELF, SCALAR>` adds `IUnaryNegationOperators`, `IAdditionOperators<SELF,SELF,SELF>`, `ISubtractionOperators<SELF,SELF,SELF>`, `IMultiplyOperators<SELF,SCALAR,SELF>`, and `IDivisionOperators<SELF,SCALAR,SELF>`; `Amount<SELF, SCALAR>` adds `IComparable<SELF>` and `IComparisonOperators` over that.
 - `Locus<SELF, DISTANCE, DISTANCE_SCALAR>` is the affine axis and its operator arities are ASYMMETRIC by design: `IAdditionOperators<SELF, DISTANCE, SELF>` (position plus displacement is a position) beside `ISubtractionOperators<SELF, SELF, DISTANCE>` (two positions differ by a displacement), with `IAdditiveIdentity<SELF, SELF>` as the origin and `DISTANCE : Amount<DISTANCE, DISTANCE_SCALAR>` binding the displacement to its own measure axis. A `Locus` therefore cannot be added to a `Locus` and cannot be scaled — the type system carries the affine-versus-vector distinction a `double` triple erases.
@@ -197,33 +197,38 @@
 |  [14]   | `ValidationExtensions.Fails()`                    | static   | refused branch of a roster         |
 |  [15]   | `Validation operator \|`                          | operator | failure-accumulating choice        |
 |  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | K-kinded fan-in, arities 2–10      |
-|  [17]   | `Error.New(int, string)`                          | static   | typed-failure construction         |
-|  [18]   | `Error.Many(Seq<Error>)`                          | static   | accumulated-failure carrier        |
-|  [19]   | `Error.Combine(Error)`                            | instance | monoidal failure join              |
-|  [20]   | `Error operator +`                                | operator | terse monoidal failure join        |
-|  [21]   | `Error.Head`                                      | property | first accumulated failure          |
-|  [22]   | `Error.Tail`                                      | property | remaining accumulated failures     |
-|  [23]   | `Error.Count`                                     | property | accumulated-failure cardinality    |
-|  [24]   | `Error.AsIterable()`                              | instance | accumulated-failure enumeration    |
-|  [25]   | `Error.Is(Error)`                                 | instance | failure identity test              |
-|  [26]   | `Error.IsType<E>()`                               | instance | failure type test                  |
-|  [27]   | `Error.HasCode(int)`                              | instance | failure code test                  |
-|  [28]   | `Error.Filter<E>()`                               | instance | failure-subset selection           |
-|  [29]   | `Error.Exception`                                 | property | optional exceptional payload       |
-|  [30]   | `Error.Inner`                                     | property | optional cause chain               |
-|  [31]   | `Error.ToException()`                             | instance | host-boundary projection           |
-|  [32]   | `Error.Throw<R>()`                                | instance | host-boundary escape               |
-|  [33]   | `Errors.Cancelled`                                | static   | token-trip identity, `-2000000001` |
-|  [34]   | `Errors.TimedOut`                                 | static   | `Timeout` expiry, `-2000000002`    |
-|  [35]   | `Errors.SequenceEmpty`                            | static   | empty-run identity, `-2000000003`  |
-|  [36]   | `Errors.Closed`                                   | static   | closed-resource, `-2000000004`     |
-|  [37]   | `Errors.ValidationFailed`                         | static   | refused-verdict, `-2000000011`     |
-|  [38]   | `Errors.SourceClosed` / `SourceCompleted`         | static   | `-2000000013` / `-2000000012`      |
-|  [39]   | `Errors.SinkFull`                                 | static   | back-pressure, `-2000000015`       |
-|  [40]   | `Errors.EndOfStream`                              | static   | drain terminus, `-2000000010`      |
-|  [41]   | `Errors.Bottom`                                   | static   | unevaluable-expression identity    |
-|  [42]   | `Errors.None`                                     | static   | the empty `ManyErrors` identity    |
-|  [43]   | `Errors.ParseError(string)`                       | static   | text-admission failure mint        |
+|  [17]   | `Error.New(int, string)`                          | static   | package `Expected` construction    |
+|  [18]   | `Error.New(string, Exception)`                    | static   | evidence-preserving capture        |
+|  [19]   | `Error.New(Exception)`                            | static   | package error normalization        |
+|  [20]   | `Error.Many(Seq<Error>)`                          | static   | accumulated-failure carrier        |
+|  [21]   | `Error.Combine(Error)`                            | instance | monoidal failure join              |
+|  [22]   | `Error operator +`                                | operator | terse monoidal failure join        |
+|  [23]   | `Error.Head`                                      | property | first accumulated failure          |
+|  [24]   | `Error.Tail`                                      | property | remaining accumulated failures     |
+|  [25]   | `Error.Count`                                     | property | accumulated-failure cardinality    |
+|  [26]   | `Error.AsIterable()`                              | instance | accumulated-failure enumeration    |
+|  [27]   | `Error.Is(Error)`                                 | instance | failure identity test              |
+|  [28]   | `Error.IsType<E>()`                               | instance | failure type test                  |
+|  [29]   | `Error.HasCode(int)`                              | instance | failure code test                  |
+|  [30]   | `Error.Filter<E>()`                               | instance | failure-subset selection           |
+|  [31]   | `Error.Exception`                                 | property | optional exceptional payload       |
+|  [32]   | `Error.Inner`                                     | property | optional cause chain               |
+|  [33]   | `Error.ToErrorException()`                        | instance | expected-error exception wrapper   |
+|  [34]   | `Error.ToException()`                             | instance | host-boundary projection           |
+|  [35]   | `Error.Throw<R>()`                                | instance | host-boundary escape               |
+|  [36]   | `Errors.Cancelled`                                | static   | token-trip identity, `-2000000001` |
+|  [37]   | `Errors.TimedOut`                                 | static   | `Timeout` expiry, `-2000000002`    |
+|  [38]   | `Errors.SequenceEmpty`                            | static   | empty-run identity, `-2000000003`  |
+|  [39]   | `Errors.Closed`                                   | static   | closed-resource, `-2000000004`     |
+|  [40]   | `Errors.ValidationFailed`                         | static   | refused-verdict, `-2000000011`     |
+|  [41]   | `Errors.SourceClosed` / `SourceCompleted`         | static   | `-2000000013` / `-2000000012`      |
+|  [42]   | `Errors.SinkFull`                                 | static   | back-pressure, `-2000000015`       |
+|  [43]   | `Errors.EndOfStream`                              | static   | drain terminus, `-2000000010`      |
+|  [44]   | `Errors.Bottom`                                   | static   | unevaluable-expression identity    |
+|  [45]   | `Errors.None`                                     | static   | the empty `ManyErrors` identity    |
+|  [46]   | `Errors.ParseError(string)`                       | static   | text-admission failure mint        |
+
+`Error.New(string, Exception)` requires an argument statically typed as `Exception`: a derived or generic exception also converts implicitly to `Error`, making the two-argument call ambiguous with `Error.New(string, Error)`, so the capture site widens or casts before calling.
 
 `Errors` seats the package's own failure identities as a CLOSED negative-code block, so `Error.HasCode` and `Error.Is` classify a cooperative token trip apart from a deadline cut, an empty run apart from a refused verdict, and a drained source apart from a closed one; a message match over any of them re-classifies on rephrasing. A domain fault family therefore keeps its own codes clear of the `-2000000001`..`-2000000015` span, and the `Fallible.Catch(int Code, …)` arity below is the recovery form these codes exist to select.
 
@@ -254,7 +259,7 @@
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                         |
 | :-----: | :--------------------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `Try.lift(Func<A>)`                                                          | static   | exception-trapping thunk             |
+|  [01]   | `Try.lift(Func<A>)`                                                          | static   | exception-normalizing thunk          |
 |  [02]   | `TryExtensions.Run(K<Try,A>)`                                                | static   | force the thunk to `Fin<A>`          |
 |  [03]   | `Try.ToFin()`                                                                | instance | rail conversion                      |
 |  [04]   | `Try.ToIO()`                                                                 | instance | terminal-tier conversion             |
@@ -300,6 +305,8 @@
 |  [44]   | `Prelude.use(Func<A>, Action<A>)`                                            | static   | resource-scoped acquisition          |
 |  [45]   | `Prelude.tail(IO<A>)`                                                        | static   | tail-recursion marker for deep binds |
 
+- `Try.lift(...).Run()` normalizes thrown cancellation and timeout exceptions to package `Expected` identities and expands `AggregateException` into `ManyErrors`; it is a normalization rail, not an evidence-preserving capture seam.
+- `IO.lift` rethrows cancellation during execution, so a token-aware boundary captures before lifting.
 - `IO.Bracket` three-arm form: the middle `Catch` arm receives the `Error` ALONE, never the acquired value, so a release keyed to the resource rides the trailing `Fin` arm.
 - `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous: `Func<Fin<A>>` is the more specific candidate, so `IO.lift(() => <Fin<T>>)` resolves to the railed row [20] and lands `IO<T>` with the `Fail` folded onto the error channel — NEVER `IO<Fin<T>>`. A body that means to carry the `Fin` as its value spells the type argument (`IO.lift<Fin<T>>(…)`); a downstream `Bind` treating the payload as a `Fin` after the bare spelling is the defect this row forecloses.
 - `IO.Fork` spins one DEDICATED `TaskCreationOptions.LongRunning` thread per fork — forked IOs overlap fully before the await (measured: 16×200ms forks complete in ~206ms wall) and the pool imposes NO concurrency bound, so an unbounded fan-out is an unbounded thread count. A fan-out fold chunks its forked width to its own worker budget; one fork per element over an unbounded population is the defect this row forecloses.
@@ -563,7 +570,7 @@
 - Accumulation is a mode, not a second rail: independent gates lift into `Validation<Error, A>`, fan in through the tuple `Apply`, and exit `ToFin` — `Validation` lives exactly between those two conversions.
 - Tuple `Apply` binds on `(K<F, A>, …)` receivers across arities 2–10 and the join re-anchors through `As()` or the unary `+`, yet a gate slot declares the CONCRETE `Validation<Error, Unit>` return — the lift IS a user-defined implicit conversion and C# excludes interface targets, so a `K<Validation<Error>, A>` return rejects both ternary arms (`CS0029`); the concrete carrier converts to `K<Validation<Error>, Unit>` by implicit reference conversion, so `Apply` and `Traverse` bind on it as written, and the `K`-typed `Accumulate(Seq<K<Validation<Error>, Unit>>)` arity exists for the INPUT side alone, where `Seq<A>` invariance blocks a caller's already-K-typed slot run.
 - `Fin.Match(Succ, Fail)` against `Validation.Match(Fail, Succ)`: named lambda arguments (`Succ:`, `Fail:`) bind by name, so the argument order stops deciding the fold.
-- Tier choice is when the effect runs, never which failure type it carries — `Try` traps a throwing boundary synchronously through `Run`, `Eff` defers the same shape for composed and async execution, and `IO` is terminal, carrying bracket, schedule, fork, and timeout. All three land on `Fin<A>`.
+- Tier choice is when the effect runs, never which failure type it carries — `Try` synchronously NORMALIZES throws through `Run`; evidence-preserving admission happens in `Op.Catch` before an `Eff` or terminal `IO` defers the already-railed work. All three land on `Fin<A>`, but only the capture funnel retains the raised exception unchanged.
 - `guard(condition, error)` is the admission form: it composes inside a `Fin` or `Validation` LINQ body through the `SelectMany` overload over `Guard<E, Unit>`, and stands alone through `ToFin`.
 - `Seq<A>` crosses rail seams as `Fin<Seq<A>>`, and `AsSpan` is its zero-copy contiguous read.
 - `Arr<A>` is the indexed carrier collection expressions build, and its member surface is NEAR-EMPTY: `Reverse`, and a `Skip` answering `Iterable<A>` — no `Zip`, `Take`, `Concat`, `Distinct`, `Select`, `Where`, and NO indexed `Map` (`Map` publishes only `Func<A, B>`; an indexed lambda is `CS0411`), so adjacent-pair and slice chains re-enter through `toSeq(arr)` first. `Iterable<A>` is the lazy sync-or-async seam materializing through `ToSeq` — and its instance `Iter` is VALUE-FIRST while the Foldable extension `Iter` is INDEX-FIRST, so the indexed-lambda order flips with the receiver.
@@ -596,10 +603,10 @@
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): a generated `IObjectFactory.Validate` returns its `TValidationError`, which the admission gate maps to `Error` and lands on `Fin<A>`, or on `Validation<Error, A>` when several value objects admit at once; `ISmartEnum.TryGet` lifts to `Option<T>`.
-- `Riok.Mapperly`(`.api/api-mapperly.md`): a generated mapper method returns the bare target and throws per its null policy, so the seam traps the call through `Try.lift(...).Run()` and keeps the rail outside the generated body.
-- `CSparse`(`.api/api-csparse.md`): `Create` and `Solve` trap a singular or indefinite factorization through `Try.lift(...).Run()` onto `Fin<A>` carrying a domain `Error`.
+- `Riok.Mapperly`(`.api/api-mapperly.md`): a generated mapper method returns the bare target and throws per its null policy, so `Op.Catch` preserves any thrown exception and keeps the rail outside the generated body.
+- `CSparse`(`.api/api-csparse.md`): `Create` and `Solve` enter `Op.Catch`, which preserves a foreign exceptional `Error` unless the boundary maps a documented provider refusal.
 - `System.Threading.Channels`(`.api/api-bcl-channels.md`): a rejected `TryWrite` and the `itemDropped` delegate fold into one `Atom<A>.Swap` receipt cell, and a `ReadAllAsync` drain body lands on `Fin<A>` or `Eff<A>`.
-- `System.Runtime.InteropServices`(`.api/api-bcl-interop.md`): throwing `Create`, `Load`, and `GetExport` enter `Try` or `Eff` and land on `Fin<A>`; registered handles collect in an `Atom<Seq<IDisposable>>` released in reverse-registration order.
+- `System.Runtime.InteropServices`(`.api/api-bcl-interop.md`): throwing `Create`, `Load`, and `GetExport` enter `Op.Catch` before landing on `Fin<A>`; registered handles collect in an `Atom<Seq<IDisposable>>` released in reverse-registration order.
 - Within-library composition runs at operator depth: `+ma` re-anchors a `K<F, A>`, `ma | mb` chooses, `mf * ma` applies, `ma >> f` binds, and `ma | @catch(pred, recover)` recovers by predicate.
 - Lifetime and cadence are values: a resource acquires through `use` or `IO.Bracket`, and a repeat or retry composes an `IO` with a `Schedule` built from a constructor, a bound, and a jitter transformer rather than a hand delay ladder.
 - Recovery is a value too: `Catch`'s code, identity, and predicate selectors classify a failure at the `Fallible<E, F>` seam, so one posture composes across every failing carrier instead of per-call-site `try`/`catch`.
@@ -614,6 +621,6 @@
 [RAIL_LAW]:
 - Package: `LanguageExt.Core`
 - Owns: result, accumulation, presence, deferral, failure vocabulary and its code block, immutable carriers, lock-free and transactional state, monoidal output, cadence policy, optics, memoization, the algebraic value-trait axes, and the higher-kinded trait system that unifies them.
-- Accept: `Fin<A>`-returning domain operations; `Validation` fan-ins exiting `ToFin`; `Writer`/`WriterT` evidence accumulation; `Try`/`Eff`/`IO` boundary traps; `Seq` and `Arr` seam carriers; `Option`-shaped lookups; `guard` admission gates; `Atom`, `AtomHashMap`, and `Ref` shared state; `Schedule`-driven repeat and retry; `Catch` recovery postures; `PartitionFallible` roster splits; the `Traits.Domain` axes on any owner whose values carry an algebra.
-- Reject: a local result, option, or either re-mint; exception control flow in domain logic; a throwing lookup where `Find` or `Head` returns `Option`; a `lock`ed cell or an `Atom<HashMap<K,V>>` beside `AtomHashMap.SwapKey`; a hand-rolled early-exit loop where `Traverse`, `TraverseM`, or a bounded fold inverts the shape; a hand delay ladder beside a `Schedule`; a mutable accumulator beside a `Monoid`; a domain fault code inside the package's own `-2000000001`..`-2000000015` block; a wrapper renaming a rail member.
-- `Rasm.Element`: `Validation<Error, T>` applicative accumulation as the folder's admission law (`AdmissionSlots` slots joined by tuple `.Apply`/`Traverse`, collapsed `.ToFin()` once per seam return), `Fin` the public rail, per-shape `Option` carriers at every boundary, `Try.lift(...).Run()` the foreign-provider funnel, `Seq` element-wise `IEquatable` carrying record equality (`TableRow`), and `toSet`/`toHashSet`/`toMap` at the erased edges.
+- Accept: `Fin<A>`-returning domain operations; `Validation` fan-ins exiting `ToFin`; `Writer`/`WriterT` evidence accumulation; `Eff`/`IO` deferral after `Op.Catch`; `Seq` and `Arr` seam carriers; `Option`-shaped lookups; `guard` admission gates; `Atom`, `AtomHashMap`, and `Ref` shared state; `Schedule`-driven repeat and retry; `Catch` recovery postures; `PartitionFallible` roster splits; the `Traits.Domain` axes on any owner whose values carry an algebra.
+- Reject: `Try.lift(...).Run()` or `Error.New(Exception)` at a Rasm capture boundary; a local result, option, or either re-mint; exception control flow in domain logic; a throwing lookup where `Find` or `Head` returns `Option`; a `lock`ed cell or an `Atom<HashMap<K,V>>` beside `AtomHashMap.SwapKey`; a hand-rolled early-exit loop where `Traverse`, `TraverseM`, or a bounded fold inverts the shape; a hand delay ladder beside a `Schedule`; a mutable accumulator beside a `Monoid`; a domain fault code inside the package's own `-2000000001`..`-2000000015` block; a wrapper renaming a rail member.
+- `Rasm.Element`: `Validation<Error, T>` applicative accumulation as the folder's admission law (`AdmissionSlots` slots joined by tuple `.Apply`/`Traverse`, collapsed `.ToFin()` once per seam return), `Fin` the public rail, per-shape `Option` carriers at every boundary, `Op.Catch` preserving foreign exceptions, `Seq` element-wise `IEquatable` carrying record equality (`TableRow`), and `toSet`/`toHashSet`/`toMap` at the erased edges.

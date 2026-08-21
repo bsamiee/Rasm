@@ -35,6 +35,16 @@
 |  [07]   | `tag`                 | property | identity label; settable on `Variable`                                                         |
 |  [08]   | `dtype`               | property | NumPy-object dtype tag enabling `unumpy` array participation                                   |
 
+[PUBLIC_TYPE_SCOPE]: raise surface the boundary `catch=` sets name
+
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :---------------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `uncertainties.core.NegativeStdDev` | `Exception`   | negative standard deviation at `ufloat`/`Variable` mint |
+|  [02]   | `ValueError`                        | builtin       | domain breach inside a `umath` wrapper                  |
+|  [03]   | `TypeError`                         | builtin       | arity breach at a `wrap`-lifted callable                |
+
+Row [01] is NOT re-exported from the package root — a `catch` set imports it from `uncertainties.core` — and it subclasses `Exception` directly, so a `ValueError`-only tuple leaks it.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scalar construction and correlation

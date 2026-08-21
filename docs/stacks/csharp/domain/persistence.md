@@ -219,9 +219,12 @@ public static class SchemaGate {
         return (unknown.IsEmpty, pending.IsEmpty) switch {
             (false, _) when placement.ReadsAhead => Fin.Succ<SchemaVerdict>(new SchemaVerdict.ServingBehind(unknown)),
             (false, _) => Fin.Fail<SchemaVerdict>(Error.New(8201, $"<schema-ahead:{unknown}>")),
-            (_, false) when placement.AppliesPending => Try.lift(fun(() => store.Database.Migrate())).Run()
-                .MapFail(error => Error.New(8202, $"<apply-failed:{error.Message}>"))
-                .Map(_ => (SchemaVerdict)(applied.IsEmpty ? new SchemaVerdict.Provisioned(pending) : new SchemaVerdict.Advanced(pending))),
+            (_, false) when placement.AppliesPending => Op.Of().Catch(() => {
+                store.Database.Migrate();
+                return Fin.Succ<SchemaVerdict>(applied.IsEmpty
+                    ? new SchemaVerdict.Provisioned(pending)
+                    : new SchemaVerdict.Advanced(pending));
+            }),
             (_, false) => Fin.Succ<SchemaVerdict>(new SchemaVerdict.AwaitBundle(pending, Fresh: applied.IsEmpty)),
             _ => Fin.Succ<SchemaVerdict>(store.Database.HasPendingModelChanges() ? new SchemaVerdict.Drifted() : new SchemaVerdict.Serving()),
         };
@@ -320,26 +323,22 @@ public static class FactRail {
 
     public static async Task<Fin<Seq<FactView>>> Read(IDbContextFactory<StoreContext> factory, StoreOp op, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(factory);
-        await using var store = await factory.CreateDbContextAsync(token).ConfigureAwait(false);
-        try {
+        return await Op.Of().Catch(async ct => {
+            await using var store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
             return Fin.Succ(toSeq(await store.Database.CreateExecutionStrategy().ExecuteAsync(
                 (Store: store, Op: op),
                 static (state, ct) => state.Op.Shaped(state.Store.Set<Fact>()).TagWith(nameof(Read)).ToArrayAsync(ct),
                 verifySucceeded: null,
-                token).ConfigureAwait(false)));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException) {
-            return Fin.Fail<Seq<FactView>>(Error.New(8231, $"<store-rejected:{ex.Message}>"));
-        }
+                ct).ConfigureAwait(false)));
+        }, token);
     }
 
     public static async Task<Fin<int>> Count(IDbContextFactory<StoreContext> factory, int floor, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(factory);
-        await using var store = await factory.CreateDbContextAsync(token).ConfigureAwait(false);
-        try { return Fin.Succ(await HotCount(store, floor, token).ConfigureAwait(false)); }
-        catch (Exception ex) when (ex is not OperationCanceledException) {
-            return Fin.Fail<int>(Error.New(8232, $"<store-rejected:{ex.Message}>"));
-        }
+        return await Op.Of().Catch(async ct => {
+            await using var store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            return Fin.Succ(await HotCount(store, floor, ct).ConfigureAwait(false));
+        }, token);
     }
 
     extension(StoreOp op) {
@@ -375,49 +374,49 @@ public readonly record struct MassFact(string Lane, int Touched, Seq<Guid> Keys)
 }
 
 public static class WriteMass {
-    public static Task<Fin<MassFact>> Touch(StoreContext store, Guid key, int rank, CancellationToken token) {
+    public static async Task<Fin<MassFact>> Touch(StoreContext store, Guid key, int rank, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        return store.Set<Fact>().Where(f => f.Key == key)
-            .ExecuteUpdateAsync(setters => {
+        return await Op.Of().Catch(async ct => {
+            var affected = await store.Set<Fact>().Where(f => f.Key == key).ExecuteUpdateAsync(setters => {
                 setters.SetProperty(static f => f.Rank, rank);
                 if (rank > 8) { setters.SetProperty(static f => f.Payload, "<value-a>"); }
-            }, token)
-            .Map(affected => affected == 0
+            }, ct).ConfigureAwait(false);
+            return affected == 0
                 ? Fin.Fail<MassFact>(Error.New(8241, $"<moved:{key:n}>"))
-                : Fin.Succ(new MassFact("<lane-a>", affected, [key])));
+                : Fin.Succ(new MassFact("<lane-a>", affected, [key]));
+        }, token).ConfigureAwait(false);
     }
 
     public static async Task<Fin<MassFact>> Ingest(StoreContext store, Seq<Fact> rows, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        using var bridge = store.CreateLinqToDBConnection();
-        var receipt = await bridge.GetTable<Fact>()
-            .BulkCopyAsync(new BulkCopyOptions { BulkCopyType = BulkCopyType.MultipleRows, KeepIdentity = true }, rows, token)
-            .ConfigureAwait(false);
-        return (int)receipt.RowsCopied == rows.Count
-            ? Fin.Succ(new MassFact("<lane-b>", rows.Count, rows.Map(static f => f.Key)))
-            : Fin.Fail<MassFact>(Error.New(8243, $"<lost:{rows.Count - (int)receipt.RowsCopied}>"));
+        return await Op.Of().Catch(async ct => {
+            using var bridge = store.CreateLinqToDBConnection();
+            var receipt = await bridge.GetTable<Fact>()
+                .BulkCopyAsync(new BulkCopyOptions { BulkCopyType = BulkCopyType.MultipleRows, KeepIdentity = true }, rows, ct)
+                .ConfigureAwait(false);
+            return (int)receipt.RowsCopied == rows.Count
+                ? Fin.Succ(new MassFact("<lane-b>", rows.Count, rows.Map(static f => f.Key)))
+                : Fin.Fail<MassFact>(Error.New(8243, $"<lost:{rows.Count - (int)receipt.RowsCopied}>"));
+        }, token).ConfigureAwait(false);
     }
 
     public static async Task<Fin<Seq<ChangeRow>>> Reconcile(StoreContext store, Seq<Fact> source, Func<Seq<CutTag>, CancellationToken, Task> cut, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(cut);
-        await using var tx = await store.Database.BeginTransactionAsync(token).ConfigureAwait(false);
-        using var bridge = store.CreateLinqToDBConnection();
-        try {
+        return await Op.Of().Catch(async ct => {
+            await using var tx = await store.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+            using var bridge = store.CreateLinqToDBConnection();
             var emitted = toSeq(await bridge.GetTable<Fact>()
                 .Merge().Using(source).On(static held => held.Key, static next => next.Key)
                 .UpdateWhenMatchedAnd(static (held, next) => held.Rank != next.Rank, static (held, next) => next)
                 .InsertWhenNotMatched()
                 .DeleteWhenNotMatchedBySource()
                 .MergeWithOutputAsync(static (action, before, after) => new ChangeRow(action, before.Key, after.Key))
-                .ToListAsync(token).ConfigureAwait(false));
-            await cut(new MassFact("<lane-c>", emitted.Count, emitted.Map(static row => row.After)).CutTags, token).ConfigureAwait(false);
-            await tx.CommitAsync(token).ConfigureAwait(false);
+                .ToListAsync(ct).ConfigureAwait(false));
+            await cut(new MassFact("<lane-c>", emitted.Count, emitted.Map(static row => row.After)).CutTags, ct).ConfigureAwait(false);
+            await tx.CommitAsync(ct).ConfigureAwait(false);
             return Fin.Succ(emitted);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException) {
-            return Fin.Fail<Seq<ChangeRow>>(Error.New(8242, $"<merge-rejected:{ex.Message}>"));
-        }
+        }, token);
     }
 }
 ```

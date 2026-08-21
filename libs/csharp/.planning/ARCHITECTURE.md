@@ -149,7 +149,7 @@ flowchart LR
     Fabrication e8@-->|"[WIRE]: GdtFrameWire"| PyArtifacts
     AppHost e9@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Compute e10@<-->|"[WIRE]: ComputeService"| PyGeometry
-    Compute e11@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
+    Compute e11@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| PyRuntime
     Compute e12@-->|"[GRADUATION]: GraduationEvidence"| PyCompute
     Compute e13@-->|"[SHAPE]: DoeDataset"| PyData
     Persistence e14@<-->|"[WIRE]: OpLogEntry"| PyRuntime
@@ -174,6 +174,7 @@ flowchart LR
         Persistence[Rasm.Persistence]
         Bim[Rasm.Bim]
         Materials[Rasm.Materials]
+        Compute[Rasm.Compute]
         AppUi[Rasm.AppUi]
         AppHost[Rasm.AppHost]
     end
@@ -199,6 +200,7 @@ flowchart LR
     AppHost e16@-->|"[WIRE]: WriteReceiptWire"| TsUi
     AppHost e17@-->|"[WIRE]: HostFingerprintWire"| TsUi
     AppHost e18@-->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Compute e19@-->|"[WIRE]: FaultDetail"| TsCore
 ```
 
 ## [04]-[INTERNAL]
@@ -281,8 +283,8 @@ Every extension lands on a canonical owner: a row where possible, a compiler-for
 |  [04]   | new property or detail      | `DetailSchema`                           | one schema row                                |
 |  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention               |
 |  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                        |
-|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`      | one union case or one registry row            |
-|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                  |
+|  [07]   | new fault case              | owning `*Fault` union                    | one `[FaultCase]` leaf                        |
+|  [08]   | new seam participant        | `IElementProjection`                     | one projector; any new fault family uses [16] |
 |  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row   |
 |  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism               |
 |  [11]   | new reliability indicator   | kernel signal capsule (`Rasm`)           | one indicator, burn, severity, or panel row   |
@@ -290,7 +292,7 @@ Every extension lands on a canonical owner: a row where possible, a compiler-for
 |  [13]   | analytics residence or slot | `Rasm.Persistence` `Query/residence`     | one row answering the estate residence floor  |
 |  [14]   | new columnar query end      | `Rasm.Persistence` `Query/serving`       | one `ResidenceReach` arm on the one read plan |
 |  [15]   | new tolerance lane          | `Rasm` `ToleranceLane`                   | one lane row carrying its band and dimension  |
-|  [16]   | new fault band              | `Rasm` `FaultBand`                       | one registry row; `Disjoint` proves it        |
+|  [16]   | new fault family            | `Rasm` `FaultBand` + package `*Fault`    | one band row + one direct `[Union]` root      |
 |  [17]   | new retriability class      | `Rasm` `Retriability`                    | one case plus one `Redrive` arm               |
 |  [18]   | new hook mechanism          | `Rasm` `HookRail`                        | one member on the one mechanism               |
 |  [19]   | new mesh source             | `Rasm` `MeshSource`                      | one case plus one admission arm               |

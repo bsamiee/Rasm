@@ -30,14 +30,14 @@
 - `Classification` hierarchy is bSDD-resolved at `Rasm.Bim`; the seam carries identity, never ancestry — a crosswalk owner here is the deleted form.
 - `MeasureStat` pairs kernel `Stat<Scalar>` with a `QuantitySignature` — a moments fold over `MeasureValue` drops the signature the pair carries.
 - `ResolveRepresentation` is the ONE content-key→geometry resolver the seam publishes; a same-named narrower twin composes or renames.
-- `ElementFault.Token` is the ONE railed roster admission — seam token rosters stay on stock `ValidationError` so the pinned kernel bridge binds.
-- `[ValidationError<ElementFault>]`-stamped owners admit through `key.AcceptValidated<TVO, ElementFault>` — a generic-token wrapper is deleted.
-- By-column roster resolves compose kernel `Op.Row`, comparer stated on site, refusal re-keyed onto the seam band — a frozen index is deleted.
+- `[ValidationError]`-stamped owners admit through `key.AcceptValidated<TVO>` — a generic-token wrapper is deleted.
+- By-column roster resolves compose kernel `Op.Row` with the comparer stated on site and preserve its kernel read refusal.
 - `TableDeclaration` is the ONE dataset self-description and `TableBatch` keys on it — a foreign producer instantiates the carrier, never a row.
 - Seam value-space compares read a kernel `Tolerance` minted on the `Relative` lane — a bare tolerance double beside the seam is the deleted form.
 - Snapshot memos are cache mechanics, never domain facts — observability lives at the consumer's cache, a latency series as a caller `GaugedSpan`.
-- `AdmissionSlots` is the ONE accumulating-admission owner above the seam — a per-page or peer copy forks the fold and collides under `CS0104`.
+- Kernel `AdmissionSlots` owns reusable accumulation and scalar bands; Element supplies typed semantic refusals through its deferred gate.
 - `Gate(holds, concern, detail, refuse)` is the ONE refusal door, constructed on the failing arm — a pre-built fault or per-plane wrapper is deleted.
+- `GraphMembers.Advance` returns `Refold` only for a valid grid change — malformed deltas and absent members remain failures on its `Fin` rail.
 
 ## [03]-[COLLAPSE]
 

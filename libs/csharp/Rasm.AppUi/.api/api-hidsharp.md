@@ -152,7 +152,7 @@
 - Button fields carry `IsBoolean` with a 0..1 logical range, so `GetScaledValue(-1, 1)` maps a RELEASED button to full negative deflection: a mixed axis-and-button decode reads booleans through `GetLogicalValue()` and continuous fields through the scaling, discriminating on `DataValue.DataItem.IsBoolean`.
 
 [STACKING]:
-- `api-silk-input.md` / `api-silk-sdl.md` / `api-drywetmidi.md`: the `Hid` case joins `Gamepad`/`Haptic`/`Midi` on the single `InputFabric` edge, every capsule folding `DataValue.GetScaledValue(-1, 1)` normalized `DeviceAxis` samples onto the one `CommandIntent` table; unlike the SDL2 `Gamepad`/`Haptic` pair the `Hid` capsule binds no native bundle, sharing only that fold.
+- `api-silk-input.md` / `api-silk-sdl.md` / `api-drywetmidi.md`: the `Hid` case joins `Gamepad`/`Haptic`/`Midi` on the single `InputFabric` edge, every capsule folding `DataValue.GetScaledValue(-1, 1)` normalized `DeviceAxis` samples onto the one `CommandRow` table; unlike the SDL2 `Gamepad`/`Haptic` pair the `Hid` capsule binds no native bundle, sharing only that fold.
 - `api-reactive.md`: `HidDeviceInputReceiver.Received`, or a `WaitHandle`-gated `Read` loop, projects into `IObservable<Seq<DeviceAxis>>` through `Observable.FromEventPattern`/`Create`, decoding off the render thread and marshaling axes once at the bind edge.
 - within-lib: `DeviceList.Local.GetHidDevices(vendorId, productId)` → scoped `HidStream` → `DeviceItemInputParser`/`DataValue` decode is one fold; `HasChanged`/`GetNextChangedIndex` bound per-report work to moved fields, and `DeviceList.Changed` re-enumerates on hot-plug while `Open` → `HidStream` → `Dispose` is one scoped teardown.
 
@@ -164,5 +164,5 @@
 [RAIL_LAW]:
 - Package: `HidSharp`
 - Owns: cross-platform raw HID access — enumeration, open/configuration, raw input/output/feature report I/O, report-descriptor parsing, and typed multi-axis value decoding for the InputFabric `Hid` source.
-- Accept: `DeviceList.Local` enumeration with source-side vendor/product filters, scoped `HidStream` open-and-dispose pairs, descriptor-driven `DeviceItemInputParser`/`DataValue` decoding, and the `Hid` case on the single `InputFabric` edge beside `Gamepad`/`Haptic`/`Midi`, folding normalized `DeviceAxis` samples onto the one `CommandIntent` table.
+- Accept: `DeviceList.Local` enumeration with source-side vendor/product filters, scoped `HidStream` open-and-dispose pairs, descriptor-driven `DeviceItemInputParser`/`DataValue` decoding, and the `Hid` case on the single `InputFabric` edge beside `Gamepad`/`Haptic`/`Midi`, folding normalized `DeviceAxis` samples onto the one `CommandRow` table.
 - Reject: a vendor-specific 3DConnexion driver dependency, manual bit-shifting of raw report bytes when `DataItem`/`DataValue` model the field, a busy-wait `Read` loop when `HidDeviceInputReceiver` plus `WaitHandle` carries the stream, and a parallel HID→intent edge beside the shared `InputFabric` fold.

@@ -72,7 +72,7 @@ public static class DenseRoute {
             .Bind(x => Witness.Gate(route.Key, Witness.Residual(operand, x, b), cap).Map(_ => x))
             .BindFail(_ => route.Conditioned() is var next && next != route
                 ? Solve(next, operand, b, cap)
-                : Fin.Fail<Vector<double>>(Error.New(2099, $"<exhausted:{route.Key}>")));
+                : Fin.Fail<Vector<double>>(new SolveFault.Exhausted(Route: route)));
 }
 ```
 
@@ -89,8 +89,8 @@ public static class Admission
         TensorPrimitives.IsFiniteAll<double>(flat)
             ? Fin.Succ(flat)
             : TensorPrimitives.IsNaNAny<double>(flat)
-                ? Fin.Fail<double[]>(Error.New(2101, "operand carries NaN"))
-                : Fin.Fail<double[]>(Error.New(2102, "operand carries Inf"));
+                ? Fin.Fail<double[]>(new SolveFault.NanOperand())
+                : Fin.Fail<double[]>(new SolveFault.InfiniteOperand());
 
     public static Fin<DenseMatrix> Admit(DenseMatrix a) => Admit(a.Values).Map(_ => a);
 
@@ -155,7 +155,7 @@ public static class HeldRefinement
                 : (held.Solve(scratch, dx), state.Add(dx, state)).Item2);
         return Residual(a, settled, b, scratch, bNorm) is var r && double.IsFinite(r)
             ? Fin.Succ((r <= tol ? IterationStatus.Converged : IterationStatus.StoppedWithoutConvergence, settled))
-            : Fin.Fail<(IterationStatus, Vector<double>)>(Error.New(2110, $"refinement residual non-finite: r={r}"));
+            : Fin.Fail<(IterationStatus, Vector<double>)>(new SolveFault.NonFiniteResidual(Residual: r));
     }
 
     static double Residual(Matrix<double> a, Vector<double> x, Vector<double> b, Vector<double> scratch, double bNorm)
@@ -292,11 +292,10 @@ public static class Iterative
     public static Fin<Vector<double>> Solve(
         Matrix<double> a, Vector<double> b, IIterativeSolver<double> solver,
         IPreconditioner<double> pre, double tol, bool symmetric) =>
-        Try.lift<(IterationStatus Verdict, Vector<double> X)>(() =>
-            {
+        Op.Of().Catch(() => {
                 var x = Vector<double>.Build.Dense(b.Count);
-                return (a.TrySolveIterative(b, x, solver, Stack(b.Count, tol, symmetric), pre), x);
-            }).Run()
+                return Fin.Succ((Verdict: a.TrySolveIterative(b, x, solver, Stack(b.Count, tol, symmetric), pre), X: x));
+            })
             .Bind(t => Witness.Gate($"verdict={t.Verdict}", Witness.Residual(a, t.X, b), tol).Map(_ => t.X));
 }
 ```
@@ -307,7 +306,7 @@ public static class Witness
     public static Fin<double> Gate(string evidence, double residual, double cap) =>
         double.IsFinite(residual) && residual <= cap
             ? Fin.Succ(residual)
-            : Fin.Fail<double>(Error.New(2200, $"witness failed: {evidence} r={residual}"));
+            : Fin.Fail<double>(new SolveFault.WitnessRejected(Evidence: evidence, Residual: residual, Ceiling: cap));
 
     public static double Residual(Matrix<double> a, Vector<double> x, Vector<double> b) =>
         (b - a.Multiply(x)).L2Norm() / double.Max(b.L2Norm(), double.Epsilon);
@@ -385,7 +384,9 @@ public static class SchurDecode
 - Law: partition the terminal status as `Converged | StoppedWithoutConvergence | (Diverged | Failure | Cancelled)`; mapping budget-exhausted to `Fin.Fail` destroys the caller's relaxed-criterion or different-preconditioner retry.
 - Law: catch the numerical-breakdown child before its non-convergence parent; a parent-first ladder swallows the more specific signal.
 - Law: map the singular-`U` index (message-string only) and the zero-pivot sparse status to a distinct singular-matrix domain error, not a blanket solver failure.
-- Boundary: only `Expected` errors are wire-faithful with equality by `Code` alone, so convert every exceptional error to a domain-coded expected error before serialization.
+- Law: every numeric identity comes from the direct leaf's generated `[FaultCase]` ordinal — a call site constructs the typed case and never spells a code.
+- Law: documented numeric exceptions map to cause-carrying typed leaves; every unclassified error passes through unchanged.
+- Boundary: only an expected fault carries a stable numeric identity across the wire, so a caller owing a typed refusal mints one from its own family; an exceptional error crosses as opaque remote evidence and is NEVER reminted expected, since that publishes a domain code no owner issued.
 - Boundary: `HasCode` dispatch on a round-tripped error is sound where message-substring matching is not.
 
 ```csharp conceptual
@@ -403,12 +404,12 @@ public static class Terminal
         {
             IterationStatus.Converged => Fin.Succ<SolveTerminal>(new SolveTerminal.Admitted(t.X)),
             IterationStatus.StoppedWithoutConvergence => Fin.Succ<SolveTerminal>(new SolveTerminal.Exhausted(t.X, budget)),
-            var v => Fin.Fail<SolveTerminal>(Error.New((int)v, $"solver terminal: {v}")),
+            var v => Fin.Fail<SolveTerminal>(new SolveFault.Terminal(v)),
         })
         .MapFail(e => e switch
         {
-            { Exception.Case: NumericalBreakdownException } => Error.New(2201, "numerical breakdown", e),
-            { Exception.Case: NonConvergenceException } => Error.New(2202, "iteration non-convergence", e),
+            { Exception.Case: NumericalBreakdownException } => new SolveFault.Breakdown(Cause: e),
+            { Exception.Case: NonConvergenceException } => new SolveFault.Nonconvergent(Cause: e),
             _ => e,
         });
 }
@@ -437,7 +438,7 @@ public static class Quadrature
             a, b, out var error, out var l1Norm);
         return Math.Abs(value / l1Norm) is var ratio && double.IsFinite(ratio) && ratio >= floor
             ? Fin.Succ(new QuadratureEvidence(value, error, l1Norm, ratio, skipped))
-            : Fin.Fail<QuadratureEvidence>(Error.New(2301, $"cancellation breach: |value/L1|={ratio} skipped={skipped}"));
+            : Fin.Fail<QuadratureEvidence>(new QuadratureFault.Cancellation(Ratio: ratio, Skipped: skipped, Floor: floor));
     }
 }
 ```

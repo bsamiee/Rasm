@@ -8,12 +8,20 @@
 
 ## [02]-[SHAPE]
 
-- Folder faults read rank, blame, and retryability off the core `Fault.Class` rows — a local policy column mints one fault taxonomy per folder.
-- Each owner mints its tagged fault through `Fault.Class.family` — a factory or shared base erases the `_tag` identity `catchTag` discriminates on.
-- Untyped failure grades `defect` at `Fault.Class` — non-retryable, system-blamed, and silently refused by every `Fault.Budget` gate.
+- Folder faults read rank, blame, recovery band, and re-offer route off the core `Fault.Class` rows — a local policy column forks the taxonomy.
+- Recovery bands what a re-drive reaches — `terminal` outlasts every schedule, `transient` takes a blind curve, `throttled` names a stated window.
+- Re-offer names the caller's route beside it — `wait` re-invokes under the budget, `restart` re-takes the handle, `rescope` narrows the next offer.
+- `throttled` classes carry their window on the VALUE as `Fault.Class.After` — `Fault.Budget.schedule` re-seats the row base from it, never a column.
+- `retryable` is the derived projection `recovery !== "terminal"` alone — a stored column or raise-supplied field beside the band forks it.
+- Each owner mints its tagged fault through `Fault.Class.family` — a shared base or tag-blind factory erases the `_tag` identity `catchTag` reads.
+- Family rows carry class, owning leg, and their own subject schema, and each row renders its detail — a free-string `detail` re-opens `reason`.
+- Row subjects seat only columns EVERY raiser of that family holds — a coordinate one raiser alone owns makes its siblings forge or drop evidence.
+- Accumulating admission mints once through `Fault.Class.family(…).census` — re-declaring `{ issues, class, message }` forks one taxonomy into two.
+- Family values publish their own census, spreading the vocabulary they mint — a `static readonly roster` restating that tuple drifts from it.
+- Untyped failure grades `defect` at `Fault.Class` — `terminal` recovery, `restart` re-offer, system-blamed, refused by every `Fault.Budget` gate.
 - `Effect.tryPromise`/`Effect.try` replace `Effect.promise`/`Effect.sync`, and `Effect.async` guards the synchronous throw beside its callback.
 - Foreign and `unknown` error channels fold onto the typed rail at the seam that widened them, never past the shielded gate downstream.
-- `Tap` owns names, modalities, and handlers; `Hook`, `Audit`, and data register beside their own publishers — no plane binds another's lifecycle.
+- `Tap` owns names, modalities, handlers, and DELIVERY; registrars own rosters and policy rows — a second engine forks veto order and breach count.
 - Signal concepts two folders spell own where the surface sits — a second `Tap` registrar double-accounts the buffer and forks each panel's budget.
 - Tenancy baggage decodes ONLY through `Identity.Tenant.FromScope` under `Convention.rasm.tenant` — a second parse forks the dimension's alphabet.
 - `CookieSpec` owns the one CSRF echo header the serve gate reads and the browser dial stamps — a literal at either end forks the pair fail-closed.
@@ -36,10 +44,11 @@
 - Package-owned config records satisfy the `Setting` family at the package seam — a folder restatement forks it.
 - `iac` mints no `Setting` group — deploy-host env owns its own records, shape crossing as decoded `StackSpec`, material as in-graph Doppler rows.
 - Counter-plane availability stamps the claim's host fingerprint, never a metric band — a band conflates machine refusal with an uncounted metric.
-- Moderation verdicts never borrow the transport reason — transport grades retryable, a verdict denied, so one shared cell re-drives the refusal.
+- Moderation verdicts never borrow the transport reason — transport bands `transient`, a verdict `denied`, so one shared cell re-drives the refusal.
 - `MachinePrincipal.credential` is the HTTP presentation alone — SASL and NATS CONNECT carry the bare `token`, so the prefixed form double-prefixes.
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
 - `DateTime.distanceDuration` is ABSOLUTE — a lapsed instant reads as a positive window, so deadline checks take signed `distance` or `isPast`.
+- `Schema.partialWith` drops the record's node annotation — a closed key domain piped through it re-seats its posture outside or silently reopens.
 - Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
 - Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.
 

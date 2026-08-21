@@ -27,16 +27,16 @@
 - every arm derives from `google.api_core.exceptions.GoogleAPICallError`, whose `.code` carries the HTTP status; the sibling Vault and Key Vault catalogs name a GCP MISS arm this roster is the source for.
 - `ServerError` is the 5xx base and is deliberately NOT the retry target — it also roots `MethodNotImplemented` (501) and `DataLoss`, neither of which a retry window clears — so each transient arm is named at its own spelling.
 
-| [INDEX] | [SYMBOL]              | [STATUS] | [CAPABILITY]                                                |
-| :-----: | :-------------------- | :------: | :---------------------------------------------------------- |
-|  [01]   | `GoogleAPICallError`  |    —     | base; carries `.code`, `.message`, `.details`               |
-|  [02]   | `NotFound`            |   404    | absent secret or version — the MISS arm                     |
-|  [03]   | `PermissionDenied`    |   403    | IAM denies the resource — hard boundary fault               |
-|  [04]   | `Unauthenticated`     |   401    | credential rejected — hard boundary fault                   |
-|  [05]   | `TooManyRequests`     |   429    | quota rejection; roots `ResourceExhausted` — a transient    |
-|  [06]   | `InternalServerError` |   500    | service-side fault — a transient                            |
-|  [07]   | `ServiceUnavailable`  |   503    | backend unreachable — a transient                           |
-|  [08]   | `DeadlineExceeded`    |   504    | RPC deadline through `GatewayTimeout` — a transient         |
+| [INDEX] | [SYMBOL]              | [STATUS] | [CAPABILITY]                                             |
+| :-----: | :-------------------- | :------: | :------------------------------------------------------- |
+|  [01]   | `GoogleAPICallError`  |    —     | base; carries `.code`, `.message`, `.details`            |
+|  [02]   | `NotFound`            |   404    | absent secret or version — the MISS arm                  |
+|  [03]   | `PermissionDenied`    |   403    | IAM denies the resource — hard boundary fault            |
+|  [04]   | `Unauthenticated`     |   401    | credential rejected — hard boundary fault                |
+|  [05]   | `TooManyRequests`     |   429    | quota rejection; roots `ResourceExhausted` — a transient |
+|  [06]   | `InternalServerError` |   500    | service-side fault — a transient                         |
+|  [07]   | `ServiceUnavailable`  |   503    | backend unreachable — a transient                        |
+|  [08]   | `DeadlineExceeded`    |   504    | RPC deadline through `GatewayTimeout` — a transient      |
 
 ## [03]-[ENTRYPOINTS]
 

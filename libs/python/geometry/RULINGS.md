@@ -21,18 +21,27 @@
 - Georeference extraction answers typed ABSENCE — an ungeoreferenced model crosses `Nothing`, never an identity a map lift reads as coordinates.
 - Georeference wires carry ONE scale across eight fields — a non-uniform `factor_*` triple refuses by name.
 - Coarse pose seeds the fine solve through the solver's OWN transform slot — `probreg`'s EM arm, publishing none, pre-poses once at admission.
+- Bounded-loss folds RETURN their ledger and NAME each drop's law — a log mutating beside the return publishes a half-run census nobody can gate.
+- Registry-backed IDS grading accepts the RESOLVED type alone — the resolve step owns the network and the sync entry refuses a pending document.
+- Reachability owners publish the per-hop census their walk computed and derive the bare reach; a multi-seed fold states its merge law AT the fold.
+- Wire-owner release matrices ground their band — the admitted row's DECLARED ceiling and activation reach the shape gate, never a local constant.
+- Every decided factor on the energy band is a cited `EnergyRegime` row — a bare base, standard, or ceiling names no authority a verdict can quote.
 
 ## [03]-[COLLAPSE]
 
 - `LateBound{module, member, leads}` is the ONE AGPL late-bind at `energy/climate` — a second dialect forks the copyleft-boundary law audits grep.
+- `IfcFault` at `ifc/selector` is the IFC band's ONE refusal family — a page spelling its own cause string forks a grammar consumers re-parse.
+- Foreign closed vocabularies are ONE roster keyed by the member name, elected once and matched totally — a second transcription is the deleted form.
 - Every model-mutating arm rides ONE `begin_transaction`/`undo()`/`end_transaction` fence — no arm mints a second rollback dialect.
 
 ## [04]-[STRUCTURE]
 
+(none)
 
 ## [05]-[PROCESS]
 
-- `BrepFault` kwargs lift WHOLE into the boundary fault — a projection reachable outside `evidence_run` returns the rail instead of raising.
+- Band faults cross the door AND the worker seam whole — `__str__` serves the log edge alone, and a family reaching none carries no render.
+- Refusals reachable outside `evidence_run` return the rail instead of raising — a raise from a mint no fence encloses escapes to its caller.
 - Object-store spill is an OPTIMIZATION riding `SpillOutcome` on the receipt, never a rail — the lane arrives BUILT, so no page mints `from_url`.
 - `FAULT_CONF` guards the innermost untrusted seam (`_dispatch` on a rail capsule, a numeric leaf on an effect one) — an outer seat re-types faults.
 - Durable records seat past a transaction, HOSTILE kernel, or fault-owning `finally` — an in-bracket record holds half-applied state open.

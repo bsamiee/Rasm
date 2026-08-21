@@ -32,7 +32,7 @@
 - Value records holding a sequence, array, or map member declare `[Equatable]` with explicit member equality, or hold `Seq`/`Arr` over an array.
 - Boundary declarations whose simple name matches a kernel owner RENAME at the boundary — one assembly resolves bare names and the kernel keeps it.
 - `FaultBand.OwnerOf` takes the `BandKind` it decodes — the two id spaces partition, so an interval-only read answers whichever row sorts first.
-- `Retriability` on `Expected` is the ONE retriability discriminant and `Redrive` the ONE re-drive owner — Polly executes at the HTTP hop alone.
+- `Retriability` on `Fault` is the ONE retriability discriminant and `Redrive` the ONE re-drive owner — Polly executes at the HTTP hop alone.
 - `ContentHash.Hex` and `ContentHash.Admit` are the ONE identity text and its inverse — admission REFUSES uppercase, so the round trip is exact.
 - `Stat<TCarrier>` and `Distribution<TCarrier>` are the ONE moment and order-statistic owners — a local fold re-derives the recurrence and forks it.
 - `MonotonicTimeline.Gauged` is the ONE gauged span from S3 upward; the S0 op-cost capsule marks its own pair — the floor cannot read up-strata.
@@ -67,7 +67,7 @@
 - LanguageExt carriers cross STJ through the kernel `LanguageExtJsonConverterFactory` each wire mint registers — a bare carrier throws on read.
 - Merged wires have ONE producer surface, the composition-bound options handle — a `.Default` type-info or context instance drops resolver modifiers.
 - Library tiers classify retriability and execute none — the root-bound executor drives, so a tier-local policy forks the estate's one schedule.
-- Store bands seat executors by SEAM — `RemoteStoreFault` and `WideColumnFault` at `OutboundHop`, `CoordinationFault` at the store strategy.
+- Store bands seat executors by SEAM — `RemoteStoreFault` and `CacheFault` at `OutboundHop`, `CoordinationFault` at the store strategy.
 - `HopOutcome` is transport-neutral, so its exception arms alone are HTTP-shaped — a store rail joins the keyed lane as a row, never a second family.
 - `MeterVector` crosses as REMAINING BALANCE per unit — a spend reading re-supplies its ceiling at the caller and re-opens the fenced write's TOCTOU.
 - ONE `Wgpu` runtime loads per process and device arity is BY ROLE — one presented `Device` every dispatch lane binds, one surfaceless `PressDevice`.
@@ -80,7 +80,6 @@
 - Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never rises.
 - Corpus proto descriptors keep ONE spelling — owner pages carry the header-only fence, union mirror, and frozen-number ledger; a full mirror forks.
-- Cleanup faults ALWAYS aggregate into the primary outcome — an inverse that failed silently is a leak certified as a release.
 - `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
 - Host-enum reads resolve a `[SmartEnum]` row through `Op.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
 - `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed receipt renames `KeySelection`, both over the seam `Selection<TKey>`.
@@ -95,6 +94,18 @@
 - `Rasm.Persistence` `ColumnCell.Absent` is the ONE landing absence spelling — `ColumnRow.Admits` proves it against `TableColumn.Nullable`.
 - `Rasm.Persistence` `ContentBlobPort` is the ONE key-minting object-plane byte seam — derived off `BlobRemote`, bound at the composition root.
 - Kernel `MeasureBundle` is the ONE multi-kind takeoff carrier over `(MassKind, Magnitude)` rows — `GeometryMeasures` stays the single-domain bundle.
+- `Fault` is the sole expected-failure base; `KernelFault` its universal family — each bounded local fault family is one direct `[Union]` root.
+- `Op.Catch` is the one exception admission — it preserves foreign `Error`; only token-proved cancellation or a typed provider refusal remaps.
+- `ICausedFault` carries the original `Error` on every case minted from a capture — `Fault.Inner` projects that cause unchanged.
+- Generated value admission crosses ONCE into `KernelFault.InvalidValue`/`OutOfRange` — a package `IValidationError<T>` mints a parallel error plane.
+- `Validation<Error,T>` accumulates package faults — a `TFault` rail compiles until `Fail` demands a `Monoid` whose `Empty` means success.
+- `KernelInstrument` owns every `rasm.fault.*` key — an emitter prefixing its own estate segment forks one axis into a per-package pair.
+- `Rasm.AppHost` `CommandIntent` is the ONE command identity every UI row crosses through `Run` — a second in a referencing package is a strata twin.
+- AppHost's `CommandReceipt` and `CommandFault` name suite transaction facts — a referencing package's own evidence and refusal take their own names.
+- Factories short-circuiting to one argument hand back that instance — a custody fold probes `ReferenceEquals` per arm before releasing.
+- `Rasm.Element` `RepresentationSlot` is the ONE representation roster — a peer composes it and seats its own admission column.
+- `Rasm.Materials` `DeclarationUnit` rosters declaration contracts and `Rasm.Compute` `DeclaredUnit` openEPD REST keys — neither set holds the other.
+- `Rasm.Materials` `SectionFactors` and `Rasm.Compute` `ResistanceFactors` split on the ALTITUDE word, as `SectionCapacity` splits `MemberCapacity`.
 
 ## [03]-[COLLAPSE]
 
@@ -113,15 +124,19 @@
 - `UInt128` lane extraction composes the kernel `ContentHash.Half` at every consumer — byte ORDER at a write seam stays that seam's own projection.
 - Folder claim rosters stay plural under one `BenchmarkGate` — folding them into a parameterized row erases each closed-roster guard.
 - Perceptual colour has ONE interaction owner, the kernel `Interaction/paint` band — each boundary quantizes to its host colour type at its own edge.
-- `Rasm` `FaultBand` is the ONE band registry — every folder reads and extends its own row there, so `Disjoint` proves the whole estate at once.
+- `Rasm` `FaultBand` is the sole band ledger; `Disjoint` forces inside `FaultId` construction, and rows exist only for realized fault families.
 - `CanonicalWriter` at `Rasm/Domain/identity` is the ONE preimage writer — peers compose it and re-export nothing, so one framing keys the estate.
 - `HookRail<TPoint,TFact,TOwner>` is the ONE hook mechanism — a folder declares its `<Package>Point` roster and closed fact union alone.
 - `ToleranceLane` rows are the ONE branch tolerance vocabulary, each carrying its own `Band` — Fabrication GD&T stackup composes them as scalars.
-- Kernel `Custody` at `Domain/rails` is the ONE release algebra — `Rollback` releases the failure arm alone, `Bracket` disposes unconditionally.
+- `Custody` owns reverse release, failure-only rollback, and settled cleanup — every cleanup error joins the primary through `Error.Many`.
 - Kernel `SparseMatrix.Transpose()` is the ONE materialized CSR transpose — an APPLIED transpose stays `Multiply` under `OperatorSense`.
 - Kernel `Ranked` at `Domain/stats` is the ONE bounded top-K selection — cost-scheduled queues and best-first frontiers keep `PriorityQueue`.
 - `TilePlan` stays plural by receiver — Compute's inference mosaic and Materials' texture tiling share no closure, the wire ceding `InferenceTiling`.
-- `WireFault` stays plural by transport — AppHost holds `FaultBand.LiveWire`, Compute `FaultBand.Wire`, a crossing fault re-classifying at the seam.
+- `WireFault` stays plural by transport — `FaultBand.LiveWire` and `FaultBand.Wire` mint local failures; remote faults remain opaque evidence.
+- Fault families carry no category mirror — the union case IS the identity, and a parallel roster publishes a second discriminant per family.
+- Family-local `Semigroup`/`Aggregate`/`Combine` folds collapse to `Error.Many` — two accumulation paradigms disagree on flattening and on posture.
+- Generic text faults collapse into typed cases — a leaf carrying only `Detail` states no identity, and its string is presentation, never routed.
+- `WideColumnFault` folds into `CacheFault` and `TypographyFault` into the theme family — one band split across two roots forks its own interval.
 
 ## [04]-[STRUCTURE]
 
@@ -130,15 +145,19 @@
 - Dual-homing a package across `libs/csharp/.api/` and a folder tier merges the losing rows whole and deletes the file — a redirect stub re-mints it.
 - `RhinoCommon` and `Eto` catalogue by namespace-and-subsystem, so the tier law binds the catalogued PARTITION and never the assembly.
 - Registry packages sit under `[SUBSTRATE_PACKAGES]` and folder-local under `[DOMAIN_PACKAGES]` — the section token, not its ordinal, is the anchor.
-- Unions outgrowing a `FaultBand` row WIDEN into the folder decade's tail and restride successors — a case past the bound throws at static init.
-- `[Union]` record roots carry only positional members — a hidden field poisons synthesized equality, so a universal cell rides a base column.
+- Fault-band growth follows semantic partitioning — one family and one band stay bijective; only a genuine second family earns another row.
+- `[Union]` record roots seat a member only where every leaf DERIVES it from positional state — a universal cell rides the base column instead.
 - `[Union]`/`Switch` case-collapse projects near-zero net LOC — a LOC ceiling falls by unifying repeated helpers, never by case discrimination.
 - Projection seam rows enter an `ARCHITECTURE.md` seams map only on a live consumer fence — the row re-enters the moment a consuming page names it.
 - `ICapability<TSelf>` rosters ranked by declaration order carry `[NoReorder]` — a reorder restrides every rank, and a domain-fact override unpins.
 - Seam edges collapse to ONE per home owner, counterpart, kind, and direction — members join ` + `; a both-ends mint keeps its own arrow.
 - Seam labels name shapes DECLARED at the producing package's own fences — a substrate or BCL type sharing the spelling rides no seam edge.
 - Seam labels name a member the CONSUMING package spells at its own fence too — a producer declaration alone registers reach, never a crossing.
+- Band base and span never mirror into an attribute, constant, additional file, or manifest — a mirror mints a second allocation authority.
+- Fault ordinals are explicit and unique within the current family — spec-stage deletions compact the unshipped plane instead of preserving gaps.
+- Per-family fault registries do NOT re-enter — `[FaultCase]` ordinals generate the one numeric plane a consumer reads.
+- Generator proofs cover ordinal presence, sign, uniqueness, and leaf-directness — RUNTIME `FaultBand` proves SPAN through `Code(offset)`/`Disjoint`.
 
 ## [05]-[PROCESS]
 
-- (none)
+- Numeric-identity defects land ahead of the generator pass — moving annotations reads as repair while the collision survives in every stored row.

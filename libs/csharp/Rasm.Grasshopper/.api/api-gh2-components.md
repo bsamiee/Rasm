@@ -84,26 +84,26 @@
 
 [ENTRYPOINT_SCOPE]: component lifecycle and variable parameters
 
-| [INDEX] |                          [SURFACE]                          |  [SHAPE]  |                  [CAPABILITY]                 |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]   | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------------- | :-------- | :-------------------------------------------- |
-|   [01]  | `Component(Nomen)`                                          | author    | construct the component                       |
-|   [02]  | `AddInputs(InputAdder)` / `AddOutputs(OutputAdder)`         | author    | declare the fixed pin surface                 |
-|   [03]  | `Process(IDataAccess)`                                      | compute   | compute one access iteration                  |
-|   [04]  | `Process(IDataAccess[], CancellationToken)`                 | compute   | dispatch the iteration array                  |
-|   [05]  | `BeforeProcess(Solution)` / `PreProcess(Solution)`          | lifecycle | open the solution-scoped process              |
-|   [06]  | `PostProcess(Solution, FleetingCustomData)`                 | lifecycle | close the solution-scoped process             |
-|   [07]  | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree                      |
-|   [08]  | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation                    |
-|   [09]  | `Parameters`                                                | state     | expose the component's pin roster             |
-|   [10]  | `Threading`                                                 | state     | select the `ThreadingState` processing policy |
-|   [11]  | `SupportsVariableParameters`                                | gate      | expose variable-pin capability                |
-|   [12]  | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change                   |
-|   [13]  | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo                        |
-|   [14]  | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo                        |
-|   [15]  | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface             |
-|   [16]  | `BakeCapable`                                               | bake      | virtual bakeability gate                      |
-|   [17]  | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual call, baked-id roster             |
-|   [18]  | `CreateAttributes`                                          | view      | construct object attributes                   |
+|  [01]   | `Component(Nomen)`                                          | author    | construct the component                       |
+|  [02]   | `AddInputs(InputAdder)` / `AddOutputs(OutputAdder)`         | author    | declare the fixed pin surface                 |
+|  [03]   | `Process(IDataAccess)`                                      | compute   | compute one access iteration                  |
+|  [04]   | `Process(IDataAccess[], CancellationToken)`                 | compute   | dispatch the iteration array                  |
+|  [05]   | `BeforeProcess(Solution)` / `PreProcess(Solution)`          | lifecycle | open the solution-scoped process              |
+|  [06]   | `PostProcess(Solution, FleetingCustomData)`                 | lifecycle | close the solution-scoped process             |
+|  [07]   | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree                      |
+|  [08]   | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation                    |
+|  [09]   | `Parameters`                                                | state     | expose the component's pin roster             |
+|  [10]   | `Threading`                                                 | state     | select the `ThreadingState` processing policy |
+|  [11]   | `SupportsVariableParameters`                                | gate      | expose variable-pin capability                |
+|  [12]   | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change                   |
+|  [13]   | `DoCreateParameter(Side, int, ActionList)`                  | mutate    | create a pin with undo                        |
+|  [14]   | `DoRemoveParameter(Side, int, ActionList)`                  | mutate    | remove a pin with undo                        |
+|  [15]   | `VariableParameterMaintenance`                              | mutate    | reconcile the changed pin surface             |
+|  [16]   | `BakeCapable`                                               | bake      | virtual bakeability gate                      |
+|  [17]   | `BakeShapes(BakeContext, BakeUpdateMode) -> string[]`       | bake      | non-virtual call, baked-id roster             |
+|  [18]   | `CreateAttributes`                                          | view      | construct object attributes                   |
 
 [ENTRYPOINT_SCOPE]: document emission (`Grasshopper2.Bake`)
 

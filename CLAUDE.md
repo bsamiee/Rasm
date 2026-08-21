@@ -85,6 +85,7 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [10]   | `security`   | `trivy fs --scanners vuln,secret,misconfig --skip-dirs node_modules --skip-dirs .venv .` · `gitleaks detect`             |
 |  [11]   | `iac`        | `pulumi preview -C <dir>` · `pulumi about` — `pulumi whoami` mints a real ephemeral cloud account, never read-only       |
 |  [12]   | `provision`  | `assay provision <verb>` — Forge service, Postgres-extension, and DuckDB/SQLite surface evidence                         |
+|  [13]   | `proto`      | `buf lint` · `buf format -d --exit-code` · `nx run workspace-foundation:proto` — plugin by path; emission untracked      |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

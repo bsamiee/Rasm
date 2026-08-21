@@ -59,6 +59,18 @@
 |  [03]   | `Implementation.to_native_namespace()`     | method      | return the native namespace module for the backend |
 |  [04]   | `Implementation.name`                      | property    | member name; `PYARROW.name.lower() == 'pyarrow'`   |
 
+[PUBLIC_TYPE_SCOPE]: typed failure rail (`narwhals.exceptions`)
+
+`NarwhalsError` subclasses `ValueError` and roots every member below, `ColumnNotFoundError` included — its `FormattedKeyError`/`KeyError` bases sit ahead of `NarwhalsError` in the MRO but do not escape it, so one class names the whole package rail. `from_native` handed a non-frame raises a bare `TypeError` outside that root, so a fence over an intake hop names both.
+
+| [INDEX] | [SURFACE]                                                      | [SHAPE]   | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------- | :-------- | :-------------------------------------------- |
+|  [01]   | `NarwhalsError`                                                | exception | rail root, `ValueError`-derived               |
+|  [02]   | `ColumnNotFoundError` / `FormattedKeyError`                    | exception | absent column; also a `KeyError`              |
+|  [03]   | `InvalidOperationError` / `InvalidIntoExprError`               | exception | unsupported op or expression input            |
+|  [04]   | `ShapeError` / `DuplicateError` / `MultiOutputExpressionError` | exception | frame-shape and column-identity faults        |
+|  [05]   | `UnsupportedDTypeError` / `ComputeError`                       | exception | backend dtype gap and backend compute failure |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame and series construction

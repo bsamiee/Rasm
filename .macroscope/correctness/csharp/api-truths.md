@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/csharp/**"
+  - "libs/csharp/**/.planning/**"
+  - "libs/csharp/**/.api/**"
   - "**/*.cs"
 ---
 

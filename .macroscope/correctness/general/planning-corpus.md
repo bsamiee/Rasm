@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
 ---
 
 # [PLANNING_CORPUS]

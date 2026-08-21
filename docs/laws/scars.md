@@ -7,7 +7,8 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [REVERT_BY_CHECKOUT]:
 - Law: Agents undo their own edits from their read transcript or a pre-touch snapshot, never `git checkout`/`git restore` against HEAD.
 - Law: Concurrent working trees carry uncommitted peer work, so a revert primitive's blast radius is the whole HEAD-to-tree delta, never one diff.
-- Trigger: Checkout-based self-reverts silently destroy every uncommitted concurrent landing on the touched paths while reading as a clean undo.
+- Law: Recursive deletes over tracked trees ARE revert primitives — rehydrating from `git show HEAD:` restores HEAD and drops every peer landing.
+- Trigger: HEAD-sourced self-reverts silently destroy every uncommitted concurrent landing on the touched paths while reading as a clean undo.
 - Boundary: Recovery accepts a reconstruction only on a pre-touch fingerprint — censuses recorded before the first write — never a blind re-read.
 
 [RETIRED_SURFACE_DRAIN]:
@@ -25,6 +26,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: Lane findings, alignment rows, and charter text inherit this law, so a report claim with no disk re-probe stays a hypothesis.
 - Boundary: Dispatch premises re-prove both ways — `blocked` and `already landed` alike — and a prose-read spelling re-reads at its owning fence.
 - Boundary: Receipt rows and census counts are dispatch premises — a receipted landing and a tally sizing a rebuild alike re-prove on disk first.
+- Boundary: Census instruments prove on a control probe — one known hit, one known miss — before a count routes work; a wrong pattern reads zero.
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
 - Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
 
@@ -58,6 +60,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Keys accepted and discarded fail worse than rejected ones; a conformance or capability table is decoration until a boot refuses on it.
 - Law: Admitting applicators return the verdict as their value; a `Unit` return lets every call site `_`-discard the rows the body dropped.
 - Law: Write vocabularies register as a projection of the recording row set, strict-name armed; an unregistered name drops its writes silently.
+- Law: Deferred initializers holding a proof prove nothing until an executable path forces them; a lazily-seated disjointness check runs never.
 - Trigger: Governance rows bind keys no deploy plane publishes, a chart reads a key name its secret never spells, a driver ignores its row's field.
 - Boundary: Proof runs the consumer's own read path — chart template, options binder, driver config — never the key's presence in documentation.
 
@@ -164,7 +167,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [RESPELL_WITHOUT_RECEIVER]:
 - Law: Respell, rename, and conversion orders bind each site's receiver at its owning declaration; foreign owners lawfully share a spelling.
 - Law: Censuses sizing a conversion discriminate site kind — parameter, local, property, generated column — before any count drives an order.
-- Trigger: Word-match sweeps order edits onto same-spelled foreign members — an SDK mirror, a factory case, a domain rank — and break what they touch.
+- Trigger: Word-match sweeps order edits onto foreign members sharing the spelling, breaking every site its owning declaration never ordered.
 - Boundary: Census verdicts date to their read — a zero-hit taken after a repair refutes nothing about the order that preceded it.
 
 [ASYMMETRIC_EVIDENCE_BAR]:
@@ -177,3 +180,10 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Refusal payloads — fault values, detail strings, evidence scans — construct on the failing arm alone; gates take deferred constructors.
 - Law: Passing paths price zero refusal work, so a scan only a refusal reads runs after the verdict and costs failures alone.
 - Trigger: Gates taking pre-built faults charge every success allocation and formatting nothing reads, up to a corpus scan per passing row.
+
+[POSITIONAL_BACK_REFERENCE]:
+- Law: Notes and cross-references resolve their subject on a greppable token the target itself declares.
+- Law: Pointers whose target already opens by naming its own subject carry no fact — delete the pointer and let the grep on the symbol answer.
+- Trigger: Bare ordinal tags — `([A])`, `([B])` — index the Nth bullet under a table, so one bullet edit silently repoints every tag above it.
+- Trigger: Tags outlive the list they indexed, leaving an ordinal that resolves to nothing while still reading as a citation.
+- Boundary: Markers enter durable prose only as a closed uppercase-bracketed token one schema owner declares.

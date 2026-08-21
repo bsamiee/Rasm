@@ -7,7 +7,7 @@
 [SOLVERS]:
 - [01]-[RECEIPT](.planning/solvers/receipt.md): `SolverReceipt` every solve route folds its method-discriminated evidence onto.
 - [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves beside the C#-paired exchange containers.
-- [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` route over root, minimise, fixed-point, and least-squares solves.
+- [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` routing root, minimise, fixed-point, and least-squares solves over `Provider`.
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
 - [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` one autodiff owner over the full derivative algebra and the FD floor.
@@ -39,9 +39,9 @@
 - [24]-[SPATIAL](.planning/analysis/spatial.md): `SpatialQuery` over Qhull tessellation, KD-tree proximity, distances, alignment, alpha shapes.
 
 [GRADUATION]:
-- [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and evidence weave.
+- [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and the `ComputeLeg` roster.
 - [26]-[CODEGEN](.planning/graduation/codegen.md): `StubCodegen` decoding the C# evidence bundle into typed stubs and schema under the drift gate.
-- [27]-[OBSERVABILITY](.planning/graduation/observability.md): `COMPUTE_POINTS` hook rail and `ResourceUsage` ledger woven through the hub weave.
+- [27]-[OBSERVABILITY](.planning/graduation/observability.md): `ComputePoint` hook roster over the stage rail and the `ResourceUsage` ledger.
 
 ## [02]-[DOMAIN_PACKAGES]
 

@@ -137,32 +137,35 @@ Vocabulary and enum leaf types carry closed value rosters:
 - `System.Text.Json` source-gen: a `JsonSerializerContext` over the consumed projection decodes reflection-free and AOT-safe; hyphenated LCIA scope keys (`ep-marine`, `gwp-fossil`, `ADP-mineral`, `ETP-fw`, `HTP-c`/`HTP-nc`) and the method-map string keys carry `[JsonPropertyName]` aliases, `impacts`/`*_set` deserialize as `Dictionary<string, …>` then project to the typed scope union, and `fields` masking trims the response to the decoded subset.
 - `Analysis/lifecycle`: sums the EN 15978 module `Measurement` values through the closed-form A1-A3/A4/A5/B/C/D fold, `product_service_life_years`/`Bn_years` feeding the B-stage replacement-count fold — a use-stage value declared over `Bn_years` scales to the request's reference study period and a product whose service life falls short of that period re-incurs its product stage at B4, absent either column leaving the stages at their declared magnitude under a stated unscaled basis. Every module and every indicator reads as an OPTION: key presence IS the coverage census, so an undeclared cell contributes none and a declared zero is a measured zero. Declaration rows carry their own issuing orgs and `compliance` standards as provenance and their `doctype`/`openepd_version` as the decoder guard; `meta.warnings[]` fold into the `Assessment` receipt as soft notes and `meta.paging` states whether the one probed candidate page WAS the whole category, because a freshest-of-one-page pick presented as freshest-of-all is a selection defect no downstream number reveals. The AppHost-owned `Microsoft.Extensions.Http.Resilience` handler spends the posture each fault publishes; the consumer counts no attempts and names no delay.
 
-[CONSUMPTION_LEDGER]: each capability either reaches a consumer or states why it does not — an unmined catalogue row is a hand-rolling defect, and a recorded negative is the argument that keeps it from being re-proposed.
+[CONSUMPTION_LEDGER]: each capability either reaches a consumer or states why it does not — an unmined catalogue row is a hand-rolling defect, and a recorded negative is the argument that keeps it from being re-proposed. Every consumed row lands at `Analysis/lifecycle`.
 
-| [INDEX] | [CAPABILITY]                                    | [CONSUMPTION]                                                                                                                     |
-| :-----: | :---------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `/v2/epds/search` candidate page                | `Analysis/lifecycle` — the descent ladder's first rung, read ONE page wide against a token-metered budget                                       |
-|  [02]   | `/epds/{uuid}` full declaration                 | `Analysis/lifecycle` — the winner's own document, the ladder's second rung                                                                      |
-|  [03]   | `/industry_epds/{uuid}` sector-weighted EPD     | `Analysis/lifecycle` — the ladder's third rung, between a product declaration and a generic dataset                                             |
-|  [04]   | `/generic_estimates/{uuid}` average dataset     | `Analysis/lifecycle` — the ladder's fourth rung                                                                                                 |
-|  [05]   | `/v2/epds/statistics` percentile line           | `Analysis/lifecycle` — the ladder's last rung, its sample size and dispersion riding the evidence grade                                         |
-|  [06]   | `meta.paging`                                   | `Analysis/lifecycle` — read as COMPLETENESS evidence, not walked: the pager is refused so a per-ply crawl never spends a category's token cost |
-|  [07]   | `meta.warnings[]`                               | `Analysis/lifecycle` — folded into the result as soft notes                                                                                    |
-|  [08]   | `meta.mf_hash`                                  | `Analysis/lifecycle` — folded into the cache slot beside the leg's own fields                                                                  |
-|  [09]   | `product_service_life_years` + `Bn_years`       | `Analysis/lifecycle` — the B-stage replacement and use-stage scale folds                                                                        |
-|  [10]   | `ImpactSet` 21-indicator roster                 | `Analysis/lifecycle` — transcribed onto the seam `ImpactCategory` rows; an indicator the seam holds no row for degrades by name                |
-|  [11]   | `OPENEPDUNIT` closed unit roster                | `Analysis/lifecycle` — the declared-unit admission and its `MeasurementBasis` column                                                            |
-|  [12]   | OMF query grammar                               | `Analysis/lifecycle` — admitted through an object factory, so a malformed filter refuses before it spends a metered call                        |
-|  [13]   | `doctype` / `openepd_version`                   | `Analysis/lifecycle` — the decoder guard, gating before any impact read                                                                        |
-|  [14]   | `manufacturer` / `program_operator` / verifier  | `Analysis/lifecycle` — the evidence source and grade, replacing a constant provenance literal                                                  |
-|  [15]   | `compliance : Standard[]`                       | `Analysis/lifecycle` — the issuer fallback where no org carries a web domain                                                                    |
-|  [16]   | `Measurement.rsd` / `dist`                      | `Analysis/lifecycle` — decoded as the declaration's own uncertainty model beside its mean                                                       |
-|  [17]   | `/v2/categories/tree`                           | NEGATIVE — mapping a Rasm `Classification` to an OMF leaf is AUTHORING-time enrichment, the same altitude the Bim classification owner's        |
-|         |                                                 | dictionary suggestion fold sits at; the runner takes a resolved OMF as request input and a tree walk inside a per-ply fold is the wrong seat    |
-|  [18]   | `EolScenario` probability-weighted pathways     | NEGATIVE — the seam impact matrix carries `(indicator x module)` and no SCENARIO axis, so a weighted C-stage pathway has nowhere to land; the   |
-|         |                                                 | row reopens the moment the seam declares a scenario axis                                                                                        |
-|  [19]   | `/pcrs/{uuid}` product category rule            | NEGATIVE — the PCR is the rule a declaration was issued UNDER, and the consumer compares declarations rather than auditing their rule set       |
-|  [20]   | publisher write verbs                           | NEGATIVE — Rasm is a carbon consumer; the typed client issues GET alone, so the write surface is unrepresentable rather than merely unused      |
+| [INDEX] | [CAPABILITY]                                   | [CONSUMPTION]                                                               |
+| :-----: | :--------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `/v2/epds/search` candidate page               | ladder rung 1 — ONE page wide against a token-metered budget                |
+|  [02]   | `/epds/{uuid}` full declaration                | ladder rung 2 — the winner's own document                                   |
+|  [03]   | `/industry_epds/{uuid}` sector-weighted EPD    | ladder rung 3 — between a product declaration and a generic dataset         |
+|  [04]   | `/generic_estimates/{uuid}` average dataset    | ladder rung 4                                                               |
+|  [05]   | `/v2/epds/statistics` percentile line          | ladder rung 5 — sample size and dispersion ride the evidence grade          |
+|  [06]   | `meta.paging`                                  | read as COMPLETENESS evidence, never walked                                 |
+|  [07]   | `meta.warnings[]`                              | folded into the result as soft notes                                        |
+|  [08]   | `meta.mf_hash`                                 | folded into the cache slot beside the leg's own fields                      |
+|  [09]   | `product_service_life_years` + `Bn_years`      | the B-stage replacement and use-stage scale folds                           |
+|  [10]   | `ImpactSet` 21-indicator roster                | transcribed onto the seam `ImpactCategory` rows                             |
+|  [11]   | `OPENEPDUNIT` closed unit roster               | the declared-unit admission and its `MeasurementBasis` column               |
+|  [12]   | OMF query grammar                              | object-factory admitted; a malformed filter refuses before any metered call |
+|  [13]   | `doctype` / `openepd_version`                  | the decoder guard, gating before any impact read                            |
+|  [14]   | `manufacturer` / `program_operator` / verifier | the evidence source and grade, replacing a constant provenance literal      |
+|  [15]   | `compliance : Standard[]`                      | the issuer fallback where no org carries a web domain                       |
+|  [16]   | `Measurement.rsd` / `dist`                     | the declaration's own uncertainty model beside its mean                     |
+|  [17]   | `/v2/categories/tree`                          | NEGATIVE — `Classification`-to-OMF resolution is authoring-time enrichment  |
+|  [18]   | `EolScenario` probability-weighted pathways    | NEGATIVE — the seam impact matrix carries no scenario axis                  |
+|  [19]   | `/pcrs/{uuid}` product category rule           | NEGATIVE — the consumer compares declarations, never audits their rule set  |
+|  [20]   | publisher write verbs                          | NEGATIVE — Rasm consumes carbon data; the typed client issues GET alone     |
+
+- [06]-[PAGER_REFUSED]: `Analysis/lifecycle` reads `meta.paging` without walking it, so a per-ply crawl never spends a category's token cost.
+- [10]-[INDICATOR_GAP]: `Analysis/lifecycle` degrades by name every indicator the seam holds no `ImpactCategory` row for.
+- [17]-[AUTHORING_SEAT]: Bim's classification owner holds the dictionary-suggestion fold at that altitude, and the runner takes a resolved OMF as request input, so a tree walk inside a per-ply fold is the wrong seat.
+- [18]-[SCENARIO_AXIS]: `ImpactCategory` rows span `(indicator x module)` alone, so a weighted C-stage pathway has nowhere to land; the row reopens the moment the seam declares a scenario axis.
 
 [LOCAL_ADMISSION]:
 - Every category + spec OMF query enters at the EN 15978 LCA boundary and returns kgCO2e-per-declared-unit measurements decoded once into typed domain scalars; `meta.warnings[]` fold into the `Assessment` receipt as soft notes, never faults.

@@ -34,7 +34,7 @@
 - Every GPU preview covers its subject's FULL algebra or refuses at admission — a substituted basis shows a field the bake will not produce.
 - WGSL bodies whose CPU twin exists TRANSCRIBE that twin's own members and constants — a second derivation is the deleted form even where both agree.
 - WGSL constants DERIVE by interpolation off the CPU owner's declared consts — a re-typed literal is the drift the goldens cannot see.
-- Codec `catch` arms inside an ordered format PROBE return `Option` absence — the ONE typed refusal lifts total decline onto the band rail.
+- Codec probes catch only documented no-format throws into `Option` absence — malformed or provider failures retain exact causes on the raster rail.
 - GPU uniforms cross as WORDS through one `KernelUniform` writer and each golden pins the kernel's OWN sum — `4f` in a `u32` word reads as a billion.
 - GPU planes are never content-keyed — the veto is STRUCTURAL, since `f32` cannot reproduce the CPU `f64` lattice the content key takes as preimage.
 - Tiling periodicity is a SOURCE property — `NoisePeriod` wraps the lattice and `tile#TILE_SYNTH` heals only what cannot; `Noise.Of` proves it whole.
@@ -53,7 +53,7 @@
 - `Bake` is a name this folder does NOT take — `Rasm.Rhino` `TextureBake` and the seam fold hold it; generation is `TexturePress`/`Press` throughout.
 - `SolarFrame` names the FRAME the sun adapter projects into, never the ephemeris — a `SolarPosition` twin forces qualified calls at every site.
 - `gpu#PRESS_DEVICE` is the SOLE `Silk.NET.WebGPU` composer here — `press#TEXTURE_PRESS` names a `PressBackend` row, so a binding swap is one page.
-- Inbound corpus contracts admit ONCE through a generated reader mirroring the required keys — tokens ride as TEXT and cross rosters at one admission.
+- Inbound corpus contracts admit ONCE through a generated reader over the required keys — tokens ride as TEXT and cross rosters at one admission.
 
 ## [03]-[COLLAPSE]
 

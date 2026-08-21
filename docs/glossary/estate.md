@@ -62,7 +62,7 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `charter`: Opens a surface on the capability it owns and the boundary it holds.
 - `scar`: Records regression-proven law whose only justification is a failure the estate paid for, beside the trigger re-arming it.
 - `pick receipt`: Names one host boundary's own hit evidence, and the host spellings stay PLURAL — their frames and providers share zero column.
-    - [NOT]: One cross-host pick receipt; Rhino and Grasshopper `PickReceipt` types stand allowlisted DISTINCT owners, never halves of a shared shape.
+    - [NOT]: One cross-host pick receipt; Rhino and Grasshopper `PickReceipt` types stand allowlisted DISTINCT owners.
 - `wire pass`: Names the Grasshopper wire-drawing plan producer over the kernel paint program.
     - [NOT]: Electrical and network wire passes, or a drawing loop — `wire pass` PRODUCES marks and the kernel executor draws them.
 - `drag facts`: Names the Grasshopper host residue of a drag gesture beside the kernel's own drag evidence.

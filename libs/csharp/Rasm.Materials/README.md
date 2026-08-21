@@ -13,9 +13,9 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [04]-[CMU](.planning/Component/cmu.md): Concrete-masonry-unit family grounded in the ASTM/TMS published rows.
 - [05]-[TIMBER](.planning/Component/timber.md): Timber family over sawn, glulam, and CLT lamellae.
 - [06]-[GLAZING](.planning/Component/glazing.md): Glazing family over insulated-glass pane, spacer, and cavity records.
-- [07]-[REINFORCEMENT](.planning/Component/reinforcement.md): Reinforcement family — rebar and tendon rosters beside the reinforced-section assembler.
+- [07]-[REINFORCEMENT](.planning/Component/reinforcement.md): Reinforcement family — rebar and tendon rosters with the reinforced-section assembler.
 - [08]-[FASTENER](.planning/Component/fastener.md): Fastener family over the threaded and plain stock arms with published design values.
-- [09]-[CONNECTOR](.planning/Component/connector.md): Framing-connector family over the evaluation-report catalogue and directional allowable algebra.
+- [09]-[CONNECTOR](.planning/Component/connector.md): Framing-connector family over evaluation-report rows and directional allowable algebra.
 - [10]-[JOINT](.planning/Component/joint.md): Joint family over the weld, adhesive, and stud connection record.
 - [11]-[PANEL](.planning/Component/panel.md): Panel family — the `PanelSpecification` payload, `FastenPattern`, and frozen standards rows.
 - [12]-[CONCRETE](.planning/Component/concrete.md): Cast-in-place concrete family over the grade and role axes with the exposure-driven cover regime.

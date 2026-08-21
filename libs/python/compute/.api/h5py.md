@@ -23,18 +23,28 @@
 |  [03]   | `Dataset`          | class         | typed n-dimensional array storage     |
 |  [04]   | `AttributeManager` | class         | per-object `attrs` metadata map       |
 
+[PUBLIC_TYPE_SCOPE]: raise surface the boundary `catch=` sets name
+
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :------------------ | :------------ | :------------------------------------------------------ |
+|  [01]   | `OSError`           | builtin       | non-HDF5, truncated, or locked file at `File(...)` open |
+|  [02]   | `FileNotFoundError` | `OSError`     | absent path at read-mode open                           |
+|  [03]   | `KeyError`          | builtin       | absent group, dataset, or attribute on subscript        |
+
+`h5py` exports NO exception symbol of its own — the HDF5 error stack surfaces entirely as builtins, so a `catch` tuple over this lane is `(KeyError, OSError)` and nothing narrower exists to name.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: exchange-container IO
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :----------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `File(name, mode)`                               | ctor     | open or create the container         |
-|  [02]   | `Group.create_group(name) -> Group`              | instance | create subgroup                      |
-|  [03]   | `Group.create_dataset(name, data, **) -> Dataset`| instance | create dataset with fixed codec      |
-|  [04]   | `Dataset[selection]`                             | operator | read selection as `ndarray`          |
-|  [05]   | `AttributeManager[name]` / `[name] = value`      | operator | read and write typed attributes      |
-|  [06]   | `string_dtype(encoding, length)`                 | factory  | vlen or fixed string dtype           |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------ |
+|  [01]   | `File(name, mode)`                                | ctor     | open or create the container    |
+|  [02]   | `Group.create_group(name) -> Group`               | instance | create subgroup                 |
+|  [03]   | `Group.create_dataset(name, data, **) -> Dataset` | instance | create dataset with fixed codec |
+|  [04]   | `Dataset[selection]`                              | operator | read selection as `ndarray`     |
+|  [05]   | `AttributeManager[name]` / `[name] = value`       | operator | read and write typed attributes |
+|  [06]   | `string_dtype(encoding, length)`                  | factory  | vlen or fixed string dtype      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

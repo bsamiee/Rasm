@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` maps the APP-PLATFORM Avalonia product surface over the settled receipt spine and the leased GPU device: one shell mounts every admitted host substrate, one control vocabulary materializes every surface, and each sub-domain fault family derives `RegistryFault<TCategory>` on its own kernel `FaultBand` row. S4 seats it as the consuming leaf — it references the platform peers downward, re-owns none of their capability, and never becomes the composition root.
+`Rasm.AppUi` maps the APP-PLATFORM Avalonia product surface over the settled receipt spine and the leased GPU device: one shell mounts every admitted host substrate, one control vocabulary materializes every surface, and each sub-domain fault family derives `Fault` on its own kernel `FaultBand` row. S4 seats it as the consuming leaf — it references the platform peers downward, re-owns none of their capability, and never becomes the composition root.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -10,7 +10,7 @@ Rasm.AppUi/
 │   ├── Navigation.cs     # NavRequest union over the ShellRoot router; ShellDockFactory folds DockableRow rows through RegionProgram
 │   ├── Screens.cs        # Frozen ScreenCatalog derivation table; ProductScreen owns activation, admission, and snapshot state
 │   ├── Hosts.cs          # SurfaceMount union beside the profile-stated host class; one SurfaceSeam record carries the mount
-│   ├── Commands.cs       # CommandIntent rows with payload union, the availability algebra seat, CommandDeck derivations
+│   ├── Commands.cs       # CommandRow rows with payload union, the availability algebra seat, CommandDeck derivations
 │   ├── Palette.cs        # Federated provider vocabulary, one merged rank fold, the binding editor over the frozen deck
 │   ├── Queue.cs          # Run-queue surface: OutputState rows, Retriability-driven retry verbs, the queue instrument rows
 │   ├── Controls.cs       # Closed ControlIntent [Union] seating arity, provider, modality, and emphasis as case columns
@@ -34,7 +34,7 @@ Rasm.AppUi/
 │   └── Animation.cs      # Track union, Keyframe value-plus-motion-token carrier, Timeline deterministic playhead
 ├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Grammar.cs        # ChartDatum over the ChartMagnitude carrier; ChartSpec admission with axes, marks, and legends
-│   ├── Ink.cs            # ChartChrome role fold, the ChartInk resolver, and the ChartCategory/ChartFault family
+│   ├── Ink.cs            # ChartChrome role fold, the ChartInk resolver, and the direct ChartFault family
 │   ├── Streams.cs        # ChartStream feed rows, the shape-checked TransformRow chain, ChartReducer order statistics
 │   ├── Tiles.cs          # DashboardTile union over one TileSource axis; the mount fold and the WatchRule alert rows
 │   ├── Boards.cs         # BoardContext value, the placement fold, snapshot migration, the cross-filter brush index
@@ -121,7 +121,7 @@ flowchart TB
         Revert[RevertibleOp]
     end
     subgraph S1["S1 SPINES"]
-        Command[CommandIntent]
+        Command[CommandRow]
         Virtual[VirtualWindowSpec]
         Solver[LayoutSolver]
         Inspect[EditReceipt]
@@ -136,10 +136,10 @@ flowchart TB
     Factory e3@-->|"[IMPORT]: BehaviorRail"| Rail
     Factory e4@-->|"[IMPORT]: TokenRow"| Token
     Board e5@-->|"[IMPORT]: EditIntent"| Intent
-    Rail e6@-->|"[IMPORT]: CommandIntent"| Command
-    Revert e7@-->|"[IMPORT]: CommandIntent"| Command
+    Rail e6@-->|"[IMPORT]: CommandRow"| Command
+    Revert e7@-->|"[IMPORT]: CommandRow"| Command
     Revert e8@-->|"[IMPORT]: EditReceipt"| Inspect
-    Intent e9@-->|"[IMPORT]: CommandIntent"| Command
+    Intent e9@-->|"[IMPORT]: CommandRow"| Command
     Command e10@-->|"[IMPORT]: FaultBand.UiCommand"| Fault
     Graph e11@-->|"[IMPORT]: FaultBand.Canvas"| Fault
     Fault e12@-.->|"[COUNTER]: EvidenceReceipt"| Factory
@@ -211,7 +211,7 @@ config:
 ---
 flowchart LR
     accTitle: AppUi platform-host and cross-runtime wire seams
-    accDescr: AppUi owners exchanging wires, receipts, ports, transport, and the fault-band adjacency with the app host and the TypeScript peers.
+    accDescr: AppUi owners exchanging wires, ports, transport, the command shape, and the fault-band adjacency with the app host and TypeScript peers.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
         Render[Render plane]
@@ -228,11 +228,12 @@ flowchart LR
     Diagnostics e3@-->|"[WIRE]: EvidenceTimelineWire"| Core
     Shell e4@-->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Ui
     AppHost e5@-->|"[PORT]: DeterminismContext"| Document
-    Diagnostics e6@<-->|"[FAULT]: FaultBand"| AppHost
+    Diagnostics e6@<-->|"[FAULT]: FaultBand + FaultObservationWire"| AppHost
     Rasm e7@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| Diagnostics
     AppHost e8@-->|"[PORT]: HookRail"| Diagnostics
     AppHost e9@-->|"[PORT]: ProfileSampleSource"| Diagnostics
     Collab e10@<-->|"[TRANSPORT]: CollabWireContext"| AppHost
+    Shell e11@-->|"[SHAPE]: CommandIntent + CommandTxn + CallerModality"| AppHost
 ```
 
 - `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` — Render supplies the point, the UV, the mip level, and the device.
@@ -245,15 +246,17 @@ flowchart LR
 - `[SHAPE]: SunPosition + CellLattice` — `BudgetMeter` hands the cell ceiling to `CellLattice.Of`, so the previewed lattice IS the solved one.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[PORT]: DeterminismContext` — AppHost composes its runtime port spine at app composition, and `CapabilityPin` anchors it.
-- `[PORT]: ReceiptSinkPort + InstrumentSpec + Slo` — telemetry PROJECTS facts through `TelemetryContributorPort` on the `TelemetrySource.AppUi` meter.
+- `[PORT]: ReceiptSinkPort + InstrumentSpec + Slo` — facts PROJECT through `TelemetryContributorPort` onto the `TelemetrySource.AppUi` meter.
 - `[PORT]: HookRail` — AppHost's half is the receipt point the evidence fan taps as one observe subscription.
 - `[PORT]: ProfileSampleSource` — capture stays AppHost-side and `FlameNode.Of` folds the arriving samples into the frame tree.
 - Samples carry the producer's symbolization posture, so AppUi renders the frames it received and resolves no address itself.
 - Feed rides an existing AppHost port row, never a new `PortCardinality` port.
+- `[SHAPE]: CommandIntent + CommandTxn + CallerModality` — identity, disposition, and caller are AppHost's, crossing at `ToIntent` and `Run`.
+- `DeckReceipt` and `DeckFault` stay the presentation plane's own — the deck seals what a raise looked like, never a record of the transaction.
 - `[TRANSPORT]: CollabWireContext` — `Collab/presence` frames each delta with its W3C carrier beside the Loro bytes on bounded lanes.
 - Merge extracts the originating correlation, and `CollabCarrier` binds the frame's getter and setter pair onto the AppHost `TraceContext` spine.
 - AppHost's reciprocal is landed data: durable deltas ride `Topic.Collab` on the outbox leg and awareness frames ride `Topic.Presence`.
-- `[FAULT]: FaultBand` — AppHost's lifecycle rows pin the reciprocal range, so no fault code collides across the platform seam.
+- `[FAULT]: FaultBand + FaultObservationWire` — AppHost pins the reciprocal range and every AppUi wire arm carries refusal as that observation.
 
 ## [04]-[INTERNAL]
 
@@ -302,7 +305,7 @@ flowchart LR
 - `BehaviorRail` intent bridge is the single C# view-binding seam and rejects binder symbols, so ReactiveUI code-behind binding has no seam to enter.
 - `AppUiTelemetry.Contribute` is the one spine every owner routes image-load, telemetry, and receipt facts through.
 - Every receipt stays a typed record sealed at `ReceiptSinkPort`.
-- `CommandIntent` table is the one verb registry — hotkey, palette, and conflict views are derivation folds over it.
+- `CommandRow` table is the one UI verb registry over AppHost's `CommandIntent` — hotkey, palette, and conflict views are derivation folds over it.
 - `ControlIntent` union through `ControlFactory` materializes every control.
 - `LayoutConstraint` algebra solved by one `LayoutSolver` panel owns every layout.
 - `VirtualWindow` over `DynamicData` change-sets owns every windowed surface.
@@ -313,7 +316,7 @@ flowchart LR
 - `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
 - Bim, the `Rasm` kernel, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
-- `Rasm.Materials` owns appearance whole — channel roster, texture-plane storage, decode ladder, set admission, prefiltered dome, resolved solar disc.
+- `Rasm.Materials` owns appearance whole — channel roster, texture-plane storage, decode ladder, set admission, and the resolved sky.
 - Render-side appearance machinery has no seam to enter; Render binds the values and holds the device.
 - Texture-plane VRAM budgets at `Render/shading` under the byte-ceiling law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM.
 - Every analysis value projects a sealed receipt — `Analysis` mounts, probes, compares, and bakes what a study produced, solving nothing itself.

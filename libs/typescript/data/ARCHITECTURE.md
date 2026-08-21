@@ -145,7 +145,7 @@ flowchart LR
     Tenant e4@-->|"[PORT]: SessionStore"| Security
     Security e5@-->|"[BOUNDARY]: TenantScope"| Tenant
     Security e6@-->|"[SHAPE]: SealedEnvelope"| Retain
-    Append e7@<-->|"[BOUNDARY]: Journal.claimBatch"| Runtime
+    Append e7@<-->|"[BOUNDARY]: Journal.claimBatch/complete"| Runtime
     Live e8@-->|"[SHAPE]: Live.changes"| Runtime
     Stream e9@-->|"[BOUNDARY]: Rail"| Runtime
     Runtime e10@-->|"[PORT]: Embedder"| Search

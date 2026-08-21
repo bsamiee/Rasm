@@ -40,6 +40,9 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Journal writers mint the `Hlc` stamp at admission over any caller slot — identity covers the stamped payload, so two producers never share one key.
 - Erasure destroys the key and `open` is TOTAL — a destroyed key folds to `Nothing`, `InvalidTag` stays a fault, sealed envelopes bind `SubjectKey`.
 - Every instrument row proves its `DOMAINS` segment at IMPORT over the whole table — filtering an unrostered row in the census defers the failure.
+- Tables keyed on a closed family prove TOTAL at the boot gate — a `try_find` absence or a defaulted status defers an unrostered member to first use.
+- Wire ABSENCE rides `Option` at the decode seam — an unstated case inside the interior vocabulary makes consumers match a state no value holds.
+- Wire-form legality is a DECLARED (form, release) row on the producer's token — narrowing the slot refuses the frame an additive release carries.
 - Optional dimensions spell absence by OMITTING the key at every arm — an empty-string value identifies a series a board groups on and nobody fills.
 - Supervision probes answer typed columns, WHICH ceiling tripped, and UNMEASURED — fences bind per COLUMN, so an all-refused reading actuates none.
 - One `CapacityLimiter` publishes ONE occupancy probe concurrent brackets REFCOUNT — `Metrics.occupied` sums live probes and retires by identity.
@@ -54,7 +57,11 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Format capability is a ROW COLUMN, never a suffix-derived media type — Avro defines no batch form and no binary mode, so both refuse by column.
 - Message-envelope slots hold CROSSINGS — `subject`/`dataref` carry `WireKey` renders, a `ContentKey` slot needing two columns the pin lacks.
 - One BROKER retry class serves every binding — Kafka rides its `retriable()` verdict, taxonomy-only families matching their narrowest transient arm.
-- Failure windows key the dependency INSTANCE, trip on TRANSIENCE alone, and settle with circuit and rate INSIDE the retried unit.
+- `Recovery` crosses every retry reader as a VALUE, lowering to `bool | float | timedelta` at stamina's `on=` alone — a bool reads `0.0` as refusal.
+- `Recovery` states WHETHER a refusal re-offers and `Reoffer` states HOW — a terminal satisfiable NARROWED lands a value, never prose.
+- Failure windows key the dependency INSTANCE and settle circuit and rate INSIDE the retried unit — only TRANSIENCE trips, a stated window re-seats.
+- Classes declaring a `CIRCUIT` or `RATES` row REFUSE a dial naming no peer — one arc over a row's destinations sheds a peer that never fell.
+- Peers name an ORIGIN through the `roots` `origin` fold — a raw href splits one arc per object, and a DSN publishes its password as the key.
 - `RateGate` WAITS and never refuses — the caller's deadline is the one ceiling, and two refusals over one queue disagree the moment either moves.
 - Every settlement joins the durable write it stands for — automatic commit acknowledges what a crash then loses, the loss invisible at both ends.
 - Prefetch sizes WITH the broker lane's limiter, never above it — an unmatched window buys latency the broker lane then pays as unbounded memory.
@@ -62,9 +69,29 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Unbound trust tables are CLOSED — a forgotten binding surfaces as a refusal an operator sees rather than an authorization hole nobody observes.
 - Grades above their issuer's ceiling REFUSE and never downgrade — silently lowering publishes the fact onto every binding the lower grade admits.
 - `OpLogEntry` tracks the producer record WHOLE — a short positional wire shifts every column past the truncation into a type-checking neighbour.
+- Frozen wire slots, ORDER, and numbers survive an interior-owner migration — the derived view re-points in ONE unit, a tear stranding every peer.
+- Every convergence column publishes its own read on its owning shape — a write-only column converges a state no replica can project back out.
 - Log-record exception semantics stay the SDK's — the emit seam takes the RAISED OBJECT, so the chain resolves `exc_info` to it before the renderer.
 - `BoundaryFault` grows by ingress class or case alone — a sibling fault type needing an adapter breaks the cross-tier `combine`/`aggregate` fold.
 - Instrumentor rows carry the driver they wrap and gate on presence before reifying — a contrib instrumentor imports its driver at module scope.
+- Conformance rows PROJECT off the deciding member and the key roster proves TOTAL at import — a dropped row digests as a branch legislating none.
+- Withheld conformance seats carry the value beside the pin — a plane with no member for a ceiling it honors reads as a dropped row without one.
+- Row shape and the `Leg` contract seat at the fault root while each folder mints its own roster — a subject derives from its leg, never a literal.
+- `catch` is REQUIRED on every fault-lift shape — a defaulted `Exception` makes the banned bare funnel the cheapest form at every call site.
+- Providers publishing no typed refusal absorb into ONE stated fold re-raising a NAMED set — widening `catch` to `Exception` re-opens that funnel.
+- Raised sibling refusal tokens cross as `BoundaryFault.domain` WHOLE — `Exception.__str__` renders EMPTY for a kwarg-only union and fuses its cases.
+- Fault egress and ingress are total TOGETHER — a peer's decoded conflict mints a typed token onto `domain`, never a concatenated subject string.
+- Retriability resolves in ONE predicate — a rostered raise answers its own `FaultRow` posture, every other fault deriving from its `FaultTag`.
+- Walk bounds ride ONE `Depth` at the fault root — walk-to-fixpoint is a NAMED case, and exhaustion rails a typed fault rather than truncating.
+- Foreign-edge absence rides ONE `Posture` at the fault root — `defaulted` NAMES its source, so no sentinel fuses a read fact with a fabricated one.
+- Per-SEAM re-drive verdicts bind their own `stamina` caller off its class `POLICY` row — `guard` stays per-CLASS, its `@cache` admits no seam hook.
+- Hook subscription answers the DETACHER and a scope releases WHOLE — a count retires nothing and an undrained table outlives its own composition.
+- Isolation emits behind its OWN fence and parks the verdict — an unfenced sink destroys what it isolates and a silent eviction reads as no loss.
+- Rostered raises seat in ONE fault census — a per-module `DETAILS` fold builds a map `retriability` and `facts` never read.
+- Receipts settle on ONE six-column spine bearing absence in key, provenance, band, and stamp — a required slot makes every producer forge one.
+- Fault span and log attribute keys roster at the fault root — a per-page literal forks the vocabulary the C# and TypeScript ends both publish.
+- Deadlines construct through ONE fold over a DECLARED unknown-budget floor — a per-site zero fuses an unmeasured bound with a real zero.
+- Typed band tokens cross a worker as DATA and re-mint parent-side — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or railed.
 
 ## [03]-[COLLAPSE]
 

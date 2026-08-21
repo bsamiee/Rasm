@@ -42,6 +42,7 @@
 |  [03]   | `EPD(**json.loads(...))`        | ctor    | the typed model; `EPD.model_validate`/`model_dump` follow   |
 
 - `convert_ilcd`: unwraps its parse `Result`, so malformed ILCD+EPD JSON surfaces as a propagated `pyo3_runtime.PanicException` — no typed `epdx.ParsingException` exists; guard at the call site.
+- `pyo3_runtime.PanicException` is UNNAMEABLE in a `catch` set: it derives from `BaseException` DIRECTLY (no `Exception` in its MRO), and the `pyo3_runtime` module resolves nowhere — before the panic, after it, or after importing `epdx` — because the interpreter materializes it only as the panic is raised. A fence therefore cannot list the class; the guard recognizes it by `type(cause).__name__` and re-raises every other `BaseException` untouched.
 - `EPD(**...)`: raises Pydantic `ValidationError` on a `dict` missing a required field (`declared_unit`, `published_date`, `standard`).
 
 ## [04]-[IMPLEMENTATION_LAW]

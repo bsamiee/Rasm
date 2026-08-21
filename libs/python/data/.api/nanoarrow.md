@@ -36,6 +36,15 @@
 
 - [06]-[DEVICE]: `nanoarrow.device` mints device arrays via `c_device_array(obj, schema=None)` and carries `Device`, `DeviceType`, `DEVICE_CPU`, `cpu`, `resolve`; device access is array-level, with no device-array-stream constructor.
 
+[PUBLIC_TYPE_SCOPE]: failure rail — no top-level exception namespace exists; the one package class lives in the Cython utility submodule.
+
+| [INDEX] | [SYMBOL]             | [MODULE]           | [TYPE_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :------------------- | :----------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `NanoarrowException` | `nanoarrow._utils` | exception     | C-core failure; `RuntimeError`-derived             |
+|  [02]   | `Error`              | `nanoarrow._utils` | error holder  | the `ArrowError` C struct carrying the C-core text |
+
+- A non-exporting object handed to `ArrayStream`/`array_stream` raises a bare `TypeError`, and a malformed schema or capsule raises `ValueError`, so a fence over a carrier hop names those two beside `NanoarrowException`. `nanoarrow.Error` is a struct holder, never a raisable class — catching it captures nothing.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema factories — module-level static functions minting a `Schema`; nullable types carry `(nullable)`, temporal types carry `(unit, timezone)`, decimals carry `(precision, scale)`.

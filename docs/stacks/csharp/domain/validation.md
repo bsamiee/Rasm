@@ -120,14 +120,14 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 ## [04]-[OUTCOME_PROJECTION]
 
 [BRIDGE_FOLD]:
-- Law: the mint targets the one canonical `Fault` `[Union]` over `Expected` that `shapes.md` owns — the root, `Aggregate`, and `Semigroup` `Combine` arrive settled, the seam re-declares nothing, and its faults are canonical cases used the way every boundary uses `Fault.Absent`: the admission band keys `Arm` for a provider-exception throw and `Foreign` for a bridge-band foreign-origin mint, each an `IValidationError<TCase>` the generator targets, and `[ValidationError<Fault>]` on a generated owner routes its `Validate` into the same family with no second error type.
+- Law: the mint targets the owning package's `[Union]` over the `Fault` base that `shapes.md` owns — root, band binding, and generated `[FaultCase]` identity arrive settled and the seam re-declares nothing: the admission band keys `Arm` for a provider-exception throw and `Foreign` for a bridge-band foreign-origin mint, each carrying the original error as its cause, while a generated owner's universal invariant crosses the kernel bridge rather than minting a package validation-error type.
 - Law: one generic bridge per system — never per boundary — and its input is `IEnumerable<ValidationFailure>`, not `ValidationResult`: validator results, foreign-adapter payloads, and hand-built arm failures enter one identical fold, so transport never forks the projection.
 - Law: `IsValid` is severity-blind — `Errors.Count == 0` — so reading it in bridge code turns advisories into rejections; the `Severity` partition is the only verdict, the `Error` band gates, and the `Warning`/`Info` bands ride the success value as evidence.
 - Law: the mint is a three-tier cascade — `CustomState` holding a fault-family case is taken as-is after a pattern test, so a foreign state value falls through rather than poisoning the rail; otherwise `ErrorCode` keys a frozen code-to-case map; otherwise the string tier preserves code, path, and message inside the reserved bridge band.
 - Law: tier economics are monotone — tier 1 costs one provider per rule and zero bridge maintenance, tier 2 one frozen row plus one sweep entry, tier 3 nothing locally — so bridge-side mapping growth is the metric flagging rules that owe their own fault mints, and a mature boundary converges tier-1-dominant.
 - Law: a foreign validation source enters by mapping to the seven-field failure shape under three fail-closed defaults — unknown severity gates as `Error`, a missing code mints in the bridge band, a missing path maps to the root path, never an invented field name.
-- Law: the gating partition folds through the fault family's own `Semigroup` `Combine`, never a flatten to bare `Error` — every minted case stays a typed, addressable member of one aggregate case, so the rail page's accumulation law lands at the projection seam with zero positional reconstruction; widening to `Error` happens once, at the carrier's failure slot, after the typed fold completes.
-- Reject: throw-and-catch into the rail, message-text dispatch, dropping the riding bands at the bridge, `CustomState` as a grab-bag of strings and tuples (tier 1 works only when state is a fault-family case), and folding the gating partition through `+` on `Error` where the typed `Combine` preserves every member.
+- Law: the gating partition accumulates through the `Error` monoid, which the family rivals with no `Semigroup` and no aggregate case of its own — each minted case stays a distinct, addressable child of the membership tree recovery posture folds, so the carrier's failure slot holds the whole partition with zero positional reconstruction.
+- Reject: throw-and-catch into the rail, message-text dispatch, dropping the riding bands at the bridge, `CustomState` as a grab-bag of strings and tuples (tier 1 works only when state is a fault-family case), and a family-local `Combine` beside the `Error` monoid, which disagrees with it on flattening and on recovery posture.
 
 [EVIDENCE_RECORD]:
 - Law: `ValidationFailure` is a seven-field evidence record with fixed projection roles — `ErrorCode` identity, `PropertyName` the machine path, `Severity` the band, `CustomState` the typed side channel, `FormattedMessagePlaceholderValues` the re-render capital, `ErrorMessage` display residue, `AttemptedValue` raw evidence under the classification obligation before any export-facing projection — and the departing wire fault is the four culture-invariant fields (code, path, severity, placeholder values), so `AttemptedValue`, `CustomState`, and rendered text never cross a process and the receiver re-renders from code plus placeholders under its own culture.
@@ -224,11 +224,8 @@ public static class Seam {
     public static Validation<Error, (Admitted<TShape> Shape, AdmissionRecord Receipt)> Admit<TShape>(Func<TShape> decode) where TShape : notnull =>
         Matrix.Find(row => row.Payload == typeof(TShape) && row.Owner.CanValidateInstancesOfType(typeof(TShape)))
             .ToValidation((Error)new Fault.Arm("<matrix>", $"<unguarded:{typeof(TShape).Name}>"))
-            .Bind(row => Try.lift(decode).Run().Match<Validation<Error, (Admitted<TShape>, AdmissionRecord)>>(
-                Succ: shape => Projected(row, shape),
-                Fail: error => Bridge.Minted([new ValidationFailure(propertyName: "", errorMessage: error.Message) {
-                    ErrorCode = "<code-arm>", Severity = Severity.Error, CustomState = new Fault.Arm(row.Name, error.Message),
-                }])));
+            .Bind(row => Op.Of().Catch(() => Fin.Succ(decode())).ToValidation()
+                .Bind(shape => Projected(row, shape)));
 
     public static Validation<Error, MarkValue> Owned(Func<ShapeEdit> decode) =>
         Admit(decode).Bind(static pair =>

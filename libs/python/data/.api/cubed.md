@@ -25,6 +25,8 @@
 |  [05]   | `cubed.Callback`     | event observer   | base for compute/operation/task callbacks                                          |
 |  [06]   | `cubed.TaskEndEvent` | event payload    | per-task completion event carrying timing and peak-memory fields                   |
 
+[exceptions] `cubed` mints NO exception class: the `allowed_mem` budget refusal, the unknown-dimension and source-arity refusals, and the plan lookups all raise `ValueError`, while a chunk pattern the primitive does not lower raises `NotImplementedError`. A consumer catch set names those two builtins plus whatever the Zarr scratch store and its residence reach.
+
 [PUBLIC_TYPE_SCOPE]: `cubed.Array` members
 
 `spec` reads the resolved `Spec` (`work_dir`/`allowed_mem`/`reserved_mem`/`executor_name`) off a materialized array rather than re-passing budget and executor.

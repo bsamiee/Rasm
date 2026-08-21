@@ -85,15 +85,15 @@ Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.
 
 The binary parses both CICP carriers a deep-pixel container declares its colour under, so a reader recovers a transfer and a chromaticity without walking a box or an ICC tag table by hand.
 
-| [INDEX] | [SURFACE]                                | [SHAPE] | [CAPABILITY]                                                       |
-| :-----: | :--------------------------------------- | :------ | :----------------------------------------------------------------- |
-|  [01]   | `QuickTime:ColorPrimaries`               | tag     | the ISOBMFF `nclx` colour primaries of an AVIF/HEIF container      |
-|  [02]   | `QuickTime:TransferCharacteristics`      | tag     | the `nclx` transfer characteristics of the same container          |
-|  [03]   | `QuickTime:MatrixCoefficients`           | tag     | the `nclx` matrix; `QuickTime:ColorProfiles` reports `nclx` itself |
-|  [04]   | `QuickTime:VideoFullRangeFlag`           | tag     | the `nclx` full-range flag                                         |
-|  [05]   | `ICC_Profile:ColorPrimaries`             | tag     | the ICC v4.4 `cicp` tag's primaries (family 1 reads `ICC-cicp`)    |
-|  [06]   | `ICC_Profile:TransferCharacteristics`    | tag     | the same tag's transfer characteristics                            |
-|  [07]   | `ICC_Profile:ProfileDescription`         | tag     | the profile name a synthesized profile carries (`Rec2100PQ`)       |
+| [INDEX] | [SURFACE]                             | [SHAPE] | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------ | :------ | :----------------------------------------------------------------- |
+|  [01]   | `QuickTime:ColorPrimaries`            | tag     | the ISOBMFF `nclx` colour primaries of an AVIF/HEIF container      |
+|  [02]   | `QuickTime:TransferCharacteristics`   | tag     | the `nclx` transfer characteristics of the same container          |
+|  [03]   | `QuickTime:MatrixCoefficients`        | tag     | the `nclx` matrix; `QuickTime:ColorProfiles` reports `nclx` itself |
+|  [04]   | `QuickTime:VideoFullRangeFlag`        | tag     | the `nclx` full-range flag                                         |
+|  [05]   | `ICC_Profile:ColorPrimaries`          | tag     | the ICC v4.4 `cicp` tag's primaries (family 1 reads `ICC-cicp`)    |
+|  [06]   | `ICC_Profile:TransferCharacteristics` | tag     | the same tag's transfer characteristics                            |
+|  [07]   | `ICC_Profile:ProfileDescription`      | tag     | the profile name a synthesized profile carries (`Rec2100PQ`)       |
 
 - Every row above is an H.273 CICP CODE under `-n` and a printed phrase without it: `9`/`16` read `BT.2020, BT.2100` and `SMPTE ST 2084, ITU BT.2100 PQ`. The code is the stable key and the phrase is display text.
 - `2` on either axis is the explicit H.273 UNSPECIFIED, which an untagged encode writes — it is a DECLARATION of nothing, distinct from the tag being absent.

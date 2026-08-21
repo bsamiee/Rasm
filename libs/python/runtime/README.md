@@ -5,12 +5,12 @@
 ## [01]-[ROUTER]
 
 [OBSERVABILITY]:
-- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, composition scope, and contributor port.
+- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, counted ring, cost evidence, scope axis, contributor port.
 - [02]-[LOGGING](.planning/observability/logging.md): Structlog pipeline chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
 - [03]-[METRICS](.planning/observability/metrics.md): Metric spine: `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
-- [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
+- [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry — modality family, `StageMark` payload, attachment custody, tap rows.
 - [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job message envelope.
-- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner; every other observability surface assumes providers.
+- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner and the branch conformance document.
 - [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
 - [08]-[JOURNAL](.planning/observability/journal.md): Durable fact stream, retention classes, exact-decimal rating, and crypto-shredded erasure.
 
@@ -21,7 +21,7 @@
 [TRANSPORT]:
 - [11]-[ROOTS](.planning/transport/roots.md): `ObjectStoreLane` one obstore dispatch surface with `RemoteEndpoint`/`HttpEndpoint` custody.
 - [12]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
-- [13]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
+- [13]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary, wire-form legality, and one boot gate over drift, correspondence, and closure.
 - [14]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
 - [15]-[EVENT](.planning/transport/event.md): CloudEvents message envelope owner — attribute grammar, extension roster, and the format contract.
 - [16]-[BINDING](.planning/transport/binding.md): Protocol binding rows, the fact emitter, and the broker lane.

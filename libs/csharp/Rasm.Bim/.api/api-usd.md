@@ -1,6 +1,6 @@
 # [RASM_BIM_API_USD]
 
-`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec load fault lifts to `BimFault.CodecReject` at the boundary.
+`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec throw remains the exact exceptional `Error` through `Op.Catch`; explicit scope/capability refusals mint `BimFault.Refused`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -195,7 +195,7 @@
 - Prim and attribute authoring goes through the typed schemas and the `SdfValueTypeName`/`VtValue`/`Vt*Array` value path; a raw attribute-name string beside the typed schema is the rejected form.
 - BIM semantics stay the GeometryGym IFC graph's; deriving `BimElement`/`IfcClass` from USD prim names is the named boundary violation.
 - `FrameNormalization`'s Y-up→Z-up row (on `format#FORMAT_AXIS`) normalizes the imported frame; a USD-local frame leaking into the kernel is the rejected form.
-- Native handles enter only through declared `IDisposable` roots and release deterministically; a stage op with no matching RID native payload and plugin tree faults at native load as `BimFault.CapabilityMiss`.
+- Native handles enter only through declared `IDisposable` roots and release deterministically; a preflight proving no matching RID native payload/plugin tree mints `BimFault.Refused` under import/capability before stage construction.
 - MPL-2.0 file-level reciprocity is satisfied by referencing the unmodified NuGet binaries, never modifying its source files.
 
 [RAIL_LAW]:

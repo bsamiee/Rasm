@@ -15,10 +15,14 @@
 - Ambient OTel globals serve foreign libraries and `Carrier` spells every branch seam — `CompositePropagator` continues a trace across a foreign hop.
 - Explicit-bucket fallback takes two seats — a `ViewOptions` re-arm reaches raw-provider instruments, so `rasm.*` fixes bounds at its Effect mint.
 - Metric governance rides `otel/emit#GOVERNANCE` — Effect's bridge takes a `MetricProducer` and no `MeterProvider`, so reader knobs govern nothing.
+- Cumulative rail tallies reach counters as DELTAS against one held sample — a counter set to a running total re-counts every prior interval.
+- Columns only one reason fills seat REQUIRED there — an `Option` shared family-wide lets a refusal construct without the evidence that IS it.
 - `otel/vital` owns Core Web Vitals graded on `web-vitals`'s own `*Thresholds` — a second capture double-counts, a local cutoff forks the standard.
 - One `web-vitals` accounting runs per vital kind per document — a second accounting forks the session total restore-minted instances chain.
 - `long-animation-frame` supersedes the bare `longtask` entry wherever both ship — the richer family carries script attribution the bare one cannot.
-- Seams whose verdicts close over domain classes declare their store channel — `Lane.settle` fails `SqlError` rather than widening it into the cause.
+- Seams closing verdicts over domain classes declare the store channel — a decoding discharge fails `SqlError` beside `ParseError`, never the cause.
+- Every dispatch row elects its own re-drive class — a table with no class column re-drives one arm's host crossing on the budget its sibling earned.
+- Batch discharges answer one fence per requested identity — a pass metering on statement silence counts a displaced claimant's mark delivered.
 - `_Host` extends with `surface`/`lanes`/`document` and `_Provider` with `supplies`; each forecloses a coordinate on the family lead, never a column.
 - `event-timing` readers share ONE floor — the INP registrar and `ui:system/vital`'s `durationThreshold` read it, a literal at either stranding both.
 - Fanout transport rows extend the consumption descriptor with `serves` and `anchors` alone — `serves` maps the PORT MEMBERS a refusal mints off.
@@ -31,9 +35,12 @@
 - Transport credentials project off ONE `Machine` port keyed by AUDIENCE — a lane-keyed read hands one service's token to another.
 - `present` spells credential residence on every egress-lane and engine row — where the credential lives, what a rotation costs; no second column.
 - Rotating credentials ride the transport's own refresh seam — dial-time authenticator, provider callback, per-call stamp — never a timer beside it.
+- Residency supersession keys the depot's own replacement epoch — `Manifest.version` is a schema pin, so a guard on it admits every stale arrival.
 
 ## [03]-[COLLAPSE]
 
+- `Hooks.Dispatch` IS the app's `Tap.Rail` seat — a runtime rail table, publish permit, or replay journal forks the veto order and breach account.
+- Transports hand `Carrier.extract`'s extraction WHOLE to `Propagation.ingress` — destructuring at the seam drops a census no second reader keeps.
 - `_Provider` rows differing only by a frozen option record collapse to ONE row taking the policy — configuration alone is one capability twice.
 - Credential-header masking is TWO disjoint rosters — `Redactable` covers a live `Headers` value, `Redaction.sealed` every bag copied out of it.
 

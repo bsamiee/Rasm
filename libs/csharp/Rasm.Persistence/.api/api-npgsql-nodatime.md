@@ -15,9 +15,9 @@
 
 [PUBLIC_TYPE_SCOPE]: temporal wire-codec admission
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                |
-| :-----: | :-------------------------- | :------------ | :------------------------------------------ |
-|  [01]   | `NpgsqlNodaTimeExtensions`  | class         | admits temporal codecs on a type mapper     |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `NpgsqlNodaTimeExtensions` | class         | admits temporal codecs on a type mapper |
 
 - Every converter and resolver ships `internal`, so the whole consumer surface is the one extension class.
 
@@ -27,10 +27,10 @@
 
 Both overloads take the receiver alone and carry no policy: each registers a `NodaTimeTypeInfoResolverFactory` and returns its receiver.
 
-| [INDEX] | [SURFACE]                                            | [SHAPE] | [CAPABILITY]                             |
-| :-----: | :--------------------------------------------------- | :------ | :--------------------------------------- |
-|  [01]   | `UseNodaTime(INpgsqlTypeMapper) -> INpgsqlTypeMapper`| static  | admits codecs on a mapper                |
-|  [02]   | `UseNodaTime<TMapper>(TMapper) -> TMapper`           | static  | admits codecs, preserves receiver type   |
+| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `UseNodaTime(INpgsqlTypeMapper) -> INpgsqlTypeMapper` | static  | admits codecs on a mapper              |
+|  [02]   | `UseNodaTime<TMapper>(TMapper) -> TMapper`            | static  | admits codecs, preserves receiver type |
 
 - `UseNodaTime<TMapper>`: `TMapper : INpgsqlTypeMapper`, so `NpgsqlDataSourceBuilder` binds this generic and chains at provisioning.
 

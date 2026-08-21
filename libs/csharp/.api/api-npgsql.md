@@ -48,7 +48,7 @@
 `PostgresException.IsTransient` answers this closed 22-SQLSTATE roster and nothing else; `NpgsqlException.IsTransient` answers the inner exception instead, because transport loss carries no SQLSTATE. Every retry decision folds one of those two bits; a re-spelled roster drifts from the driver the moment a class widens.
 
 | [INDEX] | [CLASS]                | [SQLSTATE]                                      | [CAPABILITY]                                      |
-| :-----: | :---------------------- | :----------------------------------------------- | :------------------------------------------------- |
+| :-----: | :--------------------- | :---------------------------------------------- | :------------------------------------------------ |
 |  [01]   | resources (`53xxx`)    | `53000` `53100` `53200` `53300` `53400`         | disk, memory, connection, config-limit exhaustion |
 |  [02]   | intervention (`57Pxx`) | `57P03` `57P01` `57P02` `57P05`                 | cannot-connect-now, admin/crash stop, idle cut    |
 |  [03]   | system (`58xxx`)       | `58000` `58030`                                 | server-side system fault and IO error             |
@@ -231,7 +231,7 @@ PostgreSQL advisory locks carry no typed member — server functions composed as
 - Advisory locks and LISTEN/NOTIFY carry no typed member — both compose as SQL through `NpgsqlCommand`/`NpgsqlBatch`. `pg_advisory_xact_lock` releases at COMMIT/ROLLBACK so a dropped connection never leaks a lock; a delivered `NOTIFY` on `NpgsqlConnection.Notification` is a low-latency WAKE, the durable cursor owning at-least-once delivery.
 
 [STACKING]:
-- provisioning (`Store/provisioning`): one `CreateBatch` over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots` folds the `ProvisionVerdict`, and `NpgsqlDataSource.ReloadTypesAsync` re-resolves wire types a freshly-admitted enum or composite introduced; a privilege-denied read folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`), and `NpgsqlException.IsTransient` gates retry to the transient class.
+- provisioning (`Store/provisioning`): one `CreateBatch` over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots` folds the `ProvisionVerdict`, and `NpgsqlDataSource.ReloadTypesAsync` re-resolves wire types a freshly-admitted enum or composite introduced; `Op.Catch` preserves a provider throw, the documented `PostgresErrorCodes.InsufficientPrivilege` arm maps once to caused `ServerFault.CatalogDenied`, and `NpgsqlException.IsTransient` gates retry to the transient class.
 - coordination (`Store/coordination`): fenced-lease store composes Marten `FetchForWriting`/`QueueSqlCommand` with `pg_advisory_xact_lock` and LISTEN/NOTIFY — advisory lock and guarded `UPDATE … RETURNING` share one transaction, so a stale token is a typed `LeaseFenced` rather than a lost update.
 - egress (`Version/egress`): `NpgsqlConnection.Notification` with `WaitAsync` is the WAKE the egress pump listens on — a committed outbox row emits a `pg_notify` beat so the pump drains the outbox cursor instead of polling, and a missed beat degrades to poll-latency, never a dropped delivery.
 

@@ -23,6 +23,10 @@
 |  [03]   | `DatabaseHealthCheck`  | class         | graph diagnostics; `.check(graphs_dir=None)` reports the health record |
 |  [04]   | `GTManipulator`        | class         | supply-chain graph post-processing over static folds                   |
 
+[PUBLIC_TYPE_SCOPE]: failure surface
+
+[ERROR_ABSENCE]: `bw2analyzer` publishes NO exception module and no typed error of its own (verified against the installed distribution). A mining fence therefore names the SOLVER family it walks (`bw2calc.errors.BW2CalcError`) beside the stdlib rows an absent activity, a short top-N slice, or a mis-typed method tuple raise through it — `KeyError`, `IndexError`, `TypeError`, `ValueError`.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: contribution extraction, cross-database comparison, tagged traversal, and the graph folds

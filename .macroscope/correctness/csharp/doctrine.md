@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/csharp/**"
+  - "libs/csharp/**/.planning/**"
+  - "libs/csharp/**/.api/**"
   - "**/*.cs"
 ---
 
@@ -48,6 +50,6 @@ include:
 
 ## [04]-[FORBIDDEN_SHAPES]
 
-The kernel `Deterministic` is the branch's ONE splitmix64 owner: the `0x9E3779B97F4A7C15` gamma literal or a transcribed splitmix64 mixer outside `Rasm/.planning/Domain/identity.md`, and `new Random(` outside a `Deterministic.Source(...)` crossing, are draw forks splitting replay across runtimes — the fix is the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC gear table) is a recorded split, never a fork.
+The kernel `Deterministic` is the branch's ONE splitmix64 owner: the `0x9E3779B97F4A7C15` gamma literal or a transcribed splitmix64 mixer outside `Rasm/Domain/identity`, and `new Random(` outside a `Deterministic.Source(...)` crossing, are draw forks splitting replay across runtimes — the fix is the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC `Gear` table at `Rasm.Compute/Runtime/codecs`) is a recorded split, never a fork.
 
 Shims, compat aliases, `[Obsolete]` layers, migration surfaces, alias-to-constant-to-enum-to-class chains, forwarding and helper shells, convenience wrappers, a function calling exactly one other function, and the same wrapper stack recurring across owners are findings — capability weaves into the owner as if always there, and a name resolves to its semantics in one hop. A member identifier equal to a BCL simple name (`Encoding`, `Path`, `Version`) qualifies inside its owner, and a case or nested record sharing a host type's simple name makes unqualified construction bind to the corpus type — the whole collision family qualifies host spellings globally.

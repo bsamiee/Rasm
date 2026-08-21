@@ -54,8 +54,21 @@ public sealed record EnginePosture(string Source, int Threads, string MemoryCap,
     }
 }
 
-public sealed class Session(EnginePosture posture) : IDisposable {
-    readonly DuckDBConnection anchor = Opened(posture);
+public sealed class Session : IDisposable {
+    readonly DuckDBConnection anchor;
+
+    Session(DuckDBConnection anchor) => this.anchor = anchor;
+
+    public static Fin<Session> Open(EnginePosture posture) {
+        DuckDBConnection? pending = null;
+        return Op.Of().Catch(() => {
+            pending = new DuckDBConnection(posture.Composed);
+            pending.Open();
+            var admitted = new Session(pending);
+            pending = null;
+            return Fin.Succ(admitted);
+        }).Rollback(pending);
+    }
 
     public Fin<Unit> Mount(string alias, string store) => Run($"ATTACH IF NOT EXISTS '{store}' AS {alias} (READ_ONLY)");
     public Fin<Unit> Unmount(string alias) => Run($"DETACH {alias}");
@@ -63,15 +76,12 @@ public sealed class Session(EnginePosture posture) : IDisposable {
     public Option<double> Progress() => anchor.GetQueryProgress() is { Percentage: >= 0 and var alive } ? Some(alive) : None;
     public void Dispose() => anchor.Dispose();
 
-    Fin<Unit> Run(string sql) =>
-        Try.lift(() => { using var command = anchor.CreateCommand(); command.CommandText = sql; return (command.ExecuteNonQuery(), unit).Item2; })
-            .Run().MapFail(static error => Error.New(8101, $"<catalog-refused:{error.Message}>"));
-
-    static DuckDBConnection Opened(EnginePosture posture) {
-        var live = new DuckDBConnection(posture.Composed);
-        live.Open();
-        return live;
-    }
+    Fin<Unit> Run(string sql) => Op.Of().Catch(() => {
+        using var command = anchor.CreateCommand();
+        command.CommandText = sql;
+        _ = command.ExecuteNonQuery();
+        return Fin.Succ(unit);
+    });
 }
 ```
 
@@ -99,16 +109,16 @@ public sealed class SampleMap : DuckDBAppenderMap<Sample> {
 public static class BulkLane {
     public static Fin<int> Commit(DuckDBConnection lane, Seq<Sample> batch) {
         ArgumentNullException.ThrowIfNull(lane);
-        return Try.lift(() => {
+        return Op.Of().Catch(() => {
             using var bulk = lane.CreateAppender<Sample, SampleMap>("<table-a>");
             bulk.AppendRecords(batch);
             bulk.Close();
-            return batch.Count;
-        }).Run().MapFail(static error => Error.New(8102, $"<batch-refused:{error.Message}>"));
+            return Fin.Succ(batch.Count);
+        });
     }
 
     public static Fin<Seq<Sample>> Drain(DuckDBConnection lane, string projection) =>
-        Try.lift(() => {
+        Op.Of().Catch(() => {
             using var command = lane.CreateCommand();
             (command.CommandText, command.UseStreamingMode) = (projection, true);
             using var stream = command.ExecuteReader();
@@ -117,8 +127,8 @@ public static class BulkLane {
                 drained.Add(new Sample(
                     stream.GetFieldValue<string>(0), stream.GetFieldValue<double>(1), stream.GetFieldValue<DateOnly>(2)));
             }
-            return toSeq(drained);
-        }).Run().MapFail(static error => Error.New(8103, $"<drain-faulted:{error.Message}>"));
+            return Fin.Succ(toSeq(drained));
+        });
 }
 ```
 
@@ -170,19 +180,20 @@ public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int 
 
 public static class ProjectionRail {
     public static Fin<Unit> Publish(DuckDBConnection lane, ArtifactClass artifact, string projection, string destination, string stamp) =>
-        Try.lift(() => {
+        Op.Of().Catch(() => {
             using var command = lane.CreateCommand();
             command.CommandText = artifact.Egress(projection, destination, stamp);
-            return (command.ExecuteNonQuery(), unit).Item2;
-        }).Run().MapFail(static error => Error.New(8104, $"<publish-refused:{error.Message}>"));
+            _ = command.ExecuteNonQuery();
+            return Fin.Succ(unit);
+        });
 
     public static Fin<string> StampOf(DuckDBConnection lane, string artifact) =>
-        Try.lift(() => {
+        Op.Of().Catch(() => {
             using var command = lane.CreateCommand();
             command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", artifact));
-            return Optional(command.ExecuteScalar()).Map(static held => (string)held);
-        }).Run().MapFail(static error => Error.New(8106, $"<footer-unreadable:{error.Message}>"))
+            return Fin.Succ(Optional(command.ExecuteScalar()).Map(static held => (string)held));
+        })
           .Bind(static held => held.ToFin(Error.New(8105, "<unstamped-artifact>")));
 }
 ```
@@ -347,7 +358,7 @@ public abstract partial record Delivery {
 - Law: the converter-factory row is the whole text wire profile — geometry, features, collections, and attribute tables all answer to one registration, and the factory composes beside generated strict contexts as a runtime-converter row in one options merge; a per-type converter registration scatters the five policies into independent drift, and two partner id conventions are two factory rows on two options instances, never post-read id patching.
 - Law: precision is admission-side only — the reader applies the factory's `PrecisionModel` to X and Y as coordinates parse while writers emit stored doubles raw — so bounding wire precision and stabilizing emitted-text hashes means constructing under the fixed-precision factory before serialization; XY and XYZ round-trip while XYM and XYZM degrade silently, so measure-bearing data routes through the blob projection.
 - Law: ring orientation enforcement is write-only — `EnforceRfc9746` reverses mis-oriented rings at emission while reads admit any orientation — so a kernel deriving sign from ring direction normalizes at admission, because the wire law will not have done it.
-- Law: the rejection taxonomy rides `JsonException` with one escape — an unrecognized `type` literal throws an unpositioned argument fault — so the boundary capture admits both classes or malformed literals bypass the wire-fault rail; JSON null is null geometry, the rail's one null, projected to absence immediately, and unknown members and comments skip structurally.
+- Law: malformed JSON and an unrecognized `type` literal enter through the same exact-capture boundary; an owner may classify either documented refusal into a cause-carrying typed fault, while every unmatched exception stays exceptional unchanged. JSON null is null geometry, the rail's one null, projected to absence immediately, and unknown members and comments skip structurally.
 - Law: CRS posture is fixed by the format — WGS84 longitude/latitude, no CRS member — so reprojection happens in the interior, and emitting projected coordinates is silent corruption no reader can detect.
 - Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out var typed)` re-runs the passed `JsonSerializerOptions` over the deferred property object and a false return is absence — and walking the loose `IAttributesTable` in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
 
@@ -368,15 +379,10 @@ public sealed record GeoProfile(double Precision, bool WriteBBox, string IdPrope
 
 public static class GeoSeam {
     public static Fin<Option<Geometry>> Admit(JsonSerializerOptions wire, string payload) =>
-        Try.lift(() => Optional(JsonSerializer.Deserialize<Geometry>(payload, wire))).Run()
-            .MapFail(static error => error.Exception.Case switch {
-                JsonException structural => Error.New(8301, $"<wire-fault:{structural.Path}:{structural.Message}>"),
-                ArgumentException typeLiteral => Error.New(8302, $"<unknown-type-literal:{typeLiteral.Message}>"),
-                _ => error,
-            });
+        Op.Of().Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize<Geometry>(payload, wire))));
 
-    public static string Emit(JsonSerializerOptions wire, Geometry admitted) =>
-        JsonSerializer.Serialize(admitted, wire);
+    public static Fin<string> Emit(JsonSerializerOptions wire, Geometry admitted) =>
+        Op.Of().Catch(() => Fin.Succ(JsonSerializer.Serialize(admitted, wire)));
 }
 ```
 
@@ -402,18 +408,17 @@ public static class BlobGate {
 
     public static Fin<Geometry> Admit(BlobCodec codec, byte[] blob, int declaredSrid) =>
         blob.AsSpan().StartsWith(Magic)
-            ? Try.lift(() => codec.Reader.Read(blob)).Run()
-                .MapFail(static error => Error.New(8311, $"<blob-undecodable:{error.Message}>"))
+            ? Op.Of().Catch(() => Fin.Succ(codec.Reader.Read(blob)))
                 .Bind(decoded => decoded.SRID == declaredSrid
                     ? Fin.Succ(decoded)
                     : Fin.Fail<Geometry>(Error.New(8312, $"<srid-disagreement:{declaredSrid}:{decoded.SRID}>")))
             : Fin.Fail<Geometry>(Error.New(8313, "<not-a-geopackage-blob>"));
 
     public static Fin<byte[]> Emit(BlobCodec codec, Geometry admitted) =>
-        Try.lift(() => {
+        Op.Of().Catch(() => {
             using var sink = new MemoryStream();
             codec.Writer.Write(admitted, sink);
-            return sink.ToArray();
-        }).Run().MapFail(static error => Error.New(8314, $"<blob-unwritable:{error.Message}>"));
+            return Fin.Succ(sink.ToArray());
+        });
 }
 ```

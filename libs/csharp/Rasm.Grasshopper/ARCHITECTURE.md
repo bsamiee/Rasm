@@ -17,7 +17,7 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   ├── Attributes.cs   # Chrome event/decision policy, bounded trace, and the resizable chrome host spine
 │   ├── Component.cs    # ComponentSpec consumed unchanged by construction, execution, lifecycle, and catalogue admission
 │   ├── Data.cs         # One transfer policy over IDataAccess; typed ingress rows and the Garden promotion algebra
-│   ├── Objects.cs      # Native-object factories, persisted read/assign, timer/cluster maps, GH1 boundary
+│   ├── Objects.cs      # Native-object factories, persisted read/assign, timer/cluster maps
 │   └── Ports.cs        # PortRow rows owning verified carrier, semantic family, capability axes, one PortBinding each
 ├── Document/           # Graph transaction spine, query/wire operator, undo ledger, solution controller
 │   ├── Document.cs     # Graph transaction spine over inert/inactive/active minting tiers, one gate
@@ -28,7 +28,7 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   └── Runtime.cs      # Platform-timer lease and pace producer; the timer cannot rise with its kernel-floor consumers
 ├── Platform/           # Composition root, CoreAnimation compositor, capture recorder, and the AppKit admission gate
 │   ├── Capture.cs      # Leased ScreenCaptureKit recording — kernel-drain frames, one-shot still, paint proof
-│   ├── Composition.cs  # One in-package composition seam nothing deeper composes; PackageIdentity resolve, broker registry
+│   ├── Composition.cs  # One in-package composition seam nothing deeper composes; identity, time, FaultCell, broker registry
 │   ├── Layers.cs       # CoreAnimation graph custody; every layer write rides the transaction fence, Display-P3 colour
 │   └── Native.cs       # MacGate platform admission precondition; managed-to-AppKit extraction, input monitors
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
@@ -49,7 +49,7 @@ Strata order the sub-domains; the UI-thread floor is the kernel's `UiThread` mar
 - S0 `Eto` + `Shell` — session, event, identity, telemetry, hook, and journal owners share same-stratum reach over the kernel floor.
 - S0 `Eto` residue — the platform-timer lease and pace producer alone; the kernel boundary laws assign every other Eto concern to the kernel.
 - S0 exemption — `GhTelemetry` consumes inert `GhEvidence` from every stratum under the model-only exemption.
-- S0 evidence — `FaultCell` and `SessionJournal` seat fault custody at the floor, so no emitter parks its own faults.
+- S0 evidence — `PlatformRoot.Faults` enters the Shell floor whole and `SessionJournal` reads it, so no emitter mints its own custody.
 - S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other.
 - S1 `Document` — the transaction spine: every graph mutation seals through the one gate, and no S1 sibling reads it.
 - S1 `Platform` — the composition and native-gate half; `MacGate` is the one AppKit touch, so no upper owner names an AppKit member.
@@ -203,7 +203,7 @@ flowchart LR
 
 - `Rasm.Grasshopper` owns the GH2 host-boundary surface whole and re-owns no kernel concern; project references terminate at `Rasm`.
 - Live host handles and native carriers stay inside the gated owners: `GhSession`, the kernel `UiThread`, and `MacGate` bound every live touch.
-- App roots alone walk the mount roster; `PlatformRoot` mints identity and registries at plugin load, and no page self-mounts.
+- App roots alone walk the mount roster through `PlatformRoot.Hold`, the one minter of identity, time, fault custody, and registries.
 - Peer packages consume this boundary's host-free value shapes through the seam registry; no peer references this folder and it references none.
 
 ## [06]-[NAMESPACES]

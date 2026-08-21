@@ -19,7 +19,9 @@ Every reopen predicate rides the license gate.
 - `Domain/hooks` mints the ONE hook capsule type and `HookRail` its one mechanism — an effect-rail caller lifts `Fire` at its own seam.
 - `SignalRail` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
 - `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a new coordinate is one column, never a knob.
-- `Buckets` rows carry UCUM unit and real boundary vectors as columns — `Advised<T>` saturates each into the measured type, so a bound array forks it.
+- `FaultId.Case` is the generator's `nameof` — span tag and log field alone, `[JsonIgnore]` and declared equality keeping it off key and wire column.
+- `Retriability.Key` is the ONE posture spelling — a consumer `Switch` returning the three literals forks one vocabulary per emitter.
+- `Buckets` rows carry UCUM unit and boundary vectors as columns — `Advised<T>` saturates each into the measured type, so a bound array forks it.
 - Packed-upper storage is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - `Drawing/sheet` derives every ISO/JIS extent from its series root by the halving rule — a per-size static forks one ladder into drifting copies.
 - `[ObjectFactory<string>]` rides self-describing text alone — `SheetNumber`/`LayerName` hyphenated grammars parse with the standard EXPLICIT.
@@ -55,8 +57,7 @@ Every reopen predicate rides the license gate.
 - `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
 - `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
-- Geometry-fold abandonment lowers ONE case on both arrangement routes — `RunAbandoned` 2403; `Fault.Cancelled` stays the `Eff`-floor spelling.
-- `FaultCluster` never widens its 4-wide stride — `OfCode` is that arithmetic, so a case whose cluster stride is spent homes in the base stride.
+- Geometry-fold abandonment lowers `GeometryFault.RunAbandoned` on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
 - `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer, and a sibling egress member forks it.
 - Kernel laws bind only where their compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish for exactly that reason.
@@ -66,7 +67,6 @@ Every reopen predicate rides the license gate.
 - `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares coordinates.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
-- `Validate` bridges through `Op.AcceptValidated` — `[ValidationError<Fault>]` survives only where every path mints typed; else `Fault.Text` takes it.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
 - `[BoundaryAdapter]` entries alone spell an optional key `Op? key = null` with `OrDefault()`; every other optional rides `Option<T> = default`.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
@@ -87,7 +87,6 @@ Every reopen predicate rides the license gate.
 - `HookRail` takes the folder's `<Package>Point` roster as a TYPE PARAMETER — an untyped registry loses the closed-roster compile break.
 - `Fire` is the ONE raise and `Ring<T>` the ONE bounded fault cell — a second raise path skips veto admission and bounded fault custody.
 - Hook fact unions declare their own seating — `IHookFact.Seats` derives from the fact→point map and `Fire` gates entry and veto-product on it.
-- Folder fault families ride `RegistryFault<TRow>` over their `IFaultRegistry` roster — `Code`/`Category` seal to it and `Sound` proves offsets.
 - `CanonicalWriter` reads zero tolerance as no-snap identity — `EpsilonPolicy.ZeroTolerance` stays the content quantum, `Bits` the bit framing.
 - `LevelCells.Reader<T>` is the ONE pulled projection — a sibling pull surface forks the level read from its owner's lifetime binding.
 - `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink seam.
@@ -103,6 +102,7 @@ Every reopen predicate rides the license gate.
 - QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
 - `QuadratureRule` prism and conical rows derive order from the WEAKER leg — a wedge or pyramid rung is earned only by raising that leg.
 - `QuantileSketch` markers ride the `[InlineArray(5)]` `MarkerRow` pair with hand-written all-slot equality — the ValueType path reads slot 0 alone.
+- `Ring<T>.Park` transfers custody only after versioned state lands — eviction cleanup belongs to the committed settlement.
 
 ## [03]-[COLLAPSE]
 

@@ -193,6 +193,8 @@
 
 [FLIGHT_ERRORS]: `FlightCancelledError` `FlightInternalError` `FlightServerError` `FlightTimedOutError` `FlightUnauthenticatedError` `FlightUnauthorizedError` `FlightUnavailableError` `FlightWriteSizeExceededError`
 
+[CORE_ERRORS]: `ArrowException` roots `ArrowInvalid` (`ValueError`), `ArrowTypeError` (`TypeError`), `ArrowKeyError` (`KeyError`), `ArrowIndexError`, `ArrowCapacityError`, `ArrowMemoryError`, `ArrowNotImplementedError`, and `ArrowSerializationError`. `ArrowIOError` sits OUTSIDE that root — it derives from `OSError` alone — so a fence over a read, write, IPC, or filesystem hop names `(pa.ArrowException, OSError)` and a fence over pure in-memory construction names `pa.ArrowException`.
+
 [CONSUMER]: `tabular/query#QUERY` `_flight_plan` reads `FlightInfo.endpoints` beside `.schema`, mints one `_flight_leg` per endpoint, then closes the planning client. Each leg dials its `_located` peer — the endpoint's first `Location.uri`, else the caller's DSN — on a `FlightClient` of its own and redeems `do_get(ticket, options)`; the fan concatenates in producer order and answers `schema.empty_table()` on an empty endpoint set. `Transport.client_kwargs` supplies the PEM octets the ADBC option enums carry as text, and `Transport.call_options` builds the header and timeout row.
 
 ## [04]-[IMPLEMENTATION_LAW]

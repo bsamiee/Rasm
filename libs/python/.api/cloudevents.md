@@ -18,17 +18,17 @@
 
 [CORE_EVENT_SCOPE]: `cloudevents.core` — the validating family
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :----------------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `core.base.BaseCloudEvent`           | protocol      | the read contract both versions subclass explicitly                |
-|  [02]   | `core.base.EventFactory`             | type alias    | `Callable[[dict, dict \| str \| bytes \| None], BaseCloudEvent]`   |
-|  [03]   | `core.v1.event.CloudEvent`           | class         | v1.0 message envelope validating required, optional, and extension names   |
-|  [04]   | `core.v03.event.CloudEvent`          | class         | v0.3 message envelope; `schemaurl`+`datacontentencoding` for `dataschema`  |
-|  [05]   | `core.v1.event.REQUIRED_ATTRIBUTES`  | `list[str]`   | `["id", "source", "type", "specversion"]`; `core.v03` twins it |
-|  [06]   | `core.v1.event.OPTIONAL_ATTRIBUTES`  | `list[str]`   | `["datacontenttype", "dataschema", "subject", "time"]`             |
-|  [07]   | `core.v03.event.OPTIONAL_ATTRIBUTES` | `list[str]`   | swaps `dataschema` for `schemaurl`, adds `datacontentencoding`     |
-|  [08]   | `core.spec.SpecVersion`              | type alias    | `Literal["1.0", "0.3"]`                                            |
-|  [09]   | `core.spec.SPECVERSION_V1_0` `_V0_3` | `str`         | the two version literals the validators compare against            |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                              |
+| :-----: | :----------------------------------- | :------------ | :------------------------------------------------------------------------ |
+|  [01]   | `core.base.BaseCloudEvent`           | protocol      | the read contract both versions subclass explicitly                       |
+|  [02]   | `core.base.EventFactory`             | type alias    | `Callable[[dict, dict \| str \| bytes \| None], BaseCloudEvent]`          |
+|  [03]   | `core.v1.event.CloudEvent`           | class         | v1.0 message envelope validating required, optional, and extension names  |
+|  [04]   | `core.v03.event.CloudEvent`          | class         | v0.3 message envelope; `schemaurl`+`datacontentencoding` for `dataschema` |
+|  [05]   | `core.v1.event.REQUIRED_ATTRIBUTES`  | `list[str]`   | `["id", "source", "type", "specversion"]`; `core.v03` twins it            |
+|  [06]   | `core.v1.event.OPTIONAL_ATTRIBUTES`  | `list[str]`   | `["datacontenttype", "dataschema", "subject", "time"]`                    |
+|  [07]   | `core.v03.event.OPTIONAL_ATTRIBUTES` | `list[str]`   | swaps `dataschema` for `schemaurl`, adds `datacontentencoding`            |
+|  [08]   | `core.spec.SpecVersion`              | type alias    | `Literal["1.0", "0.3"]`                                                   |
+|  [09]   | `core.spec.SPECVERSION_V1_0` `_V0_3` | `str`         | the two version literals the validators compare against                   |
 
 [CORE_FORMAT_SCOPE]: `cloudevents.core.formats` — the pluggable codec
 
@@ -112,25 +112,25 @@ Every message dataclass is `@dataclass(frozen=True)`; its container fields are p
 
 [ENTRYPOINT_SCOPE]: format codec (`cloudevents.core.formats`)
 
-| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                                                                |
-| :-----: | :----------------------------------------- | :------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Format.read(event_factory, data)`         | protocol | structured message envelope to event; `None` factory detects the version    |
-|  [02]   | `Format.write(event)`                      | protocol | structured message envelope to bytes                                        |
-|  [03]   | `Format.write_data(data, datacontenttype)` | protocol | PAYLOAD alone to bytes — the binary-mode seam                               |
-|  [04]   | `Format.read_data(body, datacontenttype)`  | protocol | PAYLOAD alone from bytes — the binary-mode seam                             |
-|  [05]   | `Format.get_content_type()`                | protocol | the structured-mode media type                                              |
+| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                                                             |
+| :-----: | :----------------------------------------- | :------- | :----------------------------------------------------------------------- |
+|  [01]   | `Format.read(event_factory, data)`         | protocol | structured message envelope to event; `None` factory detects the version |
+|  [02]   | `Format.write(event)`                      | protocol | structured message envelope to bytes                                     |
+|  [03]   | `Format.write_data(data, datacontenttype)` | protocol | PAYLOAD alone to bytes — the binary-mode seam                            |
+|  [04]   | `Format.read_data(body, datacontenttype)`  | protocol | PAYLOAD alone from bytes — the binary-mode seam                          |
+|  [05]   | `Format.get_content_type()`                | protocol | the structured-mode media type                                           |
 
 [ENTRYPOINT_SCOPE]: protocol bindings (`cloudevents.core.bindings`) — one uniform shape across all four modules
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------------------------ | :------ | :----------------------------------------------- |
-|  [01]   | `to_binary(event, event_format)`                                    | module  | attributes to prefixed headers, payload to body  |
-|  [02]   | `to_structured(event, event_format)`                                | module  | whole message envelope into the body, one media header   |
-|  [03]   | `from_binary(message, event_format, event_factory=None)`            | module  | prefixed headers back to attributes              |
-|  [04]   | `from_structured(message, event_format, event_factory=None)`        | module  | body back through `Format.read`                  |
-|  [05]   | `from_<protocol>(message, event_format, event_factory=None)`        | module  | content-mode detection then the matching leg     |
-|  [06]   | `to_binary_event` `to_structured_event`                             | module  | `event_format` defaulting a fresh `JSONFormat()` |
-|  [07]   | `from_binary_event` `from_structured_event` `from_<protocol>_event` | module  | `http`/`kafka` pass none; `amqp`/`rabbitmq` bind v1 |
+| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------------ | :------ | :----------------------------------------------------- |
+|  [01]   | `to_binary(event, event_format)`                                    | module  | attributes to prefixed headers, payload to body        |
+|  [02]   | `to_structured(event, event_format)`                                | module  | whole message envelope into the body, one media header |
+|  [03]   | `from_binary(message, event_format, event_factory=None)`            | module  | prefixed headers back to attributes                    |
+|  [04]   | `from_structured(message, event_format, event_factory=None)`        | module  | body back through `Format.read`                        |
+|  [05]   | `from_<protocol>(message, event_format, event_factory=None)`        | module  | content-mode detection then the matching leg           |
+|  [06]   | `to_binary_event` `to_structured_event`                             | module  | `event_format` defaulting a fresh `JSONFormat()`       |
+|  [07]   | `from_binary_event` `from_structured_event` `from_<protocol>_event` | module  | `http`/`kafka` pass none; `amqp`/`rabbitmq` bind v1    |
 
 Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None`; `_default_key_mapper` reads the `partitionkey` extension and coerces a non-`str`/`bytes` value through `str`. Content-mode detection splits by family: `http` and `kafka` read the prefix off the header names, `amqp` and `rabbitmq` read `content-type` for the `application/cloudevents` stem.
 

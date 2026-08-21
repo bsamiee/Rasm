@@ -38,6 +38,10 @@
 |  [09]   | `UpstreamNode`, `GroupValue`, `SankeyRequest`, `SankeyGraph`       | class            | upstream node, grouped value, Sankey graph      |
 |  [10]   | `{FlowType, ProcessType, ParameterScope, AllocationType, RefType}` | enum             | flow/process kind, param scope, allocation, ref |
 
+[PUBLIC_TYPE_SCOPE]: failure surface
+
+[ERROR_ABSENCE]: neither `olca_ipc` nor `olca_schema` declares an exception type (verified against the installed distribution). Transport is `requests`, so every socket, status, and timeout fault arrives as `requests.exceptions.RequestException` (itself an `OSError`), and the clients raise bare `RuntimeError` for a protocol fault of their own — those two rows plus the stdlib decode rows are the whole catchable set at an IPC fence.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model CRUD — `ProtoClient` instance methods, bound on `Client`/`RestClient`

@@ -61,6 +61,8 @@
 [EXC_PATH]: `NoPathFound` `NegativeCycle`
 [EXC_INPUT]: `NoEdgeBetweenNodes` `InvalidNode` `InvalidMapping`
 [EXC_PRECONDITION]: `GraphNotBipartite` `FailedToConverge` `NoSuitableNeighbors` `NullGraph`
+[EXC_CODEC]: `JSONSerializationError` `JSONDeserializationError` — the `node_link_json`/`from_node_link_json` codec pair
+[EXC_ROOT_LAW]: rustworkx publishes NO exception base — every one of the twelve derives from `Exception` DIRECTLY (verified against the installed distribution), so a fence over a kernel run NAMES the rows it reaches and no single catch covers the package.
 
 ## [03]-[ENTRYPOINTS]
 

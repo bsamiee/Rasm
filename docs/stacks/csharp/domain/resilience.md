@@ -101,25 +101,41 @@ public static class HopPipeline {
 - Law: the seam executes outcome-first — `ExecuteOutcomeAsync` with typed state keeps the hot path closure-free, strategies see outcomes and never in-flight exceptions, and the capture kernel folds everything except process-fatal faults into the outcome.
 - Law: the context lease is strict — `ResilienceContextPool.Shared.Get` at entry, `Return` on every exit, never retained — and `OperationKey` fixes at lease as the idempotency key's transport: it reaches every attempt and lands as `operation.key` on every telemetry event, so key, attempts, and evidence correlate by construction rather than by joins.
 - Law: `ContinueOnCapturedContext` rides the lease — one capture policy per execution, consumed by every strategy await — and a pre-cancelled lease short-circuits to a cancelled outcome before any strategy runs.
-- Law: the total-outcome fold happens exactly once, at the seam — every `Outcome<T>` folds to a success or one case of the closed `Rejection` `[Union]` deriving from `Expected`, so the seam's failure currency is the rail's own `Error` widening with no bridge, and a second fold at a caller re-opens the vocabulary the seam retired.
-- Law: the typed arms close the known rejection verbs while `Rejection.Foreign(Error)` is the open-tail passthrough lifting any unclassified fault as the rail `Error` and `Rejection.Empty` the no-exception-no-result sentinel — closed verbs plus one passthrough is the same totality shape the graph law mints, so the fold drops no fault and the wire-exception taxonomy never leaks into the neutral owner; a new typed verb is one case ahead of `Foreign`, not a wider catch.
-- Law: cancelled-versus-rejected is structural — a cancellation while the caller token fired is `Rejection.CallerLeft`, the caller's intent; a child deadline firing while the caller token did not converts to `TimeoutRejectedException` and folds to `Rejection.Deadline(slow.Timeout)` — so "the caller left" and "the attempt was too slow" are distinguishable by case, never by inspecting message text.
-- Law: the rejected arm is a closed taxonomy ordered child-before-parent — `IsolatedCircuitException` before its `BrokenCircuitException` base, so operator-forced darkness folds to `Rejection.ForcedDark` and never masquerades as the dependency `Rejection.Open` — and each case binds its evidence as a typed field: `Deadline.Span`, `Open.RetryAfter`, `Shed.RetryAfter`, `ForcedDark.Pipeline` read from `TelemetrySource.PipelineName`, so escalation pattern-matches the case and reads the field, never re-parses the detail string the `Expected` base carries only for the wire.
+- Law: the total-outcome fold happens exactly once, at the seam — every `Outcome<T>` folds to a success or one case of the closed `Rejection` `[Union]` deriving from `Fault`, so the seam's failure currency is the rail's own `Error` widening with no bridge, and a second fold at a caller re-opens the vocabulary the seam retired.
+- Law: the typed arms close the known rejection verbs while every exception-derived arm carries the exact captured error and `Rejection.Foreign(Error)` is the open-tail passthrough; `Rejection.Empty` alone is cause-free because the outcome supplied neither result nor exception, so the fold drops no fault and the provider taxonomy never leaks into the neutral owner.
+- Law: cancelled-versus-rejected is structural — a cancellation while the caller token fired is `Rejection.CallerLeft`, the caller's intent; a child deadline firing while the caller token did not converts to a cause-bearing `Rejection.Deadline` — so "the caller left" and "the attempt was too slow" are distinguishable by case, never by inspecting message text.
+- Law: the rejected arm is a closed taxonomy ordered child-before-parent — `IsolatedCircuitException` before its `BrokenCircuitException` base, so operator-forced darkness folds to `Rejection.ForcedDark` and never masquerades as the dependency `Rejection.Open` — and each case binds its evidence as a typed field: `Deadline.Span`, `Open.RetryAfter`, `Shed.RetryAfter`, `ForcedDark.Pipeline` read from `TelemetrySource.PipelineName`, so escalation pattern-matches the case and reads the field, never re-parses the detail string the `Fault` base renders for the wire alone.
 - Law: `ResilienceProperties` is the typed side channel between caller and strategies — `ResiliencePropertyKey<TValue>` rows, string-keyed at the wire, typed at every access point — and the idempotency window rides it as the allotment span, fixed before the pipeline runs.
 - Law: `ResiliencePipeline<T>` execution constrains `TResult : T` — one typed pipeline serves an entire result hierarchy, with subtype executions riding the same strategy state.
 - Exemption: the outcome-capture kernel and the lease `try`/`finally` are the platform-forced statement seam.
 
 ```csharp conceptual
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Rejection : Expected {
-    protected Rejection(string detail, int code) : base(detail, code, None) { }
-    public sealed record CallerLeft() : Rejection("<caller-left>", 7501);
-    public sealed record Deadline(TimeSpan Span) : Rejection($"<deadline:{Span}>", 7502);
-    public sealed record ForcedDark(string? Pipeline) : Rejection($"<forced-dark:{Pipeline}>", 7503);
-    public sealed record Open(TimeSpan? RetryAfter) : Rejection($"<open:{RetryAfter}>", 7504);
-    public sealed record Shed(TimeSpan? RetryAfter) : Rejection($"<shed:{RetryAfter}>", 7505);
-    public sealed record Foreign(Error Cause) : Rejection(Cause.Message, 7510);
-    public sealed record Empty() : Rejection("<empty>", 7500);
+public abstract partial record Rejection : Fault {
+    private Rejection(string detail) => Detail = detail;
+    private static readonly FaultBand FamilyBand = FaultBand.Hop;
+
+    public string Detail { get; }
+    public sealed override string Message => Detail;
+
+    [FaultCase(0)]
+    public sealed partial record Empty() : Rejection("<empty>");
+    [FaultCase(1)]
+    public sealed partial record CallerLeft(Error Cause) : Rejection("<caller-left>"), ICausedFault;
+    [FaultCase(2)]
+    public sealed partial record Deadline(TimeSpan Span, Error Cause) : Rejection($"<deadline:{Span}>"), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record ForcedDark(string? Pipeline, Error Cause) : Rejection($"<forced-dark:{Pipeline}>"), ICausedFault;
+    [FaultCase(4)]
+    public sealed partial record Open(TimeSpan RetryAfter, Error Cause) : Rejection($"<open:{RetryAfter}>"), ICausedFault {
+        public override Retriability Retriability => Retriability.Throttled(RetryAfter);
+    }
+    [FaultCase(5)]
+    public sealed partial record Shed(TimeSpan RetryAfter, Error Cause) : Rejection($"<shed:{RetryAfter}>"), ICausedFault {
+        public override Retriability Retriability => Retriability.Throttled(RetryAfter);
+    }
+    [FaultCase(6)]
+    public sealed partial record Foreign(Error Cause) : Rejection(Cause.Message), ICausedFault;
 }
 
 public static class HopSeam {
@@ -146,14 +162,18 @@ public static class HopSeam {
 
     static Fin<Reply> Fold(Outcome<Reply> outcome, CancellationToken caller) => outcome switch {
         { Exception: null, Result: { } reply } => Fin.Succ(reply),
-        { Exception: OperationCanceledException } when caller.IsCancellationRequested => Fin.Fail<Reply>(new Rejection.CallerLeft()),
-        { Exception: TimeoutRejectedException slow } => Fin.Fail<Reply>(new Rejection.Deadline(slow.Timeout)),
-        { Exception: IsolatedCircuitException dark } => Fin.Fail<Reply>(new Rejection.ForcedDark(dark.TelemetrySource?.PipelineName)),
-        { Exception: BrokenCircuitException open } => Fin.Fail<Reply>(new Rejection.Open(open.RetryAfter)),
-        { Exception: RateLimiterRejectedException shed } => Fin.Fail<Reply>(new Rejection.Shed(shed.RetryAfter)),
-        { Exception: { } foreign } => Fin.Fail<Reply>(new Rejection.Foreign(Error.New(foreign))),
+        { Exception: OperationCanceledException cancelled } when caller.IsCancellationRequested =>
+            Fin.Fail<Reply>(new Rejection.CallerLeft(Captured(cancelled))),
+        { Exception: TimeoutRejectedException slow } => Fin.Fail<Reply>(new Rejection.Deadline(slow.Timeout, Captured(slow))),
+        { Exception: IsolatedCircuitException dark } =>
+            Fin.Fail<Reply>(new Rejection.ForcedDark(dark.TelemetrySource?.PipelineName, Captured(dark))),
+        { Exception: BrokenCircuitException open } => Fin.Fail<Reply>(new Rejection.Open(open.RetryAfter, Captured(open))),
+        { Exception: RateLimiterRejectedException shed } => Fin.Fail<Reply>(new Rejection.Shed(shed.RetryAfter, Captured(shed))),
+        { Exception: { } foreign } => Fin.Fail<Reply>(new Rejection.Foreign(Captured(foreign))),
         _ => Fin.Fail<Reply>(new Rejection.Empty()),
     };
+
+    static Error Captured(Exception raised) => Error.New(raised.Message, raised);
 }
 ```
 

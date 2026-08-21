@@ -5,6 +5,7 @@
 ## [01]-[PACKAGES]
 
 - `NodaTime` registers here; `Rasm.AppHost` and `Microsoft.Extensions.Hosting` stay at `apps/rhino/<Plugin>/` — an app stack below inverts strata.
+- `Microsoft.Extensions.Compliance.Abstractions` rides transitive — object-authoring attach attributes pair it with kernel `Sensitivity` rows.
 
 ## [02]-[SHAPE]
 
@@ -26,8 +27,7 @@
 - Sealed-commit facts cross with NO operation identity — this plane holds no origin slot, so a dot minted here collides across two hosts.
 - `CommitSink.Sealing` rides `DocumentCommit.Sealed`'s own `project` slot — a tap beside it publishes a record the seal then discards.
 - `Observation.Commit` admits `Delivery.Inline` alone — a deferred arm returns success before any subscriber saw the fact it may refuse.
-- One fault family owns one band row, minted at one page — two pages minting one band collide on the code frontier.
-- Mutation-timing `*Slot`s conform `IFactSlot<TBody, TKind>` and build-timing slots ride `Built<TSlot>` — mixed timings stamp evidence no commit made.
+- Mutation-timing `*Slot`s conform `IFactSlot<TBody, TKind>`, build-timing slots `Built<TSlot>` — mixed timings stamp evidence no commit made.
 - REQUEST families carry `ResourceId`, `ResourceIndex`, and `DocumentPath` on every column, foreclosing the boundary sentinel at construction.
 - ONE `MonotonicTimeline` per session mints at the `Plugin/lifecycle` load root — a second timeline forks elapsed truth across gates.
 - `Plugin/lifecycle`'s `OnLoad` holds the in-package LOAD ROOT; a process seat no `ShellMount` row and no load-root fold reaches is owner-less.
@@ -37,30 +37,29 @@
 - `Document/geometry` owns the `ClipOp`/`ClipScope` algebra and every `SetClipParticipation` write — a sheet-side write forks clipping state.
 - Every verdict record carries the request row it answers; without a `Verb` column the reader infers the question from the call site.
 - `IDetachedDocumentResult` carries `ModelUnit` only for an authored MAGNITUDE; a document-space position rescales with its geometry, carrying none.
-- `DraftFault.Violated`/`Of`/`Admit` on `Document/session` folds every admission clause the package screens and combines.
 - `FaceDecoration` is the ONE decoration vocabulary in `Rasm.Rhino.Annotation` — its rows carry every host member answering a decoration.
-- Drafting schemas instantiate `FieldTable` over adapters the host owner PROVES — `SectionField` binds `SectionStyle`; an unreached row is decoration.
+- Drafting schemas instantiate `FieldTable` on adapters the host owner PROVES — `SectionField` binds `SectionStyle`; an unreached row is decoration.
 - `SectionStyle`'s boundary linetype writes BOTH host channels, table index and embedded copy — one alone leaves the other's stale value drawing it.
 - Mutation-restored host defaults read the schema's `Read` column into a VALUE snapshot under a lease — a retained native leaks a resource per write.
 - Names colliding with a kernel owner take the `Host` prefix (`HostCurves`); a colliding operation roster renames on its domain word (`FreeformOp`).
 - `ObjectStance` at `Objects/attributes` is the ONE object-mode row keying the host mode word — the `IsNormal` family reads derived, never re-minted.
 - `ObjectSignal` carries ENABLEMENT alone — every other two-row host axis takes its own `[SmartEnum<bool>]` carrying the host value it contributes.
 - `PrintPen` is the ONE host plot weight, ingress and egress at `Document/layers` — an off-ladder width snaps to its ISO 128-24 rung.
-- Host begin/end windows are `Lease<T>` custody owned by the value opening the table — the kernel `Use` fold folds close refusal INTO the body fault.
+- Host begin/end windows belong to their opener; compose `Custody.Settled`/`Release` so close faults aggregate with body failures.
 - Reads own their receipt — the member selecting a host route mints the witness recording it, never a posture flag beside a chosen overload.
 - Capability sets name their `CapabilityLaw` corner table or state that the host documents no implication — `ScentForm` bars the empty corner.
-- Persistence reads and mutations stay TWO request families, `PresetQuery` against `PresetOperation` — a merge pays an `InvalidInput` arm per refusal.
+- Persistence reads and mutations stay TWO families, `PresetQuery` against `PresetOperation` — a merge pays an `InvalidInput` arm per refusal.
 - `CPlaneGrid.Read`/`CPlanePalette.Read` are the ONE host `ConstructionPlane` projection — no page re-folds the visibility bits or grid inks.
-- `Rig` projects capability onto the fault rail, never a `[Mapper]` seat — `Admits`, runtime threading, and `Fin<T>` sit outside Mapperly's signature.
+- `Rig` projects capability onto fault rails, not `[Mapper]`; `Admits`, runtime threading, and `Fin<T>` stay outside Mapperly.
 - Evidence regimes stay plural by timing and row-independence — `Document/facts.md` states the discriminant once and every owner's card points there.
 - `FactStream` binds mutation folders inside a `DocumentCommit` envelope — a rail sealing no commit and stamping no undo serial carries its receipt.
-- `FieldOverride<T>` at `Document/geometry` owns GATED fields alone — an ungated field carries absence as `Option<T>`, `Clear` writing `Set(default)`.
+- `FieldOverride<T>` at `Document/geometry` owns GATED fields alone — an ungated field spells absence `Option<T>`, `Clear` writing `Set(default)`.
 - Factory families collapse to one member per host RETURN CURRENCY — `bool` against `WriteFileResult` is an axis, and a shorter mint a shell.
 - `Slot` names a fact-stream axis (`IFactSlot<TBody, TKind>`) alone — a provider-id, event-bind, or child-slot vocabulary takes its own word.
-- `IArchiveCodec` at `Persistence/userdata` roots the archive codec as an INTERFACE — `TypedUserData<TSelf>` already derives the host `UserData` base.
-- Host `{Owner}State` crosses AS the host type — `GetCurrentState` mints a detached instance per call, and a branch mirror REFUSES under a `ref` verb.
+- `IArchiveCodec` at `Persistence/userdata` roots the archive codec as an INTERFACE — `TypedUserData<TSelf>` derives the host `UserData` base.
+- Host `{Owner}State` crosses AS the host type — `GetCurrentState` mints a detached instance per call, a branch mirror REFUSING under a `ref` verb.
 - `SettingStore` names the store here — `Settings` spells none, and `SettingsBridge` and `ArchiveReach` carry bridge and reach concepts instead.
-- Host-enum rosters stay `[SmartEnum<int>]` on default `ValidationError` so `Op.Row` type-checks; `[ValidationError<RenderFault>]` binds value types.
+- Host-enum rosters stay `[SmartEnum<int>]` on default `ValidationError` so `Op.Row` type-checks; `[ValidationError]` binds value types.
 - Capability axes a host seats declare ONE static `HostAxis` each — the column IS legality; `RefusalsFor` proves and `Seat` writes the same field.
 - `FormatDial.Admit` refuses seat and axis demands at the entry gate; `Mint` stays TOTAL, a rail on a body that cannot fail being ceremony.
 - Vocabulary rank is the kernel's derived declaration-order member — a hand-kept `rank:` column restating it is the deleted second authority.
@@ -85,7 +84,7 @@
 - `CPlaneGrid`/`CPlanePalette`/`CPlaneTrait` seat ONCE at `Persistence/presets`, the lowest stratum both reach, and `Viewport/camera` composes them.
 - `Rasm.Rhino.Modeling` holds DETACHED geometry alone — `ParentRhinoObject()` is unreachable here, and the attached counterpart seats at `Document/`.
 - `ContentValue`, `FieldValue`, and `FormulaValue` split the payload word across Render, Interaction, and Annotation — no `global::` qualification.
-
+- `<Surface>Faults` is the boundary's ledger DECLARATION, never a fault family — each named surface bounds exactly one `Ring<Error>`.
 - Package rows cite a member's DECLARING page — `Lease<T>` is kernel `Domain/rails` and `Placement.Build` kernel `Numerics/atoms`.
 - `Placement` is twice-carried — the kernel builds transforms, `Blocks/model` unions block instances, and every citation qualifies which.
 

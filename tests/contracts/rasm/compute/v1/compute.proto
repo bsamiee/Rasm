@@ -7,7 +7,9 @@
 // descriptor pool, and connect-es resolves the same names off the app-root-emitted descriptor set.
 // Message names transcribe csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY verbatim: a wire message spells
 // <Verb>Request inbound and <Verb>Response/<Verb>Reply/<Verb>Receipt outbound, while the domain shape it transcribes
-// keeps its own name. Numbers only append past the last; removals reserve name and number.
+// keeps its own name. Numbers only append past the last, and a shipped removal reserves name and number; a
+// spec-stage fault-envelope deletion instead compacts and renumbers at every producer and consumer, because
+// no reserve, alias, or legacy column is owed a shape nothing has yet carried.
 syntax = "proto3";
 
 package rasm.compute.v1;
@@ -23,19 +25,30 @@ option csharp_namespace = "Rasm.Compute";
 
 // --- [FAULT] ----------------------------------------------------------------------------
 
+// The producer's own re-drive verdict, stated on the fault rather than inferred from it: `terminal` answers
+// identically forever, `transient` recovers on a later attempt, and `retry_after` carries the window the server
+// itself states. A consumer re-deriving the arm from `code` substitutes its own band table for that verdict.
+message FaultRecovery {
+  oneof kind {
+    google.protobuf.Empty terminal = 1;
+    google.protobuf.Empty transient = 2;
+    google.protobuf.Duration retry_after = 3;
+  }
+}
+
 // The one typed fault payload every grpc-status-details-bin trailer and every in-band conflict slot carries.
-// `tenant` is the rasm.tenant dimension rendered through TenantId.Wire; the untagged whole crosses as the empty
-// string, never a sentinel, so a peer reads absence and a tagged fault attributes without a correlation join.
+// `code` is the sole transported identity — owner, family, band, offset, and union case stay local derivations no
+// peer rehydrates — and `recovery` crosses typed because a number alone cannot state the producer's re-drive
+// verdict. `tenant` is the rasm.tenant dimension rendered through TenantId.Wire; the untagged whole crosses as the
+// empty string, never a sentinel, so a peer reads absence and a tagged fault attributes without a correlation join.
 message FaultDetail {
-  string package = 1;
-  int32 code = 2;
-  string case = 3;
-  string message = 4;
-  map<string, string> evidence = 5;
-  string correlation = 6;
-  google.protobuf.Timestamp hlc_physical = 7;
-  uint64 hlc_logical = 8;
-  string tenant = 9;
+  int32 code = 1;
+  string message = 2;
+  string correlation = 3;
+  google.protobuf.Timestamp hlc_physical = 4;
+  uint64 hlc_logical = 5;
+  string tenant = 6;
+  FaultRecovery recovery = 7;
 }
 
 // --- [GEOMETRY] -------------------------------------------------------------------------

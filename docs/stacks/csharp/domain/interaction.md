@@ -2,7 +2,7 @@
 
 Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, receipts, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — landing inside an existing owner with zero new pipeline code.
 
-This is the terminal stack surface, so it composes the finalized corpus as settled material and re-teaches none of it: every fault it mints is the closed `Fault` `[Union]` over `Expected` and its `Switch`/`Validation` accumulation is the settled rail algebra; `Atom` and `AtomHashMap` are the settled boundary state cells; live collection state arrives as `SourceCache` change-sets and cadence-coalescing delivery edges, and this surface owns only the last `SortAndBind` hop onto a bound UI collection; the resolved paint, type, density, motion, and locale payloads arrive as the token algebra's `Resolved` record and this surface owns only their application to `RequestedThemeVariant`, `DensityStyle`, and the locale dictionary at the three binding levels; shutdown folds into the banded drain over `HostOptions.ShutdownTimeout` and this surface owns only the `ShutdownRequested` veto edge and the workspace-capture band. ReactiveUI owns routing, commands, activation, and the `Interaction<TInput,TOutput>` view-model question; Avalonia owns the surface, headless, embedding, and theme host; Dock owns the layout model graph; the page weaves them into one row vocabulary.
+This is the terminal stack surface, so it composes the finalized corpus as settled material and re-teaches none of it: every fault it mints is a closed `[Union]` over the `Fault` base under generated identity, its `Switch` dispatch and `Validation<Error,T>` accumulation settled; `Atom` and `AtomHashMap` are the settled boundary state cells; live collection state arrives as `SourceCache` change-sets and cadence-coalescing delivery edges, and this surface owns only the last `SortAndBind` hop onto a bound UI collection; the resolved paint, type, density, motion, and locale payloads arrive as the token algebra's `Resolved` record and this surface owns only their application to `RequestedThemeVariant`, `DensityStyle`, and the locale dictionary at the three binding levels; shutdown folds into the banded drain over `HostOptions.ShutdownTimeout` and this surface owns only the `ShutdownRequested` veto edge and the workspace-capture band. ReactiveUI owns routing, commands, activation, and the `Interaction<TInput,TOutput>` view-model question; Avalonia owns the surface, headless, embedding, and theme host; Dock owns the layout model graph; the page weaves them into one row vocabulary.
 
 ## [01]-[INTERACTION_CHOOSER]
 
@@ -169,11 +169,11 @@ public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyD
         Submit = ReactiveCommand.CreateFromObservable(() => Confirm.Handle(Raw), canExecute: Valid);
         this.WhenActivated(anchors => {
             live.Select(static value => value.ToString(CultureInfo.InvariantCulture)).Subscribe(value => Raw = value).DisposeWith(anchors);
-            ThrownExceptions.Subscribe(thrown => ignore(Faults.Swap(held => held.Add(new Fault.NativeRejected(Detail: thrown.Message))))).DisposeWith(anchors);
+            ThrownExceptions.Subscribe(thrown => ignore(Faults.Swap(held => held.Add(Error.New(thrown.Message, thrown))))).DisposeWith(anchors);
         });
     }
 
-    public Atom<Seq<Fault>> Faults { get; } = Atom(Seq<Fault>());
+    public Atom<Seq<Error>> Faults { get; } = Atom(Seq<Error>());
     public ViewModelActivator Activator { get; } = new();
     public Interaction<string, bool> Confirm { get; } = new();
     public ReactiveCommand<Unit, bool> Submit { get; }

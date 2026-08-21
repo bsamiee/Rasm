@@ -25,18 +25,18 @@ Each host row is `host` axis capability the owning branch supplies; a new host l
 
 ## [02]-[TOPOLOGY]
 
-| [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                        |
-| :-----: | :------------------- | :----------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                     |
-|  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.       |
-|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.      |
-|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.    |
-|  [05]   | `tools/assay`        | Typed operator           | Typed evidence rails across every claim; the CLI `--help` owns the roster.    |
-|  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
-|  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                      |
-|  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.          |
-|  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
-|  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
+| [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                      |
+| :-----: | :------------------- | :----------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                   |
+|  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.     |
+|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.    |
+|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.  |
+|  [05]   | `tools/assay`        | Typed operator           | Typed evidence rails across every claim; the CLI `--help` owns the roster.  |
+|  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.   |
+|  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                    |
+|  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.        |
+|  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                          |
+|  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material. |
 
 ## [03]-[LIBRARY_OWNERS]
 

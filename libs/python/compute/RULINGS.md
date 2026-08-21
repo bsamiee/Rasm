@@ -18,6 +18,9 @@
 - Graduation evidence decodes one `ComputeWireContext` JSON wire and renders `bundle_key` 32-hex — a second `WireFormat` arm mints behind a producer.
 - Audit verbs derive `<EVIDENCE_DOMAIN>.<operation>`, never a page literal — a hand-spelled verb forks the vocabulary the audit census joins on.
 - `MeterFact` rides the `REGULATORY` retention class — metering is billing evidence, and the operational window grooms it before a dispute closes.
+- Settled spines own key, warning band, and stamp; producer cases carry payload alone — an output missing the three is no receipt.
+- Wire-decoded content keys carry NO byte extent — the measurement stays producer-local, and a zero fills a slot no producer ever took.
+- `Provider` seats at `solvers/receipt#RECEIPT` — a floor receipt indistinguishable from a gated one on every slot is what the column forecloses.
 
 ## [03]-[COLLAPSE]
 
@@ -26,8 +29,11 @@
 ## [04]-[STRUCTURE]
 
 - `GraduationEnvelope` layout is single-writer law at C# `GraduationEnvelope.Admit` — `experiments/model#ENVELOPE` hand-copies it, never imports.
-- jax-family imports bind function-local on `Engine.gated()`/`worker()` carrier slots, minted after `jax_enable_x64` arms — early binds yield float32.
+- jax-family imports bind function-local on `Engine.gated()`/`worker()` slots, minted after `jax_enable_x64` arms — early binds yield float32.
 - Single-door jax pages bind module-scope `lazy`, arming on the door's first line — `_capture_jax` is the case, a second door demanding the carrier.
+- Gated import fences bracket the ENGINE MINT alone — a whole-fold `try` re-routes an interior `ImportError` onto a floor receipt reading converged.
+- `ComputeLeg` and its `RAISES` table seat at the graduation hub — a producer-side roster inverts the strata every page imports down.
+- Long folds close their OWN stage `StrEnum`, erased at the conduit — a cross-fold phase ladder names milestones a sibling never reaches.
 
 ## [05]-[PROCESS]
 

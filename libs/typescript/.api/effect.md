@@ -104,10 +104,14 @@
 |  [14]   | `attachPropertySignature(key, value)`                    | project       | restores a family tag a draft projection omitted          |
 |  [15]   | `decodeOption(schema)` / `decodeSync` / `decode`         | decode        | takes the ENCODED value, never an `Option` wrapper        |
 |  [16]   | `OptionFromNonEmptyTrimmedString`                        | absence       | empty-string absence vs undefined absence — two encodings |
+|  [17]   | `Record({ key, value })`                                 | declare shape | open-keyed map; the key schema filters, never gates       |
+|  [18]   | `optionalToRequired` / `requiredToOptional`              | presence      | `Option`-mediated presence flip at one property           |
 
 - `Schema.decodeOption(schema)` returns `(encoded, options?) => Option<A>` and answers `none` on ANY parse failure, so handing it a value already wrapped in `Option` type-checks against `unknown`-tolerant call sites and returns `none` for every input alike — a decode inside an optional pipeline composes as `Option.flatMap(held, Schema.decodeOption(schema))`, never by passing the wrapper through.
 - Absence has two encodings and the producer picks which: `OptionFromNonEmptyTrimmedString` is `Schema<Option<string>, string>` reading `""` and whitespace as `none`, the landing for a proto3 singular string a peer leaves unset; `OptionFromUndefinedOr` and `optionalWith(s, { as: "Option" })` read `undefined`, the landing for explicit presence. Applying the undefined form to an empty-string producer refuses every legal document that omitted the column.
 - Leaf constructors `Schema.String` / `Number` / `Boolean` / `Array(s)` are the primitive vocabulary every `Struct` composes; bare `Schema.optional(s)` keeps a foreign report's own optional field shape — a tool's JSON verdict, a provider payload — where lifting to `Option` would re-shape a schema the producer owns; domain absence stays `optionalWith`.
+- `Schema.Record({ key, value })` takes ONE options object and never a positional pair, and the two halves carry OPPOSITE failure postures: a value the value schema refuses fails the decode, while a key the key schema refuses is DROPPED from the result and the decode succeeds — a `NonEmptyString`-keyed record loses its `""` entry silently, and only `{ onExcessProperty: "error" }` turns that key into an `is unexpected` issue — seated as a `parseOptions` annotation on the record node (which every enclosing `Struct`, `Class`, `TaggedStruct`, `filter`, `transform`, `optional`, and `mutable` preserves, and `Schema.partialWith` DROPS) or passed at the decode call. A `Schema.Literal` key compiles the record to a REQUIRED-field struct rather than an index signature, so every literal must be present and a document carrying a subset of the vocabulary is refused for a missing key; an open keyed domain therefore takes `Schema.String`/`NonEmptyString`/a brand and closes the vocabulary at the value or a later fold. `Type` is a readonly index signature — `Schema.mutable(record)` is the escape where a consumer writes into the decoded map.
+- `Schema.optionalToRequired(from, to, { decode, encode })` is the presence flip: `decode` receives `Option<FA>` where `none` MEANS the key was absent from the input and answers a total interior value, `encode` answers `Option` where `none` OMITS the key from the output, and the minted `PropertySignature<":", TA, never, "?:", FI, false, …>` is required on the `Type` side and optional on `Encoded`. It is the landing where interior totality and wire optionality disagree and `optionalWith`'s default/`Option` postures both lose — a defaulted field whose absence must be reconstructed from siblings, or an omit-on-sentinel egress. `requiredToOptional` inverts it and `optionalToOptional` mediates both sides.
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
 - rail: surfaces-and-dispatch
@@ -127,18 +131,20 @@
 [ENTRYPOINT_SCOPE]: dispatch — `Match` builder and `Data` closed families
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                 | [SHAPE]         | [CAPABILITY]                                            |
-| :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------ |
-|  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.exhaustive` | dispatch        | `tag`/`when` arms; missing arm is a compile error       |
-|  [02]   | `Match.tagsExhaustive` / `Match.discriminatorsExhaustive` | record dispatch | dispatch by `_tag` or a named discriminant, total       |
-|  [03]   | `Match.valueTags(fields)` / `Match.typeTags<I, Ret>()`    | record dispatch | total `_tag` dispatch in one call, no builder chain     |
-|  [04]   | `Match.whenOr` / `Match.whenAnd` / `Match.not`            | predicate arm   | structural/predicate dispatch on non-keyed shapes       |
-|  [05]   | `Match.orElse` / `Match.withReturnType`                   | predicate arm   | fallback arm; `withReturnType` pins the arm result type |
-|  [06]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`  | closed family   | `core/state`/`core/interchange` unions; `$match`/`$is`  |
-|  [07]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass`     | value + fault   | typed errors + structural-equality records              |
-|  [08]   | `Data.struct` / `Data.array`                              | value           | `Equal`/`Hash` for free on plain structures             |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]         | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
+|  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.exhaustive` | dispatch        | `tag`/`when` arms; missing arm is a compile error        |
+|  [02]   | `Match.tagsExhaustive` / `Match.discriminatorsExhaustive` | record dispatch | dispatch by `_tag` or a named discriminant, total        |
+|  [03]   | `Match.valueTags(fields)` / `Match.typeTags<I, Ret>()`    | record dispatch | total `_tag` dispatch in one call, no builder chain      |
+|  [04]   | `Match.whenOr` / `Match.whenAnd` / `Match.not`            | predicate arm   | structural/predicate dispatch on non-keyed shapes        |
+|  [05]   | `Match.orElse` / `Match.withReturnType`                   | predicate arm   | fallback arm; `withReturnType` pins the arm result type  |
+|  [06]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`  | closed family   | `core/state`/`core/interchange` unions; `$match`/`$is`   |
+|  [07]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass`     | value + fault   | typed errors + structural-equality records               |
+|  [08]   | `Data.struct` / `Data.array`                              | value           | `Equal`/`Hash` for free on plain structures              |
+|  [09]   | `Data.TaggedEnum.WithGenerics<1..4>` + `TaggedEnum.Kind`  | generic family  | one case algebra over `this["A"]..["D"]`; `$match`/`$is` |
 
 - `Match.valueTags` is `Function.dual` over `(input, fields)` and refuses a `fields` key absent from the input union, so an arm roster is exhaustive by construction. `Match.typeTags<I, Ret>()(fields)` curries the type first and yields a reusable `(input: I) => Ret` dispatcher; `Ret` omitted, the return type unifies across the arms.
+- `Data.taggedEnum<Z>()` overloads on arity: handed a plain union it answers `TaggedEnum.Constructor<A>`, handed an `interface Z extends Data.TaggedEnum.WithGenerics<N>` whose `taggedEnum` member instantiates the union at `this["A"]`..`this["D"]` it answers generic constructors plus `TaggedEnum.GenericMatchers<Z>` — so ONE declaration carries the case algebra for every type argument and `TaggedEnum.Kind<Z, A>` names the instantiation. `WithGenerics` exports no `Constructor` alias, so the value binds by inference alone and a restated annotation is the defect.
 
 [ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming; surfaces are `Stream.*` unless qualified
 - rail: rails-and-effects
@@ -180,12 +186,16 @@
 |  [10]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
 |  [11]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
 |  [12]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
+|  [13]   | `PubSub.dropping({...})` / `PubSub.sliding({...})`      | channel       | saturation arm per hub — drop-new vs evict-oldest         |
+|  [14]   | `FiberSet.run` / `FiberSet.clear` / `FiberSet.size`     | bound / track | daemon fork into the set, interrupt-all, live count       |
 
 - [07]-[LOCALLY]: `Effect` declares the whole `locally` family; `FiberRef` carries only the cell and its `get`/`set` pair.
 - `PubSub.publish` / `Queue.offer` / `Mailbox.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
 - `Mailbox.end` / `Mailbox.toStream`: `end` is the LOSSLESS stop — the consumer keeps receiving what was already offered and the stream completes after the buffer empties — where `Queue.shutdown` cancels pending operations and discards the buffer, so a plane that must flush at shutdown takes a mailbox and a plane that must stop now takes `shutdown`. Both `end` and `shutdown` answer `false` once the mailbox is done, and `offer` answers `false` from that point rather than suspending.
 - `Mailbox` carries the `@experimental` flag and stays the buffer `@effect/cluster` builds on, so the tag marks API churn, never maturity.
 - `SubscriptionRef.changes`: interface property carrying a `Stream`, never a module function — `Reloadable.auto` consumes that feed.
+- `PubSub.bounded` / `.dropping` / `.sliding` are ONE constructor family over `number | { capacity, replay }` differing only in the saturation arm: `bounded` back-pressures the publisher, `dropping` refuses the NEW message and answers `false`, `sliding` evicts the OLDEST and answers `true` forever, so a saturation census reads `publish`'s boolean under `dropping` alone and a `sliding` hub loses history with no signal at all. `replay: n` retains the last `n` messages for a subscriber that attaches later, and `PubSub.capacity` answers the declared capacity alone, never capacity plus replay window. A hub with NO subscriber attached never fills — every `publish` answers `true` and the message reaches nobody — so a drop count taken before the first `subscribe` grades total loss as total delivery.
+- `FiberSet.run(self, effect)` forks through `Effect.forkDaemon`, so the child's lifetime is the SET's scope and never the calling fiber's; the set removes each fiber on completion, and a member failing with a TYPED error completes `FiberSet.join` with that failure while `FiberSet.clear` interrupts every member under an internal `FiberId` the observer filters out — clear empties the set and leaves `join` pending, which is what separates a drain from a fault. `FiberSet.size` answers `0` for a CLOSED set exactly as it does for an empty open one, and `run` against a closed set answers an already-interrupted fiber rather than failing, so a census must not read liveness off either.
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
 - rail: system-apis
@@ -251,10 +261,12 @@
 |  [16]   | `BigDecimal.make(bigint, scale)` / `fromBigInt` | exact money  | every currency value; `bigint` preimage, no float  |
 |  [17]   | `BigDecimal.multiply` / `sum` / `round({...})`  | exact money  | `round` takes `{ mode, scale }`; one terminal call |
 |  [18]   | `Ref.make` / `Ref.modify(self, f)`              | cell         | atomic read-modify-write; stamp and sequence cells |
+|  [19]   | `Array.match(self, {...})`                      | stdlib fold  | emptiness fold handing the arm a non-empty array   |
 
 - `RegExp.escape` neutralizes `/ \ ^ $ * + ? . ( ) | [ ] { }` and leaves `-` intact, so a literal spliced inside a `[...]` character class still mints a range — that construction concatenates outside the class.
 - `Cache.ConsumerCache` carries the read-side census `Cache` inherits — `cacheStats: Effect<CacheStats>` returning `{ hits, misses, size }` as CUMULATIVE totals, beside `size`, `keys`, `values`, `contains`, `entryStats`, `invalidate`, `invalidateWhen`, and `invalidateAll` — so a projection reads one periodic snapshot and instruments no lookup, advancing its sums by the DELTA between samples — `Metric.set` is declared for `Gauge` alone, so only `size` sets — and `Cache.makeCacheStats({ hits, misses, size })` mints the zero snapshot such a fold seeds from; a tally minted beside the cache re-implements a counter the substrate already keeps.
 - `Equal.equals`: compares structurally only over `Data`-constructed or `Equal`-implementing values — `HashMap` and `Redacted` both implement `Equal`.
+- `Array.match(self, { onEmpty, onNonEmpty })` is emptiness dispatch as a value, standing beside `Option.match` the way an array's emptiness stands beside an option's absence: `onEmpty` is a `LazyArg` and `onNonEmpty` receives a `NonEmptyReadonlyArray<A>`, so head and last are total inside the arm and the return types of the two arms unify independently. It is `Function.dual`, so a `pipe` chain passes the options object alone; `matchLeft`/`matchRight` are the twins handing the arm a destructured head-and-tail or init-and-last instead. A `.length === 0` ladder beside it re-derives the discriminant and forfeits the non-empty evidence.
 - `Array.partition(self, predicate)` returns `[excluded, satisfying]` — the SATISFYING half is second, so a destructure reading it first inverts every downstream arm while type-checking clean. Its mapped twin `Array.partitionMap(self, f: (a) => Either<R, L>)` returns `[lefts, rights]` and is the accumulate-everything form an abort-at-first `Either.all` collapses into; `Array.flatten`, `Record.fromEntries`, `Sink.last<A>()`, and `Schedule.spaced(duration)` are verified small members composed branch-wide without their own rows.
 - `BigDecimal` is the only exact-decimal carrier in the branch, and its exactness starts at the ACCUMULATOR: a JS `number` sum rounds past 2^53 and `BigInt` widens that rounded double without complaint, so a money preimage folds as `bigint` and lifts through `BigDecimal.make(total, 0)` once. `round` takes `{ mode, scale }` and belongs at the terminal alone — a per-row round accumulates drift a settlement cannot reconcile against its own aggregate.
 - `Data.tuple` is what makes a composite `HashMap` key work at all — a plain array key hashes by reference, so a rollup fold over `[a, b, c]` literals mints one bucket per row and reads as a working group-by that never groups.

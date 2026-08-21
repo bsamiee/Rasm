@@ -5,9 +5,9 @@
 ## [01]-[ROUTER]
 
 [TABULAR]:
-- [01]-[INTEROP](.planning/tabular/interop.md): Backend-agnostic frame translation over `narwhals`; pyarrow-free Arrow C Data Interface carrier.
+- [01]-[INTEROP](.planning/tabular/interop.md): Frame translation over any backend, the Arrow C Data carrier, the `DataLeg`/`DataHook` rosters.
 - [02]-[COLUMNAR](.planning/tabular/columnar.md): Dataset-ref owner and the one request-scoped `DuckDbSession` scan rail behind columnar egress.
-- [03]-[LAKEHOUSE](.planning/tabular/lakehouse.md): Transactional lakehouse crossing one `LakeOp` axis over the Delta/Iceberg/Lance/DuckLake formats.
+- [03]-[LAKEHOUSE](.planning/tabular/lakehouse.md): Transactional lakehouse over one `LakeOp` axis; capability demand, fence, `Generation` roster.
 - [04]-[QUERY](.planning/tabular/query.md): Relational engine folding every `QuerySpec` frontend to uniform Arrow with column-provenance lineage.
 - [05]-[MATERIALIZE](.planning/tabular/materialize.md): Incremental CDC materialization composing lakehouse, query, and columnar downward.
 - [06]-[CONTRACT](.planning/tabular/contract.md): Data-contract gate folding dataframely covenants and pandera rules onto one `ContractClaim`.

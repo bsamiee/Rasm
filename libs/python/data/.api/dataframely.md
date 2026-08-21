@@ -13,19 +13,23 @@
 
 [PUBLIC_TYPE_SCOPE]: schema, collection, column, and failure roots
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CAPABILITY]                                                 |
-| :-----: | :------------------------ | :---------------- | :----------------------------------------------------------- |
-|  [01]   | `Schema`                  | schema            | declarative single-frame column contract with rules          |
-|  [02]   | `Collection`              | collection        | multi-member contract with shared-key integrity and filters  |
-|  [03]   | `CollectionMember`        | member annotation | per-member behavior over `ignored_in_filters` and siblings   |
-|  [04]   | `Column`                  | column base       | abstract base for the typed column family                    |
-|  [05]   | `rule`                    | rule decorator    | cross-column / grouped validation predicate marker           |
-|  [06]   | `filter`                  | filter decorator  | collection-level cross-member filter marker                  |
-|  [07]   | `FailureInfo`             | failure receipt   | invalid rows, per-rule `counts`, `cooccurrence_counts`       |
-|  [08]   | `Config`                  | config context    | `max_sampling_iterations` / `max_failure_examples` overrides |
-|  [09]   | `DataFrame` / `LazyFrame` | frame alias       | `[S]`-tagged eager and lazy frames                           |
-|  [10]   | `Validation`              | literal alias     | `"allow"`/`"forbid"`/`"warn"`/`"skip"` read-time policy      |
-|  [11]   | `DeserializationError`    | error             | serialized schema/collection restore failure                 |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CAPABILITY]                                                             |
+| :-----: | :------------------------ | :---------------- | :----------------------------------------------------------------------- |
+|  [01]   | `Schema`                  | schema            | declarative single-frame column contract with rules                      |
+|  [02]   | `Collection`              | collection        | multi-member contract with shared-key integrity and filters              |
+|  [03]   | `CollectionMember`        | member annotation | per-member behavior over `ignored_in_filters` and siblings               |
+|  [04]   | `Column`                  | column base       | abstract base for the typed column family                                |
+|  [05]   | `rule`                    | rule decorator    | cross-column / grouped validation predicate marker                       |
+|  [06]   | `filter`                  | filter decorator  | collection-level cross-member filter marker                              |
+|  [07]   | `FailureInfo`             | failure receipt   | invalid rows, per-rule `counts`, `cooccurrence_counts`                   |
+|  [08]   | `Config`                  | config context    | `max_sampling_iterations` / `max_failure_examples` overrides             |
+|  [09]   | `DataFrame` / `LazyFrame` | frame alias       | `[S]`-tagged eager and lazy frames                                       |
+|  [10]   | `Validation`              | literal alias     | `"allow"`/`"forbid"`/`"warn"`/`"skip"` read-time policy                  |
+|  [11]   | `exc.ValidationError`     | error             | schema or collection validation failure                                  |
+|  [12]   | `exc.SchemaError`         | error             | schema definition or member-annotation defect                            |
+|  [13]   | `exc.ImplementationError` | error             | rule/filter implementation defect; roots `AnnotationImplementationError` |
+
+- The failure family lives in `dataframely.exc` and is NOT re-exported at the package root; every member derives from `Exception` directly, so no single class roots the four and a fence names the pair it reaches. `deserialize_collection` answers `None` on a restore miss rather than raising, so the round-trip verb reads the value, never a fence.
 
 [PUBLIC_TYPE_SCOPE]: typed column catalogue
 

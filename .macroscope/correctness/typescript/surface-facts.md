@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/typescript/**"
+  - "libs/typescript/**/.planning/**"
+  - "libs/typescript/**/.api/**"
   - "**/*.ts"
   - "**/*.tsx"
   - "**/tsconfig*.json"

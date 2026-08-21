@@ -102,9 +102,9 @@
 
 [CORE]:
 - [73]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan over the runtime session lane.
-- [74]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and drain.
+- [74]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and the lane drive.
 - [75]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
-- [76]-[HOOKS](.planning/core/hooks.md): `ArtifactHook` production-fact point table and payload projections over the runtime hook registry.
+- [76]-[HOOKS](.planning/core/hooks.md): `ArtifactsLeg` raise-leg roster and the `ArtifactHook` production-fact point table.
 - [77]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark entries and their deterministic-input recipes over the runtime bench tier.
 
 [PACKAGE]:

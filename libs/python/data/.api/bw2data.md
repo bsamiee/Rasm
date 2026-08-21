@@ -31,6 +31,11 @@
 |  [11]   | `config`/`preferences`/`labels`                     | settings      | `pydantic-settings` config; exchange-kind + field labels     |
 |  [12]   | `calculation_setups`/`dynamic_calculation_setups`   | registry      | named `{'inv', 'ia'}` batch specs `MultiLCA` consumes        |
 
+[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw2data.errors`)
+
+[ERROR_ROOT]: `BW2Exception` roots the store family — `ValidityError` (invalid node or edge), `PickleError`, `WebUIError` all derive from it — so one row covers the whole family at a fence.
+[ERROR_STDLIB]: the store raises `KeyError` for a project or database name the registry never held and `OSError` for the on-disk SQLite path, neither under the `BW2Exception` root.
+
 ## [03]-[ENTRYPOINTS]
 
 [PROJECT_LIFECYCLE]: `bd.projects` (`ProjectManager`)

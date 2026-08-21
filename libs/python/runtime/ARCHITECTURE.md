@@ -7,21 +7,21 @@
 ```text codemap
 runtime/
 ├── observability/      # Local evidence production: receipts, signals, and the one OTLP install gate
-│   ├── receipts.py     # DrainReceipt/DRAIN_COLUMNS seating, the ScopeKey axis, and the contribute fold port
+│   ├── receipts.py     # Six-column Receipt spine over its Payload family, DRAIN_COLUMNS, ScopeKey, Ring, and the contribute port
 │   ├── logging.py      # LogPipeline chain and the LogShip policy; render line and wire projection split by door
 │   ├── metrics.py      # Instrument census, metric-stream view rows and tenant budget, the record mapping, and the instrumentor train
-│   ├── hooks.py        # HookPoint rows and the Modality vocabulary; Hooks registry keyed per composition scope
+│   ├── hooks.py        # HookPoint rows, the Modality family, the shared StageMark long-fold payload; custody keyed and released per scope
 │   ├── profiles.py     # SignalProfile selection, BenchmarkReceipt and JobRun.bounded rows over the install gate
-│   ├── telemetry.py    # One install gate; providers, detectors, and the instrumentor train activate here alone
+│   ├── telemetry.py    # One install gate over providers and detectors, and the ConformanceDocument this branch mints
 │   ├── bundle.py       # BUNDLE_DESCRIPTOR/BUNDLE_WIRE shapes and the pull-only capsule; collectors run fenced
-│   └── journal.py      # Fact family with Retain classes, per-subject KEK shredding, and the Ledger/Custody ports
+│   └── journal.py      # Fact family with Retain classes, the JournalGate hook roster, KEK shredding, and the Ledger/Custody ports
 ├── reliability/        # One fault family and resilience policy every sibling returns through
-│   ├── faults.py       # BoundaryFault union, RuntimeRail, the SCOPES registry, and the boundary/scoped decorators
+│   ├── faults.py       # BoundaryFault union, RuntimeRail, the folder-wide RAISES census, SCOPES, and the boundary/scoped decorators
 │   └── resilience.py   # RetryClass rows, RateGate, and the guard/guarded/guarded_sync decorators at the free BASE
 ├── transport/          # Resource roots, the companion server, the wire codec, and the message-envelope owner with its bindings and filters
 │   ├── roots.py        # ResourceRef mint the transport and worker legs resolve bytes through
 │   ├── serve.py        # ServerHost, the WireService/WireMethod roster alignment, and the Supervisor drain order
-│   ├── shapes.py       # PROTO_VOCABULARY rows; the drift gate grades schema at boot
+│   ├── shapes.py       # PROTO_VOCABULARY and SPLAT_FORMS rows; one boot gate grades drift, correspondence, and closure
 │   ├── wire.py         # WireProtoCodec, the MIRROR_* vocabulary checks, and the WireU64/Hlc two-half encode
 │   ├── event.py        # MessageEnvelope mint, Uniqueness composite, Content modes, and the NUMERIC_EXTENSIONS carve
 │   ├── binding.py      # BINDINGS row table, the CLASSIFICATION_ROWS gate, and BrokerLane's one connection owner
@@ -172,12 +172,13 @@ flowchart LR
     Evidence e3@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Evidence e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Compute e5@-->|"[WIRE]: XxHash128"| Evidence
-    Transport e6@<-->|"[WIRE]: ProtoVocabulary"| Compute
+    Transport e6@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| Compute
     Transport e7@<-->|"[WIRE]: OpLogEntry"| Persistence
     Persistence e8@<-->|"[CONTRACT]: BackendContract"| Admission
     Transport e9@<-->|"[WIRE]: DiscoveryResult"| AppHost
     Observability e10@<-->|"[TRANSPORT]: TraceContext"| AppHost
     AppHost e11@<-->|"[WIRE]: HlcStampWire"| Evidence
+    Observability e12@<-->|"[CONTRACT]: ConformanceDocument"| AppHost
 ```
 
 ```mermaid
@@ -237,7 +238,7 @@ flowchart LR
     Observability e28@-->|"[PORT]: Hooks"| Geometry
 ```
 
-Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the C# peers. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `OpLogEntry`, and `ContentAddress` wires.
+Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the C# peers. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `FaultDetail`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `FaultDetail`, `OpLogEntry`, and `ContentAddress` wires.
 
 ## [04]-[INTERNAL]
 

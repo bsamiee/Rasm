@@ -111,12 +111,12 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 
 `LZ4Stream` is a STATIC class, so both directions are factories over a caller-owned stream rather than constructible types.
 
-| [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------------------------- | :------ | :------------------------------------ |
-|  [01]   | `LZ4Stream.Encode(Stream, LZ4EncoderSettings?, bool leaveOpen = false)`          | static  | frame a sink under explicit settings  |
-|  [02]   | `LZ4Stream.Encode(Stream, LZ4Level, int extraMemory = 0, bool leaveOpen = false)` | static  | frame a sink at a level               |
-|  [03]   | `LZ4Stream.Decode(Stream, LZ4DecoderSettings?, bool leaveOpen, bool interactive)` | static  | read a frame under explicit settings  |
-|  [04]   | `LZ4Stream.Decode(Stream, int extraMemory, bool leaveOpen, bool interactive)`     | static  | read a frame at a memory budget       |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE] | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------------------- | :------ | :----------------------------------- |
+|  [01]   | `LZ4Stream.Encode(Stream, LZ4EncoderSettings?, bool leaveOpen = false)`           | static  | frame a sink under explicit settings |
+|  [02]   | `LZ4Stream.Encode(Stream, LZ4Level, int extraMemory = 0, bool leaveOpen = false)` | static  | frame a sink at a level              |
+|  [03]   | `LZ4Stream.Decode(Stream, LZ4DecoderSettings?, bool leaveOpen, bool interactive)` | static  | read a frame under explicit settings |
+|  [04]   | `LZ4Stream.Decode(Stream, int extraMemory, bool leaveOpen, bool interactive)`     | static  | read a frame at a memory budget      |
 
 - `LZ4EncoderSettings`: `long? ContentLength`, `bool ChainBlocks = true`, `int BlockSize = 65536`, `bool ContentChecksum`, `bool BlockChecksum`, `LZ4Level CompressionLevel`, `int ExtraMemory`. TRAP: `uint? Dictionary` is get-only and hardcoded null, so a dictionary set here governs nothing and a dictionary-bearing profile rides the raw block codec instead.
 - TRAP: `leaveOpen` defaults FALSE on every `LZ4Stream` factory, the INVERSE of `api-zstd`'s adapters, which default it true. Codec families carrying both rows spell the flag on each arm rather than reading either default.

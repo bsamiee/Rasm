@@ -4,7 +4,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 
 ## [01]-[SHAPE]
 
-- `rail`: Carries outcomes along one typed route — success beside failure, receipts, faults — so producers share one spine and no domain logic throws.
+- `rail`: Carries every outcome — success, failure, receipt, fault — along one typed route, so domain logic never throws to signal one.
 - `receipt`: Records how a computation resolved — route, status, sampling, solver, host evidence — as typed fields consumers read, never re-derive.
     - [NOT]: Purchase and delivery receipts; only computation evidence carries this word.
 - `fold`: Routes a structure or case family through one owning body — a reduction or a dispatch — so branching never spreads across call sites.

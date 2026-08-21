@@ -1,6 +1,6 @@
 # [RASM_BIM_ARCHITECTURE]
 
-`Rasm.Bim` is the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, and every sub-domain rejects onto the one `BimFault` band. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire, and Compute owns simulation.
+`Rasm.Bim` is the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, terminal BIM refusals land on the compact `BimFault` band, and captured foreign errors retain their cause. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire, and Compute owns simulation.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -15,7 +15,7 @@ Rasm.Bim/                  # Host-neutral openBIM owner; sole GeometryGym/IFC su
 │   ├── Systems.cs         # MEP connectivity VIEW over the seam graph; the projector already lowered every distribution entity
 │   ├── Structural.cs      # StructuralProjection lowers analysis entities onto neutral attribute bags a Compute frame reads
 │   ├── Eurocode.cs        # AnnexRegime national bridge, the EurocodePolicy composition value, and the psi mint per action
-│   ├── Faults.cs          # ModelRejected, UnmappedClass, DanglingReference, and CodecReject arms code by BimCategory offset
+│   ├── Faults.cs          # Direct Refused and BoundaryFailed fault leaves with generated numeric identity
 │   └── Observability.cs   # BimPoint roster onto the kernel IHookRoster floor; BimTelemetry projects facts as a rail subscriber
 ├── Semantics/             # Element-bound semantic enrichment
 │   ├── Properties.cs      # Offline Xbim.Properties template floor: schema-versioned, scope-selected, network-free; bSDD types the classifier
@@ -288,14 +288,14 @@ flowchart LR
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]                      | [OWNER_SURFACE]           | [SHAPE_OF_THE_EDIT]                                    |
-| :-----: | :---------------------------- | :------------------------ | :----------------------------------------------------- |
-|  [01]   | new interchange format        | `Exchange/format.md`      | one `InterchangeFormat` row with its capability set    |
-|  [02]   | new IFC relationship lowering | `Projection/relations.md` | one `IfcRelKind` row naming its inverse attributes     |
-|  [03]   | new diagnostic detail token   | `Model/faults.md`         | one `Detail` roster row carrying its leg and fault arm |
-|  [04]   | new energy translation        | `Energy/derive.md`        | one `(source, target)` row on the frozen matrix        |
-|  [05]   | new IFC entity class          | `Model/emitter.md`        | one regenerated `IfcClass` region commit               |
-|  [06]   | new geospatial vector source  | `Semantics/vector.md`     | one `GeoVectorSource` row carrying its codec pair      |
+| [INDEX] | [CHANGE]                      | [OWNER_SURFACE]           | [SHAPE_OF_THE_EDIT]                                 |
+| :-----: | :---------------------------- | :------------------------ | :-------------------------------------------------- |
+|  [01]   | new interchange format        | `Exchange/format.md`      | one `InterchangeFormat` row with its capability set |
+|  [02]   | new IFC relationship lowering | `Projection/relations.md` | one `IfcRelKind` row naming its inverse attributes  |
+|  [03]   | new refusal axis              | `Model/faults.md`         | one closed scope, reason, or boundary row           |
+|  [04]   | new energy translation        | `Energy/derive.md`        | one `(source, target)` row on the frozen matrix     |
+|  [05]   | new IFC entity class          | `Model/emitter.md`        | one regenerated `IfcClass` region commit            |
+|  [06]   | new geospatial vector source  | `Semantics/vector.md`     | one `GeoVectorSource` row carrying its codec pair   |
 
 ## [06]-[BOUNDARIES]
 

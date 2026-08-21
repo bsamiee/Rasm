@@ -42,7 +42,7 @@
 
 [OBSERVABILITY]:
 - [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal composition with per-signal governance and conformance projection.
-- [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder, alerts off the grading table.
+- [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder with its grading table.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture — trigger vocabulary, frozen window, one zip.
 - [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
 - [33]-[HOOKS](.planning/Observability/hooks.md): Spine seams a rider governs or watches, each advertising the guard its mechanism runs.
@@ -126,7 +126,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Grpc.AspNetCore.HealthChecks`
 - `Grpc.HealthCheck` — Transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
 - `Grpc.AspNetCore.Web` — Cross-origin grpc-web middleware row at the app root.
-- `Microsoft.AspNetCore.App` — Shared framework the gRPC host's transitive framework reference supplies; serves `CoHostedAssets` via `UseStaticFiles`.
+- `Microsoft.AspNetCore.App` — Shared framework arriving transitively with the gRPC host; serves `CoHostedAssets` through `UseStaticFiles`.
 
 [CAPABILITY_AGENT]:
 - `ModelContextProtocol`

@@ -83,7 +83,7 @@ public sealed partial class ResourceHandle : SafeHandleZeroOrMinusOneIsInvalid {
     protected override bool ReleaseHandle() => NativeRelease(handle);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+    [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Lease {
     private Lease() { }
     public sealed record Borrowed(ResourceHandle Handle) : Lease;
@@ -121,8 +121,13 @@ public abstract partial record Lease {
     static Fin<TResult> Within<TResult>(ResourceHandle handle, Func<nint, Fin<TResult>> body) {
         var added = false;
         try { handle.DangerousAddRef(ref added); return body(handle.DangerousGetHandle()); }
-        catch (SEHException seh) { return new Fault.Host(Code: seh.ErrorCode); }
-        catch (Exception ex) { return new Fault.Marshal(Detail: ex.Message); }
+        catch (SEHException seh) {
+            Exception raised = seh;
+            return new Fault.Host(Code: seh.ErrorCode, Cause: Error.New(raised.Message, raised));
+        }
+        catch (Exception raised) {
+            return new Fault.Marshal(Cause: Error.New(raised.Message, raised));
+        }
         finally { if (added) handle.DangerousRelease(); }
     }
 
@@ -247,7 +252,7 @@ public static class SessionCell {
 
     static Fin<Session> Commit(Guid token, Session session) =>
         Cell.Swap(current => current is Gate.Pending ? new Gate.Live(token, session) : current).Switch(
-            pending: static (s, _) => Fin.Fail<Session>(Fault.Create($"<gate-regressed:{s.Token}>")),
+            pending: static (s, _) => Fin.Fail<Session>(new GateFault.Regressed(s.Token)),
             live:    static (s, l) => l.Token == s.Token
                 ? Fin.Succ(s.Session)
                 : (fun(s.Session.Dispose)(), Fin.Succ(l.Session)).Item2,
@@ -280,7 +285,7 @@ public static class DrainBoundary {
         atomic(() =>
             Lifecycle.Value == Phase.Open && clock.GetUtcNow() <= Deadline.Value
                 ? Fin.Succ(InFlight.Swap(static n => n + 1))
-                : Fin.Fail<int>(Fault.Create($"<fenced:{InFlight.Value}>")),
+                : Fin.Fail<int>(new GateFault.Fenced(InFlight.Value, Deadline.Value)),
             Isolation.Serialisable);
 
     public static Phase BeginDrain(DateTimeOffset by) =>
@@ -382,8 +387,8 @@ public readonly record struct SignedBytes(ReadOnlyMemory<byte> Octets, string Ha
 
 public static class SignedBoundary {
     public static Fin<SignedBytes> Admit(ReadOnlyMemory<byte> octets, CanonicalForm form) =>
-        Try.lift(() => Probed(octets, form)).Run()
-            .MapFail(static error => Fault.Create($"<malformed-payload:{error.Message}>"));
+        Capture(() => Probed(octets, form))
+            .MapFail(static captured => new CodecFault.Malformed(form, captured));
 
     public static void Forward(Utf8JsonWriter writer, SignedBytes bytes) =>
         writer.WriteRawValue(bytes.Octets.Span, skipInputValidation: false);

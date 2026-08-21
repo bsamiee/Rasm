@@ -36,13 +36,13 @@
 
 [PUBLIC_TYPE_SCOPE]: traversal and unit surface (`Speckle.Sdk.Models.Extensions`, `.GraphTraversal`, `.Common`)
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :--------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `BaseExtensions`       | static class  | dedup traversal, display-value, and parameter accessors |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :--------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `BaseExtensions`       | static class  | dedup traversal, display-value, and parameter accessors   |
 |  [02]   | `BaseRecursionBreaker` | delegate      | `bool(Base)` descent predicate nested in `BaseExtensions` |
-|  [03]   | `TraversalContext`     | class         | walk node reconstructing spatial containment            |
-|  [04]   | `Units`                | static class  | unit-string constants and the metre-scaling factor      |
-|  [05]   | `IDisplayValue<T>`     | interface     | covariant `displayValue` contract over the payload type |
+|  [03]   | `TraversalContext`     | class         | walk node reconstructing spatial containment              |
+|  [04]   | `Units`                | static class  | unit-string constants and the metre-scaling factor        |
+|  [05]   | `IDisplayValue<T>`     | interface     | covariant `displayValue` contract over the payload type   |
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` operations, client, transports
 

@@ -44,27 +44,27 @@
 
 [MODEL_TYPES]: results, descriptors, and the policy configurations the bucket ops read and write.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]                                    |
-| :-----: | :----------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `ObjectStat`                   | head result    | size, ETag, metadata, lock state descriptor     |
-|  [02]   | `PutObjectResponse`            | write result   | put outcome carrying `Etag`/`ObjectName`/`Size` |
-|  [03]   | `Item`                         | list element   | one listing row, versioned or current           |
-|  [04]   | `Bucket`                       | list element   | `Name`/`CreationDate`                           |
-|  [05]   | `Upload`                       | list element   | dangling multipart `Key`/`UploadId`/`Initiated` |
-|  [06]   | `CopyConditions`               | conditions     | server-side copy precondition seal              |
-|  [07]   | `DeletedObject`                | bulk result    | per-object success of a batched delete          |
-|  [08]   | `Minio.Exceptions.DeleteError` | bulk result    | `: ErrorResponse`, declaring no members itself  |
-|  [09]   | `ProgressReport`               | progress       | `Percentage`/`TotalBytesTransferred` callback   |
-|  [10]   | `IServerSideEncryption`        | interface      | SSE stance stamped onto a request               |
-|  [11]   | `ObjectRetentionConfiguration` | WORM           | retention mode with retain-until date           |
-|  [12]   | `ObjectRetentionMode`          | enum           | `GOVERNANCE` / `COMPLIANCE` retention modes     |
-|  [13]   | `Tagging`                      | tags           | tag set with bucket/object static factories     |
-|  [14]   | `SelectResponseStream`         | select result  | the server-side `SELECT` output stream          |
-|  [15]   | `PostPolicy`                   | presign policy | browser-direct upload form conditions           |
-|  [16]   | `MinioNotificationRaw`         | notification   | raw event payload on the change feed            |
-|  [17]   | `ResponseResult`               | transport      | raw response the handler seams inspect          |
-|  [18]   | `Minio.DataModel.ILM.Transition` | ILM rule part | `: Duration`; free-string `StorageClass`       |
-|  [19]   | `Minio.DataModel.ILM.Duration` | ILM base       | `ExpiryDate` string with `double? Days`         |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]  | [CAPABILITY]                                    |
+| :-----: | :------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `ObjectStat`                     | head result    | size, ETag, metadata, lock state descriptor     |
+|  [02]   | `PutObjectResponse`              | write result   | put outcome carrying `Etag`/`ObjectName`/`Size` |
+|  [03]   | `Item`                           | list element   | one listing row, versioned or current           |
+|  [04]   | `Bucket`                         | list element   | `Name`/`CreationDate`                           |
+|  [05]   | `Upload`                         | list element   | dangling multipart `Key`/`UploadId`/`Initiated` |
+|  [06]   | `CopyConditions`                 | conditions     | server-side copy precondition seal              |
+|  [07]   | `DeletedObject`                  | bulk result    | per-object success of a batched delete          |
+|  [08]   | `Minio.Exceptions.DeleteError`   | bulk result    | `: ErrorResponse`, declaring no members itself  |
+|  [09]   | `ProgressReport`                 | progress       | `Percentage`/`TotalBytesTransferred` callback   |
+|  [10]   | `IServerSideEncryption`          | interface      | SSE stance stamped onto a request               |
+|  [11]   | `ObjectRetentionConfiguration`   | WORM           | retention mode with retain-until date           |
+|  [12]   | `ObjectRetentionMode`            | enum           | `GOVERNANCE` / `COMPLIANCE` retention modes     |
+|  [13]   | `Tagging`                        | tags           | tag set with bucket/object static factories     |
+|  [14]   | `SelectResponseStream`           | select result  | the server-side `SELECT` output stream          |
+|  [15]   | `PostPolicy`                     | presign policy | browser-direct upload form conditions           |
+|  [16]   | `MinioNotificationRaw`           | notification   | raw event payload on the change feed            |
+|  [17]   | `ResponseResult`                 | transport      | raw response the handler seams inspect          |
+|  [18]   | `Minio.DataModel.ILM.Transition` | ILM rule part  | `: Duration`; free-string `StorageClass`        |
+|  [19]   | `Minio.DataModel.ILM.Duration`   | ILM base       | `ExpiryDate` string with `double? Days`         |
 
 [BUCKET_CONFIGS]: `BucketNotification` `LifecycleConfiguration` `ObjectLockConfiguration` `ReplicationConfiguration` `ServerSideEncryptionConfiguration` `VersioningConfiguration`
 [SSE_MODES]: `SSEC` `SSECopy` `SSEKMS` `SSES3`

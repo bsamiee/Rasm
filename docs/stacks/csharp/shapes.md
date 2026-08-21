@@ -63,7 +63,7 @@ When a concept matches several signatures, the most specific row wins.
 - Use: `Validate` as the admission factory; `Create` throws flattened fault text, `TryCreate` downgrades evidence, and culture-sensitive admission stays on `Validate`.
 - Law: `ValidateFactoryArguments` canonicalizes by `ref` before storage and owns fresh-input rejection; `ValidateConstructorArguments` runs on every construction path, including rehydration, and owns invariant-of-record drift.
 - Law: non-`void` hook returns carry admission evidence into `FactoryPostInit` only on genuine admission; rehydrated material must re-derive evidence-backed state.
-- Reject: per-call-site error translation; static `Create(string)` receives rendered text only, raw-value evidence captures at the bridge, and the dual-contract fault family deletes translation hops.
+- Reject: per-call-site error translation, and an owner `Create(string)` factory — rendered text carries no raw-value evidence, so the bridge captures that evidence and the typed case holds it.
 
 [KEY_AND_IDENTITY_POLICY]:
 - Law: the raw key stays private except conversion and explicit-interface egress; consumers compare and dispatch on the owner, and key-type migration breaks at the boundary.
@@ -127,7 +127,7 @@ public static class ShapeOps {
 [VALUE_TRAIT_AXES]:
 - Law: the LanguageExt `LanguageExt.Traits.Domain` value traits are the algebraic axis layer over generated admission, each a static-abstract self-constrained interface granting a fixed BCL operator-interface set the axis selects — `VectorSpace<TSelf,TScalar>` grants `IAdditionOperators<TSelf,TSelf,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TSelf>`, scalar `IMultiplyOperators<TSelf,TScalar,TSelf>`/`IDivisionOperators<TSelf,TScalar,TSelf>`, and `IUnaryNegationOperators<TSelf,TSelf>`; `Amount<TSelf,TScalar>` adds `IComparable<TSelf>` and `IComparisonOperators<TSelf,TSelf,bool>` ordering to that fragment; `Locus<TSelf,TDist,TScalarDist>` is affine position over `where TDist : Amount<TDist,TScalarDist>`, granting `IAdditionOperators<TSelf,TDist,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TDist>`, `IAdditiveIdentity<TSelf,TSelf>`, and negation but never `TSelf+TSelf`.
 - Law: every axis inherits the arity-ONE marker `DomainType<TSelf>` alone, so an owner declares `DomainType<TSelf,TRepr>` BESIDE its axis or the admission and egress members are not in scope — `Amount<TSelf,TScalar>`, `VectorSpace<TSelf,TScalar>`, and `Locus<TSelf,TDist,TScalarDist>` all inherit `DomainType<TSelf>`, and the representation arity carries `static abstract Fin<TSelf> From(TRepr)` and instance `TRepr To()`, the trait's own admission and egress members — the generator emits neither (Thinktecture carries no LanguageExt reference), so the bridge is one expression each: `From` re-anchors the generated `Validate` so the trait's admission and the canonical `Validate` are one rule, not two, and `To()` returns the key the owner already holds; the inherited `static virtual FromUnsafe` rides `From().ThrowIfFail()` untouched. Re-validating inside `From` rather than delegating to `Validate` is the rejected second construction path.
-- Law: the bridge currency forces the fault owner — the default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so `Fin.Fail` refuses it and `From` cannot type-check until `[ValidationError<Fault>]` makes the generated `Validate` return the `[FAULT_FAMILIES]` `Fault` (an `Expected` subtype); the value-trait axis layer therefore composes that one fault family as its admission currency, never a second error type minted for the bridge.
+- Law: `From` routes the default `Thinktecture.ValidationError` through the one acceptance bridge the admission seam owns — that error is no LanguageExt `Error`, so `Fin.Fail` refuses it outright; a `[ValidationError<TFault>]` grant is earned by an irreducible owner refusal alone, and a family implementing that interface to satisfy the generator has minted a second error plane.
 - Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so `position + position` resolves no operator, and the owner's `OperatorsGeneration.None` and explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
 - Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint because position is not in the vector-space fragment, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
 
@@ -364,63 +364,59 @@ public static class GraphOps {
 Every owner's admission surface is itself a closed family decision: the fault is a `[Union]`, the bridge an extension over the generated factory, the composite an admission-ordered nest of leaf owners, and the wire grammar an owner-local row set. Each card fixes the shape; the rail algebra that consumes it is the rail page's, the open-owner dispatch inversion the surface page's, and the converter the boundary page's.
 
 [FAULT_FAMILIES]:
-- Law: the fault is one `[Union]` deriving from `Expected`, so the same closed family is the validation-error shape, the rail-failure shape, and the exhaustive recovery vocabulary — a bare `Error`, an exception, or `Validation<Seq<Error>,T>` for a multi-cause domain is the rejected non-shape.
-- Law: the family is two-tier by construction — the private base constructor seeds `Expected(detail, code, inner)`, `Create` mints the string-bearing case for generator text, and a structured case opting into `IValidationError<TCase>` publishes a precise generated `Create` so the generator targets the exact case.
-- Law: the aggregate is a union case, not a string flatten — a `Semigroup<TFault>` `Combine` folds independents while preserving every typed member, so field-attributed faults stay addressable without positional reconstruction; the accumulation operator that drives the fold is the rail page's.
-- Boundary: `StopAt` carves a smaller recovery surface where a boundary needs one, and only self-sufficient message and code cross the wire; code-keyed recovery identity (`Is`/`HasCode`/`IsType<E>`, never `==`) is the rail page's fault-identity law, composed over this shape.
+- Law: the fault is one `[Union]` deriving the `Fault` base directly, so the same closed family is the rail-failure shape and the exhaustive recovery vocabulary — a bare `Error`, an exception, or `Validation<Seq<Error>,T>` for a multi-cause domain is the rejected non-shape.
+- Law: `Expected` is never the base — its positional `(message, code, inner)` state joins equality, deconstruction, and copying, so placeholder constructor arguments beside overriding members publish two answers for one value; the base instead seals the expected protocol over generated identity.
+- Law: every case is a DIRECT sealed leaf carrying one `[FaultCase(n)]` ordinal the generator caches as numeric identity beside the leaf's own `nameof` case token over the root's single band binding — record unions admit no abstract intermediate case, so cause and policy shared by several leaves ride typed payload or a root function.
+- Law: the family carries no aggregate case and no `Semigroup` — `Error.Many` is the one accumulation, and a family-local `Combine` disagrees with it on flattening and on recovery posture; the accumulation operator is the rail page's.
+- Law: no leaf is generically text-shaped — a case whose only payload is a string states no identity, and an owner `Create(string)` factory is exactly the surface that mints them; a string survives as presentation evidence beside typed identity, never as it.
+- Boundary: `StopAt` carves a smaller recovery surface where a boundary needs one; an in-process subscriber receives only `FaultObservation.Of(error)` — the optional generated identity, typed retriability, bounded cause stamps, and truncation — never `Message`, category, or owner, and a wire lowering copies the CODE half of that identity while the generated case token stays local. Code-keyed in-process recovery identity (`Is`/`HasCode`/`IsType<E>`, never `==`) is the rail page's fault-identity law, composed over this shape.
+- Reject: a category, registry, or key roster paralleling the union — the union case IS the identity, so a mirror publishes a second discriminant, and generated identity plus the band ledger already answer every question it was minted to answer.
 
 ```csharp conceptual
-[Union]
-public abstract partial record Fault : Expected, IValidationError<Fault>, Semigroup<Fault> {
-    private Fault(string detail, int code) : base(detail, code, None) { }
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LaneFault : Fault {
+    private LaneFault(string detail) => Detail = detail;
+    private static readonly FaultBand FamilyBand = FaultBand.LaneGuard;
 
-    public static Fault Create(string message) => new Text(message);
+    public string Detail { get; }
+    public sealed override string Message => Detail;
 
-    public sealed record Text : Fault { public Text(string detail) : base(detail, 4000) { } }
-    public sealed record Bounds : Fault, IValidationError<Bounds> {
-        public Bounds(string detail) : base(detail, 4001) { }
-        public static new Bounds Create(string detail) => new(detail);
+    [FaultCase(0)]
+    public sealed partial record Rejected(Op Operation, LaneReason Reason) : LaneFault($"lane rejected: {Operation.Key}:{Reason.Key}");
+
+    [FaultCase(1)]
+    public sealed partial record Shed(Op Operation, int QueueDepth) : LaneFault($"lane shed: {Operation.Key}:depth={QueueDepth}") {
+        public override Retriability Retriability => Retriability.Transient;
     }
-    public sealed record Aggregate : Fault {
-        public Aggregate(Seq<Fault> faults) : base($"{faults.Count} faults", 4099) => Faults = faults;
-        public Seq<Fault> Faults { get; }
-    }
-
-    public Fault Combine(Fault rhs) => (this, rhs) switch {
-        (Aggregate l, Aggregate r) => new Aggregate(l.Faults + r.Faults),
-        (Aggregate l, _) => new Aggregate(l.Faults.Add(rhs)),
-        (_, Aggregate r) => new Aggregate(this.Cons(r.Faults)),
-        _ => new Aggregate(Seq(this, rhs)),
-    };
 }
 ```
 
 [RAIL_BRIDGE]:
 - Law: the admission seam is one generic extension over the generated factory contract — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
 - Law: the shape is null-yield-aware — a non-null-yield contract takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the rail page's.
-- Boundary: the constraint `IObjectFactory<TOwner,TRaw,Fault>` with `TRaw : notnull, allows ref struct` is the closed-fault counterpart of the surface page's open-`TError` inversion — this seam pins the fault to one family for receiver-inferred reuse, that one opens `TError` for the unbounded owner set.
+- Boundary: the constraint `IObjectFactory<TOwner,TRaw,ValidationError>` with `TRaw : notnull, allows ref struct` carries the DEFAULT factory evidence — the seam lifts it once into `KernelFault.InvalidValue`, so ephemeral admission evidence never crosses an owner boundary as public identity.
 - Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries; a hand-rolled `Validation` tower re-deriving what the generated bridge already discharges — the generated `Validate` is the one admission authority.
 
 ```csharp conceptual
 public static class Admission {
     extension<TOwner, TRaw>(TOwner)
-        where TOwner : class, IObjectFactory<TOwner, TRaw, Fault>
+        where TOwner : class, IObjectFactory<TOwner, TRaw, ValidationError>
         where TRaw : notnull, allows ref struct {
         public static Validation<Error, TOwner> Admitted(TRaw raw, IFormatProvider? culture = null) =>
-            TOwner.Validate(raw, culture, out var owned) is { } fault ? fault : owned!;
+            TOwner.Validate(raw, culture, out var owned) is { } invalid ? KernelFault.Invalid(invalid) : owned!;
 
         public static Validation<Error, Option<TOwner>> AdmittedMaybe(TRaw raw) =>
-            TOwner.Validate(raw, null, out var owned) is { } fault ? fault : Optional(owned);
+            TOwner.Validate(raw, null, out var owned) is { } invalid ? KernelFault.Invalid(invalid) : Optional(owned);
 
         public static Fin<TOwner> AdmittedFin(TRaw raw) =>
-            TOwner.Validate(raw, null, out var owned) is { } fault ? Fin.Fail<TOwner>(fault) : owned!;
+            TOwner.Validate(raw, null, out var owned) is { } invalid ? Fin.Fail<TOwner>(KernelFault.Invalid(invalid)) : owned!;
     }
 }
 ```
 
 [COMPOSITE_ADMISSION]:
 - Law: a composite owner admits its leaf owners first, then binds composite refinements after every leaf succeeds, so the dependency graph of the fields — not a flag — selects whether the shape accumulates leaf faults or short-circuits on the first cross-field refusal.
-- Law: the generated factory spine never accumulates; an all-fault composite shape carries one `Semigroup` aggregate case (the `[FAULT_FAMILIES]` union), and a missing `Semigroup` is unmanufacturable, so the fault family is the prerequisite, not a downstream choice.
+- Law: the generated factory spine never accumulates; an all-fault composite shape accumulates on `Validation<Error,T>`, whose failure parameter demands `Monoid<F>` — `Error` already carries it, and a family-typed carrier forces an empty-fault identity meaning no failure.
 - Law: every generated owner conforms to `IObjectFactory<TSelf,TRaw,TFault>`, so the owner type is the zero-witness typeclass instance a constrained generic dispatches on without an instance — the open-owner inversion and the constraint-tier-selection mechanics are the surface page's, the conformance is the shape.
 - Boundary: leaf admission composes through the rail page's accumulating carrier and the composite-refinement `guard`; this card owns only the leaf-before-composite order and the aggregate-case prerequisite, never the accumulation operator.
 

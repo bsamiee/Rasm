@@ -18,11 +18,11 @@ Rasm/                      # Kernel below the C# app strata: exact-arithmetic fl
 │   ├── Frame.cs           # TelemetrySource, CorrelationId, TenantContext, ReceiptEnvelope with its HLC mint, session-GUC namespace
 │   ├── Instrument.cs      # Declaration rows bind meters at mount; the backend-free tally answers a doctor verb with no exporter or store
 │   ├── Objective.cs       # Sli family, burn rows, AlertSeverity ladder, PanelSpec, BoardPack, and BenchClaim as policy data
-│   ├── Telemetry.cs       # SignalFact, SpanBand, OpCost, and TelemetryContributorPort; the port page tops the split, edges point down
+│   ├── Telemetry.cs       # FaultObservation, SignalFact, SpanBand, OpCost, and TelemetryContributorPort; wire-neutral evidence, no messages
 │   └── Event.cs           # Branch's one message-envelope algebra every stratum composes; announcements gain no authority over facts
 ├── Numerics/              # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission seam
-│   ├── Faults.cs          # GeometryFault [Union] and the FaultCluster stride taxonomy; ToError() lowers onto the LanguageExt rail
+│   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt rail
 │   ├── Atoms.cs           # Guard Bands, PerceptualColor, AtomProjection rows with the identity fallthrough, primitive vector types
 │   ├── Matrix.cs          # MatrixKernel partial with transform; receipts carry route, stop, residual — no raw Matrix<double> crosses
 │   ├── Transform.cs       # WindowTaper roster, Interpolant<TCap>, SpectralArena over the four MathNet layouts, both convolution routes
@@ -109,7 +109,7 @@ Strata rank the kernel interior; seating rows carry only the law the fence canno
 - S2 interior — the ICP registration optimizer instantiates the `Lm` functor inside the rank, so optimization mints no third stratum.
 - S3 interior — `Drawing` reads `Parametric`'s wallpaper fold and `Interaction` the `Drawing` sheet vocabulary; every interior edge stays in-rank.
 - S3 law — no lower stratum composes a terminal producer; the fence draws downward discriminating imports alone, and `f1` forbids the inversion.
-- S0→S3 — root-homed `GeometryFault` declares arms for upper-stratum discriminants; the union is data riding the one-assembly law, never a build edge.
+- S0→S3 — `GeometryFault` declares arms for upper-stratum discriminants; the union is data riding the one-assembly law, never a build edge.
 - S1→S3 — `TensorField.Curvature` carries the `Parametric` `SurfaceSpace` capsule, so the shape-operator owner stays `Projections.cs`.
 - S1→S2 — the `Meshing/Mesh.cs` overlay seats `Processing/Geodesics.cs` `WalkChart` in `EdgeOverlay` mode, so one chart kernel serves every mode.
 
@@ -348,4 +348,4 @@ Namespace mirrors folder path under `.editorconfig` `dotnet_style_namespace_matc
 
 Kernel compiles as ONE assembly, the single `Rasm.csproj`, so internal members cross the sub-domain namespaces with no build edge; recorded exceptions to strata direction ride that law as the `[02]-[STRATA]` cross-stratum rows.
 
-`Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision: kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.
+`Rasm.Domain.Fault` and the `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision: kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

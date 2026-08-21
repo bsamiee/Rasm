@@ -57,6 +57,7 @@ flowchart TB
     Iac e3@-->|"[IMPORT]: Board.DashboardModel"| Core
     Iac e4@-->|"[IMPORT]: Board.Query"| Core
     Iac e5@-->|"[IMPORT]: Pg.rows"| Data
+    Iac e17@-->|"[IMPORT]: Olap.events"| Data
     Iac e6@-->|"[IMPORT]: Consumption.topologies"| Runtime
     Iac e7@-.->|"[BOUNDARY]: LeaseSpec"| Security
     Iac e8@-.->|"[COUNTER]: StackOutputs.sharding"| Runtime
@@ -91,6 +92,7 @@ flowchart LR
         Ui[ui]
     end
     Rasm{{Rasm}}
+    Compute{{Rasm.Compute}}
     Element{{Rasm.Element}}
     Persistence[(Rasm.Persistence)]
     Bim([Rasm.Bim])
@@ -99,6 +101,7 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
+    Compute e19@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire + FaultDetail"| Core
     Element e2@<-->|"[WIRE]: rasm.element.v1"| Core
     Persistence e4@-->|"[WIRE]: CrdtOpWire"| Core
     Persistence e14@<-->|"[CONTRACT]: BackendContract"| Data
@@ -217,6 +220,7 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 |  [19]   | asset transform       | `data/object/asset` `TRANSFORM_ROWS` roster         | one engine-plane row; the fanout spine stays one          |
 |  [20]   | embed block kind      | `ui/view/content` `Content.Block` roster            | one block row registered at the composition root          |
 |  [21]   | anchor space          | `ui/view/presence` `Anchor.Space` rows              | one space row exported by the owning surface              |
+|  [22]   | command legality      | `ui/view/overlay` `Overlay.Grant` rows              | one grant row + one needs column                          |
 
 ## [06]-[BOUNDARIES]
 

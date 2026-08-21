@@ -16,12 +16,12 @@
 - [07]-[ATTRIBUTES](.planning/Components/attributes.md): `ComponentChrome` owns the chrome policy spine over host `ResizableAttributes<T>` shells.
 - [08]-[COMPONENT](.planning/Components/component.md): `ComponentSpec` owns self-typed declaration and iteration policy, sealing one run receipt.
 - [09]-[DATA](.planning/Components/data.md): `GardenData` owns typed data-access transfer, tree algebra, cast-or-convert, host-tolerance projection.
-- [10]-[OBJECTS](.planning/Components/objects.md): `NativeObject` owns native-object families, persisted read and assign, and GH1 import admission.
+- [10]-[OBJECTS](.planning/Components/objects.md): `NativeObject` owns native-object families, persisted read and assign, and host verbs.
 - [11]-[PORTS](.planning/Components/ports.md): `PortRow` carries the data-driven pin catalogue — carrier, semantic, axis columns — side-aware.
 
 [DOCUMENT]:
 - [12]-[DOCUMENT](.planning/Document/document.md): `DocumentScope` owns tiers, lifecycle, persistence, keyed shelves, and undo-sealed mutation gate.
-- [13]-[GRAPH](.planning/Document/graph.md): `GraphScope` projects object and connectivity reads, sealing wire and membership changes into the ledger.
+- [13]-[GRAPH](.planning/Document/graph.md): `GraphScope` projects object and connectivity reads, sealing wire and membership edits into the ledger.
 - [14]-[HISTORY](.planning/Document/history.md): `HistoryLedger` seals actions into the branching tree: stride, re-root, replay, autosave, reconcile.
 - [15]-[SOLUTION](.planning/Document/solution.md): `SolutionControl` closes launch, halt, cancel, and deferred expiry over the leased run lifecycle.
 
@@ -30,7 +30,7 @@
 
 [PLATFORM]:
 - [17]-[CAPTURE](.planning/Platform/capture.md): `SessionCapture` publishes ScreenCaptureKit frames into the kernel drain, proving paint claims.
-- [18]-[COMPOSITION](.planning/Platform/composition.md): `PlatformRoot` mints plugin identity, the session clock, brokers, and the mount roster.
+- [18]-[COMPOSITION](.planning/Platform/composition.md): `PlatformRoot` mints plugin identity and the session-scoped custody its mount roster binds.
 - [19]-[LAYERS](.planning/Platform/layers.md): `Compose` holds CoreAnimation graph custody, transaction fences, and display-link motion.
 - [20]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
 
@@ -73,6 +73,3 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — App-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.
 - `Microsoft.Extensions.Compliance.Abstractions` — `DataClassificationAttribute` grammar the kernel `Sensitivity` rows attach through.
-
-[DEPENDENCY_FLOORS]:
-- `System.Drawing.Common` — Compile-time GDI carrier interop at the GH1 icon boundary.

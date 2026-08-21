@@ -21,6 +21,10 @@
 |  [01]   | `GeometryIndex` | class         | geometry-coordinate index over a `PandasIndex`; subclasses `xarray.Index` |
 |  [02]   | `XvecAccessor`  | class         | `.xvec` accessor registered on `xr.DataArray` and `xr.Dataset` on import  |
 
+[PUBLIC_TYPE_SCOPE]: failure surface
+
+[ERROR_ABSENCE]: `xvec` declares no exception type (verified against the installed distribution). The accessor raises `ValueError` for a coordinate carrying no `GeometryIndex` and `ImportError` for an unmet optional provider; every other fault crosses from the layer it reaches — `shapely.errors.ShapelyError` on a geometry operand, `pyproj.exceptions.ProjError` on a CRS hop, `xarray`'s `AlignmentError`/`MergeError` on a cube arm — so an accessor fence names those providers rather than a package root that does not exist.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: index and accessor introspection

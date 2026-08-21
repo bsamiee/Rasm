@@ -11,7 +11,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [02]-[ATOMS](.planning/Process/atoms.md): Acyclic atoms floor — arc-native profile geometry, admitted motion, decoded equipment, and plan carriers.
 - [03]-[FAMILY](.planning/Process/family.md): Generated vocabulary floor — `Machine.Admit` equipment generation and `PostDialect` grammar binding.
 - [04]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
-- [05]-[FAULTS](.planning/Process/faults.md): `FabricationFault` typed-rejection registry partitioned by owning concern.
+- [05]-[FAULTS](.planning/Process/faults.md): Direct generated `FabricationFault` union partitioned by owning concern.
 - [06]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
 - [07]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, span scopes, descriptor pack.
 
@@ -142,7 +142,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `CommunityToolkit.HighPerformance` — Grayscale, engagement, and layer-census raster grids.
 
 [NUMERIC_SUBSTRATE]:
-- `MathNet.Numerics` — Capability distribution fits and Monte-Carlo tolerance stackup.
+- `MathNet.Numerics` — Capability fits, tolerance simulation, and bounded inverse-kinematics conditioning.
 
 [GEOMETRY_INTERCHANGE]:
 - `ACadSharp` — DWG/DXF profile-read leg into `Loop` values and markings.

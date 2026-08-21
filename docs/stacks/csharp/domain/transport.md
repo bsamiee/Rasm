@@ -94,7 +94,7 @@ public static class ContractAxis {
 
 [CALL_LAW]:
 - Law: `CallOptions(headers, deadline, cancellationToken)` is the per-call policy triple, minted inside the port delegate from the hop row — the deadline is one absolute UTC instant computed from the row's budget at the outermost site, transmitted as the wire timeout header so the server observes remaining budget, and inner hops only shrink it; a deadline already in the past fails locally with `DeadlineExceeded`, zero latency, and no trailers — the signature separating budget exhaustion from server slowness.
-- Law: the foreign `StatusCode` enum folds once at the boundary into the closed `TransportFault` `[Union]` deriving from `Expected` — `DeadlineExceeded` to `Deadline`, `Cancelled` to `Cancelled`, `Unavailable` to `Unreachable`, `ResourceExhausted` to `Exhausted`, `Unimplemented` to `Drift`, every other code to `Wire(StatusCode, Detail)` — so recovery dispatches on the typed case through `HasCode`/`IsType`, never a bare coded `Error.New` and never interior dispatch on status strings; `RpcException.Trailers` carries the structured fault decoded at the same fold, and `ThrowOperationCanceledOnCancellation = true` re-rails termination onto the cancellation rail only where a surrounding pipeline owns cancellation unification — where the port fold is the seam it stays false so one typed fold serves every termination.
+- Law: the foreign `StatusCode` enum folds once at the boundary into the closed `TransportFault` `[Union]` deriving from `Fault` — `DeadlineExceeded` to `Deadline`, `Cancelled` to `Cancelled`, `Unavailable` to `Unreachable`, `ResourceExhausted` to `Exhausted`, `Unimplemented` to `Drift`, every other code to `Wire(StatusCode, Detail)` — so recovery dispatches on the typed case through `HasCode`/`IsType`, never a bare coded `Error.New` and never interior dispatch on status strings; `RpcException.Trailers` carries the structured fault decoded at the same fold, and `ThrowOperationCanceledOnCancellation = true` re-rails termination onto the cancellation rail only where a surrounding pipeline owns cancellation unification — where the port fold is the seam it stays false so one typed fold serves every termination.
 - Law: exactly one stamping interceptor per channel, installed at invoker creation — `Intercept(Func<Metadata,Metadata>)` covers all five call shapes from one delegate, a full `Interceptor` subclass is earned only by response-side inspection, and `Intercept(params Interceptor[])` applies first-element-outermost while chained `Intercept` calls make the last outermost, so a second stamper is a merge conflict, never a layer; the stamped message-envelope content arrives settled from the correlation spine.
 - Law: binary metadata requires the `-bin` suffix (`Metadata.BinaryHeaderSuffix`) — the entry constructor enforces the byte/string split and lowercases keys, `GetValueBytes` is the read verb, and `Metadata.Empty` is frozen, so stamping always allocates.
 - Law: transport retry is data — `MethodConfig` rows pair `MethodName` selectors with exactly one of `RetryPolicy` or `HedgingPolicy`; a present row makes the channel the hop's one retry owner and a seam pipeline beside it the second-owner conflict, so the choice is a per-row owner column auditable without reading code; hedging duplicates the call in flight after each `HedgingDelay`, admissible for idempotent methods only, and its receipt records attempt cardinality or the diagnostics fold under-counts wire traffic.
@@ -104,27 +104,50 @@ public static class ContractAxis {
 - Exemption: the awaited capture kernel — the `RpcException` catch arm — and the `Metadata` stamping sweep over the mutable host collection the interceptor contract returns are the platform-forced statement seam.
 
 ```csharp conceptual
-[Union]
-public abstract partial record TransportFault : Expected {
-    private TransportFault(string detail, int code) : base(detail, code, None) { }
-    // --- [CALL_SEAM] 761x
-    public sealed record Wire(StatusCode Status, string Detail) : TransportFault($"<status:{Status}:{Detail}>", 7610);
-    public sealed record Deadline : TransportFault { public Deadline() : base("<budget-spent>", 7611) { } }
-    public sealed record Cancelled : TransportFault { public Cancelled() : base("<caller-left>", 7612) { } }
-    public sealed record Unreachable : TransportFault { public Unreachable() : base("<unreachable-or-draining>", 7613) { } }
-    public sealed record Exhausted : TransportFault { public Exhausted() : base("<cap-breach>", 7614) { } }
-    public sealed record Drift(string Detail) : TransportFault($"<contract-drift:{Detail}>", 7615);
-    // --- [SUITE_CONTRACTS] 762x
-    public sealed record Fork(string Detail) : TransportFault($"<contract-fork:{Detail}>", 7620);
-    // --- [ENDPOINT_LIFECYCLE] 763x
-    public sealed record Publish(string Detail) : TransportFault($"<publish:{Detail}>", 7630);
-    public sealed record Unpublished(string Detail) : TransportFault($"<unpublished:{Detail}>", 7631);
-    public sealed record Stale(long Epoch) : TransportFault($"<stale-listener:{Epoch}>", 7632);
-    // --- [CORRIDOR] 764x
-    public sealed record Oversize(int Size, int Cap) : TransportFault($"<oversize:{Size}:{Cap}>", 7640);
-    public sealed record Truncated(string At) : TransportFault($"<truncated:{At}>", 7641);
-    public sealed record Corrupt : TransportFault { public Corrupt() : base("<corrupt-frame>", 7642) { } }
-    public sealed record Misframed(string Detail) : TransportFault($"<misframed:{Detail}>", 7643);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransportFault : Fault {
+    private TransportFault(string detail) => Detail = detail;
+    private static readonly FaultBand FamilyBand = FaultBand.Wire;
+
+    public string Detail { get; }
+    public sealed override string Message => Detail;
+
+    // --- [CALL_SEAM] offsets 0-5
+    [FaultCase(0)]
+    public sealed partial record Wire(StatusCode Status, string Note, Error Cause) : TransportFault($"<status:{Status}:{Note}>"), ICausedFault;
+    [FaultCase(1)]
+    public sealed partial record Deadline(Error Cause) : TransportFault("<budget-spent>"), ICausedFault;
+    [FaultCase(2)]
+    public sealed partial record Cancelled(Error Cause) : TransportFault("<caller-left>"), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record Unreachable(Error Cause) : TransportFault("<unreachable-or-draining>"), ICausedFault {
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(4)]
+    public sealed partial record Exhausted(Error Cause) : TransportFault("<cap-breach>"), ICausedFault;
+    [FaultCase(5)]
+    public sealed partial record Drift(string Note, Error Cause) : TransportFault($"<contract-drift:{Note}>"), ICausedFault;
+    // --- [SUITE_CONTRACTS] offset 6
+    [FaultCase(6)]
+    public sealed partial record Fork(string Note) : TransportFault($"<contract-fork:{Note}>");
+    // --- [ENDPOINT_LIFECYCLE] offsets 7-9
+    [FaultCase(7)]
+    public sealed partial record Publish(Error Cause) : TransportFault($"<publish:{Cause.Message}>"), ICausedFault;
+    [FaultCase(8)]
+    public sealed partial record Unpublished(Error Cause) : TransportFault($"<unpublished:{Cause.Message}>"), ICausedFault;
+    [FaultCase(9)]
+    public sealed partial record Stale(long Epoch) : TransportFault($"<stale-listener:{Epoch}>");
+    // --- [CORRIDOR] offsets 10-14
+    [FaultCase(10)]
+    public sealed partial record Oversize(int Size, int Cap) : TransportFault($"<oversize:{Size}:{Cap}>");
+    [FaultCase(11)]
+    public sealed partial record Truncated(string At, Error Cause) : TransportFault($"<truncated:{At}>"), ICausedFault;
+    [FaultCase(12)]
+    public sealed partial record Corrupt() : TransportFault("<corrupt-frame>");
+    [FaultCase(13)]
+    public sealed partial record Misframed(string Note) : TransportFault($"<misframed:{Note}>");
+    [FaultCase(14)]
+    public sealed partial record Undecodable(Error Cause) : TransportFault($"<undecodable:{Cause.Message}>"), ICausedFault;
 }
 
 public static class CallSeam {
@@ -144,16 +167,20 @@ public static class CallSeam {
         ArgumentNullException.ThrowIfNull(clock);
         var options = new CallOptions(deadline: clock.GetUtcNow().UtcDateTime + budget, cancellationToken: caller);
         try { return Fin.Succ(await invoker.AsyncUnaryCall(contract, host: null, options, request).ResponseAsync.ConfigureAwait(false)); }
-        catch (RpcException wire) { return Fin.Fail<TRes>(Fold(wire, decode)); }
+        catch (RpcException wire) {
+            Exception raised = wire;
+            return Fin.Fail<TRes>(Fold(wire, decode, caller, Error.New(raised.Message, raised)));
+        }
     }
 
-    private static Error Fold(RpcException wire, Func<byte[], Error> decode) => wire.StatusCode switch {
-        StatusCode.DeadlineExceeded => new TransportFault.Deadline(),
-        StatusCode.Cancelled => new TransportFault.Cancelled(),
-        StatusCode.Unavailable => new TransportFault.Unreachable(),
-        StatusCode.ResourceExhausted => new TransportFault.Exhausted(),
-        StatusCode.Unimplemented => new TransportFault.Drift(wire.Status.Detail),
-        _ => Optional(wire.Trailers.GetValueBytes(FaultKey)).Map(decode).IfNone(new TransportFault.Wire(wire.StatusCode, wire.Status.Detail)),
+    private static Error Fold(RpcException wire, Func<byte[], Error> decode, CancellationToken caller, Error cause) => wire.StatusCode switch {
+        StatusCode.DeadlineExceeded => new TransportFault.Deadline(cause),
+        StatusCode.Cancelled when caller.IsCancellationRequested => new TransportFault.Cancelled(cause),
+        StatusCode.Cancelled => cause,
+        StatusCode.Unavailable => new TransportFault.Unreachable(cause),
+        StatusCode.ResourceExhausted => new TransportFault.Exhausted(cause),
+        StatusCode.Unimplemented => new TransportFault.Drift(wire.Status.Detail, cause),
+        _ => Optional(wire.Trailers.GetValueBytes(FaultKey)).Map(decode).IfNone(new TransportFault.Wire(wire.StatusCode, wire.Status.Detail, cause)),
     };
 }
 ```
@@ -244,7 +271,12 @@ public static class TemporalBridge {
         wire is DayOfWeek.Unspecified ? new Fault.Absent(Detail: nameof(DayOfWeek)) : wire.ToIsoDayOfWeek();
 
     private static Validation<Error, T> Ranged<T>(int code, Func<T> read) =>
-        Try.lift(read).Run().MapFail(error => (Error)new Fault.Bounds(Detail: $"<temporal-range:{code}:{error.Message}>")).ToValidation();
+        Op.Of().Catch(
+            () => Fin.Succ(read()),
+            captured => captured.Exception.Case is ArgumentOutOfRangeException
+                ? Some(new Fault.Bounds(Detail: $"<temporal-range:{code}>", Cause: captured))
+                : None)
+        .ToValidation();
 }
 ```
 
@@ -259,7 +291,7 @@ public static class TemporalBridge {
 - Exemption: the exposure fold's builder-mutation body is the platform-forced statement seam.
 
 [FAULT_HEALTH_WEB]:
-- Law: the fault contract is two-tier — the wire tier is a generated fault-detail message family per suite evolving under descriptor law, serialized into a `-bin` trailer and raised as `RpcException(new Status(code, brief), trailers)` in one expression; the local tier is the closed `TransportFault` `[Union]` deriving from `Expected` that the boundary fold mints, so `Status.Detail` is human summary only, machine discriminants in detail text are the named defect, and the decode arrow bridges the wire message into a `TransportFault` case rather than a bare coded `Error.New`.
+- Law: the fault contract is two-tier — the wire tier is a generated fault-detail message family per suite evolving under descriptor law, serialized into a `-bin` trailer and raised as `RpcException(new Status(code, brief), trailers)` in one expression; the local tier is the closed `TransportFault` `[Union]` deriving from `Fault` that the boundary fold mints, so `Status.Detail` is human summary only, machine discriminants in detail text are the named defect, and the decode arrow bridges the wire message into a `TransportFault` case rather than a bare coded `Error.New`.
 - Law: health is two rows — `AddGrpcHealthChecks` plus `MapGrpcHealthChecksService` — with the empty-string service pre-mapped to all checks and per-service rows as name-keyed predicate maps; the wire fold is fixed — any unhealthy entry folds NOT_SERVING, degraded still SERVES because degradation visibility is a diagnostics signal, zero matches fold UNKNOWN — and the surfaces disagree on an unmapped name by design: Check fails not-found while Watch reports SERVICE_UNKNOWN, so probes tolerate both spellings.
 - Law: `UseHealthChecksCache` false executes mapped checks inline per Check; the Watch stream's first write is freshly computed with later writes on the runtime-owned publisher cadence, and stopping completes watchers with a final NOT_SERVING — the drain edge attach choreography consumes — while polling Check races listener teardown.
 - Law: browser translation is one middleware plus per-endpoint consent — `UseGrpcWeb(new GrpcWebOptions { DefaultEnabled })` with `EnableGrpcWeb`/`DisableGrpcWeb` conventions — and a grpc-web request without consent falls through as a non-gRPC request, the signature of a missing enable row; detection is structural, the response mode negotiates independently from the Accept header, the middleware spoofs the protocol so no service code can detect translation, and browser callers additionally need a CORS policy exposing `Grpc-Status`, `Grpc-Message`, and the encoding headers.
@@ -319,30 +351,40 @@ public static class Endpoint {
     private const string Name = "manifest.json";
 
     public static Fin<Unit> Publish(Manifest manifest, string directory) =>
-        Try.lift(() => {
+        Op.Of().Catch(() => {
             _ = Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var staged = Path.Join(directory, $"{Name}.{manifest.Epoch}.staged");
             File.WriteAllBytes(staged, JsonSerializer.SerializeToUtf8Bytes(manifest, ManifestContext.Default.Manifest));
             File.Move(staged, Path.Join(directory, Name), overwrite: true);
-            return unit;
-        }).Run().MapFail(static error => (Error)new TransportFault.Publish(error.Message));
+            return Fin.Succ(unit);
+        }, static captured => captured.Exception.Case is IOException or UnauthorizedAccessException
+            ? Some(new TransportFault.Publish(captured))
+            : None);
 
     public static Fin<Manifest> Attach(string directory) =>
-        Try.lift(() => JsonSerializer.Deserialize(File.ReadAllBytes(Path.Join(directory, Name)), ManifestContext.Default.Manifest))
-            .Run().MapFail(static error => (Error)new TransportFault.Unpublished(error.Message)).Bind(static held => Optional(held).ToFin(new Fault.Absent(Detail: nameof(Manifest))))
-            .Bind(static manifest => AdvisoryDead(manifest) && ConnectRefused(manifest.SocketPath)
-                ? Fin.Fail<Manifest>(new TransportFault.Stale(manifest.Epoch))
-                : Fin.Succ(manifest));
+        Op.Of().Catch(
+                () => Fin.Succ(JsonSerializer.Deserialize(File.ReadAllBytes(Path.Join(directory, Name)), ManifestContext.Default.Manifest)),
+                static captured => captured.Exception.Case is IOException or UnauthorizedAccessException or JsonException
+                    ? Some(new TransportFault.Unpublished(captured))
+                    : None)
+            .Bind(static held => Optional(held).ToFin(new Fault.Absent(Detail: nameof(Manifest))))
+            .Bind(static manifest => AdvisoryDead(manifest).Bind(dead => ConnectRefused(manifest.SocketPath).Bind(refused =>
+                dead && refused ? Fin.Fail<Manifest>(new TransportFault.Stale(manifest.Epoch)) : Fin.Succ(manifest))));
 
-    private static bool AdvisoryDead(Manifest manifest) =>
-        Try.lift(() => Process.GetProcessById(manifest.Pid).StartTime.ToUniversalTime().Ticks != manifest.StartStamp)
-            .Run().IfFail(static _ => true);
+    private static Fin<bool> AdvisoryDead(Manifest manifest) =>
+        Op.Of().Catch(() => Fin.Succ(Process.GetProcessById(manifest.Pid).StartTime.ToUniversalTime().Ticks != manifest.StartStamp))
+            .BindFail(static captured => captured.Exception.Case is ArgumentException
+                ? Fin.Succ(true)
+                : Fin.Fail<bool>(captured));
 
-    private static bool ConnectRefused(string socketPath) {
-        using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
-        return Try.lift(() => (fun(() => probe.Connect(new UnixDomainSocketEndPoint(socketPath)))(), false).Item2)
-            .Run().IfFail(static _ => true);
-    }
+    private static Fin<bool> ConnectRefused(string socketPath) =>
+        Op.Of().Catch(() => {
+            using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+            probe.Connect(new UnixDomainSocketEndPoint(socketPath));
+            return Fin.Succ(false);
+        }).BindFail(static captured => captured.Exception.Case is SocketException
+            ? Fin.Succ(true)
+            : Fin.Fail<bool>(captured));
 }
 ```
 
@@ -384,23 +426,34 @@ public static class Corridor {
 
     public static async Task<Fin<Admitted<T>>> Admit<T>(Stream lane, MessageParser<T> contract, Manifest manifest, CancellationToken token) where T : class, IMessage<T> {
         ArgumentNullException.ThrowIfNull(lane);
-        var header = new byte[HeaderSize];
-        try { await lane.ReadExactlyAsync(header, token).ConfigureAwait(false); }
-        catch (EndOfStreamException) { return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("header")); }
-        if (header[0] != Version || FrameKind.Validate(header[1], null, out var kind) is not null) { return Fin.Fail<Admitted<T>>(new TransportFault.Misframed($"frame:{header[0]}:{header[1]}")); }
-        var (cap, length) = (kind!.Cap(manifest), BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(2)));
-        if (length > cap || length < 0) { return Fin.Fail<Admitted<T>>(new TransportFault.Oversize(length, cap)); }
-        var body = ArrayPool<byte>.Shared.Rent(length);
-        try {
-            await lane.ReadExactlyAsync(body.AsMemory(0, length), token).ConfigureAwait(false);
-            return Crc32.HashToUInt32(body.AsSpan(0, length)) != BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(6))
-                ? Fin.Fail<Admitted<T>>(new TransportFault.Corrupt())
-                : Try.lift(() => contract.ParseFrom(new ReadOnlySequence<byte>(body, 0, length))).Run()
-                    .Map(payload => new Admitted<T>(payload, XxHash3.HashToUInt64(body.AsSpan(0, length))))
-                    .MapFail(static error => (Error)new TransportFault.Misframed($"payload:{error.Message}"));
-        }
-        catch (EndOfStreamException) { return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("body")); }
-        finally { ArrayPool<byte>.Shared.Return(body); }
+        return await Op.Of().Catch(async ct => {
+            var header = new byte[HeaderSize];
+            try { await lane.ReadExactlyAsync(header, ct).ConfigureAwait(false); }
+            catch (EndOfStreamException shortRead) {
+                Exception raised = shortRead;
+                return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("header", Error.New(raised.Message, raised)));
+            }
+            if (header[0] != Version || FrameKind.Validate(header[1], null, out var kind) is not null) { return Fin.Fail<Admitted<T>>(new TransportFault.Misframed($"frame:{header[0]}:{header[1]}")); }
+            var (cap, length) = (kind!.Cap(manifest), BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(2)));
+            if (length > cap || length < 0) { return Fin.Fail<Admitted<T>>(new TransportFault.Oversize(length, cap)); }
+            var body = ArrayPool<byte>.Shared.Rent(length);
+            try {
+                await lane.ReadExactlyAsync(body.AsMemory(0, length), ct).ConfigureAwait(false);
+                return Crc32.HashToUInt32(body.AsSpan(0, length)) != BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(6))
+                    ? Fin.Fail<Admitted<T>>(new TransportFault.Corrupt())
+                    : Op.Of().Catch(
+                        () => Fin.Succ(contract.ParseFrom(new ReadOnlySequence<byte>(body, 0, length))),
+                        static captured => captured.Exception.Case is InvalidProtocolBufferException
+                            ? Some(new TransportFault.Undecodable(captured))
+                            : None)
+                        .Map(payload => new Admitted<T>(payload, XxHash3.HashToUInt64(body.AsSpan(0, length))));
+            }
+            catch (EndOfStreamException shortRead) {
+                Exception raised = shortRead;
+                return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("body", Error.New(raised.Message, raised)));
+            }
+            finally { ArrayPool<byte>.Shared.Return(body); }
+        }, token).ConfigureAwait(false);
     }
 }
 ```

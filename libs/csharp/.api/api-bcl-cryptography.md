@@ -166,7 +166,7 @@
 [STACKING]:
 - `api-hashing`(`.api/api-hashing.md`): each armored block's digest is `ContentHash.Of` over its DER, so a bundle carrier proves element identity while this surface contributes armor alone.
 - `api-redaction`(`.api/api-redaction.md`): a secret-bearing block carries `DataClassification.Secret`, so the bound `Redactor` erases its bytes at every egress while the label and digest cross.
-- `api-languageext`(`.api/api-languageext.md`): each `Try*` `bool` folds to `Fin.Succ`/`Fin.Fail` at the boundary, so an absent element, a short destination, or a failed parse lands as a typed fault row.
+- `api-languageext`(`.api/api-languageext.md`): each `Try*` verdict keeps its documented meaning — `TryFind` false is `Option.None`/bundle exhaustion, while a short destination becomes a typed refusal only where the owner required the write after sizing it. No blanket bool-to-fault adapter exists.
 - `api-highperformance`(`.api/api-highperformance.md`): `MemoryOwner<T>.Allocate` rents the destination `GetEncodedSize` sizes, and `ZeroMemory` overwrites it before `Dispose` returns the rental to the pool.
 - `Rasm.AppHost` credential lifecycle: `PemEncoding` and `X509Certificate2` own the at-rest and on-wire armor while the lease owner holds the live rented copy and drives its `ZeroMemory` terminal, so material never carries two encodings.
 - `Rasm.Persistence` object store: the client-side seal binds one `AesGcm` per KMS-unwrapped DEK and derives its nonce from the content address, so a resumed multipart replays byte-identical ciphertext and the DEK zeroizes at the same terminal.
@@ -182,5 +182,5 @@
 [RAIL_LAW]:
 - Package: `System.Security.Cryptography`
 - Owns: RFC-7468 armor, X.509 admission and export, AEAD sealing, ECDSA attestation, buffer zeroization
-- Accept: span writes into rented destinations, size probes ahead of every span call, `Try*` results folded onto a typed rail
+- Accept: span writes into rented destinations, size probes ahead of every span call, and each `Try*` result lowered according to its own absence-or-refusal contract
 - Reject: a hand-built `-----BEGIN-----` string, a base64 credential container, a third-party PEM codec, a hand-rolled constant-time compare

@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/typescript/**"
+  - "libs/typescript/**/.planning/**"
+  - "libs/typescript/**/.api/**"
   - "**/*.ts"
   - "**/*.tsx"
 ---
@@ -15,6 +17,9 @@ include:
 - `Effect<A, E, R>` is the one rail: bare `Promise`/`await`, `throw`/`try`/`catch` in domain flow, a `{ loading, error, data }` record re-deriving `Exit`, and reflex `catchAll` blanketing a typed channel are findings; `Micro` is banned.
 - `Effect.gen` over independent operands serializes and drops faults — independent operands compose applicatively (`Effect.all`, `zip` variants); `Effect.Do`/`bind`/`bindTo` chains are findings (only `Effect.gen` is do-notation), as is a `flatMap(Effect.succeed(...))` restating `map`.
 - Fault architecture is one `TaggedError` family with its policy table; hand-rolled retry and poll loops where `Schedule` composes are findings.
+- Retriability on that table is TWO columns, never one bit — `recovery` bands what a re-drive reaches (`throttled`, `transient`, `terminal`) and `reoffer` names the route the next offer takes (`wait`, `restart`, `rescope`) — with `retryable` surviving only as the derived projection `recovery !== "terminal"`; a stored retry column beside the band, and a raise supplying its own `retryable` field, are findings. Each row states its own detail text — a free-string `detail` field on the raise re-opens the axis `reason` already closed.
+- `throttled` refusals carry their stated window on the VALUE as an `Option<Duration>` re-seating the schedule base, so a policy row holding that slot is a finding, and the three altitudes stay three words — wire `retry_after`, class band `throttled`, value `after`.
+- Accumulating admission mints one census carrier off the same reason roster whose dominant issue elects on the rank lattice; a second `{ issues, class, message }` declaration is the taxonomy fork.
 - `let`/`push` accumulation across steps is a finding; folds and combinators own aggregation. Element-to-element state lives inside the pipeline as a `Stream.mapAccum`/`scan` fold accumulator, never a `Ref` mutated inside `map`/`tap`, and a whole key space rides one immutable `HashMap` accumulator so per-key memory is a fold fact, not a cell registry.
 - Nominal identity runs two disjoint plane regimes — `Schema.brand` marks admitted values with decode evidence inside Schema owners, an annotated `unique symbol` TypeId marks own carrier types; a brand minted on the wrong plane, or a string-literal brand field forgeable across modules, is the defect.
 

@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
   - "tests/contracts/**"
 ---
 

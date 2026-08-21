@@ -37,6 +37,15 @@
 |  [07]   | GCXS-only       | `from_iter`, `from_coo`, `change_compressed_axes`, `compressed_axes`, `tocoo`, `todok`, `to_scipy_sparse`, `copy` |
 |  [08]   | DOK-only        | `from_coo`, `to_coo` (no `to_scipy_sparse`; round-trip DOK->COO->scipy)                                           |
 
+[PUBLIC_TYPE_SCOPE]: raise surface the boundary `catch=` sets name
+
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :----------- | :------------ | :----------------------------------------------------------- |
+|  [01]   | `ValueError` | builtin       | densification past the caller-threaded bound; shape mismatch |
+|  [02]   | `TypeError`  | builtin       | an operand no admitted layout accepts                        |
+
+`sparse` mints no exception family; the densify-bound raise this catalog names elsewhere is `ValueError`. UNVERIFIED BY PROBE — the distribution is not installed in this environment, so the rows read from the documented surface and a probe is owed before a narrower tuple lands.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and conversion

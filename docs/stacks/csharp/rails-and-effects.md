@@ -2,7 +2,7 @@
 
 LanguageExt owns result rails, effect execution, immutable traversal, schedule policy, and boundary state cells. A carrier is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at host, UI, native, command, or wire edges. Admitted domain values enter these surfaces; raw host, native, wire, and generated shapes do not.
 
-Four siblings own the shapes this algebra composes as settled material. Closed `Fault` `[Union]` over `Expected`, its `Semigroup` `Combine`, and the `Admission` bridge over the generated factory are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, with the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how the `Fault` family accumulates through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
+Four siblings own the shapes this algebra composes as settled material. Closed `[Union]` families over the `Fault` base, their generated identity, and the `Admission` bridge are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, with the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how faults accumulate through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
 
 ## [01]-[RAIL_CHOOSER]
 
@@ -38,20 +38,17 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 Every boundary converts once into the carrier that states the real outcome; reusable transforms keep that carrier and never re-project mid-pipeline.
 
 [EXCEPTION_CAPTURE]:
-- Use: `Try.lift<Fin<T>>(f).Run().MapFail(...).Bind(static r => r)` to capture a throwing native or host call into one `Fin<T>`.
-- Law: the self-flattening `Bind(static result => result)` collapses `Try`'s outer rail into the call's inner `Fin`; without it the captured error is discarded.
+- Use: `Op.Catch` as the one shared capture hook over the body, returning `Fin<T>` and flattening a body-returned `Fin<T>` exactly once.
+- Law: `Try.lift(...).Run()` is NOT a capture primitive — it normalizes a thrown cancellation or timeout into an `Expected` error at a reserved negative code with the exception dropped, and splays an `AggregateException` into `ManyErrors` while flipping its inner timeout the same way, so every later rule reads evidence the lift already destroyed; `IO.lift` rethrows cancellation instead of capturing it.
+- Law: the caught exception becomes `Error.New(raised.Message, raised)` off an `Exception`-typed variable — `Error.New(raised)` performs the same lossy normalization, and a derived static type makes the two-argument call ambiguous against `New(string, Error)` (CS0121).
+- Law: cancellation is cancellation only when the token handed to the body proves requested; an unrequested or tokenless `OperationCanceledException` stays an ordinary captured failure, never inferred from the exception class.
+- Law: an unknown exception stays exceptional and unmapped — only a documented provider refusal crosses into a typed fault, through a classifier constrained to carry the original error as its cause, whose `None` arm returns the captured error exact.
 - Law: one inbound funnel admits a raw exception, a wrapped error-exception, a bare string, or an option at a single entry, never a per-shape branch.
-- Reject: discarding the captured `Error.Message` after `Try.lift`; a bare `try`/`catch` wrapping a rail transform.
+- Reject: reminting a captured failure from its `Message`; a bare `try`/`catch` wrapping a rail transform; a blanket `MapFail` onto a typed fault, which destroys type, stack, and cause for every unknown failure at once.
 
 ```csharp conceptual
-public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
-    ArgumentNullException.ThrowIfNull(native);
-
-    return Try.lift<Fin<Receipt>>(f: native)
-        .Run()
-        .MapFail(error => new Fault.NativeRejected(Detail: error.Message))
-        .Bind(static result => result);
-}
+public static Fin<Receipt> Capture(Func<Fin<Receipt>> native, CancellationToken token) =>
+    Op.Of().Catch(native, NativeBoundary.Classify, token);
 ```
 
 [CROSS_RAIL_PROJECTION]:
@@ -126,8 +123,8 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 |  [09]   | `.Match(Succ:, Fail:)`  | `Fin`, `Option`, `Either`         | terminal collapse      |
 
 [VALIDATION_MONOID]:
-- Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once through `ManyErrors`, so a rail's failure slot never widens to `Seq<Error>` and `Errors.None` is the monoid identity; the closed `Fault` `[Union]` over `Expected` carrying its own `Semigroup` `Combine` is the accumulation carrier shapes.md mints, composed here, never re-declared.
-- Law: `Validation<E,T>` requires an error carrier with an owned combination law — the `Fault` family, `StringM`, or another `Monoid<E>` — never `Validation<Seq<Error>,T>` or `Validation<string,T>`; the missing monoid makes the accumulating shape unmanufacturable, so the carrier choice and the fault family are one decision.
+- Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once through `ManyErrors`, so a rail's failure slot never widens to `Seq<Error>` and `Errors.None` is the zero-child monoid identity; `AsIterable()` and `Count` read DIRECT children alone, so a fold over a nested aggregate recurses to non-`ManyErrors` leaves or reads one opaque child.
+- Law: `Validation<E,T>` leaves its failure parameter unconstrained on the type, while every construction and applicative entry point demands `Monoid<F>` — `Error` already carries it, so accumulation runs there and a family-typed carrier forces a hand `Combine` beside an `Empty` fault meaning no failure.
 - Law: the closed-field product accumulates through the tuple `.Apply` surfaces.md owns; this page's region is the open extension set — independent constraints foreign code supplies fold applicatively through `.Traverse`, so the `Validation` `Apply` runs every `Check` and `Error.Combine` unions every fault before the boundary reports, where a `.TraverseM`/`Bind` fold surfaces only the first.
 - Law: an `IConstraint<T>` conformance lifts its fault through the implicit `Error → Validation<Error,T>` widening — `value` on success, the bare `Fault` case on failure — so the triple-cast that spells the lift by hand is the deleted ceremony; the floor is held by the owner and minted downstream, the closed family the owner switches and the open set it folds co-existing on one owner.
 - Law: the implicit widening fires only in a target-typed position — an expression-bodied return, a conditional against a typed operand — while generic type inference in a `Match` or `Bind` arm never applies a user-defined conversion to unify the arms, so a rail-valued lambda spells its fault arm as the concrete carrier explicitly.
@@ -207,7 +204,7 @@ public static IO<Receipt> Guarded(IO<Resource> acquire, Func<Resource, IO<Receip
         .Retry(Backoff)
         .Bracket(
             Use: use,
-            Catch: static error => IO.fail<Receipt>(new Fault.NativeRejected(Detail: error.Message)),
+            Catch: static error => IO.fail<Receipt>(NativeBoundary.Classify(error).Map(static f => (Error)f).IfNone(error)),
             Fin: static resource => resource.ReleaseIO());
 }
 ```
@@ -218,10 +215,13 @@ public static class Custody {
         public Fin<T> Rollback(params ReadOnlySpan<IDisposable?> held) {
             Seq<IDisposable?> captured = toSeq(held.ToArray());
             return step.MapFail(primary => captured.Fold(primary, static (fault, resource) =>
-                Try.lift(() => { resource?.Dispose(); return unit; }).Run()
+                Release(resource)
                     .Match(Succ: _ => fault, Fail: cleanup => fault + cleanup)));
         }
     }
+
+    static Fin<Unit> Release(IDisposable? resource) =>
+        Op.Of().Catch(() => { resource?.Dispose(); return Fin.Succ(unit); });
 }
 ```
 

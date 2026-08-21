@@ -92,17 +92,17 @@
 
 Every open returns a `NativeFile`; dispose it to release the driver. File-handle and memory-mapped drivers hold their read position in a `ThreadLocal<long>`, while the stream driver reads the shared `Stream.Position` — that difference is the whole parallel-read law.
 
-| [INDEX] | [SIGNATURE]                                                                        | [CAPABILITY]                                     |
-| :-----: | :--------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `static NativeFile OpenRead(string, H5ReadOptions? = null)`                        | read-only file-handle open, the default path     |
-|  [02]   | `static NativeFile Open(string, FileMode, FileAccess, FileShare, H5ReadOptions?)`  | explicit share and access mode                   |
-|  [03]   | `static NativeFile Open(Stream, bool leaveOpen = false, H5ReadOptions? = null)`    | readable and seekable stream; single-thread      |
-|  [04]   | `static NativeFile Open(MemoryMappedViewAccessor, H5ReadOptions? = null)`          | memory-mapped open; parallel-read safe           |
-|  [05]   | `IH5Object Get(string path)` / `GetAsync(string, CancellationToken)`               | resolve one link by absolute or relative path    |
-|  [06]   | `IEnumerable<IH5Object> Children()` / `ChildrenAsync(CancellationToken)`           | enumerate direct children                        |
-|  [07]   | `bool LinkExists(string path)` / `LinkExistsAsync(string, CancellationToken)`      | probe without faulting                           |
-|  [08]   | `IH5Group.Group(string)` / `Dataset(string)` / `Get<T>(string)`                    | typed resolve extensions and their async peers   |
-|  [09]   | `IEnumerable<IH5Attribute> Attributes()` / `Attribute(string)` / `AttributeExists` | attribute roster, fetch, and probe on any object |
+| [INDEX] | [SIGNATURE]                                                                        | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `static NativeFile OpenRead(string, H5ReadOptions? = null)`                        | read-only file-handle open, the default path        |
+|  [02]   | `static NativeFile Open(string, FileMode, FileAccess, FileShare, H5ReadOptions?)`  | explicit share and access mode                      |
+|  [03]   | `static NativeFile Open(Stream, bool leaveOpen = false, H5ReadOptions? = null)`    | readable and seekable stream; single-thread         |
+|  [04]   | `static NativeFile Open(MemoryMappedViewAccessor, H5ReadOptions? = null)`          | memory-mapped open; parallel-read safe              |
+|  [05]   | `IH5Object Get(string path)` / `GetAsync(string, CancellationToken)`               | resolve one link by absolute or relative path       |
+|  [06]   | `IEnumerable<IH5Object> Children()` / `ChildrenAsync(CancellationToken)`           | enumerate direct children                           |
+|  [07]   | `bool LinkExists(string path)` / `LinkExistsAsync(string, CancellationToken)`      | probe without faulting                              |
+|  [08]   | `IH5Group.Group(string)` / `Dataset(string)` / `Get<T>(string)`                    | typed resolve extensions and their async peers      |
+|  [09]   | `IEnumerable<IH5Attribute> Attributes()` / `Attribute(string)` / `AttributeExists` | attribute roster, fetch, and probe on any object    |
 |  [10]   | `string IH5Object.Name`                                                            | the link name alone, never the path that reached it |
 
 - `[10]` is the LINK name, so a child enumerated from a group answers its own segment and not the group-qualified path a second `Dataset(...)` resolve must rebuild — the roster-as-manifest reads at `Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` and `Model/sessions#SESSION_CAPSULE` `SessionPolicy.Pack` both re-qualify it against their own group prefix for that reason.

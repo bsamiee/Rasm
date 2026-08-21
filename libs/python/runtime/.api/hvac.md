@@ -68,11 +68,11 @@
 - `read_secret_version` is the one polymorphic KV-v2 entry over `path=`/`version=`; the payload lands at `["data"]["data"]`.
 - `mount_point` defaults to `'secret'` on every KV arm, so an engine mounted anywhere else reads empty until the row names its mount.
 
-| [INDEX] | [SURFACE]                                                                             | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------------------------ | :-------------------------------- |
-|  [01]   | `client.secrets.kv.v2.read_secret_version(path, version=None, mount_point='secret')`  | head version; `["data"]["data"]`  |
-|  [02]   | `client.secrets.kv.v2.read_secret(path, mount_point='secret')`                        | head-version shorthand            |
-|  [03]   | `client.secrets.kv.v1.read_secret(path, mount_point='secret')`                        | KV-v1 read; payload at `["data"]` |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                      |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `client.secrets.kv.v2.read_secret_version(path, version=None, mount_point='secret')` | head version; `["data"]["data"]`  |
+|  [02]   | `client.secrets.kv.v2.read_secret(path, mount_point='secret')`                       | head-version shorthand            |
+|  [03]   | `client.secrets.kv.v1.read_secret(path, mount_point='secret')`                       | KV-v1 read; payload at `["data"]` |
 
 [ENTRYPOINT_SCOPE]: token mint + self-lookup
 - one leg mints the token the read rides; `use_token=True` sets it on the client in place.

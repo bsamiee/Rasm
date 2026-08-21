@@ -24,20 +24,20 @@
 
 [READER_WRITER_SCOPE]: the stateful codecs
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------------------- | :------------ | :---------------------------------------------------------------------- |
-|   [01]  | `fastavro.read.reader`                                | class         | container-file iterator; `metadata`, `codec`, `writer_schema`           |
-|   [02]  | `fastavro.read.block_reader`                          | class         | the same file as `Block` values, each a lazy record run                 |
-|   [03]  | `fastavro._read.Block`                                | class         | `num_records`/`offset`/`size`/`codec`; `read` exports it NOT            |
-|   [04]  | `fastavro.write.Writer`                               | class         | incremental writer: `write`/`write_block`/`flush`/`dump`                |
-|   [05]  | `fastavro._write_py.GenericWriter`                    | ABC           | `schema`/`metadata`/`validate_fn` base; `write` exports it NOT          |
-|   [06]  | `io.binary_encoder` / `io.binary_decoder`             | class         | `BinaryEncoder`/`BinaryDecoder`, pure-Python primitives                 |
-|   [07]  | `io.json_encoder` / `io.json_decoder`                 | class         | `AvroJSONEncoder`/`AvroJSONDecoder`, same submodule paths               |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                                                   |
+| :-----: | :---------------------------------------- | :------------ | :------------------------------------------------------------- |
+|  [01]   | `fastavro.read.reader`                    | class         | container-file iterator; `metadata`, `codec`, `writer_schema`  |
+|  [02]   | `fastavro.read.block_reader`              | class         | the same file as `Block` values, each a lazy record run        |
+|  [03]   | `fastavro._read.Block`                    | class         | `num_records`/`offset`/`size`/`codec`; `read` exports it NOT   |
+|  [04]   | `fastavro.write.Writer`                   | class         | incremental writer: `write`/`write_block`/`flush`/`dump`       |
+|  [05]   | `fastavro._write_py.GenericWriter`        | ABC           | `schema`/`metadata`/`validate_fn` base; `write` exports it NOT |
+|  [06]   | `io.binary_encoder` / `io.binary_decoder` | class         | `BinaryEncoder`/`BinaryDecoder`, pure-Python primitives        |
+|  [07]   | `io.json_encoder` / `io.json_decoder`     | class         | `AvroJSONEncoder`/`AvroJSONDecoder`, same submodule paths      |
 
 [SCHEMA_SCOPE]: `fastavro.schema` and `fastavro.repository`
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------------------- | :------------ | :---------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------------------- |
 |  [01]   | `schema.SchemaParseException`         | exception     | a malformed or contradictory schema document                         |
 |  [02]   | `schema.UnknownType`                  | exception     | a named reference no accumulator resolves                            |
 |  [03]   | `schema.FINGERPRINT_ALGORITHMS`       | `set[str]`    | `hashlib.algorithms_guaranteed` plus `SHA-256`, `MD5`, `CRC-64-AVRO` |
@@ -65,17 +65,17 @@
 
 [ENTRYPOINT_SCOPE]: container-file and schemaless codecs
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------ | :------ | :--------------------------------------- |
-|  [01]   | `writer(fo, schema, records, codec="null", sync_interval=16000, …)`       | static  | whole container file                     |
-|  [02]   | `Writer(fo, schema, codec="null", sync_interval=16000, …)`                | ctor    | incremental writer                       |
-|  [03]   | `schemaless_writer(fo, schema, record, strict=False, …)`                 | static  | one record, no header; compiled drops the `*` |
-|  [04]   | `reader(fo, reader_schema=None, return_record_name=False, …)`             | ctor    | container-file iterator                  |
-|  [05]   | `block_reader(fo, reader_schema=None, …)`                                 | ctor    | the same file, block-granular            |
-|  [06]   | `schemaless_reader(fo, writer_schema, reader_schema=None, …)`             | static  | one record against a known writer schema |
-|  [07]   | `is_avro(path_or_buffer)`                                                 | static  | magic-byte probe                         |
-|  [08]   | `json_writer(fo, schema, records, *, write_union_type=True, …)`           | static  | JSON-encoded Avro                        |
-|  [09]   | `json_reader(fo, schema, reader_schema=None, *, decoder=AvroJSONDecoder)` | static  | the JSON inverse                         |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------------ | :------ | :-------------------------------------------- |
+|  [01]   | `writer(fo, schema, records, codec="null", sync_interval=16000, …)`       | static  | whole container file                          |
+|  [02]   | `Writer(fo, schema, codec="null", sync_interval=16000, …)`                | ctor    | incremental writer                            |
+|  [03]   | `schemaless_writer(fo, schema, record, strict=False, …)`                  | static  | one record, no header; compiled drops the `*` |
+|  [04]   | `reader(fo, reader_schema=None, return_record_name=False, …)`             | ctor    | container-file iterator                       |
+|  [05]   | `block_reader(fo, reader_schema=None, …)`                                 | ctor    | the same file, block-granular                 |
+|  [06]   | `schemaless_reader(fo, writer_schema, reader_schema=None, …)`             | static  | one record against a known writer schema      |
+|  [07]   | `is_avro(path_or_buffer)`                                                 | static  | magic-byte probe                              |
+|  [08]   | `json_writer(fo, schema, records, *, write_union_type=True, …)`           | static  | JSON-encoded Avro                             |
+|  [09]   | `json_reader(fo, schema, reader_schema=None, *, decoder=AvroJSONDecoder)` | static  | the JSON inverse                              |
 
 `writer` continues `metadata=None`, `validator=None`, `sync_marker=None`, `codec_compression_level=None` on the COMPILED path — the pure `_write_py` twin alone spells `validator=False`/`sync_marker=b""` — then the keyword-only `strict=False`, `strict_allow_default=False`, `disable_tuple_notation=False`. `Writer` continues `metadata=None`, `validator=False`, `sync_marker=b""`, `compression_level=None`, `options={}`. `schemaless_writer` closes on `strict_allow_default=False`, `disable_tuple_notation=False`, and `json_writer` on `validator=False`, `encoder=AvroJSONEncoder`, `strict=False`, `strict_allow_default=False`, `disable_tuple_notation=False`.
 

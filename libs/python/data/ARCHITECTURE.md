@@ -7,9 +7,9 @@
 ```text codemap
 data/
 ├── tabular/              # Columnar, relational, and lakehouse interchange plane and its object-store egress
-│   ├── interop.py        # FrameInterop Backend axis against the _BACKEND table; ArrowCStream C-Data hops, pyarrow-free
+│   ├── interop.py        # FrameInterop Backend axis; ArrowCStream C-Data hops; DataLeg/DataHook rosters, ColumnSpec, FieldShape
 │   ├── columnar.py       # DatasetRef source-shape discriminant; the scan base over interop alone, zero back-edges
-│   ├── lakehouse.py      # Lakehouse owner over the LakeOp lifecycle and table-format bindings
+│   ├── lakehouse.py      # Lakehouse owner over the LakeOp lifecycle and table-format bindings; Capability, Fence, the Generation roster
 │   ├── query.py          # QuerySpec tagged union: sqlglot-gated SQL, relational, narwhals, Ibis IR, the RemoteOp leg
 │   ├── materialize.py    # DerivedSnapshot partition-delta recompute; PartitionBundle Merkle-folds child content keys
 │   ├── contract.py       # Structural admission, covenant, and quality gate folded on one ContractClaim
@@ -77,15 +77,17 @@ flowchart TB
         Interop[interop]
     end
     Spatial e1@-->|"[IMPORT]: QueryReceipt"| Columnar
+    Spatial e30@-->|"[IMPORT]: DataLeg"| Interop
     Spatial e2@-->|"[IMPORT]: ObjectEgress"| Egress
     Spatial e3@-->|"[IMPORT]: FieldVirtual"| Gridded
     Spatial e4@-->|"[IMPORT]: FieldReceipt"| Gridded
-    Gridded e5@-->|"[IMPORT]: ArrowCStream"| Interop
+    Gridded e5@-->|"[IMPORT]: ArrowCStream, DataLeg"| Interop
     Impact e6@-->|"[IMPORT]: FrameAdmission"| Contract
     Impact e7@-->|"[IMPORT]: QualityProfile"| Profile
     Impact e8@-->|"[IMPORT]: FrameInterop"| Interop
     Impact e9@-->|"[IMPORT]: arrow_bytes"| Columnar
     Graph e10@-.->|"[COUNTER]: GraphResult"| Columnar
+    Lakehouse e31@-.->|"[COUNTER]: Generation"| Graph
     Journal e11@-->|"[IMPORT]: LakeOp"| Lakehouse
     Journal e12@-->|"[IMPORT]: ScanPlan"| Columnar
     Materialize e13@-->|"[IMPORT]: QuerySpec"| Query
@@ -117,8 +119,10 @@ flowchart TB
 - S1 `virtual` mints the `FieldReceipt` family in-folder, and `field`'s raw read leg decodes the corpus container without a tabular hop.
 - S1→S0 `gridded -> cost` — `PlanReceipt` crosses as wire DATA on the counter-edge, never an import, so the price fold adds no cycle.
 - S1→S0 `graph -> columnar` — `GraphResult` crosses as wire DATA on the counter-edge; `graph` stays import-isolated, composing runtime alone.
+- S0→S1 `lakehouse -> graph` — `LakeOp.Ancestry` projects a `Generation` edge frame as wire DATA, so version-lineage walks stay the rustworkx kernel.
 - S1 `network` composes `graph` strictly downward inside the subfolder; the flow family adds no new stratum edge.
 - S1 `impact` siblings — `inventory`, `solve`, and `scenario` compose runtime alone and feed the carrier's cases, never a second matrix.
+- S1 `declaration` composes `impact` strictly downward for the `ImpactRegime` method order alone — a local preference forks edition policy.
 - S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` receipt owner, and the gridded `VirtualReference` plane.
 - S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses on the gridded `FieldReceipt` family.
 

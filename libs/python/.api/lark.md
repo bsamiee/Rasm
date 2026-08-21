@@ -39,8 +39,8 @@
 |  [02]   | `GrammarError`         | grammar build  | malformed EBNF grammar — raised at `Lark(...)` construction          |
 |  [03]   | `UnexpectedInput`      | parse failure  | base for parse-time failures; carries `pos_in_stream`, `get_context` |
 |  [04]   | `UnexpectedToken`      | parser failure | a token the grammar did not expect (`expected`/`token` set)          |
-|  [05]   | `UnexpectedCharacters` | lexer failure  | a character the lexer rejects                                        |
-|  [06]   | `UnexpectedEOF`        | parser failure | input ended mid-rule                                                 |
+|  [05]   | `UnexpectedCharacters` | lexer failure  | a character the lexer rejects (`allowed` terminal-name set)          |
+|  [06]   | `UnexpectedEOF`        | parser failure | input ended mid-rule; `expected` repeats, `pos_in_stream` is `-1`    |
 |  [07]   | `VisitError`           | fold failure   | wraps any raise a `Transformer` method makes, inline fold included   |
 
 ## [03]-[ENTRYPOINTS]

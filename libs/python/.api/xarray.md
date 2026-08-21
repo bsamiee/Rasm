@@ -27,6 +27,7 @@
 |  [09]   | `Context`     | class         | `apply_ufunc` execution context handle             |
 
 [exceptions]: `AlignmentError` `CoordinateValidationError` `MergeError` `InvalidTreeError` `NotFoundInTreeError` `TreeIsomorphismError` `SerializationWarning`
+[exception ancestry]: every class here refines `ValueError` EXCEPT `InvalidTreeError`, which roots at bare `Exception`. A consumer catch set therefore carries `ValueError` for the alignment, merge, coordinate-validation, not-found-in-tree, and isomorphism refusals, and NAMES `InvalidTreeError` alone — the one refusal no builtin ancestor admits.
 [sentinels]: `ALL_DIMS` selects every dimension in a reduction.
 
 [PUBLIC_TYPE_SCOPE]: members shared across `DataArray` and `Dataset`

@@ -42,7 +42,7 @@ Rasm.Persistence/            # One system of record; every sub-domain a closed-c
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # ObjectStore SmartEnum provider axis behind BlobRemote; the credential-free Presigned grant row
     ├── Residence.cs         # ObjectChecksum transport-versus-identity split and the sealed write-stance columns
-    ├── Redrive.cs           # RemoteStoreFault 540x band over the kernel RegistryFault floor; the re-drive currency mint
+    ├── Redrive.cs           # RemoteStoreFault 540x band over the kernel Fault floor; the re-drive currency mint
     ├── BlobGc.cs            # BlobCatalogRow content-lineage rows; one reachability sweep, never a lane-local delete executor
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
     ├── Provisioning.cs      # Verification-first PostgreSQL read fold and the idempotent SQLite open ritual
@@ -50,7 +50,7 @@ Rasm.Persistence/            # One system of record; every sub-domain a closed-c
     └── Observability.cs     # Engine-stat harvests, receipt-slot registry, hook rail, chargeback residence, contributor port
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type: `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, read lanes, operations, codecs, and policies, never provider packages.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type: `Validation<Error,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, read lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[STRATA]
 

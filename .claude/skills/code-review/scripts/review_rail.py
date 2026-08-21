@@ -161,6 +161,8 @@ WALL_OUTLIER_FACTOR: Final = 2.0  # a shard is a wall-time outlier above this mu
 CR_META_NAMES: Final = frozenset({"git.json", "internalState.json", "diff.json", "incrementalDiff.json"})
 GT_ORACLE_FILES: Final[tuple[str, ...]] = (".greptile/config.json", ".greptile/rules.md")
 MS_HOME: Final = ".macroscope"
+DOT_DIRS: Final[tuple[str, ...]] = (".planning", ".api")  # corpus dot-directories a reviewer glob must spell; `**` never crosses a dot segment
+DOT_BEARING_GLOBS: Final[frozenset[str]] = frozenset({"**", "**/*.md", "libs/**"})
 # Path prefix -> owning engine, longest prefix first: a registry row's landed surface resolves its oracle here, and an unmatched path carries no guard the rail can prove.
 ENGINE_SURFACE_ROWS: Final[tuple[tuple[str, Reviewer], ...]] = (
     (".coderabbit.yaml", "coderabbit"),
@@ -238,6 +240,7 @@ TWIN_OBLIGATION_RE: Final = re.compile(r"[^ ]*(?: \[\d+\])? is this law's \w+ tw
 TWIN_PATH_GLOSS_RE: Final = re.compile(r"\s*\((?:[a-z]+ )*[\w./-]+\.(?:md|py|json|yaml|toml)\)")
 TWIN_FENCING: Final[tuple[str, ...]] = ("`", '"')
 TWIN_LAW_OPEN: Final = "<role>"
+FRONT_MATTER_RE: Final = re.compile(r"\A---\n(.*?\n)---\n", re.DOTALL)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -3197,6 +3200,61 @@ def grade_proofs() -> tuple[tuple[str, bool], ...]:
     )
 
 
+def scope_declarations(repo: Path, /) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    # One row per scoped declaration across the three engines — surface, the declaration's own label, and the glob set it carries.
+    def read(target: Path, /) -> str:
+        return target.read_text(encoding="utf-8") if target.is_file() else ""
+
+    def globs_of(raw: object, /) -> tuple[str, ...]:
+        return tuple(str(glob) for glob in raw) if isinstance(raw, list) else ()
+
+    cr = tuple(
+        ("coderabbit", glob, (glob,)) for glob, _ in yaml_loaded(repo / ".coderabbit.yaml").map(cr_instruction_blocks).default_with(lambda _f: ())
+    )
+    rows = stringly(json.loads(read(repo / GT_ORACLE_FILES[0]) or "{}")).get("rules")
+    gt = tuple(
+        ("greptile", str(stringly(row).get("id", "")), globs_of(stringly(row).get("scope")))
+        for row in (rows if isinstance(rows, list) else ())
+        if globs_of(stringly(row).get("scope"))
+    )
+
+    def front_matter(lens: Path, /) -> object:
+        head = FRONT_MATTER_RE.match(read(lens))
+        try:
+            return YAML_SAFE.load(head.group(1)) if head else {}
+        except YAMLError:
+            return {}
+
+    ms = tuple(
+        ("macroscope", str(lens.relative_to(repo)), globs)
+        for lens in sorted((repo / MS_HOME).rglob("*.md"))
+        if (globs := globs_of(stringly(front_matter(lens)).get("include")))
+    )
+    return (*cr, *gt, *ms)
+
+
+def dot_blind(globs: tuple[str, ...], /) -> tuple[str, ...]:
+    # A `**` crosses no dot segment under minimatch's `dot:false` default, so a glob reaching a dot-directory tree spells that directory or governs nothing
+    # there — silently, since no engine reports the miss. Every alternate rides one declaration, so the whole set answers for any member that implicates one.
+    spelled = any(f"/{dot}/" in glob for dot in DOT_DIRS for glob in globs)
+    implicating = tuple(
+        glob for glob in globs if glob in DOT_BEARING_GLOBS or (glob.startswith("libs/") and glob.endswith("/**") and "/." not in glob)
+    )
+    return () if spelled or not implicating else implicating
+
+
+def scope_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
+    # `docs/laws/topology.md` row [50]: a reviewer-config glob implying `libs/**` owes its `.planning`/`.api` alternates, and the failing proof names the owner.
+    declarations = scope_declarations(repo)
+    blind = tuple((surface, label, missed) for surface, label, globs in declarations if (missed := dot_blind(globs)))
+    first = f" (first: {blind[0][0]} {blind[0][1]} -> {blind[0][2][0]})" if blind else ""
+    return (
+        ("scope-declarations-read", bool(declarations)),
+        ("scope-every-engine-declares", {surface for surface, _, _ in declarations} == {"coderabbit", "greptile", "macroscope"}),
+        (f"scope-dot-directories-spelled{first}", not blind),
+    )
+
+
 def selftest_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
     primary, nulled = selftest_fixture()
     full = report_decoded(primary, ShardReport, "<selftest-primary>")
@@ -3246,6 +3304,7 @@ def selftest_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
         *fill_proofs(),
         *rollup_proofs(),
         *twin_proofs(repo),
+        *scope_proofs(repo),
         *grade_proofs(),
     )
 

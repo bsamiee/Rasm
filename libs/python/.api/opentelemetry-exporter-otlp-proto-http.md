@@ -39,12 +39,12 @@
 
 [ENTRYPOINT_SCOPE]: OTLPMetricExporter
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                           |
-| :-----: | :---------------------------------------------------------------------- | :------- | :------------------------------------- |
-|  [01]   | `OTLPMetricExporter(..., preferred_*, max_export_batch_size)`           | ctor     | metric exporter, prefs, batch bound    |
-|  [02]   | `export(metrics_data, timeout_millis=10_000) -> MetricExportResult`     | instance | encode + POST `MetricsData` with retry |
-|  [03]   | `force_flush(timeout_millis=10_000) -> bool`                            | instance | no-op true                             |
-|  [04]   | `shutdown(timeout_millis=30_000) -> None`                               | instance | release session, abort backoff         |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------ | :------- | :------------------------------------- |
+|  [01]   | `OTLPMetricExporter(..., preferred_*, max_export_batch_size)`       | ctor     | metric exporter, prefs, batch bound    |
+|  [02]   | `export(metrics_data, timeout_millis=10_000) -> MetricExportResult` | instance | encode + POST `MetricsData` with retry |
+|  [03]   | `force_flush(timeout_millis=10_000) -> bool`                        | instance | no-op true                             |
+|  [04]   | `shutdown(timeout_millis=30_000) -> None`                           | instance | release session, abort backoff         |
 
 [ENTRYPOINT_SCOPE]: OTLPLogExporter
 

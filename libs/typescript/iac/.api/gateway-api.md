@@ -21,7 +21,7 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 [CLASS_CONTRACT]: `GatewayClass` is CLUSTER-scoped and this estate REFERENCES one by name without ever authoring it — the controller installs its own class, so `spec.controllerName` (`string` 1..253, REQUIRED, domain-slash-path pattern) is read-only estate context. `description` is `string` maxLength 64 and `parametersRef` is the implementation-specific handle.
 
 | [INDEX] | [FIELD]                              | [CAPABILITY]                                                             |
-| :-----: | :----------------------------------- | :------------------------------------------------------------------------ |
+| :-----: | :----------------------------------- | :----------------------------------------------------------------------- |
 |  [01]   | `spec.gatewayClassName`              | `string` 1..253 REQUIRED — a name no class answers leaves it unaccepted  |
 |  [02]   | `spec.listeners[]`                   | `array` minItems 1, maxItems 64, REQUIRED — the whole listen surface     |
 |  [03]   | `…listeners[].name`                  | `string` 1..253 REQUIRED — the section key a route's `sectionName` binds |
@@ -43,9 +43,9 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 [ROUTE_CONTRACT]: `HTTPRoute` is NAMESPACED and its `spec` requires nothing — every field defaults, so an empty spec is admissible and inert. That is the trap the rows below exist against: absence is a decision the schema makes, not one the author made.
 
 | [INDEX] | [FIELD]                            | [CAPABILITY]                                                              |
-| :-----: | :--------------------------------- | :-------------------------------------------------------------------------- |
+| :-----: | :--------------------------------- | :------------------------------------------------------------------------ |
 |  [01]   | `spec.parentRefs[]`                | `array` maxItems 32 — the Gateways this route attaches to                 |
-|  [02]   | `…parentRefs[].name`               | `string` 1..253 REQUIRED; `kind` DEFAULT `Gateway`, `group` the API group  |
+|  [02]   | `…parentRefs[].name`               | `string` 1..253 REQUIRED; `kind` DEFAULT `Gateway`, `group` the API group |
 |  [03]   | `…parentRefs[].{sectionName,port}` | narrows to one listener or port; absent attaches to all compatible        |
 |  [04]   | `spec.hostnames[]`                 | `array` maxItems 16 of `string` 1..253 — intersected with the listener's  |
 |  [05]   | `spec.rules[]`                     | `array` minItems 1, maxItems 16 — DEFAULT one PathPrefix `/` rule         |

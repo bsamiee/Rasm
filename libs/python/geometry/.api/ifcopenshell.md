@@ -64,6 +64,8 @@
 |  [16]   | `file.undo` / `redo` / `discard_transaction`                | step the transaction stack                                  |
 |  [17]   | `file.write(path, format=None, zipped=False)`               | serialize the model                                         |
 |  [18]   | `file.from_string`                                          | parse a model from an in-memory SPF string (static)         |
+|  [19]   | `entity_instance.is_a(type=None)`                           | answer the class name, or test the SUBTYPE relation         |
+|  [20]   | `entity_instance.id()`                                      | the instance's own step id — the stable partition key       |
 
 [ENTRYPOINT_SCOPE]: tessellation and analysis
 
@@ -170,6 +172,10 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 
 [LOCAL_ADMISSION]:
 - `geometry:ifc` owner admits `ifcopenshell.open`, the query/authoring/tessellation surface, and `util` analysis as the ifc rail: a path opens the model, the usecase vocabulary authors it, and `geom` meshes it under a `geometry_library` kernel.
+
+[CAPTURE_GAP]:
+- members: every row above verifies by published-surface read, never runtime import — the `ifcopenshell` C extension does not build on darwin/python3.15, the same constraint the `ifccsv` sibling records.
+- ABSENT: the EXPRESS reflection under `schema_by_name` — a schema's `declaration_by_name`, an entity declaration's `all_attributes`, and an attribute's `name`/`optional` — carries no row here, so a fence proving a materialized attribute roster against the running schema has no catalogued producer to compose and none is authored from memory.
 
 [RAIL_LAW]:
 - Package: `ifcopenshell`

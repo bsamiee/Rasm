@@ -25,14 +25,14 @@ core/
     │   └── presence.ts   # Actor-presence CRDT over proven merge rows
     ├── interchange/      # Contract wire plane — generated bindings, codecs, and the capability dial; never serving
     │   ├── format.ts     # Byte-dialect engines behind one decode transform
-    │   ├── codec.ts      # Wire families over one keyed-decode registry and the closed family roster
+    │   ├── codec.ts      # Wire families over one keyed-decode registry, the closed family roster, and one bounded tree walk
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and residency under Shape.Ingress ceilings
     │   ├── contract.ts   # Descriptor-set drift diff into graded verdicts
     │   ├── carrier.ts    # Carrier.Context total parse/print folds, transport dialect rows, and the extension-slot seat
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
         ├── convention.ts # Typed semconv, metric, and event vocabulary with wire-name translation, the metric-plane roster, and one instrument mount
-        ├── slo.ts        # Reliability owner — Objective schema class, Sli union, burn and severity tables, Alert.Spec compile
+        ├── slo.ts        # Reliability owner — Objective schema class, Sli union over its role table, burn and severity rows, Alert.Spec compile
         ├── board.ts      # Dashboard model, the query algebra with its render targets, pack dispatch, metric snapshot
         └── tap.ts        # Hook-point name rows, the veto/observe/replay modality table, and the tap contract
 ```
@@ -111,7 +111,7 @@ flowchart TB
     Feed e21@-->|"[IMPORT]: Evidence.ReceiptEnvelope"| Evidence
     Feed e22@-->|"[IMPORT]: Quantity.Dimension"| Quantity
     Transition e23@-->|"[IMPORT]: Fault.Class"| Fault
-    Reliability e24@-->|"[IMPORT]: Convention.Metric"| Convention
+    Reliability e24@-->|"[IMPORT]: Convention.Metric + dimensions"| Convention
     Tap e25@-->|"[IMPORT]: Convention.mount"| Convention
     Tap e26@-->|"[IMPORT]: Fault.Class"| Fault
     Tap e27@-->|"[IMPORT]: Identity.App"| Identity
@@ -152,7 +152,7 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
-    Compute e2@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Wire
+    Compute e2@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire + FaultDetail"| Wire
     Element e3@<-->|"[WIRE]: rasm.element.v1"| Wire
     Persistence e4@-->|"[WIRE]: CrdtOpWire"| Wire
     Persistence e5@-->|"[WIRE]: SnapshotHeader"| Wire
@@ -209,7 +209,7 @@ flowchart LR
     Digest e1@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Data
     Digest e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Runtime
     Wire e3@-->|"[SHAPE]: FlagVerdict"| Runtime
-    Wire e4@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature"| Ui
+    Wire e4@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature + Wire.Walk"| Ui
     Wire e5@-->|"[SHAPE]: Hops"| Data
     Wire e6@-->|"[SHAPE]: Wire.TextureSet"| Data
     Fold e7@-->|"[SHAPE]: Fold.Plan"| Data
@@ -229,7 +229,7 @@ flowchart LR
     Reliability e21@-->|"[PROJECTION]: Reliability.Alert.Spec"| Iac
     Reliability e22@-->|"[PROJECTION]: Reliability.Objective"| Iac
     Reliability e23@-->|"[PROJECTION]: Reliability.Filter"| Iac
-    Frame e24@-->|"[SHAPE]: Residency.Ledger"| Ui
+    Frame e24@-->|"[SHAPE]: Residency.View"| Ui
     Tap e25@-->|"[SHAPE]: Tap.Registry"| Runtime
     Tap e26@-->|"[SHAPE]: Tap.Point"| Data
     Tap e27@-->|"[SHAPE]: Tap.Name"| Ui

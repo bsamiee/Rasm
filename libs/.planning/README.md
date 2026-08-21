@@ -38,7 +38,7 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 - Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
 - Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
 - Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
-- `[<KIND>]: <shape>`; `KIND = WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
+- `[<KIND>]: <shape>`; `KIND: WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
 - Page filenames are their codemap node name language appropriate cased, so card, page, and node resolve as one name and a rename moves consistently.
 

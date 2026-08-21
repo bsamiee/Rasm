@@ -15,11 +15,20 @@
 
 [PUBLIC_TYPE_SCOPE]: message family
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                          |
-| :-----: | :------------ | :------------ | :------------------------------------ |
-|  [01]   | `Message`     | abstract base | root of all generated message classes |
-|  [02]   | `DecodeError` | exception     | malformed binary wire input           |
-|  [03]   | `EncodeError` | exception     | unserializable message state          |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [CAPABILITY]                                            |
+| :-----: | :------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `Message`     | abstract base  | root of all generated message classes                   |
+|  [02]   | `Error`       | exception base | `Exception` subclass rooting both binary-codec refusals |
+|  [03]   | `DecodeError` | exception      | malformed binary wire input                             |
+|  [04]   | `EncodeError` | exception      | unserializable message state                            |
+
+[PUBLIC_TYPE_SCOPE]: json_format exception family
+
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]  | [CAPABILITY]                                                           |
+| :-----: | :--------------------------------- | :------------- | :--------------------------------------------------------------------- |
+|  [01]   | `json_format.Error`                | exception base | `Exception` subclass rooting both JSON refusals, DISJOINT from `Error` |
+|  [02]   | `json_format.ParseError`           | exception      | `ParseDict`/`Parse` refusal, carrying the offending field path         |
+|  [03]   | `json_format.SerializeToJsonError` | exception      | `MessageToDict`/`MessageToJson` refusal on unrenderable state          |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and registry family
 
@@ -121,18 +130,18 @@
 
 [ENTRYPOINT_SCOPE]: registries and dynamic message classes
 
-| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :-------------------------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                         | static   | process-wide default pool                      |
-|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`       | instance | resolve a registered message schema            |
-|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`          | instance | resolve a registered `.proto` file             |
-|  [04]   | `DescriptorPool.FindServiceByName(full_name) -> ServiceDescriptor`    | instance | resolve a registered service; raises on a miss |
-|  [05]   | `ServiceDescriptor.methods_by_name -> Mapping[str, MethodDescriptor]` | instance | rpc roster keyed by compiled method name       |
-|  [06]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor`   | instance | register a `FileDescriptorProto` at runtime    |
-|  [07]   | `symbol_database.Default() -> SymbolDatabase`                         | static   | default symbol resolver                        |
-|  [08]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`                | instance | resolve a generated class by full name         |
-|  [09]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`        | static   | message class for a runtime `Descriptor`       |
-|  [10]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`      | static   | all message classes across given files         |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :-------------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                         | static   | process-wide default pool                     |
+|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`       | instance | resolve a registered message schema           |
+|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`          | instance | resolve a registered `.proto` file            |
+|  [04]   | `DescriptorPool.FindServiceByName(full_name) -> ServiceDescriptor`    | instance | resolve a registered service; `KeyError` miss |
+|  [05]   | `ServiceDescriptor.methods_by_name -> Mapping[str, MethodDescriptor]` | instance | rpc roster keyed by compiled method name      |
+|  [06]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor`   | instance | register a `FileDescriptorProto` at runtime   |
+|  [07]   | `symbol_database.Default() -> SymbolDatabase`                         | static   | default symbol resolver                       |
+|  [08]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`                | instance | resolve a generated class by full name        |
+|  [09]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`        | static   | message class for a runtime `Descriptor`      |
+|  [10]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`      | static   | all message classes across given files        |
 
 [ENTRYPOINT_SCOPE]: well-known type operations
 
@@ -152,6 +161,7 @@
 
 [TOPOLOGY]:
 - `api_implementation.Type()` reports the active `upb`/`cpp`/`python` backend chosen at import; native `upb` is the default fast path and the `_message` extension backs the instance methods.
+- every `DescriptorPool.Find*ByName` miss raises `KeyError` — the native `upb` pool and the pure-python one alike — so a resolver fence names that one class and never the `LookupError` base a different backend might have chosen.
 - generated message classes auto-register in `descriptor_pool.Default()`; `symbol_database.Default().GetSymbol(full_name)` and `message_factory.GetMessageClass(descriptor)` resolve a class by name/descriptor — the dynamic-message path when the `_pb2` import is not statically known.
 - `SerializeToString(deterministic=True)` produces a stable byte order for hashing/caching; default order is implementation-defined. `ParseFromString` clears the message first; `MergeFromString` overlays onto current state.
 - proto3 preserves unknown fields by default: `UnknownFields()` reads them, `DiscardUnknownFields()` drops them, and `json_format`/`text_format` parse under `ignore_unknown_fields`.
@@ -170,6 +180,7 @@
 [LOCAL_ADMISSION]:
 - Generated `_pb2.py` files are the only source of concrete message classes; a runtime-resolved schema builds through `message_factory.GetMessageClass` against the pool, and the `google.protobuf.internal.builder` path stays inside the generated modules alone.
 - `proto.serialize`/`proto.parse` carry the non-mutating functional path; `ParseFromString` is reserved for in-place reuse of a pre-allocated message.
+- A codec fence names BOTH exception roots: `message.Error` covers the binary leg and `json_format.Error` the JSON leg, and neither subclasses the other, so a `catch` naming one alone lets the other propagate past the rail.
 
 [RAIL_LAW]:
 - Package: `protobuf`

@@ -1,43 +1,18 @@
-# The estate proto gate. One module — `tests/contracts`, the neutral corpus no language tree owns — so a proto path
-# reads `rasm/<family>/v1/<family>.proto` from the corpus root and a `rasm.<family>.v1` package lands in the directory
-# that spells it. buf owns lint and breaking alone; each branch build owns its own codegen, and no `buf.gen.yaml`
-# exists (see tests/contracts/.api/bufbuild-buf.md `[04]-[IMPLEMENTATION_LAW]`).
+# Gate axis; generation is the sibling buf.gen.yaml
 version: v2
 modules:
   - path: tests/contracts
-    # `tests/RULINGS.md` `[04]-[STRUCTURE]` seats a publisher's own definition as frozen bytes where no branch reaches
-    # it as client surface, and carves those bytes out of every formatter and breaking lane. `io/cloudevents/v1` is the
-    # CloudEvents publisher's source: upstream versions it, upstream's spelling is the proof, and a gate reformatting
-    # or diffing it would grade the estate's copy instead.
     excludes:
-      - tests/contracts/io
+      - tests/contracts/io  # Vendored publisher bytes; module-membership exclusion carves generation aswell
 lint:
-  # STANDARD over BASIC/MINIMAL: the package-layout, enum, field, and service rules all bind here, and the two rules
-  # the estate's own ruled vocabulary displaces are named below rather than dropped by lowering the category.
   use:
     - STANDARD
-  except:
-    # csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY rules the wire spelling: a message reads <Verb>Request inbound
-    # and <Verb>Response/<Verb>Reply/<Verb>Receipt outbound off the DOMAIN shape it transcribes, and a streaming chunk
-    # is named for the payload it carries. These two rules derive both names from the rpc instead, and two of their
-    # demands are unsatisfiable against types the suite deliberately shares.
+  except:                   # Csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY names request and response shapes off the domain, never the rpc
     - RPC_REQUEST_STANDARD_NAME
     - RPC_RESPONSE_STANDARD_NAME
-  ignore_only:
-    # ControlService.ReloadOptions and .DispatchPatch answer one ReloadOutcome transition, so one ReloadReply carries
-    # both routes and its `trigger` column separates them; ArtifactSyncService.Sync frames both directions of one bidi
-    # byte seam with one ArtifactFrame. Splitting either mints a duplicate shape carrying no new wire fact.
+  ignore_only:              # One ReloadReply serves ReloadOptions and DispatchPatch on the trigger column; one ArtifactFrame frames both directions of the Sync bidi seam
     RPC_REQUEST_RESPONSE_UNIQUE:
       - tests/contracts/rasm/compute/v1/compute.proto
 breaking:
-  # FILE over PACKAGE/WIRE/WIRE_JSON: the corpus freezes a per-source FileDescriptorSet baseline, so the gate compares
-  # one file against one snapshot and a deleted message or renamed field fails at the source that owns it.
   use:
-    - FILE
-  ignore_only:
-    # csharp:Rasm.Element/Graph/wire#WIRE_CODEC absence law: FireWire.reaction, EnvironmentalWire.recycled_content,
-    # and EnvironmentalWire.end_of_life_recovery moved to explicit presence so absence never aliases a zero or a
-    # blank key — an owner-decided one-time flip, wire-compatible at WIRE/WIRE_JSON, waived here at the owning file
-    # rather than by lowering the FILE category.
-    FIELD_SAME_CARDINALITY:
-      - tests/contracts/rasm/element/v1/element.proto
+    - FILE                  # Baseline is a git ref, never the parity snapshot — that digest mints at --exclude-imports and resolves as no image

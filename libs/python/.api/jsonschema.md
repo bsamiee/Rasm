@@ -34,28 +34,28 @@ Every validator class carries the same class attributes — `META_SCHEMA`, `VALI
 
 [INSTANCE_SCOPE]: the members a bound validator answers
 
-| [INDEX] | [SURFACE]                            | [ANSWERS]                                                             |
-| :-----: | :----------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `iter_errors(instance)`              | a lazy generator of `ValidationError`, the ONLY accumulating surface  |
-|  [02]   | `validate(instance)`                 | `None`, raising the FIRST error `iter_errors` yields                  |
-|  [03]   | `is_valid(instance)`                 | `bool`, short-circuiting on the first error                           |
+| [INDEX] | [SURFACE]                                      | [ANSWERS]                                                             |
+| :-----: | :--------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `iter_errors(instance)`                        | a lazy generator of `ValidationError`, the ONLY accumulating surface  |
+|  [02]   | `validate(instance)`                           | `None`, raising the FIRST error `iter_errors` yields                  |
+|  [03]   | `is_valid(instance)`                           | `bool`, short-circuiting on the first error                           |
 |  [04]   | `check_schema(schema, format_checker=<unset>)` | classmethod; raises `SchemaError` against the draft's own meta-schema |
-|  [05]   | `evolve(**changes)`                  | a new validator sharing the compiled state, one field replaced        |
-|  [06]   | `descend(instance, schema, ...)`     | the sub-schema recursion a custom keyword implementation drives       |
-|  [07]   | `is_type(instance, type)`            | the bound `TypeChecker` predicate                                     |
-|  [08]   | `schema` `format_checker` `resolver` | the bound fields; `resolver` is the deprecated pre-`referencing` slot |
+|  [05]   | `evolve(**changes)`                            | a new validator sharing the compiled state, one field replaced        |
+|  [06]   | `descend(instance, schema, ...)`               | the sub-schema recursion a custom keyword implementation drives       |
+|  [07]   | `is_type(instance, type)`                      | the bound `TypeChecker` predicate                                     |
+|  [08]   | `schema` `format_checker` `resolver`           | the bound fields; `resolver` is the deprecated pre-`referencing` slot |
 
 `Draft202012Validator(schema, resolver=None, format_checker=None, *, registry=<20 resources>, _resolver=None)` is the constructor shape; `registry` is the `referencing` resolution surface and the only admitted one.
 
 [FAULT_SCOPE]: `jsonschema.exceptions` — two roots and three orphans
 
-| [INDEX] | [SYMBOL]                           | [BASES]                    | [CARRIES]                                               |
-| :-----: | :--------------------------------- | :------------------------- | :------------------------------------------------------ |
-|  [01]   | `ValidationError`                  | `_Error`                   | one instance breach                                     |
-|  [02]   | `SchemaError`                      | `_Error`                   | one meta-schema breach of the schema document itself    |
-|  [03]   | `FormatError`                      | `Exception`                | one `format` checker refusal; NOT under `_Error`        |
-|  [04]   | `UnknownType` `UndefinedTypeCheck` | `Exception`                | a `type` keyword no bound `TypeChecker` answers         |
-|  [05]   | `_WrappedReferencingError`         | `_RefResolutionError`      | an unresolvable `$ref`, its base rooted on `referencing.Unresolvable` |
+| [INDEX] | [SYMBOL]                           | [BASES]               | [CARRIES]                                                             |
+| :-----: | :--------------------------------- | :-------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `ValidationError`                  | `_Error`              | one instance breach                                                   |
+|  [02]   | `SchemaError`                      | `_Error`              | one meta-schema breach of the schema document itself                  |
+|  [03]   | `FormatError`                      | `Exception`           | one `format` checker refusal; NOT under `_Error`                      |
+|  [04]   | `UnknownType` `UndefinedTypeCheck` | `Exception`           | a `type` keyword no bound `TypeChecker` answers                       |
+|  [05]   | `_WrappedReferencingError`         | `_RefResolutionError` | an unresolvable `$ref`, its base rooted on `referencing.Unresolvable` |
 
 `ValidationError` fields: `message`, `validator`, `validator_value`, `instance`, `schema`, `path`/`relative_path`/`absolute_path`, `schema_path`/`relative_schema_path`/`absolute_schema_path`, `context`, `cause`, `parent`, and the `json_path` property rendering `$.a.0`.
 

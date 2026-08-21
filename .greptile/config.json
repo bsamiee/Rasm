@@ -329,17 +329,28 @@
             "rule": "Terms the corpus reuses carry one binding sense minted at docs/glossary/, and every claim resolves that corpus live on the diff — a finding carrying a copy of a definition or a term roster reads stale the moment an entry lands. Two conditions fire: a spelling a glossary entry's [NOT] line names, and a glossary-defined term used against the sense its entry binds; both name the owning entry. A concept a durable page names with no glossary entry binding its sense, recurring across two or more surfaces, is the third finding and routes as the entry mint at the owning band, never as a page-local definition. Synonym choice among words no glossary entry defines is void — the house owns the voice, so a term finding cites the entry or dies.",
             "severity": "medium",
             "enabled": true,
-            "scope": ["**/*.md"]
+            "scope": ["**/*.md", "**/.planning/**/*.md", "**/.api/**/*.md", ".claude/**/*.md", ".greptile/**/*.md", ".macroscope/**/*.md"]
         },
         {
             "id": "draw-fork",
-            "rule": "In libs/csharp the kernel Deterministic is the branch's ONE splitmix64 owner. Hunt every fence for the gamma literal 0x9E3779B97F4A7C15 or a transcribed splitmix64 mixer outside Rasm/.planning/Domain/identity.md, and for `new Random(` outside a `Deterministic.Source(...)` crossing — each is a draw fork splitting replay across runtimes; demand the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC gear table at Rasm.Compute Runtime/codecs) is a recorded split, never a fork — do not flag it.",
-            "filePatterns": ["libs/csharp/**"]
+            "rule": "In libs/csharp the kernel Deterministic is the branch's ONE splitmix64 owner. Hunt every fence for the gamma literal 0x9E3779B97F4A7C15 or a transcribed splitmix64 mixer outside Rasm/Domain/identity, and for `new Random(` outside a `Deterministic.Source(...)` crossing — each is a draw fork splitting replay across runtimes; demand the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC Gear table at Rasm.Compute/Runtime/codecs) is a recorded split, never a fork — do not flag it.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/csharp/**", "libs/csharp/.planning/**", "libs/csharp/**/.planning/**", "libs/csharp/**/.api/**", "docs/stacks/csharp/**"]
         },
         {
             "id": "fault-reason-posture",
-            "rule": "One fault reason owns ONE recovery posture, declared at the family owner. Hunt fault families whose one reason is handled under divergent postures at different consumers — retried at one site, terminally refused at another — and demand the posture column on the family row (the class/retryable derivation the branch fault ruling fixes), never per-site divergence.",
-            "filePatterns": ["libs/**"]
+            "rule": "One fault reason owns ONE recovery posture, declared at the family owner. Hunt fault families whose one reason is handled under divergent postures at different consumers — retried at one site, terminally refused at another — and demand the posture COLUMNS on the family row, never per-site divergence. Posture grades as a band, never a boolean: a stored retryable column beside the band is a second authority the projection off that band already answers, so a bare retry bit standing where the band belongs is the finding and the demanded fix names the band the branch fault ruling fixes. A producer-stated re-drive window rides the raised VALUE and re-seats the schedule base per refusal — a policy row holding a slot only a raise can fill is decorative density, and one shared word spanning the wire, band, and value altitudes claims a single authority where three answer.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**"]
+        },
+        {
+            "id": "fault-axes-typescript",
+            "rule": "Retriability on a TypeScript fault policy row is TWO columns, never one bit: recovery bands what a re-drive reaches (throttled, transient, terminal) and reoffer names the route the next offer takes (wait re-invokes identically, restart re-takes the dependency handle, rescope narrows the offer the caller re-authors), so the elected representative carries its band and its route whole and the route record closes over the column. `retryable` survives only as the derived projection `recovery !== \"terminal\"` — a stored retry column beside the band is the deleted form, and a raise supplying its own retryable field is that defect one rank down. A throttled refusal carries its stated window on the VALUE as an `Option<Duration>` re-seating the schedule base for that refusal alone, so a policy row holding that slot holds one only a raise can fill; the three altitudes stay three words — wire `retry_after`, class band `throttled`, value `after` — and one shared spelling across them is the finding. Each policy row states its own detail text — a free-string `detail` field on the raise re-opens the axis `reason` already closed. Accumulating admission mints ONE census carrier off the same reason roster, its dominant issue electing on the rank lattice — a second `{ issues, class, message }` declaration forks one taxonomy into two.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/typescript/**", "libs/typescript/.planning/**", "libs/typescript/**/.planning/**", "docs/stacks/typescript/**"]
         },
         {
             "id": "bounded-exhaustion-success",

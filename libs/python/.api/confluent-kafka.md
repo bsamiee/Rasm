@@ -129,11 +129,11 @@ Each rebalance callback takes `(consumer, partitions)` with the ABSOLUTE partiti
 
 [ENTRYPOINT_SCOPE]: `ShareConsumer` — the KIP-932 settlement surface `AcknowledgeType` keys
 
-| [INDEX] | [SURFACE]                                                                       | [BLOCKS] | [SETTLES]                    |
-| :-----: | :------------------------------------------------------------------------------ | :------- | :--------------------------- |
-|  [01]   | `acknowledge(message, acknowledge_type)` / `acknowledge_offset(...)`             | no       | one delivery, by `AcknowledgeType` |
-|  [02]   | `commit_sync(...)` / `commit_async(...)`                                         | sync/no  | the acknowledged batch       |
-|  [03]   | `set_acknowledgement_commit_callback(callback)` / `subscription()`               | no       | the commit report and the live topic set |
+| [INDEX] | [SURFACE]                                                            | [BLOCKS] | [SETTLES]                                |
+| :-----: | :------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `acknowledge(message, acknowledge_type)` / `acknowledge_offset(...)` | no       | one delivery, by `AcknowledgeType`       |
+|  [02]   | `commit_sync(...)` / `commit_async(...)`                             | sync/no  | the acknowledged batch                   |
+|  [03]   | `set_acknowledgement_commit_callback(callback)` / `subscription()`   | no       | the commit report and the live topic set |
 
 [ENTRYPOINT_SCOPE]: `Message` — every accessor is a method
 
@@ -150,19 +150,19 @@ Each rebalance callback takes `(consumer, partitions)` with the ABSOLUTE partiti
 
 [ENTRYPOINT_SCOPE]: `admin.AdminClient` — every operation answers a stdlib `concurrent.futures.Future`
 
-| [INDEX] | [SURFACE]                                                                              | [ANSWERS]                          |
-| :-----: | :------------------------------------------------------------------------------------- | :--------------------------------- |
-|  [01]   | `create_topics(new_topics, **kwargs)` / `delete_topics(topics, **kwargs)`              | `dict[str, Future]`                |
-|  [02]   | `create_partitions(new_partitions, **kwargs)`                                          | `dict[str, Future]`                |
-|  [03]   | `describe_topics(topics, **kwargs)` / `describe_cluster(**kwargs)`                     | `dict[str, Future]` / one `Future` |
-|  [04]   | `describe_configs(resources, **kwargs)` / `incremental_alter_configs(...)`             | `dict[ConfigResource, Future]`     |
-|  [05]   | `list_consumer_groups(**kwargs)` / `describe_consumer_groups(group_ids, ...)`          | one `Future` / `dict[str, Future]` |
-|  [06]   | `list_consumer_group_offsets(request, **kwargs)` / `alter_consumer_group_offsets(...)` | `dict[str, Future]`                |
-|  [07]   | `list_offsets(topic_partition_offsets, **kwargs)` / `delete_records(...)`              | `dict[TopicPartition, Future]`     |
-|  [08]   | `create_acls` / `describe_acls` / `delete_acls`                                        | per-binding futures                |
-|  [09]   | `list_topics(topic=None, timeout=-1)` / `list_groups(...)`                             | SYNCHRONOUS metadata               |
-|  [10]   | `delete_consumer_groups(group_ids, **kwargs)` / `elect_leaders(election_type, partitions=None)`  | `dict[str, Future]` / one `Future` |
-|  [11]   | `describe_user_scram_credentials(...)` / `alter_user_scram_credentials(...)`                     | `dict[str, Future]`                |
+| [INDEX] | [SURFACE]                                                                                       | [ANSWERS]                          |
+| :-----: | :---------------------------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `create_topics(new_topics, **kwargs)` / `delete_topics(topics, **kwargs)`                       | `dict[str, Future]`                |
+|  [02]   | `create_partitions(new_partitions, **kwargs)`                                                   | `dict[str, Future]`                |
+|  [03]   | `describe_topics(topics, **kwargs)` / `describe_cluster(**kwargs)`                              | `dict[str, Future]` / one `Future` |
+|  [04]   | `describe_configs(resources, **kwargs)` / `incremental_alter_configs(...)`                      | `dict[ConfigResource, Future]`     |
+|  [05]   | `list_consumer_groups(**kwargs)` / `describe_consumer_groups(group_ids, ...)`                   | one `Future` / `dict[str, Future]` |
+|  [06]   | `list_consumer_group_offsets(request, **kwargs)` / `alter_consumer_group_offsets(...)`          | `dict[str, Future]`                |
+|  [07]   | `list_offsets(topic_partition_offsets, **kwargs)` / `delete_records(...)`                       | `dict[TopicPartition, Future]`     |
+|  [08]   | `create_acls` / `describe_acls` / `delete_acls`                                                 | per-binding futures                |
+|  [09]   | `list_topics(topic=None, timeout=-1)` / `list_groups(...)`                                      | SYNCHRONOUS metadata               |
+|  [10]   | `delete_consumer_groups(group_ids, **kwargs)` / `elect_leaders(election_type, partitions=None)` | `dict[str, Future]` / one `Future` |
+|  [11]   | `describe_user_scram_credentials(...)` / `alter_user_scram_credentials(...)`                    | `dict[str, Future]`                |
 
 [ENTRYPOINT_SCOPE]: Schema Registry — the sync roster; the async twin adds `Async` and awaits
 

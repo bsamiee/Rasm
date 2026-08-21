@@ -24,7 +24,7 @@
 
 [INTERCHANGE]:
 - [15]-[FORMAT](.planning/interchange/format.md): Encoding arms lifted onto one typed parse rail under one defect normalization.
-- [16]-[CODEC](.planning/interchange/codec.md): Closed wire-family roster — every row carries direction, arm, schema, and its contract gate.
+- [16]-[CODEC](.planning/interchange/codec.md): Closed wire-family roster and one bounded walk over every recursive tree it lands.
 - [17]-[FRAME](.planning/interchange/frame.md): Interleaved band assembly with verified rendezvous and IFC container admission.
 - [18]-[CONTRACT](.planning/interchange/contract.md): Pinned-against-shipped comparison — binary, JSON, and source compatibility as one gate.
 - [19]-[CARRIER](.planning/interchange/carrier.md): Trace continuity on every transport — one context value, tenant promotion, the message envelope.

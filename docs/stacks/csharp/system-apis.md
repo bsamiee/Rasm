@@ -56,7 +56,6 @@ This table is a lookup by repeated local smell; the owning card states the place
 
 ```csharp conceptual
 [SmartEnum<string>]
-[ValidationError<Fault>]
 public sealed partial class Variant {
     static readonly SearchValues<char> HexDash = SearchValues.Create("0123456789ABCDEFabcdef-");
     static readonly SearchValues<char> HexWord = SearchValues.Create("0123456789ABCDEFabcdef_");
@@ -75,17 +74,26 @@ public static class FrameCodec {
     public static Fin<int> Frame<T>(Variant variant, ReadOnlySpan<char> raw, Span<byte> sink, T value)
         where T : IUtf8SpanFormattable =>
         raw.ContainsAnyExcept(variant.Allowed) || !Ascii.IsValid(raw)
-            ? Fin.Fail<int>(new Fault.Malformed(Detail: nameof(raw)))
+            ? Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(raw), Requirement: "ASCII text admitted by the selected variant"))
             : Utf8.TryWrite(sink, CultureInfo.InvariantCulture, $"{variant.Key}{(char)variant.Separator}{raw}{value}", out var written)
                 ? Fin.Succ(written)
-                : Fin.Fail<int>(new Fault.Capacity(Detail: $"<sink:{sink.Length}>"));
+                : Fin.Fail<int>(new KernelFault.OutOfRange(Label: nameof(sink), Scalar: sink.Length, Requirement: "capacity for the complete frame"));
 
-    public static Fin<T> Decode<T>(ReadOnlySpan<char> heading, ReadOnlySpan<byte> payload) where T : IUtf8SpanParsable<T> =>
-        Variant.Heading.EnumerateMatches(heading) is var scan && scan.MoveNext() && scan.Current is { Length: > 0 } head && Variant.Validate(heading.Slice(head.Index, head.Length), null, out var variant) is null
-            ? payload.IndexOf(variant!.Separator) is var at and >= 0 && T.TryParse(payload[(at + 1)..], CultureInfo.InvariantCulture, out var value)
-                ? Fin.Succ(value)
-                : Fin.Fail<T>(new Fault.Malformed(Detail: nameof(payload)))
-            : Fin.Fail<T>(new Fault.Malformed(Detail: nameof(heading)));
+    public static Fin<T> Decode<T>(ReadOnlySpan<char> heading, ReadOnlySpan<byte> payload) where T : IUtf8SpanParsable<T> {
+        var scan = Variant.Heading.EnumerateMatches(heading);
+        if (!scan.MoveNext() || scan.Current is not { Length: > 0 } head) {
+            return Fin.Fail<T>(new KernelFault.InvalidValue(Label: nameof(heading), Requirement: "a declared variant heading"));
+        }
+        return Admit(heading.Slice(head.Index, head.Length).ToString()).Case switch {
+            Variant variant when payload.IndexOf(variant.Separator) is var at and >= 0 && T.TryParse(payload[(at + 1)..], CultureInfo.InvariantCulture, out var value) => Fin.Succ(value),
+            Variant => Fin.Fail<T>(new KernelFault.InvalidValue(Label: nameof(payload), Requirement: $"UTF-8 payload parseable as {typeof(T).Name}")),
+            Error error => Fin.Fail<T>(error),
+            _ => throw new System.Diagnostics.UnreachableException(),
+        };
+    }
+
+    static Fin<Variant> Admit(string key) =>
+        Op.Of().AcceptValidated<Variant>(fault: Variant.Validate(key, CultureInfo.InvariantCulture, out var variant), admitted: variant);
 }
 ```
 
@@ -124,7 +132,9 @@ public static class Tally {
     public readonly record struct Roll(int Count, int Peak, int FirstAt);
 
     public static Fin<int> RankOf(ReadOnlySpan<char> key) =>
-        Probe.TryGetValue(key, out var rank) ? Fin.Succ(rank) : Fin.Fail<int>(new Fault.Unknown(Detail: key.ToString()));
+        Probe.TryGetValue(key, out var rank)
+            ? Fin.Succ(rank)
+            : Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(key), Requirement: "a registered tally key"));
 
     public static ImmutableArray<(int Rank, string Key, Roll Roll)> Fold(params ReadOnlySpan<(string Key, int Score)> rows) {
         var rolls = new Dictionary<string, Roll>(rows.Length, StringComparer.Ordinal);
@@ -168,13 +178,13 @@ public static class SegmentReader {
     public static Fin<SafeFileHandle> Open(string path) =>
         Path.Exists(path)
             ? Fin.Succ(File.OpenHandle(path, options: FileOptions.Asynchronous | FileOptions.RandomAccess))
-            : Fin.Fail<SafeFileHandle>(new Fault.Missing(Detail: path));
+            : Fin.Fail<SafeFileHandle>(new KernelFault.InvalidValue(Label: nameof(path), Requirement: "an existing file"));
 
     public static Fin<Extent> Bound(SafeFileHandle handle, long offset, int request, int cap) =>
         request <= 0 || request > cap
-            ? Fin.Fail<Extent>(new Fault.Capacity(Detail: $"<request:{request}>"))
+            ? Fin.Fail<Extent>(new KernelFault.OutOfRange(Label: nameof(request), Scalar: request, Requirement: $"greater than zero and at most {cap}"))
             : offset + request + sizeof(uint) > RandomAccess.GetLength(handle)
-                ? Fin.Fail<Extent>(new Fault.Bounds(Detail: $"<extent@{offset}>"))
+                ? Fin.Fail<Extent>(new KernelFault.OutOfRange(Label: nameof(offset), Scalar: offset, Requirement: "an extent contained by the file"))
                 : Fin.Succ(new Extent(offset, request));
 
     public static async Task<Fin<Segment>> Read(SafeFileHandle handle, Extent extent) {
@@ -182,7 +192,7 @@ public static class SegmentReader {
         try {
             var window = rented.AsMemory(0, extent.Length + sizeof(uint));
             return await RandomAccess.ReadAsync(handle, window, extent.Offset) != window.Length
-                ? Fin.Fail<Segment>(new Fault.Malformed(Detail: $"<short-read@{extent.Offset}>"))
+                ? Fin.Fail<Segment>(new KernelFault.InvalidValue(Label: nameof(extent), Requirement: "a complete frame read"))
                 : Verify(window.Span[..extent.Length], BinaryPrimitives.ReadUInt32BigEndian(window.Span[extent.Length..]));
         }
         finally { ArrayPool<byte>.Shared.Return(rented); }
@@ -191,7 +201,7 @@ public static class SegmentReader {
     static Fin<Segment> Verify(ReadOnlySpan<byte> body, uint stamped) =>
         Crc32.HashToUInt32(body) is var frame && frame == stamped
             ? Fin.Succ(new Segment(XxHash3.HashToUInt64(body), frame, body.Length))
-            : Fin.Fail<Segment>(new Fault.Corrupt(Detail: $"<crc {frame:x8} != {stamped:x8}>"));
+            : Fin.Fail<Segment>(new KernelFault.InvalidValue(Label: "crc32", Requirement: $"{stamped:x8}; got {frame:x8}"));
 }
 ```
 
@@ -220,7 +230,7 @@ public static partial class HostSeam {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(slot, cap);
         return Probe(token, slot) is var code && Resolve(code, out var reserved)
             ? Fin.Succ(reserved.Value)
-            : Fin.Fail<int>(new Fault.NativeRejected(Detail: $"<probe:{code}>"));
+            : Fin.Fail<int>(new HostFault.ProbeRefused(token, slot, code));
     }
 
     static bool Resolve(int code, [NotNullWhen(true)] out int? reserved) =>

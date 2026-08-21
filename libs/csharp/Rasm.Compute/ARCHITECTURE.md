@@ -80,7 +80,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
     └── Daylight.cs        # PerezBand carries the published six-coefficient table; SkyState per hour, WeatherSource ingress, DaylightPolicy cadence
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Expected` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Fault` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
 
 `ComputeFault` projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
 
@@ -303,7 +303,7 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 
 One owner per concern rules the interior: `Tensor<T>` is the tensor and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; oracles couple only through the `Func<DesignPoint, Fin<Seq<double>>>` contract; one `HybridCache` binds per cache lane and one session per model identity.
 
-Assessment outcome is the one `ComputeReceipt.Assessment` case `Analysis/assessment` declares as a `Runtime/receipts` partial, every discipline runner returning the uniform `AssessmentResult` stream. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the one `FaultDetail` family whose `Bands` registry mirrors the custody map.
+Assessment outcome is the one `ComputeReceipt.Assessment` case `Analysis/assessment` declares as a `Runtime/receipts` partial, every discipline runner returning the uniform `AssessmentResult` stream. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the compact `FaultDetail` envelope with numeric code as its sole identity.
 
 ## [05]-[ROUTING]
 

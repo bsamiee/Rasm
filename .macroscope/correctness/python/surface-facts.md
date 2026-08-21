@@ -1,6 +1,8 @@
 ---
 include:
   - "libs/python/**"
+  - "libs/python/**/.planning/**"
+  - "libs/python/**/.api/**"
   - "**/*.py"
 ---
 

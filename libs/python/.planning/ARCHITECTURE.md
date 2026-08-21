@@ -107,7 +107,7 @@ flowchart LR
     Runtime e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Runtime e5@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Runtime e6@<-->|"[WIRE]: DiscoveryResult"| AppHost
-    Runtime e7@<-->|"[WIRE]: ProtoVocabulary"| RasmCompute
+    Runtime e7@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| RasmCompute
     Runtime e8@<-->|"[WIRE]: OpLogEntry"| Persistence
     Materials e9@-->|"[WIRE]: MaterialWire"| Runtime
     Materials e10@-->|"[WIRE]: TextureSetWire"| Runtime

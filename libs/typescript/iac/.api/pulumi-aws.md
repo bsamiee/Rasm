@@ -34,15 +34,15 @@ Consuming args stay string-widened by the provider itself (`Input<string>`), so 
 
 Rows below name the vocabularies this estate ruled on; the remaining trees carry the same shape and no estate coordinate — `ec2.{InstancePlatform,PlacementStrategy,ProtocolType,Tenancy}`, `rds.{EngineType,EngineMode,InstanceType}`, and the `alb`, `applicationloadbalancing`, `autoscaling`, `ecr`, `lambda`, and `ssm` trees.
 
-| [INDEX] | [MEMBER]             | [CAPABILITY]                                                                    |
-| :-----: | :------------------- | :------------------------------------------------------------------------------ |
+| [INDEX] | [MEMBER]                    | [CAPABILITY]                                                                          |
+| :-----: | :-------------------------- | :------------------------------------------------------------------------------------ |
 |  [01]   | `Region`                    | every published region literal; `ProviderArgs.region` is `Input<string \| undefined>` |
-|  [02]   | `ec2.InstanceType`          | every EC2 capacity literal — the one closed surface a node-pool coordinate has |
-|  [03]   | `iam.PolicyDocumentVersion` | the two policy-language versions a `PolicyDocument.Version` admits             |
-|  [04]   | `iam.PolicyStatementEffect` | `Allow`/`Deny` on `PolicyStatement.Effect`                                     |
-|  [05]   | `s3.CannedAcl`              | the canned bucket ACLs; enforced object ownership disables ACLs, so none apply |
-|  [06]   | `route53.RecordType`        | the Route 53 record roster; a Cloudflare-owned dns cell reaches no part of it  |
-|  [07]   | `rds.StorageType`           | the managed-volume classes; a CNPG data row names none                         |
+|  [02]   | `ec2.InstanceType`          | every EC2 capacity literal — the one closed surface a node-pool coordinate has        |
+|  [03]   | `iam.PolicyDocumentVersion` | the two policy-language versions a `PolicyDocument.Version` admits                    |
+|  [04]   | `iam.PolicyStatementEffect` | `Allow`/`Deny` on `PolicyStatement.Effect`                                            |
+|  [05]   | `s3.CannedAcl`              | the canned bucket ACLs; enforced object ownership disables ACLs, so none apply        |
+|  [06]   | `route53.RecordType`        | the Route 53 record roster; a Cloudflare-owned dns cell reaches no part of it         |
+|  [07]   | `rds.StorageType`           | the managed-volume classes; a CNPG data row names none                                |
 
 [ENTRYPOINT_SCOPE]: bucket access posture (the private-origin set)
 
@@ -50,14 +50,14 @@ Object ownership carries no exported roster — `BucketOwnershipControlsRule.obj
 
 Public-access refusals ride four independent `Input<boolean>` args on one resource: `blockPublicAcls`, `blockPublicPolicy`, `ignorePublicAcls`, and `restrictPublicBuckets`.
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                                          |
-| :-----: | :---------------------------------------------------------- | :------ | :------------------------------------------------------ |
-|  [01]   | `new s3.BucketOwnershipControls(name, { bucket, rule })`    | ctor    | `rule.objectOwnership` — ACL applicability per bucket    |
-|  [02]   | `new s3.BucketPublicAccessBlock(name, { bucket, …four })`   | ctor    | the four public-access refusals named above              |
-|  [03]   | `new s3.BucketPolicy(name, { bucket, policy })`             | ctor    | `PolicyDocument` — `Version` beside typed `Statement[]`  |
-|  [04]   | `types.input.iam.PolicyStatement`                           | nested  | `Effect`, `Principal`, `Action`, `Resource`, `Condition` |
-|  [05]   | `types.input.iam.ServicePrincipal`                          | nested  | `{ Service }` — the principal an OAC grant names         |
-|  [06]   | `cloudfront.Distribution.arn`                               | output  | the `AWS:SourceArn` value scoping that grant             |
+| [INDEX] | [SURFACE]                                                 | [SHAPE] | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------------------------- | :------ | :------------------------------------------------------- |
+|  [01]   | `new s3.BucketOwnershipControls(name, { bucket, rule })`  | ctor    | `rule.objectOwnership` — ACL applicability per bucket    |
+|  [02]   | `new s3.BucketPublicAccessBlock(name, { bucket, …four })` | ctor    | the four public-access refusals named above              |
+|  [03]   | `new s3.BucketPolicy(name, { bucket, policy })`           | ctor    | `PolicyDocument` — `Version` beside typed `Statement[]`  |
+|  [04]   | `types.input.iam.PolicyStatement`                         | nested  | `Effect`, `Principal`, `Action`, `Resource`, `Condition` |
+|  [05]   | `types.input.iam.ServicePrincipal`                        | nested  | `{ Service }` — the principal an OAC grant names         |
+|  [06]   | `cloudfront.Distribution.arn`                             | output  | the `AWS:SourceArn` value scoping that grant             |
 
 [PUBLIC_TYPE_SCOPE]: provider + engine model
 

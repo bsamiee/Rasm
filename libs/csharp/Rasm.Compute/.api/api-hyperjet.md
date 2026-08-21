@@ -45,12 +45,13 @@
 
 [OPERATOR_SCOPE]: `DDScalar`'s own arithmetic — the dynamic model publishes a complete `in`-taking operator set, so a wrapper struct forwards rather than reconstructing the derivative algebra
 
-| [INDEX] | [SURFACE]                                                                                           | [SHAPE]  | [CAPABILITY]                 |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------- | :--------------------------- |
-|  [01]   | `-(in DDScalar)`                                                                                    | operator | unary negate                 |
-|  [02]   | `+`/`-`/`*`/`/` `(in DDScalar, in DDScalar)`                                                        | operator | scalar-scalar arithmetic     |
-|  [03]   | `+`/`-`/`*`/`/` `(in DDScalar, double)` and `(double, in DDScalar)`                                 | operator | `double / DDScalar` included |
-|  [04]   | `==`/`!=`/`<`/`>`/`<=`/`>=` over `(DDScalar, DDScalar)`, `(DDScalar, double)`, `(double, DDScalar)` | operator | value-plane ordering         |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------------------------ | :------- | :--------------------------- |
+|  [01]   | `-(in DDScalar)`                                                          | operator | unary negate                 |
+|  [02]   | `+`/`-`/`*`/`/` `(in DDScalar, in DDScalar)`                              | operator | scalar-scalar arithmetic     |
+|  [03]   | `+`/`-`/`*`/`/` `(in DDScalar, double)` and `(double, in DDScalar)`       | operator | `double / DDScalar` included |
+|  [04]   | `==`/`!=`/`<`/`>`/`<=`/`>=` `(DDScalar, DDScalar)`                        | operator | value-plane ordering         |
+|  [05]   | `==`/`!=`/`<`/`>`/`<=`/`>=` `(DDScalar, double)` and `(double, DDScalar)` | operator | mixed-operand ordering       |
 
 [HYPERJET_MATH_ROSTER]: verified against the installed `HyperJet` `0.2.0` `net10.0` assembly on the assay decompile rail — every member is published TWICE, once over `DDScalar2<double>` and once over `DDScalar`, except the four the dynamic model alone carries.
 

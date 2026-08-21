@@ -25,6 +25,8 @@
 |  [04]   | `virtualizarr.manifests.ManifestGroup` | manifest group  | named `ManifestArray`s plus group attrs under one zarr group             |
 |  [05]   | `virtualizarr.manifests.ManifestStore` | zarr read store | zarr-v3 `Store` over a `ManifestGroup`; the `to_virtual_dataset` source  |
 
+[exceptions] `virtualizarr.manifests.indexing.SubChunkIndexingError` is the ONE published class and refines `ValueError`, so a consumer catch set names the ancestor. Every other refusal raises a builtin directly: `ValueError`/`TypeError` for a rejected manifest or metadata shape, `NotImplementedError` for a chunk pattern no parser lowers, `ImportError` for an absent optional parser dependency, and `RuntimeError`/`OSError` from the reader beneath.
+
 [PUBLIC_TYPE_SCOPE]: `ManifestArray` Array-API surface
 
 `ManifestArray` is Array-API-conformant over zarr-v3 metadata, casting dtype, rewriting chunk paths, and lifting to an xarray `Variable` without materializing bytes. Standard Array-API scalars: `shape`, `ndim`, `size`, `dtype`.

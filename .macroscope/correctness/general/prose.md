@@ -1,6 +1,8 @@
 ---
 include:
   - "**/*.md"
+  - "**/.planning/**/*.md"
+  - "**/.api/**/*.md"
 ---
 
 # [PROSE_LAW]

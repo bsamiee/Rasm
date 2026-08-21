@@ -5,7 +5,10 @@ effort: medium
 conclusion: neutral
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
   - "tests/**"
+  - "tests/**/.api/**"
 ---
 
 # [RULINGS_DRIFT]

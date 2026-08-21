@@ -99,9 +99,9 @@ artifacts/
 │   └── stage.py         # RenderExport and MeshAuthor sources, PackageOp closes, recursive MeshScene PrimKind graph
 ├── core/                # Production spine
 │   ├── plan.py          # ArtifactWork node columns, the PyDiGraph front resolution, and the min-slack CPM schedule
-│   ├── issue.py         # Constructing owner: issue(IssueRequest) over the modality union into pipeline and drain
+│   ├── issue.py         # Constructing owner: issue(IssueRequest) over the modality union, composing the lane front drive
 │   ├── receipt.py       # ArtifactReceipt union, ConformanceVerdict, and the Metrics.record + hook-tap seam
-│   ├── hooks.py         # Point rows under the rasm.artifacts grammar, closed msgspec payloads, receipt-projected taps
+│   ├── hooks.py         # ArtifactsLeg raise-leg roster, point rows under the rasm.artifacts grammar, closed msgspec payloads
 │   └── bench.py         # BenchEntry rows pairing BenchSubject with typed BenchFeed edges; grading stays runtime-owned
 └── package/             # Content-addressed compression, archive, and delta over one shared bundle vocabulary
     ├── bundle.py        # Shared Bundle/CodecProfile/BundleManifest vocabulary and the BundleEvidence projection
@@ -190,6 +190,7 @@ flowchart TB
 
 - S0 `core/plan` + `core/receipt` + `core/hooks` — the spine floor imports no artifacts sibling above it.
 - S0 seats the `ARTIFACT_POINTS` hook rows beside the work and receipt owners; `hooks` composes the runtime registry, never a producer page.
+- `hooks` seats the `ArtifactsLeg` roster: it imports no artifacts sibling, so every raiser reaches it acyclically and mints its own `RAISES` table.
 - S0 `receipt` composes runtime, the compute `HandoffAxis`, and the hooks `Production` fire — the one same-stratum interleave.
 - S1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone, holding no intra-stratum edge among themselves.
 - S2 `graphic` + `drawing` + `visualization` + `export` — one visual stratum, module-acyclic.
@@ -310,7 +311,7 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
 - `core/receipt.evidence` is the one durable-fact builder every kind funnels through; async legs await the record and sync entrypoints record none.
 - Retention class per kind and the metered fact rows are receipt-owned tables; the aging window and the resource series stay the journal's.
-- Production facts fire on the `core/hooks` point rows at the issue seams and the contribute fold.
+- Production facts fire on the `core/hooks` rows at the issue seams and the contribute fold; `FRONT_DRAINED` fires from the lane drive as its gate.
 - Observability subscribes through `Production.subscribed` at the app root, never in producer code.
 - Issue-scope baggage the issue bracket binds attributes every signal; tenant promotion stays runtime-owned.
 - `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier.

@@ -75,7 +75,7 @@
 |  [10]   | `LasData.x` / `y` / `z` / `xyz`                            | property | scaled coordinate dimension arrays            |
 |  [11]   | `LasData.write(destination, *, do_compress, laz_backend)`  | instance | write LAS/LAZ to path or stream               |
 |  [12]   | `LasData.add_extra_dim(s)` / `remove_extra_dim(name)`      | instance | declare/drop `ExtraBytesParams` dimensions    |
-|  [13]   | `LasHeader.add_crs(crs, keep_compatibility)` / `parse_crs` | instance | write/read CRS through header VLRs            |
+|  [13]   | `LasHeader.add_crs(crs, keep_compatibility)`               | instance | write CRS as a WKT or GeoTIFF-key header VLR  |
 |  [14]   | `PointFormat.id` / `dimension_names` / `dimension_by_name` | property | point-format identity and dimension layout    |
 |  [15]   | `CopcReader.open(source, http_num_threads) -> CopcReader`  | factory  | open COPC path, HTTP URL, or file object      |
 |  [16]   | `CopcReader.query(bounds, resolution, level)`              | instance | combined bounds + resolution/LOD query        |
@@ -84,6 +84,7 @@
 |  [19]   | `Bounds.overlaps(other) -> bool`                           | instance | axis-aligned overlap test                     |
 |  [20]   | `Bounds.ensure_3d(mins, maxs) -> Bounds`                   | instance | promote 2D bounds to a 3D box                 |
 |  [21]   | `CopcReader.copc_info` / `CopcReader.header`               | property | octree info (`spacing`, root) and `LasHeader` |
+|  [22]   | `LasHeader.parse_crs(prefer_wkt) -> CRS \| None`           | instance | read CRS off VLRs+EVLRs; absence rides `None` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -91,6 +92,8 @@
 - `laspy.open(source, mode)` is the one IO entry: `mode='r'` yields a `LasReader` (eager `read()` or `chunk_iterator(n)` out-of-core), `mode='w'` a `LasWriter` (requires `header=`, `write_points` per chunk), `mode='a'` a `LasAppender`; `laspy.read` is `open('r').read()`. Compressed-LAZ append requires `LazBackend.Lazrs`/`LazrsParallel`, since `Laszip.supports_append` is `False`.
 - `CopcReader.open(source)` reads the COPC header and root octree page eagerly, then serves `query` lazily. `query(bounds, resolution, level)` discriminates the read: `bounds` is a `laspy.copc.Bounds` (2D bounds skip Z filtering, promoted via `ensure_3d`); `resolution` and `level` are mutually exclusive, `resolution` deriving an octree level range from `copc_info.spacing` and `level` selecting an explicit `int`/`range`. `spatial_query`/`level_query` are the single-axis forms `query` dispatches into, and the result is always a `ScaleAwarePointRecord`.
 - extra dimensions declare through `ExtraBytesParams(name, type, description, offsets, scales, no_data)` fed to `LasData.add_extra_dim(s)`/`PointFormat.add_extra_dimension`; CRS round-trips through `LasHeader.add_crs(pyproj.CRS, keep_compatibility)`/`parse_crs(prefer_wkt)`; VLR/EVLR payloads are `VLR(user_id, record_id, description)` carrying `record_data_bytes`, read off `LasHeader.vlrs`/`LasData.evlrs`.
+- `LasHeader.parse_crs(prefer_wkt=True) -> pyproj.CRS | None` scans `LASF_Projection` across BOTH `vlrs` and `evlrs`, parses every WKT and GeoTIFF-key record it finds, and elects `prefer_wkt` first with the other as fallback, so a file carrying both declarations answers one CRS and never reports the disagreement. `None` covers three distinct states a caller cannot tell apart from the return: no projection VLR at all, a WKT record whose string is EMPTY, and a GeoTIFF key directory holding no `ProjectedCSTypeGeoKey`/`GeographicTypeGeoKey` inside the EPSG range 1024–32766.
+- A projection VLR that is present and MALFORMED does not answer `None` — `pyproj.exceptions.CRSError` propagates out of `parse_crs` from a non-empty unparseable WKT string and from an in-range EPSG code no registry holds. Absence and corruption are therefore two rails, not one, and admitting the header CRS means an option-shaped `None` test AND a caught `CRSError` at the same boundary; treating the docstring's "not understood returns None" as total lets a corrupt declaration kill the read.
 
 [STACKING]:
 - `lazrs`(`.api/lazrs.md`): every `.laz`/`.copc.laz` decode routes through the Rust `laz-rs` backend, laspy's default and required COPC codec; `LazBackend.{Lazrs, LazrsParallel}` selects it under `is_available()`.

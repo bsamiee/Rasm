@@ -29,16 +29,16 @@
 
 [ENUM_SCOPE]: `paho.mqtt.enums` — every wire vocabulary as a closed member set
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [MEMBERS]                                                                                       |
-| :-----: | :-------------------- | :------------ | :---------------------------------------------------------------------------------------------- |
-|   [01]  | `CallbackAPIVersion`  | `Enum`        | `VERSION1` (deprecated, slated for removal), `VERSION2`                                         |
-|   [02]  | `MQTTProtocolVersion` | `IntEnum`     | `MQTTv31=3`, `MQTTv311=4`, `MQTTv5=5`                                                           |
-|   [03]  | `MQTTErrorCode`       | `IntEnum`     | every member prefixes `MQTT_ERR_`: `AGAIN=-1` … `KEEPALIVE=16`, `QUEUE_SIZE=15` shedding        |
-|   [04]  | `ConnackCode`         | `IntEnum`     | `CONNACK_ACCEPTED=0` and five refusals to `CONNACK_REFUSED_NOT_AUTHORIZED=5`                    |
-|   [05]  | `MessageState`        | `IntEnum`     | ten states `MQTT_MS_INVALID=0` … `MQTT_MS_QUEUED=9`, the last pre-send                          |
-|   [06]  | `MessageType`         | `IntEnum`     | the wire nibbles `CONNECT=0x10` … `AUTH=0xF0`                                                   |
-|   [07]  | `LogLevel`            | `IntEnum`     | prefixed likewise: `MQTT_LOG_INFO=1` … `MQTT_LOG_DEBUG=16`                                      |
-|   [08]  | `PahoClientMode`      | `IntEnum`     | `MQTT_CLIENT=0`, `MQTT_BRIDGE=1`                                                                |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [MEMBERS]                                                                                |
+| :-----: | :-------------------- | :------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `CallbackAPIVersion`  | `Enum`        | `VERSION1` (deprecated, slated for removal), `VERSION2`                                  |
+|  [02]   | `MQTTProtocolVersion` | `IntEnum`     | `MQTTv31=3`, `MQTTv311=4`, `MQTTv5=5`                                                    |
+|  [03]   | `MQTTErrorCode`       | `IntEnum`     | every member prefixes `MQTT_ERR_`: `AGAIN=-1` … `KEEPALIVE=16`, `QUEUE_SIZE=15` shedding |
+|  [04]   | `ConnackCode`         | `IntEnum`     | `CONNACK_ACCEPTED=0` and five refusals to `CONNACK_REFUSED_NOT_AUTHORIZED=5`             |
+|  [05]   | `MessageState`        | `IntEnum`     | ten states `MQTT_MS_INVALID=0` … `MQTT_MS_QUEUED=9`, the last pre-send                   |
+|  [06]   | `MessageType`         | `IntEnum`     | the wire nibbles `CONNECT=0x10` … `AUTH=0xF0`                                            |
+|  [07]   | `LogLevel`            | `IntEnum`     | prefixed likewise: `MQTT_LOG_INFO=1` … `MQTT_LOG_DEBUG=16`                               |
+|  [08]   | `PahoClientMode`      | `IntEnum`     | `MQTT_CLIENT=0`, `MQTT_BRIDGE=1`                                                         |
 
 [PROTOCOL_SCOPE]: the wire-vocabulary modules
 

@@ -28,6 +28,10 @@
 |  [09]   | `FastScoresOnlyMultiLCA`   | class         | chunked scores-only fast path                |
 |  [10]   | `MethodConfig`             | model         | `pydantic` LCIA tree validated pre-solve     |
 
+[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw2calc.errors`)
+
+[ERROR_ROOT]: `BW2CalcError` — the sole exported member and the root of the solver family; derives from `Exception` directly, so a solve fence names it beside the stdlib rows a demand key or method tuple raises through it (`KeyError`, `ValueError`).
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: staged LCA lifecycle, factorization-reuse rail, and result projection

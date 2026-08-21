@@ -36,7 +36,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Revert LANES are INSTANCES of one `RevertScope` — each holds its own recorder, roster, window, and cursor, so no undo pops a shared window.
 - Two undo owners over one surface partition by PLANE, neither wrapping the other — the rope stack owns in-pane text and `EditHistory` typed ops.
 - Platform-capability gates read the capability PROPERTIES and the activation preconditions — the no-op provider is `internal` and unspellable.
-- Meter delegate arity mirrors the declared `Dimensions`, each dimension slot an `Option` pair — wider invites untagged writes, narrower blocks reads.
+- Meter delegate arity mirrors the declared `Dimensions`, each slot an `Option` pair — wider admits untagged writes, narrower blocks reads.
 - Capability admission folds every TOTAL gating plane through one predicate — `DegradationLevel` retains all at `Full`, so tenancy adds its own.
 - `TrackInterp` slerps poses by REACHABILITY — Rhino-typed `MotionInterpolation` cannot cross the host-free shell; a host-neutral rotor retires it.
 - `Render/capture` owns the `NativeAssetFact` TYPE and `Shell/hosts` `NativeAssets.Identity` is its SOLE producer — a re-probe port is a twin.
@@ -74,7 +74,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `WatchRule` reads a SAMPLE of value and age on its own probe cadence — a stalled feed breaches no predicate any level rule reads.
 - Point-in-area containment binds `NetTopologySuite`'s indexed locator — it amortizes one interval index per query set and answers three-valued.
 - Where a field visualization samples is a `FieldSites` row, never a count — `Sampled` and `Declared` span `SimVisual.Streamline` and `.Glyph` alike.
-- Registries whose absent-key answer is INDISTINGUISHABLE from a real one sit behind a `MountPolicy` presence fact — a probe reads both states as one.
+- Registries whose absent-key answer is INDISTINGUISHABLE from a real one sit behind a `MountPolicy` presence fact.
 - `StackOwner` gives single occupancy to the stack answering one root's awaited close — seated on the self-handled stack it blocks open layers.
 - `OverlayShape` is the DISPATCH SHAPE, never a member name — void fire shapes add a plain layer and EVERY awaited overload a masked one.
 - Timers `ToastPlane` must pause, restart, or re-tint are the PRODUCT's — the package's show-time copy expresses no hover pause.
@@ -89,7 +89,10 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `PaletteStatus` is a COLUMN of the answer — a settled status beside a stale row set makes empty and loading indistinguishable.
 - `DeviceSink` takes the `DeviceSession` shape and quiets the device on teardown — an uncleared motor, rumble, or lit surface outlives the process.
 - Contested-resource ownership has ONE oracle answering `ShortcutRow`'s CLAIMANT LIST — two computations ship an assignment the next freeze rejects.
-- Every key a surface raises is a frozen `CommandIntent` row naming its owner's constant — the fold aborts, so an unlifted roster is a dead SCREEN.
+- Every key a surface raises is a frozen `CommandRow` naming its owner's constant — the fold aborts, so an unlifted roster is a dead SCREEN.
+- `CommandRow` holds PRESENTATION columns alone and `ToIntent` mints per raise — payload and caller are invocation facts a frozen row cannot hold.
+- Deck evidence and refusal spell `DeckReceipt`/`DeckFault` — a presentation type wearing AppHost's spelling reads as the suite's own record.
+- `FamilyRow` is the ONE deck registration shape and its `Mint` the ONE `CommandRow` construction — a positional mint strands every later column.
 - View TOGGLES between two projections preserve the framed extent, so toggling twice is the identity — `2·d·tan(f/2)` is the orthographic height.
 - `SectionHandle` COMMITS through the settled model it manipulates — a private copy lets a saved view restore a state the user already dragged away.
 - LABELS over dimensioned values evaluate under `MeasureKind`'s quantity fold — one family per sum, one scalar per product, a mixed term refusing.
@@ -116,7 +119,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `CompareLink` carries each channel's fold on its own row — a fold-less row decides nothing per tick and homes as an ADMISSION elsewhere.
 - Coordinates whose POLICY column shifts a reading publish a SECOND projection — a mutated `ClimateScenario` primary moves the sun with a pathway.
 - `ThreeWayHunk` runs cross an owner boundary as `Seq<string>` — joining collapses the empty and the one-empty-element sequence a fold tells apart.
-- Sealed receipts are no `BatchEdit.Landed` — a TOTAL rail seals one for a rejected, cancelled, and faulted run alike, so the OUTCOME takes the rail.
+- Sealed receipts are no `BatchEdit.Landed` — rejected, cancelled, rolled-back, and compensated runs each seal their typed outcome.
 - `TimelineKey` addresses and DOMAIN ordinals are TWO spaces once disclosure, grouping, or a band enters it — they agree while nothing expands.
 - READ-ONLY seats over a shared editing chrome bind `HunkBands.Attach` to a NAVIGATION arrow — taking the caller's opens a mutation channel inward.
 - Tiled payloads ride the carrier their PAYLOAD ARITY admits — a raster tile layer answers ONE `GeoOverlayRow` per tile and drops every attribute.
@@ -145,6 +148,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the seam.
 - Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
 - Composition timing reduces and bounds ONCE — `KeyFrameAnimation.Duration` validates the field it OVERWRITES, so a zero poisons every later write.
+- Wire absence spells the AppHost merge's omission on every family — a package-declared null regime forks a posture the emitted bytes never carried.
 
 ## [03]-[COLLAPSE]
 

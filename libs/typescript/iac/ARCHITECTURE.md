@@ -101,6 +101,7 @@ flowchart LR
     Data e2@-->|"[SHAPE]: Pg.rows"| Kube
     Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
     Data e4@-->|"[PROJECTION]: Backend.Projection"| Operate
+    Data e18@-->|"[SHAPE]: Olap.events"| Operate
     Runtime e5@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
     Runtime e6@-->|"[SHAPE]: Setting.life"| Kube
     Runtime e7@-->|"[TRANSPORT]: Export.live"| Program

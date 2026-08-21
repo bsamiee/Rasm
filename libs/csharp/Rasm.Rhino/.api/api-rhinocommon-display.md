@@ -326,37 +326,37 @@ Grid/axis decor spells differently per owner: `ViewCaptureSettings.DrawAxis` sin
 |  [48]   | `ViewCaptureSettings.HeaderText`                                              | capture spec   | page header                           |
 |  [49]   | `ViewCaptureSettings.FooterText`                                              | capture spec   | page footer                           |
 |  [50]   | `ViewCaptureSettings.MediaSize`                                               | capture spec   | seated media extent (`Size`)          |
-|  [50]   | `ViewCaptureSettings.UsePrintWidths`                                          | capture spec   | print-width selection                 |
-|  [51]   | `ViewCaptureSettings.WireThicknessScale`                                      | capture spec   | wire-width scale                      |
-|  [52]   | `ViewCaptureSettings.PointSizeMillimeters`                                    | capture spec   | point size                            |
-|  [53]   | `ViewCaptureSettings.ArrowheadSizeMillimeters`                                | capture spec   | arrowhead size                        |
-|  [54]   | `ViewCaptureSettings.TextDotPointSize`                                        | capture spec   | text-dot size                         |
-|  [55]   | `ViewCaptureSettings.DefaultPrintWidthMillimeters`                            | capture spec   | default print width                   |
-|  [56]   | `CustomDisplay.AddLine(Line, Color, int)`                                     | retained       | line accumulation                     |
-|  [57]   | `CustomDisplay.AddVector(Point3d, Vector3d, Color, bool)`                     | retained       | anchored vector                       |
-|  [58]   | `CustomDisplay.AddArc(Arc, Color, int)`                                       | retained       | arc accumulation                      |
-|  [59]   | `CustomDisplay.AddCircle(Circle, Color, int)`                                 | retained       | circle accumulation                   |
-|  [60]   | `CustomDisplay.AddCurve(Curve, Color, int)`                                   | retained       | curve accumulation                    |
-|  [61]   | `CustomDisplay.AddText(string, Plane, double, Color)`                         | retained       | planar text accumulation              |
-|  [62]   | `CustomDisplay.Enabled`                                                       | retained       | overlay visibility toggle             |
-|  [63]   | `ViewCaptureSettings.ViewArea`                                                | capture spec   | `ViewAreaMapping` View/Extents/Window |
-|  [64]   | `ViewCaptureSettings.SetMargins(UnitSystem, double, double, double, double)`  | capture spec   | margin write, `bool`                  |
-|  [65]   | `ViewCaptureSettings.SetOffset(UnitSystem, bool, double, double)`             | capture spec   | offset write, `void`                  |
-|  [66]   | `ViewCaptureSettings.MaximizePrintableArea()`                                 | capture spec   | printable maximization                |
-|  [67]   | `ViewCaptureSettings.MatchViewportAspectRatio()`                              | capture spec   | aspect match, `bool`                  |
-|  [68]   | `ViewCaptureSettings.IsValid`                                                 | capture spec   | configured-state validity             |
-|  [69]   | `new ViewCapture()`                                                           | capture facade | instance raster bag                   |
-|  [70]   | `ViewCapture.Width` / `Height`                                                | capture facade | pixel extent                          |
-|  [71]   | `ViewCapture.TransparentBackground`                                           | capture facade | alpha egress                          |
-|  [72]   | `ViewCapture.DrawGrid` / `DrawAxes` / `DrawGridAxes`                          | capture facade | facade decor                          |
-|  [73]   | `ViewCapture.ScaleScreenItems`                                                | capture facade | screen-item scaling                   |
-|  [74]   | `ViewCapture.RealtimeRenderPasses`                                            | capture facade | raytrace pass count                   |
-|  [75]   | `ViewCapture.CaptureToBitmap(RhinoView sourceView)`                           | capture        | instance raster egress                |
-|  [76]   | `new DisplayBitmap(Bitmap)` / `(string path, Bitmap)`                         | sprite texture | mint, optionally path-cached          |
-|  [77]   | `DisplayBitmap.Load(string) -> DisplayBitmap`                                 | sprite texture | disk or URL load, null on failure     |
-|  [78]   | `DisplayBitmap.Update(Bitmap)` / `Size -> Size`                               | sprite texture | in-place re-image, extent read        |
-|  [79]   | `DisplayBitmap.SetBlendFunction(BlendMode, BlendMode)`                        | sprite texture | source/destination blend write        |
-|  [80]   | `DisplayBitmap.GetBlendModes(out BlendMode, out BlendMode)`                   | sprite texture | blend read-back                       |
+|  [51]   | `ViewCaptureSettings.UsePrintWidths`                                          | capture spec   | print-width selection                 |
+|  [52]   | `ViewCaptureSettings.WireThicknessScale`                                      | capture spec   | wire-width scale                      |
+|  [53]   | `ViewCaptureSettings.PointSizeMillimeters`                                    | capture spec   | point size                            |
+|  [54]   | `ViewCaptureSettings.ArrowheadSizeMillimeters`                                | capture spec   | arrowhead size                        |
+|  [55]   | `ViewCaptureSettings.TextDotPointSize`                                        | capture spec   | text-dot size                         |
+|  [56]   | `ViewCaptureSettings.DefaultPrintWidthMillimeters`                            | capture spec   | default print width                   |
+|  [57]   | `CustomDisplay.AddLine(Line, Color, int)`                                     | retained       | line accumulation                     |
+|  [58]   | `CustomDisplay.AddVector(Point3d, Vector3d, Color, bool)`                     | retained       | anchored vector                       |
+|  [59]   | `CustomDisplay.AddArc(Arc, Color, int)`                                       | retained       | arc accumulation                      |
+|  [60]   | `CustomDisplay.AddCircle(Circle, Color, int)`                                 | retained       | circle accumulation                   |
+|  [61]   | `CustomDisplay.AddCurve(Curve, Color, int)`                                   | retained       | curve accumulation                    |
+|  [62]   | `CustomDisplay.AddText(string, Plane, double, Color)`                         | retained       | planar text accumulation              |
+|  [63]   | `CustomDisplay.Enabled`                                                       | retained       | overlay visibility toggle             |
+|  [64]   | `ViewCaptureSettings.ViewArea`                                                | capture spec   | `ViewAreaMapping` View/Extents/Window |
+|  [65]   | `ViewCaptureSettings.SetMargins(UnitSystem, double, double, double, double)`  | capture spec   | margin write, `bool`                  |
+|  [66]   | `ViewCaptureSettings.SetOffset(UnitSystem, bool, double, double)`             | capture spec   | offset write, `void`                  |
+|  [67]   | `ViewCaptureSettings.MaximizePrintableArea()`                                 | capture spec   | printable maximization                |
+|  [68]   | `ViewCaptureSettings.MatchViewportAspectRatio()`                              | capture spec   | aspect match, `bool`                  |
+|  [69]   | `ViewCaptureSettings.IsValid`                                                 | capture spec   | configured-state validity             |
+|  [70]   | `new ViewCapture()`                                                           | capture facade | instance raster bag                   |
+|  [71]   | `ViewCapture.Width` / `Height`                                                | capture facade | pixel extent                          |
+|  [72]   | `ViewCapture.TransparentBackground`                                           | capture facade | alpha egress                          |
+|  [73]   | `ViewCapture.DrawGrid` / `DrawAxes` / `DrawGridAxes`                          | capture facade | facade decor                          |
+|  [74]   | `ViewCapture.ScaleScreenItems`                                                | capture facade | screen-item scaling                   |
+|  [75]   | `ViewCapture.RealtimeRenderPasses`                                            | capture facade | raytrace pass count                   |
+|  [76]   | `ViewCapture.CaptureToBitmap(RhinoView sourceView)`                           | capture        | instance raster egress                |
+|  [77]   | `new DisplayBitmap(Bitmap)` / `(string path, Bitmap)`                         | sprite texture | mint, optionally path-cached          |
+|  [78]   | `DisplayBitmap.Load(string) -> DisplayBitmap`                                 | sprite texture | disk or URL load, null on failure     |
+|  [79]   | `DisplayBitmap.Update(Bitmap)` / `Size -> Size`                               | sprite texture | in-place re-image, extent read        |
+|  [80]   | `DisplayBitmap.SetBlendFunction(BlendMode, BlendMode)`                        | sprite texture | source/destination blend write        |
+|  [81]   | `DisplayBitmap.GetBlendModes(out BlendMode, out BlendMode)`                   | sprite texture | blend read-back                       |
 
 [ENTRYPOINT_SCOPE]: `ZBufferCapture` — depth-field capture
 
@@ -499,7 +499,7 @@ Beyond the method rows below, the attribute model is property families written b
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Line`/`Transform`/`BoundingBox` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `libs/csharp/.api/api-languageext.md`: every host call that can fail or return null is trapped onto the rail — `Try.lift(() => DisplayModeDescription.FindByName(name)).Run()` and `Optional(ViewCapture.CaptureToBitmap(settings)).ToFin(error)` are the boundary spellings; a captured bitmap, a resolved mode, or a bound conduit crosses into domain code as `Fin<A>`, never as a nullable host handle.
+- `libs/csharp/.api/api-languageext.md`: every host call that can fail or return null crosses through `Op.Catch`; nullable results bind `Optional(...).ToFin(Fail: op.InvalidResult())`, so a captured bitmap, resolved mode, or bound conduit crosses into domain code as `Fin<A>`, never as a nullable host handle.
 - `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-fileio.md`: `FilePdf.AddPage(ViewCaptureSettings)` consumes the identical `ViewCaptureSettings`, so page-view PDF egress reuses the capture configuration unchanged.
 - `libs/csharp/.api/api-thinktecture-runtime-extensions.md`: the host draw enums (`BlendMode`, `CullFaceMode`, `LineCapStyle`, `LineJoinStyle`, `PointStyle`, `IsoDrawMode`), the projection selectors (`DefinedViewportProjection`, `IsometricCamera`), and mode/attribute selectors are mapped at the edge to `[SmartEnum]` owners, and a display-mode or analysis-mode `Guid` is a `[ValueObject<Guid>]` — the domain composes the bounded owner, the host enum lives only in the adapter.
 - `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-geometry.md`: every draw family consumes a `Rhino.Geometry` carrier (`Mesh`/`Brep`/`SubD`/`Hatch`/`TextEntity`/`ClippingPlaneSurface`); the pipeline is the sink, the geometry catalog the source.
@@ -512,5 +512,5 @@ Beyond the method rows below, the attribute model is property families written b
 [RAIL_LAW]:
 - Package: `RhinoCommon` (`Rhino.Display`)
 - Owns: view/viewport/camera pose, the two frame-participation shapes and their draw families, render-state stacks, retained `CustomDisplay`/`VisualAnalysisMode` overlays, display-mode and display-attribute vocabulary, and `ViewCapture` egress
-- Accept: a bound conduit or subscribed pipeline event drawing geometry carriers under matched state pushes; a settings-driven capture; a registered analysis mode; host handles trapped through `Try.lift(...).Run()` and enums mapped to bounded owners at the edge
+- Accept: a bound conduit or subscribed pipeline event drawing geometry carriers under matched state pushes; a settings-driven capture; a registered analysis mode; host crossings captured through `Op.Catch` onto `Fin` and enums mapped to bounded owners at the edge
 - Reject: a host draw call outside a frame phase, an unmatched `Push*`/`Pop*` leaving pipeline state dirty, a `DisplayPipeline`/`RhinoViewport`/`DisplayModeDescription` escaping into a domain signature, a hand-rolled overlay where `CustomDisplay` fits, a wall-clock sprite animation where the frame clock is available, and a re-derived color blend where the kernel color rail is composed

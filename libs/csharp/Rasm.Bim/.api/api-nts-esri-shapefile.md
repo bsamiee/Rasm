@@ -22,7 +22,7 @@
 | :-----: | :------------------- | :------------ | :------------------------------------------------------- |
 |  [01]   | `Shapefile`          | class         | abstract facade over readers, writers, and type sniff    |
 |  [02]   | `ShapeType`          | enum          | one shape type per file; heterogeneous rejected at write |
-|  [03]   | `ShapefileException` | class         | typed codec failure -> `BimFault.CodecReject`            |
+|  [03]   | `ShapefileException` | class         | foreign codec exception preserved exactly by `Op.Catch`  |
 
 [SHAPE_TYPE]: `NullShape` `Point` `PolyLine` `Polygon` `MultiPoint` `PointZM` `PolyLineZM` `PolygonZM` `MultiPointZM` `PointM` `PolyLineM` `PolygonM` `MultiPointM` `MultiPatch`
 

@@ -91,7 +91,7 @@
 | [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                   |
 | :-----: | :----------------------------------------------------------------------------- | :------ | :----------------------------- |
 |  [01]   | `Clipper.InflatePaths(Paths64, double, JoinType, EndType, double, double)`     | static  | int64 inflate                  |
-|  [02]   | `Clipper.InflatePaths(PathsD, double, JoinType, EndType, double, int, double)` | static  | double inflate — trailing DEFAULTS `miterLimit = 2.0`, `precision = 2`, `arcTolerance = 0.0`: precision 2 quantizes to 10^-2 units, so a metre-unit caller omitting it works at 10 mm and a sub-centimetre bisection starves silently; double-coordinate work names its precision once |
+|  [02]   | `Clipper.InflatePaths(PathsD, double, JoinType, EndType, double, int, double)` | static  | double inflate                 |
 |  [03]   | `Clipper.RectClip(Rect64, Paths64)`                                            | static  | int64 set clipped to a rect    |
 |  [04]   | `Clipper.RectClip(Rect64, Path64)`                                             | static  | int64 ring clipped to a rect   |
 |  [05]   | `Clipper.RectClip(RectD, PathsD, int)`                                         | static  | double set clipped to a rect   |
@@ -111,6 +111,7 @@
 |  [19]   | `Clipper.Ellipse(Point64, double, double, int)`                                | static  | int64 ellipse or circle ring   |
 |  [20]   | `Clipper.Ellipse(PointD, double, double, int)`                                 | static  | double ellipse or circle ring  |
 
+- `Clipper.InflatePaths`: trailing defaults are `miterLimit = 2.0`, `precision = 2`, `arcTolerance = 0.0`; `precision = 2` quantizes to 10^-2 units, so a metre-unit caller omitting it works at 10 mm and starves a sub-centimetre bisection silently. Double-coordinate work names its precision once.
 - `Minkowski`: every locus folds a `FillRule.NonZero` union before returning, so the result is already a simple polygon set.
 
 [ENTRYPOINT_SCOPE]: measurement, predicates, hygiene — `Clipper`

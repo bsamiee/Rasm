@@ -11,7 +11,7 @@
 ## [02]-[SHAPE]
 
 - Interchange budgets are kernel `Tolerance` values on ELECTED lanes — a bare epsilon names no band, dimension, or overridable lane.
-- `Rasm.Element` owns the codec mechanism name `WireCodec`; this folder's message-roster mapper is `EventCodec`, so one noun never means three things.
+- `Rasm.Element` owns the codec mechanism name `WireCodec`; this folder's message-roster mapper is `EventCodec`, so one noun names one owner.
 - Ingested `IfcClass`/`PredefinedType` tokens admit BARE and prove at the `Emit` gate — ingress validation aborts an import on one unknown entity.
 - `PredicateWire` holds a contract-frozen face over an interior composing the seam algebra — a second algebra beside `BimLeaf` is the deleted form.
 - `Seal` REFUSES by name any term the frozen face cannot carry — widening that face is a manifest and mirror change, never a codec edit.
@@ -23,8 +23,9 @@
 - Fidelity accumulates on a `Writer` carrier — `FidelityLog` is the monoid, so a mutable field beside a returned value gives one fact two owners.
 - Quantity election keys the `QuantityType` ingress stamped, never `Dimension` — four rows share the zero vector, so a dimension key fabricates one.
 - Derived base quantities mint via `OfSi(QuantityType, Dimension, double)` — an anonymous takeoff strips the QTO identity derived-wins supersedes.
+- Roster rows carry a `UnitProvenance` their own mint consumes — a display token beside the mint contradicts the stamped unit, unread.
 - Native-lane abort claims state their GRAIN — where the bound native publishes no interrupt, the token gates managed boundaries and nothing deeper.
-- Projectors publish re-drive posture PER ARM off the format row — one flat `Retriability` forbids what a host earns or a parse cannot.
+- Captured boundary cases own recovery posture; projector interfaces expose none, and unknown throws remain exact terminal errors.
 - Ports thread only transported governance — `TessellationCompanion.Cross` takes the rpc token, never an `IProgress<double>` the rpc cannot publish.
 - `IfcRelKind` rows carry every `IfcRel*` name, direction, and inverse onto the neutral edge — a typed seam case leaks GeometryGym downward.
 - `Relationship.Generic` wire names MINT from a roster row — an undeclared name is unconstructible at the producer, so the roster IS the vocabulary.
@@ -47,9 +48,7 @@
 - Model identity is SPAN-grade, never a metric dimension — models mint unbounded, so `rasm.bim.model` multiplies every instrument by model count.
 - Reading the kernel `RgbProfile.Srgb` transfer is no host crossing — the delegate spells no `Unicolour` type, and none reaches a signature here.
 - Format capability answers through ONE `Admitted(format, direction, key)` gate every entry composes — a capability column flips only WITH its arm.
-- Diagnostic detail tokens are ROWS on the one `Detail` roster carrying leg and `BimFault` arm — a subject appends through the roster's composers.
-- `DetailLeg` names EVERY raising leg, the non-exchange ones included — so no literal raise lacks a row to reach.
-- `BimFault` cases code on kernel `FaultBand.Bim` through their `BimCategory` offset — a per-case literal or a band-base compare forks the coding.
+- `BimFault.Refused` carries closed scope and reason axes; detail remains presentation evidence and drives no routing.
 - Graph→OSM/gbXML/IDF egress rides `Lower` HBJSON → peer wire → `Translate` — no HBJSON ingest feeds the translator matrix, so no direct arm.
 - Classifier rows demand per-segment-HONEST discrimination — composed, floor-relative, and point-absence signatures wait on kernel evidence.
 - Spatial ancestry resolves through `SpatialStructure.Ancestry` under Contain-then-Aggregate precedence — a second up-chain walk is the deleted form.

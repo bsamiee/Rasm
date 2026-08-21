@@ -1,6 +1,6 @@
 # [RASM_ELEMENT_ARCHITECTURE]
 
-`Rasm.Element` is the lowest AEC-DOMAIN seam between the `Rasm` kernel and the AEC peers `{Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`. Each sub-domain folder maps to one folder-true namespace; every sub-domain composes the one `ElementGraph` and lowers onto the one `ElementFault` band, and the peers depend up on the `IElementProjection`/`IGraphConstraint` contracts, aligning by the content-keyed graph rather than by referencing each other.
+`Rasm.Element` is the lowest AEC-domain seam between the `Rasm` kernel and its AEC peers. Sub-domains compose `ElementGraph`; universal admission remains on `KernelFault`, while graph, address, and projection semantics use `ElementFault`.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -38,7 +38,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 └── Projection/            # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
     ├── Projection.cs      # Two instance-interface floors peers implement without referencing each other; Assemble is the app-wired capability
     ├── Address.cs         # Kernel-hashed canonical seam bytes; this file declares no writer and re-exports nothing
-    ├── Fault.cs           # Cases share one (Op, Detail) base deriving Expected on the kernel band; refusals gather on AdmissionSlots
+    ├── Fault.cs           # Direct typed graph, address, and projection cases
     ├── Observe.cs         # ElementPoint closes the rasm.element.<domain>.<point> roster on a modality column; ElementFact carries marks
     └── Audit.cs           # Per-discipline coverage ratios and a graded integrity stream in one fold; Bim ModelHealth composes, never overlaps
 ```
@@ -47,7 +47,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 
 Interior is one strongly-connected component at folder grain, since `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling; the ladder therefore resolves member-first, and each consumption edge points down.
 
-- S0 substrate — `ElementFault`, the `AdmissionSlots` accumulating fold, and `NodeId`; the content codec seats at S4 with its contract siblings.
+- S0 substrate — `ElementFault` and `NodeId`; package admissions compose the kernel `AdmissionSlots` fold.
 - S0 law — no substrate file names an upper seam type, so every stratum rails and keys through it with no return edge.
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` signature, `GeoReference`, and the `Query` predicate algebra.
 - S1 law — the predicate algebra seats vocabulary and byte projection alone; evaluation stays with each consuming folder.
@@ -231,7 +231,7 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
 - Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
 - `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints.
-- `GraphMembers.Advance` re-enters the full-state `ContentAddress.OfGraph(members)` fold, so per-event and recomputed addresses are byte-identical.
+- `GraphMembers.Advance` steps a stable grid or returns typed `Refold`; either member set re-enters `ContentAddress.OfGraph` byte-identically.
 - `Graph/corpus` terminal research row owns the exact parity-pin route until literal addresses exist.
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
@@ -240,7 +240,7 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 
 ## [04]-[INTERNAL]
 
-`Graph` is the spine every sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and `Graph/Element`'s `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns: the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
+`Graph` is the spine every sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and `Graph/Element`'s `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns: content identity, operation keys, and the direct `Fault` base remain kernel-owned.
 
 ```mermaid
 ---
@@ -259,7 +259,7 @@ flowchart LR
     Freeze e4@--> Bake[[Memoized Bake]]
     Freeze e5@--> WireEg[/rasm.element.v1 encode/]
     Freeze e6@--> TableEg[/Tabulate row families/]
-    Admit f1@-.->|"admission refusal"| Fault[/ElementFault rail/]
+    Admit f1@-.->|"admission refusal"| Fault[/Typed Error rail/]
     WireEg f2@-.->|"transcription fault"| Fault
 ```
 

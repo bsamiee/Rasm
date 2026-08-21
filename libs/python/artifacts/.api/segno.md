@@ -23,7 +23,7 @@
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [CAPABILITY]                                                                                |
 | :-----: | :------------------ | :-------------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `QRCode`            | symbol          | one QR/Micro-QR symbol (serializers/reads in [03]); the `make`/`make_qr`/`make_micro` yield |
-|  [02]   | `QRCodeSequence`    | symbol sequence | structured-append `tuple[QRCode, ...]`; each member is a `QRCode` saved and scored alone     |
+|  [02]   | `QRCodeSequence`    | symbol sequence | structured-append `tuple[QRCode, ...]`; each member is a `QRCode` saved and scored alone    |
 |  [03]   | `DataOverflowError` | error           | content-exceeds-capacity `ValueError`; the `overflow` `MarkFault` cause                     |
 
 [PUBLIC_TYPE_SCOPE]: encoding policy vocabulary

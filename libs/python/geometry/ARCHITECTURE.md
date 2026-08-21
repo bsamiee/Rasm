@@ -6,17 +6,17 @@
 
 ```text codemap
 geometry/
-├── graduation.py         # GeometrySubject union, EvidenceScope table, and the evidence_run weave, minted once
+├── graduation.py         # GeometrySubject union, GeometryLeg raise roster, EvidenceScope table, and the evidence_run weave, minted once
 ├── scan/                 # Reality-capture plane: captured clouds graded against content-keyed model truth
 │   ├── ingestion.py      # Point-cloud ingestion and E57 station-provenance decode over the filter graph
 │   ├── registration.py   # RegistrationSession N-cloud arity and the RegistrationMode strategy discriminant
 │   ├── deviation.py      # DeviationStage partition and DeformationSplit over the reference GLB read
 │   └── reconstruction.py # Reconstruction owner composing the sibling closure fold for its graded verdict
 ├── ifc/                  # IFC property, quantity, and relationship analysis, validation, and 5D/4D lifecycle
-│   ├── analysis.py       # Rule and quantity analysis folded onto one compliance-evidence receipt
-│   ├── costing.py        # LifecycleRow union the fence seats; every lifecycle verb folds one row family
-│   ├── selector.py       # lark EBNF grammar and the frozen SelectorQuery/Facet family
-│   ├── authoring.py      # AuthorCarry left-fold under @transactional/@stamped; apply_async regulatory twin
+│   ├── analysis.py       # Rule and quantity analysis onto one compliance receipt; IDS parse/resolve/evaluate split
+│   ├── costing.py        # LifecycleRow union the fence seats; DiffAxis and the DropLaw fidelity ledger
+│   ├── selector.py       # lark EBNF grammar, the frozen SelectorQuery/Facet family, and the band-wide IfcFault floor
+│   ├── authoring.py      # AuthorCarry left-fold under @transactional/@stamped, hop-keyed footprint merge; apply_async twin
 │   └── structural.py     # MOMENT_KERNELS and the EnrichmentTier policy over IfcProfileDef sections
 ├── mesh/                 # Tessellation-and-mesh band: exact kernels behind one content-keyed GLB rail
 │   ├── daemon.py         # TessellationSource ADT; per-element mesh rails keyed by source bytes and policy
@@ -74,11 +74,12 @@ flowchart TB
     Graduation f1@-->|"forbidden: upward import"| S2
 ```
 
-- S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, the `ContentKey` fold) exactly once and imports no sibling.
+- S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, `ContentKey`) and the `GeometryLeg` roster, reaching no sibling.
 - S1→S0 producers import the spine and return receipts through its `evidence_run` weave as values, so the return leg adds no edge.
 - S1 `mesh` + `ifc` + `graph` + `energy` — producers over the spine alone; no import crosses them, each interior acyclic at one vocabulary owner.
 - S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
 - S1 `mesh` interior: `cad` mints `TessellationPolicy`/`GlbArtifact` for the daemon, serve, and brep legs; `repair` serves both graders.
+- S1 `ifc` interior: `selector` seats `IfcFault` for the analysis, costing, structural, and authoring legs, importing no band sibling itself.
 - S1 `graph/analytic` seats `AnalyticValue`/`ranked` for the nonmanifold and features producers.
 - S1 `energy/district` explodes onto `model`'s one assignment fold, minting no second energy model.
 - S2 `scan` — sole cross-producer consumer; its one drawn edge collapses the `QualityMetrics`, `GlbArtifact`, and `MeshSpatial` reads it composes.
@@ -161,6 +162,7 @@ flowchart LR
     Runtime e19@-->|"[PORT]: Kernel"| Scan
     Runtime e20@-->|"[PORT]: measured"| Graduation
     Runtime e21@-->|"[PORT]: Hooks"| Graduation
+    Runtime e22@-->|"[TRANSPORT]: TransportResource"| Ifc
 ```
 
 Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
@@ -201,7 +203,7 @@ flowchart LR
     Kernel f1@-.->|"fault: BoundaryFault"| Weave
 ```
 
-- Runtime lane carries the pure-Python spine owners; worker lanes carry compiled enrichment rows and long native IFC phases, never the IFC core whole.
+- Runtime lane carries the pure-Python spine; worker lanes carry compiled enrichment rows and long native IFC phases, never the IFC core whole.
 - Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm pool, and a live native handle never meets the pickle seam.
 - Sealed evidence crosses instead: shapes as STEP octets, clouds as the scan `Cloud` carrier, models as document bytes.
 - Each compiled band binds one module-scope `lazy` import behind its floor gate; eager natives and unearned function-local binds are deleted forms.

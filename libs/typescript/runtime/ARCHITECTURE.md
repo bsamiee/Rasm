@@ -23,7 +23,7 @@ runtime/
     │   ├── server.ts          # AsyncLocalStorage manager seat; the node _rows roster and the _egress/_authority exclusion pair
     │   ├── instrument.ts      # Zone manager seat; the document _rows roster and one anchored RegExp per self-egress origin
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
-    │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
+    │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, rail deltas, log floor, tenant views
     │   ├── profile.ts         # Pyroscope pprof lifecycle bracket, sample labels, and the effectful long-lived-region arm
     │   └── vital.ts           # Estate-wide CWV custody: web-vitals capture, graded facts, the render-report intake
     ├── serve/                 # One public front door
@@ -151,11 +151,11 @@ flowchart LR
     Security e13@-->|"[PORT]: FlagGate"| Proc
     Data e9@-->|"[BOUNDARY]: Rail"| Serve
     Data e10@-->|"[SHAPE]: Live.changes"| Serve
-    Work e11@<-->|"[BOUNDARY]: Journal.claimBatch"| Data
+    Work e11@<-->|"[BOUNDARY]: Journal.claimBatch/complete"| Data
     Ai e12@-->|"[PORT]: Embedder"| Data
     Data e15@-->|"[PORT]: Journal.census"| Otel
     Security e16@-->|"[SHAPE]: TenantScope.metered"| Serve
-    Core e17@-->|"[SHAPE]: Tap.Registry"| Otel
+    Core e17@-->|"[SHAPE]: Tap.Rail"| Otel
     Data e18@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e20@-->|"[SHAPE]: Journal.Deliverable.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel

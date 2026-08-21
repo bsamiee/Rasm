@@ -104,22 +104,37 @@ public static class StoreProfile {
 
 [SQLSTATE_FOLD]:
 - Law: fault handling is one total dispatch over SQLSTATE class for every statement shape — per-statement catch arms are the rejected form — spelled as patterns over `PostgresErrorCodes` constants and the class prefix: conflicts (unique, exclusion) mint domain faults carrying constraint identity and are never retried; admission defects (foreign-key, check, not-null) carry column and constraint evidence retry cannot fix; serialization failure and deadlock are the only classes a store-level strategy may absorb silently; the 22-prefixed data-exception class is an admission defect that escaped the boundary, its production appearance evidence the validation seam has a hole.
-- Law: the two-tier exception law splits transport from server — `NpgsqlException` carries `IsTransient`, `PostgresException` carries the structured error (`SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`) — and both tiers fold into one closed `StoreFault` family deriving from `Expected`, so conversion is lossless with zero message parsing and zero bare `Error.New` escape; `Detail`/`Hint` can carry row data: classification-gated evidence populated only under `IncludeErrorDetail`, and escalation reads the typed case, never message text.
+- Law: the two-tier exception law splits transport from server — `NpgsqlException` carries `IsTransient`, `PostgresException` carries the structured error (`SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`) — and both tiers fold into one closed `StoreFault` family deriving the `Fault` base, so conversion is lossless with zero message parsing and zero bare `Error.New` escape; `Detail`/`Hint` can carry row data: classification-gated evidence populated only under `IncludeErrorDetail`, and escalation reads the typed case, never message text.
 - Law: retry eligibility is case identity, never a code `==` — the family's `Retriable` predicate admits exactly the contention and transient-transport cases, so the store strategy and the outbound-hop owner read the same closed vocabulary and a conflict or admission defect is structurally unretriable.
 - Exemption: the capture seam's catch arms are the platform-forced statement seam.
 
 ```csharp conceptual
-[Union]
-public abstract partial record StoreFault : Expected {
-    private StoreFault(string detail, int code) : base(detail, code, None) { }
-    public sealed record Conflict(string Constraint, string Detail) : StoreFault($"<conflict:{Constraint}>:{Detail}", 7711);
-    public sealed record Defect(string Constraint, string Column, string Detail) : StoreFault($"<defect:{Constraint}:{Column}>:{Detail}", 7712);
-    public sealed record Contention(string SqlState) : StoreFault($"<contention:{SqlState}>", 7713);
-    public sealed record Escaped(string SqlState, string Detail) : StoreFault($"<escaped:{SqlState}>:{Detail}", 7714);
-    public sealed record Transport(string Detail, bool Transient) : StoreFault($"<transport:{Detail}>", Transient ? 7715 : 7716);
-    public sealed record Unmapped(string SqlState, string Detail) : StoreFault($"<sqlstate:{SqlState}>:{Detail}", 7710);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record StoreFault : Fault {
+    private StoreFault(string detail) => Detail = detail;
+    private static readonly FaultBand FamilyBand = FaultBand.Store;
 
-    public bool Retriable => this is Contention or Transport { Transient: true };
+    public string Detail { get; }
+    public sealed override string Message => Detail;
+
+    [FaultCase(0)]
+    public sealed partial record Unmapped(string SqlState, string Note, Error Cause) : StoreFault($"<sqlstate:{SqlState}>:{Note}"), ICausedFault;
+    [FaultCase(1)]
+    public sealed partial record Conflict(string Constraint, string Note, Error Cause) : StoreFault($"<conflict:{Constraint}>:{Note}"), ICausedFault;
+    [FaultCase(2)]
+    public sealed partial record Defect(string Constraint, string Column, string Note, Error Cause) : StoreFault($"<defect:{Constraint}:{Column}>:{Note}"), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record Contention(string SqlState, Error Cause) : StoreFault($"<contention:{SqlState}>"), ICausedFault {
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(4)]
+    public sealed partial record Escaped(string SqlState, string Note, Error Cause) : StoreFault($"<escaped:{SqlState}>:{Note}"), ICausedFault;
+    [FaultCase(5)]
+    public sealed partial record Unavailable(string Note, Error Cause) : StoreFault($"<transport:{Note}>"), ICausedFault {
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(6)]
+    public sealed partial record Broken(string Note, Error Cause) : StoreFault($"<transport:{Note}>"), ICausedFault;
 }
 
 public static class StoreSeam {
@@ -127,18 +142,28 @@ public static class StoreSeam {
         ArgumentNullException.ThrowIfNull(statement);
         try { return Fin.Succ(await statement(store, token).ConfigureAwait(false)); }
         catch (PostgresException server) { return Fin.Fail<T>(Fold(server)); }
-        catch (NpgsqlException driver) { return Fin.Fail<T>(new StoreFault.Transport(driver.Message, driver.IsTransient)); }
+        catch (NpgsqlException driver) {
+            var captured = Error.New(driver.Message, (Exception)driver);
+            return Fin.Fail<T>(driver.IsTransient
+                ? new StoreFault.Unavailable(driver.Message, captured)
+                : new StoreFault.Broken(driver.Message, captured));
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception raised) when (raised is not OutOfMemoryException) {
+            return Fin.Fail<T>(Error.New(raised.Message, raised));
+        }
     }
 
     public static StoreFault Fold(PostgresException server) {
         ArgumentNullException.ThrowIfNull(server);
+        var captured = Error.New(server.Message, (Exception)server);
         return server.SqlState switch {
-            PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ExclusionViolation => new StoreFault.Conflict(server.ConstraintName ?? "<unnamed>", server.MessageText),
-            PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected => new StoreFault.Contention(server.SqlState),
+            PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ExclusionViolation => new StoreFault.Conflict(server.ConstraintName ?? "<unnamed>", server.MessageText, captured),
+            PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected => new StoreFault.Contention(server.SqlState, captured),
             PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.CheckViolation or PostgresErrorCodes.NotNullViolation =>
-                new StoreFault.Defect(server.ConstraintName ?? "<unnamed>", server.ColumnName ?? "<unnamed>", server.MessageText),
-            ['2', '2', ..] => new StoreFault.Escaped(server.SqlState, server.MessageText),
-            _ => new StoreFault.Unmapped(server.SqlState, server.MessageText),
+                new StoreFault.Defect(server.ConstraintName ?? "<unnamed>", server.ColumnName ?? "<unnamed>", server.MessageText, captured),
+            ['2', '2', ..] => new StoreFault.Escaped(server.SqlState, server.MessageText, captured),
+            _ => new StoreFault.Unmapped(server.SqlState, server.MessageText, captured),
         };
     }
 }
@@ -249,35 +274,31 @@ public sealed record ReconcileReceipt(ulong Staged, int Inserted, int Updated) {
 public static class BulkLane {
     public static async Task<Fin<ReconcileReceipt>> Reconcile(NpgsqlDataSource store, Seq<StagedRow> rows, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        await using var connection = await store.OpenConnectionAsync(token).ConfigureAwait(false);
-        var importer = await connection.BeginBinaryImportAsync("COPY staging (key, band, slot) FROM STDIN (FORMAT BINARY)", token).ConfigureAwait(false);
-        ulong staged;
-        try {
+        var reconciled = await StoreSeam.Ask(store, async (source, ct) => {
+            await using var connection = await source.OpenConnectionAsync(ct).ConfigureAwait(false);
+            await using var importer = await connection.BeginBinaryImportAsync("COPY staging (key, band, slot) FROM STDIN (FORMAT BINARY)", ct).ConfigureAwait(false);
             foreach (var row in rows) {
-                await importer.StartRowAsync(token).ConfigureAwait(false);
-                await importer.WriteAsync(row.Key, NpgsqlDbType.Uuid, token).ConfigureAwait(false);
-                await importer.WriteAsync(row.Band, "band", token).ConfigureAwait(false);
-                await importer.WriteAsync(row.Slot, "slot", token).ConfigureAwait(false);
+                await importer.StartRowAsync(ct).ConfigureAwait(false);
+                await importer.WriteAsync(row.Key, NpgsqlDbType.Uuid, ct).ConfigureAwait(false);
+                await importer.WriteAsync(row.Band, "band", ct).ConfigureAwait(false);
+                await importer.WriteAsync(row.Slot, "slot", ct).ConfigureAwait(false);
             }
-            staged = await importer.CompleteAsync(token).ConfigureAwait(false);
-        }
-        catch (Exception discarded) when (discarded is not OutOfMemoryException and not OperationCanceledException) {
-            await importer.DisposeAsync().ConfigureAwait(false);
-            return Fin.Fail<ReconcileReceipt>(discarded is PostgresException wire ? StoreSeam.Fold(wire) : new StoreFault.Transport($"<copy-discarded:{discarded.Message}>", Transient: false));
-        }
-        await importer.DisposeAsync().ConfigureAwait(false);
-        await using var reconcile = connection.CreateCommand();
-        reconcile.CommandText = """
-            MERGE INTO target AS held USING staging AS staged ON held.key = staged.key
-            WHEN MATCHED THEN UPDATE SET band = staged.band, slot = staged.slot
-            WHEN NOT MATCHED THEN INSERT (key, band, slot) VALUES (staged.key, staged.band, staged.slot)
-            RETURNING merge_action()
-            """;
-        await using var verdicts = await reconcile.ExecuteReaderAsync(token).ConfigureAwait(false);
-        var (inserted, updated) = (0, 0);
-        while (await verdicts.ReadAsync(token).ConfigureAwait(false)) { (inserted, updated) = verdicts.GetString(0) is "INSERT" ? (inserted + 1, updated) : (inserted, updated + 1); }
-        var receipt = new ReconcileReceipt(staged, inserted, updated);
-        return receipt.Conserves ? Fin.Succ(receipt) : Fin.Fail<ReconcileReceipt>(Error.New(7732, $"<unconserved:{staged}:{inserted + updated}>"));
+            var staged = await importer.CompleteAsync(ct).ConfigureAwait(false);
+            await using var reconcile = connection.CreateCommand();
+            reconcile.CommandText = """
+                MERGE INTO target AS held USING staging AS staged ON held.key = staged.key
+                WHEN MATCHED THEN UPDATE SET band = staged.band, slot = staged.slot
+                WHEN NOT MATCHED THEN INSERT (key, band, slot) VALUES (staged.key, staged.band, staged.slot)
+                RETURNING merge_action()
+                """;
+            await using var verdicts = await reconcile.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            var (inserted, updated) = (0, 0);
+            while (await verdicts.ReadAsync(ct).ConfigureAwait(false)) { (inserted, updated) = verdicts.GetString(0) is "INSERT" ? (inserted + 1, updated) : (inserted, updated + 1); }
+            return new ReconcileReceipt(staged, inserted, updated);
+        }, token).ConfigureAwait(false);
+        return reconciled.Bind(static receipt => receipt.Conserves
+            ? Fin.Succ(receipt)
+            : Fin.Fail<ReconcileReceipt>(Error.New(7732, $"<unconserved:{receipt.Staged}:{receipt.Inserted + receipt.Updated}>")));
     }
 }
 ```

@@ -48,11 +48,13 @@ public static class RenderCapsule {
     public static Fin<SKPicture> Record(RenderPolicy policy, SKRect cull, Action<SKCanvas> scene) {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(scene);
-        using var recorder = new SKPictureRecorder();
-        scene(recorder.BeginRecording(cull, useRTree: true));
-        return recorder.EndRecording() is var recorded && recorded.ApproximateOperationCount <= policy.OpCeiling
-            ? Fin.Succ(recorded)
-            : (fun(recorded.Dispose)(), Fin.Fail<SKPicture>(Error.New(7801, $"<op-budget:{recorded.ApproximateOperationCount}:{policy.OpCeiling}>"))).Item2;
+        return Op.Of().Catch(() => {
+            using var recorder = new SKPictureRecorder();
+            scene(recorder.BeginRecording(cull, useRTree: true));
+            return recorder.EndRecording() is var recorded && recorded.ApproximateOperationCount <= policy.OpCeiling
+                ? Fin.Succ(recorded)
+                : (fun(recorded.Dispose)(), Fin.Fail<SKPicture>(Error.New(7801, $"<op-budget:{recorded.ApproximateOperationCount}:{policy.OpCeiling}>"))).Item2;
+        });
     }
 
     public static Fin<FrameReceipt> Project(Target target, RenderPolicy policy, SKPicture scene) {
@@ -68,14 +70,16 @@ public static class RenderCapsule {
 
     static Fin<FrameReceipt> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
         if (info.BytesSize64 > policy.ByteCeiling) { return Fin.Fail<FrameReceipt>(Error.New(7802, $"<byte-gate:{info.BytesSize64}>")); }
-        using var surface = SKSurface.Create(info, policy.Props);
-        surface.Canvas.Clear(SKColors.Transparent);
-        surface.Canvas.Scale(scale);
-        surface.Canvas.DrawPicture(scene);
-        using var pixels = surface.PeekPixels();
-        return new FrameReceipt(
-            Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
-            info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount);
+        return Op.Of().Catch(() => {
+            using var surface = SKSurface.Create(info, policy.Props);
+            surface.Canvas.Clear(SKColors.Transparent);
+            surface.Canvas.Scale(scale);
+            surface.Canvas.DrawPicture(scene);
+            using var pixels = surface.PeekPixels();
+            return Fin.Succ(new FrameReceipt(
+                Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
+                info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount));
+        });
     }
 }
 ```
@@ -118,12 +122,22 @@ public static class DocumentExport {
     public static Fin<ExportReceipt> Commit(DocumentFormat format, Stream sink, Seq<PageSpec> pages, RenderPolicy evidence, DateTime stamp) {
         ArgumentNullException.ThrowIfNull(format);
         ArgumentNullException.ThrowIfNull(sink);
-        using var document = format.Open(sink, stamp);
-        return Try.lift<Fin<ExportReceipt>>(() => pages.Map((page, index) => Emit(document, evidence, index, page))
+        var key = Op.Of();
+        return key.Catch(() => {
+            using var document = format.Open(sink, stamp);
+            return pages.Map((page, index) => Emit(document, evidence, index, page))
                 .TraverseM(identity).As()
-                .Map(receipts => (fun(document.Close)(), new ExportReceipt(receipts.Strict(), sink.Length)).Item2))
-            .Run().Bind(static result => result)
-            .MapFail(error => (fun(document.Abort)(), Error.New(7901, $"<export-aborted:{error.Message}>")).Item2);
+                .Bind(receipts => key.Catch(() => {
+                    document.Close();
+                    return Fin.Succ(new ExportReceipt(receipts.Strict(), sink.Length));
+                }))
+                .BindFail(primary => key.Catch(() => {
+                    document.Abort();
+                    return Fin.Succ(unit);
+                }).Match(
+                    Succ: _ => Fin.Fail<ExportReceipt>(primary),
+                    Fail: cleanup => Fin.Fail<ExportReceipt>(primary + cleanup)));
+        });
     }
 
     static Fin<PageReceipt> Emit(SKDocument document, RenderPolicy evidence, int index, PageSpec page) {
@@ -227,14 +241,13 @@ public static class VectorAssets {
     public static Fin<SKSvg> Admit(Stream source) {
         ArgumentNullException.ThrowIfNull(source);
         SKSvg? owner = null;
-        try {
+        return Op.Of().Catch(() => {
             owner = new SKSvg();
             if (owner.Load(source) is null) { return Fin.Fail<SKSvg>(Error.New(7821, "<parse-failure>")); }
             var admitted = owner;
             owner = null;
             return Fin.Succ(admitted);
-        }
-        finally { owner?.Dispose(); }
+        }).Rollback(owner);
     }
 
     public static Option<SKRect> Intrinsic(SKSvg owner) {

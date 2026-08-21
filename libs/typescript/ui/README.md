@@ -9,7 +9,7 @@
 - [02]-[ACT](.planning/system/act.md): One seat for interaction — accessible events, gesture recognition, and motion rows never fork.
 - [03]-[ATOM](.planning/system/atom.md): One state binding — the app's Layer graph stands behind the registry; components project.
 - [04]-[CACHE](.planning/system/cache.md): Durable browser-resident bands keyed by content, leaf-verified, committed through one ledger.
-- [05]-[HOOK](.planning/system/hook.md): One `rasm.ui` fact rail — each plane contributes one typed row and one runtime policy.
+- [05]-[HOOK](.planning/system/hook.md): Folder registrar on core's Tap rail — one typed row and one runtime policy per plane.
 - [06]-[VITAL](.planning/system/vital.md): Interface-visible evidence — long-animation-frame, event timing, commit windows as probe rows.
 - [07]-[INTL](.planning/system/intl.md): Localization with no i18n package — one ambient locale spine over the kernel locale brand.
 - [08]-[PRIMITIVE](.planning/system/primitive.md): Headless component spine — `styled` recipe factory, roster law, the announce and sanitize rails.

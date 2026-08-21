@@ -12,7 +12,7 @@ ui/
 │   │   ├── act.ts        # Motion and interaction, discrete accessible events split from continuous gestures
 │   │   ├── atom.ts       # Atom registry seat with the persistence, SSR, and undo planes
 │   │   ├── cache.ts      # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
-│   │   ├── hook.ts       # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
+│   │   ├── hook.ts       # Folder registrar on core's Tap rail — point roster, adopted sources, consult selector
 │   │   ├── vital.ts      # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
 │   │   ├── intl.ts       # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts  # Headless spine: the one styled recipe and the sanitize gate
@@ -125,9 +125,9 @@ flowchart LR
     Core e2@-->|"[SHAPE]: Transition.Config"| View
     Core e3@-->|"[SHAPE]: Transition.Actor"| View
     Core e4@-->|"[SHAPE]: Presence.State"| View
-    Core e5@-->|"[SHAPE]: Residency.Ledger"| Viewer
+    Core e5@-->|"[SHAPE]: Residency.View"| Viewer
     Core e6@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature"| Viewer
-    Core e7@-->|"[SHAPE]: Tap.Name"| System
+    Core e7@-->|"[SHAPE]: Tap.Rail"| System
     Runtime e8@-->|"[PORT]: Atom.subscribable"| System
     Runtime e9@-->|"[PORT]: GlbViewport"| Viewer
     Runtime e10@-->|"[PORT]: Vital.Report"| System

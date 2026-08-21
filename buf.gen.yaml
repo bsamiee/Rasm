@@ -1,0 +1,12 @@
+# Generation axis; entry is nx run workspace-foundation:proto
+version: v2
+clean: true                                        # Sweeps what the run did not write, every out tree holds generated output alone
+inputs:
+  - directory: tests/contracts                     # Module form, never the workspace default, no second corpus silently widens every plugin row
+plugins:                                           # One row per consumer whose build drives no protoc; a new row lands with a .gitignore row and nx outputs entry as one change
+  - local: node_modules/.bin/protoc-gen-es         # Path form binds the workspace binary; a bare name needs a pnpm/nx shell
+    out: libs/typescript/core/src/interchange/gen  # Module-relative _pb.ts is the import shape typescript:core/interchange/format binds
+    opt:
+      - target=ts                                  # Branch gate is tsc --noEmit over sources, never the default .js + .d.ts pair
+      - erasable_syntax=true                       # Root tsconfig sets erasableSyntaxOnly; binds the day a corpus source declares an enum
+      - import_extension=ts                        # Root tsconfig sets allowImportingTsExtensions; binds the day a source imports a peer

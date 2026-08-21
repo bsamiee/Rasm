@@ -9,7 +9,7 @@
 - `Npgsql.NodaTime` admits on the DATA SOURCE beside its spatial sibling — the EF plugin places no codec on a raw connection.
 - `AMQPNetLite.Core` admits as a DIRECT dependency — `Version/egress` composes its links, so arriving transitively leaves that fence unpinned.
 - `Apache.Arrow.Flight.AspNetCore` moves in lockstep with `Apache.Arrow.Flight` — it alone holds the `InternalsVisibleTo` grant reaching the adapter.
-- `RocksDbException` publishes no code — its message IS `Status::ToString()`, so a prefix roster re-proves against the installed library.
+- `RocksDbException` exposes no stable typed status — preserve its exact exceptional `Error`; message text cannot govern recovery.
 - `Azure.Storage.Blobs.Batch` tracks its OWN version line — it lags the blobs line by design, so pinning them equal resolves nothing.
 
 ## [02]-[SHAPE]
@@ -67,7 +67,8 @@
 - `CacheProfile` closes the execution-profile roster — an unrostered name throws at FIRST execute rather than falling back to the cluster default.
 - Consistency evidence publishes the bound profile row's DECLARED level — `AppliedInfo` and `IPage` discard the `RowSet` the achieved level rode.
 - `StoreProfile.Admits` gates the cache lane — Marten backs both residences, so a single-process store realizes neither.
-- `WideColumnFault.Foreign` is the open tail — folding an unmapped throw into `Unavailable` publishes a level and replica counts nobody measured.
+- `CacheFault.Foreign` retains the provider `Error` — mapping it to `Unavailable` fabricates a consistency level and replica counts.
+- Dead-letter rows store opaque `JsonElement` observations — message strings and AppHost wire types cannot cross this package boundary.
 - Model identity is the PROFILE row — `UseModel` bypasses the model cache, so a cache-key factory forecloses the compiled model for nothing.
 - `IdentityShapeRow` keys on `StoreProfile`'s own vocabulary — a shared key joins two axes, and a missing row fails the generated lookup loud.
 - Compiled-model trust is a MEASURED digest of model metadata — a hand-written version column diverges the first time the model moves.

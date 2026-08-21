@@ -36,9 +36,9 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   ├── symbolic.py         # Block[SymbolicOp] left-fold over ExprForm; one discriminated Outcome per derivation
 │   └── spatial.py          # SpatialEvidence resolve fold; one-way graduation, no trimesh surface re-owned
 └── graduation/             # Multi-domain graduation hub and C# stub codegen
-    ├── handoff.py          # Rail mint: HandoffAxis, GraduationReceipt, EvidenceScope, minted exactly once
+    ├── handoff.py          # Rail mint: HandoffAxis, GraduationReceipt, EvidenceScope, ComputeLeg, StageTap, minted once
     ├── codegen.py          # ast-built msgspec stubs and JSON Schema $defs from the CamelCase bundle decode
-    └── observability.py    # Point vocabulary derived onto the runtime registry; cpu-rss-io-switch band per kernel
+    └── observability.py    # ComputePoint roster folded onto the runtime registry; cpu-rss-io-switch band and stage stream
 ```
 
 ## [02]-[STRATA]

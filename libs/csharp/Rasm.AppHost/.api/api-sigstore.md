@@ -111,6 +111,7 @@ Every verify member is `async Task`, trailing `(…, SigstoreBundle bundle, Veri
 |  [07]   | `new FileTrustRootProvider(FileInfo)`                                     | ctor    | pinned trusted_root.json anchor     |
 |  [08]   | `new InMemoryTrustRootProvider(TrustedRoot)`                              | ctor    | embedded trust anchor               |
 |  [09]   | `new SigstoreVerifier(ITrustRootProvider, ISigningCertificateValidator?)` | ctor    | offline verifier over an anchor     |
+
 - `CertificateIdentity.ForGitHubActions`: `issuer` defaults to `https://token.actions.githubusercontent.com`, `workflowRef` to `null`.
 - `InTotoStatement.Parse`: also overloads on `ReadOnlySpan<byte>` and `string`.
 

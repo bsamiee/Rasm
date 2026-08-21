@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_TRIMESH]
 
-`trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange rail: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
+`trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange rail: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load_scene`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -65,13 +65,14 @@ Persistent query objects amortize index construction across many queries; batch 
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: polymorphic IO (`load`, `export`, `available_formats`)
+[ENTRYPOINT_SCOPE]: polymorphic IO (`load_scene`, `export`, `available_formats`)
 
-`load` resolves `file_type` from the argument or path extension over a `file_obj` path/bytes/stream, dispatches across every registered codec, and returns the runtime `Geometry` (`Trimesh`, `Scene`, or `Path`); `force=` collapses ambiguous results to one kind. `export` is the symmetric writer over the same format set, returning `bytes`/`str`/`dict` when `file_obj=None`. Format is an argument, never a `load_<fmt>`/`export_<fmt>` family. Carry: `load`/`load_scene` share `(file_obj, file_type=None, resolver=None, allow_remote=False)`; `load` adds `force=None`, `load_scene` adds `metadata=None`.
+`load_scene` resolves `file_type` from the argument or path extension over a `file_obj` path/bytes/stream, dispatches across every registered codec, and returns a `Scene`; `load_mesh` and `load_path` are the typed collapses to one kind, each naming its return in the signature. `export` is the symmetric writer over the same format set, returning `bytes`/`str`/`dict` when `file_obj=None`. Format is an argument, never a `load_<fmt>`/`export_<fmt>` family. Carry: `load`/`load_scene` share `(file_obj, file_type=None, resolver=None, allow_remote=False)`; `load` adds `force=None`, `load_scene` adds `metadata=None` and `session=None`.
+`load` itself carries a deprecation notice and holds no behaviour of its own: the body is `load_scene(...)` plus one `force` arm — `"mesh"` returns `.to_mesh()`, `"scene"` returns the scene, and both log that the typed function owns the call. `force` UNSET re-derives the pre-5.0 heuristic, answering a bare geometry where the scene holds one entry and the source extension sits outside `{glb, gltf, zip, 3dxml, tar.gz}` and a `Scene` otherwise, so the return kind tracks file content instead of the call and every consumer branches on a runtime type probe.
 
 | [INDEX] | [SURFACE]                                     | [CAPABILITY]                                            |
 | :-----: | :-------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | `load(..., force=None)`                       | polymorphic mesh/scene/path read returning `Geometry`   |
+|  [01]   | `load(..., force=None)`                       | deprecated shim — `load_scene` plus a `force` arm       |
 |  [02]   | `load_mesh(*args, **kwargs)`                  | force a single `Trimesh` result (concatenates a scene)  |
 |  [03]   | `load_scene(..., metadata=None)`              | force a `Scene` result preserving the transform graph   |
 |  [04]   | `load_path(file_obj, file_type=None)`         | force a `Path2D`/`Path3D` (dxf/svg) result              |
@@ -194,11 +195,11 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 [TOPOLOGY]:
 - `import trimesh` at boundary scope only; a module-level import violates the manifest import policy.
 - One `Trimesh` owns `vertices`/`faces` with a `caching` cache of derived geometry keyed on a content hash; mass, topology graphs, normals, curvature, symmetry, and `scipy`/`rtree` spatial indices are lazily cached properties, never parallel subclasses, and `update_vertices`/`update_faces`/`process` invalidate them.
-- `load` dispatches on the resolved `file_type` across `available_formats()` and `export(file_type=...)` writes the same set; the format is an argument, never a `load_<fmt>` family, and geometry returns in-memory triangulations while file encode belongs to the data codec.
+- `load_scene` dispatches on the resolved `file_type` across `available_formats()` and `export(file_type=...)` writes the same set; the format is an argument, never a `load_<fmt>` family, and geometry returns in-memory triangulations while file encode belongs to the data codec.
 - `boolean.*` and `convex_decomposition` route to `manifold3d`, require watertight operands, and fold n-ary input through `reduce_cascade`; convex hull is `scipy.spatial.ConvexHull` and minimum bounds are `bounds`/`nsphere`.
 - `repair.*` return `bool` success and mutate in place; `smoothing.filter_*` mutate `vertices` over a shared `scipy.sparse` Laplacian and return the same `Trimesh`; `process=True` on construction runs the merge-and-validate pass.
 - `ProximityQuery`, `RayMeshIntersector` (Embree when `ray.has_embree`), `CollisionManager` (FCL), and `VoxelGrid` are persistent query owners amortizing index construction over one fixed mesh.
-- Each op captures a mesh receipt: `load` carries format and vertex/face count with `is_watertight`/`is_winding_consistent`; boolean/decomposition/registration carry the operation, input counts, result validity, and the transform and cost; `mass_properties` carries `MassProperties`.
+- Each op captures a mesh receipt: `load_scene` carries format and vertex/face count with `is_watertight`/`is_winding_consistent`; boolean/decomposition/registration carry the operation, input counts, result validity, and the transform and cost; `mass_properties` carries `MassProperties`.
 
 [STACKING]:
 - data mesh codec (`rasm.data.spatial.mesh`): `mesh.export(file_type='glb') -> bytes` is the only encode path, owned by `MeshPayload`; geometry returns the conditioned triangulation and the data codec owns GLB/3MF/PLY serialization, so the kernel never opens a file handle.
@@ -216,4 +217,4 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 - Package: `trimesh`
 - Owns: triangle-mesh/scene/path IO, primitive creation from `shapely` profiles, convex hull and VHACD decomposition, minimum bounds, manifold boolean CSG, ICP/Procrustes/non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remesh, hole/normal/winding repair, signed-distance/closest-point/thickness proximity, surface/volume sampling, ray casting, FCL collision, and voxelization
 - Accept: triangle-mesh modeling, conditioning, and exchange feeding the geometry and mesh owners; the shared 4x4 registration transform
-- Reject: wrapper-renames of `load`/`export`; a hand-rolled mesh IO codec, boolean kernel, sparse-Laplacian solve, convex hull, R-tree, or FCL binding trimesh already binds; a `load_<format>`/`export_<format>` or `Add<Op>` family over the format/operation argument; a mesh-file encode bypassing the data `MeshPayload` codec; `.3dm`/OpenNURBS (routes to `rhino3dm`), STEP/AP242 BREP (`cadquery-ocp`), or point-cloud scan reconstruction (`open3d`) surfaces trimesh does not own
+- Reject: wrapper-renames of `load_scene`/`export`; the deprecated `load` shim in any `force` posture where a typed loader names the return; a hand-rolled mesh IO codec, boolean kernel, sparse-Laplacian solve, convex hull, R-tree, or FCL binding trimesh already binds; a `load_<format>`/`export_<format>` or `Add<Op>` family over the format/operation argument; a mesh-file encode bypassing the data `MeshPayload` codec; `.3dm`/OpenNURBS (routes to `rhino3dm`), STEP/AP242 BREP (`cadquery-ocp`), or point-cloud scan reconstruction (`open3d`) surfaces trimesh does not own

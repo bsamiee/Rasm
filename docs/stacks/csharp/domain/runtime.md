@@ -70,7 +70,7 @@ public static class Boot {
         var builder = settings.DisableDefaults ? Host.CreateEmptyApplicationBuilder(settings) : Host.CreateApplicationBuilder(settings);
         builder.ConfigureContainer(new DefaultServiceProviderFactory(Validated));
         contribute(modality.Signals(builder.Services));
-        return Try.lift(builder.Build).Run();
+        return Op.Of().Catch(() => Fin.Succ(builder.Build()));
     }
 }
 ```
@@ -131,9 +131,14 @@ public static class Root {
                 static (counts, row) => counts.AddOrUpdate(row.Lifetime, static n => n + 1, 1)),
             table.Filter(static module => module.Rows.IsEmpty).Map(static module => module.Key),
             decorated),
-        Fail: error => new BuildFact.Rejected(error.ToException() is AggregateException aggregate
-            ? toSeq(aggregate.InnerExceptions).Map(static ex => Error.New(ex))
+        Fail: error => new BuildFact.Rejected(error is ManyErrors many
+            ? Flatten(many)
             : Seq1(error)));
+
+    static Seq<Error> Flatten(Error error) =>
+        error is ManyErrors
+            ? error.AsIterable().Bind(Flatten)
+            : Seq1(error);
 }
 ```
 
@@ -176,7 +181,7 @@ public static class PolicyCell {
     public static IDisposable Publish(IConfiguration root, IOptionsMonitor<LanePolicy> monitor, Atom<Seq<Error>> rejected) {
         ArgumentNullException.ThrowIfNull(root);
         return ChangeToken.OnChange(root.GetReloadToken, () => ignore(
-            Try.lift(() => monitor.CurrentValue).Run().Match(
+            Op.Of().Catch(() => Fin.Succ(monitor.CurrentValue)).Match(
                 Succ: candidate => candidate == Current.Value ? unit : ignore(Current.Swap(_ => candidate)),
                 Fail: error => ignore(rejected.Swap(facts => facts.Add(error))))));
     }
@@ -243,7 +248,9 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
         forced.CancelAfter(budget);
         var mark = clock.GetTimestamp();
         try { await band.Settle(forced.Token).ConfigureAwait(false); return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: false)); }
-        catch (OperationCanceledException) { return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: true)); }
+        catch (OperationCanceledException) when (forced.IsCancellationRequested) {
+            return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: true));
+        }
     }
 }
 ```

@@ -216,6 +216,7 @@ flowchart LR
     Compute e38@-->|"[RECEIPT]: DigitalTwin"| Wire
     Wire e39@<-->|"[TRANSPORT]: CollabWireContext"| AppUi
     Sandbox e40@<-->|"[SHAPE]: PackKind"| Compute
+    AppUi e41@-->|"[SHAPE]: CommandIntent + CommandTxn + CallerModality"| Agent
 ```
 
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.

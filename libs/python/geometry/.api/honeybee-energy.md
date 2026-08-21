@@ -179,6 +179,29 @@ Parse the EnergyPlus SQLite (`eplusout.sql`) and CSV outputs into Python rows; t
 |  [11]   | `rdd`                                    | rdd file       | report-data-dictionary parser                 |
 |  [12]   | `zsz`                                    | zsz file       | zone-sizing parser                            |
 
+[ENTRYPOINT_SCOPE]: ASHRAE 90.1 baseline generation and performance rating (`honeybee_energy.baseline.*`)
+
+Convert a proposed model into its Appendix G baseline and rate the simulated pair; the named standard IS the authority a compliance verdict cites, so a consuming owner names one of these rows rather than a bare ceiling. Rows elide the shared `baseline.` package prefix and their surface cells carry required parameters alone.
+
+- create carry: `building_type` (default `NonResidential`) wherever the row takes it; `model_to_baseline` and `model_hvac_to_baseline` add `floor_area` and `story_count`, and `model_to_baseline` adds `lighting_by_building`
+- pci/result carry: `electricity_cost`, `natural_gas_cost`, `district_cooling_cost`, `district_heating_cost`, and `electricity_emissions` — `result.appendix_g_summary` alone omits the emissions factor; every one reads the `data/` csv tables (`pci_2016`/`pci_2019`/`pci_2022`, `constructions`, `fen_ratios`, `lpd_building`, `shw`), a folder with no callable surface
+
+| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                                         |
+| :-----: | :--------------------------------------------------------------------- | :------ | :--------------------------------------------------- |
+|  [01]   | `create.model_to_baseline(model, climate_zone)`                        | static  | composes rows [02]-[07] into one call                |
+|  [02]   | `create.model_geometry_to_baseline(model)`                             | static  | baseline window-wall ratio and orientation           |
+|  [03]   | `create.model_constructions_to_baseline(model, climate_zone)`          | static  | envelope constructions for the zone                  |
+|  [04]   | `create.model_hvac_to_baseline(model, climate_zone)`                   | static  | baseline HVAC per the Appendix G system map          |
+|  [05]   | `create.model_lighting_to_baseline(model)`                             | static  | space-by-space baseline lighting power density       |
+|  [06]   | `create.model_lighting_to_baseline_building(model)`                    | static  | whole-building baseline lighting power density       |
+|  [07]   | `create.model_shw_to_baseline(model)`                                  | static  | baseline service-hot-water system                    |
+|  [08]   | `create.model_remove_ecms(model)`                                      | static  | strip the ECMs a baseline excludes                   |
+|  [09]   | `pci.pci_target_from_baseline_sql(sql_results, climate_zone)`          | static  | target Performance Cost Index off the vintage tables |
+|  [10]   | `pci.energy_cost_from_proposed_sql(sql_result)`                        | static  | proposed energy cost and emissions from one sql      |
+|  [11]   | `pci.comparison_from_sql(proposed_sql, baseline_sqls, climate_zone)`   | static  | the baseline-versus-proposed cost comparison         |
+|  [12]   | `result.appendix_g_summary(proposed_sql, baseline_sqls, climate_zone)` | static  | ASHRAE 90.1 Appendix G performance summary           |
+|  [13]   | `result.leed_v4_summary(proposed_sql, baseline_sqls, climate_zone)`    | static  | LEED v4 / v4.1 energy-performance summary            |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -196,6 +219,7 @@ Parse the EnergyPlus SQLite (`eplusout.sql`) and CSV outputs into Python rows; t
 - `pydantic`(`libs/python/.api/pydantic.md`), `msgspec`(`libs/python/.api/msgspec.md`): abridged HBJSON validated through the `honeybee-schema` energy models (the `pydantic` rail) and decoded through `msgspec` at the boundary.
 - `anyio`(`libs/python/.api/anyio.md`), `expression`(`libs/python/.api/expression.md`): each `run_idf`/`run_osw` brackets through `anyio.to_thread.run_sync` off the event loop under the runtime `guarded` retry rail and the graduation `evidence_run` weave, the run receipt folding into the `expression` `Result` rail.
 - `numpy`(`libs/python/.api/numpy.md`), `xarray`(`libs/python/.api/xarray.md`): the `result.*_from_sql` rows promote into the `numpy`/`xarray` data tier, `match_rooms_to_data`/`match_faces_to_data` joining the series back onto honeybee geometry.
+- `baseline.*` needs a PROPOSED simulation beside a baseline roster, so a rating entry runs after two `run_idf` passes and never off one sql; `pci`/`result` read the `data/` vintage csv tables and no other path reaches them.
 
 [LOCAL_ADMISSION]:
 - Energy-property assignment feeds the energy-modeling owner; standards resolve through `lib.*_by_identifier`; result rows promote to the `numpy`/`xarray` tier and `check_all(detailed=True)` folds into the `expression` `Result` rail.

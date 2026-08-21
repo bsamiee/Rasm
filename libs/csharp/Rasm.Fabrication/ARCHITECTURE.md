@@ -1,6 +1,6 @@
 # [FABRICATION_ARCHITECTURE]
 
-`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`. Each sub-domain owns one namespace and one polymorphic owner over `FabricationPolicy`/`FabricationResult`. Every flagship terminates in a content-keyed machine artifact; `EgressKind` collapses egress onto entry vocabulary, and its fold seeds `ContentHash.Of`. `FabricationProjector : IElementProjection` is the sole Element dependency; AEC alignment crosses seam contracts and the content-keyed wire.
+`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`. `Process/owner` declares the one `FabricationPolicy`/`FabricationResult` pair each production sub-domain seats a case arm in; a support one seats none. Every flagship terminates in a content-keyed machine artifact; `EgressKind` collapses egress onto entry vocabulary, and its fold seeds `ContentHash.Of`. `FabricationProjector.Of` returns the sole `IElementProjection` dependency while its implementation stays internal; AEC alignment crosses seam contracts and the content-keyed wire.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -11,7 +11,7 @@ Rasm.Fabrication/
 │   ├── Atoms.cs             # Construction-admitted atom families reading nothing above themselves; payloads name planes, reach no behaviour
 │   ├── Family.cs            # Machine.Admit keyed-capability generation, MachineCapacity.Facts correspondence, PostDialect binding
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
-│   ├── Faults.cs            # FabricationFault registry over the FaultBand.Fabrication band
+│   ├── Faults.cs            # FabricationFault union over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Plan Run(Derive) lowering; DerivePolicy.Admit gates duplicates and preference conflicts
 │   └── Telemetry.cs         # Settled-receipt projections alone: fact-union arms, contributor port, span band, board-pack descriptor rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
@@ -296,7 +296,7 @@ flowchart LR
     Admit f1@-.->|"admission refusal"| Fault[/FabricationFault/]
     Cam f2@-.->|"generation fault"| Fault
     Prove f3@-.->|"verify fault"| Fault
-    Fault f4@--> Tap["FabricationTap receipts"]
+    Fault f4@--> Rail(["Fin/Error rail"])
 ```
 
 [KINEMATICS]:
@@ -322,7 +322,7 @@ flowchart LR
 - `Analyze.Run` bindings freeze the kernel entry's two-type-parameter arity, query-first then subject; `Analyze.Query` and `Analyze.In` stay unbound.
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
-- `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
+- `FabricationProjector.Of` hands the app the package-owned `IElementProjection`; every seam-lowered quantity rides its internal implementation.
 - Absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
 - Machine telemetry enters through the AppHost decode lane, never a direct transport reference.
 - `Kinematics/observation` admits the decoded entities once; every measured consumer folds the one `MachineObservation` slice.

@@ -200,20 +200,21 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 
 [BRUTILE_SOURCE_SCOPE]: the tile-source contract `Mapsui.Tiling` composes — `BruTile`, `BruTile.Web`, `BruTile.Predefined`, `BruTile.Cache`
 
-| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :----------------------------------------------------------------------------- | :------- | :---------------------------------- |
-|  [01]   | `new HttpTileSource(ITileSchema, string urlFormatter, …)`                      | ctor     | XYZ/TMS source from a template      |
-|  [02]   | `new HttpTileSource(ITileSchema, IUrlBuilder, …)`                              | ctor     | source over a custom URL builder    |
-|  [03]   | `HttpTileSource.PersistentCache`                                               | property | settable `IPersistentCache<byte[]>` |
-|  [04]   | `HttpTileSource.Attribution`                                                   | property | settable `Attribution` credit       |
-|  [05]   | `HttpTileSource.ConfigureHttpRequestMessage`                                   | property | per-request header hook             |
-|  [06]   | `new Attribution(string Text = "", string Url = "")`                           | ctor     | credit value                        |
-|  [07]   | `ITileSchema.GetTileInfos(Extent, int level)`                                  | method   | the tile roster an extent covers at one level — the pyramid prefetch walk |
-|  [07]   | `new GlobalSphericalMercator(format, YAxis, minZoomLevel, maxZoomLevel, name)` | ctor     | EPSG:3857 tile schema               |
-|  [08]   | `new FileCache(string directory, string format, TimeSpan cacheExpireTime)`     | ctor     | on-disk persistent tile cache       |
-|  [09]   | `NullCache`                                                                    | class    | the no-op default cache             |
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `new HttpTileSource(ITileSchema, string urlFormatter, …)`                      | ctor     | XYZ/TMS source from a template            |
+|  [02]   | `new HttpTileSource(ITileSchema, IUrlBuilder, …)`                              | ctor     | source over a custom URL builder          |
+|  [03]   | `HttpTileSource.PersistentCache`                                               | property | settable `IPersistentCache<byte[]>`       |
+|  [04]   | `HttpTileSource.Attribution`                                                   | property | settable `Attribution` credit             |
+|  [05]   | `HttpTileSource.ConfigureHttpRequestMessage`                                   | property | per-request header hook                   |
+|  [06]   | `new Attribution(string Text = "", string Url = "")`                           | ctor     | credit value                              |
+|  [07]   | `ITileSchema.GetTileInfos(Extent, int level)`                                  | method   | tile roster an extent covers at one level |
+|  [08]   | `new GlobalSphericalMercator(format, YAxis, minZoomLevel, maxZoomLevel, name)` | ctor     | EPSG:3857 tile schema                     |
+|  [09]   | `new FileCache(string directory, string format, TimeSpan cacheExpireTime)`     | ctor     | on-disk persistent tile cache             |
+|  [10]   | `NullCache`                                                                    | class    | the no-op default cache                   |
 
 - `HttpTileSource` : `IHttpTileSource`, `ITileSource`, `IUrlBuilder`; the template arity forwards to `BasicUrlBuilder(urlFormatter, serverNodes, apiKey)`, and `GetTileAsync` reads the persistent cache first and writes every fetched tile back into it, so an offline session serves from `FileCache` with no second code path.
+- `ITileSchema.GetTileInfos` drives the pyramid prefetch walk — one call per level enumerates the tiles the extent covers.
 - `Attribution` is a `record struct` with defaulted members, so an absent credit is an EMPTY string rather than a null — a caller requiring attribution tests the text, never the reference.
 - `GlobalSphericalMercator` : `TileSchema`; its ctor arities strip `(format, yAxis, minZoomLevel, maxZoomLevel, name)` from the left and one further arity takes an explicit `zoomLevels` set with an `Extent`, every parameter defaulted — so a zoom-band-only call resolves to the narrowest `(minZoomLevel, maxZoomLevel, name)` arity by the fewest-omitted-optionals rule and takes `"png"` with `YAxis.OSM`, the slippy-map orientation every `{z}/{x}/{y}` template assumes.
 - `IPersistentCache<T>` : `ITileCache<T>` adds no member of its own — it is the marker distinguishing a durable store from the in-memory `MemoryCache<T>` the layer keeps around the viewport.

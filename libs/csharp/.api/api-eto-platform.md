@@ -120,16 +120,16 @@
 
 [ENTRYPOINT_SCOPE]: `Style` — scoped appearance and behaviour
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE] | [CAPABILITY]                      |
-| :-----: | :--------------------------------------------------------- | :------ | :-------------------------------- |
-|  [01]   | `Style.Provider -> IStyleProvider`                         | static  | active provider, get and set      |
-|  [02]   | `Style.StyleWidget`                                        | static  | per-widget style event            |
-|  [03]   | `Style.Add<TWidget>(string?, StyleWidgetHandler<TWidget>)` | static  | register a widget-facade style    |
-|  [04]   | `Style.Add<THandler>(string?, StyleHandler<THandler>)`     | static  | register a concrete-handler style |
-|  [05]   | `IStyleProvider.Inherit -> bool`                           | instance | cascading application declared    |
-|  [06]   | `IStyleProvider.ApplyStyle(object, string)`                | instance | apply one named style to a widget |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :----------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Style.Provider -> IStyleProvider`                           | static   | active provider, get and set       |
+|  [02]   | `Style.StyleWidget`                                          | static   | per-widget style event             |
+|  [03]   | `Style.Add<TWidget>(string?, StyleWidgetHandler<TWidget>)`   | static   | register a widget-facade style     |
+|  [04]   | `Style.Add<THandler>(string?, StyleHandler<THandler>)`       | static   | register a concrete-handler style  |
+|  [05]   | `IStyleProvider.Inherit -> bool`                             | instance | cascading application declared     |
+|  [06]   | `IStyleProvider.ApplyStyle(object, string)`                  | instance | apply one named style to a widget  |
 |  [07]   | `IStyleProvider.ApplyCascadingStyle(object, object, string)` | instance | apply a container's style downward |
-|  [08]   | `IStyleProvider.ApplyDefault(object)`                      | instance | apply the unnamed default style   |
+|  [08]   | `IStyleProvider.ApplyDefault(object)`                        | instance | apply the unnamed default style    |
 
 - `Style.Provider` is settable and defaults to the lazily created `DefaultStyleProvider` the first `Add` mints, so a provider swap replaces the whole registry rather than any per-key row and is never a per-registration act.
 - `Style.Add` APPENDS into the active provider's per-key `IList<Action<object>>`; the only removal is the provider's whole-registry `Clear()`, so a second `Add` under a live key stacks a handler beside the first and retires nothing — a detachable registration owns its own dispatch cell and empties it, never re-`Add`s.
@@ -158,7 +158,7 @@
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): the identity vocabulary — `Platforms` ids and `PlatformFeatures` flags — maps at each boundary onto `[SmartEnum]` and flag owners, so a platform-gate decision is exhaustive dispatch rather than a stringly-keyed `ID` comparison collapsing an `IsMac`/`IsWpf` predicate ladder.
-- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload stay throwing boundaries the same rail traps; `Eff<A>` scopes the native attach and detach lifecycle for deterministic release.
+- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload enter `Op.Catch` before `Eff<A>` scopes the already-railed native attach and detach lifecycle for deterministic release.
 - `api-eto-forms`(`.api/api-eto-forms.md`) and `api-eto-drawing`(`.api/api-eto-drawing.md`): this root resolves the control object each consumes, and the `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at this seam rather than as widget-construction rows.
 
 [LOCAL_ADMISSION]:

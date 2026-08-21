@@ -19,7 +19,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [09]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
 |  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
 |  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
-|  [12]   | `FaultBand` row mint, widening, or retire    | every fault union reading that row         | one registry proves disjointness for all     |
+|  [12]   | `FaultBand` row mint, split, or retire       | every fault union reading that row         | one registry proves disjointness for all     |
 |  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
 |  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
 |  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
@@ -52,8 +52,22 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [42]   | native-lineage pin on either peer manifest   | the peer manifest's lineage floor comment  | one native lineage, two package rails        |
 |  [43]   | `navigator.connection` refinement per owner  | the peer's refinement + its axis carve     | one surface, two refinements, one owner each |
 |  [44]   | `[14]-[EVENT_FABRIC]` grammar or roster row  | each branch message-envelope owner + entry | one fabric, three branch transcriptions      |
+|  [45]   | fault case ordinal mint, retire, or move     | the estate allocation proof + stored codes | an issued code outlives the case minting it  |
+|  [46]   | Bim `Energy/results` vocabulary row          | Compute `Analysis/energy` transcription    | one authority, one byte-identical mirror     |
+|  [47]   | root `buf.gen.yaml` plugin `out` row         | its `.gitignore` row + nx `proto` outputs  | one emission, three surfaces, never tracked  |
+|  [48]   | wire options emission posture at its merge   | every peer-decoder block on that seam      | one posture, one spelling on every face      |
+|  [49]   | admitted-package vocabulary a roster mirrors | every branch roster transcribing that enum | an importing peer widens, a mirror does not  |
+|  [50]   | reviewer-config path, scope, or include glob | one dot alternate per tree it intends      | minimatch dot:false crosses no dot segment   |
 
 ## [02]-[CONDITIONED]
+
+[REVIEWER_SCOPE]:
+- Surface: Reviewer-config path globs — `.coderabbit.yaml` `path`, `.greptile/config.json` `scope`, `.macroscope/**` frontmatter `include`.
+- Obligates: One explicit alternate per dot-directory the scope intends, because minimatch resolves `dot:false` and no `**` crosses a dot segment.
+- Law: Globs implying `libs/**` carry `libs/**/.planning/**`, adding `libs/**/.api/**` where the scope reaches catalogs.
+- Law: Tree-wide markdown globs carry the `.planning`, `.api`, and `.claude` alternates their own trees hold.
+- Law: Scope proves live at a path INSIDE the dot-directory — `greptile config <path>` answers, or a minimatch probe where an engine exposes none.
+- Law: Silent miss is the failure mode — an unspelled dot-directory reviews under no law and no engine reports the gap.
 
 [MANIFEST_ADMISSION]:
 - Surface: Central manifest dependency rows — `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml`.
@@ -67,6 +81,7 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 - Law: Anchors naming an unlanded consumer read as aspiration wearing verification's clothes.
 - Law: Claimed absence proves by a failed live resolve against the installed distribution alone, and catalog silence never suffices.
 - Law: Members that verify land as a catalog row in the same pass.
+- Law: Fences hedging an unverified premise about an external member route it to that package's catalog for a rail proof, never carrying the hedge.
 - Law: Catalog rows contradicting a doctrine page stay unverified until live reflection decides, and the losing surface repairs in the same change.
 - Law: Two pages contradicting on an external fact resolve on the installed distribution alone — neither confidence nor page count elects a winner.
 - Law: Repairing the side that reads weaker without probing inverts the defect, so both spellings stay unverified until the rail answers.

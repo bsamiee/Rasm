@@ -5,6 +5,8 @@ effort: medium
 conclusion: neutral
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
 ---
 
 # [ARCHITECTURE_INTEGRITY]

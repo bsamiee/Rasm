@@ -75,13 +75,25 @@
 
 [PUBLIC_TYPE_SCOPE]: error rail
 
-`IcechunkError` is the root exception; `ConflictError` and `RebaseFailedError` are the rebase/commit failures the data tier maps to its typed error. `RebaseFailedError` carries the unresolved `Conflict` list for solver-driven retry.
+`IcechunkError` roots at bare `Exception`, so a consumer catch set NAMES it and never a builtin ancestor; `InvalidInputError` refines `ValueError` and the `NotFoundError` family refines `KeyError`, which is exactly why the root and not the builtins carries the set. `ConflictError` and its `RebaseFailedError` leaf carry the commit and rebase failures the data tier maps to its typed error, the leaf holding the unresolved `Conflict` list for solver-driven retry.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [ROLE]                                                      |
-| :-----: | :------------------ | :------------ | :---------------------------------------------------------- |
-|  [01]   | `IcechunkError`     | error root    | base exception for all icechunk failures                    |
-|  [02]   | `ConflictError`     | commit error  | raised on commit when the branch tip moved under the writer |
-|  [03]   | `RebaseFailedError` | rebase error  | carries unresolved `Conflict` list after a failed rebase    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [ROLE]                                                        |
+| :-----: | :------------------------ | :------------ | :------------------------------------------------------------ |
+|  [01]   | `IcechunkError`           | error root    | `Exception` base every icechunk failure derives from          |
+|  [02]   | `ConflictError`           | commit error  | raised on commit when the branch tip moved under the writer   |
+|  [03]   | `RebaseFailedError`       | rebase error  | `ConflictError` leaf carrying the unresolved `Conflict` list  |
+|  [04]   | `NotFoundError`           | absence root  | `KeyError` refinement; the four absence leaves derive from it |
+|  [05]   | `RepositoryNotFoundError` | absence       | an absent repository                                          |
+|  [06]   | `RefNotFoundError`        | absence       | an absent ref                                                 |
+|  [07]   | `SnapshotNotFoundError`   | absence       | an absent snapshot                                            |
+|  [08]   | `NodeNotFoundError`       | absence       | an absent node                                                |
+|  [09]   | `SessionStateError`       | lifecycle     | a session already committed or discarded                      |
+|  [10]   | `ReadOnlyError`           | permission    | a write attempted through a read-only session                 |
+|  [11]   | `AlreadyExistsError`      | containment   | a create colliding with an existing ref or repo               |
+|  [12]   | `StorageError`            | store fault   | the Rust-core object-store leg refusing                       |
+|  [13]   | `InvalidInputError`       | argument      | `ValueError` refinement over a rejected argument              |
+|  [14]   | `FormatError`             | format        | on-disk format mismatch                                       |
+|  [15]   | `InternalError`           | internal      | core invariant breach                                         |
 
 ## [03]-[ENTRYPOINTS]
 

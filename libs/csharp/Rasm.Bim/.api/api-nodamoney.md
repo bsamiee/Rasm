@@ -15,16 +15,15 @@
 
 [PUBLIC_TYPE_SCOPE]: money value family
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]       | [CAPABILITY]                                                                                 |
-| :-----: | :----------------- | :------------------ | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Money`            | money value         | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar                      |
-|  [02]   | `FastMoney`        | fast money value    | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed); + `long` `*`/`/`              |
-|  [03]   | `Currency`         | currency identity   | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency`         |
-|  [04]   | `CurrencyInfo`     | registry record     | `record`: decimal digits/symbol/name/minor-unit + `IFormatProvider`/`ICustomFormatter`       |
-|  [05]   | `CurrencyRegistry` | registry seam       | `static`: `Get`/`TryGet`/`GetAllCurrencies`/`TryAdd`/`TryRemove` — mutable ISO 4217 registry |
-|  [06]   | `MoneyExtensions`  | money allocation    | `static`: the `Money.Split` family (`int shares`/`int[] ratios`) -> `IEnumerable<Money>`     |
-|  [07]   | `ExchangeRate`     | FX rate             | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)`     |
-|  [08]   | `MinorUnit`        | minor-unit exponent | `enum: byte` — the decimal-digit exponent of a currency's minor unit                         |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [CAPABILITY]                                                                             |
+| :-----: | :---------------- | :------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Money`           | money value         | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar                  |
+|  [02]   | `FastMoney`       | fast money value    | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed); + `long` `*`/`/`          |
+|  [03]   | `Currency`        | currency identity   | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency`     |
+|  [04]   | `CurrencyInfo`    | registry record     | metadata plus public `TryFromCode`/`GetAllCurrencies`/`TryAdd`/`TryRemove` ISO 4217 seam |
+|  [05]   | `MoneyExtensions` | money allocation    | `static`: the `Money.Split` family (`int shares`/`int[] ratios`) -> `IEnumerable<Money>` |
+|  [06]   | `ExchangeRate`    | FX rate             | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)` |
+|  [07]   | `MinorUnit`       | minor-unit exponent | `enum: byte` — the decimal-digit exponent of a currency's minor unit                     |
 
 [PUBLIC_TYPE_SCOPE]: rounding/precision policy and FX context
 
@@ -122,12 +121,12 @@
 - seam `MeasureValue` (`Rasm.Element/Properties/quantity#MEASURE_VALUE`): the `CostItem.ValueOf` join is the canonical stack — the seam owns the dimensioned takeoff read as the SI magnitude `Quantity.Si`, `Money` owns the priced scalar, and the line value is `Rate * (decimal)Quantity.Si` (`Money * decimal -> Money`); `Money / decimal` applies the `UnitBasis` per-basis denominator.
 - `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc.md`): the `CostProjection.ValueOf` fold lifts the IFC `(double AppliedValue, double UnitBasis)` pair off `IfcCostValue.AppliedValue`/`UnitBasis.ValueComponent` into `new Money((decimal)amount, currency)` then `Money / (decimal)basis`, the currency resolving from the project `IfcMonetaryUnit` alone (`UnitBasis.UnitComponent` is the measure denominator's unit, never a currency source), so the foreign amount becomes typed money at the boundary.
 - `MPXJ.Net` (`libs/csharp/Rasm.Persistence/.api/api-mpxj.md`): the 5D cost-input peer of the IFC graph — `ResourceAssignment.Cost`/`.BudgetCost`/`.Units` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`/`.OvertimeRate` surface as parse-only foreign `double?`; the same `CostProjection.ValueOf` fold lifts each into `Money` at the boundary, the rate as `new Money((decimal)StandardRate.Amount, ...)` then `Money * (decimal)Units`. `QuikGraph` (`libs/csharp/.api/api-quikgraph.md`) owns the CPM schedule math over `Task.Predecessors`/`Successors`; `NodaMoney` owns only the priced scalar the resource loading projects onto.
-- `LanguageExt.Core`: an unknown ISO 4217 code traps through `CostMoney.Of` (`Try.lift<Money>(...).Run()` catching `InvalidCurrencyException`) onto the typed `Model/faults#FAULT_BAND` `BimFault.CodecReject` lifted bare onto `Fin<T>` (the band is `Expected`-derived, no `.ToError()` hop); `CostSchedule.Rollup` is a `Fold` over the `Money` additive operator with `Money.AdditiveIdentity` the no-currency anchor, and a cross-currency rollup reprices each line through `ExchangeRate.Convert` into the reporting currency first.
+- `LanguageExt.Core`: `CostMoney.Of` gates an ISO code through public `CurrencyInfo.TryFromCode` before construction and lifts `BimFault.Refused(key, BimScope.Planning, BimReason.Codec, detail)` on a miss; no exception-capture normalization or `.ToError()` hop exists. `CostSchedule.Rollup` folds the `Money` additive operator from `Money.AdditiveIdentity`, repricing each foreign line through `ExchangeRate.Convert` first.
 - `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): the `CostCategory`/`CostScheduleKind`/`ResourceKind` `[SmartEnum]` rows own the cost discriminants and `Money` is the payload a priced line carries; the JSON wire serializes `Money`/`Currency` through `MoneyJsonConverter`/`CurrencyJsonConverter` at the `Exchange/wire` boundary.
 
 [LOCAL_ADMISSION]:
 - `Money` is the `Planning/cost#ESTIMATE` priced scalar and `Money.Currency` the currency identity; the cost algebra is `Money + Money`, `Money * decimal`, and `Money / decimal`.
-- currency resolution enters through `Currency.FromCode` against the ISO 4217 registry; a regional or custom currency registers through `CurrencyRegistry.TryAdd`/`TryRemove`.
+- currency resolution enters through `CurrencyInfo.TryFromCode` against the ISO 4217 registry; a regional or custom currency registers through `CurrencyInfo.TryAdd`/`TryRemove`.
 - a multi-share allocation (a lump-sum split across line items, a contingency drawdown across packages) enters through `MoneyExtensions.Split` so the parts sum exactly.
 - cross-currency repricing enters through `ExchangeRate.Convert` on a both-legs-matched fx row.
 - `MoneyContext` is seated ONCE at the composition root (`CreateAndSetDefault`/`DefaultThreadContext`) so every mint in a fold carries one context; a block-scoped `CreateScope` around part of an estimate forks that space and the first `+` across the fork throws, and `ExchangeRate.Convert` (no context argument) can only ever carry the ambient one.
@@ -136,6 +135,6 @@
 
 [RAIL_LAW]:
 - Package: `NodaMoney`
-- Owns: the `Money`/`Currency`/`ExchangeRate` monetary value algebra — `decimal`-precision arithmetic, the embedded ISO 4217 registry (mutable through `CurrencyRegistry.TryAdd`/`TryRemove`), lossless `MoneyExtensions.Split` allocation, FX conversion, the `MoneyContext` rounding/precision policy, and the `NodaMoney.Serialization.*` `System.Text.Json`/`TypeConverter` boundary serdes
+- Owns: the `Money`/`Currency`/`ExchangeRate` monetary value algebra — `decimal`-precision arithmetic, the embedded ISO 4217 registry (mutable through public `CurrencyInfo.TryAdd`/`TryRemove`), lossless `MoneyExtensions.Split` allocation, FX conversion, the `MoneyContext` rounding/precision policy, and the `NodaMoney.Serialization.*` `System.Text.Json`/`TypeConverter` boundary serdes
 - Accept: a `CostItem` value carried as `Money`, the `CostSchedule.Rollup` as a railed `Money` fold, the unit rate as `Money / decimal`, the quantity x rate join as `Money * (decimal)Quantity.Si` over the seam `MeasureValue`, lossless multi-share allocation via `MoneyExtensions.Split`, and cross-currency reprice via `ExchangeRate.Convert` on a both-legs-matched rate
-- Reject: a hand-rolled `MonetaryAmount` `(double Amount, string Currency)` carrier beside `Money`; a `double` cost-arithmetic helper where the `Money` operators discriminate; a naive `total / n` allocation losing remainder pennies where `Split` is lossless; a stringly-typed currency field where `Currency.FromCode` resolves the ISO 4217 registry; a thrown `InvalidCurrencyException` in domain code instead of the typed `BimFault.CodecReject` lifted bare; a `Transaction`-based rollup where the per-currency partition owns mixed-currency aggregation; a second rounding policy threaded as a `MidpointRounding` argument where one `MoneyContext` scope governs
+- Reject: a hand-rolled `MonetaryAmount` `(double Amount, string Currency)` carrier beside `Money`; a `double` cost-arithmetic helper where the `Money` operators discriminate; a naive `total / n` allocation losing remainder pennies where `Split` is lossless; a stringly-typed currency field or throwing `Currency.FromCode`/`Money(decimal,string)` admission where `CurrencyInfo.TryFromCode` can refuse first; a `Transaction`-based rollup where the per-currency partition owns mixed-currency aggregation; a second rounding policy threaded as a `MidpointRounding` argument where one `MoneyContext` scope governs

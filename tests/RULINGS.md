@@ -12,6 +12,7 @@
 - Mounted instrument rosters, emitter rosters, and SDK member spellings stay branch-owned — each crosses no digest and gates at its own branch.
 - Proto messages keep their plain name and mint `Wire` only on a co-resident domain collision — `element.proto` suffixes all, `compute.proto` none.
 - `option csharp_namespace` derives from the package as the directory does — `rasm.<family>.v1` stamps `Rasm.<Family>`, one identity per family.
+- Producer-refused invariants ship as contract LAW, never a wire column — a constant column hands every consumer a knob to renormalize against.
 
 ## [03]-[COLLAPSE]
 

@@ -5,6 +5,8 @@ include:
   - ".macroscope/**"
   - "docs/**"
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
   - "tools/**"
   - ".claude/**"
 ---

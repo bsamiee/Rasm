@@ -70,6 +70,31 @@ Every concrete `zarr.codecs.*`/`numcodecs` codec subclasses one role base; the p
 |  [02]   | `ArrayBytesCodec` | array->bytes serializer | base for the single chain serializer (`BytesCodec`/`ShardingCodec`/`VLen*Codec`) |
 |  [03]   | `BytesBytesCodec` | bytes->bytes compressor | base for byte compressors and checksums (`BloscCodec`/`ZstdCodec`/`Crc32cCodec`) |
 
+[PUBLIC_TYPE_SCOPE]: error rail (`zarr.errors`)
+
+`zarr.errors` splits across THREE builtin ancestors a consumer's catch set must carry: `BaseZarrError` refines `ValueError` and roots the metadata, node, codec, and containment refusals; `DataTypeValidationError` refines bare `ValueError` OUTSIDE that root; the selection family refines `IndexError`. `NodeNotFoundError` also refines `FileNotFoundError`, so an `except FileNotFoundError` arm catches an absent node.
+
+| [INDEX] | [SYMBOL]                      | [BASE]                                | [ROLE]                                                    |
+| :-----: | :---------------------------- | :------------------------------------ | :-------------------------------------------------------- |
+|  [01]   | `BaseZarrError`               | `ValueError`                          | the root of the zarr refusal tree                         |
+|  [02]   | `MetadataValidationError`     | `BaseZarrError`                       | Zarr metadata invalid in some way                         |
+|  [03]   | `NodeTypeValidationError`     | `MetadataValidationError`             | the metadata document's `node_type` is wrong              |
+|  [04]   | `DataTypeValidationError`     | `ValueError`                          | a dtype argument refused OUTSIDE the `BaseZarrError` root |
+|  [05]   | `NodeNotFoundError`           | `BaseZarrError` + `FileNotFoundError` | no array or group at the path                             |
+|  [06]   | `ArrayNotFoundError`          | `NodeNotFoundError`                   | no array at the path                                      |
+|  [07]   | `GroupNotFoundError`          | `NodeNotFoundError`                   | no group at the path                                      |
+|  [08]   | `ChunkNotFoundError`          | `BaseZarrError`                       | an expected chunk storage did not return                  |
+|  [09]   | `ContainsArrayError`          | `BaseZarrError`                       | an array already at the path                              |
+|  [10]   | `ContainsGroupError`          | `BaseZarrError`                       | a group already at the path                               |
+|  [11]   | `ContainsArrayAndGroupError`  | `BaseZarrError`                       | array and group metadata at one path                      |
+|  [12]   | `UnknownCodecError`           | `BaseZarrError`                       | a config `id` resolving to no registered codec            |
+|  [13]   | `ArrayIndexError`             | `IndexError`                          | a sequence index out of range                             |
+|  [14]   | `BoundsCheckError`            | `IndexError`                          | a selection past the array bounds                         |
+|  [15]   | `NegativeStepError`           | `IndexError`                          | a negative-step slice                                     |
+|  [16]   | `VindexInvalidSelectionError` | `IndexError`                          | a vindex selection the array refuses                      |
+
+[warnings] `ZarrDeprecationWarning` `ZarrFutureWarning` `ZarrRuntimeWarning` `ZarrUserWarning` `UnstableSpecificationWarning` — warnings, never catchable refusals.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation

@@ -5,6 +5,7 @@ effort: high
 conclusion: neutral
 include:
   - "tests/**"
+  - "tests/**/.api/**"
   - "libs/typescript/**/*.spec.ts"
   - "libs/typescript/**/*.test.ts"
 ---

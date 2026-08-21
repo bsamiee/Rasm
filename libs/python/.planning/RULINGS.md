@@ -18,7 +18,8 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - One spelling per shared consumer — `Residence`/`Ledger` and `Classification`/`Scrub` split; two owners under one name resolve to last import.
 - `Classification` stays folder-local where no consumer reaches two — artifacts' ISO-12006 reference, texture-set result, and grade share no reader.
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
-- Floor gates refuse at import time through one `find_spec` map onto `BoundaryFault(import_=)` — every surface naming a gated coordinate binds it.
+- Floor gates refuse through one `find_spec` map onto a rostered `import_` row raised by its door — every surface naming a gated coordinate binds it.
+- Folder `<Folder>Leg` rosters seat at the one module importing no sibling — a roster reached through a back-edge inverts the strata.
 
 ## [03]-[COLLAPSE]
 
@@ -33,6 +34,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 ## [04]-[STRUCTURE]
 
 - `trimesh` and `rustworkx` stay dual-registered — each entry is the role its own stratum holds, and a dedup sweep forces a cross-stratum import.
+- Mesh intake spells `load_scene`/`load_mesh` — the `force` shim erases the static return and its unset arm hands one site four geometry kinds.
 - `lark` stays dual-registered — runtime's `[PARSING]` seat and geometry's `[IFC_BIM]` seat each hold their own stratum's role, never one shared row.
 - Native-gated workers cross the `workers` `shipped` gate under a `covered(module, names)` witness — a `getattr` twin defers misspellings to offload.
 - Import deferral is the module-top `lazy` proxy, never function-local — `banned-module-level-imports` bans EAGER, a floor gate leads dereference.

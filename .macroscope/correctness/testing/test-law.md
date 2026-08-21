@@ -1,6 +1,7 @@
 ---
 include:
   - "tests/**"
+  - "tests/**/.api/**"
   - "libs/typescript/**/*.spec.ts"
   - "libs/typescript/**/*.test.ts"
 ---

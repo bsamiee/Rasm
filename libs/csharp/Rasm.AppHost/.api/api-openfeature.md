@@ -55,15 +55,15 @@
 
 [PUBLIC_TYPE_SCOPE]: hook and event family
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [CAPABILITY]                            |
-| :-----: | :----------------------------- | :----------------- | :-------------------------------------- |
-|  [01]   | `Hook`                         | abstract class     | four evaluation lifecycle overrides     |
-|  [02]   | `HookContext<T>`               | context carrier    | flag key, default, and context per call |
-|  [03]   | `HookData`                     | per-call bag       | hook-private state across the lifecycle |
-|  [04]   | `TrackingEventDetails`         | tracking payload   | experimentation event attributes        |
-|  [05]   | `TrackingEventDetailsBuilder`  | builder            | attribute and numeric-value assembly    |
-|  [06]   | `ProviderEventPayload`         | event payload      | provider name, message, error, flag set |
-|  [07]   | `EventHandlerDelegate`         | delegate           | `void (ProviderEventPayload?)`          |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]    | [CAPABILITY]                            |
+| :-----: | :---------------------------- | :--------------- | :-------------------------------------- |
+|  [01]   | `Hook`                        | abstract class   | four evaluation lifecycle overrides     |
+|  [02]   | `HookContext<T>`              | context carrier  | flag key, default, and context per call |
+|  [03]   | `HookData`                    | per-call bag     | hook-private state across the lifecycle |
+|  [04]   | `TrackingEventDetails`        | tracking payload | experimentation event attributes        |
+|  [05]   | `TrackingEventDetailsBuilder` | builder          | attribute and numeric-value assembly    |
+|  [06]   | `ProviderEventPayload`        | event payload    | provider name, message, error, flag set |
+|  [07]   | `EventHandlerDelegate`        | delegate         | `void (ProviderEventPayload?)`          |
 
 - `Hook`: `BeforeAsync<T>(HookContext<T>, IReadOnlyDictionary<string, object>?, CancellationToken) -> ValueTask<EvaluationContext>`, `AfterAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`, `ErrorAsync<T>(HookContext<T>, Exception, …) -> ValueTask`, and `FinallyAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`; normal order is Before, After, Finally and an abnormal one is Error, Finally.
 - `HookContext<T>`: `FlagKey`, `DefaultValue`, `FlagValueType`, `EvaluationContext`, `ClientMetadata`, `ProviderMetadata`, `Data`.

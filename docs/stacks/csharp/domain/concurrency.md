@@ -147,7 +147,7 @@ public sealed record Budget(
     public ParallelOptions Cpu(CancellationToken token) => new() { MaxDegreeOfParallelism = Workers, CancellationToken = token };
     public ParallelOptions Io(CancellationToken token) => new() { MaxDegreeOfParallelism = IoDegree, CancellationToken = token };
 
-    static Validation<Error, Unit> Rule(bool holds, string law) => holds ? unit : Error.New(law);
+    static Validation<Error, Unit> Rule(bool holds, string law) => holds ? unit : new Fault.Bounds(Detail: law);
 }
 
 public static class Budgeted {
@@ -350,7 +350,7 @@ public static class LiveSet {
 ## [07]-[DRAIN_PARTICIPATION]
 
 [PARTICIPATION_CONTRACT]:
-- Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep receipted as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; abort paths complete with the coded typed fault so every drain-side observation classifies without string matching.
+- Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep receipted as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; an abort remains typed on that verdict instead of being reminted as the exception-only completion payload of `Channel`.
 - Law: the cooperative phase ends consumer loops through the read verb's own terminal grammar — `WaitToReadAsync` folding to `false` — and the token appears only in the forced phase; a batching consumer flushes its partial batch the moment the verb folds, so every batch loop's exit edge is a flush edge.
 - Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop receipts — conflating the two double-counts loss, so residue receipts as `LaneLoss(DrainResidue)` into the same `Atom<Seq<LaneLoss>>` the drop modes feed and the loss vocabulary stays one stream with a kind column, never a parallel `int` beside the receipts.
 - Law: limiters dispose in the forced phase after lanes complete — disposal fails all queued acquisitions, so cooperative work never observes synthetic limiter failures; stream scopes end cooperatively via `TakeUntil(softDeadline, scheduler)` and forcibly by scope disposal; a cache drains as stop-edits, release batching gates, close receipt streams, await `AsyncDisposeMany` completion.
@@ -358,7 +358,7 @@ public static class LiveSet {
 - Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` seam.
 
 ```csharp conceptual
-public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced) {
+public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced, Option<Error> Abort) {
     public bool Closes(int written, Seq<LaneLoss> receipts) =>
         written == Consumed + receipts.Count(loss => loss.Lane == Lane);
 }
@@ -369,7 +369,7 @@ public static class LaneDrain {
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(lane);
         ArgumentNullException.ThrowIfNull(step);
-        _ = lane.Writer.TryComplete(abort.Match(Some: static fault => fault.ToException(), None: static () => null));
+        _ = lane.Writer.TryComplete();
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(forced);
         budget.CancelAfter(soft);
         var (consumed, residue) = (0, 0);
@@ -379,12 +379,12 @@ public static class LaneDrain {
                 consumed++;
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested) { }
         while (lane.Reader.TryRead(out _)) { // Exemption: forced residue sweep — each undelivered item receipts DrainResidue so loss stays one stream
             residue++;
             ignore(receipts.Swap(f => f.Add(new LaneLoss(row, LossClass.DrainResidue))));
         }
-        return new DrainFact(row, consumed, residue, Forced: budget.Token.IsCancellationRequested);
+        return new DrainFact(row, consumed, residue, Forced: budget.Token.IsCancellationRequested, Abort: abort);
     }
 }
 ```

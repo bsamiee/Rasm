@@ -45,8 +45,10 @@
 - Eviction takes ONE seat at `QuotaControl.Evict` with `EvictionCause` naming the trigger — a second kill path disposes handles no receipt explains.
 - Keyed limiter sets ride `PartitionedRateLimiter.Create`, not a dictionary — one heartbeat evicts idle partitions, and Polly disposes none.
 - Conditional capability corners refuse at the owner's `Fin` mint AFTER the discriminant is set — `CapabilityLaw` states unconditional corners.
-- Fault-category rosters name off the family's kernel `FaultBand` ROW — `HostCommandCategory` and `HostCoordinationCategory` clear every peer twin.
 - Bim design-regime election seats ONCE at `Runtime/modules#MODULE_LEDGER` — a second election beside `SafEmit.Export` forks the national annex.
+- `AppHostFaultMap.Wire` is the sole AppHost fault projection — one projection keeps every receipt on the kernel-derived bounded observation.
+- Absence encodes ONCE at the `SuiteContracts` merge — every optional slot omits, so a `| null` peer face binds a token no producer emits.
+- Wire value projections carry the identity they measured — an envelope routing coordinate keys no board fold and strands the decoded value.
 
 ## [03]-[COLLAPSE]
 

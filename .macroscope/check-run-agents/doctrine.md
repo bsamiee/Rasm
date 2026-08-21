@@ -5,6 +5,8 @@ effort: low
 conclusion: neutral
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
 ---
 
 # [DOCTRINE_CHECK]

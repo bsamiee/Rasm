@@ -70,7 +70,7 @@ Strata rank the five sub-domains; `Appearance` spans ranks, its core seated at t
 
 - S0 law — `Component` and the `Appearance` core consume no sibling, and every sibling above reads at least one of the two floors.
 - S1 seat — `Properties` lowers engineering dimensional mints through the S0 `QuantityRow` and basis-relative scalars to the seam factories.
-- S1→S0 — `Raster` reads the core graph, sampler, and vector and writes back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge, acyclic.
+- S1→S0 — `Raster` reads the core graph, sampler, and vector and writes back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge.
 - S2 seat — the `Appearance` egress composes `Raster` planes and sets; `Raster` names no egress type, so the plane estate stands alone.
 - S2 law — a flat `Appearance` stratum turns every egress read of a plane product into an upward edge; the split rank is the dependency truth.
 - S3 law — nothing composes `Projection`; the projector folds the lower owners into `Fin<GraphDelta>` and the projections read down alone.

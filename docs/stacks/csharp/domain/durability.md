@@ -151,17 +151,20 @@ public sealed partial class CodecProfile {
             .WithMaximumObjectGraphDepth(64)
             .WithMaximumDecompressedSize((int)Math.Min(maxBytes, int.MaxValue)));
 
-    public Unit Encode(IBufferWriter<byte> sink, Artifact artifact, CancellationToken token) =>
-        Framed ? fun(() => MessagePackSerializer.Serialize(sink, artifact, Write, token))()
-               : fun(() => sink.Write(artifact.Switch(
-                     full:  static f => f.Image,
-                     delta: static d => d.Patch).Span))();
+    public Fin<Unit> Encode(IBufferWriter<byte> sink, Artifact artifact, CancellationToken token) =>
+        Op.Of().Catch(() => {
+            if (Framed) { MessagePackSerializer.Serialize(sink, artifact, Write, token); }
+            else {
+                sink.Write(artifact.Switch(
+                    full:  static f => f.Image,
+                    delta: static d => d.Patch).Span);
+            }
+            return Fin.Succ(unit);
+        }, token);
 
     public Fin<Artifact> Decode(ReadOnlySequence<byte> stored, long maxBytes, CancellationToken token) =>
         Framed
-            ? Try.lift(() => MessagePackSerializer.Deserialize<Artifact>(stored, Restore(maxBytes), token))
-                .Run()
-                .MapFail(static error => Error.New(7748, $"<tier-8:contract-drift:{error.Message}>"))
+            ? Op.Of().Catch(() => Fin.Succ(MessagePackSerializer.Deserialize<Artifact>(stored, Restore(maxBytes), token)), token)
             : Fin.Fail<Artifact>(Error.New(7749, $"<raw-passthrough-never-reframed:{Key}>"));
 
     public async IAsyncEnumerable<Fin<Artifact>> Segments(Stream lane, long maxBytes, [EnumeratorCancellation] CancellationToken token = default) {
@@ -191,27 +194,26 @@ public static class Seal {
     public const ulong Magic = 0x3153_4C41_4553_5253;
     public const byte HeaderVersion = 1, CodecBinary = 1, CompressionNone = 0, CompressionLz4 = 1, HashStoredDomain = 0, Contract = 2;
 
-    public static Fin<SealReceipt> Commit(string path, ReadOnlySpan<byte> plain, long epoch, LZ4Level level, long classSeed) {
+    public static Fin<SealReceipt> Commit(string path, ReadOnlyMemory<byte> plain, long epoch, LZ4Level level, long classSeed) {
         var staged = $"{path}.{epoch}.staged";
         var target = ArrayPool<byte>.Shared.Rent(LZ4Codec.MaximumOutputSize(plain.Length));
         try {
-            var encoded = LZ4Codec.Encode(plain, target, level);
-            ReadOnlySpan<byte> stored = encoded > 0 && encoded < plain.Length ? target.AsSpan(0, encoded) : plain;
-            var content = XxHash3.HashToUInt64(stored, classSeed);
-            Span<byte> header = stackalloc byte[HeaderSize];
-            using (var sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None)) {
-                sink.Write(header);
-                sink.Write(stored);
-                Pack(header, plain.Length, stored.Length, stored.Length != plain.Length, content, epoch);
-                sink.Position = 0;
-                sink.Write(header);
-                sink.Flush(flushToDisk: true);
-            }
-            File.Move(staged, path, overwrite: true);
-            return Fin.Succ(new SealReceipt(path, plain.Length, stored.Length, stored.Length != plain.Length, content));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException) {
-            return Fin.Fail<SealReceipt>(Error.New(7712, $"<seal:{ex.Message}>"));
+            return Op.Of().Catch(() => {
+                var encoded = LZ4Codec.Encode(plain.Span, target, level);
+                ReadOnlySpan<byte> stored = encoded > 0 && encoded < plain.Length ? target.AsSpan(0, encoded) : plain.Span;
+                var content = XxHash3.HashToUInt64(stored, classSeed);
+                Span<byte> header = stackalloc byte[HeaderSize];
+                using (var sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                    sink.Write(header);
+                    sink.Write(stored);
+                    Pack(header, plain.Length, stored.Length, stored.Length != plain.Length, content, epoch);
+                    sink.Position = 0;
+                    sink.Write(header);
+                    sink.Flush(flushToDisk: true);
+                }
+                File.Move(staged, path, overwrite: true);
+                return Fin.Succ(new SealReceipt(path, plain.Length, stored.Length, stored.Length != plain.Length, content));
+            });
         }
         finally { ArrayPool<byte>.Shared.Return(target); }
     }
@@ -246,12 +248,12 @@ public static class Restore {
         ArgumentNullException.ThrowIfNull(reopen);
         var staged = $"{storePath}.{successor}.staged";
         Seq<(string Step, Func<Fin<string>> Act)> steps = [
-            ("<fence>", () => Guarded(7751, () => { using var pinned = StoreOpen.Dialed(storePath); SqliteConnection.ClearPool(pinned); return "<pool-cleared>"; })),
+            ("<fence>", () => Guarded(() => { using var pinned = StoreOpen.Dialed(storePath); SqliteConnection.ClearPool(pinned); return "<pool-cleared>"; })),
             ("<verify>", () => Ladder(artifact, classSeed)),
-            ("<materialize>", () => Guarded(7752, () => Materialized(staged, artifact))),
-            ("<sidecar>", () => Guarded(7753, () => { File.Delete($"{storePath}-wal"); File.Delete($"{storePath}-shm"); return "<sidecars-cleared>"; })),
-            ("<rename>", () => Guarded(7754, () => { File.Move(staged, storePath, overwrite: true); return storePath; })),
-            ("<epoch-bump>", () => Guarded(7755, () => Bumped(storePath, successor))),
+            ("<materialize>", () => Guarded(() => Materialized(staged, artifact))),
+            ("<sidecar>", () => Guarded(() => { File.Delete($"{storePath}-wal"); File.Delete($"{storePath}-shm"); return "<sidecars-cleared>"; })),
+            ("<rename>", () => Guarded(() => { File.Move(staged, storePath, overwrite: true); return storePath; })),
+            ("<epoch-bump>", () => Guarded(() => Bumped(storePath, successor))),
             ("<reopen>", () => reopen(storePath).Map(static receipt => $"<ritual-rows:{receipt.Count}>")),
         ];
         return steps.Fold((Ledger: Seq<StepFact>(), Outcome: Fin.Succ(successor)), (state, step) =>
@@ -288,8 +290,8 @@ public static class Restore {
         return (bump.ExecuteNonQuery(), $"<epoch:{successor}>").Item2;
     }
 
-    static Fin<string> Guarded(int code, Func<string> act) =>
-        Try.lift(act).Run().MapFail(error => Error.New(code, $"<{error.Message}>"));
+    static Fin<string> Guarded(Func<string> act) =>
+        Op.Of().Catch(() => Fin.Succ(act()));
 
     static Fin<string> Refusal(int tier, string evidence) => Fin.Fail<string>(Error.New(7740 + tier, $"<tier-{tier}>{evidence}"));
 }

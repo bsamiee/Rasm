@@ -291,14 +291,14 @@ public static class Boundary {
     public static Fin<TOwner> Admit<TOwner, TValue, TError>(TValue value, IFormatProvider? culture = null)
         where TOwner : IObjectFactory<TOwner, TValue, TError>
         where TValue : notnull, allows ref struct
-        where TError : Expected, IValidationError<TError> =>
+        where TError : Error, IValidationError<TError> =>
         TOwner.Validate(value, culture, out var item) is { } fault
             ? Fin.Fail<TOwner>(fault)
             : Fin.Succ(item!);
 
     public static Fin<TOwner> AdmitText<TOwner, TError>(ReadOnlySpan<char> text)
         where TOwner : IObjectFactory<TOwner, ReadOnlySpan<char>, TError>
-        where TError : Expected, IValidationError<TError> =>
+        where TError : Error, IValidationError<TError> =>
         Admit<TOwner, ReadOnlySpan<char>, TError>(text);
 }
 

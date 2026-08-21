@@ -43,11 +43,13 @@
 - `viewer/scene` is the ONE prototype patcher — it pins accelerated raycast scoped and never restores it, since un-patching breaks a second viewport.
 - Renderer-bound planes hold as a `ScopedRef` — its `set` acquires the successor before releasing the displaced one, so no lane sees a torn backend.
 - Resource walks span the `Drawable` union, never one class — a `Mesh`-narrowed walk leaks a `Points` splat payload while the ledger drops its key.
+- Residency eviction is ABSENCE from the successor's tile set — the manifest replaces whole, so a consumer-held row-state column names no producer.
 - `Theme.Seed` crosses as composition data, not a wire family — each head expands one pigment set through its own contrast gate, keeping its pixels.
 - Note politeness realizes at `_live` on the content element as the closed `status` | `alert` pair — the toast region carries no live semantics.
 - Merge color scale DERIVES from `_paletteKeys`, the exact set `Theme.Palette.css` emits — a hand-listed hue names a key no `@theme` row carries.
 - `run` stays a nullary intent over the surface's selection atom — pointer invocation SELECTS first, so a subject parameter forks the vocabulary.
 - `Overlay.Command.run` returns a total Effect with its ports on the requirement channel — the row folds its own refusal that a void thunk re-opens.
+- `Overlay.Command` declares `needs` and its refusal names the missing grants — a stored enabled bit freezes a verdict the live grants move past.
 - `options.atoms` binds an estate-owned slice over an adapter on the fold's cell — a `state`/`on<Slice>Change` pair beside it doubles the writer.
 - Registry keys stay domain-blind — a consumer's order crosses as a rank VALUE on its own column, so a consumer-named key imports it downward.
 - Widened materials re-stamp `{ STANDARD, PHYSICAL }` over `MeshStandardMaterial.prototype.copy` — their `.copy` throws, `setValues` clobbers `uuid`.
@@ -63,6 +65,7 @@
 
 ## [03]-[COLLAPSE]
 
+- `Hook` owns the point roster, the `consult` selector, and the adopted-source pump alone — channels, arbiters, and the breach ring are `Tap.Rail`'s.
 - Semantic tone homes at the `_TONES` authority as ONE closed vocabulary — every `_tone` table keys that set, so a per-surface member is the fork.
 - Surfaces with two closed lifecycle axes give TONE to ONE — two tone columns resolve two palettes; `viewer/mark`'s status/priority split proves it.
 

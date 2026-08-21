@@ -94,10 +94,10 @@
 [PUBLIC_TYPE_SCOPE]: Flight hosting family (`Apache.Arrow.Flight.AspNetCore`)
 - both types are `static` extension holders seated in the host's own namespaces, so a `using` of the Arrow namespaces never surfaces them.
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]     | [CAPABILITY]                                  |
-| :-----: | :--------------------------------------- | :----------------- | :--------------------------------------------- |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]     | [CAPABILITY]                                   |
+| :-----: | :-------------------------------------- | :---------------- | :--------------------------------------------- |
 |  [01]   | `FlightIGrpcServerBuilderExtensions`    | DI extension      | binds a `FlightServer` subclass to the adapter |
-|  [02]   | `FlightIEndpointRouteBuilderExtensions` | routing extension | maps the adapter as a gRPC service            |
+|  [02]   | `FlightIEndpointRouteBuilderExtensions` | routing extension | maps the adapter as a gRPC service             |
 
 [PUBLIC_TYPE_SCOPE]: Flight SQL family (`Apache.Arrow.Flight.Sql`, `Apache.Arrow.Flight.Sql.Client`)
 - every `FlightSqlClient` verb takes a trailing `FlightCallOptions?` + `CancellationToken`, and each metadata verb pairs with a `*SchemaAsync` sibling returning the result `Schema`.
@@ -197,7 +197,7 @@
 - `AddFlightServer<T>` extends `IGrpcServerBuilder`, what `services.AddGrpc()` returns, never `IServiceCollection`; `MapFlightEndpoint` extends `IEndpointRouteBuilder` and takes NO type argument.
 
 | [INDEX] | [SURFACE]                                     | [SHAPE]         | [CAPABILITY]                                                 |
-| :-----: | :--------------------------------------------- | :--------------- | :------------------------------------------------------------ |
+| :-----: | :-------------------------------------------- | :-------------- | :----------------------------------------------------------- |
 |  [01]   | `AddFlightServer<T>() where T : FlightServer` | DI registration | -> `IGrpcServerBuilder`; body `AddScoped<FlightServer, T>()` |
 |  [02]   | `MapFlightEndpoint()`                         | endpoint map    | -> `GrpcServiceEndpointConventionBuilder`; maps the adapter  |
 

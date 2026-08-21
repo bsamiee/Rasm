@@ -22,7 +22,7 @@ public/build/
 **/dist/**/*.d.ts
 **/dist/**/*.d.ts.map
 *.js.map
-# Vite's transient config bundle; lingers beside vite.config.ts after a crashed run.
+# Vite's transient config bundle; lingers beside vite.config.ts after a crashed run
 *.timestamp-*.mjs
 
 # --- [PYTHON_ARTIFACTS] -------------------------------------------------------
@@ -31,7 +31,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-# Vendored RID-keyed natives are deliberate LFS assets, exempt from the build-output *.so rule.
+# Vendored RID-keyed natives are deliberate LFS assets, exempt from the build-output *.so rule
 !**/vendor/runtimes/**/*.so
 .Python
 *.egg
@@ -49,7 +49,7 @@ env/
 .pytest_cache/
 .ruff_cache/
 .ty_cache/
-# Testkit routes the hypothesis DB to .cache/hypothesis; this catches runs outside that runtime.
+# Testkit routes the hypothesis DB to .cache/hypothesis; this catches runs outside that runtime
 .hypothesis/
 .dmypy.json
 *.prof
@@ -73,7 +73,6 @@ htmlcov/
 
 .cache/
 .cacheuv/
-# .artifacts/build/{bin,obj}/<token>/ is the centralized .NET build-output root (Directory.Build.props); .artifacts/{assay,coverage,rhino} hold per-run scopes and agent scratch.
 **/.artifacts/
 /.remember/
 .nx/*
@@ -93,12 +92,10 @@ diagnostics.sarif
 *.user
 *.suo
 *.lscache
-# Rhino writes lock/backup sidecars next to any opened .3dm; unroutable at the host.
+# Rhino writes lock/backup sidecars next to any opened .3dm; unroutable at the host
 *.rhl
 *.3dmbak
-
-# Grasshopper2.dll extracts embedded resources (icons, color dictionaries, .3dm crystal models, .ghicon bitmaps, .ghdic) to the cwd of `dotnet build`
-# whenever Grasshopper2 is referenced. Root-anchored so we don't shadow the real `apps/grasshopper/` tree.
+# Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored so the real `apps/grasshopper/` tree stays tracked
 /Grasshopper.*
 
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
@@ -151,19 +148,13 @@ _tmp/
 
 # --- [AI_TOOLING] -------------------------------------------------------------
 
+# Root `buf.gen.yaml` plugin `out` trees: `nx run workspace-foundation:proto` re-mints them (one row per plugin row); biome reads this file too
+libs/typescript/core/src/interchange/gen/
 .claude/agent-memory-local/
 .claude/skills/**/.cache/
 .claude/settings.local.json
 .claude/worktrees/
 .playwright-mcp/
-
-# Audit raw API catalogs (regenerable via Mono.Cecil sweep; multi-MB)
-.planning/audit/*.api-catalog.jsonl
-
-# Gemini CLI auto-generated files (keep commands/ and extensions/ tracked)
-.gemini/telemetry.log
-.gemini/settings.json
-.gemini/.DS_Store
 
 # --- [SECRETS] ---------------------------------------------------------------
 

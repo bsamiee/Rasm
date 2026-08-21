@@ -74,6 +74,18 @@
 - `ProfileData`/`ProfilePlane`/`ProfileLine`/`ProfileEvent` bind from the jaxlib native extension, so they carry no stub file and reflect only under an installed `jaxlib`.
 - Plane traversal is four tiers: `ProfileData.planes` -> `ProfilePlane.lines` -> `ProfileLine.events` -> `ProfileEvent`; reading events off a plane skips the line tier and yields nothing.
 
+[PUBLIC_TYPE_SCOPE]: raise surface the boundary `catch=` sets name
+
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                           |
+| :-----: | :------------------------------------- | :------------ | :----------------------------------------------------- |
+|  [01]   | `jax.errors.ConcretizationTypeError`   | `TypeError`   | a traced value read as concrete inside a transform     |
+|  [02]   | `jax.errors.TracerBoolConversionError` | `TypeError`   | a tracer used in Python control flow                   |
+|  [03]   | `TypeError`                            | builtin       | transform-time shape, dtype, or pytree-structure break |
+|  [04]   | `ValueError`                           | builtin       | axis, shape, or argument-domain breach                 |
+|  [05]   | `ImportError`                          | builtin       | absent backend plugin at the gated engine mint ONLY    |
+
+Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total narrow tuple over the transform lane. Row [05] belongs to the ENGINE MINT alone: a gated fold brackets the mint, never the solve, so an `ImportError` raised inside a running transform propagates as the defect it is. UNVERIFIED BY PROBE — `jax` is not installed in this environment; the rows read from the documented surface and a probe is owed.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compilation and differentiation transforms

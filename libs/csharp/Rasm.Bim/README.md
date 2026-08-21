@@ -15,7 +15,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 - [06]-[SYSTEMS](.planning/Model/systems.md): Derived MEP connectivity — port flow edges, directed system trace, demand folds, interference check.
 - [07]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
 - [08]-[EUROCODE](.planning/Model/eurocode.md): EN 1990 action classification, partial-factor stamp, and the elected combination roster.
-- [09]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
+- [09]-[FAULTS](.planning/Model/faults.md): `BimFault` closes terminal scope/reason refusals and cause-preserving boundary failures over band 2600.
 - [10]-[OBSERVABILITY](.planning/Model/observability.md): `BimPoint` roster, `BimHooks` over the kernel rail, `BimInstrument` rows, bench claims.
 
 [SEMANTICS]:
@@ -61,7 +61,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 [PROJECTION]:
 - [41]-[SEMANTIC](.planning/Projection/semantic.md): `SemanticProjector` GeometryGym-to-seam lowering under `IfcLegality`.
 - [42]-[FOREIGN](.planning/Projection/foreign.md): Foreign-object-graph seam arm beside the projector-polymorphic reingest reconcile.
-- [43]-[FIDELITY](.planning/Projection/fidelity.md): Bounded-drop vocabulary, the `FidelityLog` monoid, and the writer carrier every lowering returns.
+- [43]-[FIDELITY](.planning/Projection/fidelity.md): Bounded-drop vocabulary, the `FidelityLog` monoid, and the carrier every lowering returns.
 - [44]-[WIREFORM](.planning/Projection/wireform.md): Serialization and container axes, the published release matrix, the pre-construction sniff.
 - [45]-[VALUE](.planning/Projection/value.md): IFC unit-declaration ingress and the `IfcProperty`/quantity value narrowing onto the seam cases.
 - [46]-[RAISE](.planning/Projection/raise.md): Egress value raise — the derived measure and quantity mint tables under one two-rung election.

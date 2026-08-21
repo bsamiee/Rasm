@@ -99,7 +99,7 @@ Five strata order the sub-domain folders; a folder composes its own owners and l
 
 - S0 `Document` — spine under everything: `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`.
 - S1 single-seam — every S1 folder composes the spine ALONE, so any one deletes without moving a sibling; the single seam is the rank's test.
-- S1 map — one fence node per folder: `PickCapture` Commands, `GraphFold` Blocks, `ArchiveMap` Persistence, `ModelGate` Modeling, `ContentRef` Render.
+- S1 map — fence node to folder: `PickCapture` Commands, `GraphFold` Blocks, `ArchiveMap` Persistence, `ModelGate` Modeling, `ContentRef` Render.
 - S1 absent edge — `Annotation` composes the spine with no discriminating import, so the fence draws it nowhere.
 - S1 law — `Modeling` reaches only the geometry-custody capsule; its camera read is the ruled counter-edge, never a lease.
 - S1 law — kernel `Rasm.Interaction` (`UiThread`, `ControlForge`, `IntentTable`, `Surface`) floors every shell surface, adapted by nothing here.
@@ -246,7 +246,7 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 - `tests/contracts/MANIFEST.md` `ORGANIZATION_WIRE` owns that wire's schema and its fact identity.
 - `Objects/lights#ASK_AND_COMMIT` emits the `rasm.scene.v1` captured-scene descriptor `python:geometry` decodes for daylight and comfort recipes.
 - One emitter owns the whole descriptor — Objects composes the `Render/settings#SUN_ASTRONOMY` band downward, so nothing mints half a capture.
-- Sun angles ride already solved and the consumer grades declared fidelity; identity crosses RFC-4122 big-endian, spectra scene-linear, on `SceneMap`.
+- Sun angles cross solved and the consumer grades declared fidelity; identity crosses RFC-4122 big-endian and spectra scene-linear on `SceneMap`.
 
 ## [04]-[INTERNAL]
 

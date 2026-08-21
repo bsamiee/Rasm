@@ -65,13 +65,13 @@
 
 `SerialError` values are FLAGS, so one `SerialErrorReceivedEventArgs.EventType` reads as a set rather than a single case.
 
-| [INDEX] | [MEMBER]    | [VALUE] | [MEANING]                                  |
-| :-----: | :---------- | :-----: | :----------------------------------------- |
-|  [01]   | `RXOver`    |    1    | receive buffer overflowed                  |
-|  [02]   | `Overrun`   |    2    | character overran before it was read       |
-|  [03]   | `RXParity`  |    4    | parity mismatch on a received character    |
-|  [04]   | `Frame`     |    8    | framing error on a received character      |
-|  [05]   | `TXFull`    |  0x100  | transmit buffer full, unreachable on unix  |
+| [INDEX] | [MEMBER]   | [VALUE] | [MEANING]                                 |
+| :-----: | :--------- | :-----: | :---------------------------------------- |
+|  [01]   | `RXOver`   |    1    | receive buffer overflowed                 |
+|  [02]   | `Overrun`  |    2    | character overran before it was read      |
+|  [03]   | `RXParity` |    4    | parity mismatch on a received character   |
+|  [04]   | `Frame`    |    8    | framing error on a received character     |
+|  [05]   | `TXFull`   |  0x100  | transmit buffer full, unreachable on unix |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

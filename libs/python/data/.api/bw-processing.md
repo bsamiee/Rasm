@@ -34,6 +34,10 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [LABEL_SCHEMAS]: `StringLabelSchema` `ParamLabelSchema` `AnyLabelSchema` `ParamLabelField` `MatrixName` — the typed shapes for parameterized-array labels and the matrix-name vocabulary.
 
+[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw_processing.errors`)
+
+[ERROR_ROOT]: `BrightwayProcessingError` roots the datapackage family with `FileIntegrityError` under it; both derive from `Exception`, and a mis-shaped `INDICES_DTYPE`/`UNCERTAINTY_DTYPE` vector answers the numpy `TypeError`/`ValueError` outside that root.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction (factories)

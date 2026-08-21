@@ -9,7 +9,7 @@
 ## [02]-[SHAPE]
 
 - `Model/stage` mirrors the `Rasm.Materials` wire records and no VOCABULARY roster — a mirrored vocabulary makes every admitted model a Compute edit.
-- `LicenseClass` alone re-declares at the executing end (`Model/stage`) — a grant enforced solely where the request is built trusts the caller's word.
+- `LicenseClass` alone re-declares at the executing end (`Model/stage`) — a grant enforced only at the request site trusts the caller's word.
 - `StageSession` binds tensor lanes to ROLE keys and the request carries no output roster — ordinal binding couples two versioned rosters.
 - ONE `TilePlan` grid carries every product a forward pass emits — a flow per output name re-infers the whole image once per produced plane.
 - `Model/providers#EP_AXIS` rows own each wire spelling as a `WireKey` column — a later row crosses by declaring one string, never a translation map.
@@ -26,12 +26,14 @@
 - Residency triangle adjacency is ONE shared-VERTEX relation over partition, cut, and curvature — an edge-only walk publishes a corner fold as flat.
 - Geometry reads over `ImportedGeometry` resolve BY DESCRIPTOR through the `EncodedGeometry` arena — a named column or stride drops lanes it omits.
 - Every `EP_AXIS` row carries a `WarmForm`, floor included — both warm mechanisms derive from ONE `ContextKey` whose suffix separates artifacts.
-- `ModelSessions.Faulted` is the ONE native-fault classifier and `PlannedLoad` bounds cold load — a run-side copy reports one expiry as two faults.
+- `ModelSessions.Faulted` classifies cancellation provenance and documented artifact I/O; every other native error remains unchanged.
 - Chained input re-enters through `StagePorts.Read` — transfer and format are host-owned, so a retained-plane bypass forks one plan's numeric path.
 - Parity custody is ONE key over both tiers — memo and `ParityPort` derive from (card, provider key, host), so other silicon grades nothing here.
 - Each `OptimizerKind` row binds a genuine kernel or an admitted engine — an operator swap on one `GeneticAlgorithm` holds no covariance or velocity.
-- Seismic `AssessmentRoute` rows name the ACTION standard and `SeismicSpec.Capacity` the member check — a seismic capacity row forks the material key.
+- Seismic `AssessmentRoute` rows name the ACTION standard and `SeismicSpec.Capacity` the member check — a capacity row forks the material key.
 - Energy results TRANSCRIBE the `Rasm.Bim` `Energy/results` vocabulary — a local row, a flat slug, or a mint-side aggregate forks the admission axis.
+- Page-local unit tokens ride `UnitProvenance.Label` and kernel-rostered dimensions take the anonymous `OfSi` — a bare token binds no parameter.
+- Foreign vocabularies transcribe WHOLE under one stated admission rule — a hand subset refuses real declarations by omission alone.
 - Chunk emission under fan-out is ORDERED-AWAIT — producers run parallel, one cursor writer consuming in order, the index law faulting otherwise.
 - Face attribution rides no `RESIDENCY` column — `Rasm.Fabrication` owns that join a stratum up; reopens on a lane ingesting a boolean product.
 - `Runtime/wire#PROTO_VOCABULARY` rows carry a `minted`/`unminted` state — a verb whose message set has no owner reads as a declared gap, not drift.
@@ -43,7 +45,6 @@
 - Numeric posture is a `CapabilitySet` under a corner law — three adjacent bools left five products representable that no runtime executes.
 - Device identity seats at `Model/providers#EP_AXIS` `ProviderSnapshot.Fingerprint` — a second derivation lets one adapter answer two identities.
 - `MatMulNBits` support rides the Quantized posture corner alone, never a per-row column.
-- `ModelSessions.Faulted` holds its exception roster INSIDE the classifier — a call-site roster decides what escapes, never how a fault reads.
 - Interval enclosure spells `Enclosure`/`EnclosureVerdict` over the kernel's bare `Interval` — a declined enclosure propagates as ABSENCE.
 - One recyclable-stream pool per COMPOSITION — the composing root holds it, and this tier holds no static and no ambient locator.
 - Expression evaluation runs the scalar `CompiledExpr.Invoke` loop — `ColumnProgram` retired at zero readers and re-enters WITH a columnar consumer.

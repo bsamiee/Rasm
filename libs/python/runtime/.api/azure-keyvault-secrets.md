@@ -70,11 +70,11 @@
 [ENTRYPOINT_SCOPE]: client release
 - unlike the GCP client, `SecretClient` carries BOTH a bare `close()` and the context-manager pair, so the bracket is the spelling and the bare call is the escape a non-lexical lifetime needs.
 
-| [INDEX] | [SURFACE]                  | [SHAPE]  | [CAPABILITY]                                         |
-| :-----: | :------------------------- | :------- | :--------------------------------------------------- |
-|  [01]   | `client.close()`           | release  | retires the `azure-core` pipeline; returns `None`    |
-|  [02]   | `__enter__` / `__exit__`   | bracket  | the `with` form the per-read arm takes               |
-|  [03]   | `__aenter__` / `__aexit__` | bracket  | `aio.SecretClient` twin, closed by `await close()`   |
+| [INDEX] | [SURFACE]                  | [SHAPE] | [CAPABILITY]                                       |
+| :-----: | :------------------------- | :------ | :------------------------------------------------- |
+|  [01]   | `client.close()`           | release | retires the `azure-core` pipeline; returns `None`  |
+|  [02]   | `__enter__` / `__exit__`   | bracket | the `with` form the per-read arm takes             |
+|  [03]   | `__aenter__` / `__aexit__` | bracket | `aio.SecretClient` twin, closed by `await close()` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

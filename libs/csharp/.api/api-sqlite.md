@@ -78,17 +78,17 @@
 
 [ENTRYPOINT_SCOPE]: read-only results connection — the Compute `eplusout.sql` fold
 
-| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------------------------- | :------- | :-------------------------------------------- |
-|  [01]   | `new SqliteConnection(string?)`                              | ctor     | binds the string; zero IO until `Open()`      |
-|  [02]   | `Mode=ReadOnly`                                              | property | `SQLITE_OPEN_READONLY` — the loud-fail floor  |
-|  [03]   | `Data Source=file:{path}?immutable=1`                        | property | `SQLITE_OPEN_URI` + `immutable=1` sealed read |
-|  [04]   | `Pooling=False`                                              | property | disables default-on pooling for the one-shot  |
-|  [05]   | `reader.GetOrdinal(string)` / `GetName(int)`                 | instance | name→ordinal once, ordinal reads after        |
-|  [06]   | `reader.GetValue(int)` / `GetString(int)`                    | instance | reads the TEXT `Value` for invariant parse    |
-|  [07]   | `reader.GetSchemaTable()` / `GetDataTypeName(int)`           | instance | declared-type result metadata                 |
-|  [08]   | `SELECT name FROM sqlite_master WHERE type='table'`          | fold     | table listing                                 |
-|  [09]   | `SELECT * FROM pragma_table_info($table)`                    | fold     | column listing                                |
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :-------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `new SqliteConnection(string?)`                     | ctor     | binds the string; zero IO until `Open()`      |
+|  [02]   | `Mode=ReadOnly`                                     | property | `SQLITE_OPEN_READONLY` — the loud-fail floor  |
+|  [03]   | `Data Source=file:{path}?immutable=1`               | property | `SQLITE_OPEN_URI` + `immutable=1` sealed read |
+|  [04]   | `Pooling=False`                                     | property | disables default-on pooling for the one-shot  |
+|  [05]   | `reader.GetOrdinal(string)` / `GetName(int)`        | instance | name→ordinal once, ordinal reads after        |
+|  [06]   | `reader.GetValue(int)` / `GetString(int)`           | instance | reads the TEXT `Value` for invariant parse    |
+|  [07]   | `reader.GetSchemaTable()` / `GetDataTypeName(int)`  | instance | declared-type result metadata                 |
+|  [08]   | `SELECT name FROM sqlite_master WHERE type='table'` | fold     | table listing                                 |
+|  [09]   | `SELECT * FROM pragma_table_info($table)`           | fold     | column listing                                |
 
 - [02]-[READONLY]: `Mode=ReadOnly` throws `SqliteException` (error 14) on a missing file, where the default `ReadWriteCreate` silently creates an empty database — the fold needs the loud failure.
 - [03]-[IMMUTABLE]: each `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact; busy-timeout is moot under it, load-bearing when EnergyPlus still holds the artifact.
@@ -103,7 +103,7 @@
 - A `SqliteCommand` executing under an active transaction carries it on `SqliteCommand.Transaction`, else the provider throws `InvalidOperationException` at execute.
 - `*Async` members are `System.Data.Common` base schedulers over a synchronous engine, a mirror never a native async path; `SqliteConnection`/`SqliteCommand`/`SqliteDataReader`/`SqliteTransaction` implement `IAsyncDisposable`.
 - The Compute results fold binds one connection per fold, bracketed `using` over the scratch directory's lifetime, connection string built from the resolved `sqlPath` parameter, never a literal path; `Mode=ReadOnly` is that rail's floor — the open fails loudly on a missing artifact, the solver's file is never created or write-locked, and a write statement faults at the engine (`SQLITE_READONLY`, error 8) by open-flag construction.
-- One `(report, table, row, column)`-keyed query family covers every Compute metric; a new metric is a new key tuple in the caller's data row, never a new method. Absence is that rail's third value: an empty `ExecuteScalar`, a non-numeric `Value`, and a missing table all land `None` through `Optional` + invariant `double.TryParse`; only a corrupt artifact (a thrown `SqliteException`, its `SqliteErrorCode`/`SqliteExtendedErrorCode` on the fault row) escalates to the typed `(Extraction, Foreign)` `ComputeFault.AnalysisFailed` row.
+- One `(report, table, row, column)`-keyed query family covers every Compute metric; a new metric is a new key tuple in the caller's data row, never a new method. Absence is that rail's third value: an empty `ExecuteScalar`, a non-numeric `Value`, and a missing table all land `None` through `Optional` + invariant `double.TryParse`; a thrown `SqliteException` enters `Op.Catch` and retains the exception plus its `SqliteErrorCode`/`SqliteExtendedErrorCode` as provider evidence, never a non-caused `ComputeFault.AnalysisFailed` remint.
 
 [STACKING]:
 - `SQLitePCLRaw`(`Rasm.Persistence/.api/api-sqlitepcl.md`): `Handle` carries every raw `sqlite3_*` call; paged `sqlite3_backup_*` over `Handle` subsumes the whole-file `BackupDatabase`.

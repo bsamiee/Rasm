@@ -5,6 +5,8 @@ effort: high
 conclusion: neutral
 include:
   - "libs/**"
+  - "libs/**/.planning/**"
+  - "libs/**/.api/**"
 ---
 
 # [API_STACKING]

@@ -22,7 +22,7 @@
 - [11]-[SERVER](.planning/otel/server.md): Node auto-instrumentation rows over the async-local manager — self-egress excluded, engine series bound.
 - [12]-[INSTRUMENT](.planning/otel/instrument.md): Document instrumentation rows over the zone manager; interaction admission gates span cardinality.
 - [13]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
-- [14]-[METER](.planning/otel/meter.md): Durable-work evidence projected lossily onto Convention-keyed instruments.
+- [14]-[METER](.planning/otel/meter.md): Durable-work and hook-rail evidence projected lossily onto Convention-keyed instruments.
 - [15]-[PROFILE](.planning/otel/profile.md): Continuous wall and heap profiling pushed from the node lane under one identity projection.
 - [16]-[VITAL](.planning/otel/vital.md): Browser RUM — the Core Web Vitals family measured whole, graded, and emitted once per document.
 
@@ -34,11 +34,11 @@
 - [21]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
 
 [WORK]:
-- [22]-[ENTITY](.planning/work/entity.md): Cluster entities — sharded, per-id, single-writer identity over tiered mailboxes.
+- [22]-[ENTITY](.planning/work/entity.md): Cluster entities and the work plane's settled-receipt carrier over tiered mailboxes.
 - [23]-[FLOW](.planning/work/flow.md): Suspend-and-replay workflows — recorded activities never re-run their side effects.
 - [24]-[QUEUE](.planning/work/queue.md): Restart-surviving job families with keyed quotas spent through one store-backed counter.
 - [25]-[SCHEDULE](.planning/work/schedule.md): Calendar recurrence as cadence rows — timezone-intrinsic cron, misfire windows, catch-up.
-- [26]-[DELIVER](.planning/work/deliver.md): Mail and webhook egress as channel rows sharing one settlement receipt and one suppression.
+- [26]-[DELIVER](.planning/work/deliver.md): Mail and webhook egress as class-electing channel rows over one settlement and one suppression.
 - [27]-[FILTER](.planning/work/filter.md): Every subscription dialect compiled into a single predicate shape, CESQL parsed in-house.
 - [28]-[REPORT](.planning/work/report.md): Document egress folded per format discriminant — each column owns its value projection.
 
@@ -53,7 +53,7 @@
 - [34]-[SHELL](.planning/browser/shell.md): PWA manifest as a typed value the build encodes, with one update handshake.
 - [35]-[PERSIST](.planning/browser/persist.md): Local persistence — each concern maps to its own named IndexedDB store, residency graded.
 - [36]-[ROUTE](.planning/browser/route.md): Zero-package typed routing over the Navigation API, carrying the `Vault` session plane.
-- [37]-[FETCH](.planning/browser/fetch.md): Byte-flow policy over `Web`, `Fetch`, `Pool`, and `Depot` — worker decoding, generation-scoped residency.
+- [37]-[FETCH](.planning/browser/fetch.md): Byte-flow policy over `Web`, `Fetch`, `Pool`, `Depot` — worker decoding, viewpoint-replaced residency.
 
 ## [02]-[DOMAIN_PACKAGES]
 
