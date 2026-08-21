@@ -1,68 +1,140 @@
 #!/usr/bin/env python3
-"""Block destructive git verbs on the Bash PreToolUse seam; every other git use passes untouched.
+"""Block destructive git verbs on the Bash and Monitor PreToolUse seam; every other git use passes untouched.
 
-Wire: PreToolUse matcher "Bash" in .claude/settings.json, exec form. Stdlib only — the gate must hold on a bare machine with no package manager warm.
-POLICY tables are the edit surface. Verdict channel is exit code alone: 2 with a stderr reason blocks, 0 allows.
+Wire: PreToolUse matcher "Bash|Monitor" in .claude/settings.json, exec form. Stdlib only, because every non-2 exit
+fails OPEN: a uv shebang exits 127 off PATH and 1 on a cold cache, and `python3` is a platform guarantee where uv is not.
+POLICY is the whole edit surface: one row per git subcommand path, one fold over it. Exit 2 with a stderr reason blocks.
 """
 
+from collections.abc import Callable
+import dataclasses
 import json
-import os
+import pathlib
 import re
 import shlex
 import sys
 
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Probe = Callable[[list[str], str], str]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_IFS = re.compile(r"\$\{IFS[^}]*\}|\$IFS")             # de-obfuscate git${IFS}stash forms before lexing
-_ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")  # leading NAME=value env-prefix strips before argv[0]
-_DOLLAR_SUB = re.compile(r"\$\(")                      # command-substitution open; the close is scanned with paren depth
-_BACKTICK = re.compile(r"`([^`]*)`")                   # backtick substitution bodies execute and are descended like $(...)
-_GIT_WORD = re.compile(r"\bgit\b")                     # implication test for opaque or unlexable commands
-MAX_PAYLOAD = 8 * 1024 * 1024
+_BACKTICK = re.compile(r"`([^`]*)`")  # backtick substitution bodies execute and are descended like $(...)
+_CONTINUE = re.compile(r"\\\n")  # a line continuation would otherwise split one command into two leaves
+_CTRL = re.compile(r"[\x00-\x1f\x7f]+")  # scrub before model-supplied text reaches the terminal
+_ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")  # leading NAME=value strips so FOO=1 git stash still resolves
+_GIT_WORD = re.compile(r"\bgit\b")  # implication test for opaque or unlexable commands
+_IFS = re.compile(r"\$\{IFS[^}]*\}|\$IFS")  # de-obfuscate git${IFS}stash forms before lexing
+_INTERP = "<inline-interpreter>"  # synthetic subcommand: a python/node/ruby/perl -c body naming git
+ANY_ARG = ("",)  # the empty prefix matches every token, so the whole subcommand is off-limits
+MAX_COMMAND = 128 * 1024  # bound the O(n^2) lex: 1 MiB costs 7s and beats the hook timeout, which fails OPEN
+MAX_DEPTH = 8
+MAX_PAYLOAD = 8 * 1024 * 1024  # bound the read so a pathological payload never balloons resident memory
 
-WRAPPERS = frozenset(("sudo", "doas", "env", "command", "nice", "nohup", "stdbuf", "timeout", "xargs"))
-SHELLS = frozenset(("sh", "bash", "zsh", "dash", "ksh"))
+CHECKOUT_CREATE = ("-b", "--orphan", "-t", "--track", "--detach")
+GIT_VALUE_OPTS = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path")
+INLINE_FLAGS = ("--eval", "--command", "--print", "--execute")
 INTERPRETERS = ("python", "node", "ruby", "perl")
-GIT_VALUE_OPTS = frozenset(("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path"))
+SHELLS = ("sh", "bash", "zsh", "dash", "ksh", "eval")
+SUBVERBS = ("run", "exec", "tool", "x")
+TOOLS = ("Bash", "Monitor")  # Monitor runs shell commands and shares Bash's tool_input.command field
+VALUE_OPTS = ("-u", "-I", "-n", "-g", "--user", "--replace")  # env -i takes no operand, so it stays out
+RUNNERS = frozenset(("uv", "npm", "npx", "pnpm", "poetry", "hatch"))  # take a run/exec subverb before the real command
+WRAPPERS = frozenset(("sudo", "doas", "env", "command", "nice", "nohup", "stdbuf", "timeout", "xargs", "caffeinate", "arch", "setsid")) | RUNNERS
 
 ADVICE = "Blocked by git-guard: destructive git actions are disabled. Keep all work as-is."
 
-BLOCKED_SUBS: dict[str, str] = {  # POLICY: subcommand -> why the whole verb is off-limits
-    "stash": "git stash hides in-flight work other agents depend on",
-    "restore": "git restore discards working-tree or index state",
-    "revert": "git revert rewrites history direction mid-flight",
-    "reset": "git reset moves HEAD/index and can wipe the working tree",
-    "clean": "git clean deletes untracked files",
+# --- [POLICIES] -------------------------------------------------------------------------
+
+
+def _allow(_args: list[str], _cwd: str) -> str:
+    """Return the empty verdict: a row whose flag and prefix sets already decided needs no refinement."""
+    return ""
+
+
+def _pathspec(args: list[str], cwd: str) -> str:
+    """Return why a checkout would overwrite working-tree files, or the empty string for a pure ref move."""
+    if "--" not in args and any(t in CHECKOUT_CREATE for t in args):
+        return ""
+    targets = [t for t in args if t == "-" or not t.startswith("-")]
+    if "--" in args or len(targets) > 1 or targets[:1] == ["."] or (targets and targets[0].startswith(":")):
+        return "git checkout with a pathspec overwrites working-tree files"
+    if not targets or targets == ["-"]:
+        return ""
+    probe = pathlib.Path(cwd or ".", targets[0])
+    return f"git checkout {targets[0]} names an existing path and would overwrite it" if probe.exists(follow_symlinks=False) else ""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Rule:
+    """One git subcommand path's destructive surface: exact flags, flag prefixes, and a filesystem refinement."""
+
+    why: str
+    flags: tuple[str, ...] = ()
+    starts: tuple[str, ...] = ()
+    probe: Probe = _allow
+
+
+POLICY: dict[str, Rule] = {  # POLICY: git subcommand path (one or two words) -> what makes it destructive, and why
+    _INTERP: Rule("invokes git inside an opaque one-liner; run git directly so it can be checked", starts=ANY_ARG),
+    "branch": Rule("force-moves a branch", flags=("-M",), starts=("--force",)),
+    "checkout": Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), probe=_pathspec),
+    "clean": Rule("deletes untracked files", starts=ANY_ARG),
+    "config": Rule("defines a git alias that can smuggle a blocked verb", starts=("alias.",)),
+    "push": Rule("rewrites or deletes remote history", flags=("-f", "-d", "--delete", "--mirror", "--prune"), starts=("--force", "+", ":")),
+    "rebase": Rule("rewrites commits other agents may already hold", starts=ANY_ARG),
+    "reflog delete": Rule("erases reflog entries, the last recovery path", starts=ANY_ARG),
+    "reflog drop": Rule("erases reflog entries, the last recovery path", starts=ANY_ARG),
+    "reflog expire": Rule("erases reflog entries, the last recovery path", starts=ANY_ARG),
+    "reset": Rule("moves HEAD/index and can wipe the working tree", starts=ANY_ARG),
+    "restore": Rule("discards working-tree or index state", starts=ANY_ARG),
+    "revert": Rule("rewrites history direction mid-flight", starts=ANY_ARG),
+    "stash": Rule("hides in-flight work other agents depend on", starts=ANY_ARG),
+    "submodule foreach": Rule("runs an unchecked command in every submodule", starts=ANY_ARG),
+    "switch": Rule("discards local changes", flags=("-f", "-C", "--discard-changes"), starts=("--force",)),
 }
-CHECKOUT_FORCE = frozenset(("-f", "--force", "-B", "--ours", "--theirs", "-p", "--patch"))          # POLICY
-CHECKOUT_CREATE = frozenset(("-b", "--orphan", "-t", "--track", "--detach"))                        # POLICY: creation forms stay open
-SWITCH_FORCE = frozenset(("-f", "--force", "--discard-changes", "-C"))                              # POLICY
-PUSH_FORCE = frozenset(("-f", "--force", "--force-with-lease", "--force-if-includes", "--mirror"))  # POLICY
-BRANCH_FORCE = frozenset(("-D", "-f", "--force", "-M"))                                             # POLICY
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _subs(command: str) -> tuple[str, list[str]]:
-    """Lift backtick and $(...) substitution bodies out of a command; each executes and is descended."""
-    inner: list[str] = _BACKTICK.findall(command)
-    stripped, i = _BACKTICK.sub(" ", command), 0
-    while (hit := _DOLLAR_SUB.search(stripped, i)) is not None:
-        depth, j = 1, hit.end()
-        while j < len(stripped) and depth:
-            depth += (stripped[j] == "(") - (stripped[j] == ")")
-            j += 1
-        inner.append(stripped[hit.end() : j - 1])
-        i = j
-    return stripped, inner
+def _flag_operand(argv: list[str], letter: str) -> str:
+    """Return the operand following a bare, clustered, or long inline flag carrying the given letter."""
+    hit = next((i for i, t in enumerate(argv) if t in INLINE_FLAGS or (t[:1] == "-" and t[:2] != "--" and t.endswith(letter))), -1)
+    tail = [t for t in argv[hit + 1 :] if t != "--"] if hit >= 0 else []
+    return tail[0] if tail else ""
+
+
+def _resolve(argv: list[str], depth: int) -> list[list[str]]:
+    """Return the argv leaves one command word yields once env prefixes, wrappers, shells, and interpreters are peeled."""
+    while argv and (_ENV_ASSIGN.match(argv[0]) or argv[0] in WRAPPERS):
+        argv = argv[1:]
+        while argv and ("=" in argv[0] or argv[0].isdigit() or argv[0] in SUBVERBS or argv[0].startswith("-")):
+            argv = argv[2:] if argv[0] in VALUE_OPTS else argv[1:]
+    if not argv:
+        return []
+    name = pathlib.PurePosixPath(argv[0]).name
+    if name in SHELLS:
+        body = _flag_operand(argv, "c")
+        return _leaves(body, depth + 1) if body and depth < MAX_DEPTH else [["git", _INTERP]]
+    if name.startswith(INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
+        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # opaque: ruled by implication, never keyword-scanned
+    return [argv]
 
 
 def _leaves(command: str, depth: int = 0) -> list[list[str]]:
-    """Decompose a command into argv leaves via quote-aware split, sub descent, and wrapper/shell peeling."""
-    stripped, inner = _subs(command)
-    out: list[list[str]] = [leaf for body in inner if depth < 8 for leaf in _leaves(body, depth + 1)]
-    lexer = shlex.shlex(_IFS.sub(" ", stripped), posix=True, punctuation_chars=";&|<>()\n\r")
+    """Return every argv leaf of a shell command: substitution bodies lifted and descended, then a quote-aware split."""
+    bodies, flat, cursor = _BACKTICK.findall(command), _BACKTICK.sub(" ", _CONTINUE.sub(" ", command)), 0
+    while (opened := flat.find("$(", cursor)) >= 0:
+        close, level = opened + 2, 1
+        while close < len(flat) and level:
+            level += (flat[close] == "(") - (flat[close] == ")")
+            close += 1
+        bodies.append(flat[opened + 2 : close - 1])
+        flat, cursor = flat[:opened] + " \0sub " + flat[close:], opened + 6  # splice, so the residue never splits a leaf
+    out: list[list[str]] = [leaf for body in bodies if depth < MAX_DEPTH for leaf in _leaves(body, depth + 1)]
+    lexer = shlex.shlex(_IFS.sub(" ", flat), posix=True, punctuation_chars=";&|<>()\n\r")
     lexer.whitespace, lexer.whitespace_split = " \t\f\v", True
     argv: list[str] = []
     for token in lexer:
@@ -74,121 +146,46 @@ def _leaves(command: str, depth: int = 0) -> list[list[str]]:
     return out + (_resolve(argv, depth) if argv else [])
 
 
-def _resolve(argv: list[str], depth: int) -> list[list[str]]:
-    """Peel env-prefixes and wrappers, then descend a shell -c or flag an inline interpreter body."""
-    changed = True
-    while changed and argv:
-        changed = False
-        while argv and _ENV_ASSIGN.match(argv[0]):
-            argv, changed = argv[1:], True
-        while argv and argv[0] in WRAPPERS:
-            argv, changed = argv[1:], True
-            while argv and (argv[0].startswith("-") or "=" in argv[0] or argv[0].isdigit()):
-                argv = argv[1:]
-    if not argv:
-        return []
-    name = os.path.basename(argv[0])
-    if depth < 8 and name in SHELLS and (body := _flag_operand(argv, "c")):
-        return _leaves(body, depth + 1)
-    if name.startswith(INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
-        return [["\0interp", body]]  # opaque one-liner; ruled by git-implication, never keyword-scanned deeper
-    return [argv]
-
-
-def _flag_operand(argv: list[str], letter: str) -> str:
-    """Return the operand after a short flag carrying letter, clustered or not."""
-    return next(
-        (argv[i + 1] for i, t in enumerate(argv) if t.startswith("-") and not t.startswith("--") and letter in t and i + 1 < len(argv)),
-        "",
-    )
-
-
-def _split_git(argv: list[str]) -> tuple[str, list[str], list[str]]:
-    """Split a git argv into subcommand, its args, and any -c inline-config values."""
-    i, cvals = 1, []
-    while i < len(argv):
-        tok = argv[i]
-        if tok in GIT_VALUE_OPTS:
-            if tok == "-c" and i + 1 < len(argv):
-                cvals.append(argv[i + 1])
-            i += 2
-            continue
-        if tok.startswith("-"):
-            i += 1
-            continue
-        return tok, argv[i + 1 :], cvals
-    return "", [], cvals
-
-
-def _rule_checkout(rest: list[str], cwd: str) -> str:
-    """Rule on git checkout: branch movement and creation pass; any discard-shaped form blocks."""
-    if hit := next((t for t in rest if t in CHECKOUT_FORCE), ""):
-        return f"git checkout {hit} discards local changes"
-    if "--" in rest:
-        return "git checkout with a pathspec overwrites working-tree files"
-    if any(t in CHECKOUT_CREATE for t in rest):
+def _verdict(argv: list[str], cwd: str) -> str:
+    """Return why one git argv is destructive under POLICY, or the empty string when it may run."""
+    i = 1
+    while i < len(argv) and argv[i].startswith("-"):  # skip global options, consuming the operand of each value-taking one
+        i += 2 if argv[i] in GIT_VALUE_OPTS else 1
+    if any(t.startswith("alias.") for t in argv[1:i]):
+        return "an inline git alias (-c alias.*) can smuggle a blocked verb"
+    words = argv[i:]
+    key, args = next(((" ".join(words[:n]), words[n:]) for n in (2, 1) if " ".join(words[:n]) in POLICY), ("", []))
+    if (row := POLICY.get(key)) is None:
         return ""
-    targets = [t for t in rest if t == "-" or not t.startswith("-")]
-    if len(targets) > 1:
-        return "git checkout <ref> <path> overwrites working-tree files"
-    if not targets or targets[0] == "-":
-        return ""
-    target = targets[0]
-    if target == "." or target.startswith(":"):
-        return "git checkout with a pathspec overwrites working-tree files"
-    probe = target if os.path.isabs(target) else os.path.join(cwd or os.getcwd(), target)
-    return f"git checkout {target} names an existing path and would overwrite it" if os.path.exists(probe) else ""
+    hit = next((t for t in ["", *args] if t in row.flags or t.startswith(row.starts)), None)
+    return " ".join(w for w in ("git", key, hit, row.why) if w) if hit is not None else row.probe(args, cwd)
 
 
-def _rule_git(argv: list[str], cwd: str) -> str:
-    """Rule on one git invocation; empty string allows."""
-    sub, rest, cvals = _split_git(argv)
-    if any(v.startswith("alias.") for v in cvals):
-        return "inline git alias (-c alias.*) can smuggle a blocked verb"
-    if reason := BLOCKED_SUBS.get(sub, ""):
-        return reason
-    if sub == "config" and any(a.startswith("alias.") for a in rest):
-        return "defining git aliases can smuggle a blocked verb"
-    if sub == "checkout":
-        return _rule_checkout(rest, cwd)
-    if sub == "switch" and (hit := next((t for t in rest if t in SWITCH_FORCE), "")):
-        return f"git switch {hit} discards local changes"
-    if sub == "push" and (hit := next((t for t in rest if t in PUSH_FORCE or t.startswith("--force-with-lease=") or (t.startswith("+") and not t.startswith("-"))), "")):
-        return f"git push {hit} rewrites remote history"
-    if sub == "branch" and (hit := next((t for t in rest if t in BRANCH_FORCE), "")):
-        return f"git branch {hit} force-deletes or force-moves a branch"
-    return ""
+# --- [ENTRY] ----------------------------------------------------------------------------
 
 
-def _classify(argv: list[str], cwd: str) -> str:
-    """Dispatch one argv leaf; only git and git-implicating opaque bodies can block."""
-    if argv[0] == "\0interp":
-        return "inline interpreter one-liner invokes git; run git directly so it can be checked" if _GIT_WORD.search(argv[1]) else ""
-    return _rule_git(argv, cwd) if os.path.basename(argv[0]) == "git" else ""
+def _refusal(command: str, cwd: str) -> str:
+    """Return why the first destructive leaf in a command must be blocked, or the empty string to allow it."""
+    if len(command) > MAX_COMMAND:
+        return "the command is too long to lex within the hook deadline, so it cannot be checked safely"
+    heads = (leaf[i:] for leaf in _leaves(command) for i, t in enumerate(leaf) if pathlib.PurePosixPath(t).name == "git")
+    return next((r for head in heads if (r := _verdict(head, cwd))), "")
 
 
 def main() -> int:
-    """Decode stdin, decompose the Bash command, and block the first destructive git leaf."""
-    try:
+    """Return the hook exit status: 2 with a stderr reason blocks the first destructive leaf, 0 allows."""
+    command = ""
+    try:  # platform-forced admission kernel; a malformed payload or unlexable command fails closed, never guesses
         payload = json.loads(sys.stdin.buffer.read(MAX_PAYLOAD) or b"{}")
-        if payload.get("tool_name") != "Bash":
+        if payload["tool_name"] not in TOOLS:
             return 0
-        command = str(payload.get("tool_input", {}).get("command", ""))
-        cwd = str(payload.get("cwd", ""))
-    except Exception as failure:  # malformed harness payload: fail closed, never guess
-        sys.stderr.write(f"git-guard failed closed on payload decode: {failure}\n")
+        command, cwd = str(payload["tool_input"]["command"]), str(payload["cwd"])
+        reason = _refusal(command, cwd)
+    except Exception as failure:  # ruff:ignore[blind-except] -- a gate fail-closed seam must be total, never a tuple
+        reason = "" if command and not _GIT_WORD.search(command) else f"the payload or command cannot be parsed ({failure})"
+    if reason:
+        sys.stderr.write(f"git-guard: {_CTRL.sub(' ', reason)}. {ADVICE}\n")
         return 2
-    try:
-        leaves = _leaves(command)
-    except Exception:  # unlexable command: fail closed only when git is implicated
-        if _GIT_WORD.search(command):
-            sys.stderr.write(f"git-guard: command mentions git but cannot be parsed for safety. {ADVICE}\n")
-            return 2
-        return 0
-    for leaf in leaves:
-        if leaf and (reason := _classify(leaf, cwd)):
-            sys.stderr.write(f"git-guard: {reason}. {ADVICE}\n")
-            return 2
     return 0
 
 

@@ -3,12 +3,13 @@
     "hooks": {
         "PreToolUse": [
             {
-                "matcher": "Bash",
+                "matcher": "Bash|Monitor",
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git-guard.py",
-                        "timeout": 10,
+                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/git-guard.py",
+                        "args": [],
+                        "timeout": 5,
                         "statusMessage": "git-guard"
                     }
                 ]
